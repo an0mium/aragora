@@ -99,6 +99,9 @@ class ConcreteAssembler(PromptAssemblyMixin):
     def format_successful_patterns(self, limit=3):
         return ""
 
+    def get_vertical_context(self):
+        return ""
+
     def format_evidence_for_prompt(self, max_snippets=5):
         return ""
 
