@@ -16,6 +16,49 @@ def _disable_rlm_context(monkeypatch):
     monkeypatch.setenv("ARAGORA_NOMIC_CONTEXT_RLM", "false")
 
 
+@pytest.fixture(autouse=True)
+def _isolate_nomic_databases(tmp_path, monkeypatch):
+    """Isolate SQLite databases and prevent heavy I/O during nomic tests.
+
+    The SelfImprovePipeline and related components open real SQLite
+    databases via CalibrationTracker and other stores.  Pointing
+    ARAGORA_DATA_DIR at a temporary directory prevents contention with
+    production databases and avoids hangs on WAL locks.
+
+    The CodebaseIndexer is also patched to return immediately.  Without
+    this, ``_map_test_to_source`` would AST-parse every test file in the
+    repo (3000+), which can block indefinitely on large codebases.
+    """
+    monkeypatch.setenv("ARAGORA_DATA_DIR", str(tmp_path))
+    monkeypatch.setenv("ARAGORA_CONVERGENCE_BACKEND", "jaccard")
+    monkeypatch.setenv("ARAGORA_SIMILARITY_BACKEND", "jaccard")
+
+
+@pytest.fixture(autouse=True)
+def _mock_codebase_indexer(monkeypatch):
+    """Prevent CodebaseIndexer from scanning real source files.
+
+    The indexer's ``index()`` method walks the entire repo, AST-parsing
+    every Python file (3000+ modules and 3000+ test files).  On large
+    codebases this can take minutes and block the event loop, causing
+    tests to hang.  Patching ``index()`` to return empty stats avoids
+    this entirely while still exercising the pipeline logic that calls it.
+    """
+    try:
+        from aragora.nomic.codebase_indexer import CodebaseIndexer, IndexStats
+
+        async def _fast_index(self) -> IndexStats:
+            return IndexStats()
+
+        async def _fast_query(self, search_text: str, limit: int = 10):
+            return []
+
+        monkeypatch.setattr(CodebaseIndexer, "index", _fast_index)
+        monkeypatch.setattr(CodebaseIndexer, "query", _fast_query)
+    except ImportError:
+        pass
+
+
 @pytest.fixture
 def mock_aragora_path(tmp_path: Path) -> Path:
     """Create a mock aragora project structure."""

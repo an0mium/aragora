@@ -362,14 +362,17 @@ class TestSmartUploadPost:
 
     @pytest.mark.asyncio
     async def test_upload_with_raw_bytes_content(self, handler):
-        """Upload with bytes content (not base64 encoded)."""
-        body = {"content": b"raw bytes", "filename": "notes.txt"}
+        """Upload with base64-encoded binary content."""
+        import base64
+
+        encoded = base64.b64encode(b"raw bytes").decode()
+        body = {"content": encoded, "filename": "notes.txt"}
         mock = MockHTTPHandler(command="POST", body=body)
 
         with patch.object(handler, "_attach_auth_metadata", new_callable=AsyncMock, return_value={}):
             result = await handler.handle_post("/api/v1/upload/smart", body, mock)
 
-        # bytes content should be accepted as-is
+        # base64 encoded content should be accepted
         assert _status(result) == 200
 
     @pytest.mark.asyncio

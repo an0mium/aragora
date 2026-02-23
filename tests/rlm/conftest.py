@@ -80,9 +80,13 @@ def _reset_rlm_global_state(monkeypatch):
     reset_singleton()
     reset_metrics()
 
-    # -- 2. Clear compression cache --
-    from aragora.rlm.compressor import clear_compression_cache
-    clear_compression_cache()
+    # -- 2. Clear compression cache and reset call semaphore --
+    import aragora.rlm.compressor as _compressor_mod
+    _compressor_mod._compression_cache.clear()
+    # Reset the global call semaphore to avoid cross-event-loop deadlocks.
+    # If a previous test created it on a different event loop, ``async with
+    # semaphore:`` will hang forever on the current loop.
+    _compressor_mod._call_semaphore = None
 
     # -- 3. Reset metrics collector singleton --
     import aragora.rlm.metrics_export as _metrics_export_mod
@@ -98,7 +102,8 @@ def _reset_rlm_global_state(monkeypatch):
     # starts clean.
     reset_singleton()
     reset_metrics()
-    clear_compression_cache()
+    _compressor_mod._compression_cache.clear()
+    _compressor_mod._call_semaphore = None
     _metrics_export_mod._collector = None
 
 

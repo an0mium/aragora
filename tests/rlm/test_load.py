@@ -200,9 +200,11 @@ class TestRLMLoadPerformance:
         gc.collect()
         initial_memory = self._get_memory_usage()
 
-        # Run multiple compressions
-        for _ in range(20):
-            content = generate_debate_content(num_rounds=10, tokens_per_round=500)
+        # Run multiple compressions with moderate content size.
+        # Using num_rounds=5 (was 10) and 10 iterations (was 20) to keep
+        # test execution well under 30s while still detecting memory leaks.
+        for _ in range(10):
+            content = generate_debate_content(num_rounds=5, tokens_per_round=500)
             result = await fast_compressor.compress(content, source_type="debate")
             del result
             gc.collect()

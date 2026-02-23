@@ -623,24 +623,25 @@ class CollaborationHandler:
 
         if path.startswith("/api/v1/social/collaboration/sessions/"):
             parts = path.split("/")
-            if len(parts) >= 6:
-                session_id = parts[5]
+            # parts: ['', 'api', 'v1', 'social', 'collaboration', 'sessions', '{id}', ...]
+            if len(parts) >= 7:
+                session_id = parts[6]
                 # Participant management
-                if len(parts) >= 7 and parts[6] == "participants":
-                    if len(parts) == 7:
+                if len(parts) >= 8 and parts[7] == "participants":
+                    if len(parts) == 8:
                         if method == "GET":
                             return self._list_participants(session_id)
                         if method == "POST":
                             return self._add_participant(session_id, handler)
                         return error_response("Method not allowed", 405)
-                    if len(parts) == 8:
-                        participant_id = parts[7]
+                    if len(parts) == 9:
+                        participant_id = parts[8]
                         if method == "DELETE":
                             return self._remove_participant(session_id, participant_id)
                         return error_response("Method not allowed", 405)
 
                 # Messages
-                if len(parts) >= 7 and parts[6] == "messages":
+                if len(parts) >= 8 and parts[7] == "messages":
                     if method == "GET":
                         return self._list_messages(session_id)
                     if method == "POST":
@@ -648,7 +649,7 @@ class CollaborationHandler:
                     return error_response("Method not allowed", 405)
 
                 # Session detail
-                if len(parts) == 6:
+                if len(parts) == 7:
                     if method == "GET":
                         return self._get_session(session_id)
                     if method == "PATCH":

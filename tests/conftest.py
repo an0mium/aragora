@@ -459,6 +459,83 @@ def _bypass_rbac_for_root_handler_tests(request, monkeypatch):
 
 
 @pytest.fixture(autouse=True, scope="session")
+def _preinstall_fake_sentence_transformers():
+    """Install a lightweight fake sentence_transformers module into sys.modules.
+
+    The real sentence_transformers package takes ~30s to import because it drags
+    in the entire huggingface transformers library. This causes the very first
+    test in any file to exceed pytest-timeout and hang.
+
+    By pre-installing a fake module at session scope, we prevent the real import
+    from ever happening. The per-test mock_sentence_transformers fixture then
+    patches specific attributes on this fake module as needed.
+    """
+    import sys
+    import types
+
+    import numpy as np
+
+    # Only install fake if the real module isn't already loaded
+    if "sentence_transformers" in sys.modules:
+        yield
+        return
+
+    class _FakeSentenceTransformer:
+        def __init__(self, model_name_or_path=None, **kwargs):
+            self.model_name = model_name_or_path or "mock-model"
+            self._embedding_dim = 384
+
+        def encode(self, sentences, **kwargs):
+            single = isinstance(sentences, str)
+            if single:
+                sentences = [sentences]
+            result = np.array(
+                [np.random.RandomState(hash(t) % 2**32).randn(384).astype(np.float32)
+                 for t in sentences]
+            )
+            return result[0] if single else result
+
+        def get_sentence_embedding_dimension(self):
+            return self._embedding_dim
+
+    class _FakeCrossEncoder:
+        def __init__(self, model_name=None, **kwargs):
+            self.model_name = model_name or "mock-cross-encoder"
+
+        def predict(self, sentence_pairs, **kwargs):
+            if not sentence_pairs:
+                return np.array([])
+            return np.array([[0.1, 0.8, 0.1]] * len(sentence_pairs))
+
+    # Create fake module hierarchy
+    fake_st = types.ModuleType("sentence_transformers")
+    fake_st.SentenceTransformer = _FakeSentenceTransformer
+    fake_st.CrossEncoder = _FakeCrossEncoder
+    fake_st.__version__ = "0.0.0-test-fake"
+
+    # Also create submodules that might be imported
+    for sub in ("cross_encoder", "backend", "models", "util"):
+        fake_sub = types.ModuleType(f"sentence_transformers.{sub}")
+        sys.modules[f"sentence_transformers.{sub}"] = fake_sub
+
+    # The cross_encoder submodule needs CrossEncoder
+    sys.modules["sentence_transformers.cross_encoder"].CrossEncoder = _FakeCrossEncoder
+
+    saved = sys.modules.get("sentence_transformers")
+    sys.modules["sentence_transformers"] = fake_st
+
+    yield
+
+    # Restore original state
+    if saved is not None:
+        sys.modules["sentence_transformers"] = saved
+    else:
+        sys.modules.pop("sentence_transformers", None)
+    for sub in ("cross_encoder", "backend", "models", "util"):
+        sys.modules.pop(f"sentence_transformers.{sub}", None)
+
+
+@pytest.fixture(autouse=True, scope="session")
 def _suppress_auth_cleanup_threads():
     """Prevent AuthConfig from spawning background cleanup threads.
 
@@ -601,24 +678,30 @@ def mock_sentence_transformers(request, monkeypatch):
     The mock returns deterministic embeddings based on input text hash,
     ensuring consistent behavior across test runs.
     """
+    import sys
+
     import numpy as np
 
-    # Clear embedding service cache to ensure fresh instances per test
-    try:
-        import aragora.ml.embeddings as emb_module
-
-        emb_module._embedding_services.clear()
-    except (ImportError, AttributeError):
-        pass
+    # Clear embedding service cache to ensure fresh instances per test.
+    # IMPORTANT: Use sys.modules lookup instead of import to avoid triggering
+    # the heavy sentence_transformers/transformers import chain (~30s) which
+    # causes pytest timeout failures.
+    emb_module = sys.modules.get("aragora.ml.embeddings")
+    if emb_module is not None:
+        try:
+            emb_module._embedding_services.clear()
+        except AttributeError:
+            pass
 
     # Skip for slow tests that may need real embeddings
     if "slow" in [m.name for m in request.node.iter_markers()]:
         yield
         # Clear cache after slow test too
-        try:
-            emb_module._embedding_services.clear()
-        except (ImportError, AttributeError, NameError):
-            pass
+        if emb_module is not None:
+            try:
+                emb_module._embedding_services.clear()
+            except AttributeError:
+                pass
         return
 
     class MockSentenceTransformer:
@@ -700,30 +783,17 @@ def mock_sentence_transformers(request, monkeypatch):
             # Return neutral scores (entailment, neutral, contradiction)
             return np.array([[0.1, 0.8, 0.1]] * len(sentence_pairs))
 
-    # Mock at the sentence_transformers module level
-    try:
-        import sentence_transformers
+    # Mock at the sentence_transformers module level.
+    # IMPORTANT: Only patch if already imported. Do NOT trigger the heavy
+    # sentence_transformers/transformers import chain (~30s) which exceeds
+    # pytest-timeout and causes test hangs.
+    st_mod = sys.modules.get("sentence_transformers")
+    if st_mod is not None:
+        monkeypatch.setattr(st_mod, "SentenceTransformer", MockSentenceTransformer)
+        if hasattr(st_mod, "CrossEncoder"):
+            monkeypatch.setattr(st_mod, "CrossEncoder", MockCrossEncoder)
 
-        monkeypatch.setattr(sentence_transformers, "SentenceTransformer", MockSentenceTransformer)
-        if hasattr(sentence_transformers, "CrossEncoder"):
-            monkeypatch.setattr(sentence_transformers, "CrossEncoder", MockCrossEncoder)
-    except ImportError:
-        pass
-
-    # Also patch string-based imports
-    try:
-        monkeypatch.setattr(
-            "sentence_transformers.SentenceTransformer",
-            MockSentenceTransformer,
-        )
-        monkeypatch.setattr(
-            "sentence_transformers.CrossEncoder",
-            MockCrossEncoder,
-        )
-    except (ImportError, AttributeError):
-        pass
-
-    # Patch modules that do lazy imports
+    # Patch modules that have already imported SentenceTransformer/CrossEncoder
     modules_to_patch = [
         "aragora.debate.convergence",
         "aragora.debate.similarity.backends",
@@ -734,20 +804,13 @@ def mock_sentence_transformers(request, monkeypatch):
         "aragora.ml.embeddings",
     ]
     for module_path in modules_to_patch:
-        try:
-            monkeypatch.setattr(
-                f"{module_path}.SentenceTransformer",
-                MockSentenceTransformer,
-            )
-        except (ImportError, AttributeError):
-            pass
-        try:
-            monkeypatch.setattr(
-                f"{module_path}.CrossEncoder",
-                MockCrossEncoder,
-            )
-        except (ImportError, AttributeError):
-            pass
+        mod = sys.modules.get(module_path)
+        if mod is None:
+            continue
+        if hasattr(mod, "SentenceTransformer"):
+            monkeypatch.setattr(mod, "SentenceTransformer", MockSentenceTransformer)
+        if hasattr(mod, "CrossEncoder"):
+            monkeypatch.setattr(mod, "CrossEncoder", MockCrossEncoder)
 
     yield
 
