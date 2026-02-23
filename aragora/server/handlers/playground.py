@@ -23,6 +23,7 @@ import hashlib
 import logging
 import os
 import random
+import re
 import time
 import uuid
 from datetime import datetime, timezone
@@ -519,12 +520,39 @@ if _ORACLE_ESSAY_CONDENSED:
     )
 
 
+def _sanitize_oracle_input(question: str) -> str:
+    """Strip prompt injection attempts from user questions."""
+    # Remove common injection patterns
+    question = re.sub(
+        r"(?i)(ignore|forget|disregard)\s+(all\s+)?(previous|above|prior)", "", question
+    )
+    question = re.sub(r"(?i)you\s+are\s+now\s+", "", question)
+    question = re.sub(r"(?i)system\s*:\s*", "", question)
+    # Length limit
+    question = question[:2000]
+    # Strip XML/HTML tags that could interfere with essay tags
+    question = re.sub(
+        r"</?(?:essay|system|assistant|user|instruction)[^>]*>", "", question, flags=re.IGNORECASE
+    )
+    return question.strip()
+
+
+def _filter_oracle_response(text: str) -> str:
+    """Remove any accidentally leaked sensitive content."""
+    # Remove anything that looks like an API key
+    text = re.sub(r"(?:sk-|key-|Bearer\s+)[a-zA-Z0-9_-]{20,}", "[REDACTED]", text)
+    # Remove system prompt echoing
+    text = re.sub(r"(?i)(?:system prompt|my instructions|I was told to)", "my perspective", text)
+    return text
+
+
 def _build_oracle_prompt(mode: str, question: str) -> str:
     """Build the Oracle prompt server-side using focused essay excerpts.
 
     Uses ~3K tokens of essay context (thesis + P-doom + practical advice +
     clover conclusion) for fast Phase 1 responses (~15-25s through OpenRouter).
     """
+    question = _sanitize_oracle_input(question)
     essay_block = ""
     if _ORACLE_ESSAY_FOCUSED:
         essay_block = "\n\n<essay>\n" + _ORACLE_ESSAY_FOCUSED + "\n</essay>\n"
@@ -643,6 +671,7 @@ def _try_oracle_response(
             "Oracle Phase 1: all LLM providers failed after %.1fs", time.monotonic() - start
         )
         return None
+    text = _filter_oracle_response(text)
 
     duration = time.monotonic() - start
     debate_id = uuid.uuid4().hex[:16]
@@ -744,6 +773,7 @@ def _build_tentacle_prompt(
     For any other source (e.g. ``"landing"``) it uses neutral debate language
     so the main site doesn't leak Oracle-specific terminology.
     """
+    question = _sanitize_oracle_input(question)
     if source == "oracle":
         # Oracle-specific tentacle flavour
         if mode == "divine":
@@ -828,6 +858,7 @@ def _try_oracle_tentacles(
             try:
                 name, text = future.result()
                 if text:
+                    text = _filter_oracle_response(text)
                     results[name] = text
                     logger.info("Tentacle %s responded (%d chars)", name, len(text))
                 else:
