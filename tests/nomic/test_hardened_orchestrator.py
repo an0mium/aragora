@@ -2551,10 +2551,15 @@ class TestCoordinatedGoldPath:
         from aragora.nomic.feedback_orchestrator import SelfImproveFeedbackOrchestrator
 
         orch = SelfImproveFeedbackOrchestrator()
-        with patch.object(
-            orch,
-            "_step_knowledge_contradiction",
-            return_value=[],
+        with (
+            patch.object(
+                orch,
+                "_step_knowledge_contradiction",
+                return_value=[],
+            ),
+            patch(
+                "aragora.events.dispatcher.dispatch_event",
+            ),
         ):
             report = orch.run(
                 cycle_id="coordinated_test",
@@ -2582,9 +2587,14 @@ class TestCoordinatedGoldPath:
         )
 
         success_result = OrchestrationResult(
-            goal="test", success=True,
-            total_subtasks=1, completed_subtasks=1, failed_subtasks=0,
-            skipped_subtasks=0, assignments=[], duration_seconds=1.0,
+            goal="test",
+            success=True,
+            total_subtasks=1,
+            completed_subtasks=1,
+            failed_subtasks=0,
+            skipped_subtasks=0,
+            assignments=[],
+            duration_seconds=1.0,
         )
         mock_goal = MagicMock()
         mock_goal.track.value = "developer"

@@ -140,13 +140,15 @@ def _make_coordinator(**overrides: Any) -> MagicMock:
     coord.grant_consent = MagicMock(return_value=_MockConsent())
     coord.revoke_consent = MagicMock(return_value=True)
     coord.approve_request = MagicMock(return_value=True)
-    coord.get_stats = MagicMock(return_value={
-        "total_workspaces": 2,
-        "total_consents": 1,
-        "valid_consents": 1,
-        "pending_requests": 0,
-        "registered_handlers": [],
-    })
+    coord.get_stats = MagicMock(
+        return_value={
+            "total_workspaces": 2,
+            "total_consents": 1,
+            "valid_consents": 1,
+            "pending_requests": 0,
+            "registered_handlers": [],
+        }
+    )
 
     # Default policy for list_policies
     default_pol = _MockPolicy("default")
@@ -173,8 +175,10 @@ def coordinator():
 @pytest.fixture
 def handler(coordinator):
     """Create CoordinationHandler with coordination module mocked as available."""
-    with patch("aragora.server.handlers.coordination._HAS_COORDINATION", True), \
-         patch("aragora.server.handlers.coordination.get_coordinator", return_value=coordinator):
+    with (
+        patch("aragora.server.handlers.coordination._HAS_COORDINATION", True),
+        patch("aragora.server.handlers.coordination.get_coordinator", return_value=coordinator),
+    ):
         from aragora.server.handlers.coordination import CoordinationHandler
 
         h = CoordinationHandler(ctx={})
@@ -229,9 +233,11 @@ class TestRegisterWorkspace:
 
     def test_register_success(self, handler, coordinator):
         """Happy path: register a workspace with valid body."""
-        with patch("aragora.server.handlers.coordination._HAS_COORDINATION", True), \
-             patch("aragora.server.handlers.coordination.FederatedWorkspace") as MockWS, \
-             patch("aragora.server.handlers.coordination.FederationMode") as MockFM:
+        with (
+            patch("aragora.server.handlers.coordination._HAS_COORDINATION", True),
+            patch("aragora.server.handlers.coordination.FederatedWorkspace") as MockWS,
+            patch("aragora.server.handlers.coordination.FederationMode") as MockFM,
+        ):
             mock_ws_instance = MagicMock()
             mock_ws_instance.to_dict.return_value = {"id": "ws-1", "name": "Alpha"}
             MockWS.return_value = mock_ws_instance
@@ -239,15 +245,15 @@ class TestRegisterWorkspace:
             # FederationMode is iterable for error message
             MockFM.__iter__ = MagicMock(return_value=iter([]))
 
-            mock_handler = _make_http_handler(body={
-                "id": "ws-1",
-                "name": "Alpha",
-                "org_id": "org-1",
-                "federation_mode": "readonly",
-            })
-            result = handler.handle_post(
-                "/api/v1/coordination/workspaces", {}, mock_handler
+            mock_handler = _make_http_handler(
+                body={
+                    "id": "ws-1",
+                    "name": "Alpha",
+                    "org_id": "org-1",
+                    "federation_mode": "readonly",
+                }
             )
+            result = handler.handle_post("/api/v1/coordination/workspaces", {}, mock_handler)
 
             assert _status(result) == 201
             body = _body(result)
@@ -257,9 +263,7 @@ class TestRegisterWorkspace:
         """Error: missing workspace id."""
         with patch("aragora.server.handlers.coordination._HAS_COORDINATION", True):
             mock_handler = _make_http_handler(body={"name": "Alpha"})
-            result = handler.handle_post(
-                "/api/v1/coordination/workspaces", {}, mock_handler
-            )
+            result = handler.handle_post("/api/v1/coordination/workspaces", {}, mock_handler)
             assert _status(result) == 400
             assert "id" in _body(result).get("error", "").lower()
 
@@ -268,25 +272,25 @@ class TestRegisterWorkspace:
         mock_handler = MagicMock()
         mock_handler.headers = {"Content-Length": "5"}
         mock_handler.rfile = BytesIO(b"notjs")
-        result = handler.handle_post(
-            "/api/v1/coordination/workspaces", {}, mock_handler
-        )
+        result = handler.handle_post("/api/v1/coordination/workspaces", {}, mock_handler)
         assert _status(result) == 400
         assert "json" in _body(result).get("error", "").lower()
 
     def test_register_invalid_federation_mode(self, handler, coordinator):
         """Error: invalid federation_mode value."""
-        with patch("aragora.server.handlers.coordination._HAS_COORDINATION", True), \
-             patch("aragora.server.handlers.coordination._parse_federation_mode", return_value=None), \
-             patch("aragora.server.handlers.coordination.FederationMode") as MockFM:
+        with (
+            patch("aragora.server.handlers.coordination._HAS_COORDINATION", True),
+            patch("aragora.server.handlers.coordination._parse_federation_mode", return_value=None),
+            patch("aragora.server.handlers.coordination.FederationMode") as MockFM,
+        ):
             MockFM.__iter__ = MagicMock(return_value=iter([MagicMock(value="readonly")]))
-            mock_handler = _make_http_handler(body={
-                "id": "ws-1",
-                "federation_mode": "invalid_mode",
-            })
-            result = handler.handle_post(
-                "/api/v1/coordination/workspaces", {}, mock_handler
+            mock_handler = _make_http_handler(
+                body={
+                    "id": "ws-1",
+                    "federation_mode": "invalid_mode",
+                }
             )
+            result = handler.handle_post("/api/v1/coordination/workspaces", {}, mock_handler)
             assert _status(result) == 400
             assert "federation_mode" in _body(result).get("error", "").lower()
 
@@ -320,9 +324,7 @@ class TestUnregisterWorkspace:
     """DELETE /api/v1/coordination/workspaces/{id} -- unregister workspace."""
 
     def test_unregister_success(self, handler, coordinator):
-        result = handler.handle_delete(
-            "/api/v1/coordination/workspaces/ws-1", {}, None
-        )
+        result = handler.handle_delete("/api/v1/coordination/workspaces/ws-1", {}, None)
         assert _status(result) == 200
         body = _body(result)
         assert body["unregistered"] is True
@@ -331,9 +333,7 @@ class TestUnregisterWorkspace:
 
     def test_unregister_no_id(self, handler):
         """DELETE /api/v1/coordination/workspaces/ -- missing ID returns None (no match)."""
-        result = handler.handle_delete(
-            "/api/v1/coordination/workspaces", {}, None
-        )
+        result = handler.handle_delete("/api/v1/coordination/workspaces", {}, None)
         # Path doesn't match the delete pattern since no /{id} segment
         assert result is None
 
@@ -348,22 +348,27 @@ class TestCreatePolicy:
     """POST /api/v1/coordination/federation -- create federation policy."""
 
     def test_create_policy_success(self, handler, coordinator):
-        with patch("aragora.server.handlers.coordination._HAS_COORDINATION", True), \
-             patch("aragora.server.handlers.coordination._parse_federation_mode", return_value="isolated"), \
-             patch("aragora.server.handlers.coordination._parse_sharing_scope", return_value="none"), \
-             patch("aragora.server.handlers.coordination.FederationPolicy") as MockFP:
+        with (
+            patch("aragora.server.handlers.coordination._HAS_COORDINATION", True),
+            patch(
+                "aragora.server.handlers.coordination._parse_federation_mode",
+                return_value="isolated",
+            ),
+            patch("aragora.server.handlers.coordination._parse_sharing_scope", return_value="none"),
+            patch("aragora.server.handlers.coordination.FederationPolicy") as MockFP,
+        ):
             mock_policy = MagicMock()
             mock_policy.to_dict.return_value = {"name": "strict-policy"}
             MockFP.return_value = mock_policy
 
-            mock_handler = _make_http_handler(body={
-                "name": "strict-policy",
-                "mode": "isolated",
-                "sharing_scope": "none",
-            })
-            result = handler.handle_post(
-                "/api/v1/coordination/federation", {}, mock_handler
+            mock_handler = _make_http_handler(
+                body={
+                    "name": "strict-policy",
+                    "mode": "isolated",
+                    "sharing_scope": "none",
+                }
             )
+            result = handler.handle_post("/api/v1/coordination/federation", {}, mock_handler)
             assert _status(result) == 201
             body = _body(result)
             assert body["created"] is True
@@ -371,37 +376,42 @@ class TestCreatePolicy:
     def test_create_policy_missing_name(self, handler, coordinator):
         with patch("aragora.server.handlers.coordination._HAS_COORDINATION", True):
             mock_handler = _make_http_handler(body={"mode": "isolated"})
-            result = handler.handle_post(
-                "/api/v1/coordination/federation", {}, mock_handler
-            )
+            result = handler.handle_post("/api/v1/coordination/federation", {}, mock_handler)
             assert _status(result) == 400
             assert "name" in _body(result).get("error", "").lower()
 
     def test_create_policy_invalid_mode(self, handler, coordinator):
-        with patch("aragora.server.handlers.coordination._HAS_COORDINATION", True), \
-             patch("aragora.server.handlers.coordination._parse_federation_mode", return_value=None):
-            mock_handler = _make_http_handler(body={
-                "name": "bad-mode-policy",
-                "mode": "wrong",
-            })
-            result = handler.handle_post(
-                "/api/v1/coordination/federation", {}, mock_handler
+        with (
+            patch("aragora.server.handlers.coordination._HAS_COORDINATION", True),
+            patch("aragora.server.handlers.coordination._parse_federation_mode", return_value=None),
+        ):
+            mock_handler = _make_http_handler(
+                body={
+                    "name": "bad-mode-policy",
+                    "mode": "wrong",
+                }
             )
+            result = handler.handle_post("/api/v1/coordination/federation", {}, mock_handler)
             assert _status(result) == 400
             assert "mode" in _body(result).get("error", "").lower()
 
     def test_create_policy_invalid_sharing_scope(self, handler, coordinator):
-        with patch("aragora.server.handlers.coordination._HAS_COORDINATION", True), \
-             patch("aragora.server.handlers.coordination._parse_federation_mode", return_value="isolated"), \
-             patch("aragora.server.handlers.coordination._parse_sharing_scope", return_value=None):
-            mock_handler = _make_http_handler(body={
-                "name": "bad-scope-policy",
-                "mode": "isolated",
-                "sharing_scope": "wrong",
-            })
-            result = handler.handle_post(
-                "/api/v1/coordination/federation", {}, mock_handler
+        with (
+            patch("aragora.server.handlers.coordination._HAS_COORDINATION", True),
+            patch(
+                "aragora.server.handlers.coordination._parse_federation_mode",
+                return_value="isolated",
+            ),
+            patch("aragora.server.handlers.coordination._parse_sharing_scope", return_value=None),
+        ):
+            mock_handler = _make_http_handler(
+                body={
+                    "name": "bad-scope-policy",
+                    "mode": "isolated",
+                    "sharing_scope": "wrong",
+                }
             )
+            result = handler.handle_post("/api/v1/coordination/federation", {}, mock_handler)
             assert _status(result) == 400
             assert "sharing_scope" in _body(result).get("error", "").lower()
 
@@ -409,9 +419,7 @@ class TestCreatePolicy:
         mock_handler = MagicMock()
         mock_handler.headers = {"Content-Length": "3"}
         mock_handler.rfile = BytesIO(b"bad")
-        result = handler.handle_post(
-            "/api/v1/coordination/federation", {}, mock_handler
-        )
+        result = handler.handle_post("/api/v1/coordination/federation", {}, mock_handler)
         assert _status(result) == 400
 
 
@@ -453,39 +461,46 @@ class TestExecute:
 
     def test_execute_missing_operation(self, handler, coordinator):
         with patch("aragora.server.handlers.coordination._HAS_COORDINATION", True):
-            mock_handler = _make_http_handler(body={
-                "source_workspace_id": "ws-1",
-                "target_workspace_id": "ws-2",
-            })
-            result = handler.handle_post(
-                "/api/v1/coordination/execute", {}, mock_handler
+            mock_handler = _make_http_handler(
+                body={
+                    "source_workspace_id": "ws-1",
+                    "target_workspace_id": "ws-2",
+                }
             )
+            result = handler.handle_post("/api/v1/coordination/execute", {}, mock_handler)
             assert _status(result) == 400
             assert "operation" in _body(result).get("error", "").lower()
 
     def test_execute_invalid_operation(self, handler, coordinator):
-        with patch("aragora.server.handlers.coordination._HAS_COORDINATION", True), \
-             patch("aragora.server.handlers.coordination._parse_operation_type", return_value=None):
-            mock_handler = _make_http_handler(body={
-                "operation": "invalid_op",
-                "source_workspace_id": "ws-1",
-                "target_workspace_id": "ws-2",
-            })
-            result = handler.handle_post(
-                "/api/v1/coordination/execute", {}, mock_handler
+        with (
+            patch("aragora.server.handlers.coordination._HAS_COORDINATION", True),
+            patch("aragora.server.handlers.coordination._parse_operation_type", return_value=None),
+        ):
+            mock_handler = _make_http_handler(
+                body={
+                    "operation": "invalid_op",
+                    "source_workspace_id": "ws-1",
+                    "target_workspace_id": "ws-2",
+                }
             )
+            result = handler.handle_post("/api/v1/coordination/execute", {}, mock_handler)
             assert _status(result) == 400
             assert "operation" in _body(result).get("error", "").lower()
 
     def test_execute_missing_workspace_ids(self, handler, coordinator):
-        with patch("aragora.server.handlers.coordination._HAS_COORDINATION", True), \
-             patch("aragora.server.handlers.coordination._parse_operation_type", return_value="read_knowledge"):
-            mock_handler = _make_http_handler(body={
-                "operation": "read_knowledge",
-            })
-            result = handler.handle_post(
-                "/api/v1/coordination/execute", {}, mock_handler
+        with (
+            patch("aragora.server.handlers.coordination._HAS_COORDINATION", True),
+            patch(
+                "aragora.server.handlers.coordination._parse_operation_type",
+                return_value="read_knowledge",
+            ),
+        ):
+            mock_handler = _make_http_handler(
+                body={
+                    "operation": "read_knowledge",
+                }
             )
+            result = handler.handle_post("/api/v1/coordination/execute", {}, mock_handler)
             assert _status(result) == 400
             assert "workspace" in _body(result).get("error", "").lower()
 
@@ -493,9 +508,7 @@ class TestExecute:
         mock_handler = MagicMock()
         mock_handler.headers = {"Content-Length": "3"}
         mock_handler.rfile = BytesIO(b"bad")
-        result = handler.handle_post(
-            "/api/v1/coordination/execute", {}, mock_handler
-        )
+        result = handler.handle_post("/api/v1/coordination/execute", {}, mock_handler)
         assert _status(result) == 400
 
 
@@ -534,17 +547,21 @@ class TestGrantConsent:
     """POST /api/v1/coordination/consent -- grant consent."""
 
     def test_grant_success(self, handler, coordinator):
-        with patch("aragora.server.handlers.coordination._HAS_COORDINATION", True), \
-             patch("aragora.server.handlers.coordination._parse_sharing_scope", return_value="metadata"):
-            mock_handler = _make_http_handler(body={
-                "source_workspace_id": "ws-1",
-                "target_workspace_id": "ws-2",
-                "scope": "metadata",
-                "granted_by": "admin",
-            })
-            result = handler.handle_post(
-                "/api/v1/coordination/consent", {}, mock_handler
+        with (
+            patch("aragora.server.handlers.coordination._HAS_COORDINATION", True),
+            patch(
+                "aragora.server.handlers.coordination._parse_sharing_scope", return_value="metadata"
+            ),
+        ):
+            mock_handler = _make_http_handler(
+                body={
+                    "source_workspace_id": "ws-1",
+                    "target_workspace_id": "ws-2",
+                    "scope": "metadata",
+                    "granted_by": "admin",
+                }
             )
+            result = handler.handle_post("/api/v1/coordination/consent", {}, mock_handler)
             assert _status(result) == 201
             body = _body(result)
             assert body["granted"] is True
@@ -552,23 +569,23 @@ class TestGrantConsent:
     def test_grant_missing_workspace_ids(self, handler, coordinator):
         with patch("aragora.server.handlers.coordination._HAS_COORDINATION", True):
             mock_handler = _make_http_handler(body={"scope": "metadata"})
-            result = handler.handle_post(
-                "/api/v1/coordination/consent", {}, mock_handler
-            )
+            result = handler.handle_post("/api/v1/coordination/consent", {}, mock_handler)
             assert _status(result) == 400
             assert "workspace" in _body(result).get("error", "").lower()
 
     def test_grant_invalid_scope(self, handler, coordinator):
-        with patch("aragora.server.handlers.coordination._HAS_COORDINATION", True), \
-             patch("aragora.server.handlers.coordination._parse_sharing_scope", return_value=None):
-            mock_handler = _make_http_handler(body={
-                "source_workspace_id": "ws-1",
-                "target_workspace_id": "ws-2",
-                "scope": "invalid",
-            })
-            result = handler.handle_post(
-                "/api/v1/coordination/consent", {}, mock_handler
+        with (
+            patch("aragora.server.handlers.coordination._HAS_COORDINATION", True),
+            patch("aragora.server.handlers.coordination._parse_sharing_scope", return_value=None),
+        ):
+            mock_handler = _make_http_handler(
+                body={
+                    "source_workspace_id": "ws-1",
+                    "target_workspace_id": "ws-2",
+                    "scope": "invalid",
+                }
             )
+            result = handler.handle_post("/api/v1/coordination/consent", {}, mock_handler)
             assert _status(result) == 400
             assert "scope" in _body(result).get("error", "").lower()
 
@@ -576,9 +593,7 @@ class TestGrantConsent:
         mock_handler = MagicMock()
         mock_handler.headers = {"Content-Length": "3"}
         mock_handler.rfile = BytesIO(b"bad")
-        result = handler.handle_post(
-            "/api/v1/coordination/consent", {}, mock_handler
-        )
+        result = handler.handle_post("/api/v1/coordination/consent", {}, mock_handler)
         assert _status(result) == 400
 
 
@@ -588,9 +603,7 @@ class TestRevokeConsent:
 
     def test_revoke_success(self, handler, coordinator):
         coordinator.revoke_consent.return_value = True
-        result = handler.handle_delete(
-            "/api/v1/coordination/consent/consent-42", {}, None
-        )
+        result = handler.handle_delete("/api/v1/coordination/consent/consent-42", {}, None)
         assert _status(result) == 200
         body = _body(result)
         assert body["revoked"] is True
@@ -599,9 +612,7 @@ class TestRevokeConsent:
 
     def test_revoke_not_found(self, handler, coordinator):
         coordinator.revoke_consent.return_value = False
-        result = handler.handle_delete(
-            "/api/v1/coordination/consent/missing-id", {}, None
-        )
+        result = handler.handle_delete("/api/v1/coordination/consent/missing-id", {}, None)
         assert _status(result) == 404
         assert "not found" in _body(result).get("error", "").lower()
 
@@ -643,9 +654,7 @@ class TestApprove:
     def test_approve_success(self, handler, coordinator):
         coordinator.approve_request.return_value = True
         mock_handler = _make_http_handler(body={"approved_by": "admin-user"})
-        result = handler.handle_post(
-            "/api/v1/coordination/approve/req-42", {}, mock_handler
-        )
+        result = handler.handle_post("/api/v1/coordination/approve/req-42", {}, mock_handler)
         assert _status(result) == 200
         body = _body(result)
         assert body["approved"] is True
@@ -655,9 +664,7 @@ class TestApprove:
     def test_approve_not_found(self, handler, coordinator):
         coordinator.approve_request.return_value = False
         mock_handler = _make_http_handler(body={})
-        result = handler.handle_post(
-            "/api/v1/coordination/approve/missing-req", {}, mock_handler
-        )
+        result = handler.handle_post("/api/v1/coordination/approve/missing-req", {}, mock_handler)
         assert _status(result) == 404
         assert "not found" in _body(result).get("error", "").lower()
 
@@ -665,9 +672,7 @@ class TestApprove:
         """When no approved_by in body, defaults to 'api'."""
         coordinator.approve_request.return_value = True
         mock_handler = _make_http_handler(body={})
-        result = handler.handle_post(
-            "/api/v1/coordination/approve/req-55", {}, mock_handler
-        )
+        result = handler.handle_post("/api/v1/coordination/approve/req-55", {}, mock_handler)
         assert _status(result) == 200
         coordinator.approve_request.assert_called_once_with("req-55", "api")
 
@@ -678,9 +683,7 @@ class TestApprove:
         mock_handler = MagicMock()
         mock_handler.headers = {"Content-Length": "0"}
         mock_handler.rfile = BytesIO(b"")
-        result = handler.handle_post(
-            "/api/v1/coordination/approve/req-77", {}, mock_handler
-        )
+        result = handler.handle_post("/api/v1/coordination/approve/req-77", {}, mock_handler)
         assert _status(result) == 200
 
 
@@ -792,10 +795,12 @@ class TestCoordinationUnavailable:
 
     def test_grant_consent_unavailable(self, handler_no_coord):
         with patch("aragora.server.handlers.coordination._HAS_COORDINATION", False):
-            result = handler_no_coord._handle_grant_consent({
-                "source_workspace_id": "ws-1",
-                "target_workspace_id": "ws-2",
-            })
+            result = handler_no_coord._handle_grant_consent(
+                {
+                    "source_workspace_id": "ws-1",
+                    "target_workspace_id": "ws-2",
+                }
+            )
         assert _status(result) == 501
 
     def test_revoke_consent_unavailable(self, handler_no_coord):
@@ -834,13 +839,9 @@ class TestDispatchReturnsNone:
 
     def test_post_unmatched(self, handler):
         mock_handler = _make_http_handler(body={})
-        result = handler.handle_post(
-            "/api/v1/coordination/unknown", {}, mock_handler
-        )
+        result = handler.handle_post("/api/v1/coordination/unknown", {}, mock_handler)
         assert result is None
 
     def test_delete_unmatched(self, handler):
-        result = handler.handle_delete(
-            "/api/v1/coordination/unknown", {}, None
-        )
+        result = handler.handle_delete("/api/v1/coordination/unknown", {}, None)
         assert result is None
