@@ -409,20 +409,31 @@ class RiskScorer:
         self, goal_lower: str, file_scope: list[str]
     ) -> list[str]:
         """Detect if any protected files are referenced."""
+        # Generic basenames that appear everywhere (e.g. __init__.py, .env)
+        # must use full-path matching only — basename matching would produce
+        # false positives on every subpackage __init__.py.
+        _GENERIC_BASENAMES = {"__init__.py", ".env", ".env.local"}
+
         hits: list[str] = []
         for pf in self.protected_files:
             pf_lower = pf.lower()
             pf_name = pf.split("/")[-1].lower()
+            is_generic = pf_name in _GENERIC_BASENAMES
 
             # Check file_scope
             for fp in file_scope:
                 fp_lower_path = fp.lower()
-                if pf_lower in fp_lower_path or fp_lower_path.endswith(pf_name):
+                # Full path containment always works
+                if pf_lower in fp_lower_path:
+                    if pf not in hits:
+                        hits.append(pf)
+                # Basename matching only for non-generic filenames
+                elif not is_generic and fp_lower_path.endswith(pf_name):
                     if pf not in hits:
                         hits.append(pf)
 
-            # Check goal text for explicit mentions
-            if pf_name in goal_lower and pf not in hits:
+            # Check goal text for explicit mentions (full path only)
+            if pf_lower in goal_lower and pf not in hits:
                 hits.append(pf)
 
         return hits
