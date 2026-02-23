@@ -208,23 +208,14 @@ def _clear_state():
 
 
 @pytest.fixture(autouse=True)
-def _clear_rate_limiters():
-    """Clear all rate limiters between tests."""
-    try:
-        from aragora.server.handlers.utils.rate_limit import _limiters
+def _disable_rate_limiting():
+    """Disable rate limiting entirely during tests to avoid order-dependent failures."""
+    import aragora.server.handlers.utils.rate_limit as _rl_mod
 
-        for limiter in _limiters.values():
-            limiter.clear()
-    except (ImportError, AttributeError):
-        pass
+    original = _rl_mod.RATE_LIMITING_DISABLED
+    _rl_mod.RATE_LIMITING_DISABLED = True
     yield
-    try:
-        from aragora.server.handlers.utils.rate_limit import _limiters
-
-        for limiter in _limiters.values():
-            limiter.clear()
-    except (ImportError, AttributeError):
-        pass
+    _rl_mod.RATE_LIMITING_DISABLED = original
 
 
 def _make_mock_exporter(records: list[dict] | None = None):
