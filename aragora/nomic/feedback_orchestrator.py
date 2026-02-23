@@ -402,9 +402,12 @@ class SelfImproveFeedbackOrchestrator:
             report.gauntlet_findings = [g.to_dict() for g in goals]
             for g in goals:
                 self._queue.add(g)
+                report.goals_generated += 1
+            report.steps_completed += 1
         except Exception as exc:  # noqa: BLE001
             logger.warning("feedback_step_gauntlet_failed: %s", exc)
             report.errors.append("gauntlet")
+            report.steps_failed += 1
 
         # Step 2: Introspection -- capture agent performance snapshots
         try:
@@ -412,57 +415,77 @@ class SelfImproveFeedbackOrchestrator:
             report.introspection_snapshot = {
                 "gaps": [g.to_dict() for g in goals],
             }
+            report.introspection_snapshots = len(goals)
             for g in goals:
                 self._queue.add(g)
+                report.goals_generated += 1
+            report.steps_completed += 1
         except Exception as exc:  # noqa: BLE001
             logger.warning("feedback_step_introspection_failed: %s", exc)
             report.errors.append("introspection")
+            report.steps_failed += 1
 
         # Step 3: Genesis -- auto-breed new agent configs when quality < threshold
         try:
             breeds = self._step_genesis(execution_results)
+            report.genesis_breeds = breeds
             if breeds > 0:
                 report.genesis_recommendations.append(
                     {"action": "breed", "new_genomes": breeds}
                 )
+            report.steps_completed += 1
         except Exception as exc:  # noqa: BLE001
             logger.warning("feedback_step_genesis_failed: %s", exc)
             report.errors.append("genesis")
+            report.steps_failed += 1
 
         # Step 4: Learning -- hyperparameter adjustments from cycle outcomes
         try:
             adjustments = self._step_learning(cycle_id, execution_results)
             report.learning_adjustments = {"adjustment_count": adjustments}
+            report.steps_completed += 1
         except Exception as exc:  # noqa: BLE001
             logger.warning("feedback_step_learning_failed: %s", exc)
             report.errors.append("learning")
+            report.steps_failed += 1
 
         # Step 5: Workspace -- deduplicate via bead fingerprints
         try:
             deduped = self._step_workspace(execution_results)
             report.workspace_dedup_results = {"duplicates_found": deduped}
+            report.workspace_deduped = deduped
+            report.steps_completed += 1
         except Exception as exc:  # noqa: BLE001
             logger.warning("feedback_step_workspace_failed: %s", exc)
             report.errors.append("workspace")
+            report.steps_failed += 1
 
         # Step 6: Pulse -- inject trending topics as priorities
         try:
             goals = self._step_pulse()
             report.pulse_priorities = [g.to_dict() for g in goals]
+            report.pulse_injections = len(goals)
             for g in goals:
                 self._queue.add(g)
+                report.goals_generated += 1
+            report.steps_completed += 1
         except Exception as exc:  # noqa: BLE001
             logger.warning("feedback_step_pulse_failed: %s", exc)
             report.errors.append("pulse")
+            report.steps_failed += 1
 
         # Step 7: Knowledge Contradiction -- detect conflicting knowledge in KM
         try:
             goals = self._step_knowledge_contradiction(cycle_id)
+            report.contradiction_detections = len(goals)
             for g in goals:
                 self._queue.add(g)
+                report.goals_generated += 1
+            report.steps_completed += 1
         except Exception as exc:  # noqa: BLE001
             logger.warning("feedback_step_knowledge_contradiction_failed: %s", exc)
             report.errors.append("knowledge_contradiction")
+            report.steps_failed += 1
 
         # Synthesize improvement goals from all feedback
         report.improvement_goals = self._synthesize_goals(report)
