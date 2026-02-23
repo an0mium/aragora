@@ -13,7 +13,7 @@ from typing import TYPE_CHECKING
 if TYPE_CHECKING:
     from aragora.nomic.autonomous_orchestrator import AgentAssignment
 
-logger = logging.getLogger(__name__)
+logger = logging.getLogger("aragora.nomic.hardened_orchestrator")
 
 
 class AuditMixin:

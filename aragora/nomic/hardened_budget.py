@@ -19,7 +19,7 @@ if TYPE_CHECKING:
     from aragora.nomic.autonomous_orchestrator import AgentAssignment
     from aragora.nomic.hardened_orchestrator import BudgetEnforcementConfig
 
-logger = logging.getLogger(__name__)
+logger = logging.getLogger("aragora.nomic.hardened_orchestrator")
 
 
 class BudgetMixin:
