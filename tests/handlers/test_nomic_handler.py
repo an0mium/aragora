@@ -868,10 +868,12 @@ class TestStartNomicLoop:
         state = {"running": False}
         (nomic_dir / "nomic_state.json").write_text(json.dumps(state))
 
-        http = MockHTTPHandler(method="POST", body={"cycles": 1})
-        result = await handler.handle_post(
-            "/api/v1/nomic/control/start", {}, http
-        )
+        # Use a nomic_dir deep enough that parent.parent / "scripts" doesn't exist
+        with patch.object(handler, "get_nomic_dir", return_value=Path("/tmp/nonexistent/deep/path")):
+            http = MockHTTPHandler(method="POST", body={"cycles": 1})
+            result = await handler.handle_post(
+                "/api/v1/nomic/control/start", {}, http
+            )
         assert _status(result) == 500
 
     @pytest.mark.asyncio
