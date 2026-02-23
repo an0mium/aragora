@@ -994,11 +994,12 @@ Return JSON with these exact fields:
                     },
                 )
             )
-        except (AttributeError, KeyError, TypeError, RuntimeError) as e:
+        except (AttributeError, KeyError, TypeError, RuntimeError, ValueError, OSError) as e:
             # AttributeError: missing method on elo_system
             # KeyError: missing fields in agent data
             # TypeError: unexpected data format
             # RuntimeError: emission failure
+            # ValueError/OSError: data conversion or system errors
             logger.debug("Leaderboard emission failed: %s", e)
 
     def _generate_debate_receipt(

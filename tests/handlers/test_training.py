@@ -995,25 +995,27 @@ class TestJobRouteValidation:
         assert "Invalid" in _body(result)["error"]
 
     def test_invalid_job_id_special_chars(self, handler):
+        # parts[4] = ".." which fails SAFE_ID_PATTERN validation
         result = handler._handle_job_route(
-            "/api/v1/training/jobs/../etc/passwd", {}, MockHTTPHandler()
+            "/api/training/jobs/../etc/passwd", {}, MockHTTPHandler()
         )
         assert _status(result) == 400
 
     def test_invalid_job_id_too_long(self, handler):
         long_id = "a" * 100
         result = handler._handle_job_route(
-            f"/api/v1/training/jobs/{long_id}", {}, MockHTTPHandler()
+            f"/api/training/jobs/{long_id}", {}, MockHTTPHandler()
         )
         assert _status(result) == 400
 
     def test_valid_job_id_format(self, handler):
         # Valid ID but pipeline not available -> 503
-        result = handler._handle_job_route(
-            "/api/v1/training/jobs/job-abc123",
-            {},
-            MockHTTPHandler(method="GET"),
-        )
+        with patch.object(handler, "_get_training_pipeline", return_value=None):
+            result = handler._handle_job_route(
+                "/api/training/jobs/job-abc123",
+                {},
+                MockHTTPHandler(method="GET"),
+            )
         # Should get 503 (pipeline not available) not 400 (bad ID)
         assert _status(result) == 503
 
@@ -1026,7 +1028,7 @@ class TestJobRouteValidation:
 
         mock_handler = MockHTTPHandler(method="GET")
         result = handler._handle_job_route(
-            "/api/v1/training/jobs/job-123/unknown",
+            "/api/training/jobs/job-123/unknown",
             {},
             mock_handler,
         )
@@ -1039,7 +1041,7 @@ class TestJobRouteValidation:
 
         mock_handler = MockHTTPHandler(method="GET")
         result = handler._handle_job_route(
-            "/api/v1/training/jobs/job-123/export",
+            "/api/training/jobs/job-123/export",
             {},
             mock_handler,
         )
@@ -1053,7 +1055,7 @@ class TestJobRouteValidation:
 
         mock_handler = MockHTTPHandler(method="GET")
         result = handler._handle_job_route(
-            "/api/v1/training/jobs/job-123/start",
+            "/api/training/jobs/job-123/start",
             {},
             mock_handler,
         )
@@ -1069,9 +1071,10 @@ class TestListJobs:
     """Test listing training jobs."""
 
     def test_pipeline_not_available(self, handler):
-        result = handler.handle_list_jobs(
-            "/api/v1/training/jobs", {}, MockHTTPHandler()
-        )
+        with patch.object(handler, "_get_training_pipeline", return_value=None):
+            result = handler.handle_list_jobs(
+                "/api/v1/training/jobs", {}, MockHTTPHandler()
+            )
         assert _status(result) == 503
 
     def test_list_empty_jobs(self, handler):
@@ -1174,16 +1177,10 @@ class TestListJobs:
         assert body["offset"] == 2
 
     def test_list_jobs_attribute_error(self, handler):
-        # Create a pipeline whose registry has a broken model
+        # Create a pipeline whose registry._models.values() raises AttributeError
         mock_pipeline = MagicMock()
-        mock_pipeline._registry._models = {"bad": MagicMock()}
-        mock_pipeline._registry._models["bad"].status = MagicMock()
-        mock_pipeline._registry._models["bad"].status.value = "pending"
-        mock_pipeline._registry._models["bad"].vertical = MagicMock()
-        mock_pipeline._registry._models["bad"].vertical.value = "healthcare"
-        # Make iteration raise AttributeError
-        type(mock_pipeline._registry._models["bad"]).base_model = property(
-            lambda self: (_ for _ in ()).throw(AttributeError("no base_model"))
+        mock_pipeline._registry._models.values.side_effect = AttributeError(
+            "no _models"
         )
         handler._exporters["pipeline"] = mock_pipeline
 
@@ -1202,7 +1199,8 @@ class TestGetJob:
     """Test getting a specific training job."""
 
     def test_pipeline_not_available(self, handler):
-        result = handler._get_job("job-123", {}, MockHTTPHandler())
+        with patch.object(handler, "_get_training_pipeline", return_value=None):
+            result = handler._get_job("job-123", {}, MockHTTPHandler())
         assert _status(result) == 503
 
     def test_get_existing_job(self, handler):
@@ -1257,7 +1255,8 @@ class TestCancelJob:
     """Test cancelling a training job."""
 
     def test_pipeline_not_available(self, handler):
-        result = handler._cancel_job("job-123", {}, MockHTTPHandler())
+        with patch.object(handler, "_get_training_pipeline", return_value=None):
+            result = handler._cancel_job("job-123", {}, MockHTTPHandler())
         assert _status(result) == 503
 
     def test_cancel_existing_job(self, handler):
@@ -1313,7 +1312,8 @@ class TestExportJobData:
     """Test exporting training data for a specific job."""
 
     def test_pipeline_not_available(self, handler):
-        result = handler._export_job_data("job-123", {}, MockHTTPHandler())
+        with patch.object(handler, "_get_training_pipeline", return_value=None):
+            result = handler._export_job_data("job-123", {}, MockHTTPHandler())
         assert _status(result) == 503
 
     def test_export_existing_job(self, handler):
@@ -1356,7 +1356,8 @@ class TestStartJob:
     """Test starting training for a job."""
 
     def test_pipeline_not_available(self, handler):
-        result = handler._start_job("job-123", {}, MockHTTPHandler())
+        with patch.object(handler, "_get_training_pipeline", return_value=None):
+            result = handler._start_job("job-123", {}, MockHTTPHandler())
         assert _status(result) == 503
 
     def test_start_existing_job(self, handler):
@@ -1399,7 +1400,8 @@ class TestCompleteJob:
     """Test completing a training job."""
 
     def test_pipeline_not_available(self, handler):
-        result = handler._complete_job("job-123", {}, MockHTTPHandler())
+        with patch.object(handler, "_get_training_pipeline", return_value=None):
+            result = handler._complete_job("job-123", {}, MockHTTPHandler())
         assert _status(result) == 503
 
     def test_complete_existing_job(self, handler):
@@ -1488,7 +1490,8 @@ class TestGetJobMetrics:
     """Test getting training metrics for a job."""
 
     def test_pipeline_not_available(self, handler):
-        result = handler._get_job_metrics("job-123", {}, MockHTTPHandler())
+        with patch.object(handler, "_get_training_pipeline", return_value=None):
+            result = handler._get_job_metrics("job-123", {}, MockHTTPHandler())
         assert _status(result) == 503
 
     def test_get_metrics_existing_job(self, handler):
@@ -1542,7 +1545,8 @@ class TestGetJobArtifacts:
     """Test getting artifact information for a job."""
 
     def test_pipeline_not_available(self, handler):
-        result = handler._get_job_artifacts("job-123", {}, MockHTTPHandler())
+        with patch.object(handler, "_get_training_pipeline", return_value=None):
+            result = handler._get_job_artifacts("job-123", {}, MockHTTPHandler())
         assert _status(result) == 503
 
     def test_get_artifacts_existing_job(self, handler):
@@ -1809,23 +1813,25 @@ class TestEdgeCases:
     def test_handler_with_no_command_attribute(self, handler):
         # Test handler without command defaults to "GET"
         mock_handler = MagicMock(spec=[])
-        result = handler._handle_job_route(
-            "/api/v1/training/jobs/job-123",
-            {},
-            mock_handler,
-        )
+        with patch.object(handler, "_get_training_pipeline", return_value=None):
+            result = handler._handle_job_route(
+                "/api/training/jobs/job-123",
+                {},
+                mock_handler,
+            )
         # Should try GET path (pipeline not available -> 503)
         assert _status(result) == 503
 
     def test_handler_with_none(self, handler):
-        # Test with None handler
-        result = handler._handle_job_route(
-            "/api/v1/training/jobs/job-123",
-            {},
-            None,
-        )
-        # None handler defaults to "GET"
-        assert _status(result) in (503, 404)
+        # Test with None handler (defaults to "GET")
+        with patch.object(handler, "_get_training_pipeline", return_value=None):
+            result = handler._handle_job_route(
+                "/api/training/jobs/job-123",
+                {},
+                None,
+            )
+        # None handler defaults to "GET", pipeline not available -> 503
+        assert _status(result) == 503
 
     def test_job_route_delete_method(self, handler):
         models = [MockSpecialistModel(id="job-123")]
@@ -1840,20 +1846,16 @@ class TestEdgeCases:
             MockTrainingStatus,
         ):
             result = handler._handle_job_route(
-                "/api/v1/training/jobs/job-123",
+                "/api/training/jobs/job-123",
                 {},
                 mock_handler,
             )
-        # path length == 5 and method == DELETE -> _cancel_job
-        # But note: path parts = ["", "api", "v1", "training", "jobs", "job-123"]
-        # That's len 6, not 5. Let's check...
-        # Actually: "/api/v1/training/jobs/job-123".split("/") = ["", "api", "v1", "training", "jobs", "job-123"]
-        # len == 6. The handler checks len(parts) == 5 for the detail route.
-        # But wait, the handler does: job_id = parts[4] which is "jobs"
-        # and len(parts) == 6 so it falls into len >= 6 with action = "job-123"
-        # This is a subtle path parsing issue - the handler looks at /api/training/jobs/{id}
-        # not /api/v1/training/jobs/{id}. Let me verify.
-        assert result is not None
+        # /api/training/jobs/job-123 -> parts[4] = "job-123", len == 5
+        # method == DELETE -> _cancel_job
+        assert _status(result) == 200
+        body = _body(result)
+        assert body["success"] is True
+        assert body["status"] == "cancelled"
 
     def test_stats_returns_200(self, handler):
         result = handler.handle_stats(

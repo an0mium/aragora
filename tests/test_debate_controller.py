@@ -279,6 +279,7 @@ class TestDebateControllerStartDebate:
     def test_start_debate_with_auto_select(self):
         """Should call auto_select_fn when enabled."""
         auto_select = Mock(return_value="selected-agent")
+
         controller = DebateController(
             factory=self.factory,
             emitter=self.emitter,
@@ -286,12 +287,18 @@ class TestDebateControllerStartDebate:
             storage=self.storage,
         )
 
-        request = DebateRequest(
-            question="Auto select test?",
-            auto_select=True,
-            auto_select_config={"strategy": "best"},
-        )
-        controller.start_debate(request)
+        # Mock the executor so _run_debate doesn't actually run in a thread
+        mock_executor = Mock()
+        with patch.object(controller, "_get_executor", return_value=mock_executor):
+            # agents_str must be None so the auto-select code path triggers
+            # (when agents_str has a value, auto-select is skipped)
+            request = DebateRequest(
+                question="Auto select test?",
+                agents_str=None,
+                auto_select=True,
+                auto_select_config={"strategy": "best"},
+            )
+            controller.start_debate(request)
 
         auto_select.assert_called_once_with("Auto select test?", {"strategy": "best"})
 
@@ -527,7 +534,7 @@ class TestDebateControllerLeaderboard:
         factory = Mock()
         emitter = Mock()
         elo = Mock()
-        elo.get_leaderboard.side_effect = Exception("ELO error")
+        elo.get_leaderboard.side_effect = RuntimeError("ELO error")
 
         controller = DebateController(factory=factory, emitter=emitter, elo_system=elo)
 
