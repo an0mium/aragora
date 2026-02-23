@@ -17,7 +17,7 @@ class TestCrossDebateLearningValidation:
 
     def test_expertise_accumulates_over_multiple_debates(self):
         """Agent expertise should accumulate across multiple debates."""
-        from aragora.knowledge.mound.adapters.ranking_adapter import RankingAdapter
+        from aragora.knowledge.mound.adapters import RankingAdapter
 
         adapter = RankingAdapter()
 
@@ -56,7 +56,7 @@ class TestCrossDebateLearningValidation:
 
     def test_expertise_spans_multiple_domains(self):
         """Agents should build expertise in multiple domains independently."""
-        from aragora.knowledge.mound.adapters.ranking_adapter import RankingAdapter
+        from aragora.knowledge.mound.adapters import RankingAdapter
 
         adapter = RankingAdapter()
 
@@ -117,7 +117,7 @@ class TestCrossDebateLearningValidation:
 
     def test_team_selection_uses_historical_expertise(self):
         """Team selection should prioritize agents with historical expertise."""
-        from aragora.knowledge.mound.adapters.ranking_adapter import RankingAdapter
+        from aragora.knowledge.mound.adapters import RankingAdapter
 
         adapter = RankingAdapter()
 
@@ -154,7 +154,7 @@ class TestCrossDebateLearningValidation:
 
     def test_cache_improves_repeated_team_selection(self):
         """Cache should improve performance for repeated team selection queries."""
-        from aragora.knowledge.mound.adapters.ranking_adapter import RankingAdapter
+        from aragora.knowledge.mound.adapters import RankingAdapter
 
         adapter = RankingAdapter(cache_ttl_seconds=60.0)
 
@@ -194,7 +194,7 @@ class TestCrossDebateLearningValidation:
 
     def test_domain_detection_affects_expertise_routing(self):
         """Domain detection should correctly route expertise to appropriate domains."""
-        from aragora.knowledge.mound.adapters.ranking_adapter import RankingAdapter
+        from aragora.knowledge.mound.adapters import RankingAdapter
 
         adapter = RankingAdapter()
 
@@ -265,7 +265,7 @@ class TestAdapterPersistenceValidation:
     @pytest.mark.asyncio
     async def test_ranking_adapter_survives_sync_cycle(self):
         """RankingAdapter state should survive sync to/from KM."""
-        from aragora.knowledge.mound.adapters.ranking_adapter import RankingAdapter
+        from aragora.knowledge.mound.adapters import RankingAdapter
 
         # First adapter: store expertise
         adapter1 = RankingAdapter()

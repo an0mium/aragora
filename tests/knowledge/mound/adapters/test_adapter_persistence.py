@@ -17,7 +17,7 @@ class TestRankingAdapterPersistence:
 
     def test_sync_to_mound_empty(self):
         """sync_to_mound with no expertise records returns empty stats."""
-        from aragora.knowledge.mound.adapters.ranking_adapter import RankingAdapter
+        from aragora.knowledge.mound.adapters import RankingAdapter
 
         adapter = RankingAdapter()
         mound = AsyncMock()
@@ -28,7 +28,7 @@ class TestRankingAdapterPersistence:
 
     def test_sync_to_mound_with_expertise(self):
         """sync_to_mound syncs expertise records to KM."""
-        from aragora.knowledge.mound.adapters.ranking_adapter import RankingAdapter
+        from aragora.knowledge.mound.adapters import RankingAdapter
 
         adapter = RankingAdapter()
 
@@ -51,7 +51,7 @@ class TestRankingAdapterPersistence:
 
     def test_load_from_mound_empty(self):
         """load_from_mound with no KM data returns empty stats."""
-        from aragora.knowledge.mound.adapters.ranking_adapter import RankingAdapter
+        from aragora.knowledge.mound.adapters import RankingAdapter
 
         adapter = RankingAdapter()
         mound = AsyncMock()
@@ -63,7 +63,7 @@ class TestRankingAdapterPersistence:
 
     def test_load_from_mound_restores_state(self):
         """load_from_mound restores expertise from KM nodes."""
-        from aragora.knowledge.mound.adapters.ranking_adapter import RankingAdapter
+        from aragora.knowledge.mound.adapters import RankingAdapter
         from datetime import datetime
 
         adapter = RankingAdapter()

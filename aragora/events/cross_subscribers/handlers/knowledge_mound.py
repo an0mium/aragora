@@ -339,7 +339,7 @@ class KnowledgeMoundHandlersMixin:
         record_km_inbound_event("ranking", event.type.value)
 
         try:
-            from aragora.knowledge.mound.adapters.ranking_adapter import RankingAdapter
+            from aragora.knowledge.mound.adapters import RankingAdapter
 
             # RankingAdapter is an alias for PerformanceAdapter which implements
             # all abstract methods via mixins; the type checker cannot verify this.
@@ -379,7 +379,7 @@ class KnowledgeMoundHandlersMixin:
         record_km_outbound_event("team_selection", event.type.value)
 
         try:
-            from aragora.knowledge.mound.adapters.ranking_adapter import RankingAdapter
+            from aragora.knowledge.mound.adapters import RankingAdapter
 
             # RankingAdapter is an alias for PerformanceAdapter which implements
             # all abstract methods via mixins; the type checker cannot verify this.

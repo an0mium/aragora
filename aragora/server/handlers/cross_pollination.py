@@ -375,7 +375,7 @@ class CrossPollinationKMSyncHandler(BaseHandler):
             # Sync RankingAdapter
             try:
                 from typing import cast
-                from aragora.knowledge.mound.adapters.ranking_adapter import RankingAdapter
+                from aragora.knowledge.mound.adapters import RankingAdapter
 
                 ranking_adapter = getattr(manager, "_ranking_adapter", None)
                 if ranking_adapter is None:

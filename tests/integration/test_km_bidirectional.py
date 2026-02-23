@@ -461,7 +461,7 @@ class TestRankingAdapter:
 
     def test_store_agent_expertise(self):
         """Test storing agent expertise."""
-        from aragora.knowledge.mound.adapters.ranking_adapter import RankingAdapter
+        from aragora.knowledge.mound.adapters import RankingAdapter
 
         adapter = RankingAdapter()
 
@@ -485,7 +485,7 @@ class TestRankingAdapter:
 
     def test_store_ignores_small_changes(self):
         """Test that small ELO changes are ignored."""
-        from aragora.knowledge.mound.adapters.ranking_adapter import RankingAdapter
+        from aragora.knowledge.mound.adapters import RankingAdapter
 
         adapter = RankingAdapter()
 
@@ -500,7 +500,7 @@ class TestRankingAdapter:
 
     def test_get_domain_experts(self):
         """Test retrieving domain experts."""
-        from aragora.knowledge.mound.adapters.ranking_adapter import RankingAdapter
+        from aragora.knowledge.mound.adapters import RankingAdapter
 
         adapter = RankingAdapter()
 
@@ -517,7 +517,7 @@ class TestRankingAdapter:
 
     def test_detect_domain(self):
         """Test domain detection from question."""
-        from aragora.knowledge.mound.adapters.ranking_adapter import RankingAdapter
+        from aragora.knowledge.mound.adapters import RankingAdapter
 
         adapter = RankingAdapter()
 

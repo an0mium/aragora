@@ -17,7 +17,7 @@ class TestCrossDebateLearningCycle:
 
     def test_expertise_persists_after_debate_end(self):
         """Agent expertise is persisted to KM when debate ends."""
-        from aragora.knowledge.mound.adapters.ranking_adapter import RankingAdapter
+        from aragora.knowledge.mound.adapters import RankingAdapter
         from aragora.events.types import StreamEvent, StreamEventType
 
         adapter = RankingAdapter()
@@ -39,7 +39,7 @@ class TestCrossDebateLearningCycle:
 
     def test_expertise_loaded_for_new_debate(self):
         """Historical expertise is loaded when new debate starts."""
-        from aragora.knowledge.mound.adapters.ranking_adapter import RankingAdapter
+        from aragora.knowledge.mound.adapters import RankingAdapter
 
         adapter = RankingAdapter()
 
@@ -106,7 +106,7 @@ class TestCrossDebateLearningCycle:
 
     def test_domain_experts_influence_team_selection(self):
         """Domain expertise from KM influences team selection weights."""
-        from aragora.knowledge.mound.adapters.ranking_adapter import RankingAdapter
+        from aragora.knowledge.mound.adapters import RankingAdapter
         from aragora.events.cross_subscribers import CrossSubscriberManager
         from aragora.events.types import StreamEvent, StreamEventType
 
@@ -143,7 +143,7 @@ class TestKMAdapterSyncCycle:
     @pytest.mark.asyncio
     async def test_ranking_adapter_sync_roundtrip(self):
         """RankingAdapter can sync to and load from mock KM."""
-        from aragora.knowledge.mound.adapters.ranking_adapter import RankingAdapter
+        from aragora.knowledge.mound.adapters import RankingAdapter
         from datetime import datetime
 
         adapter = RankingAdapter()
