@@ -154,6 +154,7 @@ const enterpriseItems: NavItem[] = [
 const memoryItems: NavItem[] = [
   { label: 'Memory', href: '/memory', icon: '=', minMode: 'advanced' },
   { label: 'Memory Analytics', href: '/memory-analytics', icon: '\u2261', minMode: 'advanced' },
+  { label: 'Cross-Debate Learning', href: '/knowledge/learning', icon: '\u2042', minMode: 'advanced' },
   { label: 'Evidence', href: '/evidence', icon: '\u2690', minMode: 'advanced' },
   { label: 'Repository', href: '/repository', icon: '\u25A3', minMode: 'advanced' },
   { label: 'RLM', href: '/rlm', icon: '\u21BA', minMode: 'advanced' },
