@@ -928,18 +928,12 @@ class TestExchangeCodeForTokens:
         mock_response.__enter__ = MagicMock(return_value=mock_response)
         mock_response.__exit__ = MagicMock(return_value=False)
 
-        with patch(
+        with patch("asyncio.get_running_loop", side_effect=RuntimeError("no loop")), patch(
             "aragora.server.handlers._oauth.google.urllib_request.urlopen",
             return_value=mock_response,
         ):
-            try:
-                result = handler._exchange_code_for_tokens("auth-code")
-                if asyncio.iscoroutine(result):
-                    result.close()
-                    pytest.skip("Running in async context")
-                pytest.fail("Expected ValueError")
-            except ValueError as e:
-                assert "Invalid JSON" in str(e)
+            with pytest.raises(ValueError, match="Invalid JSON"):
+                handler._exchange_code_for_tokens("auth-code")
 
     @pytest.mark.asyncio
     async def test_async_path_uses_httpx(self, handler, impl):
@@ -1028,14 +1022,11 @@ class TestGetGoogleUserInfo:
         mock_response.__enter__ = MagicMock(return_value=mock_response)
         mock_response.__exit__ = MagicMock(return_value=False)
 
-        with patch(
+        with patch("asyncio.get_running_loop", side_effect=RuntimeError("no loop")), patch(
             "aragora.server.handlers._oauth.google.urllib_request.urlopen",
             return_value=mock_response,
         ):
             result = handler._get_google_user_info("access-token")
-            if asyncio.iscoroutine(result):
-                result.close()
-                pytest.skip("Running in async context")
 
         assert isinstance(result, OAuthUserInfo)
         assert result.provider == "google"
@@ -1059,14 +1050,11 @@ class TestGetGoogleUserInfo:
         mock_response.__enter__ = MagicMock(return_value=mock_response)
         mock_response.__exit__ = MagicMock(return_value=False)
 
-        with patch(
+        with patch("asyncio.get_running_loop", side_effect=RuntimeError("no loop")), patch(
             "aragora.server.handlers._oauth.google.urllib_request.urlopen",
             return_value=mock_response,
         ):
             result = handler._get_google_user_info("access-token")
-            if asyncio.iscoroutine(result):
-                result.close()
-                pytest.skip("Running in async context")
 
         assert result.name == "charlie"
         assert result.email_verified is False
