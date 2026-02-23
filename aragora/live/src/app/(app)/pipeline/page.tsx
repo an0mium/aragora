@@ -7,6 +7,7 @@ import { usePipeline } from '@/hooks/usePipeline';
 import { usePipelineWebSocket } from '@/hooks/usePipelineWebSocket';
 import { useSWRFetch } from '@/hooks/useSWRFetch';
 import { StatusBadge } from '@/components/pipeline-canvas/StatusBadge';
+import { ExecutionProgressOverlay } from '@/components/pipeline-canvas/ExecutionProgressOverlay';
 import { AutoTransitionSuggestion } from '@/components/pipeline-canvas/AutoTransitionSuggestion';
 import type { TransitionSuggestion } from '@/components/pipeline-canvas/AutoTransitionSuggestion';
 import type { PipelineStageType, PipelineResultResponse, ExecutionStatus } from '@/components/pipeline-canvas/types';
@@ -93,6 +94,11 @@ function PipelinePageContent() {
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const [dismissedSuggestions, setDismissedSuggestions] = useState<Set<string>>(new Set());
 
+  // Execution progress tracking
+  const [currentStage, setCurrentStage] = useState<string | undefined>();
+  const [completedSubtasks, setCompletedSubtasks] = useState(0);
+  const [totalSubtasks, setTotalSubtasks] = useState(0);
+
   // Fetch latest pipeline data from API via SWR for initial load / refresh
   const {
     data: swrPipelineData,
@@ -109,8 +115,17 @@ function PipelinePageContent() {
     }
   }, [swrPipelineData, pipelineData, setPipelineData]);
 
+  const wsStageStarted = useCallback((event: { stage: string }) => {
+    setCurrentStage(event.stage);
+  }, []);
+
   const wsStageCompleted = useCallback(() => {
     setKey((k) => k + 1);
+  }, []);
+
+  const wsStepProgress = useCallback((event: { completed?: number; total?: number }) => {
+    if (event.completed !== undefined) setCompletedSubtasks(event.completed);
+    if (event.total !== undefined) setTotalSubtasks(event.total);
   }, []);
 
   const wsCompleted = useCallback(() => {
@@ -123,10 +138,12 @@ function PipelinePageContent() {
     setKey((k) => k + 1);
   }, []);
 
-  const { isConnected } = usePipelineWebSocket({
+  const { isConnected, completedStages: wsCompletedStages, streamedNodes } = usePipelineWebSocket({
     pipelineId: pipelineData?.pipeline_id,
     enabled: !!pipelineData && !isDemo,
+    onStageStarted: wsStageStarted,
     onStageCompleted: wsStageCompleted,
+    onStepProgress: wsStepProgress,
     onCompleted: wsCompleted,
     onFailed: wsFailed,
   });
@@ -235,6 +252,9 @@ function PipelinePageContent() {
   const handleNew = useCallback(() => {
     reset();
     setExecuteStatus('idle');
+    setCurrentStage(undefined);
+    setCompletedSubtasks(0);
+    setTotalSubtasks(0);
     setKey((k) => k + 1);
   }, [reset]);
 
@@ -281,9 +301,12 @@ function PipelinePageContent() {
   const handleExecute = useCallback(async () => {
     if (pipelineData?.pipeline_id) {
       setExecuteStatus('idle');
+      setCurrentStage(undefined);
+      setCompletedSubtasks(0);
+      setTotalSubtasks(0);
       try {
         await executePipeline(pipelineData.pipeline_id);
-        setExecuteStatus('success');
+        // Status will be set by WS callbacks (wsCompleted/wsFailed)
       } catch {
         setExecuteStatus('failed');
       }
@@ -536,7 +559,20 @@ function PipelinePageContent() {
       )}
 
       {/* Canvas or empty state */}
-      <div className="flex-1 overflow-hidden">
+      <div className="flex-1 overflow-hidden relative">
+        {/* Execution progress overlay */}
+        {pipelineData && (executing || executeStatus !== 'idle') && (
+          <ExecutionProgressOverlay
+            executing={executing}
+            currentStage={currentStage}
+            completedStages={wsCompletedStages}
+            streamedNodeCount={streamedNodes.length}
+            completedSubtasks={completedSubtasks}
+            totalSubtasks={totalSubtasks}
+            executeStatus={executeStatus}
+          />
+        )}
+
         {pipelineData ? (
           viewMode === 'provenance' ? (
             <div className="h-full p-4">

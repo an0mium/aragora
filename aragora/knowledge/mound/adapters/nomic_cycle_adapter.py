@@ -384,6 +384,27 @@ class NomicCycleAdapter(KnowledgeMoundAdapter):
                 logger.warning("Knowledge Mound not available")
         return self._mound
 
+    async def _ensure_mound_ready(self) -> Any:
+        """Return the mound after ensuring it is initialized.
+
+        If the mound exists but has not been initialized yet (e.g. when the
+        adapter is used before the application startup completes), this will
+        call ``initialize()`` so that queries don't fail with
+        "KnowledgeMound not initialized".
+
+        Returns:
+            The KnowledgeMound instance, or ``None`` if unavailable.
+        """
+        mound = self.mound
+        if mound is None:
+            return None
+        if getattr(mound, "is_initialized", True) is False:
+            try:
+                await mound.initialize()
+            except (RuntimeError, OSError, ValueError) as exc:
+                logger.warning("Auto-initializing KnowledgeMound failed: %s", exc)
+        return mound
+
     def _emit_event(self, event: str, data: dict[str, Any]) -> None:
         """Emit an event if callback is registered."""
         if self._on_event:
@@ -451,7 +472,7 @@ class NomicCycleAdapter(KnowledgeMoundAdapter):
                 errors=["Received incompatible outcome type"],
             )
 
-        mound = self.mound
+        mound = await self._ensure_mound_ready()
         if mound is None:
             errors.append("Knowledge Mound not available")
             return CycleIngestionResult(
@@ -746,7 +767,7 @@ class NomicCycleAdapter(KnowledgeMoundAdapter):
         Returns:
             List of curriculum data dicts with similarity scores
         """
-        mound = self.mound
+        mound = await self._ensure_mound_ready()
         if mound is None:
             return []
 
@@ -811,7 +832,7 @@ class NomicCycleAdapter(KnowledgeMoundAdapter):
         Returns:
             List of dicts: [{pattern, avg_improvement_score, cycle_count, example_objectives}]
         """
-        mound = self.mound
+        mound = await self._ensure_mound_ready()
         if mound is None:
             return []
 
@@ -839,7 +860,8 @@ class NomicCycleAdapter(KnowledgeMoundAdapter):
                 words = set(objective.lower().split())
                 # Use the first 3 significant words as a pattern key
                 significant = [
-                    w for w in words
+                    w
+                    for w in words
                     if len(w) > 3 and w not in {"the", "and", "for", "with", "from", "that", "this"}
                 ]
                 if not significant:
@@ -867,12 +889,14 @@ class NomicCycleAdapter(KnowledgeMoundAdapter):
                 if entry["cycle_count"] == 0:
                     continue
                 avg = entry["total_score"] / entry["cycle_count"]
-                ranked.append({
-                    "pattern": entry["pattern"],
-                    "avg_improvement_score": round(avg, 3),
-                    "cycle_count": entry["cycle_count"],
-                    "example_objectives": entry["example_objectives"],
-                })
+                ranked.append(
+                    {
+                        "pattern": entry["pattern"],
+                        "avg_improvement_score": round(avg, 3),
+                        "cycle_count": entry["cycle_count"],
+                        "example_objectives": entry["example_objectives"],
+                    }
+                )
 
             ranked.sort(key=lambda x: x["avg_improvement_score"], reverse=True)
             return ranked[:limit]
@@ -901,7 +925,7 @@ class NomicCycleAdapter(KnowledgeMoundAdapter):
         Returns:
             List of dicts: [{pattern, occurrences, affected_tracks, example_errors, last_seen}]
         """
-        mound = self.mound
+        mound = await self._ensure_mound_ready()
         if mound is None:
             return []
 
@@ -962,12 +986,14 @@ class NomicCycleAdapter(KnowledgeMoundAdapter):
             recurring: list[dict[str, Any]] = []
             for entry in failure_groups.values():
                 if entry["occurrences"] >= min_occurrences:
-                    recurring.append({
-                        "pattern": entry["pattern"],
-                        "occurrences": entry["occurrences"],
-                        "affected_tracks": sorted(entry["affected_tracks"]),
-                        "example_errors": entry["example_errors"],
-                    })
+                    recurring.append(
+                        {
+                            "pattern": entry["pattern"],
+                            "occurrences": entry["occurrences"],
+                            "affected_tracks": sorted(entry["affected_tracks"]),
+                            "example_errors": entry["example_errors"],
+                        }
+                    )
 
             recurring.sort(key=lambda x: x["occurrences"], reverse=True)
             return recurring[:limit]
@@ -1014,7 +1040,7 @@ class NomicCycleAdapter(KnowledgeMoundAdapter):
         workspace_id: str,
     ) -> list[SimilarCycle]:
         """Internal implementation of finding similar cycles."""
-        mound = self.mound
+        mound = await self._ensure_mound_ready()
         if mound is None:
             return []
 
@@ -1084,7 +1110,7 @@ class NomicCycleAdapter(KnowledgeMoundAdapter):
         workspace_id: str,
     ) -> list[str]:
         """Get learnings of a specific type for a cycle."""
-        mound = self.mound
+        mound = await self._ensure_mound_ready()
         if mound is None:
             return []
 
@@ -1125,7 +1151,7 @@ class NomicCycleAdapter(KnowledgeMoundAdapter):
         workspace_id: str,
     ) -> list[str]:
         """Get recommendations for a cycle."""
-        mound = self.mound
+        mound = await self._ensure_mound_ready()
         if mound is None:
             return []
 
@@ -1171,7 +1197,7 @@ class NomicCycleAdapter(KnowledgeMoundAdapter):
         Returns:
             NomicCycleOutcome if found, None otherwise
         """
-        mound = self.mound
+        mound = await self._ensure_mound_ready()
         if mound is None:
             return None
 

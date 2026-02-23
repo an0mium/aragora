@@ -386,10 +386,11 @@ class TestSignatureVerifierMixin:
                     signing_secret="secret",
                 )
 
-                # Should log the error
+                # Should log the error via %s formatting
                 mock_logger.warning.assert_called()
-                log_message = mock_logger.warning.call_args[0][0]
-                assert "Timestamp too old" in log_message
+                call_args = mock_logger.warning.call_args[0]
+                assert "failed" in call_args[0].lower()
+                assert call_args[1] == "Timestamp too old"
 
 
 # ===========================================================================

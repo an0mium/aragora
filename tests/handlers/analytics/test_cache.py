@@ -34,6 +34,7 @@ from aragora.server.handlers.analytics.cache import (
 # Helpers
 # ---------------------------------------------------------------------------
 
+
 def _make_response(status_code: int = 200, body: dict | None = None) -> SimpleNamespace:
     """Create a minimal response-like object with status_code."""
     return SimpleNamespace(status_code=status_code, body=body or {})
@@ -42,6 +43,7 @@ def _make_response(status_code: int = 200, body: dict | None = None) -> SimpleNa
 @dataclass
 class _FakeResult:
     """Result object that has status_code attribute."""
+
     status_code: int
     data: Any = None
 
@@ -49,6 +51,7 @@ class _FakeResult:
 # ---------------------------------------------------------------------------
 # Fixtures
 # ---------------------------------------------------------------------------
+
 
 @pytest.fixture(autouse=True)
 def _reset_singleton():
@@ -74,6 +77,7 @@ def initialized_cache(cache: AnalyticsDashboardCache) -> AnalyticsDashboardCache
 # ============================================================================
 # CacheConfig
 # ============================================================================
+
 
 class TestCacheConfig:
     """Tests for the CacheConfig dataclass."""
@@ -103,31 +107,38 @@ class TestCacheConfig:
 # CACHE_CONFIGS registry
 # ============================================================================
 
+
 class TestCacheConfigs:
     """Tests for the module-level CACHE_CONFIGS dict."""
 
     def test_expected_keys_present(self):
+        # Base keys from cache.py; analytics_performance.py may add more at import time
         expected = {"summary", "trends", "agents", "remediation", "cost", "tokens", "deliberations"}
-        assert expected == set(CACHE_CONFIGS.keys())
+        assert expected.issubset(CACHE_CONFIGS.keys())
 
     def test_summary_ttl_is_overview(self):
         from aragora.config import CACHE_TTL_ANALYTICS_OVERVIEW
+
         assert CACHE_CONFIGS["summary"].ttl_seconds == CACHE_TTL_ANALYTICS_OVERVIEW
 
     def test_trends_ttl_is_summary(self):
         from aragora.config import CACHE_TTL_ANALYTICS_SUMMARY
+
         assert CACHE_CONFIGS["trends"].ttl_seconds == CACHE_TTL_ANALYTICS_SUMMARY
 
     def test_agents_ttl(self):
         from aragora.config import CACHE_TTL_ANALYTICS_AGENTS
+
         assert CACHE_CONFIGS["agents"].ttl_seconds == CACHE_TTL_ANALYTICS_AGENTS
 
     def test_remediation_ttl(self):
         from aragora.config import CACHE_TTL_ANALYTICS_MEMORY
+
         assert CACHE_CONFIGS["remediation"].ttl_seconds == CACHE_TTL_ANALYTICS_MEMORY
 
     def test_cost_ttl(self):
         from aragora.config import CACHE_TTL_ANALYTICS_COSTS
+
         assert CACHE_CONFIGS["cost"].ttl_seconds == CACHE_TTL_ANALYTICS_COSTS
 
     def test_all_configs_are_cache_config_instances(self):
@@ -146,6 +157,7 @@ class TestCacheConfigs:
 # ============================================================================
 # AnalyticsDashboardCache - Construction & Singleton
 # ============================================================================
+
 
 class TestSingleton:
     """Tests for the singleton get_instance pattern."""
@@ -170,6 +182,7 @@ class TestSingleton:
 # AnalyticsDashboardCache - Lazy init
 # ============================================================================
 
+
 class TestLazyInit:
     """Tests for _ensure_initialized."""
 
@@ -192,6 +205,7 @@ class TestLazyInit:
 # ============================================================================
 # AnalyticsDashboardCache - _get_cache
 # ============================================================================
+
 
 class TestGetCache:
     """Tests for _get_cache."""
@@ -220,6 +234,7 @@ class TestGetCache:
 # AnalyticsDashboardCache - _make_key
 # ============================================================================
 
+
 class TestMakeKey:
     """Tests for _make_key."""
 
@@ -246,6 +261,7 @@ class TestMakeKey:
 # ============================================================================
 # AnalyticsDashboardCache - get / set / invalidate
 # ============================================================================
+
 
 class TestGetSetInvalidate:
     """Tests for get, set, invalidate methods."""
@@ -297,6 +313,7 @@ class TestGetSetInvalidate:
 # AnalyticsDashboardCache - invalidate_workspace
 # ============================================================================
 
+
 class TestInvalidateWorkspace:
     """Tests for invalidate_workspace."""
 
@@ -321,6 +338,7 @@ class TestInvalidateWorkspace:
 # AnalyticsDashboardCache - invalidate_all
 # ============================================================================
 
+
 class TestInvalidateAll:
     """Tests for invalidate_all."""
 
@@ -339,6 +357,7 @@ class TestInvalidateAll:
 # ============================================================================
 # AnalyticsDashboardCache - get_stats / get_summary_stats
 # ============================================================================
+
 
 class TestStats:
     """Tests for get_stats and get_summary_stats."""
@@ -390,6 +409,7 @@ class TestStats:
 # Global accessors
 # ============================================================================
 
+
 class TestGlobalAccessors:
     """Tests for get_analytics_dashboard_cache and invalidate_analytics_cache."""
 
@@ -428,6 +448,7 @@ class TestGlobalAccessors:
 # ============================================================================
 # Invalidation Hooks
 # ============================================================================
+
 
 class TestOnDebateCompleted:
     """Tests for on_debate_completed hook."""
@@ -497,6 +518,7 @@ class TestOnCostEvent:
 # _get_pytest_cache_tag
 # ============================================================================
 
+
 class TestGetPytestCacheTag:
     """Tests for _get_pytest_cache_tag."""
 
@@ -524,13 +546,19 @@ class TestGetPytestCacheTag:
 # cached_analytics decorator
 # ============================================================================
 
+
 class TestCachedAnalyticsDecorator:
     """Tests for @cached_analytics decorator."""
 
     def _make_handler_cls(self, cache_type="summary", extra_keys=None):
         """Build a tiny class with a decorated method."""
-        @cached_analytics(cache_type, workspace_key="workspace_id",
-                          time_range_key="time_range", extra_keys=extra_keys)
+
+        @cached_analytics(
+            cache_type,
+            workspace_key="workspace_id",
+            time_range_key="time_range",
+            extra_keys=extra_keys,
+        )
         def get_data(self_inner, query_params, handler, user):
             return _FakeResult(status_code=200, data=query_params.get("value", "computed"))
 
@@ -539,7 +567,9 @@ class TestCachedAnalyticsDecorator:
 
     def test_cache_miss_calls_func(self):
         h = self._make_handler_cls()
-        result = h.get_data({"workspace_id": "ws-1", "time_range": "30d", "value": "fresh"}, None, None)
+        result = h.get_data(
+            {"workspace_id": "ws-1", "time_range": "30d", "value": "fresh"}, None, None
+        )
         assert result.data == "fresh"
 
     def test_cache_hit_returns_cached(self):
@@ -547,7 +577,9 @@ class TestCachedAnalyticsDecorator:
         # First call populates cache
         r1 = h.get_data({"workspace_id": "ws-1", "time_range": "30d", "value": "first"}, None, None)
         # Second call should return cached value
-        r2 = h.get_data({"workspace_id": "ws-1", "time_range": "30d", "value": "second"}, None, None)
+        r2 = h.get_data(
+            {"workspace_id": "ws-1", "time_range": "30d", "value": "second"}, None, None
+        )
         assert r2.data == "first"
 
     def test_no_caching_without_workspace_id(self):
@@ -570,7 +602,9 @@ class TestCachedAnalyticsDecorator:
         # No time_range -> defaults to "30d"
         r1 = h.get_data({"workspace_id": "ws-1", "value": "default"}, None, None)
         # Explicit 30d should hit cache
-        r2 = h.get_data({"workspace_id": "ws-1", "time_range": "30d", "value": "explicit"}, None, None)
+        r2 = h.get_data(
+            {"workspace_id": "ws-1", "time_range": "30d", "value": "explicit"}, None, None
+        )
         assert r2.data == "default"
 
     def test_non_200_not_cached(self):
@@ -618,15 +652,23 @@ class TestCachedAnalyticsDecorator:
 
     def test_extra_keys_included_in_cache_key(self):
         h = self._make_handler_cls(extra_keys=["agent_type"])
-        r1 = h.get_data({"workspace_id": "ws-1", "agent_type": "claude", "value": "claude-val"}, None, None)
-        r2 = h.get_data({"workspace_id": "ws-1", "agent_type": "gpt4", "value": "gpt-val"}, None, None)
+        r1 = h.get_data(
+            {"workspace_id": "ws-1", "agent_type": "claude", "value": "claude-val"}, None, None
+        )
+        r2 = h.get_data(
+            {"workspace_id": "ws-1", "agent_type": "gpt4", "value": "gpt-val"}, None, None
+        )
         assert r1.data == "claude-val"
         assert r2.data == "gpt-val"
 
     def test_extra_keys_same_values_share_cache(self):
         h = self._make_handler_cls(extra_keys=["agent_type"])
-        r1 = h.get_data({"workspace_id": "ws-1", "agent_type": "claude", "value": "first"}, None, None)
-        r2 = h.get_data({"workspace_id": "ws-1", "agent_type": "claude", "value": "second"}, None, None)
+        r1 = h.get_data(
+            {"workspace_id": "ws-1", "agent_type": "claude", "value": "first"}, None, None
+        )
+        r2 = h.get_data(
+            {"workspace_id": "ws-1", "agent_type": "claude", "value": "second"}, None, None
+        )
         assert r2.data == "first"
 
     def test_missing_extra_key_defaults_to_empty_string(self):
@@ -646,12 +688,12 @@ class TestCachedAnalyticsDecorator:
 # cached_analytics_org decorator
 # ============================================================================
 
+
 class TestCachedAnalyticsOrgDecorator:
     """Tests for @cached_analytics_org decorator."""
 
     def _make_handler_cls(self, cache_type="cost", extra_keys=None):
-        @cached_analytics_org(cache_type, org_key="org_id",
-                              days_key="days", extra_keys=extra_keys)
+        @cached_analytics_org(cache_type, org_key="org_id", days_key="days", extra_keys=extra_keys)
         def get_cost(self_inner, query_params, handler, user):
             return _FakeResult(status_code=200, data=query_params.get("value", "computed"))
 
@@ -760,6 +802,7 @@ class TestCachedAnalyticsOrgDecorator:
 # Thread safety
 # ============================================================================
 
+
 class TestThreadSafety:
     """Tests to exercise thread-safety of singleton and init."""
 
@@ -778,7 +821,7 @@ class TestThreadSafety:
         for t in threads:
             t.join()
 
-        assert len(set(id(r) for r in results)) == 1
+        assert len({id(r) for r in results}) == 1
 
     def test_concurrent_ensure_initialized(self, cache):
         """Multiple threads calling _ensure_initialized should not corrupt state."""
@@ -801,6 +844,7 @@ class TestThreadSafety:
 # ============================================================================
 # Edge cases and integration
 # ============================================================================
+
 
 class TestEdgeCases:
     """Various edge-case and integration tests."""
@@ -836,7 +880,7 @@ class TestEdgeCases:
     def test_get_stats_after_activity(self, initialized_cache):
         initialized_cache.set("summary", "ws-1", "v", "30d")
         initialized_cache.get("summary", "ws-1", "30d")  # hit
-        initialized_cache.get("summary", "ws-1", "7d")   # miss
+        initialized_cache.get("summary", "ws-1", "7d")  # miss
         stats = initialized_cache.get_stats()
         summary_stats = stats["summary"]
         assert summary_stats["hits"] >= 1
@@ -867,6 +911,7 @@ class TestEdgeCases:
 
     def test_decorator_with_different_cache_types(self):
         """Verify decorator uses the correct cache partition."""
+
         @cached_analytics("agents")
         def get_agents(self, query_params, handler, user):
             return _FakeResult(status_code=200, data="agents-result")
@@ -916,7 +961,7 @@ class TestEdgeCases:
         initialized_cache.set("summary", "ws-calc", "v", "30d")
         initialized_cache.get("summary", "ws-calc", "30d")  # hit
         initialized_cache.get("summary", "ws-calc", "30d")  # hit
-        initialized_cache.get("summary", "ws-calc", "7d")   # miss
+        initialized_cache.get("summary", "ws-calc", "7d")  # miss
 
         summary = initialized_cache.get_summary_stats()
         total = summary["total_hits"] + summary["total_misses"]

@@ -36,8 +36,11 @@ from typing import TYPE_CHECKING, Any
 from collections.abc import Callable
 
 from aragora.debate.phases.consensus_storage import ConsensusStorage
+from aragora.debate.phases.feedback_calibration import CalibrationFeedback
 from aragora.debate.phases.feedback_elo import EloFeedback
 from aragora.debate.phases.feedback_evolution import EvolutionFeedback
+from aragora.debate.phases.feedback_knowledge import KnowledgeFeedback
+from aragora.debate.phases.feedback_memory import MemoryFeedback
 from aragora.debate.phases.feedback_persona import PersonaFeedback
 from aragora.debate.phases.training_emitter import TrainingEmitter
 from aragora.type_protocols import (
@@ -158,7 +161,8 @@ class FeedbackPhase:
         meta_learner: Any | None = None,  # MetaLearner for auto-tuning learning hyperparameters
         enable_meta_learning: bool = True,  # Evaluate and adjust after each debate
         # Argument Map export
-        argument_cartographer: Any | None = None,  # ArgumentCartographer for auto-exporting debate maps
+        argument_cartographer: Any
+        | None = None,  # ArgumentCartographer for auto-exporting debate maps
     ):
         """
         Initialize the feedback phase.
@@ -290,6 +294,29 @@ class FeedbackPhase:
             auto_evolve=auto_evolve,
             breeding_threshold=breeding_threshold,
         )
+        self._memory_feedback = MemoryFeedback(
+            continuum_memory=continuum_memory,
+            store_debate_outcome_as_memory=store_debate_outcome_as_memory,
+            update_continuum_memory_outcomes=update_continuum_memory_outcomes,
+            memory_coordinator=memory_coordinator,
+            enable_coordinated_writes=enable_coordinated_writes,
+            coordinator_options=coordinator_options,
+        )
+        self._calibration_feedback = CalibrationFeedback(
+            calibration_tracker=calibration_tracker,
+            event_emitter=event_emitter,
+            knowledge_mound=knowledge_mound,
+            loop_id=loop_id,
+        )
+        self._knowledge_feedback = KnowledgeFeedback(
+            knowledge_mound=knowledge_mound,
+            enable_knowledge_ingestion=enable_knowledge_ingestion,
+            ingest_debate_outcome=ingest_debate_outcome,
+            knowledge_bridge_hub=knowledge_bridge_hub,
+            enable_knowledge_extraction=enable_knowledge_extraction,
+            extraction_min_confidence=extraction_min_confidence,
+            extraction_promote_threshold=extraction_promote_threshold,
+        )
 
     async def execute(self, ctx: DebateContext) -> None:
         """
@@ -344,29 +371,29 @@ class FeedbackPhase:
         self._consensus_storage.store_cruxes(ctx, consensus_id)
 
         # 9b. Absorb consensus into cross-debate epistemic graph
-        self._absorb_into_epistemic_graph(ctx)
+        self._memory_feedback.absorb_into_epistemic_graph(ctx)
 
         # 10. Store debate outcome in ContinuumMemory
-        self._store_memory(ctx)
+        self._memory_feedback.store_memory(ctx)
 
         # 11. Update memory outcomes
-        self._update_memory_outcomes(ctx)
+        self._memory_feedback.update_memory_outcomes(ctx)
 
         # 12. Record calibration data for prediction accuracy
-        self._record_calibration(ctx)
+        self._calibration_feedback.record_calibration(ctx)
 
         # 12b. Bidirectional calibration feedback (consensus-based adjustment)
-        self._apply_calibration_feedback(ctx)
+        self._calibration_feedback.apply_calibration_feedback(ctx)
 
         # 12c. Auto-calibration: treat each agent's consensus alignment as
         # a domain-specific prediction, so every debate becomes a calibration
         # event (not just explicit tournaments).
-        self._record_consensus_calibration(ctx)
+        self._calibration_feedback.record_consensus_calibration(ctx)
 
         # 12d. Update calibration feedback for agent selection system.
         # Computes prediction accuracy, updates Brier scores, and stores
         # calibration deltas in KnowledgeMound via CalibrationFusionAdapter.
-        self._update_calibration_feedback(ctx)
+        self._calibration_feedback.update_calibration_feedback(ctx)
 
         # 13. Update genome fitness for Genesis evolution (delegated to EvolutionFeedback)
         self._evolution_feedback.update_genome_fitness(ctx)
@@ -384,7 +411,7 @@ class FeedbackPhase:
         self._record_pulse_outcome(ctx)
 
         # 16. Run periodic memory cleanup
-        self._run_memory_cleanup(ctx)
+        self._memory_feedback.run_memory_cleanup(ctx)
 
         # 17. Record evolution patterns from high-confidence debates (delegated to EvolutionFeedback)
         self._evolution_feedback.record_evolution_patterns(ctx)
@@ -399,22 +426,22 @@ class FeedbackPhase:
         await self._training_emitter.emit_training_data(ctx)
 
         # 21. Ingest debate outcome into Knowledge Mound
-        await self._ingest_knowledge_outcome(ctx)
+        await self._knowledge_feedback.ingest_knowledge_outcome(ctx)
 
         # 22. Extract structured knowledge from debate (claims, relationships)
-        await self._extract_knowledge_from_debate(ctx)
+        await self._knowledge_feedback.extract_knowledge_from_debate(ctx)
 
         # 23. Store collected evidence in Knowledge Mound via EvidenceBridge
-        await self._store_evidence_in_mound(ctx)
+        await self._knowledge_feedback.store_evidence_in_mound(ctx)
 
         # 24. Observe debate for culture patterns
-        await self._observe_debate_culture(ctx)
+        await self._knowledge_feedback.observe_debate_culture(ctx)
 
         # 25. Auto-trigger broadcast for high-quality debates
         await self._maybe_trigger_broadcast(ctx)
 
         # 26. Execute coordinated memory writes (alternative to individual writes)
-        await self._execute_coordinated_writes(ctx)
+        await self._memory_feedback.execute_coordinated_writes(ctx)
 
         # 27. Update selection feedback loop with debate outcome
         await self._update_selection_feedback(ctx)
@@ -429,10 +456,10 @@ class FeedbackPhase:
         await self._run_post_debate_coordinator(ctx)
 
         # 31. Validate KM entries used in debate against outcome
-        await self._validate_km_outcome(ctx)
+        await self._knowledge_feedback.validate_km_outcome(ctx)
 
         # 31b. Direct KM confidence reinforcement for used items
-        await self._reinforce_km_confidence(ctx)
+        await self._knowledge_feedback.reinforce_km_confidence(ctx)
 
         # 32. Update introspection data based on debate performance
         self._update_introspection_feedback(ctx)
@@ -480,9 +507,7 @@ class FeedbackPhase:
                 convergence_round = total_rounds
 
             # Collect per-round similarity if available
-            per_round_similarity: list[float] = getattr(
-                ctx, "_per_round_similarity", []
-            ) or []
+            per_round_similarity: list[float] = getattr(ctx, "_per_round_similarity", []) or []
 
             store.store(
                 topic=topic,
@@ -573,9 +598,7 @@ class FeedbackPhase:
             )
 
             agents = getattr(ctx, "agents", []) or []
-            unique_models = (
-                len(set(getattr(a, "model", str(a)) for a in agents)) if agents else 1
-            )
+            unique_models = len(set(getattr(a, "model", str(a)) for a in agents)) if agents else 1
             cycle_results["agent_diversity_score"] = unique_models / max(len(agents), 1)
             cycle_results["avg_confidence"] = getattr(result, "confidence", 0.5)
 
@@ -646,15 +669,18 @@ class FeedbackPhase:
             if self.event_emitter:
                 try:
                     from aragora.server.stream.events import StreamEvent, StreamEventType
-                    self.event_emitter.emit(StreamEvent(
-                        type=StreamEventType.ARGUMENT_MAP_UPDATED,
-                        data={
-                            "debate_id": debate_id,
-                            "mermaid": mermaid[:2000],  # Truncate for event payload
-                            "node_count": node_count,
-                            "edge_count": len(getattr(self.argument_cartographer, "edges", [])),
-                        },
-                    ))
+
+                    self.event_emitter.emit(
+                        StreamEvent(
+                            type=StreamEventType.ARGUMENT_MAP_UPDATED,
+                            data={
+                                "debate_id": debate_id,
+                                "mermaid": mermaid[:2000],  # Truncate for event payload
+                                "node_count": node_count,
+                                "edge_count": len(getattr(self.argument_cartographer, "edges", [])),
+                            },
+                        )
+                    )
                 except (ImportError, AttributeError, TypeError):
                     pass
         except (TypeError, ValueError, AttributeError, RuntimeError) as e:
@@ -857,8 +883,7 @@ class FeedbackPhase:
                         c.to_dict() for c in decision.get_major_confidence_factors()
                     ],
                     "counterfactuals": [
-                        c.to_dict()
-                        for c in decision.get_high_sensitivity_counterfactuals()
+                        c.to_dict() for c in decision.get_high_sensitivity_counterfactuals()
                     ],
                     "scores": {
                         "evidence_quality": decision.evidence_quality_score,
@@ -927,146 +952,16 @@ class FeedbackPhase:
             return None
 
     async def _validate_km_outcome(self, ctx: DebateContext) -> None:
-        """Validate Knowledge Mound entries against debate outcome.
-
-        Creates a feedback loop where knowledge that contributed to successful
-        debate outcomes gets confidence boosts, and knowledge that contributed
-        to failures gets penalties.  This makes the organizational memory
-        self-correcting over time.
-        """
-        if not self.knowledge_mound:
-            return
-
-        # Get KM item IDs that were used during this debate
-        km_item_ids: list[str] = getattr(ctx, "_km_item_ids_used", [])
-        if not km_item_ids:
-            return
-
-        result = ctx.result
-        if not result:
-            return
-
-        try:
-            from aragora.debate.km_outcome_bridge import KMOutcomeBridge
-            from aragora.debate.outcome_tracker import ConsensusOutcome
-
-            # Create a ConsensusOutcome from the debate result
-            outcome = ConsensusOutcome(
-                debate_id=ctx.debate_id,
-                consensus_text=getattr(result, "consensus_text", "") or "",
-                consensus_confidence=getattr(result, "confidence", 0.5),
-                implementation_attempted=True,
-                implementation_succeeded=result.consensus_reached,
-            )
-
-            bridge = KMOutcomeBridge(
-                outcome_tracker=None,
-                knowledge_mound=self.knowledge_mound,
-            )
-
-            validations = await bridge.validate_knowledge_from_outcome(
-                outcome=outcome,
-                km_item_ids=km_item_ids,
-            )
-
-            if validations:
-                logger.info(
-                    "[km_outcome] Validated %d KM items (debate=%s, success=%s)",
-                    len(validations),
-                    ctx.debate_id,
-                    outcome.implementation_succeeded,
-                )
-
-        except ImportError:
-            logger.debug("[km_outcome] KMOutcomeBridge not available")
-        except (ValueError, TypeError, AttributeError, RuntimeError) as e:
-            logger.debug("[km_outcome] KM outcome validation failed: %s", e)
+        """Validate KM outcome. Delegates to KnowledgeFeedback."""
+        await self._knowledge_feedback.validate_km_outcome(ctx)
 
     async def _reinforce_km_confidence(self, ctx: DebateContext) -> None:
-        """Reinforce Knowledge Mound item confidence based on debate outcome.
-
-        Implements the backward flow of the KM feedback loop: items that
-        contributed to high-confidence consensus get a confidence boost,
-        while items associated with low-confidence outcomes get a slight
-        decrease.  This creates a reinforcement signal that makes the
-        organizational knowledge self-improving over time.
-
-        This is complementary to ``_validate_km_outcome`` which uses the
-        KMOutcomeBridge (when available).  This method provides a direct,
-        lightweight fallback that always works when a KnowledgeMound and
-        MemoryManager are available.
-        """
-        if not self.knowledge_mound:
-            return
-
-        km_item_ids: list[str] = getattr(ctx, "_km_item_ids_used", [])
-        if not km_item_ids:
-            return
-
-        result = ctx.result
-        if not result:
-            return
-
-        try:
-            from aragora.debate.memory_manager import MemoryManager
-
-            # Create a minimal MemoryManager just for the confidence update
-            mm = MemoryManager()
-            await mm.update_km_item_confidence(
-                result=result,
-                km_item_ids=km_item_ids,
-                knowledge_mound=self.knowledge_mound,
-            )
-        except ImportError:
-            logger.debug("[km_feedback] MemoryManager not available for confidence reinforcement")
-        except (ValueError, TypeError, AttributeError, RuntimeError) as e:
-            logger.debug("[km_feedback] KM confidence reinforcement failed: %s", e)
+        """Reinforce KM confidence. Delegates to KnowledgeFeedback."""
+        await self._knowledge_feedback.reinforce_km_confidence(ctx)
 
     async def _execute_coordinated_writes(self, ctx: DebateContext) -> None:
-        """Execute coordinated atomic writes to all memory systems.
-
-        When enabled, this provides transaction semantics for multi-system
-        writes with rollback on partial failure. This is an alternative to
-        the individual write operations in steps 8-11.
-
-        Note: Individual writes still run for backward compatibility.
-        The coordinator can be used for additional atomic operations.
-        """
-        if not self.memory_coordinator or not self.enable_coordinated_writes:
-            return
-
-        result = ctx.result
-        if not result:
-            return
-
-        try:
-            transaction = await self.memory_coordinator.commit_debate_outcome(
-                ctx=ctx,
-                options=self.coordinator_options,
-            )
-
-            if transaction.success:
-                logger.info(
-                    "[coordinator] Committed %d writes for debate %s",
-                    len(transaction.operations),
-                    ctx.debate_id,
-                )
-            elif transaction.partial_failure:
-                failed = transaction.get_failed_operations()
-                logger.warning(
-                    "[coordinator] Partial failure for debate %s: %d/%d failed",
-                    ctx.debate_id,
-                    len(failed),
-                    len(transaction.operations),
-                )
-                for op in failed:
-                    logger.warning("[coordinator] Failed: %s - %s", op.target, op.error)
-
-            # Store transaction reference in context for debugging
-            setattr(ctx, "_memory_transaction", transaction)
-
-        except (RuntimeError, AttributeError, TypeError) as e:  # noqa: BLE001
-            logger.error("[coordinator] Transaction failed for %s: %s", ctx.debate_id, e)
+        """Execute coordinated writes. Delegates to MemoryFeedback."""
+        await self._memory_feedback.execute_coordinated_writes(ctx)
 
     async def _update_selection_feedback(self, ctx: DebateContext) -> None:
         """Update selection feedback loop with debate outcome.
@@ -1127,177 +1022,20 @@ class FeedbackPhase:
             logger.debug("Selection feedback event emission error: %s", e)
 
     async def _ingest_knowledge_outcome(self, ctx: DebateContext) -> None:
-        """Ingest debate outcome into Knowledge Mound for future retrieval.
-
-        Stores high-confidence debate conclusions in the unified knowledge
-        superstructure so they can inform future debates on related topics.
-        """
-        if not self.knowledge_mound or not self.enable_knowledge_ingestion:
-            return
-
-        if not self._ingest_debate_outcome:
-            return
-
-        result = ctx.result
-        if not result:
-            return
-
-        try:
-            await self._ingest_debate_outcome(result)
-        except (TypeError, ValueError, AttributeError, RuntimeError) as e:
-            logger.warning("[knowledge_mound] Failed to ingest outcome: %s", e)
+        """Ingest knowledge outcome. Delegates to KnowledgeFeedback."""
+        await self._knowledge_feedback.ingest_knowledge_outcome(ctx)
 
     async def _extract_knowledge_from_debate(self, ctx: DebateContext) -> None:
-        """Extract structured knowledge (claims, relationships) from debate.
-
-        Uses the Knowledge Mound's extraction capabilities to identify:
-        - Facts and definitions stated by agents
-        - Relationships between concepts
-        - Consensus-backed conclusions (boosted confidence)
-
-        Extracted knowledge is optionally promoted to the mound if it meets
-        the promotion threshold.
-        """
-        if not self.knowledge_mound or not self.enable_knowledge_extraction:
-            return
-
-        result = ctx.result
-        if not result:
-            return
-
-        # Check minimum confidence threshold
-        confidence = getattr(result, "confidence", 0.0)
-        if confidence < self.extraction_min_confidence:
-            logger.debug(
-                "[knowledge_extraction] Skipping: confidence %.2f < threshold %.2f",
-                confidence,
-                self.extraction_min_confidence,
-            )
-            return
-
-        # Convert messages to extraction format
-        messages = getattr(result, "messages", [])
-        if not messages:
-            return
-
-        extraction_messages = []
-        for msg in messages:
-            extraction_messages.append(
-                {
-                    "agent_id": getattr(msg, "agent", None),
-                    "content": getattr(msg, "content", ""),
-                    "round": getattr(msg, "round", 0),
-                }
-            )
-
-        # Get consensus text if available
-        consensus_text = getattr(result, "final_answer", None) if result.consensus_reached else None
-
-        # Get topic from environment
-        topic = getattr(ctx.env, "task", None)
-
-        try:
-            # Extract knowledge using mound's extraction mixin
-            extraction_result = await self.knowledge_mound.extract_from_debate(
-                debate_id=ctx.debate_id,
-                messages=extraction_messages,
-                consensus_text=consensus_text,
-                topic=topic,
-            )
-
-            claims_count = len(extraction_result.claims) if extraction_result.claims else 0
-            rels_count = (
-                len(extraction_result.relationships) if extraction_result.relationships else 0
-            )
-
-            logger.info(
-                "[knowledge_extraction] Extracted %d claims and %d relationships from debate %s",
-                claims_count,
-                rels_count,
-                ctx.debate_id,
-            )
-
-            # Optionally promote high-confidence claims to mound
-            if claims_count > 0 and hasattr(self.knowledge_mound, "promote_extracted_knowledge"):
-                workspace_id = getattr(ctx, "workspace_id", "default")
-                promoted = await self.knowledge_mound.promote_extracted_knowledge(
-                    workspace_id=workspace_id,
-                    claims=extraction_result.claims,
-                    min_confidence=self.extraction_promote_threshold,
-                )
-                if promoted > 0:
-                    logger.info(
-                        "[knowledge_extraction] Promoted %d claims to Knowledge Mound",
-                        promoted,
-                    )
-
-        except (TypeError, ValueError, AttributeError, RuntimeError) as e:
-            logger.warning("[knowledge_extraction] Failed to extract knowledge: %s", e)
-        except Exception as e:  # noqa: BLE001 - phase isolation
-            # Catch-all for unexpected errors; don't fail the feedback phase
-            logger.error("[knowledge_extraction] Unexpected error during extraction: %s", e)
+        """Extract knowledge from debate. Delegates to KnowledgeFeedback."""
+        await self._knowledge_feedback.extract_knowledge_from_debate(ctx)
 
     async def _store_evidence_in_mound(self, ctx: DebateContext) -> None:
-        """Store collected evidence in Knowledge Mound via EvidenceBridge.
-
-        Persists evidence gathered during the debate (sources, quotes, data)
-        in the Knowledge Mound so it can inform future debates on related topics.
-        """
-        if not self.knowledge_bridge_hub:
-            return
-
-        evidence_items = getattr(ctx, "collected_evidence", [])
-        if not evidence_items:
-            return
-
-        try:
-            evidence_bridge = self.knowledge_bridge_hub.evidence
-            stored_count = 0
-
-            for evidence in evidence_items:
-                try:
-                    await evidence_bridge.store_from_collector_evidence(evidence)
-                    stored_count += 1
-                except (TypeError, ValueError, AttributeError) as e:
-                    logger.debug("[evidence] Failed to store single item: %s", e)
-
-            if stored_count > 0:
-                logger.info(
-                    "[evidence] Stored %d/%d evidence items in mound for debate %s",
-                    stored_count,
-                    len(evidence_items),
-                    ctx.debate_id,
-                )
-
-        except (TypeError, ValueError, AttributeError, RuntimeError) as e:
-            logger.warning("[evidence] Failed to store evidence: %s", e)
+        """Store evidence in mound. Delegates to KnowledgeFeedback."""
+        await self._knowledge_feedback.store_evidence_in_mound(ctx)
 
     async def _observe_debate_culture(self, ctx: DebateContext) -> None:
-        """Observe debate for organizational culture patterns.
-
-        Extracts patterns from debate outcomes to build institutional knowledge
-        about effective debate strategies, common arguments, and consensus patterns.
-        This feeds into the CultureAccumulator for organizational learning.
-        """
-        if not self.knowledge_mound or not ctx.result:
-            return
-
-        try:
-            # Check if the knowledge mound has observe_debate method
-            if not hasattr(self.knowledge_mound, "observe_debate"):
-                return
-
-            patterns = await self.knowledge_mound.observe_debate(ctx.result)
-
-            if patterns:
-                logger.info(
-                    "[culture] Extracted %d patterns from debate %s",
-                    len(patterns),
-                    ctx.debate_id,
-                )
-
-        except (TypeError, ValueError, AttributeError, RuntimeError) as e:
-            logger.debug("[culture] Pattern observation failed: %s", e)
+        """Observe debate culture. Delegates to KnowledgeFeedback."""
+        await self._knowledge_feedback.observe_debate_culture(ctx)
 
     async def _maybe_trigger_broadcast(self, ctx: DebateContext) -> None:
         """Trigger broadcast for high-quality debates.
@@ -1421,351 +1159,32 @@ class FeedbackPhase:
             logger.debug("Risk assessment error: %s", e)
 
     def _record_calibration(self, ctx: DebateContext) -> None:
-        """Record calibration data from agent votes with confidence.
-
-        Tracks (confidence, outcome) pairs for measuring prediction accuracy.
-        Each vote with confidence is recorded as a calibration data point,
-        comparing the voted choice against the actual debate winner.
-        """
-        if not self.calibration_tracker:
-            return
-
-        result = ctx.result
-        if not result:
-            return
-
-        # Determine the actual outcome
-        actual_winner = result.winner or "no_consensus"
-
-        try:
-            # Record each vote with confidence as a calibration data point
-            recorded = 0
-            for vote in result.votes:
-                # Check if vote has confidence attribute
-                confidence = getattr(vote, "confidence", None)
-                if confidence is None:
-                    continue
-
-                # Determine if the prediction was correct
-                # A vote is "correct" if the voted choice matches the actual winner
-                correct = vote.choice == actual_winner
-
-                # Record the prediction with correct parameter names
-                self.calibration_tracker.record_prediction(
-                    agent=vote.agent,
-                    confidence=confidence,
-                    correct=correct,
-                    debate_id=getattr(result, "debate_id", ""),
-                )
-                recorded += 1
-
-            if recorded > 0:
-                logger.debug("[calibration] Recorded %s predictions", recorded)
-                # Emit CALIBRATION_UPDATE event for real-time panel updates
-                self._emit_calibration_update(ctx, recorded)
-        except (TypeError, ValueError, AttributeError, KeyError, RuntimeError) as e:
-            logger.warning("[calibration] Failed to record: %s", e)
+        """Record calibration data. Delegates to CalibrationFeedback."""
+        self._calibration_feedback.record_calibration(ctx)
 
     def _emit_calibration_update(self, ctx: DebateContext, recorded_count: int) -> None:
-        """Emit CALIBRATION_UPDATE event to WebSocket."""
-        if not self.event_emitter or not self.calibration_tracker:
-            return
-
-        try:
-            from aragora.events.types import StreamEvent, StreamEventType
-
-            # Get summary stats from calibration tracker
-            summary = {}
-            if hasattr(self.calibration_tracker, "get_summary"):
-                summary = self.calibration_tracker.get_summary()
-
-            self.event_emitter.emit(
-                StreamEvent(
-                    type=StreamEventType.CALIBRATION_UPDATE,
-                    loop_id=self.loop_id,
-                    data={
-                        "debate_id": ctx.debate_id,
-                        "predictions_recorded": recorded_count,
-                        "total_predictions": summary.get("total_predictions", 0),
-                        "overall_accuracy": summary.get("overall_accuracy", 0.0),
-                        "domain": ctx.domain,
-                    },
-                )
-            )
-        except (TypeError, ValueError, AttributeError, KeyError) as e:
-            logger.debug("Calibration event emission error: %s", e)
+        """Emit CALIBRATION_UPDATE event. Delegates to CalibrationFeedback."""
+        self._calibration_feedback._emit_calibration_update(ctx, recorded_count)
 
     def _apply_calibration_feedback(self, ctx: DebateContext) -> None:
-        """Apply bidirectional calibration adjustment based on consensus alignment.
-
-        Agents who vote correctly with high confidence get a positive adjustment.
-        Agents who vote incorrectly with high confidence get a negative adjustment.
-        This creates a feedback loop that rewards well-calibrated agents.
-        """
-        if not self.calibration_tracker:
-            return
-
-        result = ctx.result
-        if not result:
-            return
-
-        # Skip if no consensus was reached
-        if not result.consensus_reached:
-            return
-
-        actual_winner = result.winner
-        if not actual_winner:
-            return
-
-        try:
-            for vote in result.votes:
-                confidence = getattr(vote, "confidence", None)
-                if confidence is None or confidence <= 0.7:
-                    continue
-
-                canonical = ctx.choice_mapping.get(vote.choice, vote.choice)
-                voted_correctly = canonical == actual_winner
-
-                if voted_correctly:
-                    adjustment = 0.02 * confidence
-                else:
-                    adjustment = -0.03 * confidence
-
-                # Use record_prediction with the adjustment encoded as a calibration signal
-                self.calibration_tracker.record_prediction(
-                    agent=vote.agent,
-                    confidence=confidence,
-                    correct=voted_correctly,
-                    domain=ctx.domain,
-                    debate_id=getattr(result, "debate_id", ctx.debate_id),
-                    prediction_type="consensus_feedback",
-                )
-
-                logger.debug(
-                    "[calibration_feedback] %s: %+.3f (confidence=%.2f, correct=%s)",
-                    vote.agent,
-                    adjustment,
-                    confidence,
-                    voted_correctly,
-                )
-        except (TypeError, ValueError, AttributeError, KeyError) as e:
-            logger.warning("[calibration_feedback] Failed: %s", e)
+        """Apply calibration feedback. Delegates to CalibrationFeedback."""
+        self._calibration_feedback.apply_calibration_feedback(ctx)
 
     def _record_consensus_calibration(self, ctx: DebateContext) -> None:
-        """Record auto-calibration from consensus alignment.
-
-        Every debate is a calibration event: each agent's final position
-        is implicitly a prediction about the outcome. Agents whose proposals
-        aligned with the eventual consensus were "correct"; those whose
-        proposals diverged were "incorrect".
-
-        This records domain-specific calibration predictions for ALL
-        participating agents, not just those who explicitly voted with
-        confidence. Over time, the system learns which agents are
-        reliable on which domains without requiring explicit tournaments.
-        """
-        if not self.calibration_tracker:
-            return
-
-        result = ctx.result
-        if not result or not result.consensus_reached:
-            return
-
-        winner = result.winner
-        if not winner:
-            return
-
-        try:
-            recorded = 0
-            for agent in ctx.agents:
-                # Determine if this agent's position aligned with consensus
-                # Check proposals for this agent
-                agent_proposals = [
-                    p for p in (result.proposals or [])
-                    if getattr(p, "agent", None) == agent.name
-                ]
-                if not agent_proposals:
-                    continue
-
-                # Agent aligned with consensus if they proposed the winning position
-                # or if they voted for the winner
-                aligned = agent.name == winner
-                # Also check votes
-                for vote in result.votes:
-                    if vote.agent == agent.name:
-                        canonical = ctx.choice_mapping.get(vote.choice, vote.choice)
-                        if canonical == winner:
-                            aligned = True
-                        break
-
-                # Estimate implicit confidence from proposal strength
-                implicit_confidence = 0.6  # baseline
-
-                self.calibration_tracker.record_prediction(
-                    agent=agent.name,
-                    confidence=implicit_confidence,
-                    correct=aligned,
-                    domain=ctx.domain,
-                    debate_id=ctx.debate_id,
-                    prediction_type="consensus_alignment",
-                )
-                recorded += 1
-
-            if recorded > 0:
-                logger.debug(
-                    "[auto_calibration] Recorded %d consensus alignment predictions "
-                    "(domain=%s)",
-                    recorded,
-                    ctx.domain,
-                )
-        except (TypeError, ValueError, AttributeError, KeyError) as e:
-            logger.debug("[auto_calibration] Failed: %s", e)
+        """Record consensus calibration. Delegates to CalibrationFeedback."""
+        self._calibration_feedback.record_consensus_calibration(ctx)
 
     def _update_calibration_feedback(self, ctx: DebateContext) -> None:
-        """Close the calibration feedback loop for agent selection.
-
-        For each participating agent, computes prediction accuracy against the
-        debate outcome, updates their Brier scores via the CalibrationTracker,
-        and stores the calibration delta in KnowledgeMound via the
-        CalibrationFusionAdapter so the agent selection system can incorporate
-        calibration quality into future team composition.
-
-        This bridges the gap between calibration tracking (which records data)
-        and agent selection (which uses calibration for team building).
-        """
-        if not self.calibration_tracker:
-            return
-
-        result = ctx.result
-        if not result or not result.consensus_reached:
-            return
-
-        actual_winner = result.winner
-        if not actual_winner:
-            return
-
-        try:
-            calibration_deltas: dict[str, dict[str, float]] = {}
-
-            for agent in ctx.agents:
-                agent_name = agent.name
-
-                # Compute prediction accuracy for this agent:
-                # Did they vote for the winning position?
-                predicted_correctly = False
-                agent_confidence = 0.5  # default if no vote found
-
-                for vote in result.votes:
-                    if vote.agent == agent_name:
-                        confidence = getattr(vote, "confidence", None)
-                        if confidence is not None:
-                            agent_confidence = confidence
-                        canonical = ctx.choice_mapping.get(vote.choice, vote.choice)
-                        predicted_correctly = canonical == actual_winner
-                        break
-
-                # Compute Brier score component: (confidence - outcome)^2
-                outcome = 1.0 if predicted_correctly else 0.0
-                brier_component = (agent_confidence - outcome) ** 2
-
-                # Get previous Brier score for delta computation
-                previous_brier = 0.5  # default baseline
-                if hasattr(self.calibration_tracker, "get_brier_score"):
-                    try:
-                        previous_brier = self.calibration_tracker.get_brier_score(
-                            agent_name, domain=ctx.domain
-                        )
-                    except (KeyError, TypeError, ValueError):
-                        pass
-
-                # Record the prediction to update the tracker's running score
-                self.calibration_tracker.record_prediction(
-                    agent=agent_name,
-                    confidence=agent_confidence,
-                    correct=predicted_correctly,
-                    domain=ctx.domain,
-                    debate_id=ctx.debate_id,
-                    prediction_type="selection_feedback",
-                )
-
-                # Compute new Brier score after update
-                new_brier = previous_brier  # default if can't query
-                if hasattr(self.calibration_tracker, "get_brier_score"):
-                    try:
-                        new_brier = self.calibration_tracker.get_brier_score(
-                            agent_name, domain=ctx.domain
-                        )
-                    except (KeyError, TypeError, ValueError):
-                        pass
-
-                calibration_deltas[agent_name] = {
-                    "brier_before": previous_brier,
-                    "brier_after": new_brier,
-                    "brier_delta": new_brier - previous_brier,
-                    "brier_component": brier_component,
-                    "predicted_correctly": float(predicted_correctly),
-                    "confidence": agent_confidence,
-                }
-
-            if not calibration_deltas:
-                return
-
-            # Store calibration deltas in KnowledgeMound via CalibrationFusionAdapter
-            if self.knowledge_mound:
-                self._store_calibration_in_mound(ctx, calibration_deltas)
-
-            logger.info(
-                "[calibration_feedback] Updated Brier scores for %d agents "
-                "(debate=%s, domain=%s)",
-                len(calibration_deltas),
-                ctx.debate_id,
-                ctx.domain,
-            )
-
-        except (TypeError, ValueError, AttributeError, KeyError, RuntimeError) as e:
-            logger.warning("[calibration_feedback] Update failed: %s", e)
+        """Update calibration feedback. Delegates to CalibrationFeedback."""
+        self._calibration_feedback.update_calibration_feedback(ctx)
 
     def _store_calibration_in_mound(
         self,
         ctx: DebateContext,
         calibration_deltas: dict[str, dict[str, float]],
     ) -> None:
-        """Store calibration deltas in KnowledgeMound for cross-debate learning.
-
-        Uses the knowledge_mound's store method (if available) to persist
-        calibration feedback so future debates can factor in historical
-        agent reliability when selecting teams.
-        """
-        if not self.knowledge_mound:
-            return
-
-        try:
-            record = {
-                "type": "calibration_feedback",
-                "debate_id": ctx.debate_id,
-                "domain": ctx.domain,
-                "agent_deltas": calibration_deltas,
-                "consensus_reached": True,
-                "winner": ctx.result.winner if ctx.result else None,
-            }
-
-            if hasattr(self.knowledge_mound, "store_calibration_feedback"):
-                self.knowledge_mound.store_calibration_feedback(record)
-            elif hasattr(self.knowledge_mound, "store"):
-                self.knowledge_mound.store(
-                    key=f"calibration:{ctx.debate_id}",
-                    value=record,
-                    category="calibration_feedback",
-                )
-
-            logger.debug(
-                "[calibration_feedback] Stored calibration deltas in KnowledgeMound "
-                "for %d agents",
-                len(calibration_deltas),
-            )
-
-        except (TypeError, ValueError, AttributeError, RuntimeError) as e:
-            logger.debug("[calibration_feedback] Mound storage failed: %s", e)
+        """Store calibration in mound. Delegates to CalibrationFeedback."""
+        self._calibration_feedback._store_calibration_in_mound(ctx, calibration_deltas)
 
     def _record_pulse_outcome(self, ctx: DebateContext) -> None:
         """Record pulse outcome if the debate was on a trending topic.
@@ -1805,33 +1224,8 @@ class FeedbackPhase:
             logger.warning("[pulse] Failed to record outcome: %s", e)
 
     def _run_memory_cleanup(self, ctx: DebateContext) -> None:
-        """Run periodic memory cleanup to prevent unbounded growth.
-
-        Cleans up expired memories and enforces tier limits. This activates
-        the previously stranded cleanup functionality in ContinuumMemory.
-
-        Cleanup runs:
-        - cleanup_expired_memories(): Every debate
-        - enforce_tier_limits(): 10% of debates (probabilistic)
-        """
-        if not self.continuum_memory:
-            return
-
-        import random
-
-        try:
-            # Always try to clean expired memories
-            cleaned = self.continuum_memory.cleanup_expired_memories()
-            if cleaned > 0:
-                logger.debug("[memory] Cleaned %s expired memories", cleaned)
-
-            # Probabilistically enforce tier limits (10% of debates)
-            if random.random() < 0.1:
-                self.continuum_memory.enforce_tier_limits()
-                logger.debug("[memory] Enforced tier limits")
-
-        except (TypeError, ValueError, AttributeError, OSError, RuntimeError) as e:
-            logger.debug("[memory] Cleanup error (non-fatal): %s", e)
+        """Run memory cleanup. Delegates to MemoryFeedback."""
+        self._memory_feedback.run_memory_cleanup(ctx)
 
     # =========================================================================
     # ELO Feedback Methods (delegated to EloFeedback helper)
@@ -2022,9 +1416,7 @@ class FeedbackPhase:
         except (TypeError, ValueError, AttributeError, RuntimeError) as e:
             logger.warning("PostDebateCoordinator failed: %s", e)
 
-    async def _store_pending_plan(
-        self, ctx: DebateContext, plan_data: dict[str, Any]
-    ) -> None:
+    async def _store_pending_plan(self, ctx: DebateContext, plan_data: dict[str, Any]) -> None:
         """Store a plan created by PostDebateCoordinator for later execution.
 
         Plans that aren't auto-executed get persisted to the PlanStore
@@ -2263,92 +1655,16 @@ class FeedbackPhase:
             logger.warning("Flip event emission error: %s", e)
 
     def _store_memory(self, ctx: DebateContext) -> None:
-        """Store debate outcome in ContinuumMemory."""
-        if not self.continuum_memory:
-            return
-
-        result = ctx.result
-        if not result.final_answer:
-            return
-
-        if self._store_debate_outcome_as_memory:
-            self._store_debate_outcome_as_memory(result)
+        """Store memory. Delegates to MemoryFeedback."""
+        self._memory_feedback.store_memory(ctx)
 
     def _update_memory_outcomes(self, ctx: DebateContext) -> None:
-        """Update retrieved memories based on debate outcome."""
-        if not self.continuum_memory:
-            return
-
-        if self._update_continuum_memory_outcomes:
-            self._update_continuum_memory_outcomes(ctx.result)
+        """Update memory outcomes. Delegates to MemoryFeedback."""
+        self._memory_feedback.update_memory_outcomes(ctx)
 
     def _absorb_into_epistemic_graph(self, ctx: DebateContext) -> None:
-        """Absorb consensus outcome into the cross-debate epistemic graph.
-
-        Converts debate consensus into inherited beliefs that can seed
-        future debates on related topics, enabling organizational memory.
-        """
-        result = ctx.result
-        if not result:
-            return
-
-        final_answer = getattr(result, "final_answer", "")
-        if not final_answer:
-            return
-
-        try:
-            from aragora.reasoning.epistemic_graph import get_epistemic_graph
-
-            graph = get_epistemic_graph()
-            confidence = getattr(result, "confidence", 0.0)
-            if confidence < 0.3:  # Don't absorb low-confidence outcomes
-                return
-
-            # Collect supporting/dissenting agents from votes
-            supporting: list[str] = []
-            dissenting: list[str] = []
-            winner = getattr(result, "winner", None)
-            for vote in getattr(result, "votes", []):
-                agent_name = getattr(vote, "voter", getattr(vote, "agent", ""))
-                choice = getattr(vote, "choice", "")
-                if choice == winner:
-                    supporting.append(agent_name)
-                elif agent_name:
-                    dissenting.append(agent_name)
-
-            # Absorb main consensus
-            graph.absorb_consensus(
-                debate_id=ctx.debate_id,
-                final_claim=final_answer[:500],  # Truncate long answers
-                confidence=confidence,
-                domain=ctx.domain or "",
-                supporting_agents=supporting,
-                dissenting_agents=dissenting,
-            )
-
-            # Absorb dissent records if available
-            dissent_records = getattr(result, "dissent_records", [])
-            for dissent in dissent_records:
-                agent = getattr(dissent, "agent", "")
-                statement = getattr(dissent, "alternative_view", "")
-                severity = getattr(dissent, "severity", 0.5)
-                if statement:
-                    graph.absorb_dissent(
-                        debate_id=ctx.debate_id,
-                        dissent_statement=statement,
-                        dissenting_agent=agent,
-                        severity=severity,
-                        domain=ctx.domain or "",
-                    )
-
-            logger.debug(
-                "epistemic_graph_absorb debate=%s supporters=%d dissenters=%d",
-                ctx.debate_id, len(supporting), len(dissenting),
-            )
-        except ImportError:
-            logger.debug("EpistemicGraph not available")
-        except (TypeError, ValueError, AttributeError, RuntimeError) as e:
-            logger.warning("EpistemicGraph absorption failed: %s", e)
+        """Absorb into epistemic graph. Delegates to MemoryFeedback."""
+        self._memory_feedback.absorb_into_epistemic_graph(ctx)
 
     # =========================================================================
     # Evolution Feedback Methods (delegated to EvolutionFeedback helper)
@@ -2423,9 +1739,7 @@ class FeedbackPhase:
                 # Look up current fitness from population manager
                 if self.population_manager:
                     try:
-                        pop = self.population_manager.get_or_create_population(
-                            [agent.name]
-                        )
+                        pop = self.population_manager.get_or_create_population([agent.name])
                         genome = pop.get_by_id(genome_id) if pop else None
                         if genome:
                             self.genesis_ledger.record_fitness_update(
@@ -2470,7 +1784,6 @@ class FeedbackPhase:
         if not result:
             return
 
-
         for agent in ctx.agents:
             genome_id = getattr(agent, "genome_id", None)
             if not genome_id:
@@ -2478,18 +1791,14 @@ class FeedbackPhase:
 
             try:
                 # Get genome's domain expertise
-                pop = self.population_manager.get_or_create_population(
-                    [agent.name]
-                )
+                pop = self.population_manager.get_or_create_population([agent.name])
                 genome = pop.get_by_id(genome_id) if pop else None
                 if not genome:
                     continue
 
                 # Use genome expertise to check/promote specialist status
                 expertise = getattr(genome, "expertise", {}) or {}
-                top_domains = sorted(
-                    expertise.items(), key=lambda x: x[1], reverse=True
-                )[:3]
+                top_domains = sorted(expertise.items(), key=lambda x: x[1], reverse=True)[:3]
 
                 for dom, score in top_domains:
                     if score >= 0.7:

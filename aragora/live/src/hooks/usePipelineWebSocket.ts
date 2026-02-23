@@ -56,6 +56,14 @@ export interface PipelineGraphEvent {
   };
 }
 
+export interface PipelineStepProgressEvent {
+  step: string;
+  progress: number;
+  completed?: number;
+  total?: number;
+  current_task?: string;
+}
+
 export interface PipelineCompletionEvent {
   receipt?: Record<string, unknown>;
   error?: string;
@@ -82,6 +90,8 @@ export interface UsePipelineWebSocketOptions {
   onNodeAdded?: (event: PipelineNodeEvent) => void;
   /** Callback when a transition approval is pending */
   onTransitionPending?: (event: PipelineTransitionEvent) => void;
+  /** Callback when step progress is reported */
+  onStepProgress?: (event: PipelineStepProgressEvent) => void;
   /** Callback when the full graph is updated */
   onGraphUpdated?: (event: PipelineGraphEvent) => void;
   /** Callback when the pipeline completes */
@@ -117,6 +127,7 @@ export function usePipelineWebSocket({
   onStageCompleted,
   onNodeAdded,
   onTransitionPending,
+  onStepProgress,
   onGraphUpdated,
   onCompleted,
   onFailed,
@@ -182,6 +193,16 @@ export function usePipelineWebSocket({
           break;
         }
 
+        case 'pipeline_step_progress':
+          onStepProgress?.({
+            step: data.step as string,
+            progress: data.progress as number,
+            completed: data.completed as number | undefined,
+            total: data.total as number | undefined,
+            current_task: data.current_task as string | undefined,
+          });
+          break;
+
         case 'pipeline_graph_updated':
           onGraphUpdated?.({
             graph: data.graph as PipelineGraphEvent['graph'],
@@ -202,7 +223,7 @@ export function usePipelineWebSocket({
           break;
       }
     },
-    [onStageStarted, onStageCompleted, onNodeAdded, onTransitionPending, onGraphUpdated, onCompleted, onFailed],
+    [onStageStarted, onStageCompleted, onNodeAdded, onTransitionPending, onStepProgress, onGraphUpdated, onCompleted, onFailed],
   );
 
   const { status, error, isConnected, reconnect, disconnect, send } =

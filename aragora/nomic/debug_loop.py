@@ -161,7 +161,9 @@ class DebugLoop:
                         if commit_result.returncode == 0:
                             subprocess.run(
                                 [
-                                    "git", "commit", "-m",
+                                    "git",
+                                    "commit",
+                                    "-m",
                                     f"debug-loop: {subtask_id[:40]}",
                                 ],
                                 capture_output=True,
@@ -183,9 +185,7 @@ class DebugLoop:
 
             # Build retry prompt with failure context
             if attempt_num < self.config.max_retries:
-                current_prompt = self._build_retry_prompt(
-                    instruction, attempt
-                )
+                current_prompt = self._build_retry_prompt(instruction, attempt)
 
         if not result.success:
             # Record final state even on failure
@@ -230,10 +230,7 @@ class DebugLoop:
         attempt.tests_passed = test_result.get("passed", 0)
         attempt.tests_failed = test_result.get("failed", 0)
         attempt.test_output = test_result.get("output", "")
-        attempt.success = (
-            attempt.tests_failed == 0
-            and attempt.tests_passed > 0
-        )
+        attempt.success = attempt.tests_failed == 0 and attempt.tests_passed > 0
 
         return attempt
 
@@ -257,6 +254,7 @@ class DebugLoop:
                 ClaudeCodeConfig,
                 ClaudeCodeHarness,
             )
+            from aragora.harnesses.base import HarnessError
 
             config = ClaudeCodeConfig(
                 timeout_seconds=self.config.agent_timeout,
@@ -273,7 +271,7 @@ class DebugLoop:
         except ImportError as exc:
             logger.debug("ClaudeCodeHarness unavailable: %s", exc)
             return "", ""
-        except (RuntimeError, OSError, asyncio.TimeoutError) as exc:
+        except (RuntimeError, OSError, asyncio.TimeoutError, HarnessError) as exc:
             logger.warning("Agent execution failed: %s", exc)
             return "", str(exc)
 
@@ -335,20 +333,14 @@ class DebugLoop:
         # Truncate test output to configured max
         test_output = failed_attempt.test_output
         if len(test_output) > self.config.max_failure_context_chars:
-            test_output = (
-                test_output[: self.config.max_failure_context_chars]
-                + "\n... [truncated]"
-            )
+            test_output = test_output[: self.config.max_failure_context_chars] + "\n... [truncated]"
 
         # Include diff of what the previous attempt changed
         diff_section = ""
         if failed_attempt.diff_context:
             diff_text = failed_attempt.diff_context
             if len(diff_text) > self.config.max_failure_context_chars:
-                diff_text = (
-                    diff_text[: self.config.max_failure_context_chars]
-                    + "\n... [truncated]"
-                )
+                diff_text = diff_text[: self.config.max_failure_context_chars] + "\n... [truncated]"
             diff_section = f"""
 CHANGES MADE SO FAR (git diff):
 ```diff

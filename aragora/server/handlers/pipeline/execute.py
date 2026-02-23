@@ -218,17 +218,43 @@ class PipelineExecuteHandler(BaseHandler):
         require_approval: bool,
     ) -> None:
         """Execute pipeline goals via SelfImprovePipeline in background."""
+        # Wire WebSocket emitter for real-time progress
+        emitter = _get_emitter()
+
         try:
             from aragora.nomic.self_improve import SelfImproveConfig, SelfImprovePipeline
 
+            if emitter:
+                await emitter.emit_started(
+                    pipeline_id,
+                    {
+                        "cycle_id": cycle_id,
+                        "goal_count": len(goals),
+                    },
+                )
+
             # Build combined goal description from all orchestration nodes
             combined_goal = "; ".join(g.description for g in goals[:10])
+
+            # Create progress callback that bridges to WebSocket events
+            event_callback = emitter.as_event_callback(pipeline_id) if emitter else None
+
+            def progress_callback(event: str, data: dict[str, Any]) -> None:
+                # Update in-memory execution state from progress events
+                if event == "stage_started":
+                    _executions[pipeline_id]["current_stage"] = data.get("stage", "")
+                elif event == "step_progress":
+                    _executions[pipeline_id]["progress"] = data.get("progress", 0)
+                # Forward to WebSocket emitter
+                if event_callback:
+                    event_callback(event, data)
 
             config = SelfImproveConfig(
                 budget_limit_usd=budget_limit or 10.0,
                 require_approval=require_approval,
                 autonomous=not require_approval,
                 max_goals=len(goals),
+                progress_callback=progress_callback,
             )
             pipeline = SelfImprovePipeline(config=config)
             result = await pipeline.run(combined_goal)
@@ -242,6 +268,13 @@ class PipelineExecuteHandler(BaseHandler):
                     "failed_subtasks": result.subtasks_failed,
                 }
             )
+
+            if emitter:
+                final_status = _executions[pipeline_id]["status"]
+                if final_status == "completed":
+                    await emitter.emit_completed(pipeline_id, _executions[pipeline_id])
+                else:
+                    await emitter.emit_failed(pipeline_id, "No subtasks completed")
 
             # Generate provenance receipt
             try:
@@ -258,6 +291,8 @@ class PipelineExecuteHandler(BaseHandler):
                     "completed_at": datetime.now(timezone.utc).isoformat(),
                 }
             )
+            if emitter:
+                await emitter.emit_failed(pipeline_id, "Pipeline cancelled")
         except ImportError:
             logger.debug("SelfImprovePipeline not available")
             _executions[pipeline_id].update(
@@ -267,6 +302,8 @@ class PipelineExecuteHandler(BaseHandler):
                     "completed_at": datetime.now(timezone.utc).isoformat(),
                 }
             )
+            if emitter:
+                await emitter.emit_failed(pipeline_id, "Self-improvement pipeline not available")
         except (RuntimeError, ValueError, TypeError, OSError) as e:
             logger.error("Pipeline execution failed: %s", type(e).__name__)
             _executions[pipeline_id].update(
@@ -276,5 +313,17 @@ class PipelineExecuteHandler(BaseHandler):
                     "completed_at": datetime.now(timezone.utc).isoformat(),
                 }
             )
+            if emitter:
+                await emitter.emit_failed(pipeline_id, "Pipeline execution failed")
         finally:
             _execution_tasks.pop(pipeline_id, None)
+
+
+def _get_emitter() -> Any:
+    """Get the pipeline stream emitter, or None if unavailable."""
+    try:
+        from aragora.server.stream.pipeline_stream import get_pipeline_emitter
+
+        return get_pipeline_emitter()
+    except (ImportError, RuntimeError):
+        return None

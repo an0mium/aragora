@@ -203,6 +203,7 @@ class ReceiptsHandler(BaseHandler):
         "/api/v2/receipts/*",
         "/api/v2/receipts/search",
         "/api/v2/receipts/stats",
+        "/api/v1/receipts/*/deliver",
     ]
 
     def __init__(self, server_context: dict[str, Any]):
@@ -239,6 +240,9 @@ class ReceiptsHandler(BaseHandler):
         """Check if this handler can process the request."""
         if path.startswith("/api/v2/receipts"):
             return method in ("GET", "POST")
+        # v1 delivery bridge for frontend DeliveryModal
+        if path.startswith("/api/v1/receipts/") and path.endswith("/deliver"):
+            return method == "POST"
         return False
 
     @rate_limit(requests_per_minute=60)
@@ -291,6 +295,27 @@ class ReceiptsHandler(BaseHandler):
             if path.startswith("/api/v2/receipts/share/") and method == "GET":
                 token = path.split("/api/v2/receipts/share/")[1].rstrip("/")
                 return await self._get_shared_receipt(token, query_params, headers)
+
+            # v1 delivery bridge: POST /api/v1/receipts/{id}/deliver
+            # Maps frontend DeliveryModal calls to v2 send-to-channel logic
+            if (
+                path.startswith("/api/v1/receipts/")
+                and path.endswith("/deliver")
+                and method == "POST"
+            ):
+                parts_v1 = path.split("/")
+                if len(parts_v1) >= 5:
+                    receipt_id_v1 = parts_v1[4]
+                    # Map frontend 'channel' field to v2 'channel_type'
+                    delivery_body = {
+                        "channel_type": body.get("channel_type") or body.get("channel"),
+                        "channel_id": body.get("channel_id") or body.get("destination"),
+                        "workspace_id": body.get("workspace_id"),
+                        "options": body.get("options", {}),
+                    }
+                    if body.get("message"):
+                        delivery_body["options"]["custom_message"] = body["message"]
+                    return await self._send_to_channel(receipt_id_v1, delivery_body)
 
             # List receipts
             if path == "/api/v2/receipts" and method == "GET":

@@ -86,7 +86,7 @@ class PipelineStreamEmitter:
         history = self._event_history.setdefault(pipeline_id, [])
         history.append(event_dict)
         if len(history) > self._max_history_per_pipeline:
-            self._event_history[pipeline_id] = history[-self._max_history_per_pipeline:]
+            self._event_history[pipeline_id] = history[-self._max_history_per_pipeline :]
 
         event_json = json.dumps(event_dict)
         disconnected: list[str] = []
@@ -109,53 +109,122 @@ class PipelineStreamEmitter:
     # Convenience methods for common events
 
     async def emit_started(
-        self, pipeline_id: str, config: dict[str, Any] | None = None,
+        self,
+        pipeline_id: str,
+        config: dict[str, Any] | None = None,
     ) -> None:
-        await self.emit(pipeline_id, StreamEventType.PIPELINE_STARTED, {
-            "config": config or {},
-        })
+        await self.emit(
+            pipeline_id,
+            StreamEventType.PIPELINE_STARTED,
+            {
+                "config": config or {},
+            },
+        )
 
     async def emit_stage_started(
-        self, pipeline_id: str, stage_name: str, config: dict[str, Any] | None = None,
+        self,
+        pipeline_id: str,
+        stage_name: str,
+        config: dict[str, Any] | None = None,
     ) -> None:
-        await self.emit(pipeline_id, StreamEventType.PIPELINE_STAGE_STARTED, {
-            "stage": stage_name, "config": config or {},
-        })
+        await self.emit(
+            pipeline_id,
+            StreamEventType.PIPELINE_STAGE_STARTED,
+            {
+                "stage": stage_name,
+                "config": config or {},
+            },
+        )
 
     async def emit_stage_completed(
-        self, pipeline_id: str, stage_name: str, summary: dict[str, Any] | None = None,
+        self,
+        pipeline_id: str,
+        stage_name: str,
+        summary: dict[str, Any] | None = None,
     ) -> None:
-        await self.emit(pipeline_id, StreamEventType.PIPELINE_STAGE_COMPLETED, {
-            "stage": stage_name, "summary": summary or {},
-        })
+        await self.emit(
+            pipeline_id,
+            StreamEventType.PIPELINE_STAGE_COMPLETED,
+            {
+                "stage": stage_name,
+                "summary": summary or {},
+            },
+        )
 
     async def emit_graph_updated(
-        self, pipeline_id: str, react_flow_data: dict[str, Any],
+        self,
+        pipeline_id: str,
+        react_flow_data: dict[str, Any],
     ) -> None:
-        await self.emit(pipeline_id, StreamEventType.PIPELINE_GRAPH_UPDATED, {
-            "graph": react_flow_data,
-        })
+        await self.emit(
+            pipeline_id,
+            StreamEventType.PIPELINE_GRAPH_UPDATED,
+            {
+                "graph": react_flow_data,
+            },
+        )
 
     async def emit_goal_extracted(
-        self, pipeline_id: str, goal_dict: dict[str, Any],
+        self,
+        pipeline_id: str,
+        goal_dict: dict[str, Any],
     ) -> None:
-        await self.emit(pipeline_id, StreamEventType.PIPELINE_GOAL_EXTRACTED, {
-            "goal": goal_dict,
-        })
+        await self.emit(
+            pipeline_id,
+            StreamEventType.PIPELINE_GOAL_EXTRACTED,
+            {
+                "goal": goal_dict,
+            },
+        )
 
     async def emit_workflow_generated(
-        self, pipeline_id: str, workflow_dict: dict[str, Any],
+        self,
+        pipeline_id: str,
+        workflow_dict: dict[str, Any],
     ) -> None:
-        await self.emit(pipeline_id, StreamEventType.PIPELINE_WORKFLOW_GENERATED, {
-            "workflow": workflow_dict,
-        })
+        await self.emit(
+            pipeline_id,
+            StreamEventType.PIPELINE_WORKFLOW_GENERATED,
+            {
+                "workflow": workflow_dict,
+            },
+        )
 
     async def emit_step_progress(
-        self, pipeline_id: str, step_name: str, progress: float,
+        self,
+        pipeline_id: str,
+        step_name: str,
+        progress: float,
     ) -> None:
-        await self.emit(pipeline_id, StreamEventType.PIPELINE_STEP_PROGRESS, {
-            "step": step_name, "progress": progress,
-        })
+        await self.emit(
+            pipeline_id,
+            StreamEventType.PIPELINE_STEP_PROGRESS,
+            {
+                "step": step_name,
+                "progress": progress,
+            },
+        )
+
+    async def emit_execution_progress(
+        self,
+        pipeline_id: str,
+        completed: int,
+        total: int,
+        current_task: str,
+    ) -> None:
+        """Emit structured execution progress via PIPELINE_STEP_PROGRESS."""
+        progress = completed / total if total > 0 else 0.0
+        await self.emit(
+            pipeline_id,
+            StreamEventType.PIPELINE_STEP_PROGRESS,
+            {
+                "step": current_task,
+                "progress": progress,
+                "completed": completed,
+                "total": total,
+                "current_task": current_task,
+            },
+        )
 
     async def emit_node_added(
         self,
@@ -165,13 +234,17 @@ class PipelineStreamEmitter:
         node_type: str,
         label: str,
     ) -> None:
-        await self.emit(pipeline_id, StreamEventType.PIPELINE_NODE_ADDED, {
-            "stage": stage,
-            "node_id": node_id,
-            "node_type": node_type,
-            "label": label,
-            "added_at": time.time(),
-        })
+        await self.emit(
+            pipeline_id,
+            StreamEventType.PIPELINE_NODE_ADDED,
+            {
+                "stage": stage,
+                "node_id": node_id,
+                "node_type": node_type,
+                "label": label,
+                "added_at": time.time(),
+            },
+        )
 
     async def emit_transition_pending(
         self,
@@ -181,25 +254,39 @@ class PipelineStreamEmitter:
         confidence: float,
         ai_rationale: str,
     ) -> None:
-        await self.emit(pipeline_id, StreamEventType.PIPELINE_TRANSITION_PENDING, {
-            "from_stage": from_stage,
-            "to_stage": to_stage,
-            "confidence": confidence,
-            "ai_rationale": ai_rationale,
-            "pending_at": time.time(),
-        })
+        await self.emit(
+            pipeline_id,
+            StreamEventType.PIPELINE_TRANSITION_PENDING,
+            {
+                "from_stage": from_stage,
+                "to_stage": to_stage,
+                "confidence": confidence,
+                "ai_rationale": ai_rationale,
+                "pending_at": time.time(),
+            },
+        )
 
     async def emit_completed(
-        self, pipeline_id: str, receipt_dict: dict[str, Any] | None = None,
+        self,
+        pipeline_id: str,
+        receipt_dict: dict[str, Any] | None = None,
     ) -> None:
-        await self.emit(pipeline_id, StreamEventType.PIPELINE_COMPLETED, {
-            "receipt": receipt_dict,
-        })
+        await self.emit(
+            pipeline_id,
+            StreamEventType.PIPELINE_COMPLETED,
+            {
+                "receipt": receipt_dict,
+            },
+        )
 
     async def emit_failed(self, pipeline_id: str, error: str) -> None:
-        await self.emit(pipeline_id, StreamEventType.PIPELINE_FAILED, {
-            "error": error,
-        })
+        await self.emit(
+            pipeline_id,
+            StreamEventType.PIPELINE_FAILED,
+            {
+                "error": error,
+            },
+        )
 
     def get_history(self, pipeline_id: str, limit: int = 100) -> list[dict[str, Any]]:
         """Get recent event history for a pipeline."""
@@ -211,6 +298,7 @@ class PipelineStreamEmitter:
 
         Creates a closure that schedules async emit calls on the running loop.
         """
+
         def callback(event_type: str, data: dict[str, Any]) -> None:
             type_map = {
                 "started": StreamEventType.PIPELINE_STARTED,
@@ -290,13 +378,15 @@ async def pipeline_websocket_handler(request: web.Request) -> web.WebSocketRespo
     emitter = get_pipeline_emitter()
     client_id = emitter.add_client(ws, pipeline_id, subscriptions)
 
-    await ws.send_json({
-        "type": "connected",
-        "client_id": client_id,
-        "pipeline_id": pipeline_id,
-        "subscriptions": list(subscriptions),
-        "timestamp": time.time(),
-    })
+    await ws.send_json(
+        {
+            "type": "connected",
+            "client_id": client_id,
+            "pipeline_id": pipeline_id,
+            "subscriptions": list(subscriptions),
+            "timestamp": time.time(),
+        }
+    )
 
     try:
         async for msg in ws:
@@ -323,11 +413,13 @@ async def pipeline_websocket_handler(request: web.Request) -> web.WebSocketRespo
                     elif msg_type == "get_history":
                         limit = data.get("limit", 100)
                         history = emitter.get_history(pipeline_id, limit)
-                        await ws.send_json({
-                            "type": "history",
-                            "events": history,
-                            "count": len(history),
-                        })
+                        await ws.send_json(
+                            {
+                                "type": "history",
+                                "events": history,
+                                "count": len(history),
+                            }
+                        )
 
                 except json.JSONDecodeError:
                     await ws.send_json({"type": "error", "message": "Invalid JSON"})

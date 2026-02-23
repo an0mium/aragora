@@ -895,7 +895,7 @@ class TestDebatePhasePostDebateHooks:
         """Should continue if hook raises exception."""
         from aragora.nomic.phases.debate import DebatePhase, PostDebateHooks
 
-        failing_hook = MagicMock(side_effect=Exception("Hook failed"))
+        failing_hook = MagicMock(side_effect=RuntimeError("Hook failed"))
 
         hooks = PostDebateHooks(on_consensus_stored=failing_hook)
 

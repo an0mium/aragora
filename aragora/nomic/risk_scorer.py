@@ -394,7 +394,15 @@ class RiskScorer:
         elif isinstance(complexity, (int, float)):
             complexity_score = int(complexity)
 
-        goal_text = f"{title}: {description}" if title else description
+        # Use only the title for keyword analysis to avoid false positives
+        # from raw codebase content (class names, docstrings) in descriptions.
+        # Fall back to first line of description if title is empty.
+        if title:
+            goal_text = title
+        else:
+            first_line = description.split("\n", 1)[0].strip()
+            goal_text = first_line or description
+
         return self.score_goal(
             goal=goal_text,
             file_scope=file_scope,
