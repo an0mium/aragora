@@ -419,6 +419,12 @@ ALLOWED_WITHOUT_RBAC = frozenset(
         "readiness_check",
         # Debate diagnostics mixin (read-only debug info, mixed into RBAC-protected handler)
         "debates/diagnostics",
+        # API documentation endpoints (public read-only, powers /api-docs page)
+        "api_docs",
+        # Knowledge velocity dashboard (read-only metrics, rate-limited)
+        "knowledge/velocity",
+        # Observability package re-export (dashboard.py has RBAC via SecureHandler)
+        "observability/__init__",
     }
 )
 
