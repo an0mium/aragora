@@ -404,7 +404,7 @@ export default function KnowledgeMoundPage() {
           </button>
           {/* View Toggle */}
           <div className="flex gap-1 border border-border rounded-lg overflow-hidden">
-            {(['list', 'graph', 'flow', 'adapters'] as const).map((mode) => (
+            {(['list', 'graph', 'flow', 'adapters', 'contradictions'] as const).map((mode) => (
               <button
                 key={mode}
                 onClick={() => setViewMode(mode)}
@@ -647,6 +647,11 @@ export default function KnowledgeMoundPage() {
         {/* View Mode Content */}
         {viewMode === 'flow' && <KnowledgeFlowDiagram />}
         {viewMode === 'adapters' && <AdapterHealthGrid />}
+        {viewMode === 'contradictions' && (
+          <PanelErrorBoundary panelName="Contradictions Browser">
+            <ContradictionsBrowser />
+          </PanelErrorBoundary>
+        )}
         {viewMode === 'graph' && (
           /* Graph View */
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
