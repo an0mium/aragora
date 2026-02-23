@@ -29,7 +29,7 @@ function MetricCard({ label, value, sub, color = 'acid-green' }: {
   return (
     <div className="p-4 bg-[var(--surface)] border border-[var(--border)]">
       <div className="font-mono text-xs text-[var(--text-muted)] mb-1">{label}</div>
-      <div className={`font-mono text-2xl text-[var(--${color})]`}>
+      <div className="font-mono text-2xl" style={{ color: `var(--${color})` }}>
         {typeof value === 'number' ? value.toLocaleString() : value}
       </div>
       {sub && <div className="font-mono text-xs text-[var(--text-muted)] mt-1">{sub}</div>}
