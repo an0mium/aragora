@@ -94,7 +94,18 @@ class QuickBooksConnector(BaseConnector):
         return os.environ.get("QUICKBOOKS_REALM_ID", "")
 
     async def search(self, query: str, limit: int = 10, **kwargs: Any) -> list[Evidence]:
-        """Search QuickBooks for invoices, payments, and reports."""
+        """Search QuickBooks for invoices and payments.
+
+        Args:
+            query: Search term (matched against DocNumber for invoices,
+                   or PaymentRefNum for payments).
+            limit: Maximum number of results to return.
+            **kwargs: Optional ``search_type`` ("invoices", "payments", or
+                      "all"). Defaults to "all".
+
+        Returns:
+            List of Evidence objects from matching QuickBooks records.
+        """
         if not self._configured:
             logger.debug("QuickBooks connector not configured")
             return []
@@ -103,85 +114,222 @@ class QuickBooksConnector(BaseConnector):
         if not sanitized.strip():
             return []
 
+        search_type = kwargs.get("search_type", "all")
         realm_id = self._get_realm_id()
-        sql_query = f"SELECT * FROM Invoice WHERE DocNumber LIKE '%{sanitized}%' MAXRESULTS {limit}"
-
-        async def _do_request() -> Any:
-            async with httpx.AsyncClient(timeout=30.0) as client:
-                resp = await client.get(
-                    f"{_QB_API_BASE}/v3/company/{realm_id}/query",
-                    headers=self._get_headers(),
-                    params={"query": sql_query},
-                )
-                resp.raise_for_status()
-                return resp.json()
-
-        try:
-            data = await self._request_with_retry(_do_request, "search")
-        except (ConnectorError, httpx.HTTPError, OSError, ValueError):
-            logger.warning("QuickBooks search failed", exc_info=True)
-            return []
-
         results: list[Evidence] = []
-        query_response = data.get("QueryResponse", {})
-        invoices = query_response.get("Invoice", [])
-        for inv in invoices[:limit]:
-            inv_id = inv.get("Id", "")
-            doc_num = inv.get("DocNumber", "")
-            total = inv.get("TotalAmt", 0)
-            customer = inv.get("CustomerRef", {}).get("name", "Unknown")
-            results.append(
-                Evidence(
-                    id=f"qb_inv_{inv_id}",
-                    source_type=self.source_type,
-                    source_id=f"quickbooks://invoices/{inv_id}",
-                    content=f"Invoice #{doc_num}: ${total} from {customer}",
-                    title=f"Invoice #{doc_num}",
-                    url=f"{_QB_API_BASE}/v3/company/{realm_id}/invoice/{inv_id}",
-                    confidence=0.7,
-                    freshness=1.0,
-                    authority=0.6,
-                    metadata={"invoice_id": inv_id, "amount": total, "customer": customer},
-                )
+
+        # --- Invoices ---
+        if search_type in ("all", "invoices"):
+            inv_limit = limit if search_type == "invoices" else max(1, limit // 2)
+            inv_sql = (
+                f"SELECT * FROM Invoice WHERE DocNumber LIKE '%{sanitized}%' "
+                f"MAXRESULTS {inv_limit}"
             )
-        return results
+
+            async def _invoice_request() -> Any:
+                async with httpx.AsyncClient(timeout=30.0) as client:
+                    resp = await client.get(
+                        f"{_QB_API_BASE}/v3/company/{realm_id}/query",
+                        headers=self._get_headers(),
+                        params={"query": inv_sql},
+                    )
+                    resp.raise_for_status()
+                    return resp.json()
+
+            try:
+                inv_data = await self._request_with_retry(_invoice_request, "search_invoices")
+                query_response = inv_data.get("QueryResponse", {})
+                for inv in query_response.get("Invoice", [])[:inv_limit]:
+                    inv_id = inv.get("Id", "")
+                    doc_num = inv.get("DocNumber", "")
+                    total = inv.get("TotalAmt", 0)
+                    customer = inv.get("CustomerRef", {}).get("name", "Unknown")
+                    due_date = inv.get("DueDate", "")
+                    balance = inv.get("Balance", 0)
+                    results.append(
+                        Evidence(
+                            id=f"qb_inv_{inv_id}",
+                            source_type=self.source_type,
+                            source_id=f"quickbooks://invoices/{inv_id}",
+                            content=(
+                                f"Invoice #{doc_num}: ${total} from {customer}"
+                                f" (balance: ${balance}, due: {due_date})"
+                            ),
+                            title=f"Invoice #{doc_num}",
+                            url=f"{_QB_API_BASE}/v3/company/{realm_id}/invoice/{inv_id}",
+                            confidence=0.7,
+                            freshness=1.0,
+                            authority=0.6,
+                            metadata={
+                                "type": "invoice",
+                                "invoice_id": inv_id,
+                                "doc_number": doc_num,
+                                "amount": total,
+                                "balance": balance,
+                                "customer": customer,
+                                "due_date": due_date,
+                            },
+                        )
+                    )
+            except (ConnectorError, httpx.HTTPError, OSError, ValueError):
+                logger.warning("QuickBooks invoice search failed", exc_info=True)
+
+        # --- Payments ---
+        if search_type in ("all", "payments"):
+            pmt_limit = limit if search_type == "payments" else max(1, limit // 2)
+            pmt_sql = (
+                f"SELECT * FROM Payment WHERE PaymentRefNum LIKE '%{sanitized}%' "
+                f"MAXRESULTS {pmt_limit}"
+            )
+
+            async def _payment_request() -> Any:
+                async with httpx.AsyncClient(timeout=30.0) as client:
+                    resp = await client.get(
+                        f"{_QB_API_BASE}/v3/company/{realm_id}/query",
+                        headers=self._get_headers(),
+                        params={"query": pmt_sql},
+                    )
+                    resp.raise_for_status()
+                    return resp.json()
+
+            try:
+                pmt_data = await self._request_with_retry(_payment_request, "search_payments")
+                query_response = pmt_data.get("QueryResponse", {})
+                for pmt in query_response.get("Payment", [])[:pmt_limit]:
+                    pmt_id = pmt.get("Id", "")
+                    ref_num = pmt.get("PaymentRefNum", "")
+                    total = pmt.get("TotalAmt", 0)
+                    customer = pmt.get("CustomerRef", {}).get("name", "Unknown")
+                    txn_date = pmt.get("TxnDate", "")
+                    results.append(
+                        Evidence(
+                            id=f"qb_pmt_{pmt_id}",
+                            source_type=self.source_type,
+                            source_id=f"quickbooks://payments/{pmt_id}",
+                            content=(
+                                f"Payment #{ref_num}: ${total} from {customer}"
+                                f" (date: {txn_date})"
+                            ),
+                            title=f"Payment #{ref_num}",
+                            url=f"{_QB_API_BASE}/v3/company/{realm_id}/payment/{pmt_id}",
+                            confidence=0.7,
+                            freshness=1.0,
+                            authority=0.6,
+                            metadata={
+                                "type": "payment",
+                                "payment_id": pmt_id,
+                                "ref_number": ref_num,
+                                "amount": total,
+                                "customer": customer,
+                                "txn_date": txn_date,
+                            },
+                        )
+                    )
+            except (ConnectorError, httpx.HTTPError, OSError, ValueError):
+                logger.warning("QuickBooks payment search failed", exc_info=True)
+
+        return results[:limit]
 
     async def fetch(self, evidence_id: str, **kwargs: Any) -> Evidence | None:
-        """Fetch a specific invoice or payment from QuickBooks."""
+        """Fetch a specific invoice or payment from QuickBooks.
+
+        The ``evidence_id`` should be in one of the following formats:
+        - ``qb_inv_<id>`` -- fetches an invoice
+        - ``qb_pmt_<id>`` -- fetches a payment
+        - A plain numeric ID is treated as an invoice for backward compat.
+        """
         if not self._configured:
             return None
 
+        cached = self._cache_get(evidence_id)
+        if cached is not None:
+            return cached
+
         realm_id = self._get_realm_id()
+
+        # Determine resource type from evidence_id prefix
+        if evidence_id.startswith("qb_pmt_"):
+            resource_type = "payment"
+            resource_id = evidence_id[len("qb_pmt_"):]
+        elif evidence_id.startswith("qb_inv_"):
+            resource_type = "invoice"
+            resource_id = evidence_id[len("qb_inv_"):]
+        else:
+            # Backward compat: bare ID assumed to be invoice
+            resource_type = "invoice"
+            resource_id = evidence_id
+
+        endpoint = f"{_QB_API_BASE}/v3/company/{realm_id}/{resource_type}/{resource_id}"
 
         async def _do_request() -> Any:
             async with httpx.AsyncClient(timeout=30.0) as client:
-                resp = await client.get(
-                    f"{_QB_API_BASE}/v3/company/{realm_id}/invoice/{evidence_id}",
-                    headers=self._get_headers(),
-                )
+                resp = await client.get(endpoint, headers=self._get_headers())
                 resp.raise_for_status()
                 return resp.json()
 
         try:
             data = await self._request_with_retry(_do_request, "fetch")
         except (ConnectorError, httpx.HTTPError, OSError, ValueError):
-            logger.warning("QuickBooks fetch failed", exc_info=True)
+            logger.warning("QuickBooks fetch failed for %s", evidence_id, exc_info=True)
             return None
 
-        inv = data.get("Invoice", {})
-        inv_id = inv.get("Id", evidence_id)
-        doc_num = inv.get("DocNumber", "")
-        total = inv.get("TotalAmt", 0)
-        customer = inv.get("CustomerRef", {}).get("name", "Unknown")
-        return Evidence(
-            id=f"qb_inv_{inv_id}",
-            source_type=self.source_type,
-            source_id=f"quickbooks://invoices/{inv_id}",
-            content=f"Invoice #{doc_num}: ${total} from {customer}",
-            title=f"Invoice #{doc_num}",
-            url=f"{_QB_API_BASE}/v3/company/{realm_id}/invoice/{inv_id}",
-            confidence=0.7,
-            freshness=1.0,
-            authority=0.6,
-            metadata={"invoice_id": inv_id, "amount": total, "customer": customer},
-        )
+        if resource_type == "payment":
+            pmt = data.get("Payment", {})
+            pmt_id = pmt.get("Id", resource_id)
+            ref_num = pmt.get("PaymentRefNum", "")
+            total = pmt.get("TotalAmt", 0)
+            customer = pmt.get("CustomerRef", {}).get("name", "Unknown")
+            txn_date = pmt.get("TxnDate", "")
+            evidence = Evidence(
+                id=f"qb_pmt_{pmt_id}",
+                source_type=self.source_type,
+                source_id=f"quickbooks://payments/{pmt_id}",
+                content=f"Payment #{ref_num}: ${total} from {customer} (date: {txn_date})",
+                title=f"Payment #{ref_num}",
+                url=f"{_QB_API_BASE}/v3/company/{realm_id}/payment/{pmt_id}",
+                confidence=0.7,
+                freshness=1.0,
+                authority=0.6,
+                metadata={
+                    "type": "payment",
+                    "payment_id": pmt_id,
+                    "ref_number": ref_num,
+                    "amount": total,
+                    "customer": customer,
+                    "txn_date": txn_date,
+                },
+            )
+        else:
+            inv = data.get("Invoice", {})
+            inv_id = inv.get("Id", resource_id)
+            doc_num = inv.get("DocNumber", "")
+            total = inv.get("TotalAmt", 0)
+            balance = inv.get("Balance", 0)
+            customer = inv.get("CustomerRef", {}).get("name", "Unknown")
+            due_date = inv.get("DueDate", "")
+            evidence = Evidence(
+                id=f"qb_inv_{inv_id}",
+                source_type=self.source_type,
+                source_id=f"quickbooks://invoices/{inv_id}",
+                content=(
+                    f"Invoice #{doc_num}: ${total} from {customer}"
+                    f" (balance: ${balance}, due: {due_date})"
+                ),
+                title=f"Invoice #{doc_num}",
+                url=f"{_QB_API_BASE}/v3/company/{realm_id}/invoice/{inv_id}",
+                confidence=0.7,
+                freshness=1.0,
+                authority=0.6,
+                metadata={
+                    "type": "invoice",
+                    "invoice_id": inv_id,
+                    "doc_number": doc_num,
+                    "amount": total,
+                    "balance": balance,
+                    "customer": customer,
+                    "due_date": due_date,
+                },
+            )
+
+        self._cache_put(evidence.id, evidence)
+        return evidence

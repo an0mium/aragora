@@ -267,7 +267,8 @@ class TestArenaOrchestration:
         cfg = PipelineConfig(use_arena_orchestration=True)
         task = {"id": "t1", "name": "Test task", "description": "Do something"}
 
-        with patch.dict("sys.modules", {"aragora.debate.orchestrator": None}):
+        with patch.dict("sys.modules", {"aragora.debate.orchestrator": None}), \
+             patch("aragora.harnesses.base.BaseHarness._validate_path"):
             result = await pipeline._execute_task(task, cfg)
             # Should fall through to DebugLoop or planned
             assert result["status"] in ("planned", "failed", "completed")
@@ -310,7 +311,8 @@ class TestHardenedOrchestratorBackend:
         )
         task = {"id": "t1", "name": "Test task", "description": "Do something"}
 
-        with patch.dict("sys.modules", {"aragora.nomic.hardened_orchestrator": None}):
+        with patch.dict("sys.modules", {"aragora.nomic.hardened_orchestrator": None}), \
+             patch("aragora.harnesses.base.BaseHarness._validate_path"):
             result = await pipeline._execute_task(task, cfg)
             # Falls through to DebugLoop or planned
             assert result["status"] in ("planned", "failed", "completed")

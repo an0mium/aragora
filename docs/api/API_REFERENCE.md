@@ -34,6 +34,7 @@ Both SDKs provide complete coverage of all API endpoints including:
 | [API_VERSIONING.md](./API_VERSIONING.md) | Version strategy | API migration planning |
 | [API_STABILITY.md](./API_STABILITY.md) | Stability guarantees | Production decisions |
 | [WEBSOCKET_EVENTS.md](../streaming/WEBSOCKET_EVENTS.md) | WebSocket event types | Real-time integration |
+| [MCP README](../../aragora/mcp/README.md) | MCP server tools and setup | AI tool integration via MCP |
 
 ## Endpoint Usage Status
 

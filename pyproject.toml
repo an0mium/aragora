@@ -60,6 +60,7 @@ dependencies = [
     "uvicorn[standard]>=0.27.0,<1.0",  # ASGI server for FastAPI
     "aragora-debate>=0.2.0,<1.0",  # Standalone debate engine (quickstart + playground)
     "python-multipart>=0.0.22",  # CVE-2026-24486 fix (transitive via fastapi/mcp)
+    "mcp>=1.0,<2.0",  # Model Context Protocol server for AI tool integration
 ]
 
 [project.optional-dependencies]
@@ -335,6 +336,7 @@ all = [
 
 [project.scripts]
 aragora = "aragora.cli.main:main"
+aragora-mcp = "aragora.mcp.server:main"
 gauntlet = "aragora.gauntlet.__main__:main"
 
 [project.urls]

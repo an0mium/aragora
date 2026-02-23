@@ -76,7 +76,7 @@ async def fetch_channel_context_tool(
     except (RuntimeError, OSError, ConnectionError, TimeoutError) as e:
         logger.error("Failed to fetch channel context: %s", e)
         return {
-            "error": str(e),
+            "error": "Failed to fetch channel context",
             "channel_id": channel_id,
             "platform": platform,
         }
@@ -146,7 +146,7 @@ async def fetch_debate_context_tool(
     except (RuntimeError, ValueError, OSError, ImportError) as e:
         logger.error("Failed to fetch debate context: %s", e)
         return {
-            "error": str(e),
+            "error": "Failed to fetch debate context",
             "debate_id": debate_id,
         }
 
@@ -250,7 +250,7 @@ async def get_thread_context_tool(
 
     except (RuntimeError, OSError, ConnectionError, TimeoutError) as e:
         logger.error("Failed to fetch thread context: %s", e)
-        return {"error": str(e), "thread_id": thread_id}
+        return {"error": "Failed to fetch thread context", "thread_id": thread_id}
 
 
 async def get_user_context_tool(
@@ -296,7 +296,7 @@ async def get_user_context_tool(
 
     except (RuntimeError, OSError, ConnectionError, TimeoutError) as e:
         logger.error("Failed to fetch user context: %s", e)
-        return {"error": str(e), "user_id": user_id}
+        return {"error": "Failed to fetch user context", "user_id": user_id}
 
 
 # Helper functions

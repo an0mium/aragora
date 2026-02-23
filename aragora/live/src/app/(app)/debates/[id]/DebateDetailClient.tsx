@@ -10,6 +10,7 @@ import { DecisionPackageView } from '@/components/debates/DecisionPackageView';
 import { CostBreakdown } from '@/components/debates/CostBreakdown';
 import { ArgumentGraph } from '@/components/debates/ArgumentGraph';
 import { ExplanationPanel } from '@/components/ExplanationPanel';
+import { RelatedKnowledge } from '@/components/debates/RelatedKnowledge';
 import { logger } from '@/utils/logger';
 
 type Tab = 'overview' | 'arguments' | 'graph' | 'receipt' | 'export';
@@ -154,6 +155,9 @@ export default function DebateDetailClient() {
             BACK TO ARCHIVE
           </Link>
         </div>
+      ),
+      activityContent: (
+        <RelatedKnowledge query={pkg.question} limit={5} />
       ),
     });
 

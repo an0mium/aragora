@@ -114,6 +114,10 @@ interface SettingsActions {
   // Save status
   setSaveStatus: (status: 'idle' | 'saving' | 'saved' | 'error', error?: string) => void;
 
+  // Backend sync actions
+  syncToBackend: () => Promise<void>;
+  loadFromBackend: () => Promise<void>;
+
   // Reset
   resetPreferences: () => void;
   resetAll: () => void;
@@ -184,7 +188,7 @@ const defaultBackend: BackendConfig = {
 export const useSettingsStore = create<SettingsStore>()(
   devtools(
     persist(
-      subscribeWithSelector((set) => ({
+      subscribeWithSelector((set, get) => ({
         // Initial state
         preferences: { ...defaultPreferences },
         featureConfig: { ...defaultFeatureConfig },
@@ -306,6 +310,112 @@ export const useSettingsStore = create<SettingsStore>()(
           'setSaveStatus'
         ),
 
+        // Backend sync actions
+        syncToBackend: async () => {
+          const state = get();
+          // Flatten preferences + featureConfig into the flat key-value format
+          // the backend expects (matches FeaturesHandler.DEFAULT_PREFERENCES keys)
+          const payload: Record<string, unknown> = {
+            theme: state.preferences.theme,
+            compact_mode: state.preferences.display.compactMode,
+            show_advanced_metrics: false,
+            // Feature toggles from featureConfig
+            calibration: state.featureConfig.calibration,
+            trickster: state.featureConfig.trickster,
+            rhetorical: state.featureConfig.rhetorical,
+            supermemory: state.featureConfig.supermemory,
+          };
+
+          set({ saveStatus: 'saving', saveError: null }, false, 'syncToBackend/start');
+
+          try {
+            const response = await fetch(`${API_BASE_URL}/api/features/config`, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify(payload),
+            });
+
+            if (response.ok) {
+              set({ saveStatus: 'saved', saveError: null }, false, 'syncToBackend/success');
+              // Auto-clear saved status after 2s
+              setTimeout(() => {
+                if (get().saveStatus === 'saved') {
+                  set({ saveStatus: 'idle' }, false, 'syncToBackend/idle');
+                }
+              }, 2000);
+            } else {
+              const text = await response.text().catch(() => 'Sync failed');
+              set({ saveStatus: 'error', saveError: text }, false, 'syncToBackend/error');
+            }
+          } catch (err) {
+            set(
+              { saveStatus: 'error', saveError: err instanceof Error ? err.message : 'Network error' },
+              false,
+              'syncToBackend/error'
+            );
+          }
+        },
+
+        loadFromBackend: async () => {
+          set({ featureLoading: true }, false, 'loadFromBackend/start');
+
+          try {
+            const response = await fetch(`${API_BASE_URL}/api/features/config`, {
+              headers: { 'Content-Type': 'application/json' },
+            });
+
+            if (!response.ok) {
+              set({ featureLoading: false }, false, 'loadFromBackend/httpError');
+              return;
+            }
+
+            const data = await response.json();
+            const prefs = data.preferences as Record<string, unknown> | undefined;
+
+            if (prefs) {
+              const state = get();
+
+              // Merge theme if backend has it
+              const backendTheme = prefs.theme as string | undefined;
+              const theme = (backendTheme === 'dark' || backendTheme === 'light' || backendTheme === 'system')
+                ? backendTheme
+                : state.preferences.theme;
+
+              // Merge display preferences
+              const display: DisplayPreferences = {
+                ...state.preferences.display,
+                ...(typeof prefs.compact_mode === 'boolean' ? { compactMode: prefs.compact_mode } : {}),
+              };
+
+              // Merge feature config from backend flat keys
+              const featureConfig: FeatureConfig = { ...state.featureConfig };
+              for (const key of Object.keys(state.featureConfig)) {
+                if (typeof prefs[key] === 'boolean') {
+                  featureConfig[key] = prefs[key] as boolean;
+                }
+              }
+
+              set(
+                {
+                  preferences: {
+                    ...state.preferences,
+                    theme,
+                    display,
+                  },
+                  featureConfig,
+                  featureLoading: false,
+                },
+                false,
+                'loadFromBackend/success'
+              );
+            } else {
+              set({ featureLoading: false }, false, 'loadFromBackend/noPrefs');
+            }
+          } catch {
+            set({ featureLoading: false }, false, 'loadFromBackend/error');
+          }
+        },
+
         // Reset
         resetPreferences: () => set(
           { preferences: { ...defaultPreferences } },
@@ -339,6 +449,29 @@ export const useSettingsStore = create<SettingsStore>()(
     { name: 'settings-store' }
   )
 );
+
+// ============================================================================
+// Debounced Auto-Sync Subscription
+// ============================================================================
+
+let _syncTimer: ReturnType<typeof setTimeout> | null = null;
+
+/**
+ * Subscribe to preference and feature config changes.
+ * Debounces to 500ms to avoid spamming the backend on rapid toggles.
+ */
+if (typeof window !== 'undefined') {
+  useSettingsStore.subscribe(
+    (state) => ({ preferences: state.preferences, featureConfig: state.featureConfig }),
+    () => {
+      if (_syncTimer) clearTimeout(_syncTimer);
+      _syncTimer = setTimeout(() => {
+        useSettingsStore.getState().syncToBackend();
+      }, 500);
+    },
+    { equalityFn: (a, b) => JSON.stringify(a) === JSON.stringify(b) }
+  );
+}
 
 // ============================================================================
 // Selectors

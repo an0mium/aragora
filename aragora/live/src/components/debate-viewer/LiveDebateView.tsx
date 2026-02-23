@@ -18,6 +18,7 @@ import { DebateInitializationProgress } from './DebateInitializationProgress';
 import { AudioDownloadSection } from './AudioDownloadSection';
 import { InlineDownloadPanel } from './InlineDownloadPanel';
 import { PhaseIndicator } from './PhaseIndicator';
+import { InterventionPanel } from './InterventionPanel';
 import { API_BASE_URL } from '@/config';
 import type { LiveDebateViewProps } from './types';
 
@@ -57,6 +58,8 @@ export function LiveDebateView({
 }: LiveDebateViewProps) {
   const statusConfig = STATUS_CONFIG[status];
   const [showExportModal, setShowExportModal] = useState(false);
+  const [showIntervention, setShowIntervention] = useState(false);
+  const [isPaused, setIsPaused] = useState(false);
 
   const initErrors = useMemo(() => {
     const errors: Array<{ agent: string; message: string }> = [];
@@ -274,6 +277,16 @@ export function LiveDebateView({
                 </button>
               )}
               <button
+                onClick={() => setShowIntervention(!showIntervention)}
+                className={`px-2 py-1 text-xs font-mono border transition-colors ${
+                  showIntervention
+                    ? 'bg-acid-yellow/20 text-acid-yellow border-acid-yellow/40'
+                    : 'bg-surface text-text-muted border-border hover:border-acid-yellow/40'
+                }`}
+              >
+                {showIntervention ? '[HIDE CONTROLS]' : '[INTERVENE]'}
+              </button>
+              <button
                 onClick={() => setShowParticipation(!showParticipation)}
                 className={`px-2 py-1 text-xs font-mono border transition-colors ${
                   showParticipation
@@ -333,6 +346,21 @@ export function LiveDebateView({
           </div>
         )}
       </div>
+
+      {/* Intervention Controls - visible during streaming when toggled */}
+      {showIntervention && status === 'streaming' && (
+        <InterventionPanel
+          debateId={debateId}
+          isActive={status === 'streaming'}
+          isPaused={isPaused}
+          currentRound={currentPhase}
+          totalRounds={9}
+          agents={agents}
+          consensusThreshold={0.75}
+          onPause={() => setIsPaused(true)}
+          onResume={() => setIsPaused(false)}
+        />
+      )}
 
       {/* Citations Panel */}
       {hasCitations && (

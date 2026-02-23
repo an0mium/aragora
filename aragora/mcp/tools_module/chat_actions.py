@@ -70,7 +70,7 @@ async def send_message_tool(
     except (RuntimeError, OSError, ConnectionError, TimeoutError) as e:
         logger.error("Failed to send message: %s", e)
         return {
-            "error": str(e),
+            "error": "Failed to send message",
             "channel_id": channel_id,
             "platform": platform,
         }
@@ -148,7 +148,7 @@ async def create_poll_tool(
 
     except (RuntimeError, OSError, ConnectionError, TimeoutError) as e:
         logger.error("Failed to create poll: %s", e)
-        return {"error": str(e), "channel_id": channel_id}
+        return {"error": "Failed to create poll", "channel_id": channel_id}
 
 
 async def trigger_debate_tool(
@@ -235,7 +235,7 @@ async def trigger_debate_tool(
 
     except (RuntimeError, OSError, ConnectionError, TimeoutError, ImportError) as e:
         logger.error("Failed to trigger debate: %s", e)
-        return {"error": str(e), "channel_id": channel_id}
+        return {"error": "Failed to trigger debate", "channel_id": channel_id}
 
 
 async def post_receipt_tool(
@@ -315,7 +315,7 @@ async def post_receipt_tool(
 
     except (RuntimeError, OSError, ImportError, ValueError) as e:
         logger.error("Failed to post receipt: %s", e)
-        return {"error": str(e), "debate_id": debate_id}
+        return {"error": "Failed to post receipt", "debate_id": debate_id}
 
 
 async def update_message_tool(
@@ -357,7 +357,7 @@ async def update_message_tool(
 
     except (RuntimeError, OSError, ConnectionError, TimeoutError) as e:
         logger.error("Failed to update message: %s", e)
-        return {"error": str(e), "message_id": message_id}
+        return {"error": "Failed to update message", "message_id": message_id}
 
 
 async def add_reaction_tool(
@@ -398,7 +398,7 @@ async def add_reaction_tool(
 
     except (RuntimeError, OSError, ConnectionError, TimeoutError) as e:
         logger.error("Failed to add reaction: %s", e)
-        return {"error": str(e), "message_id": message_id}
+        return {"error": "Failed to add reaction", "message_id": message_id}
 
 
 async def create_thread_tool(
