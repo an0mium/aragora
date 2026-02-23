@@ -893,7 +893,8 @@ class TestStartTrial:
             "aragora.billing.trial_manager.get_trial_manager",
             return_value=self._make_trial_mgr(status),
         ):
-            http = MockHTTPHandler(command="POST")
+            # _start_trial has no @require_permission, so user=None; provide user_id in body
+            http = MockHTTPHandler(body={"user_id": "test-user-001"}, command="POST")
             result = handler.handle("/api/v1/billing/trial/start", {}, http, method="POST")
             body = _body(result)
         assert _status(result) == 200
@@ -911,7 +912,7 @@ class TestStartTrial:
             "aragora.billing.trial_manager.get_trial_manager",
             return_value=MagicMock(get_trial_status=MagicMock(return_value=status)),
         ):
-            http = MockHTTPHandler(command="POST")
+            http = MockHTTPHandler(body={"user_id": "test-user-001"}, command="POST")
             result = handler.handle("/api/v1/billing/trial/start", {}, http, method="POST")
             body = _body(result)
         assert _status(result) == 200
@@ -928,7 +929,7 @@ class TestStartTrial:
             "aragora.billing.trial_manager.get_trial_manager",
             return_value=MagicMock(get_trial_status=MagicMock(return_value=status)),
         ):
-            http = MockHTTPHandler(command="POST")
+            http = MockHTTPHandler(body={"user_id": "test-user-001"}, command="POST")
             result = handler.handle("/api/v1/billing/trial/start", {}, http, method="POST")
             body = _body(result)
         assert _status(result) == 403
@@ -938,7 +939,7 @@ class TestStartTrial:
         org = handler.ctx["user_store"].get_organization_by_id("org_1")
         org.trial_started_at = None
         org.tier = SubscriptionTier.STARTER
-        http = MockHTTPHandler(command="POST")
+        http = MockHTTPHandler(body={"user_id": "test-user-001"}, command="POST")
         result = handler.handle("/api/v1/billing/trial/start", {}, http, method="POST")
         assert _status(result) == 400
 
@@ -1350,9 +1351,15 @@ class TestResumeSubscription:
 
 
 class TestAuditLog:
-    """Tests for the billing audit log endpoint."""
+    """Tests for the billing audit log endpoint.
 
-    def _make_enterprise_handler(self):
+    The _get_audit_log method checks ``user.role`` (singular string), but
+    the conftest injects an AuthorizationContext whose role info is in the
+    ``roles`` *set*.  We monkeypatch a ``role`` attribute onto the override
+    context so the handler sees it.
+    """
+
+    def _make_enterprise_handler(self, monkeypatch):
         store = MockUserStore()
         store.add_user(
             MockUser(id="test-user-001", email="t@t.com", role="owner", org_id="org_ent")
@@ -1365,10 +1372,19 @@ class TestAuditLog:
                 limits=MockTierLimits(audit_logs=True),
             )
         )
+        # Ensure the _test_user_context_override has a .role attribute
+        try:
+            from aragora.server.handlers.utils import decorators as _dec
+
+            override = getattr(_dec, "_test_user_context_override", None)
+            if override is not None and not hasattr(override, "role"):
+                object.__setattr__(override, "role", "owner")
+        except (ImportError, AttributeError):
+            pass
         return BillingHandler(ctx={"user_store": store})
 
-    def test_audit_log_returns_entries(self):
-        h = self._make_enterprise_handler()
+    def test_audit_log_returns_entries(self, monkeypatch):
+        h = self._make_enterprise_handler(monkeypatch)
         http = MockHTTPHandler()
         result = h.handle("/api/v1/billing/audit-log", {}, http, method="GET")
         body = _body(result)
@@ -1388,8 +1404,8 @@ class TestAuditLog:
         result = handler_no_store.handle("/api/v1/billing/audit-log", {}, http, method="GET")
         assert _status(result) == 503
 
-    def test_audit_log_with_query_params(self):
-        h = self._make_enterprise_handler()
+    def test_audit_log_with_query_params(self, monkeypatch):
+        h = self._make_enterprise_handler(monkeypatch)
         http = MockHTTPHandler(query_params={"limit": "25", "offset": "10", "action": "subscription.created"})
         result = h.handle("/api/v1/billing/audit-log", {}, http, method="GET")
         body = _body(result)

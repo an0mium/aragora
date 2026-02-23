@@ -117,18 +117,20 @@ class LegalHandler:
                 return await self._handle_docusign_webhook(request, tenant_id)
 
             # Envelope-specific paths
+            # /api/v1/legal/envelopes/{id} splits to
+            # ['', 'api', 'v1', 'legal', 'envelopes', '{id}'] = 6 parts
             if path.startswith("/api/v1/legal/envelopes/"):
                 parts = path.split("/")
-                if len(parts) >= 5:
-                    envelope_id = parts[4]
+                if len(parts) >= 6:
+                    envelope_id = parts[5]
 
                     # GET /envelopes/{id}
-                    if len(parts) == 5 and method == "GET":
+                    if len(parts) == 6 and method == "GET":
                         return await self._handle_get_envelope(request, tenant_id, envelope_id)
 
                     # Actions on envelope
-                    if len(parts) == 6:
-                        action = parts[5]
+                    if len(parts) == 7:
+                        action = parts[6]
                         if action == "void" and method == "POST":
                             return await self._handle_void_envelope(request, tenant_id, envelope_id)
                         elif action == "resend" and method == "POST":
@@ -141,8 +143,8 @@ class LegalHandler:
                             )
 
                     # Download document
-                    if len(parts) == 7 and parts[5] == "documents" and method == "GET":
-                        document_id = parts[6]
+                    if len(parts) == 8 and parts[6] == "documents" and method == "GET":
+                        document_id = parts[7]
                         return await self._handle_download_document(
                             request, tenant_id, envelope_id, document_id
                         )
