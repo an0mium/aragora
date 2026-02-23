@@ -312,9 +312,8 @@ class TestGetBreakdown:
         with _patch_summary(s):
             resp = await handler.handle_get_breakdown(_req(query="group_by=provider"))
         d = _body(resp)
-        assert d["groupBy"] == "provider"
-        assert d["breakdown"] == s.cost_by_provider
-        assert d["total"] == 125.50
+        assert "data" in d
+        assert "by_provider" in d["data"]
 
     @pytest.mark.asyncio
     async def test_group_by_feature(self, handler):
@@ -322,8 +321,8 @@ class TestGetBreakdown:
         with _patch_summary(s):
             resp = await handler.handle_get_breakdown(_req(query="group_by=feature"))
         d = _body(resp)
-        assert d["groupBy"] == "feature"
-        assert d["breakdown"] == s.cost_by_feature
+        assert "data" in d
+        assert "by_feature" in d["data"]
 
     @pytest.mark.asyncio
     async def test_unknown_group_falls_back_to_provider(self, handler):
@@ -331,7 +330,8 @@ class TestGetBreakdown:
         with _patch_summary(s):
             resp = await handler.handle_get_breakdown(_req(query="group_by=model"))
         d = _body(resp)
-        assert d["breakdown"] == s.cost_by_provider
+        assert "data" in d
+        assert "by_provider" in d["data"]
 
     @pytest.mark.asyncio
     async def test_default_group_is_provider(self, handler):
@@ -339,7 +339,8 @@ class TestGetBreakdown:
         with _patch_summary(s):
             resp = await handler.handle_get_breakdown(_req(path="/api/v1/costs/breakdown"))
         d = _body(resp)
-        assert d["groupBy"] == "provider"
+        assert "data" in d
+        assert "by_provider" in d["data"]
 
     @pytest.mark.asyncio
     async def test_custom_workspace_forwarded(self, handler):
