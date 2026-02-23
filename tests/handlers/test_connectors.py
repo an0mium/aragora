@@ -181,7 +181,7 @@ def _reset_scheduler():
 def mock_scheduler():
     """Provide a mock scheduler and patch get_scheduler to return it."""
     scheduler = _make_scheduler()
-    with patch.object(connectors_mod, "get_scheduler", return_value=scheduler):
+    with patch.object(legacy_mod, "get_scheduler", return_value=scheduler):
         yield scheduler
 
 
@@ -209,8 +209,8 @@ class TestCheckPermission:
     def test_returns_none_when_permission_granted(self):
         ctx = MagicMock()
         ctx.user_id = "user-1"
-        with patch.object(connectors_mod, "RBAC_AVAILABLE", True), \
-             patch.object(connectors_mod, "check_permission") as mock_check:
+        with patch.object(legacy_mod, "RBAC_AVAILABLE", True), \
+             patch.object(legacy_mod, "check_permission") as mock_check:
             decision = MagicMock()
             decision.allowed = True
             mock_check.return_value = decision
@@ -220,8 +220,8 @@ class TestCheckPermission:
     def test_returns_error_when_permission_denied(self):
         ctx = MagicMock()
         ctx.user_id = "user-1"
-        with patch.object(connectors_mod, "RBAC_AVAILABLE", True), \
-             patch.object(connectors_mod, "check_permission") as mock_check:
+        with patch.object(legacy_mod, "RBAC_AVAILABLE", True), \
+             patch.object(legacy_mod, "check_permission") as mock_check:
             decision = MagicMock()
             decision.allowed = False
             decision.reason = "No access"
@@ -234,8 +234,8 @@ class TestCheckPermission:
     def test_returns_error_on_permission_denied_exception(self):
         ctx = MagicMock()
         ctx.user_id = "user-1"
-        with patch.object(connectors_mod, "RBAC_AVAILABLE", True), \
-             patch.object(connectors_mod, "check_permission") as mock_check:
+        with patch.object(legacy_mod, "RBAC_AVAILABLE", True), \
+             patch.object(legacy_mod, "check_permission") as mock_check:
             from aragora.rbac import PermissionDeniedError
             mock_check.side_effect = PermissionDeniedError("denied")
             result = _check_permission(ctx, "connectors:read")
@@ -244,15 +244,15 @@ class TestCheckPermission:
 
     def test_rbac_not_available_dev_mode(self):
         """When RBAC is not available and not in production, returns None."""
-        with patch.object(connectors_mod, "RBAC_AVAILABLE", False), \
-             patch.object(connectors_mod, "rbac_fail_closed", return_value=False):
+        with patch.object(legacy_mod, "RBAC_AVAILABLE", False), \
+             patch.object(legacy_mod, "rbac_fail_closed", return_value=False):
             result = _check_permission(MagicMock(), "connectors:read")
         assert result is None
 
     def test_rbac_not_available_production_mode(self):
         """When RBAC is not available in production, returns 503."""
-        with patch.object(connectors_mod, "RBAC_AVAILABLE", False), \
-             patch.object(connectors_mod, "rbac_fail_closed", return_value=True):
+        with patch.object(legacy_mod, "RBAC_AVAILABLE", False), \
+             patch.object(legacy_mod, "rbac_fail_closed", return_value=True):
             result = _check_permission(MagicMock(), "connectors:read")
         assert result is not None
         assert result["status"] == 503
@@ -260,8 +260,8 @@ class TestCheckPermission:
     def test_with_resource_id(self):
         ctx = MagicMock()
         ctx.user_id = "user-1"
-        with patch.object(connectors_mod, "RBAC_AVAILABLE", True), \
-             patch.object(connectors_mod, "check_permission") as mock_check:
+        with patch.object(legacy_mod, "RBAC_AVAILABLE", True), \
+             patch.object(legacy_mod, "check_permission") as mock_check:
             decision = MagicMock()
             decision.allowed = True
             mock_check.return_value = decision
@@ -286,27 +286,28 @@ class TestResolveTenantId:
     def test_returns_org_id_from_auth_context(self):
         ctx = MagicMock()
         ctx.org_id = "org-42"
-        with patch.object(connectors_mod, "RBAC_AVAILABLE", True):
+        with patch.object(legacy_mod, "RBAC_AVAILABLE", True):
             result = _resolve_tenant_id(ctx, "fallback")
         assert result == "org-42"
 
     def test_returns_fallback_when_no_org_id(self):
         ctx = MagicMock(spec=[])  # No org_id attribute
-        with patch.object(connectors_mod, "RBAC_AVAILABLE", True):
+        with patch.object(legacy_mod, "RBAC_AVAILABLE", True):
             result = _resolve_tenant_id(ctx, "fallback")
         assert result == "fallback"
 
     def test_returns_fallback_when_org_id_empty(self):
         ctx = MagicMock()
         ctx.org_id = ""
-        with patch.object(connectors_mod, "RBAC_AVAILABLE", True):
+        with patch.object(legacy_mod, "RBAC_AVAILABLE", True):
             result = _resolve_tenant_id(ctx, "fallback")
         assert result == "fallback"
 
     def test_returns_fallback_when_rbac_not_available(self):
         ctx = MagicMock()
         ctx.org_id = "org-42"
-        with patch.object(connectors_mod, "RBAC_AVAILABLE", False):
+        with patch.object(legacy_mod, "RBAC_AVAILABLE", False), \
+             patch.object(connectors_mod, "RBAC_AVAILABLE", False):
             result = _resolve_tenant_id(ctx, "fallback")
         assert result == "fallback"
 
@@ -323,7 +324,7 @@ class TestCreateConnector:
     """Test the internal connector factory."""
 
     def test_create_github_connector(self):
-        with patch.object(connectors_mod, "GitHubEnterpriseConnector") as mock_cls:
+        with patch.object(legacy_mod, "GitHubEnterpriseConnector") as mock_cls:
             mock_cls.return_value = MagicMock()
             _create_connector("github", {"owner": "acme", "repo": "app", "token": "tok"})
         mock_cls.assert_called_once_with(
@@ -332,7 +333,7 @@ class TestCreateConnector:
 
     def test_create_github_connector_full_repo(self):
         """When repo already contains owner/repo format, use as-is."""
-        with patch.object(connectors_mod, "GitHubEnterpriseConnector") as mock_cls:
+        with patch.object(legacy_mod, "GitHubEnterpriseConnector") as mock_cls:
             mock_cls.return_value = MagicMock()
             _create_connector("github", {"repo": "acme/app"})
         mock_cls.assert_called_once_with(
@@ -341,7 +342,7 @@ class TestCreateConnector:
 
     def test_create_github_connector_repo_only(self):
         """When only repo name is given (no owner, no slash)."""
-        with patch.object(connectors_mod, "GitHubEnterpriseConnector") as mock_cls:
+        with patch.object(legacy_mod, "GitHubEnterpriseConnector") as mock_cls:
             mock_cls.return_value = MagicMock()
             _create_connector("github", {"repo": "myrepo"})
         mock_cls.assert_called_once_with(
@@ -350,7 +351,7 @@ class TestCreateConnector:
 
     def test_create_github_connector_owner_only(self):
         """When only owner is given (no repo)."""
-        with patch.object(connectors_mod, "GitHubEnterpriseConnector") as mock_cls:
+        with patch.object(legacy_mod, "GitHubEnterpriseConnector") as mock_cls:
             mock_cls.return_value = MagicMock()
             _create_connector("github", {"owner": "acme"})
         mock_cls.assert_called_once_with(
@@ -358,7 +359,7 @@ class TestCreateConnector:
         )
 
     def test_create_github_with_sync_options(self):
-        with patch.object(connectors_mod, "GitHubEnterpriseConnector") as mock_cls:
+        with patch.object(legacy_mod, "GitHubEnterpriseConnector") as mock_cls:
             mock_cls.return_value = MagicMock()
             _create_connector("github", {
                 "owner": "acme", "repo": "app",
@@ -369,7 +370,7 @@ class TestCreateConnector:
         )
 
     def test_create_s3_connector(self):
-        with patch.object(connectors_mod, "S3Connector") as mock_cls:
+        with patch.object(legacy_mod, "S3Connector") as mock_cls:
             mock_cls.return_value = MagicMock()
             _create_connector("s3", {"bucket": "my-bucket", "prefix": "data/"})
         mock_cls.assert_called_once_with(
@@ -377,7 +378,7 @@ class TestCreateConnector:
         )
 
     def test_create_s3_connector_with_region(self):
-        with patch.object(connectors_mod, "S3Connector") as mock_cls:
+        with patch.object(legacy_mod, "S3Connector") as mock_cls:
             mock_cls.return_value = MagicMock()
             _create_connector("s3", {
                 "bucket": "my-bucket", "region": "eu-west-1",
@@ -388,7 +389,7 @@ class TestCreateConnector:
         )
 
     def test_create_postgres_connector(self):
-        with patch.object(connectors_mod, "PostgreSQLConnector") as mock_cls:
+        with patch.object(legacy_mod, "PostgreSQLConnector") as mock_cls:
             mock_cls.return_value = MagicMock()
             _create_connector("postgres", {"database": "mydb", "host": "db.local", "port": 5433})
         mock_cls.assert_called_once_with(
@@ -397,7 +398,7 @@ class TestCreateConnector:
         )
 
     def test_create_postgres_connector_defaults(self):
-        with patch.object(connectors_mod, "PostgreSQLConnector") as mock_cls:
+        with patch.object(legacy_mod, "PostgreSQLConnector") as mock_cls:
             mock_cls.return_value = MagicMock()
             _create_connector("postgres", {"database": "mydb"})
         mock_cls.assert_called_once_with(
@@ -406,7 +407,7 @@ class TestCreateConnector:
         )
 
     def test_create_mongodb_connector(self):
-        with patch.object(connectors_mod, "MongoDBConnector") as mock_cls:
+        with patch.object(legacy_mod, "MongoDBConnector") as mock_cls:
             mock_cls.return_value = MagicMock()
             _create_connector("mongodb", {
                 "database": "mydb", "host": "mongo.local",
@@ -418,7 +419,7 @@ class TestCreateConnector:
         )
 
     def test_create_mongodb_connector_with_connection_string(self):
-        with patch.object(connectors_mod, "MongoDBConnector") as mock_cls:
+        with patch.object(legacy_mod, "MongoDBConnector") as mock_cls:
             mock_cls.return_value = MagicMock()
             _create_connector("mongodb", {
                 "database": "mydb",
@@ -430,7 +431,7 @@ class TestCreateConnector:
         )
 
     def test_create_fhir_connector(self):
-        with patch.object(connectors_mod, "FHIRConnector") as mock_cls:
+        with patch.object(legacy_mod, "FHIRConnector") as mock_cls:
             mock_cls.return_value = MagicMock()
             _create_connector("fhir", {
                 "base_url": "https://fhir.hospital.org",
@@ -446,7 +447,7 @@ class TestCreateConnector:
         )
 
     def test_create_fhir_connector_defaults(self):
-        with patch.object(connectors_mod, "FHIRConnector") as mock_cls:
+        with patch.object(legacy_mod, "FHIRConnector") as mock_cls:
             mock_cls.return_value = MagicMock()
             _create_connector("fhir", {
                 "base_url": "https://fhir.hospital.org",
@@ -522,14 +523,14 @@ class TestListConnectors:
 
     @pytest.mark.asyncio
     async def test_list_resolves_tenant_from_auth(self, mock_scheduler, mock_auth_ctx):
-        with patch.object(connectors_mod, "_resolve_tenant_id", return_value="org-001") as mock_resolve:
+        with patch.object(legacy_mod, "_resolve_tenant_id", return_value="org-001") as mock_resolve:
             await handle_list_connectors(tenant_id="default", auth_context=mock_auth_ctx)
         mock_resolve.assert_called_once_with(mock_auth_ctx, "default")
         mock_scheduler.list_jobs.assert_called_once_with(tenant_id="org-001")
 
     @pytest.mark.asyncio
     async def test_list_permission_denied(self, mock_scheduler):
-        with patch.object(connectors_mod, "_check_permission", return_value={"error": "Permission denied", "status": 403}):
+        with patch.object(legacy_mod, "_check_permission", return_value={"error": "Permission denied", "status": 403}):
             result = await handle_list_connectors()
         assert result["status"] == 403
 
@@ -579,13 +580,13 @@ class TestGetConnector:
 
     @pytest.mark.asyncio
     async def test_get_uses_correct_job_id(self, mock_scheduler, mock_auth_ctx):
-        with patch.object(connectors_mod, "_resolve_tenant_id", return_value="org-001"):
+        with patch.object(legacy_mod, "_resolve_tenant_id", return_value="org-001"):
             await handle_get_connector("my-conn", auth_context=mock_auth_ctx)
         mock_scheduler.get_job.assert_called_once_with("org-001:my-conn")
 
     @pytest.mark.asyncio
     async def test_get_permission_denied(self, mock_scheduler):
-        with patch.object(connectors_mod, "_check_permission", return_value={"error": "Permission denied", "status": 403}):
+        with patch.object(legacy_mod, "_check_permission", return_value={"error": "Permission denied", "status": 403}):
             result = await handle_get_connector("test-conn")
         assert result["status"] == 403
 
@@ -614,7 +615,7 @@ class TestCreateConnector:
 
     @pytest.mark.asyncio
     async def test_create_github(self, mock_scheduler):
-        with patch.object(connectors_mod, "_create_connector") as mock_factory:
+        with patch.object(legacy_mod, "_create_connector") as mock_factory:
             mock_conn = MagicMock()
             mock_conn.connector_id = "github_acme_app"
             mock_factory.return_value = mock_conn
@@ -630,7 +631,7 @@ class TestCreateConnector:
     @pytest.mark.asyncio
     async def test_create_with_schedule(self, mock_scheduler):
         schedule_dict = {"schedule_type": "interval", "interval_minutes": 30}
-        with patch.object(connectors_mod, "_create_connector") as mock_factory:
+        with patch.object(legacy_mod, "_create_connector") as mock_factory:
             mock_conn = MagicMock()
             mock_conn.connector_id = "s3_bucket"
             mock_factory.return_value = mock_conn
@@ -645,8 +646,8 @@ class TestCreateConnector:
 
     @pytest.mark.asyncio
     async def test_create_audit_trail(self, mock_scheduler, mock_auth_ctx):
-        with patch.object(connectors_mod, "_create_connector") as mock_factory, \
-             patch.object(connectors_mod, "audit_data") as mock_audit:
+        with patch.object(legacy_mod, "_create_connector") as mock_factory, \
+             patch.object(legacy_mod, "audit_data") as mock_audit:
             mock_conn = MagicMock()
             mock_conn.connector_id = "pg_mydb"
             mock_factory.return_value = mock_conn
@@ -663,8 +664,8 @@ class TestCreateConnector:
 
     @pytest.mark.asyncio
     async def test_create_system_user_when_no_auth(self, mock_scheduler):
-        with patch.object(connectors_mod, "_create_connector") as mock_factory, \
-             patch.object(connectors_mod, "audit_data") as mock_audit:
+        with patch.object(legacy_mod, "_create_connector") as mock_factory, \
+             patch.object(legacy_mod, "audit_data") as mock_audit:
             mock_conn = MagicMock()
             mock_conn.connector_id = "test"
             mock_factory.return_value = mock_conn
@@ -675,7 +676,7 @@ class TestCreateConnector:
 
     @pytest.mark.asyncio
     async def test_create_permission_denied(self, mock_scheduler):
-        with patch.object(connectors_mod, "_check_permission", return_value={"error": "denied", "status": 403}):
+        with patch.object(legacy_mod, "_check_permission", return_value={"error": "denied", "status": 403}):
             result = await handle_create_connector("github", {})
         assert result["status"] == 403
 
@@ -717,7 +718,7 @@ class TestUpdateConnector:
         job = _make_sync_job()
         mock_scheduler.get_job.side_effect = lambda jid: job
 
-        with patch.object(connectors_mod, "audit_data") as mock_audit:
+        with patch.object(legacy_mod, "audit_data") as mock_audit:
             await handle_update_connector(
                 "test-conn", {"schedule": {}}, auth_context=mock_auth_ctx
             )
@@ -739,7 +740,7 @@ class TestUpdateConnector:
 
     @pytest.mark.asyncio
     async def test_update_permission_denied(self, mock_scheduler):
-        with patch.object(connectors_mod, "_check_permission", return_value={"error": "denied", "status": 403}):
+        with patch.object(legacy_mod, "_check_permission", return_value={"error": "denied", "status": 403}):
             result = await handle_update_connector("test-conn", {})
         assert result["status"] == 403
 
@@ -748,7 +749,7 @@ class TestUpdateConnector:
         job = _make_sync_job()
         mock_scheduler.get_job.side_effect = lambda jid: job
 
-        with patch.object(connectors_mod, "audit_data") as mock_audit:
+        with patch.object(legacy_mod, "audit_data") as mock_audit:
             await handle_update_connector("test-conn", {"schedule": {}})
 
         assert mock_audit.call_args.kwargs["user_id"] == "system"
@@ -764,7 +765,8 @@ class TestDeleteConnector:
 
     @pytest.mark.asyncio
     async def test_delete_success(self, mock_scheduler, mock_auth_ctx):
-        with patch.object(connectors_mod, "audit_data") as mock_audit:
+        with patch.object(legacy_mod, "_resolve_tenant_id", return_value="default"), \
+             patch.object(legacy_mod, "audit_data") as mock_audit:
             result = await handle_delete_connector(
                 "test-conn", auth_context=mock_auth_ctx
             )
@@ -776,15 +778,15 @@ class TestDeleteConnector:
 
     @pytest.mark.asyncio
     async def test_delete_tenant_resolution(self, mock_scheduler, mock_auth_ctx):
-        with patch.object(connectors_mod, "_resolve_tenant_id", return_value="org-001"), \
-             patch.object(connectors_mod, "audit_data"):
+        with patch.object(legacy_mod, "_resolve_tenant_id", return_value="org-001"), \
+             patch.object(legacy_mod, "audit_data"):
             await handle_delete_connector("test-conn", auth_context=mock_auth_ctx)
 
         mock_scheduler.unregister_connector.assert_called_once_with("test-conn", "org-001")
 
     @pytest.mark.asyncio
     async def test_delete_system_user_when_no_auth(self, mock_scheduler):
-        with patch.object(connectors_mod, "audit_data") as mock_audit:
+        with patch.object(legacy_mod, "audit_data") as mock_audit:
             await handle_delete_connector("test-conn")
 
         assert mock_audit.call_args.kwargs["user_id"] == "system"
@@ -792,7 +794,7 @@ class TestDeleteConnector:
     @pytest.mark.asyncio
     async def test_delete_permission_denied_inner(self, mock_scheduler):
         """Test the inner _check_permission call."""
-        with patch.object(connectors_mod, "_check_permission", return_value={"error": "denied", "status": 403}):
+        with patch.object(legacy_mod, "_check_permission", return_value={"error": "denied", "status": 403}):
             result = await handle_delete_connector("test-conn")
         assert result["status"] == 403
 
@@ -830,7 +832,7 @@ class TestTriggerSync:
 
     @pytest.mark.asyncio
     async def test_trigger_sync_audit(self, mock_scheduler, mock_auth_ctx):
-        with patch.object(connectors_mod, "audit_data") as mock_audit:
+        with patch.object(legacy_mod, "audit_data") as mock_audit:
             await handle_trigger_sync("test-conn", auth_context=mock_auth_ctx)
 
         mock_audit.assert_called_once()
@@ -839,13 +841,13 @@ class TestTriggerSync:
 
     @pytest.mark.asyncio
     async def test_trigger_sync_permission_denied(self, mock_scheduler):
-        with patch.object(connectors_mod, "_check_permission", return_value={"error": "denied", "status": 403}):
+        with patch.object(legacy_mod, "_check_permission", return_value={"error": "denied", "status": 403}):
             result = await handle_trigger_sync("test-conn")
         assert result["status"] == 403
 
     @pytest.mark.asyncio
     async def test_trigger_sync_system_user(self, mock_scheduler):
-        with patch.object(connectors_mod, "audit_data") as mock_audit:
+        with patch.object(legacy_mod, "audit_data") as mock_audit:
             await handle_trigger_sync("test-conn")
 
         assert mock_audit.call_args.kwargs["user_id"] == "system"
@@ -894,7 +896,7 @@ class TestGetSyncStatus:
 
     @pytest.mark.asyncio
     async def test_get_status_permission_denied(self, mock_scheduler):
-        with patch.object(connectors_mod, "_check_permission", return_value={"error": "denied", "status": 403}):
+        with patch.object(legacy_mod, "_check_permission", return_value={"error": "denied", "status": 403}):
             result = await handle_get_sync_status("test-conn")
         assert result["status"] == 403
 
@@ -936,10 +938,8 @@ class TestGetSyncHistory:
 
     @pytest.mark.asyncio
     async def test_get_history_invalid_status(self, mock_scheduler):
-        """Invalid status value should raise NameError due to undefined error_response."""
-        # The handler references `error_response` which is not imported, so
-        # passing an invalid status will trigger a NameError.
-        with pytest.raises(NameError, match="error_response"):
+        """Invalid status value should raise ValueError from SyncStatus enum."""
+        with pytest.raises(ValueError, match="invalid_status"):
             await handle_get_sync_history(status="invalid_status")
 
     @pytest.mark.asyncio
@@ -958,7 +958,7 @@ class TestGetSyncHistory:
 
     @pytest.mark.asyncio
     async def test_get_history_permission_denied(self, mock_scheduler):
-        with patch.object(connectors_mod, "_check_permission", return_value={"error": "denied", "status": 403}):
+        with patch.object(legacy_mod, "_check_permission", return_value={"error": "denied", "status": 403}):
             result = await handle_get_sync_history()
         assert result["status"] == 403
 
@@ -986,7 +986,7 @@ class TestWebhook:
 
     @pytest.mark.asyncio
     async def test_webhook_tenant_resolution(self, mock_scheduler, mock_auth_ctx):
-        with patch.object(connectors_mod, "_resolve_tenant_id", return_value="org-001"):
+        with patch.object(legacy_mod, "_resolve_tenant_id", return_value="org-001"):
             await handle_webhook("test-conn", {}, auth_context=mock_auth_ctx)
 
         mock_scheduler.handle_webhook.assert_awaited_once_with(
@@ -995,7 +995,7 @@ class TestWebhook:
 
     @pytest.mark.asyncio
     async def test_webhook_permission_denied(self, mock_scheduler):
-        with patch.object(connectors_mod, "_check_permission", return_value={"error": "denied", "status": 403}):
+        with patch.object(legacy_mod, "_check_permission", return_value={"error": "denied", "status": 403}):
             result = await handle_webhook("test-conn", {})
         assert result["status"] == 403
 
@@ -1010,7 +1010,7 @@ class TestSchedulerControl:
 
     @pytest.mark.asyncio
     async def test_start_scheduler(self, mock_scheduler):
-        with patch.object(connectors_mod, "audit_admin") as mock_audit:
+        with patch.object(legacy_mod, "audit_admin") as mock_audit:
             result = await handle_start_scheduler()
 
         assert result["status"] == "started"
@@ -1019,7 +1019,7 @@ class TestSchedulerControl:
 
     @pytest.mark.asyncio
     async def test_stop_scheduler(self, mock_scheduler):
-        with patch.object(connectors_mod, "audit_admin") as mock_audit:
+        with patch.object(legacy_mod, "audit_admin") as mock_audit:
             result = await handle_stop_scheduler()
 
         assert result["status"] == "stopped"
@@ -1028,41 +1028,41 @@ class TestSchedulerControl:
 
     @pytest.mark.asyncio
     async def test_start_scheduler_with_auth(self, mock_scheduler, mock_auth_ctx):
-        with patch.object(connectors_mod, "audit_admin") as mock_audit:
+        with patch.object(legacy_mod, "audit_admin") as mock_audit:
             await handle_start_scheduler(auth_context=mock_auth_ctx)
 
         assert mock_audit.call_args.kwargs["admin_id"] == "user-001"
 
     @pytest.mark.asyncio
     async def test_stop_scheduler_with_auth(self, mock_scheduler, mock_auth_ctx):
-        with patch.object(connectors_mod, "audit_admin") as mock_audit:
+        with patch.object(legacy_mod, "audit_admin") as mock_audit:
             await handle_stop_scheduler(auth_context=mock_auth_ctx)
 
         assert mock_audit.call_args.kwargs["admin_id"] == "user-001"
 
     @pytest.mark.asyncio
     async def test_start_scheduler_system_user(self, mock_scheduler):
-        with patch.object(connectors_mod, "audit_admin") as mock_audit:
+        with patch.object(legacy_mod, "audit_admin") as mock_audit:
             await handle_start_scheduler()
 
         assert mock_audit.call_args.kwargs["admin_id"] == "system"
 
     @pytest.mark.asyncio
     async def test_stop_scheduler_system_user(self, mock_scheduler):
-        with patch.object(connectors_mod, "audit_admin") as mock_audit:
+        with patch.object(legacy_mod, "audit_admin") as mock_audit:
             await handle_stop_scheduler()
 
         assert mock_audit.call_args.kwargs["admin_id"] == "system"
 
     @pytest.mark.asyncio
     async def test_start_permission_denied(self, mock_scheduler):
-        with patch.object(connectors_mod, "_check_permission", return_value={"error": "denied", "status": 403}):
+        with patch.object(legacy_mod, "_check_permission", return_value={"error": "denied", "status": 403}):
             result = await handle_start_scheduler()
         assert result["status"] == 403
 
     @pytest.mark.asyncio
     async def test_stop_permission_denied(self, mock_scheduler):
-        with patch.object(connectors_mod, "_check_permission", return_value={"error": "denied", "status": 403}):
+        with patch.object(legacy_mod, "_check_permission", return_value={"error": "denied", "status": 403}):
             result = await handle_stop_scheduler()
         assert result["status"] == 403
 
@@ -1094,7 +1094,7 @@ class TestGetSchedulerStats:
 
     @pytest.mark.asyncio
     async def test_get_stats_permission_denied(self, mock_scheduler):
-        with patch.object(connectors_mod, "_check_permission", return_value={"error": "denied", "status": 403}):
+        with patch.object(legacy_mod, "_check_permission", return_value={"error": "denied", "status": 403}):
             result = await handle_get_scheduler_stats()
         assert result["status"] == 403
 
@@ -1114,7 +1114,7 @@ class TestListWorkflowTemplates:
             {"id": "t2", "category": "legal", "name": "Due Diligence"},
             {"id": "t3", "category": "finance", "name": "Budget Approval"},
         ]
-        with patch("aragora.server.handlers.connectors.list_templates", return_value=templates):
+        with patch("aragora.workflow.templates.list_templates", return_value=templates):
             result = await handle_list_workflow_templates()
 
         assert result["total"] == 3
@@ -1124,14 +1124,14 @@ class TestListWorkflowTemplates:
     @pytest.mark.asyncio
     async def test_list_templates_with_category_filter(self):
         templates = [{"id": "t1", "category": "legal", "name": "Contract"}]
-        with patch("aragora.server.handlers.connectors.list_templates", return_value=templates):
+        with patch("aragora.workflow.templates.list_templates", return_value=templates):
             result = await handle_list_workflow_templates(category="legal")
 
         assert result["total"] == 1
 
     @pytest.mark.asyncio
     async def test_list_templates_empty(self):
-        with patch("aragora.server.handlers.connectors.list_templates", return_value=[]):
+        with patch("aragora.workflow.templates.list_templates", return_value=[]):
             result = await handle_list_workflow_templates()
 
         assert result["total"] == 0
@@ -1140,7 +1140,7 @@ class TestListWorkflowTemplates:
 
     @pytest.mark.asyncio
     async def test_list_templates_permission_denied(self):
-        with patch.object(connectors_mod, "_check_permission", return_value={"error": "denied", "status": 403}):
+        with patch.object(legacy_mod, "_check_permission", return_value={"error": "denied", "status": 403}):
             result = await handle_list_workflow_templates()
         assert result["status"] == 403
 
@@ -1156,7 +1156,7 @@ class TestGetWorkflowTemplate:
     @pytest.mark.asyncio
     async def test_get_template_found(self):
         template_data = {"name": "Contract Review", "steps": []}
-        with patch("aragora.server.handlers.connectors.get_template", return_value=template_data):
+        with patch("aragora.workflow.templates.get_template", return_value=template_data):
             result = await handle_get_workflow_template("legal_contract_review")
 
         assert result is not None
@@ -1165,14 +1165,14 @@ class TestGetWorkflowTemplate:
 
     @pytest.mark.asyncio
     async def test_get_template_not_found(self):
-        with patch("aragora.server.handlers.connectors.get_template", return_value=None):
+        with patch("aragora.workflow.templates.get_template", return_value=None):
             result = await handle_get_workflow_template("nonexistent")
 
         assert result is None
 
     @pytest.mark.asyncio
     async def test_get_template_permission_denied(self):
-        with patch.object(connectors_mod, "_check_permission", return_value={"error": "denied", "status": 403}):
+        with patch.object(legacy_mod, "_check_permission", return_value={"error": "denied", "status": 403}):
             result = await handle_get_workflow_template("legal_contract")
         assert result["status"] == 403
 
@@ -1296,7 +1296,7 @@ class TestMongoDBAggregate:
 
     @pytest.mark.asyncio
     async def test_aggregate_explain_mode(self, mock_scheduler):
-        mock_connector = MagicMock()
+        mock_connector = MagicMock(spec=MongoDBConnector)
         mock_connector._get_client = AsyncMock()
         mock_db = MagicMock()
         mock_connector._db = mock_db
@@ -1308,10 +1308,7 @@ class TestMongoDBAggregate:
         mock_agg_cursor.explain = AsyncMock(return_value={"queryPlanner": {}})
         mock_coll.aggregate.return_value = mock_agg_cursor
 
-        with patch("aragora.server.handlers.connectors.get_connector", return_value=mock_connector), \
-             patch.object(connectors_mod, "MongoDBConnector") as mongo_cls:
-            mongo_cls.__instancecheck__ = lambda self, x: True
-
+        with _patch_registry(get_connector_return=mock_connector):
             result = await handle_mongodb_aggregate(
                 connector_id="my-mongo",
                 collection="users",
@@ -1324,14 +1321,11 @@ class TestMongoDBAggregate:
 
     @pytest.mark.asyncio
     async def test_aggregate_explain_db_not_initialized(self, mock_scheduler):
-        mock_connector = MagicMock()
+        mock_connector = MagicMock(spec=MongoDBConnector)
         mock_connector._get_client = AsyncMock()
         mock_connector._db = None
 
-        with patch("aragora.server.handlers.connectors.get_connector", return_value=mock_connector), \
-             patch.object(connectors_mod, "MongoDBConnector") as mongo_cls:
-            mongo_cls.__instancecheck__ = lambda self, x: True
-
+        with _patch_registry(get_connector_return=mock_connector):
             with pytest.raises(RuntimeError, match="Database not initialized"):
                 await handle_mongodb_aggregate(
                     connector_id="my-mongo",
@@ -1342,7 +1336,7 @@ class TestMongoDBAggregate:
 
     @pytest.mark.asyncio
     async def test_aggregate_permission_denied(self, mock_scheduler):
-        with patch.object(connectors_mod, "_check_permission", return_value={"error": "denied", "status": 403}):
+        with patch.object(legacy_mod, "_check_permission", return_value={"error": "denied", "status": 403}):
             result = await handle_mongodb_aggregate(
                 connector_id="my-mongo",
                 collection="users",
@@ -1361,7 +1355,7 @@ class TestMongoDBCollections:
 
     @pytest.mark.asyncio
     async def test_list_collections(self, mock_scheduler):
-        mock_connector = MagicMock()
+        mock_connector = MagicMock(spec=MongoDBConnector)
         mock_connector._get_client = AsyncMock()
         mock_connector._db = MagicMock()
         mock_connector._database = "mydb"
@@ -1369,10 +1363,7 @@ class TestMongoDBCollections:
             return_value=["users", "orders", "products"]
         )
 
-        with patch("aragora.server.handlers.connectors.get_connector", return_value=mock_connector), \
-             patch.object(connectors_mod, "MongoDBConnector") as mongo_cls:
-            mongo_cls.__instancecheck__ = lambda self, x: True
-
+        with _patch_registry(get_connector_return=mock_connector):
             result = await handle_mongodb_collections("my-mongo")
 
         assert result["connector_id"] == "my-mongo"
@@ -1381,7 +1372,7 @@ class TestMongoDBCollections:
 
     @pytest.mark.asyncio
     async def test_collections_connector_not_found(self, mock_scheduler):
-        with patch("aragora.server.handlers.connectors.get_connector", return_value=None):
+        with _patch_registry(get_connector_return=None):
             with pytest.raises(ValueError, match="Connector not found"):
                 await handle_mongodb_collections("nonexistent")
 
@@ -1389,26 +1380,23 @@ class TestMongoDBCollections:
     async def test_collections_not_mongodb(self, mock_scheduler):
         mock_connector = MagicMock()
 
-        with patch("aragora.server.handlers.connectors.get_connector", return_value=mock_connector):
+        with _patch_registry(get_connector_return=mock_connector):
             with pytest.raises(ValueError, match="not a MongoDB connector"):
                 await handle_mongodb_collections("my-pg")
 
     @pytest.mark.asyncio
     async def test_collections_db_not_initialized(self, mock_scheduler):
-        mock_connector = MagicMock()
+        mock_connector = MagicMock(spec=MongoDBConnector)
         mock_connector._get_client = AsyncMock()
         mock_connector._db = None
 
-        with patch("aragora.server.handlers.connectors.get_connector", return_value=mock_connector), \
-             patch.object(connectors_mod, "MongoDBConnector") as mongo_cls:
-            mongo_cls.__instancecheck__ = lambda self, x: True
-
+        with _patch_registry(get_connector_return=mock_connector):
             with pytest.raises(RuntimeError, match="Database not initialized"):
                 await handle_mongodb_collections("my-mongo")
 
     @pytest.mark.asyncio
     async def test_collections_permission_denied(self, mock_scheduler):
-        with patch.object(connectors_mod, "_check_permission", return_value={"error": "denied", "status": 403}):
+        with patch.object(legacy_mod, "_check_permission", return_value={"error": "denied", "status": 403}):
             result = await handle_mongodb_collections("my-mongo")
         assert result["status"] == 403
 
@@ -1437,7 +1425,7 @@ class TestConnectorHealth:
             "running_syncs": 1,
             "success_rate": 0.95,
         }
-        with patch.object(connectors_mod, "_check_permission", return_value=None):
+        with patch.object(legacy_mod, "_check_permission", return_value=None):
             result = await handle_connector_health(auth_context=mock_auth_ctx)
 
         assert result["status"] == "healthy"
@@ -1452,7 +1440,7 @@ class TestConnectorHealth:
             "running_syncs": 1,
             "success_rate": 0.95,
         }
-        with patch.object(connectors_mod, "_check_permission", return_value={"error": "denied", "status": 403}):
+        with patch.object(legacy_mod, "_check_permission", return_value={"error": "denied", "status": 403}):
             result = await handle_connector_health(auth_context=mock_auth_ctx)
 
         assert result["status"] == "healthy"
@@ -1473,8 +1461,8 @@ class TestConnectorHealth:
     @pytest.mark.asyncio
     async def test_health_rbac_unavailable_production(self, mock_scheduler, mock_auth_ctx):
         """In production without RBAC, health returns error status."""
-        with patch.object(connectors_mod, "RBAC_AVAILABLE", False), \
-             patch.object(connectors_mod, "rbac_fail_closed", return_value=True):
+        with patch.object(legacy_mod, "RBAC_AVAILABLE", False), \
+             patch.object(legacy_mod, "rbac_fail_closed", return_value=True):
             result = await handle_connector_health(auth_context=mock_auth_ctx)
 
         assert result["status"] == "error"
@@ -1483,8 +1471,8 @@ class TestConnectorHealth:
     @pytest.mark.asyncio
     async def test_health_rbac_unavailable_dev(self, mock_scheduler, mock_auth_ctx):
         """In dev without RBAC, health returns basic info."""
-        with patch.object(connectors_mod, "RBAC_AVAILABLE", False), \
-             patch.object(connectors_mod, "rbac_fail_closed", return_value=False):
+        with patch.object(legacy_mod, "RBAC_AVAILABLE", False), \
+             patch.object(legacy_mod, "rbac_fail_closed", return_value=False):
             result = await handle_connector_health(auth_context=mock_auth_ctx)
 
         assert result["status"] == "healthy"
@@ -1521,7 +1509,7 @@ class TestEdgeCases:
     @pytest.mark.asyncio
     async def test_create_connector_without_schedule(self, mock_scheduler):
         """Creating connector without explicit schedule should use default."""
-        with patch.object(connectors_mod, "_create_connector") as mock_factory:
+        with patch.object(legacy_mod, "_create_connector") as mock_factory:
             mock_conn = MagicMock()
             mock_conn.connector_id = "test"
             mock_factory.return_value = mock_conn
@@ -1592,7 +1580,7 @@ class TestEdgeCases:
         }
 
         for connector_type, config in types_configs.items():
-            with patch.object(connectors_mod, "_create_connector") as mock_factory:
+            with patch.object(legacy_mod, "_create_connector") as mock_factory:
                 mock_conn = MagicMock()
                 mock_conn.connector_id = f"{connector_type}-test"
                 mock_factory.return_value = mock_conn
@@ -1607,15 +1595,15 @@ class TestRecordRbacCheck:
 
     def test_noop_fallback(self):
         """The _record_rbac_check fallback is a no-op."""
-        connectors_mod._record_rbac_check("test", granted=True)
+        legacy_mod._record_rbac_check("test", granted=True)
         # Should not raise
 
     def test_record_rbac_check_called_on_grant(self):
         ctx = MagicMock()
         ctx.user_id = "user-1"
-        with patch.object(connectors_mod, "RBAC_AVAILABLE", True), \
-             patch.object(connectors_mod, "check_permission") as mock_check, \
-             patch.object(connectors_mod, "record_rbac_check") as mock_record:
+        with patch.object(legacy_mod, "RBAC_AVAILABLE", True), \
+             patch.object(legacy_mod, "check_permission") as mock_check, \
+             patch.object(legacy_mod, "record_rbac_check") as mock_record:
             decision = MagicMock()
             decision.allowed = True
             mock_check.return_value = decision
@@ -1626,9 +1614,9 @@ class TestRecordRbacCheck:
     def test_record_rbac_check_called_on_deny(self):
         ctx = MagicMock()
         ctx.user_id = "user-1"
-        with patch.object(connectors_mod, "RBAC_AVAILABLE", True), \
-             patch.object(connectors_mod, "check_permission") as mock_check, \
-             patch.object(connectors_mod, "record_rbac_check") as mock_record:
+        with patch.object(legacy_mod, "RBAC_AVAILABLE", True), \
+             patch.object(legacy_mod, "check_permission") as mock_check, \
+             patch.object(legacy_mod, "record_rbac_check") as mock_record:
             decision = MagicMock()
             decision.allowed = False
             decision.reason = "No access"

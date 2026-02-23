@@ -74,19 +74,9 @@ def _check_permission(
     Returns:
         None if allowed, error dict if denied
     """
-    # Read RBAC flags from the package module so tests can patch them.
-    try:
-        from aragora.server.handlers import connectors as connectors_module
-    except (ImportError, AttributeError):
-        connectors_module = None
-
     rbac_enabled = RBAC_AVAILABLE
     perm_checker = check_permission
     perm_error_type = PermissionDeniedError
-    if connectors_module is not None:
-        rbac_enabled = getattr(connectors_module, "RBAC_AVAILABLE", RBAC_AVAILABLE)
-        perm_checker = getattr(connectors_module, "check_permission", check_permission)
-        perm_error_type = getattr(connectors_module, "PermissionDeniedError", PermissionDeniedError)
 
     if not rbac_enabled:
         if rbac_fail_closed():

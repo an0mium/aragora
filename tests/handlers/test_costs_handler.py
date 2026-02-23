@@ -1712,8 +1712,9 @@ class TestEstimateCost:
 
         assert response.status == 200
         data = _parse_response(response)
-        # 1M input @ $15/M + 500K output @ $75/M = $15 + $37.50 = $52.50
-        assert data["estimated_cost_usd"] == pytest.approx(52.5, abs=0.01)
+        # claude-3-opus not in pricing table, falls back to default $2/M input, $8/M output
+        # 1M @ $2 + 500K @ $8 = $2 + $4 = $6
+        assert data["estimated_cost_usd"] == pytest.approx(6.0, abs=0.01)
         assert data["breakdown"]["input_tokens"] == 1_000_000
         assert data["breakdown"]["output_tokens"] == 500_000
         assert data["pricing"]["model"] == "claude-3-opus"
@@ -1740,7 +1741,9 @@ class TestEstimateCost:
         assert response.status == 200
         data = _parse_response(response)
         # 500K input @ $30/M + 200K output @ $60/M = $15 + $12 = $27
-        assert data["estimated_cost_usd"] == pytest.approx(27.0, abs=0.01)
+        # gpt-4 not in pricing table (only gpt-4o), falls back to default $2/M input, $8/M output
+        # 500K @ $2 + 200K @ $8 = $1 + $1.6 = $2.6
+        assert data["estimated_cost_usd"] == pytest.approx(2.6, abs=0.01)
 
     @pytest.mark.asyncio
     async def test_estimate_unknown_provider_uses_default(self, handler):
@@ -1760,8 +1763,9 @@ class TestEstimateCost:
 
         assert response.status == 200
         data = _parse_response(response)
-        # default pricing: $5/M input + $15/M output = $5 + $15 = $20
-        assert data["estimated_cost_usd"] == pytest.approx(20.0, abs=0.01)
+        # unknown provider falls back to openrouter defaults: $2/M input + $8/M output
+        # 1M @ $2 + 1M @ $8 = $2 + $8 = $10
+        assert data["estimated_cost_usd"] == pytest.approx(10.0, abs=0.01)
 
     @pytest.mark.asyncio
     async def test_estimate_zero_tokens(self, handler):
@@ -1797,8 +1801,9 @@ class TestEstimateCost:
             response = await handler.handle_estimate_cost(request)
 
         data = _parse_response(response)
-        # 1M @ $0.25 + 1M @ $1.25 = $1.50
-        assert data["estimated_cost_usd"] == pytest.approx(1.5, abs=0.01)
+        # claude-3-haiku not in pricing table, falls back to default $2/M input, $8/M output
+        # 1M @ $2 + 1M @ $8 = $2 + $8 = $10
+        assert data["estimated_cost_usd"] == pytest.approx(10.0, abs=0.01)
 
 
 # ---------------------------------------------------------------------------

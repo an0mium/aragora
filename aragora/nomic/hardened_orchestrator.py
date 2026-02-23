@@ -913,7 +913,7 @@ class HardenedOrchestrator(AutonomousOrchestrator):
                 "KnowledgeMound or ContradictionDetector unavailable, "
                 "skipping contradiction scan"
             )
-        except (RuntimeError, OSError, ValueError) as e:
+        except Exception as e:  # noqa: BLE001 — contradiction scan is non-critical
             logger.debug("km_contradiction_scan_error: %s", e)
 
     # =========================================================================
