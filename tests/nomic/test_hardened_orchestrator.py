@@ -2551,17 +2551,22 @@ class TestCoordinatedGoldPath:
         from aragora.nomic.feedback_orchestrator import SelfImproveFeedbackOrchestrator
 
         orch = SelfImproveFeedbackOrchestrator()
-        report = orch.run(
-            cycle_id="coordinated_test",
-            execution_results=[
-                {
-                    "goal": "Improve tests",
-                    "success": True,
-                    "merged": 2,
-                    "failed": 0,
-                    "total": 2,
-                },
-            ],
-        )
+        with patch.object(
+            orch,
+            "_step_knowledge_contradiction",
+            return_value=[],
+        ):
+            report = orch.run(
+                cycle_id="coordinated_test",
+                execution_results=[
+                    {
+                        "goal": "Improve tests",
+                        "success": True,
+                        "merged": 2,
+                        "failed": 0,
+                        "total": 2,
+                    },
+                ],
+            )
         assert report.cycle_id == "coordinated_test"
         assert report.steps_completed >= 0  # At least some steps run

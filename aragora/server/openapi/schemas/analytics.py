@@ -239,7 +239,7 @@ ANALYTICS_SCHEMAS: dict[str, Any] = {
                 "enum": ["ENABLED", "PAUSED", "REMOVED"],
             },
             "objective": {
-                "type": "string",
+                "type": ["string", "null"],
                 "description": "Campaign objective/goal",
             },
             "daily_budget": {
@@ -247,26 +247,26 @@ ANALYTICS_SCHEMAS: dict[str, Any] = {
                 "description": "Daily budget in account currency",
             },
             "total_budget": {
-                "type": "number",
+                "type": ["number", "null"],
                 "description": "Total campaign budget",
             },
             "start_date": {
-                "type": "string",
+                "type": ["string", "null"],
                 "format": "date",
                 "description": "Campaign start date",
             },
             "end_date": {
-                "type": "string",
+                "type": ["string", "null"],
                 "format": "date",
                 "description": "Campaign end date",
             },
             "created_at": {
-                "type": "string",
+                "type": ["string", "null"],
                 "format": "date-time",
                 "description": "When the campaign was created",
             },
             "updated_at": {
-                "type": "string",
+                "type": ["string", "null"],
                 "format": "date-time",
                 "description": "When the campaign was last updated",
             },

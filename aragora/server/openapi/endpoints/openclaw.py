@@ -93,12 +93,12 @@ _ACTION_SCHEMA: dict[str, Any] = {
             "description": "Action creation timestamp",
         },
         "started_at": {
-            "type": "string",
+            "type": ["string", "null"],
             "format": "date-time",
             "description": "Action start timestamp",
         },
         "completed_at": {
-            "type": "string",
+            "type": ["string", "null"],
             "format": "date-time",
             "description": "Action completion timestamp",
         },
@@ -130,12 +130,12 @@ _CREDENTIAL_SCHEMA: dict[str, Any] = {
             "description": "Last update timestamp",
         },
         "last_rotated_at": {
-            "type": "string",
+            "type": ["string", "null"],
             "format": "date-time",
             "description": "Last rotation timestamp",
         },
         "expires_at": {
-            "type": "string",
+            "type": ["string", "null"],
             "format": "date-time",
             "description": "Expiration timestamp",
         },
@@ -184,7 +184,7 @@ _APPROVAL_SCHEMA: dict[str, Any] = {
             "description": "Request timestamp",
         },
         "decided_at": {
-            "type": "string",
+            "type": ["string", "null"],
             "format": "date-time",
             "description": "Decision timestamp",
         },

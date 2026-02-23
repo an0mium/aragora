@@ -270,7 +270,7 @@ ADMIN_SECURITY_ENDPOINTS = {
                                     },
                                     "records_reencrypted": {"type": "integer"},
                                     "failed_records": {"type": "integer"},
-                                    "duration_seconds": {"type": "number"},
+                                    "duration_seconds": {"type": ["number", "null"]},
                                     "errors": {
                                         "type": "array",
                                         "items": {"type": "string"},
@@ -369,7 +369,7 @@ ADMIN_SECURITY_ENDPOINTS = {
                                                 "type": ["string", "null"],
                                             },
                                             "due_date": {
-                                                "type": "string",
+                                                "type": ["string", "null"],
                                                 "format": "date-time",
                                             },
                                         },
@@ -379,7 +379,7 @@ ADMIN_SECURITY_ENDPOINTS = {
                                         "format": "date-time",
                                     },
                                     "resolved_at": {
-                                        "type": "string",
+                                        "type": ["string", "null"],
                                         "format": "date-time",
                                     },
                                 },
@@ -429,7 +429,7 @@ ADMIN_SECURITY_ENDPOINTS = {
                                     "description": "New violation status",
                                 },
                                 "assigned_to": {
-                                    "type": "string",
+                                    "type": ["string", "null"],
                                     "description": "User ID to assign remediation to",
                                 },
                                 "remediation_notes": {
@@ -547,7 +547,7 @@ ADMIN_SECURITY_ENDPOINTS = {
                                                     "format": "date-time",
                                                 },
                                                 "completed_at": {
-                                                    "type": "string",
+                                                    "type": ["string", "null"],
                                                     "format": "date-time",
                                                 },
                                                 "retention_days": {"type": "integer"},
@@ -588,7 +588,7 @@ ADMIN_SECURITY_ENDPOINTS = {
                                     "description": "Backup type",
                                 },
                                 "label": {
-                                    "type": "string",
+                                    "type": ["string", "null"],
                                     "description": "Optional human-readable label",
                                 },
                                 "retention_days": {
@@ -695,7 +695,7 @@ ADMIN_SECURITY_ENDPOINTS = {
                                         "format": "date-time",
                                     },
                                     "completed_at": {
-                                        "type": "string",
+                                        "type": ["string", "null"],
                                         "format": "date-time",
                                     },
                                     "retention_days": {"type": "integer"},
@@ -888,7 +888,7 @@ ADMIN_SECURITY_ENDPOINTS = {
                                         "format": "date-time",
                                     },
                                     "next_check": {
-                                        "type": "string",
+                                        "type": ["string", "null"],
                                         "format": "date-time",
                                     },
                                 },
@@ -1037,7 +1037,7 @@ ADMIN_SECURITY_ENDPOINTS = {
                                             "backup_frequency": {"type": "string"},
                                             "drill_frequency": {"type": "string"},
                                             "next_drill": {
-                                                "type": "string",
+                                                "type": ["string", "null"],
                                                 "format": "date-time",
                                             },
                                         },

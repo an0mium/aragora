@@ -197,7 +197,7 @@ COMPUTER_USE_ENDPOINTS = {
                             "task_id": {"type": "string"},
                             "parameters": {"type": "object"},
                             "success": {"type": "boolean"},
-                            "result": {"type": "object"},
+                            "result": {"type": ["object", "null"]},
                             "created_at": {"type": "string", "format": "date-time"},
                         },
                     },
@@ -671,7 +671,7 @@ COMPUTER_USE_ENDPOINTS = {
                                     "dry_run": {"type": "boolean"},
                                     "created_at": {"type": "string", "format": "date-time"},
                                     "cancelled_at": {
-                                        "type": "string",
+                                        "type": ["string", "null"],
                                         "format": "date-time",
                                     },
                                     "steps": {

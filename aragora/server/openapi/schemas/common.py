@@ -186,12 +186,12 @@ COMMON_SCHEMAS: dict[str, Any] = {
                 "description": "Creation timestamp",
             },
             "started_at": {
-                "type": "string",
+                "type": ["string", "null"],
                 "format": "date-time",
                 "description": "Start timestamp",
             },
             "completed_at": {
-                "type": "string",
+                "type": ["string", "null"],
                 "format": "date-time",
                 "description": "Completion timestamp",
             },

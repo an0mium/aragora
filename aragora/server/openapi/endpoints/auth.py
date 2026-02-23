@@ -383,7 +383,7 @@ AUTH_ENDPOINTS = {
                                                     "format": "date-time",
                                                 },
                                                 "last_used": {
-                                                    "type": "string",
+                                                    "type": ["string", "null"],
                                                     "format": "date-time",
                                                 },
                                             },
@@ -413,7 +413,7 @@ AUTH_ENDPOINTS = {
                             "properties": {
                                 "name": {"type": "string"},
                                 "expires_at": {
-                                    "type": "string",
+                                    "type": ["string", "null"],
                                     "format": "date-time",
                                     "description": "Optional expiration date",
                                 },
@@ -527,7 +527,7 @@ AUTH_ENDPOINTS = {
                                         "format": "date-time",
                                     },
                                     "last_used": {
-                                        "type": "string",
+                                        "type": ["string", "null"],
                                         "format": "date-time",
                                     },
                                 },

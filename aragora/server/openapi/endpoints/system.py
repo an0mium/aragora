@@ -320,7 +320,7 @@ SYSTEM_ENDPOINTS = {
                                     "description": "Action to take on the proposal",
                                 },
                                 "reason": {
-                                    "type": "string",
+                                    "type": ["string", "null"],
                                     "description": "Reason for approval/rejection",
                                 },
                             },
@@ -690,7 +690,7 @@ SYSTEM_ENDPOINTS = {
                                     },
                                     "created_at": {"type": "string", "format": "date-time"},
                                     "completed_at": {
-                                        "type": "string",
+                                        "type": ["string", "null"],
                                         "format": "date-time",
                                     },
                                 },
