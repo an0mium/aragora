@@ -427,22 +427,14 @@ class TestGetHandlerStability:
         mock_all_handlers = [type("FakeHandler", (), {"__name__": "FakeHandler"})]
         mock_stability = {"FakeHandler": "stable"}
         with patch(
-            "aragora.server.handlers.features.features.importlib.import_module"
-        ) as mock_import:
-            mock_mod = MagicMock()
-            mock_mod.ALL_HANDLERS = mock_all_handlers
-            mock_mod.get_all_handler_stability.return_value = mock_stability
-            mock_import.return_value = mock_mod
-            # Patch the from-import directly
-            with patch(
-                "aragora.server.handlers.ALL_HANDLERS",
-                mock_all_handlers,
-            ), patch(
-                "aragora.server.handlers.get_all_handler_stability",
-                return_value=mock_stability,
-            ):
-                result = handler.handle("/api/features/handlers", {})
-                assert _status(result) == 200
+            "aragora.server.handlers.ALL_HANDLERS",
+            mock_all_handlers,
+        ), patch(
+            "aragora.server.handlers.get_all_handler_stability",
+            return_value=mock_stability,
+        ):
+            result = handler.handle("/api/features/handlers", {})
+            assert _status(result) == 200
 
     def test_response_structure(self, handler):
         mock_all_handlers = [
@@ -527,7 +519,7 @@ class TestGetConfig:
     def test_returns_200_unauthenticated(self, handler):
         mock_handler = MockHTTPHandler(method="GET")
         with patch(
-            "aragora.server.handlers.features.features.extract_user_from_request",
+            "aragora.billing.jwt_auth.extract_user_from_request",
             return_value=None,
         ):
             result = handler.handle("/api/features/config", {}, mock_handler)
@@ -536,7 +528,7 @@ class TestGetConfig:
     def test_returns_default_preferences(self, handler):
         mock_handler = MockHTTPHandler(method="GET")
         with patch(
-            "aragora.server.handlers.features.features.extract_user_from_request",
+            "aragora.billing.jwt_auth.extract_user_from_request",
             return_value=None,
         ):
             result = handler.handle("/api/features/config", {}, mock_handler)
@@ -548,7 +540,7 @@ class TestGetConfig:
     def test_unauthenticated_flag(self, handler):
         mock_handler = MockHTTPHandler(method="GET")
         with patch(
-            "aragora.server.handlers.features.features.extract_user_from_request",
+            "aragora.billing.jwt_auth.extract_user_from_request",
             return_value=None,
         ):
             result = handler.handle("/api/features/config", {}, mock_handler)
@@ -571,7 +563,7 @@ class TestGetConfig:
         mock_handler = MockHTTPHandler(method="GET")
 
         with patch(
-            "aragora.server.handlers.features.features.extract_user_from_request",
+            "aragora.billing.jwt_auth.extract_user_from_request",
             return_value=user_ctx,
         ):
             result = handler.handle("/api/features/config", {}, mock_handler)
@@ -596,7 +588,7 @@ class TestGetConfig:
         mock_handler = MockHTTPHandler(method="GET")
 
         with patch(
-            "aragora.server.handlers.features.features.extract_user_from_request",
+            "aragora.billing.jwt_auth.extract_user_from_request",
             return_value=user_ctx,
         ):
             result = handler.handle("/api/features/config", {}, mock_handler)
@@ -608,7 +600,7 @@ class TestGetConfig:
     def test_feature_toggles_in_response(self, handler):
         mock_handler = MockHTTPHandler(method="GET")
         with patch(
-            "aragora.server.handlers.features.features.extract_user_from_request",
+            "aragora.billing.jwt_auth.extract_user_from_request",
             return_value=None,
         ):
             result = handler.handle("/api/features/config", {}, mock_handler)
@@ -619,7 +611,7 @@ class TestGetConfig:
     def test_feature_toggles_have_expected_fields(self, handler):
         mock_handler = MockHTTPHandler(method="GET")
         with patch(
-            "aragora.server.handlers.features.features.extract_user_from_request",
+            "aragora.billing.jwt_auth.extract_user_from_request",
             return_value=None,
         ):
             result = handler.handle("/api/features/config", {}, mock_handler)
@@ -636,7 +628,7 @@ class TestGetConfig:
     def test_versioned_path(self, handler):
         mock_handler = MockHTTPHandler(method="GET")
         with patch(
-            "aragora.server.handlers.features.features.extract_user_from_request",
+            "aragora.billing.jwt_auth.extract_user_from_request",
             return_value=None,
         ):
             result = handler.handle("/api/v1/features/config", {}, mock_handler)
@@ -657,7 +649,7 @@ class TestUpdateConfig:
         mock_handler = MockHTTPHandler(method="POST", body=body_data)
 
         with patch(
-            "aragora.server.handlers.features.features.extract_user_from_request",
+            "aragora.billing.jwt_auth.extract_user_from_request",
             return_value=None,
         ):
             result = handler.handle("/api/features/config", {}, mock_handler)
@@ -681,7 +673,7 @@ class TestUpdateConfig:
         mock_handler = MockHTTPHandler(method="POST", body=body_data)
 
         with patch(
-            "aragora.server.handlers.features.features.extract_user_from_request",
+            "aragora.billing.jwt_auth.extract_user_from_request",
             return_value=user_ctx,
         ):
             result = handler.handle("/api/features/config", {}, mock_handler)
@@ -697,7 +689,7 @@ class TestUpdateConfig:
         mock_handler = MockHTTPHandler(method="POST", body=body_data)
 
         with patch(
-            "aragora.server.handlers.features.features.extract_user_from_request",
+            "aragora.billing.jwt_auth.extract_user_from_request",
             return_value=None,
         ):
             result = handler.handle("/api/features/config", {}, mock_handler)
@@ -710,7 +702,7 @@ class TestUpdateConfig:
         mock_handler = MockHTTPHandler(method="POST", body=body_data)
 
         with patch(
-            "aragora.server.handlers.features.features.extract_user_from_request",
+            "aragora.billing.jwt_auth.extract_user_from_request",
             return_value=None,
         ):
             result = handler.handle("/api/features/config", {}, mock_handler)
@@ -724,7 +716,7 @@ class TestUpdateConfig:
         mock_handler.headers["Content-Length"] = "8"
 
         with patch(
-            "aragora.server.handlers.features.features.extract_user_from_request",
+            "aragora.billing.jwt_auth.extract_user_from_request",
             return_value=None,
         ):
             result = handler.handle("/api/features/config", {}, mock_handler)
@@ -736,7 +728,7 @@ class TestUpdateConfig:
         mock_handler = MockHTTPHandler(method="POST", body=body_data)
 
         with patch(
-            "aragora.server.handlers.features.features.extract_user_from_request",
+            "aragora.billing.jwt_auth.extract_user_from_request",
             return_value=None,
         ):
             result = handler.handle("/api/features/config", {}, mock_handler)
@@ -757,7 +749,7 @@ class TestUpdateConfig:
         mock_handler = MockHTTPHandler(method="POST", body=body_data)
 
         with patch(
-            "aragora.server.handlers.features.features.extract_user_from_request",
+            "aragora.billing.jwt_auth.extract_user_from_request",
             return_value=user_ctx,
         ):
             result = handler.handle("/api/features/config", {}, mock_handler)
@@ -768,7 +760,7 @@ class TestUpdateConfig:
         mock_handler = MockHTTPHandler(method="DELETE")
 
         with patch(
-            "aragora.server.handlers.features.features.extract_user_from_request",
+            "aragora.billing.jwt_auth.extract_user_from_request",
             return_value=None,
         ):
             result = handler.handle("/api/features/config", {}, mock_handler)
@@ -784,7 +776,7 @@ class TestUpdateConfig:
         mock_handler = MockHTTPHandler(method="POST", body=body_data)
 
         with patch(
-            "aragora.server.handlers.features.features.extract_user_from_request",
+            "aragora.billing.jwt_auth.extract_user_from_request",
             return_value=None,
         ):
             result = handler.handle("/api/features/config", {}, mock_handler)
@@ -798,7 +790,7 @@ class TestUpdateConfig:
         mock_handler = MockHTTPHandler(method="POST", body=body_data)
 
         with patch(
-            "aragora.server.handlers.features.features.extract_user_from_request",
+            "aragora.billing.jwt_auth.extract_user_from_request",
             return_value=None,
         ):
             result = handler.handle("/api/features/config", {}, mock_handler)
@@ -810,7 +802,7 @@ class TestUpdateConfig:
         mock_handler = MockHTTPHandler(method="POST", body=body_data)
 
         with patch(
-            "aragora.server.handlers.features.features.extract_user_from_request",
+            "aragora.billing.jwt_auth.extract_user_from_request",
             return_value=None,
         ):
             result = handler.handle("/api/features/config", {}, mock_handler)
@@ -1101,9 +1093,10 @@ class TestRateLimiting:
     def test_rate_limit_exceeded_returns_429(self, handler, monkeypatch):
         """When rate limit is exceeded, handler returns 429."""
         # Re-enable rate limiting for this test
-        monkeypatch.setattr(
-            "aragora.server.handlers.utils.rate_limit.RATE_LIMITING_DISABLED", False
-        )
+        import importlib
+
+        rl_mod = importlib.import_module("aragora.server.handlers.utils.rate_limit")
+        monkeypatch.setattr(rl_mod, "RATE_LIMITING_DISABLED", False)
         from aragora.server.handlers.features.features import _features_limiter
 
         # Patch is_allowed to return False
@@ -1290,7 +1283,8 @@ class TestFeatureUnavailableResponse:
     def test_known_feature_has_install_hint(self):
         result = feature_unavailable_response("pulse")
         body = _body(result)
-        assert "suggestion" in body or "install_hint" in body or "details" in body
+        error_obj = body.get("error", body)
+        assert "suggestion" in error_obj or "install_hint" in error_obj or "details" in error_obj
 
     def test_unknown_feature_returns_503(self):
         result = feature_unavailable_response("totally_unknown_feature")
@@ -1306,7 +1300,8 @@ class TestFeatureUnavailableResponse:
     def test_error_code_set(self):
         result = feature_unavailable_response("elo")
         body = _body(result)
-        assert body.get("code") == "FEATURE_UNAVAILABLE"
+        error_obj = body.get("error", body)
+        assert error_obj.get("code") == "FEATURE_UNAVAILABLE"
 
 
 # ---------------------------------------------------------------------------
@@ -1467,7 +1462,7 @@ class TestHandleRouting:
         """The config endpoint should receive the HTTP handler for auth."""
         mock_handler = MockHTTPHandler(method="GET")
         with patch(
-            "aragora.server.handlers.features.features.extract_user_from_request",
+            "aragora.billing.jwt_auth.extract_user_from_request",
             return_value=None,
         ):
             result = handler.handle("/api/features/config", {}, mock_handler)

@@ -299,7 +299,6 @@ class FindingWorkflowHandler(BaseHandler):
                 FindingWorkflow,
                 FindingWorkflowData,
                 WorkflowState,
-                InvalidTransitionError,
             )
 
             workflow_dict = await self._get_or_create_workflow(finding_id)

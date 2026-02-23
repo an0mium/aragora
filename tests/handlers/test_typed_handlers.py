@@ -90,9 +90,13 @@ def _make_auth_user(
     authenticated: bool = True,
     roles: list[str] | None = None,
     permissions: list[str] | None = None,
-    is_admin: bool = False,
 ) -> UserAuthContext:
-    """Create a UserAuthContext with optional extra attributes."""
+    """Create a UserAuthContext with optional extra attributes.
+
+    Note: ``is_admin`` is a read-only property on ``UserAuthContext`` derived
+    from ``role``.  To get ``is_admin == True`` pass ``role="admin"`` (or
+    ``role="owner"``).
+    """
     ctx = UserAuthContext(
         authenticated=authenticated,
         user_id=user_id,
@@ -105,8 +109,6 @@ def _make_auth_user(
         object.__setattr__(ctx, "roles", roles)
     if permissions is not None:
         object.__setattr__(ctx, "permissions", permissions)
-    if is_admin:
-        object.__setattr__(ctx, "is_admin", True)
     return ctx
 
 

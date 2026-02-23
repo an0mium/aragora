@@ -128,70 +128,160 @@ class StubHandler(RoutingMixin):
         )
 
         # ---- Static route handler stubs ----
+        # NOTE: name= must match the attribute name so _invoke_handler can
+        # look up the correct call-signature in _HANDLER_SIGNATURES.
         # POST /query
-        self._handle_mound_query = MagicMock(return_value=self._ok)
+        self._handle_mound_query = MagicMock(
+            name="_handle_mound_query", return_value=self._ok
+        )
         # GET/POST /nodes router
-        self._handle_list_nodes = MagicMock(return_value=self._ok)
-        self._handle_create_node = MagicMock(return_value=self._ok)
+        self._handle_list_nodes = MagicMock(
+            name="_handle_list_nodes", return_value=self._ok
+        )
+        self._handle_create_node = MagicMock(
+            name="_handle_create_node", return_value=self._ok
+        )
         # POST /relationships
-        self._handle_create_relationship = MagicMock(return_value=self._ok)
+        self._handle_create_relationship = MagicMock(
+            name="_handle_create_relationship", return_value=self._ok
+        )
         # GET /stats
-        self._handle_mound_stats = MagicMock(return_value=self._ok)
+        self._handle_mound_stats = MagicMock(
+            name="_handle_mound_stats", return_value=self._ok
+        )
         # POST /index/repository
-        self._handle_index_repository = MagicMock(return_value=self._ok)
+        self._handle_index_repository = MagicMock(
+            name="_handle_index_repository", return_value=self._ok
+        )
         # GET /culture
-        self._handle_get_culture = MagicMock(return_value=self._ok)
+        self._handle_get_culture = MagicMock(
+            name="_handle_get_culture", return_value=self._ok
+        )
         # POST /culture/documents
-        self._handle_add_culture_document = MagicMock(return_value=self._ok)
+        self._handle_add_culture_document = MagicMock(
+            name="_handle_add_culture_document", return_value=self._ok
+        )
         # POST /culture/promote
-        self._handle_promote_to_culture = MagicMock(return_value=self._ok)
+        self._handle_promote_to_culture = MagicMock(
+            name="_handle_promote_to_culture", return_value=self._ok
+        )
         # GET /stale
-        self._handle_get_stale = MagicMock(return_value=self._ok)
+        self._handle_get_stale = MagicMock(
+            name="_handle_get_stale", return_value=self._ok
+        )
         # POST /schedule-revalidation
-        self._handle_schedule_revalidation = MagicMock(return_value=self._ok)
+        self._handle_schedule_revalidation = MagicMock(
+            name="_handle_schedule_revalidation", return_value=self._ok
+        )
         # POST /sync/*
-        self._handle_sync_continuum = MagicMock(return_value=self._ok)
-        self._handle_sync_consensus = MagicMock(return_value=self._ok)
-        self._handle_sync_facts = MagicMock(return_value=self._ok)
+        self._handle_sync_continuum = MagicMock(
+            name="_handle_sync_continuum", return_value=self._ok
+        )
+        self._handle_sync_consensus = MagicMock(
+            name="_handle_sync_consensus", return_value=self._ok
+        )
+        self._handle_sync_facts = MagicMock(
+            name="_handle_sync_facts", return_value=self._ok
+        )
         # GET /export/*
-        self._handle_export_d3 = MagicMock(return_value=self._ok)
-        self._handle_export_graphml = MagicMock(return_value=self._ok)
+        self._handle_export_d3 = MagicMock(
+            name="_handle_export_d3", return_value=self._ok
+        )
+        self._handle_export_graphml = MagicMock(
+            name="_handle_export_graphml", return_value=self._ok
+        )
         # Sharing stubs
-        self._handle_share_item = MagicMock(return_value=self._ok)
-        self._handle_revoke_share = MagicMock(return_value=self._ok)
-        self._handle_update_share = MagicMock(return_value=self._ok)
-        self._handle_shared_with_me = MagicMock(return_value=self._ok)
-        self._handle_my_shares = MagicMock(return_value=self._ok)
+        self._handle_share_item = MagicMock(
+            name="_handle_share_item", return_value=self._ok
+        )
+        self._handle_revoke_share = MagicMock(
+            name="_handle_revoke_share", return_value=self._ok
+        )
+        self._handle_update_share = MagicMock(
+            name="_handle_update_share", return_value=self._ok
+        )
+        self._handle_shared_with_me = MagicMock(
+            name="_handle_shared_with_me", return_value=self._ok
+        )
+        self._handle_my_shares = MagicMock(
+            name="_handle_my_shares", return_value=self._ok
+        )
         # Global knowledge stubs
-        self._handle_store_verified_fact = MagicMock(return_value=self._ok)
-        self._handle_query_global = MagicMock(return_value=self._ok)
-        self._handle_promote_to_global = MagicMock(return_value=self._ok)
-        self._handle_get_system_facts = MagicMock(return_value=self._ok)
-        self._handle_get_system_workspace_id = MagicMock(return_value=self._ok)
+        self._handle_store_verified_fact = MagicMock(
+            name="_handle_store_verified_fact", return_value=self._ok
+        )
+        self._handle_query_global = MagicMock(
+            name="_handle_query_global", return_value=self._ok
+        )
+        self._handle_promote_to_global = MagicMock(
+            name="_handle_promote_to_global", return_value=self._ok
+        )
+        self._handle_get_system_facts = MagicMock(
+            name="_handle_get_system_facts", return_value=self._ok
+        )
+        self._handle_get_system_workspace_id = MagicMock(
+            name="_handle_get_system_workspace_id", return_value=self._ok
+        )
         # Federation stubs
-        self._handle_register_region = MagicMock(return_value=self._ok)
-        self._handle_list_regions = MagicMock(return_value=self._ok)
-        self._handle_sync_to_region = MagicMock(return_value=self._ok)
-        self._handle_pull_from_region = MagicMock(return_value=self._ok)
-        self._handle_sync_all_regions = MagicMock(return_value=self._ok)
-        self._handle_get_federation_status = MagicMock(return_value=self._ok)
+        self._handle_register_region = MagicMock(
+            name="_handle_register_region", return_value=self._ok
+        )
+        self._handle_list_regions = MagicMock(
+            name="_handle_list_regions", return_value=self._ok
+        )
+        self._handle_sync_to_region = MagicMock(
+            name="_handle_sync_to_region", return_value=self._ok
+        )
+        self._handle_pull_from_region = MagicMock(
+            name="_handle_pull_from_region", return_value=self._ok
+        )
+        self._handle_sync_all_regions = MagicMock(
+            name="_handle_sync_all_regions", return_value=self._ok
+        )
+        self._handle_get_federation_status = MagicMock(
+            name="_handle_get_federation_status", return_value=self._ok
+        )
         # Dynamic route handler stubs
-        self._handle_get_node = MagicMock(return_value=self._ok)
-        self._handle_get_node_relationships = MagicMock(return_value=self._ok)
-        self._handle_revalidate_node = MagicMock(return_value=self._ok)
-        self._handle_set_visibility = MagicMock(return_value=self._ok)
-        self._handle_get_visibility = MagicMock(return_value=self._ok)
-        self._handle_grant_access = MagicMock(return_value=self._ok)
-        self._handle_revoke_access = MagicMock(return_value=self._ok)
-        self._handle_list_access_grants = MagicMock(return_value=self._ok)
-        self._handle_unregister_region = MagicMock(return_value=self._ok)
-        self._handle_resolve_contradiction = MagicMock(return_value=self._ok)
-        self._handle_get_user_permissions = MagicMock(return_value=self._ok)
-        self._handle_get_user_activity = MagicMock(return_value=self._ok)
+        self._handle_get_node = MagicMock(
+            name="_handle_get_node", return_value=self._ok
+        )
+        self._handle_get_node_relationships = MagicMock(
+            name="_handle_get_node_relationships", return_value=self._ok
+        )
+        self._handle_revalidate_node = MagicMock(
+            name="_handle_revalidate_node", return_value=self._ok
+        )
+        self._handle_set_visibility = MagicMock(
+            name="_handle_set_visibility", return_value=self._ok
+        )
+        self._handle_get_visibility = MagicMock(
+            name="_handle_get_visibility", return_value=self._ok
+        )
+        self._handle_grant_access = MagicMock(
+            name="_handle_grant_access", return_value=self._ok
+        )
+        self._handle_revoke_access = MagicMock(
+            name="_handle_revoke_access", return_value=self._ok
+        )
+        self._handle_list_access_grants = MagicMock(
+            name="_handle_list_access_grants", return_value=self._ok
+        )
+        self._handle_unregister_region = MagicMock(
+            name="_handle_unregister_region", return_value=self._ok
+        )
+        # NOTE: _handle_resolve_contradiction, _handle_get_user_permissions,
+        # and _handle_get_user_activity are real methods on RoutingMixin --
+        # do NOT shadow them with MagicMock stubs here.
         # Graph stubs
-        self._handle_graph_lineage = MagicMock(return_value=self._ok)
-        self._handle_graph_related = MagicMock(return_value=self._ok)
-        self._handle_graph_traversal = MagicMock(return_value=self._ok)
+        self._handle_graph_lineage = MagicMock(
+            name="_handle_graph_lineage", return_value=self._ok
+        )
+        self._handle_graph_related = MagicMock(
+            name="_handle_graph_related", return_value=self._ok
+        )
+        self._handle_graph_traversal = MagicMock(
+            name="_handle_graph_traversal", return_value=self._ok
+        )
         # Dashboard async stubs (these call handle_dashboard_* coroutines)
         self.handle_dashboard_health = AsyncMock(return_value=self._ok)
         self.handle_dashboard_metrics = AsyncMock(return_value=self._ok)
@@ -243,14 +333,30 @@ class StubHandler(RoutingMixin):
         self.record_confidence_event = AsyncMock(return_value=self._ok)
         self.get_confidence_history = AsyncMock(return_value=self._ok)
         # Curation stubs
-        self._handle_create_curation_policy = MagicMock(return_value=self._ok)
-        self._handle_update_curation_policy = MagicMock(return_value=self._ok)
-        self._handle_get_curation_policy = MagicMock(return_value=self._ok)
-        self._handle_curation_status = MagicMock(return_value=self._ok)
-        self._handle_curation_run = MagicMock(return_value=self._ok)
-        self._handle_curation_history = MagicMock(return_value=self._ok)
-        self._handle_curation_scores = MagicMock(return_value=self._ok)
-        self._handle_curation_tiers = MagicMock(return_value=self._ok)
+        self._handle_create_curation_policy = MagicMock(
+            name="_handle_create_curation_policy", return_value=self._ok
+        )
+        self._handle_update_curation_policy = MagicMock(
+            name="_handle_update_curation_policy", return_value=self._ok
+        )
+        self._handle_get_curation_policy = MagicMock(
+            name="_handle_get_curation_policy", return_value=self._ok
+        )
+        self._handle_curation_status = MagicMock(
+            name="_handle_curation_status", return_value=self._ok
+        )
+        self._handle_curation_run = MagicMock(
+            name="_handle_curation_run", return_value=self._ok
+        )
+        self._handle_curation_history = MagicMock(
+            name="_handle_curation_history", return_value=self._ok
+        )
+        self._handle_curation_scores = MagicMock(
+            name="_handle_curation_scores", return_value=self._ok
+        )
+        self._handle_curation_tiers = MagicMock(
+            name="_handle_curation_tiers", return_value=self._ok
+        )
 
     def _get_mound(self):
         return self._mound
@@ -977,13 +1083,23 @@ class TestPathParameterExtraction:
         handler._dispatch_route(
             "/api/v1/knowledge/mound/governance/permissions/user-xyz", {}, http_get
         )
-        handler._handle_get_user_permissions.assert_called_once_with("user-xyz", {})
+        # _handle_get_user_permissions is a real RoutingMixin method;
+        # verify the underlying async stub received the correct user_id.
+        handler.get_user_permissions.assert_called_once_with(
+            user_id="user-xyz",
+            workspace_id=None,
+        )
 
     def test_user_activity_id_extracted(self, handler, http_get):
         handler._dispatch_route(
             "/api/v1/knowledge/mound/governance/audit/user/admin-1", {}, http_get
         )
-        handler._handle_get_user_activity.assert_called_once_with("admin-1", {})
+        # _handle_get_user_activity is a real RoutingMixin method;
+        # verify the underlying async stub received the correct user_id.
+        handler.get_user_activity.assert_called_once_with(
+            user_id="admin-1",
+            days=30,
+        )
 
     def test_unregister_region_id_extracted(self, handler, http_delete):
         handler._dispatch_route(
@@ -2054,11 +2170,16 @@ class TestEdgeCases:
 
     def test_query_params_passed_through(self, handler, http_get):
         """Query params are forwarded to handler methods."""
-        qp = {"workspace_id": "ws-1", "limit": "50"}
+        qp = {"workspace_id": "ws-1", "min_severity": "HIGH"}
         handler._dispatch_route(
             "/api/v1/knowledge/mound/contradictions", qp, http_get
         )
-        handler._handle_list_contradictions.assert_called_once_with(qp)
+        # _handle_list_contradictions is a real RoutingMixin method, so
+        # verify the underlying async stub received the correct args.
+        handler.list_contradictions.assert_called_once_with(
+            workspace_id="ws-1",
+            min_severity="HIGH",
+        )
 
     def test_dashboard_routes_dispatch_via_static(self, handler, http_get):
         """Dashboard health/metrics/adapters/queries/batcher routes dispatch."""

@@ -1,6 +1,14 @@
-"""QuickBooks Connector.
+"""QuickBooks Connector (DEPRECATED).
 
-Provides integration with QuickBooks for invoices, payments, and reports.
+This module is superseded by ``aragora.connectors.accounting.qbo`` which
+provides a full QuickBooks Online integration with OAuth 2.0, transaction
+sync, multi-company support, and more.
+
+Import ``QuickBooksConnector`` from the package or from ``qbo`` instead::
+
+    from aragora.connectors.accounting import QuickBooksConnector
+    # or
+    from aragora.connectors.accounting.qbo import QuickBooksConnector
 """
 
 from __future__ import annotations
@@ -8,6 +16,7 @@ from __future__ import annotations
 import logging
 import os
 import re
+import warnings
 from typing import Any
 
 import httpx
@@ -37,11 +46,29 @@ def _sanitize_query(query: str) -> str:
 
 
 class QuickBooksConnector(BaseConnector):
-    """QuickBooks connector for accounting, invoices, and payments."""
+    """QuickBooks connector for accounting, invoices, and payments.
+
+    .. deprecated::
+        This class is superseded by
+        ``aragora.connectors.accounting.qbo.QuickBooksConnector``.
+        Use ``from aragora.connectors.accounting import QuickBooksConnector``
+        to get the canonical (qbo) implementation.
+    """
 
     def __init__(self) -> None:
         super().__init__()
         self._configured = all(os.environ.get(v) for v in CONFIG_ENV_VARS)
+        warnings.warn(
+            "aragora.connectors.accounting.quickbooks.QuickBooksConnector is "
+            "deprecated. Use aragora.connectors.accounting.qbo.QuickBooksConnector "
+            "instead.",
+            DeprecationWarning,
+            stacklevel=2,
+        )
+        logger.warning(
+            "Using deprecated quickbooks.QuickBooksConnector. "
+            "Migrate to aragora.connectors.accounting.qbo.QuickBooksConnector."
+        )
 
     @property
     def name(self) -> str:

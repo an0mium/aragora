@@ -290,20 +290,19 @@ class SelfImproveFeedbackOrchestrator:
         """Step 2: Capture agent performance and identify capability gaps."""
         goals: list[FeedbackGoal] = []
 
-        from aragora.introspection.tracker import PerformanceTracker
+        from aragora.introspection.active import ActiveIntrospectionTracker
 
-        tracker = PerformanceTracker()
-        snapshots = tracker.get_recent_snapshots(limit=10)
+        tracker = ActiveIntrospectionTracker()
+        summaries = tracker.get_all_summaries()
 
-        for snapshot in snapshots:
-            # Detect agents with low success rates
-            success_rate = getattr(snapshot, "success_rate", 1.0)
-            agent_name = getattr(snapshot, "agent_name", "unknown")
+        for agent_name, summary in summaries.items():
+            # Use proposal acceptance rate as a proxy for success
+            success_rate = summary.proposal_acceptance_rate
 
             if success_rate < 0.5:
                 goals.append(FeedbackGoal(
                     description=(
-                        f"Agent '{agent_name}' has low success rate ({success_rate:.0%}). "
+                        f"Agent '{agent_name}' has low acceptance rate ({success_rate:.0%}). "
                         f"Consider retraining or replacing for this domain."
                     ),
                     source="introspection_gap",
@@ -320,19 +319,24 @@ class SelfImproveFeedbackOrchestrator:
         execution_results: list[dict[str, Any]],
     ) -> int:
         """Step 3: Auto-breed improved agent configs when quality < threshold."""
-        from aragora.genesis.evolution import AgentEvolver
+        from aragora.genesis.breeding import PopulationManager
 
-        evolver = AgentEvolver()
+        manager = PopulationManager()
 
         # Check if any execution results show consistently poor quality
         failed_count = sum(1 for er in execution_results if not er.get("success"))
         total = len(execution_results)
 
         if total > 0 and failed_count / total > 0.5:
-            bred = evolver.breed_from_failures(
-                failure_contexts=[er for er in execution_results if not er.get("success")]
-            )
-            return bred
+            # Get or create the active population and evolve it
+            base_agents = list({
+                er.get("agent_type", "claude")
+                for er in execution_results
+                if not er.get("success")
+            }) or ["claude"]
+            population = manager.get_or_create_population(base_agents)
+            evolved = manager.evolve_population(population)
+            return len(evolved.genomes)
 
         return 0
 
@@ -342,53 +346,97 @@ class SelfImproveFeedbackOrchestrator:
         execution_results: list[dict[str, Any]],
     ) -> int:
         """Step 4: Adjust hyperparameters based on cycle outcomes."""
-        from aragora.learning.meta_optimizer import MetaOptimizer
+        from aragora.learning.meta import MetaLearner, LearningMetrics
 
-        optimizer = MetaOptimizer()
+        learner = MetaLearner()
 
-        # Feed cycle outcomes as training signal
-        outcomes = []
-        for er in execution_results:
-            outcomes.append({
-                "success": er.get("success", False),
-                "tests_passed": er.get("tests_passed", 0),
-                "tests_failed": er.get("tests_failed", 0),
-                "files_changed": len(er.get("files_changed", [])),
-            })
+        # Build a LearningMetrics from cycle outcomes
+        total = len(execution_results)
+        if total == 0:
+            return 0
 
-        adjustments = optimizer.adjust_from_outcomes(cycle_id, outcomes)
-        return adjustments
+        succeeded = sum(1 for er in execution_results if er.get("success"))
+        retention_rate = succeeded / total if total else 0.5
+        forgetting_rate = 1.0 - retention_rate
+
+        metrics = LearningMetrics(
+            pattern_retention_rate=retention_rate,
+            forgetting_rate=forgetting_rate,
+            prediction_accuracy=retention_rate,
+            tier_efficiency={"fast": retention_rate, "slow": retention_rate},
+        )
+
+        adjustments = learner.adjust_hyperparameters(metrics)
+        return len(adjustments)
 
     def _step_workspace(
         self,
         execution_results: list[dict[str, Any]],
     ) -> int:
-        """Step 5: Deduplicate executed work via bead fingerprints."""
-        from aragora.workspace.bead import BeadStore
+        """Step 5: Deduplicate executed work via bead fingerprints.
 
-        store = BeadStore()
+        Uses a simple JSON fingerprint store colocated with the improvement
+        queue.  The workspace.bead.BeadManager is async and requires complex
+        NoMIC store initialisation, so we keep a lightweight sync store here.
+        """
+        import hashlib
+
+        fp_path = (self._queue_path or _DEFAULT_QUEUE_PATH).parent / "bead_fingerprints.json"
+        fp_path.parent.mkdir(parents=True, exist_ok=True)
+
+        # Load existing fingerprints
+        known: set[str] = set()
+        if fp_path.exists():
+            try:
+                known = set(json.loads(fp_path.read_text(encoding="utf-8")))
+            except (json.JSONDecodeError, TypeError):
+                known = set()
+
         deduped = 0
-
         for er in execution_results:
             desc = er.get("subtask", "")
             files = er.get("files_changed", [])
             if desc and files:
-                fingerprint = f"{desc}:{','.join(sorted(files))}"
-                if store.has_fingerprint(fingerprint):
+                raw = f"{desc}:{','.join(sorted(files))}"
+                fingerprint = hashlib.sha256(raw.encode()).hexdigest()
+                if fingerprint in known:
                     deduped += 1
                 else:
-                    store.record_fingerprint(fingerprint)
+                    known.add(fingerprint)
+
+        # Persist updated fingerprints
+        fp_path.write_text(json.dumps(sorted(known), indent=2), encoding="utf-8")
 
         return deduped
 
     def _step_pulse(self) -> list[FeedbackGoal]:
         """Step 6: Inject trending topics from Pulse as timely priorities."""
+        import asyncio
+
         goals: list[FeedbackGoal] = []
 
-        from aragora.pulse.scheduler import PulseScheduler
+        from aragora.pulse.ingestor import PulseManager
 
-        scheduler = PulseScheduler()
-        trending = scheduler.get_trending(limit=5)
+        manager = PulseManager()
+
+        # get_trending_topics is async; run in a sync context
+        try:
+            loop = asyncio.get_running_loop()
+        except RuntimeError:
+            loop = None
+
+        if loop and loop.is_running():
+            import concurrent.futures
+
+            with concurrent.futures.ThreadPoolExecutor(max_workers=1) as pool:
+                trending = pool.submit(
+                    asyncio.run,
+                    manager.get_trending_topics(limit_per_platform=5),
+                ).result(timeout=30)
+        else:
+            trending = asyncio.run(
+                manager.get_trending_topics(limit_per_platform=5)
+            )
 
         for topic in trending:
             title = getattr(topic, "title", str(topic))

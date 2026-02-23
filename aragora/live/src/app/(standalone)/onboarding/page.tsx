@@ -6,6 +6,7 @@ import { useRouter } from 'next/navigation';
 import { useAuth } from '@/context/AuthContext';
 import { useBackend, BACKENDS } from '@/components/BackendSelector';
 import { useDashboardPreferences } from '@/hooks/useDashboardPreferences';
+import { useOnboardingStore } from '@/store/onboardingStore';
 
 type WizardStep = 'role' | 'question' | 'launch';
 
@@ -65,6 +66,16 @@ export default function OnboardingPage() {
   const { config: backendConfig } = useBackend();
   const apiBase = backendConfig?.api || BACKENDS.production.api;
   const { markOnboardingComplete } = useDashboardPreferences();
+  const {
+    setSelectedIndustry,
+    setFirstDebateTopic,
+    setFirstDebateId,
+    setDebateStatus,
+    updateProgress,
+    updateChecklist,
+    completeOnboarding,
+    skipOnboarding,
+  } = useOnboardingStore();
 
   const [step, setStep] = useState<WizardStep>('role');
   const [selectedRole, setSelectedRole] = useState<string | null>(null);
@@ -78,27 +89,33 @@ export default function OnboardingPage() {
     const savedRole = sessionStorage.getItem('aragora_onboarding_role');
     if (savedQuestion) {
       setQuestion(savedQuestion);
-      if (savedRole) setSelectedRole(savedRole);
+      setFirstDebateTopic(savedQuestion);
+      if (savedRole) {
+        setSelectedRole(savedRole);
+        setSelectedIndustry(savedRole);
+      }
       // Jump straight to the launch step since they already picked a question
       setStep('launch');
       // Clean up
       sessionStorage.removeItem('aragora_onboarding_question');
       sessionStorage.removeItem('aragora_onboarding_role');
     }
-  }, []);
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   const suggestions = SUGGESTED_QUESTIONS[selectedRole || 'other'] || SUGGESTED_QUESTIONS.other;
 
   const handleRoleSelect = useCallback((role: string) => {
     setSelectedRole(role);
+    setSelectedIndustry(role);
     setStep('question');
-  }, []);
+  }, [setSelectedIndustry]);
 
   const handleQuestionNext = useCallback(() => {
     if (question.trim().length >= 5) {
+      setFirstDebateTopic(question.trim());
       setStep('launch');
     }
-  }, [question]);
+  }, [question, setFirstDebateTopic]);
 
   const handleLaunchDebate = useCallback(async () => {
     if (!question.trim()) return;
@@ -113,6 +130,7 @@ export default function OnboardingPage() {
 
     setIsLaunching(true);
     setError(null);
+    setDebateStatus('creating');
 
     try {
       const headers: Record<string, string> = { 'Content-Type': 'application/json' };
@@ -138,22 +156,30 @@ export default function OnboardingPage() {
       const data = await response.json();
 
       if (data.success && data.debate_id) {
+        setFirstDebateId(data.debate_id);
+        setDebateStatus('running');
+        updateProgress({ firstDebateStarted: true });
+        updateChecklist({ accountCreated: true, firstDebateRun: true });
+        completeOnboarding();
         markOnboardingComplete();
         router.push(`/debate/${data.debate_id}`);
       } else {
+        setDebateStatus('error');
         setError(data.error || 'Failed to start debate');
       }
     } catch (err) {
+      setDebateStatus('error');
       setError(err instanceof Error ? err.message : 'Network error. Please try again.');
     } finally {
       setIsLaunching(false);
     }
-  }, [question, isAuthenticated, tokens, apiBase, selectedRole, markOnboardingComplete, router]);
+  }, [question, isAuthenticated, tokens, apiBase, selectedRole, markOnboardingComplete, router, setDebateStatus, setFirstDebateId, updateProgress, updateChecklist, completeOnboarding]);
 
   const handleSkip = useCallback(() => {
+    skipOnboarding();
     markOnboardingComplete();
     router.push('/');
-  }, [markOnboardingComplete, router]);
+  }, [skipOnboarding, markOnboardingComplete, router]);
 
   return (
     <main className="min-h-screen bg-bg text-text">

@@ -289,7 +289,15 @@ def _patch_handler(
     handler._get_audit_log = MagicMock(return_value=mock_audit_log)
     handler._get_classifier = MagicMock(return_value=mock_classifier)
     handler._get_user_store = MagicMock(return_value=None)
-    handler._run_async = lambda coro: coro.__await__().__next__() if hasattr(coro, '__await__') else coro
+    def _sync_run_async(coro):
+        if not hasattr(coro, '__await__'):
+            return coro
+        try:
+            coro.__await__().__next__()
+        except StopIteration as e:
+            return e.value
+        raise RuntimeError("coroutine did not return")
+    handler._run_async = _sync_run_async
     handler._check_rbac_permission = MagicMock(return_value=None)
     return handler
 
@@ -605,7 +613,7 @@ class TestGetWorkspace:
         from aragora.privacy import AccessDeniedException
 
         mock_isolation_manager.get_workspace = AsyncMock(
-            side_effect=AccessDeniedException("denied")
+            side_effect=AccessDeniedException("denied", workspace_id="ws-001", actor="user-001", action="access")
         )
         _patch_handler(
             handler,
@@ -673,7 +681,7 @@ class TestDeleteWorkspace:
         from aragora.privacy import AccessDeniedException
 
         mock_isolation_manager.delete_workspace = AsyncMock(
-            side_effect=AccessDeniedException("denied")
+            side_effect=AccessDeniedException("denied", workspace_id="ws-001", actor="user-001", action="access")
         )
         _patch_handler(
             handler,
@@ -724,9 +732,9 @@ class TestWorkspaceIdValidation:
             "aragora.server.handlers.workspace_module.extract_user_from_request",
             return_value=_make_auth_ctx(),
         ):
-            # Path traversal attempt
+            # Path traversal attempt -- single segment so it reaches ID validation
             result = handler.handle(
-                "/api/v1/workspaces/../etc/passwd", {}, http, method="GET"
+                "/api/v1/workspaces/..", {}, http, method="GET"
             )
 
         assert _status(result) == 400
@@ -844,7 +852,7 @@ class TestRemoveMember:
         from aragora.privacy import AccessDeniedException
 
         mock_isolation_manager.remove_member = AsyncMock(
-            side_effect=AccessDeniedException("denied")
+            side_effect=AccessDeniedException("denied", workspace_id="ws-001", actor="user-001", action="access")
         )
         _patch_handler(
             handler,
