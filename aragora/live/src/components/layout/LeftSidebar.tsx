@@ -428,7 +428,7 @@ export function LeftSidebar() {
         href={item.href}
         onClick={() => isMobile && closeLeftSidebar()}
         className={`
-          flex items-center gap-3 px-3 py-1.5 rounded-md transition-colors text-[13px]
+          flex items-center gap-3 px-3 py-2 sm:py-1.5 rounded-md transition-colors text-[13px]
           ${isActive
             ? 'bg-[var(--acid-green)]/10 text-[var(--acid-green)]'
             : 'text-[var(--text-muted)] hover:bg-[var(--surface-elevated)] hover:text-[var(--text)]'

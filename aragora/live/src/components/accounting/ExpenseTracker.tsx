@@ -322,7 +322,7 @@ export function ExpenseTracker({
       <div className="bg-[var(--surface)] border border-[var(--border)] rounded p-4">
         <div className="flex flex-wrap items-center gap-4">
           {/* Search */}
-          <div className="flex-1 min-w-[200px]">
+          <div className="flex-1 min-w-0 sm:min-w-[200px]">
             <input
               type="text"
               value={searchQuery}
@@ -537,7 +537,7 @@ function StatsView({ stats }: { stats: ExpenseStats }) {
   return (
     <div className="space-y-4">
       {/* Summary Cards */}
-      <div className="grid grid-cols-4 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         <div className="bg-[var(--surface)] border border-[var(--border)] rounded p-4">
           <div className="text-xs text-[var(--text-muted)]">Total Expenses</div>
           <div className="text-2xl font-mono text-[var(--text)]">{stats.totalExpenses}</div>
@@ -724,7 +724,7 @@ function GridView({
   getCategoryIcon: (category: string) => string;
 }) {
   return (
-    <div className="grid grid-cols-3 gap-4">
+    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
       {expenses.map(expense => (
         <div
           key={expense.id}

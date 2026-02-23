@@ -99,7 +99,7 @@ export function TransactionList({ transactions }: TransactionListProps) {
       <div className="bg-[var(--surface)] border border-[var(--border)] rounded p-4">
         <div className="flex flex-wrap items-center gap-4">
           {/* Search */}
-          <div className="flex-1 min-w-[200px]">
+          <div className="flex-1 min-w-0 sm:min-w-[200px]">
             <input
               type="text"
               value={searchQuery}

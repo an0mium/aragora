@@ -504,7 +504,7 @@ function UsersAdminPageContent() {
 
       {/* Filters */}
       <div className="flex flex-wrap items-center gap-4 mb-6">
-        <div className="flex-1 min-w-[200px]">
+        <div className="flex-1 min-w-0 sm:min-w-[200px]">
           <input
             type="text"
             value={searchQuery}

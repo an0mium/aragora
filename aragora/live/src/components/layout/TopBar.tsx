@@ -23,7 +23,7 @@ export function TopBar() {
           size="sm"
           pixelSize={32}
           onClick={toggleLeftSidebar}
-          className="p-1.5 hover:bg-[var(--surface-elevated)] rounded transition-colors"
+          className="p-2 sm:p-1.5 hover:bg-[var(--surface-elevated)] rounded transition-colors"
         />
 
         {/* Title link */}
