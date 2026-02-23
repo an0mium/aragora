@@ -87,6 +87,10 @@ ALLOWED_QUERY_PARAMS = {
     "include_tests": 10,
     "full_corpus": 10,
     "max_bytes": None,
+    # Cost estimation
+    "num_agents": None,
+    "num_rounds": None,
+    "model_types": 500,
     # OAuth
     "redirect_url": 500,  # Where to redirect after OAuth
     "code": 500,  # OAuth authorization code
