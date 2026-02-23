@@ -493,7 +493,7 @@ class MigrationOrchestrator:
             Sorted list of ``.db`` file paths.
         """
         if not self.data_dir.exists():
-            logger.warning(f"Data directory does not exist: {self.data_dir}")
+            logger.warning("Data directory does not exist: %s", self.data_dir)
             return []
 
         db_files = sorted(self.data_dir.glob("*.db"))
@@ -501,7 +501,7 @@ class MigrationOrchestrator:
         if self.include_databases:
             db_files = [f for f in db_files if f.stem in self.include_databases]
 
-        logger.info(f"Discovered {len(db_files)} SQLite database(s) in {self.data_dir}")
+        logger.info("Discovered %s SQLite database(s) in %s", len(db_files), self.data_dir)
         return db_files
 
     def discover_tables(self, db_path: Path) -> list[str]:
@@ -582,7 +582,7 @@ class MigrationOrchestrator:
             pool = await self._get_pool()
             async with pool.acquire() as pg_conn:
                 await pg_conn.execute(ddl)
-                logger.debug(f"Created schema for table: {table}")
+                logger.debug("Created schema for table: %s", table)
 
         return ddl
 
@@ -648,7 +648,7 @@ class MigrationOrchestrator:
             result.rows_total_source = count_cursor.fetchone()[0]
 
             if result.rows_total_source == 0:
-                logger.debug(f"Table {table} is empty, skipping data migration")
+                logger.debug("Table %s is empty, skipping data migration", table)
                 result.duration_seconds = time.monotonic() - start
                 return result
 
@@ -689,7 +689,7 @@ class MigrationOrchestrator:
 
         except Exception as e:  # noqa: BLE001 - data migration must capture all DB driver errors (asyncpg, sqlite3) and type coercion failures
             result.errors.append(f"Migration error: {e}")
-            logger.exception(f"Error migrating table {table} from {db_path.name}")
+            logger.exception("Error migrating table %s from %s", table, db_path.name)
         finally:
             sqlite_conn.close()
             result.duration_seconds = time.monotonic() - start
@@ -828,10 +828,10 @@ class MigrationOrchestrator:
         async with pool.acquire() as conn:
             try:
                 await conn.execute(f'DROP TABLE IF EXISTS "{table}" CASCADE')  # noqa: S608
-                logger.info(f"Rolled back table: {table}")
+                logger.info("Rolled back table: %s", table)
                 return True
             except (sqlite3.Error, OSError, RuntimeError, ValueError) as e:
-                logger.error(f"Failed to rollback table {table}: {e}")
+                logger.error("Failed to rollback table %s: %s", table, e)
                 return False
 
     async def rollback_database(self, db_path: Path) -> int:
@@ -892,7 +892,7 @@ class MigrationOrchestrator:
             db_result = DatabaseMigrationResult(database=db_path.name)
             tables = self.discover_tables(db_path)
 
-            logger.info(f"Processing {db_path.name}: {len(tables)} table(s)")
+            logger.info("Processing %s: %s table(s)", db_path.name, len(tables))
 
             for table in tables:
                 # Schema
@@ -905,7 +905,7 @@ class MigrationOrchestrator:
                             schema_created=bool(ddl),
                         )
                         if ddl:
-                            logger.info(f"[DRY RUN] Schema for {table}:\n{ddl}")
+                            logger.info("[DRY RUN] Schema for %s:\n%s", table, ddl)
                         db_result.tables.append(table_result)
                         continue
                 except (OSError, RuntimeError, ValueError, sqlite3.Error) as e:

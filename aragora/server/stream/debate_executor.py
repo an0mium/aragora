@@ -250,10 +250,10 @@ async def fetch_trending_topic_async(category: str | None = None) -> Any | None:
         topic = manager.select_topic_for_debate(topics)
 
         if topic:
-            logger.info(f"Selected trending topic: {topic.topic}")
+            logger.info("Selected trending topic: %s", topic.topic)
         return topic
     except (ImportError, AttributeError, OSError, RuntimeError, ValueError) as e:
-        logger.warning(f"Trending topic fetch failed (non-fatal): {e}")
+        logger.warning("Trending topic fetch failed (non-fatal): %s", e)
         return None
 
 
@@ -345,7 +345,7 @@ def _filter_agent_specs_with_fallback(
                     loop_id=debate_id,
                 )
             )
-            logger.warning(f"[debate] {debate_id}: {message}")
+            logger.warning("[debate] %s: %s", debate_id, message)
             missing_agents.append(spec.name or spec.provider)
             continue
         filtered_specs.append(spec)
@@ -403,7 +403,7 @@ def _create_debate_agents(
                     loop_id=debate_id,
                 )
             )
-            logger.warning(f"[debate] {debate_id}: {spec.provider} init failed: {e}")
+            logger.warning("[debate] %s: %s init failed: %s", debate_id, spec.provider, e)
             continue
 
         if spec.persona:
@@ -503,7 +503,7 @@ def execute_debate_thread(
             return
 
         agent_names = [a.name for a in agents]
-        logger.info(f"[debate] {debate_id}: Created {len(agents)} agents: {agent_names}")
+        logger.info("[debate] %s: Created %s agents: %s", debate_id, len(agents), agent_names)
 
         # Create environment and protocol
         env = Environment(task=question, context="", max_rounds=rounds)
@@ -589,7 +589,7 @@ def execute_debate_thread(
         safe_msg = _safe_error_message(e, "debate_execution")
         error_trace = traceback.format_exc()
         _set_debate_error(debate_id, safe_msg)
-        logger.error(f"[debate] Thread error in {debate_id}: {str(e)}\n{error_trace}")
+        logger.error("[debate] Thread error in %s: %s\n%s", debate_id, str(e), error_trace)
         emitter.emit(
             StreamEvent(
                 type=StreamEventType.ERROR,

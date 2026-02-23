@@ -461,7 +461,7 @@ Return JSON with these exact fields:
             logger.error("[quick_classify] Haiku API timeout after 5s")
             return _DEFAULT_CLASSIFICATION
         except json.JSONDecodeError as e:
-            logger.error(f"[quick_classify] JSON parse error: {e}")
+            logger.error("[quick_classify] JSON parse error: %s", e)
             return _DEFAULT_CLASSIFICATION
         except (ImportError, AttributeError, KeyError, RuntimeError, OSError) as e:
             # ImportError: anthropic SDK not installed
@@ -469,7 +469,7 @@ Return JSON with these exact fields:
             # KeyError: missing response fields
             # RuntimeError: API client errors
             # OSError: network connectivity issues
-            logger.error(f"[quick_classify] Failed: {type(e).__name__}: {e}")
+            logger.error("[quick_classify] Failed: %s: %s", type(e).__name__, e)
             return _DEFAULT_CLASSIFICATION
 
     def _quick_classify(self, question: str, debate_id: str) -> None:
@@ -496,7 +496,7 @@ Return JSON with these exact fields:
                     for t in recommended
                 ]
             except (ImportError, RuntimeError, AttributeError) as e:
-                logger.debug(f"Template recommendation failed (non-fatal): {e}")
+                logger.debug("Template recommendation failed (non-fatal): %s", e)
 
             self.emitter.emit(
                 StreamEvent(
@@ -516,7 +516,7 @@ Return JSON with these exact fields:
             # RuntimeError: async execution issues
             # OSError: network/system errors
             # KeyError/TypeError: unexpected classification response format
-            logger.warning(f"Failed to emit quick classification: {e}")
+            logger.warning("Failed to emit quick classification: %s", e)
 
     def start_debate(self, request: DebateRequest) -> DebateResponse:
         """Start a new debate asynchronously.
@@ -560,11 +560,11 @@ Return JSON with these exact fields:
                     # ValueError/TypeError: invalid auto-select config or response
                     # RuntimeError: auto-select execution failure
                     # OSError: network/system errors during selection
-                    logger.warning(f"Auto-select failed, using defaults: {e}")
+                    logger.warning("Auto-select failed, using defaults: %s", e)
 
         preflight_error = self._preflight_agents(agents_str)
         if preflight_error:
-            logger.warning(f"[debate] Agent preflight failed: {preflight_error}")
+            logger.warning("[debate] Agent preflight failed: %s", preflight_error)
             return DebateResponse(
                 success=False,
                 error=preflight_error,
@@ -650,7 +650,7 @@ Return JSON with these exact fields:
             executor = self._get_executor()
             executor.submit(self._run_debate, config, debate_id)
         except RuntimeError as e:
-            logger.warning(f"Cannot submit debate: {e}")
+            logger.warning("Cannot submit debate: %s", e)
             return DebateResponse(
                 success=False,
                 error="Server at capacity. Please try again later.",
@@ -793,13 +793,13 @@ Return JSON with these exact fields:
                         "messages": messages_data,
                     }
                     self.storage.save_dict(debate_data)
-                    logger.info(f"[debate] Persisted debate {debate_id} to storage")
+                    logger.info("[debate] Persisted debate %s to storage", debate_id)
             except (OSError, ValueError, TypeError, AttributeError) as e:
                 # OSError: database/file access errors
                 # ValueError: serialization errors
                 # TypeError: unexpected data types during serialization
                 # AttributeError: missing attributes on result object
-                logger.error(f"[debate] Failed to persist debate {debate_id}: {e}")
+                logger.error("[debate] Failed to persist debate %s: %s", debate_id, e)
 
             # Emit leaderboard update
             self._emit_leaderboard_update(debate_id)
@@ -835,7 +835,7 @@ Return JSON with these exact fields:
                     loop_id=debate_id,
                 )
             )
-            logger.error(f"[debate] Validation error in {debate_id}: {e}")
+            logger.error("[debate] Validation error in %s: %s", debate_id, e)
 
         except Exception as e:  # noqa: BLE001 - Intentional catch-all: debate execution must handle any error to emit proper error events and cleanup
             import traceback
@@ -843,7 +843,7 @@ Return JSON with these exact fields:
             safe_msg = safe_error_message(e, "debate_execution")
             error_trace = traceback.format_exc()
             update_debate_status(debate_id, "error", error=safe_msg)
-            logger.error(f"[debate] Thread error in {debate_id}: {e}\n{error_trace}")
+            logger.error("[debate] Thread error in %s: %s\n%s", debate_id, e, error_trace)
             self.emitter.emit(
                 StreamEvent(
                     type=StreamEventType.ERROR,
@@ -937,7 +937,7 @@ Return JSON with these exact fields:
             try:
                 topic = loop.run_until_complete(_fetch())
                 if topic:
-                    logger.info(f"Selected trending topic: {topic.topic}")
+                    logger.info("Selected trending topic: %s", topic.topic)
                 return topic
             finally:
                 loop.close()
@@ -947,7 +947,7 @@ Return JSON with these exact fields:
             # RuntimeError: async execution errors
             # OSError: network connectivity issues
             # TimeoutError: API request timeout
-            logger.warning(f"Trending topic fetch failed (non-fatal): {e}")
+            logger.warning("Trending topic fetch failed (non-fatal): %s", e)
             return None
 
     def _emit_leaderboard_update(self, debate_id: str) -> None:
@@ -979,7 +979,7 @@ Return JSON with these exact fields:
             # KeyError: missing fields in agent data
             # TypeError: unexpected data format
             # RuntimeError: emission failure
-            logger.debug(f"Leaderboard emission failed: {e}")
+            logger.debug("Leaderboard emission failed: %s", e)
 
     def _generate_debate_receipt(
         self,
@@ -1064,7 +1064,7 @@ Return JSON with these exact fields:
 
             # Save receipt
             receipt_store.save(receipt_dict)
-            logger.info(f"[debate] Generated receipt {receipt_id} for debate {debate_id}")
+            logger.info("[debate] Generated receipt %s for debate %s", receipt_id, debate_id)
 
             # Add receipt_id to the debate status
             update_debate_status(debate_id, "completed", result={"receipt_id": receipt_id})
@@ -1110,7 +1110,7 @@ Return JSON with these exact fields:
                         # KeyError: missing flow data
                         # TypeError: unexpected flow structure
                         # OSError: database access errors
-                        logger.debug(f"Could not update onboarding flow with receipt: {e}")
+                        logger.debug("Could not update onboarding flow with receipt: %s", e)
 
         except (ImportError, ValueError, TypeError, OSError, KeyError) as e:
             # ImportError: receipt store module not available
@@ -1118,7 +1118,7 @@ Return JSON with these exact fields:
             # TypeError: unexpected data types
             # OSError: storage access errors
             # KeyError: missing required fields
-            logger.warning(f"[debate] Failed to generate receipt for {debate_id}: {e}")
+            logger.warning("[debate] Failed to generate receipt for %s: %s", debate_id, e)
 
     @classmethod
     def shutdown(cls) -> None:

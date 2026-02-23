@@ -230,7 +230,7 @@ def get_rlm(
                 "TRUE RLM required but official RLM library not installed. "
                 "Install with: pip install aragora[rlm] or pip install rlm"
             )
-            logger.error(f"[RLM Factory] {error_msg}")
+            logger.error("[RLM Factory] %s", error_msg)
             raise RuntimeError(error_msg)
 
     # Return cached instance if available and appropriate
@@ -361,11 +361,11 @@ async def compress_and_query(
         return result
     except (ConnectionError, TimeoutError, ValueError, RuntimeError, OSError) as e:
         _metrics.failed_queries += 1
-        logger.warning(f"RLM compress_and_query failed with expected error: {e}")
+        logger.warning("RLM compress_and_query failed with expected error: %s", e)
         raise
     except Exception as e:  # noqa: BLE001 - catch-all to record metrics before re-raising
         _metrics.failed_queries += 1
-        logger.exception(f"RLM compress_and_query failed with unexpected error: {e}")
+        logger.exception("RLM compress_and_query failed with unexpected error: %s", e)
         raise
 
 

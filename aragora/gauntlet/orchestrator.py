@@ -715,7 +715,7 @@ class GauntletOrchestrator:
             result.current_phase = GauntletPhase.COMPLETE
 
         except (RuntimeError, ValueError, TimeoutError, OSError) as e:
-            logger.warning(f"Pipeline gauntlet failed: {e}")
+            logger.warning("Pipeline gauntlet failed: %s", e)
             result.current_phase = GauntletPhase.FAILED
             result.verdict_summary = f"Pipeline failed: {type(e).__name__}: {e}"
 
@@ -749,9 +749,9 @@ class GauntletOrchestrator:
         gauntlet_id = f"gauntlet-{datetime.now().strftime('%Y%m%d%H%M%S')}-{uuid.uuid4().hex[:6]}"
 
         logger.info("=" * 60)
-        logger.info(f"GAUNTLET STRESS-TEST: {gauntlet_id}")
-        logger.info(f"Input Type: {config.input_type.value}")
-        logger.info(f"Agents: {', '.join(a.name for a in self.agents)}")
+        logger.info("GAUNTLET STRESS-TEST: %s", gauntlet_id)
+        logger.info("Input Type: %s", config.input_type.value)
+        logger.info("Agents: %s", ', '.join(a.name for a in self.agents))
         logger.info("=" * 60)
 
         # Emit initial progress
@@ -847,7 +847,7 @@ class GauntletOrchestrator:
                     progress_pct = 25 + (completed_tasks / len(tasks)) * 50  # 25-75%
 
                     if isinstance(result, Exception):
-                        logger.warning(f"{task_name} failed: {result}")
+                        logger.warning("%s failed: %s", task_name, result)
                         self._emit_progress(
                             "Stress Testing",
                             2,
@@ -930,7 +930,7 @@ class GauntletOrchestrator:
                         )
 
             except asyncio.TimeoutError:
-                logger.warning(f"Gauntlet timed out after {config.max_duration_seconds}s")
+                logger.warning("Gauntlet timed out after %ss", config.max_duration_seconds)
                 self._emit_progress(
                     "Stress Testing", 2, 3, 75, f"Timeout after {config.max_duration_seconds}s"
                 )
@@ -1019,7 +1019,7 @@ class GauntletOrchestrator:
             duration_seconds=duration,
         )
 
-        logger.info(f"\n{result.summary()}")
+        logger.info("\n%s", result.summary())
 
         self._emit_progress(
             "Complete",
@@ -1059,7 +1059,7 @@ class GauntletOrchestrator:
             proposer_agent = None
             if len(self.agents) > config.parallel_attacks:
                 proposer_agent = self.agents[config.parallel_attacks]
-                logger.info(f"Using {getattr(proposer_agent, 'name', 'agent')} as defender")
+                logger.info("Using %s as defender", getattr(proposer_agent, 'name', 'agent'))
 
             result = await self.redteam_mode.run_redteam(
                 target_proposal=config.input_content,
@@ -1074,7 +1074,7 @@ class GauntletOrchestrator:
             )
             return result
         except (OSError, ValueError, TypeError, RuntimeError) as e:
-            logger.warning(f"Red-team failed: {e}")
+            logger.warning("Red-team failed: %s", e)
             return None
 
     async def _run_persona_attacks(self, config: GauntletConfig) -> list[Finding]:
@@ -1085,7 +1085,7 @@ class GauntletOrchestrator:
         if not self.agents:
             return []
 
-        logger.info(f"Running persona attacks: {config.persona.name}...")
+        logger.info("Running persona attacks: %s...", config.persona.name)
 
         findings: list[Finding] = []
         persona = config.persona
@@ -1112,7 +1112,7 @@ class GauntletOrchestrator:
                 findings.extend(parsed_findings)
 
             except (OSError, ValueError, TypeError, RuntimeError, AttributeError) as e:
-                logger.debug(f"Persona attack {attack.id} failed: {e}")
+                logger.debug("Persona attack %s failed: %s", attack.id, e)
 
         logger.info(
             f"Persona attacks: {len(findings)} findings from {len(persona.attack_prompts)} attacks"
@@ -1213,7 +1213,7 @@ class GauntletOrchestrator:
             )
             return report
         except (OSError, ValueError, TypeError, RuntimeError) as e:
-            logger.warning(f"Probing failed: {e}")
+            logger.warning("Probing failed: %s", e)
             return None
 
     async def _run_deep_audit(self, config: GauntletConfig) -> DeepAuditVerdict | None:
@@ -1239,7 +1239,7 @@ class GauntletOrchestrator:
             )
             return verdict
         except (OSError, ValueError, TypeError, RuntimeError) as e:
-            logger.warning(f"Deep audit failed: {e}")
+            logger.warning("Deep audit failed: %s", e)
             return None
 
     async def _run_verification(
@@ -1284,10 +1284,10 @@ class GauntletOrchestrator:
                     unverified.append(claim)
 
             except (OSError, ValueError, TypeError, RuntimeError) as e:
-                logger.debug(f"Verification failed for claim: {e}")
+                logger.debug("Verification failed for claim: %s", e)
                 unverified.append(claim)
 
-        logger.info(f"Verification: {len(verified)} verified, {len(unverified)} unverified")
+        logger.info("Verification: %s verified, %s unverified", len(verified), len(unverified))
         return verified, unverified
 
     def _extract_verifiable_claims(self, content: str) -> list[str]:

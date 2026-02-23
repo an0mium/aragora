@@ -121,7 +121,7 @@ class TestFixerHandlersMixin:
                 )
 
         except (KeyError, TypeError, AttributeError, ValueError) as e:
-            logger.warning(f"TestFixer → MetaPlanner accumulation failed: {e}")
+            logger.warning("TestFixer → MetaPlanner accumulation failed: %s", e)
             if "testfixer_to_planner" in self.stats:
                 self.stats["testfixer_to_planner"]["errors"] += 1
 
@@ -194,7 +194,7 @@ class TestFixerHandlersMixin:
                 )
 
         except (KeyError, TypeError, AttributeError, ValueError) as e:
-            logger.warning(f"TestFixer loop complete handling failed: {e}")
+            logger.warning("TestFixer loop complete handling failed: %s", e)
             if "testfixer_loop_complete" in self.stats:
                 self.stats["testfixer_loop_complete"]["errors"] += 1
 
@@ -229,7 +229,7 @@ class TestFixerHandlersMixin:
             )
 
             # Submit to MetaPlanner (non-blocking)
-            logger.info(f"Submitting {len(failure_descriptions)} test failures to MetaPlanner")
+            logger.info("Submitting %s test failures to MetaPlanner", len(failure_descriptions))
 
             # Note: MetaPlanner.plan_next is async, so we queue it
             # In production, this would go through the event dispatcher
@@ -239,7 +239,7 @@ class TestFixerHandlersMixin:
         except ImportError:
             logger.debug("MetaPlanner not available for test failure submission")
         except (RuntimeError, TypeError, AttributeError, ValueError) as e:
-            logger.warning(f"Failed to submit failures to MetaPlanner: {e}")
+            logger.warning("Failed to submit failures to MetaPlanner: %s", e)
         finally:
             # Clear accumulator after flush attempt
             accumulator.failures = []
@@ -282,7 +282,7 @@ class TestFixerHandlersMixin:
         except ImportError:
             logger.debug("KnowledgeMound not available for pattern storage")
         except (RuntimeError, TypeError, AttributeError, ValueError, OSError) as e:
-            logger.warning(f"Failed to submit patterns to KM: {e}")
+            logger.warning("Failed to submit patterns to KM: %s", e)
 
     def register_testfixer_handlers(self, dispatcher: Any) -> None:
         """Register TestFixer event handlers with the dispatcher.
@@ -298,6 +298,6 @@ class TestFixerHandlersMixin:
         for event_type, handler in handlers.items():
             try:
                 dispatcher.subscribe(event_type, handler)
-                logger.debug(f"Registered TestFixer handler for {event_type.value}")
+                logger.debug("Registered TestFixer handler for %s", event_type.value)
             except (RuntimeError, TypeError, AttributeError, ValueError) as e:
-                logger.warning(f"Failed to register handler for {event_type}: {e}")
+                logger.warning("Failed to register handler for %s: %s", event_type, e)

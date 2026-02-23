@@ -80,7 +80,7 @@ class CultureHandlersMixin:
         domain = data.get("domain", "")
         data.get("protocol", {})
 
-        logger.debug(f"Loading culture patterns for debate {debate_id}, domain={domain}")
+        logger.debug("Loading culture patterns for debate %s, domain=%s", debate_id, domain)
 
         # Record KM outbound metric
         record_km_outbound_event("culture", event.type.value)
@@ -124,9 +124,9 @@ class CultureHandlersMixin:
                     self._store_debate_culture(debate_id, profile, domain)
 
         except ImportError as e:
-            logger.debug(f"Culture retrieval import failed: {e}")
+            logger.debug("Culture retrieval import failed: %s", e)
         except (RuntimeError, TypeError, AttributeError, ValueError, OSError) as e:
-            logger.debug(f"Culture→Debate retrieval failed: {e}")
+            logger.debug("Culture→Debate retrieval failed: %s", e)
 
     def _store_debate_culture(
         self,
@@ -192,7 +192,7 @@ class CultureHandlersMixin:
             )
 
         except (TypeError, AttributeError, ValueError, KeyError) as e:
-            logger.debug(f"Failed to store debate culture: {e}")
+            logger.debug("Failed to store debate culture: %s", e)
 
     def get_debate_culture_hints(self, debate_id: str) -> dict:
         """Get protocol hints from culture for a debate.
@@ -223,7 +223,7 @@ class CultureHandlersMixin:
         staleness_reason = data.get("reason", "")
         data.get("last_verified", "")
 
-        logger.debug(f"Knowledge stale: {node_id} - {staleness_reason}")
+        logger.debug("Knowledge stale: %s - %s", node_id, staleness_reason)
 
         # Record KM outbound metric (staleness warning to debate)
         record_km_outbound_event("debate", event.type.value)
@@ -237,10 +237,10 @@ class CultureHandlersMixin:
             for debate_id, debate_state in active_debates.items():
                 cited_nodes = debate_state.get("cited_knowledge", [])
                 if node_id in cited_nodes:
-                    logger.warning(f"Active debate {debate_id} cites stale knowledge: {node_id}")
+                    logger.warning("Active debate %s cites stale knowledge: %s", debate_id, node_id)
                     # Could emit a warning event to the debate here
 
         except ImportError:
             pass
         except (RuntimeError, TypeError, AttributeError, ValueError, KeyError) as e:
-            logger.debug(f"Staleness→Debate check failed: {e}")
+            logger.debug("Staleness→Debate check failed: %s", e)

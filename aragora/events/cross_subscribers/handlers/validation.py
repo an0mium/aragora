@@ -56,7 +56,7 @@ class ValidationHandlersMixin:
         if not consensus_reached:
             return
 
-        logger.debug(f"Storing provenance chains from consensus in debate {debate_id}")
+        logger.debug("Storing provenance chains from consensus in debate %s", debate_id)
 
         # Record KM inbound metric
         record_km_inbound_event("provenance", event.type.value)
@@ -82,7 +82,7 @@ class ValidationHandlersMixin:
         except ImportError:
             pass
         except (RuntimeError, TypeError, AttributeError, ValueError, OSError) as e:
-            logger.debug(f"Provenance→KM storage failed: {e}")
+            logger.debug("Provenance→KM storage failed: %s", e)
 
     def _handle_mound_to_provenance(self, event: "StreamEvent") -> None:
         """
@@ -100,7 +100,7 @@ class ValidationHandlersMixin:
         if not claim_text:
             return
 
-        logger.debug(f"Querying KM for verification history: claim {claim_id}")
+        logger.debug("Querying KM for verification history: claim %s", claim_id)
 
         # Record KM outbound metric
         record_km_outbound_event("provenance", event.type.value)
@@ -117,12 +117,12 @@ class ValidationHandlersMixin:
             )
 
             if related:
-                logger.debug(f"Found {len(related)} related verified claims")
+                logger.debug("Found %s related verified claims", len(related))
 
         except ImportError:
             pass
         except (RuntimeError, TypeError, AttributeError, ValueError, OSError) as e:
-            logger.debug(f"KM→Provenance query failed: {e}")
+            logger.debug("KM→Provenance query failed: %s", e)
 
     def _handle_consensus_to_mound(self, event: "StreamEvent") -> None:
         """
@@ -253,7 +253,7 @@ class ValidationHandlersMixin:
                                     f"consensus {prior_debate_id} on topic '{topic[:50]}...'"
                                 )
                     except (RuntimeError, TypeError, AttributeError, ValueError, OSError) as e:
-                        logger.debug(f"Evolution tracking search failed: {e}")
+                        logger.debug("Evolution tracking search failed: %s", e)
 
                 # ============================================================
                 # MAIN CONSENSUS INGESTION
@@ -437,7 +437,7 @@ class ValidationHandlersMixin:
                             f"Marked {supersedes_node_id} as superseded by {consensus_node_id}"
                         )
                     except (RuntimeError, TypeError, AttributeError, ValueError, OSError) as e:
-                        logger.debug(f"Failed to update superseded node: {e}")
+                        logger.debug("Failed to update superseded node: %s", e)
 
                 # Log summary
                 logger.info(
@@ -463,9 +463,9 @@ class ValidationHandlersMixin:
                 asyncio.run(ingest_consensus_with_enhancements(mound))
 
         except ImportError as e:
-            logger.debug(f"Consensus→KM ingestion import failed: {e}")
+            logger.debug("Consensus→KM ingestion import failed: %s", e)
         except (RuntimeError, TypeError, AttributeError, ValueError, OSError, KeyError) as e:
-            logger.warning(f"Consensus→KM ingestion failed: {e}")
+            logger.warning("Consensus→KM ingestion failed: %s", e)
 
     def _handle_km_validation_feedback(self, event: "StreamEvent") -> None:
         """
@@ -601,7 +601,7 @@ class ValidationHandlersMixin:
                             except ImportError:
                                 pass
                             except (RuntimeError, TypeError, AttributeError, ValueError, OSError) as e:
-                                logger.debug(f"Continuum validation failed: {e}")
+                                logger.debug("Continuum validation failed: %s", e)
 
                         elif node_id.startswith("cs_"):
                             # Consensus item - track but consensus records are immutable
@@ -633,12 +633,12 @@ class ValidationHandlersMixin:
                                 },
                             )
                             # Don't dispatch to avoid recursion - just log for now
-                            logger.debug(f"Validation event: {validation_event.data}")
+                            logger.debug("Validation event: %s", validation_event.data)
                         except (ImportError, TypeError, AttributeError, ValueError) as e:
-                            logger.debug(f"Failed to create validation event: {e}")
+                            logger.debug("Failed to create validation event: %s", e)
 
                 except (RuntimeError, TypeError, AttributeError, ValueError, OSError) as e:
-                    logger.warning(f"KM validation feedback query failed: {e}")
+                    logger.warning("KM validation feedback query failed: %s", e)
 
             # Run async validation
             try:
@@ -655,6 +655,6 @@ class ValidationHandlersMixin:
                 asyncio.run(process_validation_feedback())
 
         except ImportError as e:
-            logger.debug(f"KM validation feedback import failed: {e}")
+            logger.debug("KM validation feedback import failed: %s", e)
         except (RuntimeError, TypeError, AttributeError, ValueError, OSError) as e:
-            logger.warning(f"KM validation feedback failed: {e}")
+            logger.warning("KM validation feedback failed: %s", e)

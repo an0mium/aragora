@@ -171,8 +171,8 @@ class DeepAuditOrchestrator:
         logger.info("=" * 60)
         logger.info("DEEP AUDIT MODE")
         logger.info(f"Task: {task[:80]}...")
-        logger.info(f"Rounds: {self.config.rounds}")
-        logger.info(f"Agents: {', '.join(a.name for a in self.agents)}")
+        logger.info("Rounds: %s", self.config.rounds)
+        logger.info("Agents: %s", ', '.join(a.name for a in self.agents))
         logger.info("=" * 60)
 
         env = Environment(task=task, context=context)
@@ -211,7 +211,7 @@ class DeepAuditOrchestrator:
         # === Build Verdict ===
         verdict = self._build_verdict(result, cross_exam_notes)
 
-        logger.info(f"\n{verdict.summary()}")
+        logger.info("\n%s", verdict.summary())
 
         return verdict
 
@@ -285,10 +285,10 @@ Be rigorous but fair. Your goal is to ensure we haven't missed critical issues."
             task_id = f"{synth_name}:deep_audit_crossexam"
             with streaming_task_context(task_id):
                 cross_exam_result = await synthesizer.generate(cross_exam_prompt, [])
-            logger.info(f"Synthesizer cross-examination complete ({len(cross_exam_result)} chars)")
+            logger.info("Synthesizer cross-examination complete (%s chars)", len(cross_exam_result))
             return cross_exam_result
         except (RuntimeError, ValueError, TypeError, OSError) as e:
-            logger.warning(f"Cross-examination failed: {e}")
+            logger.warning("Cross-examination failed: %s", e)
             return f"Cross-examination failed: {e}"
 
     def _build_verdict(

@@ -592,7 +592,7 @@ Follow existing code style and tests.""",
             logger.warning("Git diff timed out after 3 minutes")
             return ""
         except (subprocess.SubprocessError, OSError) as e:
-            logger.debug(f"Git diff failed: {e}")
+            logger.debug("Git diff failed: %s", e)
             return ""
 
     def get_review_diff(self, max_chars: int | None = None) -> str:
@@ -666,7 +666,7 @@ Follow existing code style and tests.""",
             duration = time.time() - start_time
 
             if diff:
-                logger.info(f"    Harness produced changes ({len(diff)} chars diff)")
+                logger.info("    Harness produced changes (%s chars diff)", len(diff))
             else:
                 logger.info("    Harness completed but no file changes detected")
 
@@ -678,7 +678,7 @@ Follow existing code style and tests.""",
                 duration_seconds=duration,
             )
         except (RuntimeError, OSError, subprocess.SubprocessError) as e:
-            logger.error(f"    Harness error: {e}")
+            logger.error("    Harness error: %s", e)
             return TaskResult(
                 task_id=task.id,
                 success=False,
@@ -791,7 +791,7 @@ Follow existing code style and tests.""",
 
         except (RuntimeError, OSError, subprocess.SubprocessError) as e:
             duration = time.time() - start_time
-            logger.error(f"    Error: {e}")
+            logger.error("    Error: %s", e)
             return TaskResult(
                 task_id=task.id,
                 success=False,
@@ -849,7 +849,7 @@ Follow existing code style and tests.""",
 
         if is_timeout and self.max_retries >= 3:
             # Attempt 3: Fallback to Codex on timeout
-            logger.info(f"    Falling back to Codex for {task.id}...")
+            logger.info("    Falling back to Codex for %s...", task.id)
             result = await self.execute_task(task, attempt=3, use_fallback=True)
 
         if result.success and self._should_review():
@@ -965,7 +965,7 @@ Follow existing code style and tests.""",
             # Check dependencies
             deps_met = all(dep in completed for dep in task.dependencies)
             if not deps_met:
-                logger.info(f"  Skipping {task.id} - dependencies not met")
+                logger.info("  Skipping %s - dependencies not met", task.id)
                 continue
 
             # Execute with retry
@@ -979,23 +979,23 @@ Follow existing code style and tests.""",
             else:
                 failed_tasks.append(task)
                 if stop_on_failure:
-                    logger.warning(f"  Stopping execution due to failure in {task.id}")
+                    logger.warning("  Stopping execution due to failure in %s", task.id)
                     break
                 else:
-                    logger.warning(f"  Task {task.id} failed, continuing with remaining tasks...")
+                    logger.warning("  Task %s failed, continuing with remaining tasks...", task.id)
 
         # Second pass: retry failed tasks once more (dependencies may now be met)
         if failed_tasks and not stop_on_failure:
-            logger.info(f"Retrying {len(failed_tasks)} failed tasks...")
+            logger.info("Retrying %s failed tasks...", len(failed_tasks))
             for task in failed_tasks:
                 # Check if dependencies are now met
                 deps_met = all(dep in completed for dep in task.dependencies)
                 if not deps_met:
-                    logger.info(f"  Skipping retry of {task.id} - dependencies still not met")
+                    logger.info("  Skipping retry of %s - dependencies still not met", task.id)
                     continue
 
                 # Already tried with retry, try one more time with max timeout
-                logger.info(f"  Final retry for {task.id}...")
+                logger.info("  Final retry for %s...", task.id)
                 result = await self.execute_task(
                     task, attempt=self.max_retries + 1, use_fallback=True
                 )
@@ -1089,7 +1089,7 @@ Follow existing code style and tests.""",
         results: list[TaskResult] = []
         remaining = [t for t in tasks if t.id not in completed]
 
-        logger.info(f"  Executing {len(remaining)} tasks (max {max_parallel} parallel)...")
+        logger.info("  Executing %s tasks (max %s parallel)...", len(remaining), max_parallel)
 
         while remaining:
             # Find tasks with all dependencies met
@@ -1099,12 +1099,12 @@ Follow existing code style and tests.""",
                 # Deadlock - remaining tasks have unmet dependencies
                 unmet = remaining[0]
                 missing = [d for d in unmet.dependencies if d not in completed]
-                logger.error(f"  Deadlock: {unmet.id} waiting for {missing}")
+                logger.error("  Deadlock: %s waiting for %s", unmet.id, missing)
                 break
 
             # Execute up to max_parallel tasks concurrently
             batch = self._select_parallel_batch(ready, max_parallel)
-            logger.info(f"    Parallel batch: {[t.id for t in batch]}")
+            logger.info("    Parallel batch: %s", [t.id for t in batch])
 
             batch_results = await asyncio.gather(
                 *[self.execute_task_with_retry(t) for t in batch], return_exceptions=True

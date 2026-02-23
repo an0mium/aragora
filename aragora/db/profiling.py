@@ -257,14 +257,14 @@ def profile_function(func: Callable) -> Callable:
     def wrapper(*args: Any, **kwargs: Any) -> Any:
         with profile_queries() as profiler:
             result = func(*args, **kwargs)
-            logger.info(f"Query profile for {func.__name__}:\n{profiler.report()}")
+            logger.info("Query profile for %s:\n%s", func.__name__, profiler.report())
             return result
 
     @wraps(func)
     async def async_wrapper(*args: Any, **kwargs: Any) -> Any:
         with profile_queries() as profiler:
             result = await func(*args, **kwargs)
-            logger.info(f"Query profile for {func.__name__}:\n{profiler.report()}")
+            logger.info("Query profile for %s:\n%s", func.__name__, profiler.report())
             return result
 
     import asyncio
@@ -394,6 +394,6 @@ def apply_recommended_indexes(conn: sqlite3.Connection) -> None:
                 conn.execute(statement)
             except sqlite3.OperationalError as e:
                 # Table might not exist - that's OK
-                logger.debug(f"Could not create index: {e}")
+                logger.debug("Could not create index: %s", e)
     conn.commit()
     logger.info("Applied recommended database indexes")
