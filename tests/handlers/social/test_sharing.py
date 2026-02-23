@@ -883,7 +883,7 @@ class TestGetSharedDebate:
         assert body["sharing"]["allow_comments"] is True
         assert body["sharing"]["allow_forking"] is False
         # View count should be incremented
-        assert body["sharing"]["view_count"] == 5  # returns pre-increment value from dict
+        assert body["sharing"]["view_count"] == 6  # incremented from 5 to 6 before response
 
     @patch("aragora.server.handlers.social.sharing.SharingHandler._get_debate_data")
     def test_valid_token_debate_not_found(self, mock_get_debate, handler, mock_http_handler, share_store):

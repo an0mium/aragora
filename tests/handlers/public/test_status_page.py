@@ -1079,17 +1079,21 @@ class TestHtmlStatusPage:
         assert "All Systems Operational" in html
 
     def test_html_contains_component_names(self, handler):
+        # HTML rendering iterates COMPONENTS[i]["name"] for display, so we must
+        # provide exactly len(COMPONENTS) entries so the zip works correctly.
         comps = [
-            ComponentHealth(name="API", status=ServiceStatus.OPERATIONAL),
-            ComponentHealth(name="Cache", status=ServiceStatus.DEGRADED),
+            ComponentHealth(name=c["name"], status=ServiceStatus.OPERATIONAL)
+            for c in handler.COMPONENTS
         ]
         with patch.object(handler, "_check_all_components", return_value=comps), \
-             patch.object(handler, "_get_overall_status", return_value=ServiceStatus.DEGRADED):
+             patch.object(handler, "_get_overall_status", return_value=ServiceStatus.OPERATIONAL):
             result = handler._html_status_page()
         html = result.body.decode("utf-8")
-        # COMPONENTS names used for display
+        # Verify COMPONENTS names appear in HTML
         assert "API" in html
         assert "Cache" in html
+        assert "Debate Engine" in html
+        assert "Knowledge Mound" in html
 
     def test_html_status_colors(self, handler):
         comps = [

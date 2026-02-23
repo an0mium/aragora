@@ -1221,11 +1221,15 @@ class TestUpdateRoutingRule:
     @pytest.mark.asyncio
     async def test_update_broad_exception_returns_internal_error(self, mock_stores):
         """Broad exception catch returns internal server error."""
-        # Make _routing_rules.get raise during the lock block
-        with patch(f"{MODULE}._routing_rules", side_effect=AttributeError("nope")):
+        rule = _make_routing_rule()
+        with _storage_lock:
+            _routing_rules["rule_abc123"] = rule
+
+        # Make sanitize_user_input raise a TypeError to trigger the broad catch
+        with patch(f"{MODULE}.sanitize_user_input", side_effect=TypeError("unexpected")):
             result = await handle_update_routing_rule(
                 rule_id="rule_abc123",
-                updates={"enabled": False},
+                updates={"name": "will trigger error"},
             )
         assert result["success"] is False
         assert result["error"] == "Internal server error"

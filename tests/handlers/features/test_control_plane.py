@@ -242,7 +242,7 @@ class TestCanHandle:
         assert handler.can_handle("/") is False
 
     def test_routes_class_attribute_count(self):
-        assert len(AgentDashboardHandler.ROUTES) == 34
+        assert len(AgentDashboardHandler.ROUTES) == 37
 
 
 # =============================================================================
