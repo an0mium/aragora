@@ -320,7 +320,7 @@ def sync_backend(async_backend: AsyncStoreBackend) -> StoreBackend:
         sync_store = sync_backend(async_store)
         items = sync_store.list_all()  # Blocking
     """
-    return SyncBackendWrapper(async_backend)  # type: ignore
+    return SyncBackendWrapper(async_backend)  # type: ignore[return-value]
 
 
 # =============================================================================

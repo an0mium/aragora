@@ -188,7 +188,7 @@ class PowerSamplingMixin:
         """
         # Try to call parent's generate
         if hasattr(super(), "generate"):
-            return await super().generate(prompt, context)  # type: ignore
+            return await super().generate(prompt, context)  # type: ignore[misc]
         raise NotImplementedError("PowerSamplingMixin requires the agent to have a generate method")
 
     def _default_scorer(self, response: str) -> float:

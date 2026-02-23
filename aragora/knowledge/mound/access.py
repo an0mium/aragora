@@ -375,7 +375,7 @@ class KnowledgeMoundAccessControl:
 
                 return await func(*args, **kwargs)  # type: ignore[misc]
 
-            return wrapper  # type: ignore
+            return wrapper  # type: ignore[return-value]
 
         return decorator
 
