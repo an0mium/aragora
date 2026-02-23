@@ -848,6 +848,7 @@ class TestGauntletResultToDict:
             "consensus_points",
             "config_used",
             "agents_used",
+            "rejection_summary",
         }
         assert set(d.keys()) == expected_keys
 
