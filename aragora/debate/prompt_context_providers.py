@@ -82,6 +82,7 @@ class PromptContextMixin:
     claims_kernel: Any
     include_prior_claims: bool
     _pulse_topics: list
+    _pulse_enrichment_context: str
     _knowledge_context: str
     _km_item_ids: list
     _outcome_context: str
@@ -996,3 +997,76 @@ The system will provide relevant details from the full history."""
             topics: List of dicts with topic, platform, volume, category, hours_ago
         """
         self._pulse_topics = topics
+
+    # ------------------------------------------------------------------
+    # Pulse Debate Enrichment (quality + freshness scored context)
+    # ------------------------------------------------------------------
+
+    def inject_pulse_enrichment(
+        self,
+        pulse_store: Any = None,
+        max_topics: int = 5,
+    ) -> str:
+        """Query PulseStore, score by quality/freshness, and cache enrichment.
+
+        Gated behind ``enable_pulse_context`` on the protocol.  When disabled
+        (the default), this method is a no-op returning an empty string.
+
+        Args:
+            pulse_store: A ScheduledDebateStore or compatible object.
+            max_topics: Maximum enriched snippets to include.
+
+        Returns:
+            Formatted enrichment context string, or empty string.
+        """
+        if not getattr(self.protocol, "enable_pulse_context", False):
+            return ""
+
+        if self._pulse_enrichment_context:
+            return self._pulse_enrichment_context
+
+        store = pulse_store or getattr(self, "_pulse_enrichment_store", None)
+        if not store:
+            return ""
+
+        try:
+            from aragora.pulse.debate_enrichment import (
+                PulseDebateEnricher,
+                format_enrichment_for_prompt,
+            )
+
+            enricher = PulseDebateEnricher(pulse_store=store)
+            task = self.env.task if hasattr(self.env, "task") else ""
+            result = enricher.enrich(task, max_topics=max_topics)
+            context = format_enrichment_for_prompt(result)
+            self._pulse_enrichment_context = context
+            if context:
+                logger.info(
+                    "[pulse-enrichment] Injected %d snippets (%.1fms)",
+                    len(result.snippets),
+                    result.elapsed_ms,
+                )
+            return context
+        except ImportError:
+            logger.debug("Pulse enrichment module not available")
+            return ""
+        except (RuntimeError, ValueError, TypeError, AttributeError, OSError) as e:
+            logger.warning("Pulse enrichment failed: %s", e)
+            return ""
+
+    def set_pulse_enrichment_store(self, store: Any) -> None:
+        """Set the pulse store for enrichment queries.
+
+        Args:
+            store: A ScheduledDebateStore or compatible object.
+        """
+        self._pulse_enrichment_store = store
+        self._pulse_enrichment_context = ""
+
+    def get_pulse_enrichment_context(self) -> str:
+        """Get cached pulse enrichment context for prompt injection.
+
+        Returns:
+            The formatted enrichment context, or empty string.
+        """
+        return getattr(self, "_pulse_enrichment_context", "")

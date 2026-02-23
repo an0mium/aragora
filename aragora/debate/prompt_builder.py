@@ -345,6 +345,10 @@ class PromptBuilder(PromptContextMixin, PromptAssemblyMixin):
         # Pulse topics for enhanced context (set via set_pulse_topics)
         self._pulse_topics: list[dict] = []
 
+        # Pulse enrichment context (set via inject_pulse_enrichment)
+        self._pulse_enrichment_context: str = ""
+        self._pulse_enrichment_store: Any | None = None
+
         # Current state (set externally by Arena)
         self.current_role_assignments: dict[str, RoleAssignment] = {}
         self._historical_context_cache: str = ""

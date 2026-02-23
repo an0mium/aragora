@@ -527,6 +527,19 @@ _ADAPTER_DEFS: list[tuple[str, str, dict[str, Any]]] = [
             "config_key": "km_pipeline_adapter",
         },
     ),
+    # --- Explainability adapter ---
+    (
+        ".explainability_adapter",
+        "ExplainabilityAdapter",
+        {
+            "name": "explainability",
+            "required_deps": [],
+            "forward_method": "sync_to_km",
+            "reverse_method": "search_by_topic",
+            "priority": 66,
+            "config_key": "km_explainability_adapter",
+        },
+    ),
 ]
 
 
@@ -945,6 +958,10 @@ class AdapterFactory:
                     mound=deps.get("mound"),
                     on_event=self._event_callback,
                 )
+            elif spec.name == "explainability":
+                adapter = adapter_class(
+                    event_callback=self._event_callback,
+                )
             else:
                 # Generic construction attempt
                 adapter = adapter_class(
@@ -1043,6 +1060,8 @@ class AdapterFactory:
                     return adapter_class()
                 elif spec.name == "pipeline":
                     return adapter_class(mound=deps.get("mound"))
+                elif spec.name == "explainability":
+                    return adapter_class()
                 else:
                     return adapter_class(**deps)
             except (RuntimeError, ValueError, OSError, AttributeError) as e2:

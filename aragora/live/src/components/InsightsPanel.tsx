@@ -5,7 +5,7 @@ import { LearningEvolution } from './LearningEvolution';
 import { ErrorWithRetry } from './RetryButton';
 import { withErrorBoundary } from './PanelErrorBoundary';
 import { fetchWithRetry } from '@/utils/retry';
-import type { StreamEvent } from '@/types/events';
+import type { StreamEvent, GenericStreamEvent } from '@/types/events';
 import { API_BASE_URL } from '@/config';
 
 interface Insight {
@@ -290,17 +290,17 @@ function InsightsPanelComponent({ wsMessages = [], apiBase = DEFAULT_API_BASE }:
       </div>
 
       {/* Key Disagreements (crux detection) */}
-      {wsMessages.filter((e) => (e.type as string) === 'crux_detected').length > 0 && (
+      {wsMessages.filter((e): e is GenericStreamEvent => e.type === 'crux_detected').length > 0 && (
         <div className="mb-4">
           <h3 className="text-sm font-mono text-acid-cyan mb-2">KEY DISAGREEMENTS</h3>
           <div className="space-y-2">
             {wsMessages
-              .filter((e) => (e.type as string) === 'crux_detected')
+              .filter((e): e is GenericStreamEvent => e.type === 'crux_detected')
               .map((e, i) => (
                 <div key={i} className="p-2 border border-acid-cyan/30 bg-acid-cyan/5 rounded">
                   <span className="text-xs font-mono text-acid-cyan">
                     {typeof e.data === 'object' && e.data !== null && 'description' in e.data
-                      ? String((e.data as Record<string, unknown>).description)
+                      ? String(e.data.description)
                       : 'Critical disagreement point detected'}
                   </span>
                 </div>
