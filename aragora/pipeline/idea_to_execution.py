@@ -835,9 +835,7 @@ class IdeaToExecutionPipeline:
                                 {
                                     "stage": "actions",
                                     "node_id": getattr(node, "id", ""),
-                                    "node_type": getattr(node, "data", {}).get(
-                                        "step_type", "task"
-                                    ),
+                                    "node_type": getattr(node, "data", {}).get("step_type", "task"),
                                     "label": getattr(node, "label", ""),
                                 },
                             )
