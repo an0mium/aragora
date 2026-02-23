@@ -206,10 +206,11 @@ class WorkflowTemplatesHandler(BaseHandler):
                 return error_response(f"Method {method} not allowed", 405)
 
         # Handle specific template requests
+        # /api/v1/workflow/templates/{id...} -> parts = ["", "api", "v1", "workflow", "templates", ...]
         parts = path.split("/")
-        if len(parts) >= 4:
+        if len(parts) >= 6:
             # Extract template ID (could be like "legal/contract-review")
-            template_parts = parts[4:] if path.startswith("/api/v1/") else parts[3:]
+            template_parts = parts[5:] if path.startswith("/api/v1/") else parts[4:]
 
             if not template_parts:
                 return error_response("Template ID required", 400)
@@ -933,9 +934,10 @@ class SMEWorkflowsHandler(BaseHandler):
                 return error_response(f"Method {method} not allowed", 405)
 
         # Handle specific workflow types
+        # /api/v1/sme/workflows/{type} -> parts = ["", "api", "v1", "sme", "workflows", type]
         parts = path.split("/")
-        if len(parts) >= 5:
-            workflow_type = parts[4]
+        if len(parts) >= 6:
+            workflow_type = parts[5]
 
             # POST to create a workflow instance
             if method == "POST":

@@ -502,7 +502,7 @@ class TestConstructor:
         assert h.ctx["key"] == "val"
 
     def test_routes_defined(self):
-        assert len(CanvasPipelineHandler.ROUTES) == 19
+        assert len(CanvasPipelineHandler.ROUTES) == 20
 
 
 # ---------------------------------------------------------------------------

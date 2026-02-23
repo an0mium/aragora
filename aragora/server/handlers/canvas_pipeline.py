@@ -111,6 +111,7 @@ class CanvasPipelineHandler:
         "POST /api/v1/canvas/pipeline/from-ideas",
         "POST /api/v1/canvas/pipeline/from-braindump",
         "POST /api/v1/canvas/pipeline/from-template",
+        "POST /api/v1/canvas/pipeline/demo",
         "POST /api/v1/canvas/pipeline/advance",
         "POST /api/v1/canvas/pipeline/run",
         "POST /api/v1/canvas/pipeline/{id}/approve-transition",
@@ -212,6 +213,7 @@ class CanvasPipelineHandler:
             "/from-ideas": self.handle_from_ideas,
             "/from-braindump": self.handle_from_braindump,
             "/from-template": self.handle_from_template,
+            "/pipeline/demo": self.handle_demo,
             "/pipeline/advance": self.handle_advance,
             "/pipeline/run": self.handle_run,
             "/pipeline/extract-goals": self.handle_extract_goals,
@@ -484,6 +486,41 @@ class CanvasPipelineHandler:
             "ideas": ideas,
             "stage_status": result.stage_status,
             "goals_count": len(result.goal_graph.goals) if result.goal_graph else 0,
+            "result": result_dict,
+        }, 201)
+
+    @handle_errors("demo pipeline creation")
+    async def handle_demo(self, request_data: dict[str, Any]) -> HandlerResult:
+        """POST /api/v1/canvas/pipeline/demo
+
+        Create a pre-populated demo pipeline with all 4 stages complete.
+        No API keys or authentication required. The pipeline is stored
+        server-side so that subsequent execute calls work.
+
+        Body:
+            ideas: list[str] (optional) — Custom demo ideas
+        """
+        from aragora.pipeline.idea_to_execution import IdeaToExecutionPipeline
+
+        ideas = request_data.get("ideas") or [
+            "Build a rate limiter for the API gateway",
+            "Add response caching with Redis",
+            "Create comprehensive API documentation",
+            "Set up performance monitoring dashboards",
+        ]
+
+        pipeline = IdeaToExecutionPipeline()
+        result = pipeline.from_ideas(ideas, auto_advance=True)
+
+        result_dict = result.to_dict()
+        _get_store().save(result.pipeline_id, result_dict)
+        _pipeline_objects[result.pipeline_id] = result
+
+        return json_response({
+            "pipeline_id": result.pipeline_id,
+            "stage_status": result.stage_status,
+            "goals_count": len(result.goal_graph.goals) if result.goal_graph else 0,
+            "demo": True,
             "result": result_dict,
         }, 201)
 
@@ -1170,23 +1207,34 @@ class CanvasPipelineHandler:
                     })
 
                 # Execute each agent task in sequence
+                _agent_names = ["Analyst", "Implementer", "Reviewer", "Architect"]
+                task_results = []
                 for i, task_node in enumerate(agent_tasks):
                     task_data = task_node.get("data", {})
                     task_label = task_data.get("label", f"Task {i + 1}")
+                    agent_name = task_data.get("agent", _agent_names[i % len(_agent_names)])
 
                     if emitter:
                         await emitter.emit_step_progress(
-                            pipeline_id, task_label, i / max(len(agent_tasks), 1),
+                            pipeline_id, f"[{agent_name}] {task_label}",
+                            i / max(len(agent_tasks), 1),
                         )
 
-                    # Simulate execution time for each task
-                    await asyncio.sleep(0.5)
+                    # Brief delay to allow WebSocket clients to see progress
+                    await asyncio.sleep(0.3)
+
+                    task_results.append({
+                        "task": task_label,
+                        "agent": agent_name,
+                        "status": "completed",
+                    })
 
                 # Update pipeline status in store
                 existing["execution"] = {
                     "execution_id": execution_id,
                     "status": "completed",
                     "tasks_executed": len(agent_tasks),
+                    "task_results": task_results,
                 }
                 store.save(pipeline_id, existing)
 
