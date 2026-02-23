@@ -266,19 +266,12 @@ class TestGmailSyncShim:
 
 # ---------------------------------------------------------------------------
 # 6. aragora.modes.gauntlet -> aragora.gauntlet
-#    NOTE: The shim file (aragora/modes/gauntlet.py) may not exist yet.
-#    This test is marked xfail so it documents the expected behavior
-#    without blocking the suite.
 # ---------------------------------------------------------------------------
 
 
 class TestModesGauntletShim:
-    """aragora.modes.gauntlet should emit DeprecationWarning (shim may not exist yet)."""
+    """aragora.modes.gauntlet should emit DeprecationWarning."""
 
-    @pytest.mark.xfail(
-        reason="aragora/modes/gauntlet.py shim not yet created (planned for v3.0)",
-        strict=False,
-    )
     def test_import_triggers_deprecation_warning(self) -> None:
         _assert_deprecation_warning("aragora.modes.gauntlet", "aragora.gauntlet")
 

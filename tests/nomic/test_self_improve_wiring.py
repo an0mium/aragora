@@ -974,14 +974,14 @@ class TestFeedbackLoopClosure:
                 return_value=[_FakePrioritizedGoal()],
             ),
             patch(
-                "aragora.nomic.hardened_orchestrator.BranchCoordinator",
+                "aragora.nomic.branch_coordinator.BranchCoordinator",
                 return_value=mock_coordinator,
             ),
             patch(
-                "aragora.nomic.hardened_orchestrator.BranchCoordinatorConfig",
+                "aragora.nomic.branch_coordinator.BranchCoordinatorConfig",
             ),
             patch(
-                "aragora.nomic.hardened_orchestrator.TrackAssignment",
+                "aragora.nomic.branch_coordinator.TrackAssignment",
                 side_effect=lambda goal: _FakeTrackAssignment(goal=goal),
             ),
             patch.object(
