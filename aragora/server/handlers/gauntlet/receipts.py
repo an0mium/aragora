@@ -366,8 +366,8 @@ class GauntletReceiptsMixin:
             ) or signed_receipt.receipt_data.get("checksum", "")
             computed_hash = ""
             try:
-                computed_hash = receipt._calculate_hash()
-            except (TypeError, ValueError, AttributeError) as e:
+                computed_hash = receipt._calculate_hash()  # type: ignore[possibly-undefined]
+            except (TypeError, ValueError, AttributeError, UnboundLocalError, NameError) as e:
                 logger.debug("Error calculating receipt hash: %s", e)
                 computed_hash = ""
 
