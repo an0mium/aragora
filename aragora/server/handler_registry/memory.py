@@ -36,6 +36,11 @@ KMAdapterStatusHandler = _safe_import(
     "aragora.server.handlers.knowledge.adapters", "KMAdapterStatusHandler"
 )
 
+# KM velocity handler
+KnowledgeVelocityHandler = _safe_import(
+    "aragora.server.handlers.knowledge.velocity", "KnowledgeVelocityHandler"
+)
+
 # =============================================================================
 # Knowledge Handler Imports
 # =============================================================================
@@ -139,6 +144,7 @@ MEMORY_HANDLER_REGISTRY: list[tuple[str, object]] = [
     ("_coordinator_handler", CoordinatorHandler),
     ("_km_checkpoint_handler", KMCheckpointHandler),
     ("_km_adapter_status_handler", KMAdapterStatusHandler),
+    ("_km_velocity_handler", KnowledgeVelocityHandler),
     ("_knowledge_handler", KnowledgeHandler),
     ("_knowledge_mound_handler", KnowledgeMoundHandler),
     ("_knowledge_chat_handler", KnowledgeChatHandler),
@@ -178,6 +184,7 @@ __all__ = [
     "CoordinatorHandler",
     "KMCheckpointHandler",
     "KMAdapterStatusHandler",
+    "KnowledgeVelocityHandler",
     # Knowledge handlers
     "KnowledgeHandler",
     "KnowledgeMoundHandler",

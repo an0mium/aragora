@@ -57,6 +57,12 @@ python 01_simple_debate.py --dry-run
 | 08 | [Error Handling](08_error_handling.py) | Retry patterns, fallbacks, circuit breakers | `RetryPolicy`, `CircuitBreaker`, fallback agents |
 | 09 | [TypeScript Quickstart](09_typescript_quickstart.ts) | TypeScript SDK equivalent of #1 | TypeScript types, async/await |
 | 10 | [Advanced Workflow](10_advanced_workflow.py) | End-to-end workflow combining features | Workflow orchestration, combined patterns |
+| 11 | [Self-Improvement](11_self_improvement.py) | Trigger and monitor autonomous improvement cycles | `self_improve`, Nomic Loop, dry-run |
+| 12 | [Marketplace Templates](12_marketplace_templates.py) | Browse, install, and publish templates | `marketplace`, search, publish |
+| 13 | [Pipeline Execution](13_pipeline_execution.py) | Create and execute idea-to-code pipelines | `pipeline`, 4-stage DAG, receipts |
+| 14 | [Decision Receipts](14_decision_receipts.py) | Generate and verify cryptographic audit trails | `receipts`, SHA-256, verification |
+| 15 | [Analytics Dashboard](15_analytics_dashboard.py) | Query debate stats, ELO rankings, usage | `analytics`, agent rankings, costs |
+| 16 | [Observability](16_observability.py) | Monitor system health and circuit breakers | `observability`, health checks, metrics |
 
 ---
 
@@ -100,6 +106,20 @@ python 02_streaming_debate.py --topic "Should AI systems be open source?"
 
 ### Advanced
 - **10_advanced_workflow.py** - Complete end-to-end workflow.
+
+### Self-Improvement & Pipeline
+- **11_self_improvement.py** - Autonomous code improvement cycles.
+- **13_pipeline_execution.py** - Ideas → Goals → Actions → Execution.
+
+### Marketplace
+- **12_marketplace_templates.py** - Browse and share templates.
+
+### Audit & Compliance
+- **14_decision_receipts.py** - Cryptographic decision audit trails.
+
+### Monitoring
+- **15_analytics_dashboard.py** - Debate stats and agent rankings.
+- **16_observability.py** - System health and circuit breakers.
 
 ---
 

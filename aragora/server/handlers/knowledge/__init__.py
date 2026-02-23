@@ -11,10 +11,12 @@ from .adapters import KMAdapterStatusHandler
 from .analytics import AnalyticsHandler
 from .sharing_notifications import SharingNotificationsHandler
 from .checkpoints import KMCheckpointHandler
+from .velocity import KnowledgeVelocityHandler
 
 __all__ = [
     "AnalyticsHandler",
     "KMAdapterStatusHandler",
     "SharingNotificationsHandler",
     "KMCheckpointHandler",
+    "KnowledgeVelocityHandler",
 ]

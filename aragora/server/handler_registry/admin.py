@@ -24,6 +24,7 @@ SystemHandler = _safe_import("aragora.server.handlers", "SystemHandler")
 HealthHandler = _safe_import("aragora.server.handlers", "HealthHandler")
 NomicHandler = _safe_import("aragora.server.handlers", "NomicHandler")
 DocsHandler = _safe_import("aragora.server.handlers", "DocsHandler")
+ApiDocsHandler = _safe_import("aragora.server.handlers.api_docs", "ApiDocsHandler")
 
 # =============================================================================
 # Admin Handler Imports
@@ -323,6 +324,11 @@ SelfImproveHandler = _safe_import(
     "aragora.server.handlers.self_improve", "SelfImproveHandler"
 )
 
+# Observability dashboard
+ObservabilityDashboardHandler = _safe_import(
+    "aragora.server.handlers.observability.dashboard", "ObservabilityDashboardHandler"
+)
+
 # Feature flag admin
 FeatureFlagAdminHandler = _safe_import(
     "aragora.server.handlers.admin.feature_flags", "FeatureFlagAdminHandler"
@@ -368,6 +374,7 @@ ADMIN_HANDLER_REGISTRY: list[tuple[str, object]] = [
     ("_health_handler", HealthHandler),
     ("_nomic_handler", NomicHandler),
     ("_docs_handler", DocsHandler),
+    ("_api_docs_handler", ApiDocsHandler),
     ("_system_handler", SystemHandler),
     # Admin
     ("_admin_handler", AdminHandler),
@@ -514,6 +521,8 @@ ADMIN_HANDLER_REGISTRY: list[tuple[str, object]] = [
     ("_marketplace_browse_handler", MarketplaceBrowseHandler),
     # Self-improvement
     ("_self_improve_handler", SelfImproveHandler),
+    # Observability
+    ("_observability_dashboard_handler", ObservabilityDashboardHandler),
 ]
 
 __all__ = [
@@ -666,6 +675,8 @@ __all__ = [
     "MarketplaceBrowseHandler",
     # Self-improvement
     "SelfImproveHandler",
+    # Observability
+    "ObservabilityDashboardHandler",
     # Handler result
     "HandlerResult",
     # Registry

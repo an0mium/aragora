@@ -197,7 +197,8 @@ class GauntletRunner:
             )
             if critical_count > 0:
                 try:
-                    from aragora.nomic.improvement_queue import ImprovementQueue, FeedbackGoal
+                    from aragora.nomic.improvement_queue import ImprovementQueue
+                    from aragora.nomic.outcome_feedback import FeedbackGoal
                     queue = ImprovementQueue()
                     queue.enqueue(FeedbackGoal(
                         source="gauntlet",
