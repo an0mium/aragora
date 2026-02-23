@@ -319,6 +319,11 @@ UnifiedApprovalsHandler = _safe_import(
 )
 RBACHandler = _safe_import("aragora.server.handlers.rbac", "RBACHandler")
 
+# Federation status
+FederationStatusHandler = _safe_import(
+    "aragora.server.handlers.federation.status", "FederationStatusHandler"
+)
+
 # Self-improvement
 SelfImproveHandler = _safe_import(
     "aragora.server.handlers.self_improve", "SelfImproveHandler"
@@ -519,6 +524,8 @@ ADMIN_HANDLER_REGISTRY: list[tuple[str, object]] = [
     ("_playground_handler", PlaygroundHandler),
     # Marketplace browsing
     ("_marketplace_browse_handler", MarketplaceBrowseHandler),
+    # Federation
+    ("_federation_status_handler", FederationStatusHandler),
     # Self-improvement
     ("_self_improve_handler", SelfImproveHandler),
     # Observability
@@ -673,6 +680,8 @@ __all__ = [
     "PlaygroundHandler",
     # Marketplace browsing
     "MarketplaceBrowseHandler",
+    # Federation
+    "FederationStatusHandler",
     # Self-improvement
     "SelfImproveHandler",
     # Observability
