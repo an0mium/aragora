@@ -1866,7 +1866,7 @@ class SelfImprovePipeline:
             )
         except ImportError:
             logger.debug("FeedbackOrchestrator not available")
-        except (RuntimeError, ValueError, TypeError, OSError, AttributeError, KeyError):
+        except Exception:  # noqa: BLE001 — best-effort step, must not crash pipeline
             logger.warning("feedback_orchestrator_failed")
 
     def _publish_to_pipeline_graph(
@@ -1901,7 +1901,7 @@ class SelfImprovePipeline:
                 graph.id,
                 len(graph.nodes),
             )
-        except (ImportError, AttributeError, RuntimeError, ValueError, TypeError) as e:
+        except Exception as e:  # noqa: BLE001 — best-effort visualization, must not crash pipeline
             logger.debug("Pipeline graph publication skipped: %s", e)
 
 
