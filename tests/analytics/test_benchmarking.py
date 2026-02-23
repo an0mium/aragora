@@ -533,8 +533,7 @@ class TestBenchmarkingHandler:
         handler = BenchmarkingHandler({})
         result = handler._get_benchmarks({})
         assert result is not None
-        status, _, _ = result
-        assert status == 400
+        assert result.status_code == 400
 
     @pytest.mark.no_auto_auth
     @patch("aragora.server.handlers.utils.decorators.has_permission", return_value=True)

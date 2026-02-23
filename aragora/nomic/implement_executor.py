@@ -483,7 +483,14 @@ class ConvoyImplementExecutor:
             if on_task_complete:
                 try:
                     on_task_complete(task_id, result)
-                except Exception as exc:  # noqa: BLE001 - callback errors must not break executor
+                except (
+                    TypeError,
+                    ValueError,
+                    RuntimeError,
+                    AttributeError,
+                    KeyError,
+                    OSError,
+                ) as exc:
                     logger.warning("on_task_complete callback failed: %s", exc)
 
         return results
