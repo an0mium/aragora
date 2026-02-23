@@ -345,9 +345,6 @@ class FindingWorkflowHandler(BaseHandler):
                 },
             )
 
-        except InvalidTransitionError as e:
-            logger.warning("Invalid workflow transition: %s", e)
-            return self._error_response(400, "Invalid workflow transition")
         except ImportError:
             # Fallback without full workflow module
             workflow_dict = await self._get_or_create_workflow(finding_id)

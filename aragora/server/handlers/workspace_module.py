@@ -495,14 +495,15 @@ class WorkspaceHandler(
         method: str,
     ) -> HandlerResult | None:
         """Route workspace requests."""
-        parts = path.strip("/").split("/")
+        normalized = strip_version_prefix(path)
+        parts = normalized.strip("/").split("/")
 
         # POST /api/workspaces - Create workspace
-        if path == "/api/v1/workspaces" and method == "POST":
+        if normalized in ("/api/workspaces", "/api/v1/workspaces") and method == "POST":
             return self._handle_create_workspace(handler)
 
         # GET /api/workspaces - List workspaces
-        if path == "/api/v1/workspaces" and method == "GET":
+        if normalized in ("/api/workspaces", "/api/v1/workspaces") and method == "GET":
             return self._handle_list_workspaces(handler, query_params)
 
         # GET /api/workspaces/{id}
@@ -542,7 +543,7 @@ class WorkspaceHandler(
             return self._handle_remove_member(handler, workspace_id, user_id)
 
         # GET /api/workspaces/profiles - List available RBAC profiles
-        if path == "/api/v1/workspaces/profiles" and method == "GET":
+        if normalized in ("/api/workspaces/profiles", "/api/v1/workspaces/profiles") and method == "GET":
             return self._handle_list_profiles(handler)
 
         # GET /api/workspaces/{id}/roles - Get available roles for workspace
@@ -609,7 +610,8 @@ class WorkspaceHandler(
         method: str,
     ) -> HandlerResult | None:
         """Route invite acceptance requests."""
-        parts = path.strip("/").split("/")
+        normalized = strip_version_prefix(path)
+        parts = normalized.strip("/").split("/")
 
         # POST /api/v1/invites/{token}/accept - Accept invite
         if len(parts) == 4 and parts[3] == "accept" and method == "POST":
@@ -626,14 +628,15 @@ class WorkspaceHandler(
         method: str,
     ) -> HandlerResult | None:
         """Route retention requests."""
-        parts = path.strip("/").split("/")
+        normalized = strip_version_prefix(path)
+        parts = normalized.strip("/").split("/")
 
         # GET /api/retention/policies - List policies
-        if path == "/api/v1/retention/policies" and method == "GET":
+        if normalized in ("/api/retention/policies", "/api/v1/retention/policies") and method == "GET":
             return self._handle_list_policies(handler, query_params)
 
         # POST /api/retention/policies - Create policy
-        if path == "/api/v1/retention/policies" and method == "POST":
+        if normalized in ("/api/retention/policies", "/api/v1/retention/policies") and method == "POST":
             return self._handle_create_policy(handler)
 
         # GET /api/retention/policies/{id}
@@ -669,7 +672,7 @@ class WorkspaceHandler(
             return self._handle_execute_policy(handler, policy_id, query_params)
 
         # GET /api/retention/expiring
-        if path == "/api/v1/retention/expiring" and method == "GET":
+        if normalized in ("/api/retention/expiring", "/api/v1/retention/expiring") and method == "GET":
             return self._handle_expiring_items(handler, query_params)
 
         return error_response("Not found", 404)
@@ -704,7 +707,8 @@ class WorkspaceHandler(
         method: str,
     ) -> HandlerResult | None:
         """Route audit requests."""
-        parts = path.strip("/").split("/")
+        normalized = strip_version_prefix(path)
+        parts = normalized.strip("/").split("/")
 
         # GET /api/audit/entries - Query audit entries
         if path == "/api/v1/audit/entries" and method == "GET":
