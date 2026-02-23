@@ -500,6 +500,366 @@ def execution_to_orchestration_canvas(
 
 
 # =============================================================================
+# Stage 1.5: Ideas → Principles Canvas
+# =============================================================================
+
+
+def ideas_to_principles_canvas(
+    ideas_canvas_data: dict[str, Any],
+    *,
+    enriched_themes: list[str] | None = None,
+    canvas_id: str | None = None,
+    canvas_name: str = "Principles Map",
+) -> Canvas:
+    """Cluster ideas into themes and extract principles/values.
+
+    Groups idea nodes by keyword overlap (Jaccard similarity), creates
+    THEME nodes for each cluster, and derives PRINCIPLE/VALUE nodes
+    from the strongest ideas within each cluster.
+
+    Args:
+        ideas_canvas_data: Canvas data dict with nodes and edges from Stage 1
+        enriched_themes: Optional pre-computed theme labels to use
+        canvas_id: Optional canvas ID
+        canvas_name: Canvas name
+
+    Returns:
+        Canvas with principle/theme nodes and EMBODIES edges
+    """
+    canvas = Canvas(
+        id=canvas_id or f"principles-{uuid.uuid4().hex[:8]}",
+        name=canvas_name,
+        metadata={"stage": PipelineStage.PRINCIPLES.value, "source": "ideas"},
+    )
+
+    nodes_data = ideas_canvas_data.get("nodes", [])
+    edges_data = ideas_canvas_data.get("edges", [])
+
+    if not nodes_data:
+        return canvas
+
+    # Tokenize each node for clustering
+    _stop = frozenset({
+        "the", "a", "an", "and", "or", "but", "in", "on", "at", "to",
+        "for", "of", "with", "by", "from", "is", "it", "this", "that",
+        "be", "are", "was", "were", "has", "have", "had", "do", "does",
+    })
+
+    def _tokenize(text: str) -> frozenset[str]:
+        import re as _re
+        words = _re.split(r"[^a-zA-Z0-9]+", text.lower())
+        return frozenset(w for w in words if w and len(w) > 1 and w not in _stop)
+
+    node_tokens: list[tuple[dict[str, Any], frozenset[str]]] = []
+    for node in nodes_data:
+        label = node.get("label", "")
+        full = node.get("data", {}).get("full_content", label)
+        tokens = _tokenize(f"{label} {full}")
+        node_tokens.append((node, tokens))
+
+    # Build support counts from edges
+    support_count: dict[str, int] = {}
+    for edge in edges_data:
+        etype = edge.get("type", edge.get("data", {}).get("stage_edge_type", ""))
+        tgt = edge.get("target", edge.get("target_id", ""))
+        if etype in ("support", "supports"):
+            support_count[tgt] = support_count.get(tgt, 0) + 1
+
+    # Simple agglomerative clustering via Jaccard similarity
+    n = len(node_tokens)
+    cluster_map: dict[int, list[int]] = {i: [i] for i in range(n)}
+    threshold = 0.15
+
+    while len(cluster_map) > 1:
+        best_sim = -1.0
+        best_pair: tuple[int, int] | None = None
+        cids = sorted(cluster_map.keys())
+        for ci_idx in range(len(cids)):
+            for cj_idx in range(ci_idx + 1, len(cids)):
+                ci, cj = cids[ci_idx], cids[cj_idx]
+                total = 0.0
+                count = 0
+                for ni in cluster_map[ci]:
+                    for nj in cluster_map[cj]:
+                        inter = len(node_tokens[ni][1] & node_tokens[nj][1])
+                        union = len(node_tokens[ni][1] | node_tokens[nj][1])
+                        total += inter / union if union else 0.0
+                        count += 1
+                avg = total / max(count, 1)
+                if avg > best_sim:
+                    best_sim = avg
+                    best_pair = (ci, cj)
+        if best_pair is None or best_sim < threshold:
+            break
+        ci, cj = best_pair
+        cluster_map[ci] = cluster_map[ci] + cluster_map[cj]
+        del cluster_map[cj]
+
+    # Create theme and principle nodes per cluster
+    theme_idx = 0
+    for cluster_id, member_indices in cluster_map.items():
+        # Derive theme name from common tokens or enriched_themes
+        if enriched_themes and theme_idx < len(enriched_themes):
+            theme_label = enriched_themes[theme_idx]
+        else:
+            all_tokens: list[str] = []
+            for idx in member_indices:
+                all_tokens.extend(node_tokens[idx][1])
+            from collections import Counter
+            freq = Counter(all_tokens)
+            top_words = [w for w, _ in freq.most_common(3)]
+            theme_label = " & ".join(top_words).title() if top_words else f"Theme {theme_idx + 1}"
+
+        theme_node_id = f"theme-{uuid.uuid4().hex[:8]}"
+        theme_color = NODE_TYPE_COLORS.get("theme", "#7c3aed")
+
+        # Position themes radially
+        theme_positions = _radial_layout(
+            len(cluster_map), center_x=400, center_y=300, radius=300
+        )
+        tpos = theme_positions[theme_idx] if theme_idx < len(theme_positions) else Position(0, 0)
+
+        canvas.nodes[theme_node_id] = CanvasNode(
+            id=theme_node_id,
+            node_type=CanvasNodeType.KNOWLEDGE,
+            position=tpos,
+            size=Size(260, 80),
+            label=theme_label,
+            data={
+                "stage": PipelineStage.PRINCIPLES.value,
+                "principle_type": "theme",
+                "member_count": len(member_indices),
+                "content_hash": content_hash(theme_label),
+                "rf_type": "principleNode",
+            },
+            style={"backgroundColor": theme_color, "borderRadius": "12px"},
+        )
+
+        # Pick the strongest idea(s) in cluster as principles
+        ranked = sorted(
+            member_indices,
+            key=lambda i: support_count.get(nodes_data[i].get("id", ""), 0),
+            reverse=True,
+        )
+        for rank, idx in enumerate(ranked[:3]):
+            node = node_tokens[idx][0]
+            node_id = node.get("id", f"idea-{idx}")
+            label = node.get("label", "")
+            idea_type = node.get("data", {}).get("idea_type", "concept")
+
+            # Map idea type to principle type
+            p_type = {
+                "constraint": "constraint",
+                "insight": "value",
+                "evidence": "value",
+            }.get(idea_type, "principle")
+            if rank == 0:
+                p_type = "priority"
+
+            p_color = NODE_TYPE_COLORS.get(p_type, "#8B5CF6")
+            p_node_id = f"principle-{uuid.uuid4().hex[:8]}"
+
+            # Position within cluster radially around theme
+            member_positions = _radial_layout(
+                min(len(ranked), 3),
+                center_x=tpos.x,
+                center_y=tpos.y,
+                radius=120,
+            )
+            mpos = member_positions[rank] if rank < len(member_positions) else Position(tpos.x, tpos.y + 100)
+
+            canvas.nodes[p_node_id] = CanvasNode(
+                id=p_node_id,
+                node_type=CanvasNodeType.KNOWLEDGE,
+                position=mpos,
+                size=Size(220, 70),
+                label=label[:80],
+                data={
+                    "stage": PipelineStage.PRINCIPLES.value,
+                    "principle_type": p_type,
+                    "source_idea_id": node_id,
+                    "full_content": node.get("data", {}).get("full_content", label),
+                    "content_hash": content_hash(label),
+                    "rf_type": "principleNode",
+                },
+                style={"backgroundColor": p_color, "borderRadius": "8px"},
+            )
+
+            # EMBODIES edge: idea → principle
+            edge_id = f"e-embodies-{node_id}-{p_node_id}"
+            canvas.edges[edge_id] = CanvasEdge(
+                id=edge_id,
+                source_id=node_id,
+                target_id=p_node_id,
+                edge_type=EdgeType.REFERENCE,
+                label="embodies",
+                data={
+                    "stage": PipelineStage.PRINCIPLES.value,
+                    "stage_edge_type": "embodies",
+                },
+                style={"strokeDasharray": "5 5", "opacity": 0.6},
+            )
+
+            # Link principle to its theme
+            theme_edge_id = f"e-theme-{p_node_id}-{theme_node_id}"
+            canvas.edges[theme_edge_id] = CanvasEdge(
+                id=theme_edge_id,
+                source_id=p_node_id,
+                target_id=theme_node_id,
+                edge_type=EdgeType.REFERENCE,
+                label="part of",
+                data={
+                    "stage": PipelineStage.PRINCIPLES.value,
+                    "stage_edge_type": "relates_to",
+                },
+            )
+
+        theme_idx += 1
+
+    return canvas
+
+
+def principles_to_goals_canvas(
+    principles_canvas_data: dict[str, Any],
+    *,
+    ideas_canvas_data: dict[str, Any] | None = None,
+    canvas_id: str | None = None,
+    canvas_name: str = "Goals from Principles",
+) -> Canvas:
+    """Convert principles into a goal-ready canvas for GoalExtractor.
+
+    Each PRINCIPLE/VALUE/PRIORITY node becomes a candidate goal node.
+    CONSTRAINT nodes become dependency metadata on the resulting goals.
+    The output canvas uses hierarchical layout.
+
+    Args:
+        principles_canvas_data: Canvas data dict from the Principles stage
+        ideas_canvas_data: Optional original ideas canvas for extra provenance
+        canvas_id: Optional canvas ID
+        canvas_name: Canvas name
+
+    Returns:
+        Canvas ready for goal extraction (nodes typed as goal candidates)
+    """
+    canvas = Canvas(
+        id=canvas_id or f"goals-from-principles-{uuid.uuid4().hex[:8]}",
+        name=canvas_name,
+        metadata={"stage": PipelineStage.GOALS.value, "source": "principles"},
+    )
+
+    nodes_data = principles_canvas_data.get("nodes", [])
+    edges_data = principles_canvas_data.get("edges", [])
+
+    if not nodes_data:
+        return canvas
+
+    # Separate principle/value/priority nodes from themes
+    goal_candidates: list[dict[str, Any]] = []
+    constraint_ids: set[str] = set()
+
+    for node in nodes_data:
+        data = node.get("data", {})
+        p_type = data.get("principle_type", "")
+        if p_type in ("principle", "value", "priority"):
+            goal_candidates.append(node)
+        elif p_type == "constraint":
+            constraint_ids.add(node.get("id", ""))
+            goal_candidates.append(node)
+
+    # Build items for hierarchical layout
+    items_for_layout: list[dict[str, Any]] = []
+    for node in goal_candidates:
+        node_id = node.get("id", "")
+        deps: list[str] = []
+        # Constraints become dependencies
+        for edge in edges_data:
+            src = edge.get("source", edge.get("source_id", ""))
+            tgt = edge.get("target", edge.get("target_id", ""))
+            etype = edge.get("data", {}).get("stage_edge_type", "")
+            if etype == "constrains" and tgt == node_id:
+                deps.append(src)
+        items_for_layout.append({"id": node_id, "dependencies": deps})
+
+    positions = _hierarchical_layout(items_for_layout)
+
+    # Create goal-candidate nodes
+    for i, node in enumerate(goal_candidates):
+        node_id = node.get("id", "")
+        label = node.get("label", "")
+        data = node.get("data", {})
+        p_type = data.get("principle_type", "principle")
+
+        # Map principle type to goal-oriented visual
+        goal_type_str = {
+            "priority": "goal",
+            "value": "principle",
+            "principle": "strategy",
+            "constraint": "risk",
+        }.get(p_type, "goal")
+
+        color = NODE_TYPE_COLORS.get(goal_type_str, "#34d399")
+        pos = positions.get(node_id, Position(i * 280, 0))
+
+        canvas.nodes[node_id] = CanvasNode(
+            id=node_id,
+            node_type=CanvasNodeType.DECISION,
+            position=pos,
+            size=Size(250, 90),
+            label=label[:80],
+            data={
+                "stage": PipelineStage.GOALS.value,
+                "goal_type": goal_type_str,
+                "source_principle_type": p_type,
+                "source_idea_id": data.get("source_idea_id", ""),
+                "full_content": data.get("full_content", label),
+                "content_hash": content_hash(label),
+                "rf_type": "goalNode",
+            },
+            style={"backgroundColor": color, "borderRadius": "12px"},
+        )
+
+    # Preserve constrains edges as dependency edges
+    for edge in edges_data:
+        etype = edge.get("data", {}).get("stage_edge_type", "")
+        src = edge.get("source", edge.get("source_id", ""))
+        tgt = edge.get("target", edge.get("target_id", ""))
+        if etype == "constrains" and src in canvas.nodes and tgt in canvas.nodes:
+            edge_id = f"e-dep-{src}-{tgt}"
+            canvas.edges[edge_id] = CanvasEdge(
+                id=edge_id,
+                source_id=src,
+                target_id=tgt,
+                edge_type=EdgeType.DEPENDENCY,
+                label="constrains",
+                data={"stage": PipelineStage.GOALS.value},
+            )
+
+    # Add provenance from original ideas if available
+    if ideas_canvas_data:
+        for node in goal_candidates:
+            src_idea_id = node.get("data", {}).get("source_idea_id", "")
+            node_id = node.get("id", "")
+            if src_idea_id and node_id in canvas.nodes:
+                prov_edge_id = f"prov-{src_idea_id}-{node_id}"
+                canvas.edges[prov_edge_id] = CanvasEdge(
+                    id=prov_edge_id,
+                    source_id=src_idea_id,
+                    target_id=node_id,
+                    edge_type=EdgeType.REFERENCE,
+                    label="derived from",
+                    data={
+                        "provenance": True,
+                        "content_hash": content_hash(
+                            node.get("label", "")
+                        ),
+                    },
+                    style={"strokeDasharray": "5 5", "opacity": 0.5},
+                )
+
+    return canvas
+
+
+# =============================================================================
 # Layout Helpers
 # =============================================================================
 

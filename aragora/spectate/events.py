@@ -85,6 +85,16 @@ class SpectatorEvents:
     KM_CONTRADICTIONS_DETECTED = "km_contradictions_detected"
     REGRESSION_DETECTED = "regression_detected"
 
+    # Pipeline agent execution (Mission Control)
+    APPROVAL_REQUESTED = "approval_requested"
+    APPROVAL_GRANTED = "approval_granted"
+    APPROVAL_REJECTED = "approval_rejected"
+    AGENT_PROGRESS = "agent_progress"
+    PIPELINE_AGENT_ASSIGNED = "pipeline_agent_assigned"
+    PIPELINE_AGENT_COMPLETED = "pipeline_agent_completed"
+    PIPELINE_AGENT_FAILED = "pipeline_agent_failed"
+    DIFF_PREVIEW = "diff_preview"
+
     # System
     SYSTEM = "system"
     ERROR = "error"
@@ -150,6 +160,15 @@ EVENT_STYLES: dict[str, tuple[str, str]] = {
     SpectatorEvents.FEEDBACK_RECORDED: ("📝", "\033[92m"),
     SpectatorEvents.KM_CONTRADICTIONS_DETECTED: ("⚡", "\033[91m"),
     SpectatorEvents.REGRESSION_DETECTED: ("📉", "\033[91m"),
+    # Pipeline agent execution (Mission Control)
+    SpectatorEvents.APPROVAL_REQUESTED: ("🔔", "\033[93m"),  # Yellow - needs attention
+    SpectatorEvents.APPROVAL_GRANTED: ("✅", "\033[92m"),  # Green
+    SpectatorEvents.APPROVAL_REJECTED: ("🚫", "\033[91m"),  # Red
+    SpectatorEvents.AGENT_PROGRESS: ("📊", "\033[96m"),  # Cyan
+    SpectatorEvents.PIPELINE_AGENT_ASSIGNED: ("🤖", "\033[94m"),  # Blue
+    SpectatorEvents.PIPELINE_AGENT_COMPLETED: ("✅", "\033[92m"),  # Green
+    SpectatorEvents.PIPELINE_AGENT_FAILED: ("❌", "\033[91m"),  # Red
+    SpectatorEvents.DIFF_PREVIEW: ("📄", "\033[96m"),  # Cyan
     # System
     SpectatorEvents.SYSTEM: ("⚙️", "\033[0m"),
     SpectatorEvents.ERROR: ("❌", "\033[91m"),
@@ -214,6 +233,15 @@ EVENT_ASCII: dict[str, str] = {
     SpectatorEvents.FEEDBACK_RECORDED: "[FEEDBACK]",
     SpectatorEvents.KM_CONTRADICTIONS_DETECTED: "[CONFLICT]",
     SpectatorEvents.REGRESSION_DETECTED: "[REGRESS]",
+    # Pipeline agent execution (Mission Control)
+    SpectatorEvents.APPROVAL_REQUESTED: "[APPROVE?]",
+    SpectatorEvents.APPROVAL_GRANTED: "[APPROVED]",
+    SpectatorEvents.APPROVAL_REJECTED: "[REJECTED]",
+    SpectatorEvents.AGENT_PROGRESS: "[PROGRESS]",
+    SpectatorEvents.PIPELINE_AGENT_ASSIGNED: "[AGENT_ASSIGN]",
+    SpectatorEvents.PIPELINE_AGENT_COMPLETED: "[AGENT_DONE]",
+    SpectatorEvents.PIPELINE_AGENT_FAILED: "[AGENT_FAIL]",
+    SpectatorEvents.DIFF_PREVIEW: "[DIFF]",
     # System
     SpectatorEvents.SYSTEM: "[SYS]",
     SpectatorEvents.ERROR: "[ERR]",

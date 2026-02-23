@@ -895,9 +895,9 @@ class TestImprovementQueueToMetaPlanner:
                         context=context,
                     )
 
-        # The queue should have been peeked (not drained) -- the suggestion remains
+        # The queue was drained (dequeue_batch consumes items)
         remaining = queue.peek(10)
-        assert any(s.task == "Improve error messages" for s in remaining)
+        assert len(remaining) == 0
 
     @pytest.mark.asyncio
     async def test_meta_planner_no_crash_when_queue_empty(self):

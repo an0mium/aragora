@@ -482,9 +482,9 @@ class TestLoop2_ImprovementQueueToMetaPlanner:
         assert context.recent_improvements[0]["category"] == "test_coverage"
         assert context.recent_improvements[0]["confidence"] == 0.85
 
-        # Verify the queue was peeked (not drained) -- suggestion remains
+        # Verify the queue was drained (dequeue_batch consumes items)
         remaining = queue.peek(10)
-        assert any(s.task == "Improve test coverage for analytics module" for s in remaining)
+        assert len(remaining) == 0
 
     @pytest.mark.asyncio
     async def test_full_improvement_loop_e2e(self):

@@ -38,6 +38,8 @@ from typing import Any
 from aragora.canvas.converters import (
     debate_to_ideas_canvas,
     execution_to_orchestration_canvas,
+    ideas_to_principles_canvas,
+    principles_to_goals_canvas,
     to_react_flow,
     workflow_to_actions_canvas,
 )
@@ -108,6 +110,7 @@ class PipelineConfig:
     use_hardened_orchestrator: bool = False  # Use HardenedOrchestrator in Stage 4
     template: Any | None = None  # DeliberationTemplate for Arena defaults
     spectator: Any | None = None  # SpectatorStream for real-time observation
+    enable_principles: bool = False  # Insert Principles stage between Ideas and Goals
     enable_beads: bool = False  # Map Stage 4 tasks to Bead lifecycle objects
     enable_fractal: bool = False  # Use FractalOrchestrator for recursive ideation
     enable_meta_tuning: bool = False  # MetaLearner self-tuning
@@ -147,6 +150,7 @@ class PipelineResult:
     pipeline_id: str
     # Stage outputs
     ideas_canvas: Canvas | None = None
+    principles_canvas: Canvas | None = None
     goal_graph: GoalGraph | None = None
     actions_canvas: Canvas | None = None
     orchestration_canvas: Canvas | None = None
@@ -169,6 +173,9 @@ class PipelineResult:
         result = {
             "pipeline_id": self.pipeline_id,
             "ideas": to_react_flow(self.ideas_canvas) if self.ideas_canvas else None,
+            "principles": (
+                to_react_flow(self.principles_canvas) if self.principles_canvas else None
+            ),
             "goals": self.goal_graph.to_dict() if self.goal_graph else None,
             "actions": to_react_flow(self.actions_canvas) if self.actions_canvas else None,
             "orchestration": (
@@ -654,7 +661,9 @@ class IdeaToExecutionPipeline:
         Used when humans have reviewed and approved a stage,
         and want to advance to the next one.
         """
-        if target_stage == PipelineStage.GOALS:
+        if target_stage == PipelineStage.PRINCIPLES:
+            return self._advance_to_principles(result)
+        elif target_stage == PipelineStage.GOALS:
             return self._advance_to_goals(result)
         elif target_stage == PipelineStage.ACTIONS:
             return self._advance_to_actions(result)
@@ -773,6 +782,20 @@ class IdeaToExecutionPipeline:
                         )
                 except (AttributeError, TypeError, ValueError):
                     pass
+
+            # Stage 1.5: Principles extraction (opt-in)
+            if cfg.enable_principles and "principles" in cfg.stages_to_run:
+                sr = await self._run_principles_extraction(
+                    pipeline_id,
+                    result.stage_results[0].output if result.stage_results else None,
+                    cfg,
+                )
+                result.stage_results.append(sr)
+                if sr.status == "completed" and sr.output:
+                    result.principles_canvas = sr.output.get("canvas")
+                    result.stage_status[PipelineStage.PRINCIPLES.value] = "complete"
+                elif sr.status == "failed":
+                    result.stage_status[PipelineStage.PRINCIPLES.value] = "failed"
 
             # Stage 2: Goal extraction
             if "goals" in cfg.stages_to_run:
@@ -1064,6 +1087,62 @@ class IdeaToExecutionPipeline:
                 cfg,
                 "stage_completed",
                 {"stage": "ideation", "status": "failed", "error": "Ideation stage failed"},
+            )
+
+        return sr
+
+    async def _run_principles_extraction(
+        self,
+        pipeline_id: str,
+        ideas_output: dict[str, Any] | None,
+        cfg: PipelineConfig,
+    ) -> StageResult:
+        """Stage 1.5: Extract principles/values from ideas canvas."""
+        sr = StageResult(stage_name="principles", status="running")
+        start = time.monotonic()
+        self._emit(cfg, "stage_started", {"stage": "principles"})
+        _spectate("pipeline.stage_started", "stage=principles")
+
+        try:
+            canvas = None
+            if ideas_output and ideas_output.get("canvas"):
+                src_canvas = ideas_output["canvas"]
+                canvas_data = (
+                    src_canvas.to_dict() if hasattr(src_canvas, "to_dict") else {}
+                )
+            else:
+                canvas_data = {}
+
+            if canvas_data:
+                canvas = ideas_to_principles_canvas(canvas_data)
+
+            sr.output = {"canvas": canvas}
+            sr.status = "completed"
+            sr.duration = time.monotonic() - start
+            self._emit(
+                cfg,
+                "stage_completed",
+                {
+                    "stage": "principles",
+                    "summary": {
+                        "principle_count": len(canvas.nodes) if canvas else 0,
+                    },
+                },
+            )
+            _spectate("pipeline.stage_completed", "stage=principles")
+        except Exception as exc:
+            sr.status = "failed"
+            sr.error = "Principles extraction failed"
+            sr.duration = time.monotonic() - start
+            logger.warning("Principles extraction failed: %s", exc)
+            self._emit(
+                cfg,
+                "stage_completed",
+                {
+                    "stage": "principles",
+                    "status": "failed",
+                    "error": "Principles extraction failed",
+                },
             )
 
         return sr
@@ -1797,11 +1876,87 @@ class IdeaToExecutionPipeline:
     # Stage transition methods (sync, for from_debate/from_ideas)
     # =========================================================================
 
+    def _advance_to_principles(self, result: PipelineResult) -> PipelineResult:
+        """Stage 1 → Stage 1.5: Extract principles/values from ideas."""
+        if not result.ideas_canvas:
+            logger.warning("Cannot advance to principles: no ideas canvas")
+            return result
+
+        canvas_data = result.ideas_canvas.to_dict()
+        result.principles_canvas = ideas_to_principles_canvas(canvas_data)
+
+        # Create provenance links from ideas to principles
+        provenance: list[ProvenanceLink] = []
+        if result.principles_canvas:
+            for node_id, node in result.principles_canvas.nodes.items():
+                src_idea_id = node.data.get("source_idea_id", "")
+                if src_idea_id:
+                    provenance.append(
+                        ProvenanceLink(
+                            source_node_id=src_idea_id,
+                            source_stage=PipelineStage.IDEAS,
+                            target_node_id=node_id,
+                            target_stage=PipelineStage.PRINCIPLES,
+                            content_hash=content_hash(node.label),
+                            method="principle_extraction",
+                        )
+                    )
+
+        result.provenance.extend(provenance)
+
+        transition = StageTransition(
+            id=f"trans-ideas-principles-{uuid.uuid4().hex[:8]}",
+            from_stage=PipelineStage.IDEAS,
+            to_stage=PipelineStage.PRINCIPLES,
+            provenance=provenance,
+            status="pending",
+            confidence=0.7,
+            ai_rationale=(
+                f"Extracted {len(result.principles_canvas.nodes)} principle nodes "
+                f"from {len(result.ideas_canvas.nodes)} ideas"
+            ),
+        )
+        result.transitions.append(transition)
+        result.stage_status[PipelineStage.PRINCIPLES.value] = "complete"
+
+        logger.info(
+            "Pipeline %s: Principles stage complete — %d principle nodes",
+            result.pipeline_id,
+            len(result.principles_canvas.nodes),
+        )
+        return result
+
     def _advance_to_goals(self, result: PipelineResult) -> PipelineResult:
-        """Stage 1 → Stage 2: Extract goals from ideas."""
+        """Stage 1 (or 1.5) → Stage 2: Extract goals from ideas or principles."""
         if not result.ideas_canvas:
             logger.warning("Cannot advance to goals: no ideas canvas")
             return result
+
+        # When principles are available, use them to inform goal extraction
+        if result.principles_canvas:
+            try:
+                principles_data = result.principles_canvas.to_dict()
+                ideas_data = result.ideas_canvas.to_dict()
+                result.goal_graph = self._goal_extractor.extract_from_principles(
+                    principles_data,
+                    ideas_canvas_data=ideas_data,
+                )
+                if result.goal_graph and result.goal_graph.goals:
+                    logger.info(
+                        "Pipeline %s: Goals extracted from principles — %d goals",
+                        result.pipeline_id,
+                        len(result.goal_graph.goals),
+                    )
+            except (TypeError, ValueError, AttributeError) as exc:
+                logger.debug(
+                    "Principle-based goal extraction failed, falling back: %s", exc
+                )
+                # Fall through to standard extraction below
+                result.goal_graph = None
+
+            if result.goal_graph and result.goal_graph.goals:
+                # Skip standard extraction, jump to post-processing
+                return self._finalize_goals(result)
 
         canvas_data = result.ideas_canvas.to_dict()
 
@@ -1826,6 +1981,13 @@ class IdeaToExecutionPipeline:
             logger.debug("Strategic hints enrichment skipped: %s", exc)
 
         result.goal_graph = self._goal_extractor.extract_from_ideas(canvas_data)
+
+        return self._finalize_goals(result)
+
+    def _finalize_goals(self, result: PipelineResult) -> PipelineResult:
+        """Post-process goal graph: conflicts, SMART scoring, KM precedents."""
+        if not result.goal_graph:
+            return result
 
         # Detect conflicts between goals
         try:
