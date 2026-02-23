@@ -531,8 +531,8 @@ class IdeaToExecutionPipeline:
                 if hints and result.goal_graph:
                     result.goal_graph.metadata["strategic_hints"] = hints[:6]
                     logger.debug("Pipeline enriched with %d strategic hints", len(hints))
-        except Exception:
-            pass
+        except (ImportError, RuntimeError, ValueError, OSError) as exc:
+            logger.debug("Strategic hints enrichment skipped: %s", exc)
 
         # Merge goal provenance into pipeline provenance
         if result.goal_graph:
@@ -1626,8 +1626,8 @@ class IdeaToExecutionPipeline:
                 goal_outcomes=goal_outcomes,
                 objective=f"pipeline:{result.pipeline_id}",
             )
-        except Exception:
-            logger.debug("Pipeline outcome recording skipped (non-critical)")
+        except (ImportError, RuntimeError, ValueError, OSError) as exc:
+            logger.debug("Pipeline outcome recording skipped: %s", exc)
 
     # =========================================================================
     # Stage transition methods (sync, for from_debate/from_ideas)
@@ -1660,8 +1660,8 @@ class IdeaToExecutionPipeline:
                     logger.debug(
                         "Pipeline enriched with %d strategic hints", len(strategic_hints)
                     )
-        except Exception:
-            pass
+        except (ImportError, RuntimeError, ValueError, OSError) as exc:
+            logger.debug("Strategic hints enrichment skipped: %s", exc)
 
         result.goal_graph = self._goal_extractor.extract_from_ideas(canvas_data)
 
