@@ -22,7 +22,6 @@ Usage:
 from __future__ import annotations
 
 import logging
-import re
 from dataclasses import dataclass, field
 from typing import TYPE_CHECKING, Any, cast
 
@@ -916,72 +915,13 @@ class MetaPlanner:
         objective: str,
     ) -> list[PrioritizedGoal]:
         """Parse prioritized goals from debate consensus."""
-        goals = []
-
-        # Get consensus text from debate result
-        consensus_text = ""
-        if hasattr(debate_result, "consensus") and debate_result.consensus:
-            consensus_text = str(debate_result.consensus)
-        elif hasattr(debate_result, "final_response"):
-            consensus_text = str(debate_result.final_response)
-        elif hasattr(debate_result, "responses") and debate_result.responses:
-            consensus_text = str(debate_result.responses[-1])
-
-        if not consensus_text:
-            return self._heuristic_prioritize(objective, available_tracks)
-
-        # Parse numbered items from the consensus
-        lines = consensus_text.split("\n")
-        current_goal: dict[str, Any] = {}
-        goal_id = 0
-
-        for line in lines:
-            line = line.strip()
-
-            # Detect numbered items (1., 2., etc.) or bullet points
-            if re.match(r"^[\d]+[\.\)]\s+", line) or re.match(r"^[-*]\s+", line):
-                # Save previous goal if exists
-                if current_goal.get("description"):
-                    goals.append(self._build_goal(current_goal, goal_id, available_tracks))
-                    goal_id += 1
-
-                # Start new goal
-                current_goal = {
-                    "description": re.sub(r"^[\d]+[\.\)]\s+|^[-*]\s+", "", line),
-                    "track": None,
-                    "rationale": "",
-                    "impact": "medium",
-                }
-
-            elif current_goal:
-                # Parse track from line
-                for track in Track:
-                    if track.value.lower() in line.lower():
-                        current_goal["track"] = track
-                        break
-
-                # Parse impact
-                if "high" in line.lower() and "impact" in line.lower():
-                    current_goal["impact"] = "high"
-                elif "low" in line.lower() and "impact" in line.lower():
-                    current_goal["impact"] = "low"
-
-                # Accumulate rationale
-                if "because" in line.lower() or "rationale" in line.lower():
-                    current_goal["rationale"] = line
-
-        # Don't forget last goal
-        if current_goal.get("description"):
-            goals.append(self._build_goal(current_goal, goal_id, available_tracks))
-
-        # Limit to max goals
-        goals = goals[: self.config.max_goals]
-
-        # If no goals parsed, fall back to heuristics
-        if not goals:
-            return self._heuristic_prioritize(objective, available_tracks)
-
-        return goals
+        return parse_goals_from_debate(
+            debate_result,
+            available_tracks,
+            objective,
+            self.config.max_goals,
+            self._heuristic_prioritize,
+        )
 
     def _build_goal(
         self,
@@ -990,50 +930,11 @@ class MetaPlanner:
         available_tracks: list[Track],
     ) -> PrioritizedGoal:
         """Build a PrioritizedGoal from parsed data."""
-        # Default track based on keywords if not explicitly set
-        track = goal_dict.get("track")
-        if not track:
-            track = self._infer_track(goal_dict["description"], available_tracks)
-
-        return PrioritizedGoal(
-            id=f"goal_{priority}",
-            track=track,
-            description=goal_dict["description"],
-            rationale=goal_dict.get("rationale", ""),
-            estimated_impact=goal_dict.get("impact", "medium"),
-            priority=priority + 1,
-        )
+        return build_goal(goal_dict, priority, available_tracks)
 
     def _infer_track(self, description: str, available_tracks: list[Track]) -> Track:
         """Infer track from goal description."""
-        desc_lower = description.lower()
-
-        track_keywords = {
-            Track.SME: ["dashboard", "user", "ui", "frontend", "workspace", "admin"],
-            Track.DEVELOPER: ["sdk", "api", "documentation", "client", "package"],
-            Track.SELF_HOSTED: ["docker", "deploy", "backup", "ops", "kubernetes"],
-            Track.QA: ["test", "ci", "coverage", "quality", "e2e", "playwright"],
-            Track.CORE: ["debate", "agent", "consensus", "arena", "memory"],
-            Track.SECURITY: [
-                "security",
-                "auth",
-                "vuln",
-                "secret",
-                "owasp",
-                "encrypt",
-                "csrf",
-                "xss",
-                "injection",
-            ],
-        }
-
-        for track, keywords in track_keywords.items():
-            if track in available_tracks:
-                if any(kw in desc_lower for kw in keywords):
-                    return track
-
-        # Default to first available track
-        return available_tracks[0] if available_tracks else Track.DEVELOPER
+        return infer_track(description, available_tracks)
 
     async def _scan_prioritize(
         self,
@@ -1402,49 +1303,8 @@ class MetaPlanner:
         max_chars_per_file: int = 1500,
         max_total_chars: int = 5000,
     ) -> dict[str, str]:
-        """Extract file paths from signal strings and read excerpts.
-
-        Provides real source code context to ground goals instead of
-        relying solely on signal labels.
-
-        Args:
-            signals: Signal strings like ``"recent_change: aragora/foo.py"``.
-            max_files: Maximum number of files to read.
-            max_chars_per_file: Max characters per file excerpt.
-            max_total_chars: Max total characters across all excerpts.
-
-        Returns:
-            Dict mapping file path to truncated content.
-        """
-        import re
-        from pathlib import Path as _P
-
-        # Extract file paths from signal strings
-        path_re = re.compile(r"(?:aragora|tests|scripts)/\S+\.py")
-        paths: list[str] = []
-        for sig in signals:
-            match = path_re.search(sig)
-            if match and match.group() not in paths:
-                paths.append(match.group())
-            if len(paths) >= max_files:
-                break
-
-        result: dict[str, str] = {}
-        total = 0
-        for path in paths:
-            try:
-                content = _P(path).read_text(errors="replace")[:max_chars_per_file]
-                if total + len(content) > max_total_chars:
-                    content = content[: max_total_chars - total]
-                if content:
-                    result[path] = content
-                    total += len(content)
-                if total >= max_total_chars:
-                    break
-            except OSError:
-                continue
-
-        return result
+        """Extract file paths from signal strings and read excerpts."""
+        return gather_file_excerpts(signals, max_files, max_chars_per_file, max_total_chars)
 
     def _gather_codebase_hints(
         self,
