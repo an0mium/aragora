@@ -125,6 +125,11 @@ UnifiedMemoryHandler = _safe_import(
     "aragora.server.handlers.memory.unified_handler", "UnifiedMemoryHandler"
 )
 
+# Memory unified gateway handler (fan-out, retention, dedup)
+MemoryUnifiedGatewayHandler = _safe_import(
+    "aragora.server.handlers.memory_unified", "MemoryUnifiedHandler"
+)
+
 # =============================================================================
 # Knowledge sharing handlers
 # =============================================================================
@@ -175,6 +180,8 @@ MEMORY_HANDLER_REGISTRY: list[tuple[str, object]] = [
     ("_autonomous_learning_handler", AutonomousLearningHandler),
     # Unified memory
     ("_unified_memory_handler", UnifiedMemoryHandler),
+    # Memory unified gateway (fan-out, retention, dedup)
+    ("_memory_unified_handler", MemoryUnifiedGatewayHandler),
 ]
 
 __all__ = [
@@ -218,6 +225,8 @@ __all__ = [
     "AutonomousLearningHandler",
     # Unified memory
     "UnifiedMemoryHandler",
+    # Memory unified gateway
+    "MemoryUnifiedGatewayHandler",
     # Registry
     "MEMORY_HANDLER_REGISTRY",
 ]

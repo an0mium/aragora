@@ -113,6 +113,11 @@ BenchmarkingHandler = _safe_import("aragora.server.handlers.benchmarking", "Benc
 # Decision Playbooks
 PlaybookHandler = _safe_import("aragora.server.handlers.playbooks", "PlaybookHandler")
 
+# Knowledge Flow (flywheel visualization)
+KnowledgeFlowHandler = _safe_import(
+    "aragora.server.handlers.knowledge_flow", "KnowledgeFlowHandler"
+)
+
 # =============================================================================
 # Analytics Handler Registry Entries
 # =============================================================================
@@ -154,6 +159,8 @@ ANALYTICS_HANDLER_REGISTRY: list[tuple[str, object]] = [
     ("_benchmarking_handler", BenchmarkingHandler),
     # Decision playbooks
     ("_playbook_handler", PlaybookHandler),
+    # Knowledge flow (flywheel visualization)
+    ("_knowledge_flow_handler", KnowledgeFlowHandler),
 ]
 
 __all__ = [

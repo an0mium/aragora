@@ -145,6 +145,12 @@ export { useNomicLoopWebSocket } from './useNomicLoopWebSocket';
 export { useNomicStream } from './useNomicStream';
 
 // =============================================================================
+// Oracle
+// =============================================================================
+
+export { useOracleWebSocket } from './useOracleWebSocket';
+
+// =============================================================================
 // Features & Capabilities
 // =============================================================================
 

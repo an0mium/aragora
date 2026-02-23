@@ -325,10 +325,21 @@ FederationStatusHandler = _safe_import(
 
 # Self-improvement
 SelfImproveHandler = _safe_import("aragora.server.handlers.self_improve", "SelfImproveHandler")
+SelfImproveDetailsHandler = _safe_import(
+    "aragora.server.handlers.self_improve_details", "SelfImproveDetailsHandler"
+)
+AutonomousImproveHandler = _safe_import(
+    "aragora.server.handlers.autonomous.improve", "AutonomousImproveHandler"
+)
 
 # Observability dashboard
 ObservabilityDashboardHandler = _safe_import(
     "aragora.server.handlers.observability.dashboard", "ObservabilityDashboardHandler"
+)
+
+# System health dashboard
+SystemHealthDashboardHandler = _safe_import(
+    "aragora.server.handlers.system_health", "SystemHealthDashboardHandler"
 )
 
 # Feature flag admin
@@ -526,8 +537,12 @@ ADMIN_HANDLER_REGISTRY: list[tuple[str, object]] = [
     ("_federation_status_handler", FederationStatusHandler),
     # Self-improvement
     ("_self_improve_handler", SelfImproveHandler),
+    ("_self_improve_details_handler", SelfImproveDetailsHandler),
+    ("_autonomous_improve_handler", AutonomousImproveHandler),
     # Observability
     ("_observability_dashboard_handler", ObservabilityDashboardHandler),
+    # System health dashboard
+    ("_system_health_dashboard_handler", SystemHealthDashboardHandler),
 ]
 
 __all__ = [
@@ -683,8 +698,12 @@ __all__ = [
     "FederationStatusHandler",
     # Self-improvement
     "SelfImproveHandler",
+    "SelfImproveDetailsHandler",
+    "AutonomousImproveHandler",
     # Observability
     "ObservabilityDashboardHandler",
+    # System health dashboard
+    "SystemHealthDashboardHandler",
     # Handler result
     "HandlerResult",
     # Registry

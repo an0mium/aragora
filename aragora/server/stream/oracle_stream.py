@@ -117,12 +117,14 @@ def _get_tentacle_models() -> list[dict[str, str]]:
         return []
 
 
-def _build_oracle_prompt(mode: str, question: str) -> str:
+def _build_oracle_prompt(
+    mode: str, question: str, *, session_id: str | None = None,
+) -> str:
     """Build the full Oracle prompt with essay context."""
     try:
         from aragora.server.handlers.playground import _build_oracle_prompt as _build
 
-        return _build(mode, question)
+        return _build(mode, question, session_id=session_id)
     except ImportError:
         return question
 
@@ -754,6 +756,9 @@ async def _handle_ask(
     question: str,
     mode: str,
     session: OracleSession,
+    *,
+    session_id: str | None = None,
+    summary_depth: str = "light",
 ) -> None:
     """Handle a complete Oracle consultation."""
     session.mode = mode
@@ -763,7 +768,9 @@ async def _handle_ask(
     reflex_task = asyncio.create_task(_stream_reflex(ws, question, session))
 
     # Use prebuilt prompt from interim if available, otherwise build now
-    deep_prompt = session.prebuilt_prompt or _build_oracle_prompt(mode, question)
+    deep_prompt = session.prebuilt_prompt or _build_oracle_prompt(
+        mode, question, session_id=session_id,
+    )
     session.prebuilt_prompt = None  # consumed
 
     await reflex_task
@@ -907,9 +914,17 @@ async def oracle_websocket_handler(request: web.Request) -> web.WebSocketRespons
                             except (asyncio.CancelledError, Exception):
                                 pass
 
+                        # Extract optional session tracking params
+                        session_id = data.get("session_id")
+                        summary_depth = str(data.get("summary_depth", "light"))
+
                         # Start new consultation
                         session.active_task = asyncio.create_task(
-                            _handle_ask(ws, question, mode, session)
+                            _handle_ask(
+                                ws, question, mode, session,
+                                session_id=session_id,
+                                summary_depth=summary_depth,
+                            )
                         )
 
                     elif msg_type == "interim":

@@ -2,7 +2,7 @@
 
 import { useState, useRef, useEffect, useCallback, useMemo, FormEvent } from 'react';
 import { API_BASE_URL } from '@/config';
-import { useOracleWebSocket } from '@/hooks/useOracleWebSocket';
+import { useOracleWebSocket } from '@/hooks';
 
 // ---------------------------------------------------------------------------
 // Types
@@ -291,6 +291,9 @@ export default function Oracle() {
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const avatarRef = useRef<HTMLIFrameElement>(null);
 
+  // Stable session ID for follow-up conversation memory
+  const sessionIdRef = useRef<string>(crypto.randomUUID());
+
   const apiBase = API_BASE_URL;
 
   // WebSocket streaming hook — real-time token/audio streaming
@@ -323,7 +326,7 @@ export default function Oracle() {
       const res = await fetch(`${apiBase}/api/v1/playground/${endpoint}`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ topic: rawQuestion, question: rawQuestion, mode: oracleMode, rounds, agents, source: 'oracle' }),
+        body: JSON.stringify({ topic: rawQuestion, question: rawQuestion, mode: oracleMode, rounds, agents, source: 'oracle', session_id: sessionIdRef.current, summary_depth: 'light' }),
       });
       if (!res.ok) {
         const errData = await res.json().catch(() => ({}));
@@ -834,7 +837,7 @@ export default function Oracle() {
     // ---- WebSocket streaming path (real-time tokens + audio) ----
     if (oracle.connected && !oracle.fallbackMode) {
       setLoading(true);
-      oracle.ask(question, mode);
+      oracle.ask(question, mode, { sessionId: sessionIdRef.current, summaryDepth: 'light' });
       // The WebSocket hook manages phase/token/tentacle state reactively.
       // We'll display streaming content via the oracle.* state below.
       // Loading state will be cleared when phase transitions past reflex/deep.

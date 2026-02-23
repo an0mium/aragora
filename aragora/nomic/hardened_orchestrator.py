@@ -555,15 +555,7 @@ class HardenedOrchestrator(BudgetMixin, GauntletMixin, AuditMixin, AutonomousOrc
 
         coordinator.cleanup_all_worktrees()
 
-        self._emit_event(
-            "coordinated_completed",
-            success=coord_result.success,
-            total=coord_result.total_branches,
-            merged=coord_result.merged_branches,
-            receipts=len(self._receipts),
-        )
-
-        return OrchestrationResult(
+        result = OrchestrationResult(
             goal=goal,
             success=coord_result.success,
             total_subtasks=coord_result.total_branches,
@@ -574,6 +566,20 @@ class HardenedOrchestrator(BudgetMixin, GauntletMixin, AuditMixin, AutonomousOrc
             duration_seconds=coord_result.duration_seconds,
             summary=coord_result.summary,
         )
+
+        # Cross-cycle learning: matches execute_goal() path at line 723
+        await self._record_orchestration_outcome(goal, result)
+        await self._detect_km_contradictions(goal, result)
+
+        self._emit_event(
+            "coordinated_completed",
+            success=coord_result.success,
+            total=coord_result.total_branches,
+            merged=coord_result.merged_branches,
+            receipts=len(self._receipts),
+        )
+
+        return result
 
     async def _run_meta_planner_for_coordination(
         self,

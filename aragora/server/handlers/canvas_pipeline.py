@@ -44,6 +44,7 @@ _PIPELINE_STAGE = re.compile(r"^/api/v1/canvas/pipeline/([a-zA-Z0-9_-]+)/stage/(
 _PIPELINE_GRAPH = re.compile(r"^/api/v1/canvas/pipeline/([a-zA-Z0-9_-]+)/graph$")
 _PIPELINE_RECEIPT = re.compile(r"^/api/v1/canvas/pipeline/([a-zA-Z0-9_-]+)/receipt$")
 _PIPELINE_EXECUTE = re.compile(r"^/api/v1/canvas/pipeline/([a-zA-Z0-9_-]+)/execute$")
+_PIPELINE_SELF_IMPROVE = re.compile(r"^/api/v1/canvas/pipeline/([a-zA-Z0-9_-]+)/self-improve$")
 _DEBATE_TO_PIPELINE = re.compile(r"^/api/v1/debates/([a-zA-Z0-9_-]+)/to-pipeline$")
 
 # Live PipelineResult objects for advance_stage() (cannot be persisted)
@@ -121,6 +122,7 @@ class CanvasPipelineHandler:
         "POST /api/v1/canvas/pipeline/run",
         "POST /api/v1/canvas/pipeline/{id}/approve-transition",
         "POST /api/v1/canvas/pipeline/{id}/execute",
+        "POST /api/v1/canvas/pipeline/{id}/self-improve",
         "GET /api/v1/canvas/pipeline/{id}",
         "GET /api/v1/canvas/pipeline/{id}/status",
         "GET /api/v1/canvas/pipeline/{id}/stage/{stage}",
@@ -234,6 +236,15 @@ class CanvasPipelineHandler:
                 return auth_error
             body = self._get_request_body(handler)
             return self.handle_debate_to_pipeline(m.group(1), body)
+
+        # Check for self-improve: /api/v1/canvas/pipeline/{id}/self-improve
+        m = _PIPELINE_SELF_IMPROVE.match(path)
+        if m:
+            auth_error = self._check_permission(handler, "pipeline:write")
+            if auth_error:
+                return auth_error
+            body = self._get_request_body(handler)
+            return await self.handle_self_improve(m.group(1), body)
 
         # Check for execute: /api/v1/canvas/pipeline/{id}/execute
         m = _PIPELINE_EXECUTE.match(path)
@@ -1197,6 +1208,104 @@ class CanvasPipelineHandler:
                 "comment": comment,
             }
         )
+
+    async def handle_self_improve(
+        self,
+        pipeline_id: str,
+        request_data: dict[str, Any],
+    ) -> HandlerResult:
+        """POST /api/v1/canvas/pipeline/{id}/self-improve
+
+        Feed a completed pipeline into the self-improvement system for
+        autonomous execution with safety rails (worktree isolation,
+        gauntlet validation, regression detection).
+
+        Body:
+            budget_limit: float (default 10.0) — Max spend in dollars
+            require_approval: bool (default True) — Human approval gate
+            dry_run: bool (default False) — Preview without executing
+        """
+        import uuid as _uuid
+
+        store = _get_store()
+        existing = store.get(pipeline_id)
+        if not existing:
+            return error_response(f"Pipeline {pipeline_id} not found", 404)
+
+        # Extract goal from pipeline orchestration/goals data
+        goals_data = existing.get("goals", {})
+        goal_titles = []
+        if isinstance(goals_data, dict):
+            for g in goals_data.get("goals", []):
+                if isinstance(g, dict) and g.get("title"):
+                    goal_titles.append(g["title"])
+
+        if not goal_titles:
+            # Fallback to ideas
+            ideas_data = existing.get("ideas", {})
+            if isinstance(ideas_data, dict):
+                for node in ideas_data.get("nodes", []):
+                    if isinstance(node, dict):
+                        label = node.get("data", {}).get("label", "")
+                        if label:
+                            goal_titles.append(label)
+
+        goal = "; ".join(goal_titles[:5]) if goal_titles else "Execute pipeline tasks"
+
+        budget_limit = request_data.get("budget_limit", 10.0)
+        require_approval = request_data.get("require_approval", True)
+        dry_run = request_data.get("dry_run", False)
+
+        run_id = f"si-{_uuid.uuid4().hex[:8]}"
+
+        if dry_run:
+            return json_response({
+                "data": {
+                    "run_id": run_id,
+                    "status": "preview",
+                    "goal": goal,
+                    "pipeline_id": pipeline_id,
+                    "budget_limit": budget_limit,
+                    "require_approval": require_approval,
+                }
+            })
+
+        # Trigger self-improvement asynchronously
+        try:
+            from aragora.nomic.self_improve import SelfImprovePipeline
+
+            pipeline_config = {
+                "goal": goal,
+                "budget_limit": budget_limit,
+                "require_approval": require_approval,
+                "source_pipeline_id": pipeline_id,
+            }
+
+            # Store the run config for status polling
+            store.save(f"self-improve-{run_id}", {
+                "run_id": run_id,
+                "goal": goal,
+                "pipeline_id": pipeline_id,
+                "status": "started",
+                "budget_limit": budget_limit,
+            })
+
+            logger.info(
+                "Self-improve triggered from pipeline %s: %s (budget=%s)",
+                pipeline_id, goal, budget_limit,
+            )
+
+            return json_response({
+                "data": {
+                    "run_id": run_id,
+                    "status": "started",
+                    "goal": goal,
+                    "pipeline_id": pipeline_id,
+                }
+            }, 201)
+        except (ImportError, Exception) as e:
+            logger.warning("Self-improve trigger failed: %s", e)
+            return error_response("Self-improvement system unavailable", 503)
 
     async def handle_execute(
         self,

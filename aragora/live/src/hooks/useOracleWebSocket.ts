@@ -23,7 +23,7 @@ export interface UseOracleWebSocket {
   /** Whether the WebSocket is connected. */
   connected: boolean;
   /** Send a question to the Oracle. */
-  ask: (question: string, mode: string) => void;
+  ask: (question: string, mode: string, options?: { sessionId?: string; summaryDepth?: string }) => void;
   /** Stop the current Oracle response. */
   stop: () => void;
   /** Send an interim speech transcript for think-while-listening. */
@@ -246,7 +246,7 @@ export function useOracleWebSocket(): UseOracleWebSocket {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  const ask = useCallback((question: string, mode: string) => {
+  const ask = useCallback((question: string, mode: string, options?: { sessionId?: string; summaryDepth?: string }) => {
     if (!wsRef.current || wsRef.current.readyState !== WebSocket.OPEN) return;
 
     // Reset state for new question
@@ -257,7 +257,10 @@ export function useOracleWebSocket(): UseOracleWebSocket {
     setSynthesis('');
     audio.stop();
 
-    wsRef.current.send(JSON.stringify({ type: 'ask', question, mode }));
+    const payload: Record<string, string> = { type: 'ask', question, mode };
+    if (options?.sessionId) payload.session_id = options.sessionId;
+    if (options?.summaryDepth) payload.summary_depth = options.summaryDepth;
+    wsRef.current.send(JSON.stringify(payload));
   }, [audio]);
 
   const stop = useCallback(() => {

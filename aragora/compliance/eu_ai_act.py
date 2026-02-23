@@ -1247,6 +1247,184 @@ class ComplianceArtifactGenerator:
         )
 
 
+# ---------------------------------------------------------------------------
+# Bundle generator with SQLite-backed storage
+# ---------------------------------------------------------------------------
+
+import logging
+import os
+import sqlite3
+import threading
+
+logger = logging.getLogger(__name__)
+
+_DEFAULT_DB_DIR = os.path.join(os.path.expanduser("~"), ".aragora")
+
+
+class EUAIActBundleGenerator:
+    """Generate and persist EU AI Act compliance artifact bundles.
+
+    Wraps ``ComplianceArtifactGenerator`` with SQLite storage so bundles
+    can be created via a POST endpoint and retrieved later via GET.
+
+    Each bundle is stored as a JSON blob keyed by ``bundle_id``.
+    """
+
+    def __init__(
+        self,
+        *,
+        db_path: str | None = None,
+        provider_name: str = "Aragora Inc.",
+        provider_contact: str = "compliance@aragora.ai",
+        eu_representative: str = "",
+        system_name: str = "Aragora Decision Integrity Platform",
+        system_version: str = "2.6.3",
+    ) -> None:
+        if db_path is None:
+            os.makedirs(_DEFAULT_DB_DIR, exist_ok=True)
+            db_path = os.path.join(_DEFAULT_DB_DIR, "eu_ai_act_bundles.db")
+        self._db_path = db_path
+        self._lock = threading.Lock()
+        self._generator = ComplianceArtifactGenerator(
+            provider_name=provider_name,
+            provider_contact=provider_contact,
+            eu_representative=eu_representative,
+            system_name=system_name,
+            system_version=system_version,
+        )
+        self._ensure_table()
+
+    # -- DB helpers --
+
+    def _get_conn(self) -> sqlite3.Connection:
+        conn = sqlite3.connect(self._db_path, timeout=5)
+        conn.execute("PRAGMA journal_mode=WAL")
+        return conn
+
+    def _ensure_table(self) -> None:
+        with self._lock:
+            conn = self._get_conn()
+            try:
+                conn.execute(
+                    """
+                    CREATE TABLE IF NOT EXISTS eu_ai_act_bundles (
+                        bundle_id TEXT PRIMARY KEY,
+                        receipt_id TEXT,
+                        status TEXT DEFAULT 'complete',
+                        articles_json TEXT NOT NULL,
+                        generated_at TEXT NOT NULL
+                    )
+                    """
+                )
+                conn.commit()
+            finally:
+                conn.close()
+
+    # -- Public API --
+
+    def generate(
+        self,
+        receipt: dict[str, Any],
+        *,
+        scope: str | None = None,
+        articles: list[int] | None = None,
+    ) -> dict[str, Any]:
+        """Generate a compliance artifact bundle and persist it.
+
+        Args:
+            receipt: Decision receipt dict (may be empty for demo bundles).
+            scope: Optional human-readable scope description.
+            articles: Limit to specific articles (12, 13, 14). None means all.
+
+        Returns:
+            Dict with ``bundle_id``, ``articles``, ``generated_at``, and
+            ``status``.
+        """
+        bundle = self._generator.generate(receipt)
+        bundle_dict = bundle.to_dict()
+
+        # Filter articles if requested
+        article_data: dict[str, Any] = {}
+        article_map = {
+            12: "article_12_record_keeping",
+            13: "article_13_transparency",
+            14: "article_14_human_oversight",
+        }
+        target_articles = articles or [12, 13, 14]
+        for art_num in target_articles:
+            key = article_map.get(art_num)
+            if key and key in bundle_dict:
+                article_data[key] = bundle_dict[key]
+
+        # Always include conformity report and risk classification
+        article_data["risk_classification"] = bundle_dict.get("risk_classification", {})
+        article_data["conformity_report"] = bundle_dict.get("conformity_report", {})
+        article_data["integrity_hash"] = bundle_dict.get("integrity_hash", "")
+
+        if scope:
+            article_data["scope"] = scope
+
+        result = {
+            "bundle_id": bundle.bundle_id,
+            "articles": article_data,
+            "generated_at": bundle.generated_at,
+            "status": "complete",
+        }
+
+        # Persist
+        self._store(result)
+
+        return result
+
+    def get(self, bundle_id: str) -> dict[str, Any] | None:
+        """Retrieve a previously generated bundle by ID.
+
+        Returns:
+            Bundle dict or None if not found.
+        """
+        with self._lock:
+            conn = self._get_conn()
+            try:
+                row = conn.execute(
+                    "SELECT bundle_id, articles_json, status, generated_at "
+                    "FROM eu_ai_act_bundles WHERE bundle_id = ?",
+                    (bundle_id,),
+                ).fetchone()
+            finally:
+                conn.close()
+
+        if row is None:
+            return None
+
+        return {
+            "bundle_id": row[0],
+            "articles": json.loads(row[1]),
+            "status": row[2],
+            "generated_at": row[3],
+        }
+
+    def _store(self, result: dict[str, Any]) -> None:
+        """Persist a bundle result to SQLite."""
+        with self._lock:
+            conn = self._get_conn()
+            try:
+                conn.execute(
+                    "INSERT OR REPLACE INTO eu_ai_act_bundles "
+                    "(bundle_id, receipt_id, status, articles_json, generated_at) "
+                    "VALUES (?, ?, ?, ?, ?)",
+                    (
+                        result["bundle_id"],
+                        result["articles"].get("conformity_report", {}).get("receipt_id", ""),
+                        result.get("status", "complete"),
+                        json.dumps(result["articles"], default=str),
+                        result["generated_at"],
+                    ),
+                )
+                conn.commit()
+            finally:
+                conn.close()
+
+
 __all__ = [
     "RiskLevel",
     "RiskClassification",
@@ -1260,4 +1438,5 @@ __all__ = [
     "Article14Artifact",
     "ComplianceArtifactBundle",
     "ComplianceArtifactGenerator",
+    "EUAIActBundleGenerator",
 ]
