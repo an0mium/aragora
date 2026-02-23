@@ -899,20 +899,13 @@ class TestExchangeCodeForTokens:
         mock_response.__enter__ = MagicMock(return_value=mock_response)
         mock_response.__exit__ = MagicMock(return_value=False)
 
-        with patch(
+        with patch("asyncio.get_running_loop", side_effect=RuntimeError("no loop")), patch(
             "aragora.server.handlers._oauth.google.urllib_request.urlopen",
             return_value=mock_response,
         ):
-            # Ensure no running loop
             result = handler._exchange_code_for_tokens("auth-code-123")
 
-        # In sync mode it returns a dict directly
-        if asyncio.iscoroutine(result):
-            # If we're in a test runner with a running loop, we'll get a coroutine
-            result.close()  # Clean up coroutine
-            pytest.skip("Running in async context - sync path not reachable")
-        else:
-            assert result["access_token"] == "tok-123"
+        assert result["access_token"] == "tok-123"
 
     def test_sync_path_empty_response_raises(self, handler, impl):
         """Empty response from Google token endpoint raises ValueError."""
@@ -921,18 +914,12 @@ class TestExchangeCodeForTokens:
         mock_response.__enter__ = MagicMock(return_value=mock_response)
         mock_response.__exit__ = MagicMock(return_value=False)
 
-        with patch(
+        with patch("asyncio.get_running_loop", side_effect=RuntimeError("no loop")), patch(
             "aragora.server.handlers._oauth.google.urllib_request.urlopen",
             return_value=mock_response,
         ):
-            try:
-                result = handler._exchange_code_for_tokens("auth-code")
-                if asyncio.iscoroutine(result):
-                    result.close()
-                    pytest.skip("Running in async context")
-                pytest.fail("Expected ValueError")
-            except ValueError as e:
-                assert "Empty response" in str(e)
+            with pytest.raises(ValueError, match="Empty response"):
+                handler._exchange_code_for_tokens("auth-code")
 
     def test_sync_path_invalid_json_raises(self, handler, impl):
         """Invalid JSON from Google token endpoint raises ValueError."""
