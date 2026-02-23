@@ -323,6 +323,9 @@ jobs:
         with:
           version: "v3.14.0"
 
+      - name: Add Helm repositories
+        run: helm repo add bitnami https://charts.bitnami.com/bitnami
+
       - name: Lint primary Helm chart
         run: |
           helm dependency build deploy/helm/aragora/

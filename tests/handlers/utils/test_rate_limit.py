@@ -823,10 +823,13 @@ class TestRateLimitDecorator:
             return "async_ok"
 
         mock = FakeHandler(client_address=("10.0.0.4", 80))
-        loop = asyncio.get_event_loop()
-        loop.run_until_complete(my_handler(mock))
-        loop.run_until_complete(my_handler(mock))
-        result = loop.run_until_complete(my_handler(mock))
+
+        async def run_all():
+            await my_handler(mock)
+            await my_handler(mock)
+            return await my_handler(mock)
+
+        result = asyncio.run(run_all())
         assert hasattr(result, "status_code")
         assert result.status_code == 429
 
