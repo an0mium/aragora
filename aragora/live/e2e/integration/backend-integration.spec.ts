@@ -54,8 +54,8 @@ test.describe('Backend Health Integration', () => {
     const response = await request.get(`${API_URL}/api/health`);
     const data = await response.json();
 
-    expect(data).toHaveProperty('components');
-    expect(data.components).toHaveProperty('database');
+    expect(data).toHaveProperty('checks');
+    expect(data.checks).toHaveProperty('database');
   });
 });
 

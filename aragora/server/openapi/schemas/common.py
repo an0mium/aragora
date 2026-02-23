@@ -123,6 +123,8 @@ COMMON_SCHEMAS: dict[str, Any] = {
         "properties": {
             "status": {"type": "string", "enum": ["healthy", "degraded", "unhealthy"]},
             "version": {"type": "string"},
+            "uptime_seconds": {"type": "number", "description": "Server uptime in seconds"},
+            "demo_mode": {"type": "boolean", "description": "Whether the server is in demo mode"},
             "timestamp": {"type": "string", "format": "date-time"},
             "checks": {"type": "object", "additionalProperties": {"type": "object"}},
             "response_time_ms": {"type": "number"},

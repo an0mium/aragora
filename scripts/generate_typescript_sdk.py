@@ -243,23 +243,34 @@ def generate_api_client_types(openapi_path: Path, output_path: Path) -> bool:
 
         schema_type = schema.get("type")
 
+        # OpenAPI 3.1 uses type arrays for nullable, e.g. ["string", "null"]
+        nullable = False
+        if isinstance(schema_type, list):
+            non_null = [t for t in schema_type if t != "null"]
+            nullable = "null" in schema_type
+            schema_type = non_null[0] if non_null else None
+
         if schema_type == "string":
             if "enum" in schema:
-                return " | ".join(f'"{v}"' for v in schema["enum"])
-            return "string"
+                base = " | ".join(f'"{v}"' for v in schema["enum"])
+            else:
+                base = "string"
+            return f"{base} | null" if nullable else base
         elif schema_type == "integer" or schema_type == "number":
-            return "number"
+            return "number | null" if nullable else "number"
         elif schema_type == "boolean":
-            return "boolean"
+            return "boolean | null" if nullable else "boolean"
         elif schema_type == "array":
             items = schema.get("items", {})
             item_type = convert_schema_to_ts(items, indent)
-            return f"{item_type}[]"
+            base = f"{item_type}[]"
+            return f"{base} | null" if nullable else base
         elif schema_type == "object":
             props = schema.get("properties", {})
             required = set(schema.get("required", []))
             if not props:
-                return "Record<string, any>"
+                base = "Record<string, any>"
+                return f"{base} | null" if nullable else base
 
             prop_lines = []
             for prop_name, prop_schema in props.items():
@@ -267,7 +278,8 @@ def generate_api_client_types(openapi_path: Path, output_path: Path) -> bool:
                 prop_type = convert_schema_to_ts(prop_schema, indent + 1)
                 prop_lines.append(f"{prefix}  {prop_name}{optional}: {prop_type};")
 
-            return "{\n" + "\n".join(prop_lines) + f"\n{prefix}}}"
+            base = "{\n" + "\n".join(prop_lines) + f"\n{prefix}}}"
+            return f"({base}) | null" if nullable else base
 
         return "any"
 

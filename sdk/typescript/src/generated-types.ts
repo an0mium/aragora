@@ -7,9 +7,9 @@
 
 export interface Error {
   /** Human-readable error message */
-  error: string;
+  error: string | null;
   /** Machine-readable error code for programmatic handling */
-  code?: "INVALID_JSON" | "MISSING_FIELD" | "INVALID_VALUE" | "AUTH_REQUIRED" | "INVALID_TOKEN" | "FORBIDDEN" | "NOT_OWNER" | "NOT_FOUND" | "QUOTA_EXCEEDED" | "RATE_LIMITED" | "INTERNAL_ERROR" | "SERVICE_UNAVAILABLE" | "AGENT_TIMEOUT" | "CONSENSUS_FAILED";
+  code?: "INVALID_JSON" | "MISSING_FIELD" | "INVALID_VALUE" | "AUTH_REQUIRED" | "INVALID_TOKEN" | "FORBIDDEN" | "NOT_OWNER" | "NOT_FOUND" | "QUOTA_EXCEEDED" | "RATE_LIMITED" | "INTERNAL_ERROR" | "SERVICE_UNAVAILABLE" | "AGENT_TIMEOUT" | "CONSENSUS_FAILED" | null;
   /** Unique request ID for debugging and support */
   trace_id?: string;
   /** Name of the field that caused the error (for validation errors) */
@@ -44,7 +44,7 @@ export interface PaginatedResponse {
 export interface StandardSuccessResponse {
   success: boolean;
   data?: Record<string, any>;
-  message?: string;
+  message?: string | null;
 }
 
 export interface Agent {
@@ -65,6 +65,10 @@ export interface Agent {
 export interface HealthCheck {
   status?: "healthy" | "degraded" | "unhealthy";
   version?: string;
+  /** Server uptime in seconds */
+  uptime_seconds?: number;
+  /** Whether the server is in demo mode */
+  demo_mode?: boolean;
   timestamp?: string;
   checks?: Record<string, any>;
   response_time_ms?: number;
@@ -99,7 +103,7 @@ export interface GauntletRun {
   /** Run status */
   status: "pending" | "running" | "completed" | "failed";
   /** Final verdict */
-  verdict?: string;
+  verdict?: string | null;
   /** Confidence score */
   confidence?: number;
   /** List of findings */
@@ -109,9 +113,9 @@ export interface GauntletRun {
   /** Creation timestamp */
   created_at?: string;
   /** Start timestamp */
-  started_at?: string;
+  started_at?: string | null;
   /** Completion timestamp */
-  completed_at?: string;
+  completed_at?: string | null;
 }
 
 export interface GauntletComparison {
@@ -701,8 +705,8 @@ export interface VotePivot {
   weight: number;
   reasoning_summary: string;
   influence_score?: number;
-  calibration_adjustment?: number;
-  elo_rating?: number;
+  calibration_adjustment?: number | null;
+  elo_rating?: number | null;
   flip_detected?: boolean;
   metadata?: Record<string, any>;
 }
@@ -746,8 +750,8 @@ export interface ExplainabilityBatchStatus {
   success_count?: number;
   error_count?: number;
   created_at?: number;
-  started_at?: number;
-  completed_at?: number;
+  started_at?: number | null;
+  completed_at?: number | null;
   progress_pct?: number;
 }
 
@@ -767,8 +771,8 @@ export interface ExplainabilityBatchResults {
   success_count?: number;
   error_count?: number;
   created_at?: number;
-  started_at?: number;
-  completed_at?: number;
+  started_at?: number | null;
+  completed_at?: number | null;
   progress_pct?: number;
   results: BatchDebateResult[];
   pagination?: {
@@ -788,7 +792,7 @@ export interface ControlPlaneAgent {
   metadata?: Record<string, any>;
   registered_at?: number;
   last_heartbeat?: number;
-  current_task_id?: string;
+  current_task_id?: string | null;
   tasks_completed?: number;
   tasks_failed?: number;
   avg_latency_ms?: number;
@@ -811,21 +815,21 @@ export interface ControlPlaneTask {
   status: string;
   priority?: string;
   created_at?: number;
-  assigned_at?: number;
-  started_at?: number;
-  completed_at?: number;
-  assigned_agent?: string;
-  timeout_seconds?: number;
+  assigned_at?: number | null;
+  started_at?: number | null;
+  completed_at?: number | null;
+  assigned_agent?: string | null;
+  timeout_seconds?: number | null;
   max_retries?: number;
   retries?: number;
-  result?: Record<string, any>;
-  error?: string;
+  result?: Record<string, any> | null;
+  error?: string | null;
   metadata?: Record<string, any>;
-  target_region?: string;
+  target_region?: string | null;
   fallback_regions?: string[];
-  assigned_region?: string;
+  assigned_region?: string | null;
   region_routing_mode?: string;
-  origin_region?: string;
+  origin_region?: string | null;
 }
 
 export interface ControlPlaneTaskCreated {
@@ -842,8 +846,8 @@ export interface ControlPlaneQueueJob {
   name?: string;
   status?: string;
   progress?: number;
-  started_at?: string;
-  created_at?: string;
+  started_at?: string | null;
+  created_at?: string | null;
   document_count?: number;
   agents_assigned?: string[];
   priority?: string;
@@ -891,8 +895,8 @@ export interface TaskStatus {
   progress?: number;
   started_at?: string;
   completed_at?: string;
-  result?: Record<string, any>;
-  error?: string;
+  result?: Record<string, any> | null;
+  error?: string | null;
 }
 
 export interface PolicyEvaluation {
@@ -914,16 +918,16 @@ export interface VulnerabilityFinding {
   title?: string;
   description?: string;
   severity?: string;
-  cvss_score?: number;
-  package_name?: string;
-  package_ecosystem?: string;
+  cvss_score?: number | null;
+  package_name?: string | null;
+  package_ecosystem?: string | null;
   vulnerable_versions?: string[];
   patched_versions?: string[];
   source?: string;
   references?: VulnerabilityReference[];
   cwe_ids?: string[];
   fix_available?: boolean;
-  recommended_version?: string;
+  recommended_version?: string | null;
 }
 
 export interface DependencyInfo {
@@ -932,10 +936,10 @@ export interface DependencyInfo {
   ecosystem?: string;
   direct?: boolean;
   dev_dependency?: boolean;
-  license?: string;
+  license?: string | null;
   vulnerabilities?: VulnerabilityFinding[];
   has_vulnerabilities?: boolean;
-  highest_severity?: string;
+  highest_severity?: string | null;
 }
 
 export interface CodebaseScanSummary {
@@ -950,12 +954,12 @@ export interface CodebaseScanSummary {
 export interface CodebaseScanResult {
   scan_id?: string;
   repository?: string;
-  branch?: string;
-  commit_sha?: string;
+  branch?: string | null;
+  commit_sha?: string | null;
   started_at?: string;
   completed_at?: string;
   status?: string;
-  error?: string;
+  error?: string | null;
   dependencies?: DependencyInfo[];
   vulnerabilities?: VulnerabilityFinding[];
   summary?: CodebaseScanSummary;
@@ -994,7 +998,7 @@ export interface CodebasePackageVulnerabilityResponse {
   success?: boolean;
   package?: string;
   ecosystem?: string;
-  version?: string;
+  version?: string | null;
   vulnerabilities?: VulnerabilityFinding[];
   total?: number;
 }
@@ -1018,8 +1022,8 @@ export interface CodebaseMetricsReportResponse {
 
 export interface CodebaseHotspot {
   file_path?: string;
-  function_name?: string;
-  class_name?: string;
+  function_name?: string | null;
+  class_name?: string | null;
   start_line?: number;
   end_line?: number;
   complexity?: number;
@@ -1162,25 +1166,25 @@ export interface DecisionResult {
   answer: string;
   confidence: number;
   consensus_reached?: boolean;
-  reasoning?: string;
+  reasoning?: string | null;
   evidence_used?: Record<string, any>[];
   agent_contributions?: Record<string, any>[];
   duration_seconds?: number;
   completed_at?: string;
   success?: boolean;
-  error?: string;
+  error?: string | null;
 }
 
 export interface DecisionStatus {
   request_id: string;
   status: string;
-  completed_at?: string;
+  completed_at?: string | null;
 }
 
 export interface DecisionSummary {
   request_id: string;
   status?: string;
-  completed_at?: string;
+  completed_at?: string | null;
 }
 
 export interface DecisionList {
@@ -1213,10 +1217,10 @@ export interface DeliberationSyncResponse {
   answer?: string;
   confidence?: number;
   consensus_reached?: boolean;
-  reasoning?: string;
+  reasoning?: string | null;
   evidence_used?: Record<string, any>[];
   duration_seconds?: number;
-  error?: string;
+  error?: string | null;
 }
 
 export interface DeliberationRecord {
@@ -1224,14 +1228,14 @@ export interface DeliberationRecord {
   status: string;
   result?: DecisionResult;
   completed_at?: string;
-  error?: string;
+  error?: string | null;
   metrics?: Record<string, any>;
 }
 
 export interface DeliberationStatus {
   request_id: string;
   status: string;
-  completed_at?: string;
+  completed_at?: string | null;
 }
 
 export interface GitHubReviewComment {
@@ -1240,7 +1244,7 @@ export interface GitHubReviewComment {
   line: number;
   body: string;
   side?: string;
-  suggestion?: string;
+  suggestion?: string | null;
   severity?: string;
   category?: string;
 }
@@ -1250,12 +1254,12 @@ export interface GitHubPRReviewResult {
   pr_number: number;
   repository: string;
   status: string;
-  verdict?: string;
-  summary?: string;
+  verdict?: string | null;
+  summary?: string | null;
   comments: GitHubReviewComment[];
   started_at: string;
   completed_at?: string;
-  error?: string;
+  error?: string | null;
   metrics?: Record<string, any>;
 }
 
@@ -1294,26 +1298,26 @@ export interface GitHubPRReviewTriggerResponse {
   status?: string;
   pr_number?: number;
   repository?: string;
-  error?: string;
+  error?: string | null;
 }
 
 export interface GitHubPRDetailsResponse {
   success: boolean;
   pr?: GitHubPRDetails;
-  error?: string;
+  error?: string | null;
 }
 
 export interface GitHubPRReviewStatusResponse {
   success: boolean;
   review?: GitHubPRReviewResult;
-  error?: string;
+  error?: string | null;
 }
 
 export interface GitHubPRReviewListResponse {
   success: boolean;
   reviews: GitHubPRReviewResult[];
   total: number;
-  error?: string;
+  error?: string | null;
 }
 
 export interface GitHubPRSubmitReviewRequest {
@@ -1332,7 +1336,7 @@ export interface GitHubPRSubmitReviewResponse {
   success: boolean;
   demo?: boolean;
   data?: Record<string, any>;
-  error?: string;
+  error?: string | null;
 }
 
 export interface CostBreakdownItem {
@@ -1398,6 +1402,116 @@ export interface CostDismissAlertResponse {
   success: boolean;
 }
 
+export interface CostUsageResponse {
+  workspace_id?: string;
+  time_range?: string;
+  group_by?: string;
+  total_cost_usd?: number;
+  total_tokens_in?: number;
+  total_tokens_out?: number;
+  total_api_calls?: number;
+  usage?: {
+    name?: string;
+    cost_usd?: number;
+    api_calls?: number;
+  }[];
+  period_start?: string;
+  period_end?: string;
+}
+
+export interface CostBudgetsListResponse {
+  budgets: {
+    id?: string;
+    workspace_id?: string;
+    name?: string;
+    monthly_limit_usd?: number | null;
+    daily_limit_usd?: number | null;
+    current_monthly_spend?: number;
+    current_daily_spend?: number;
+    active?: boolean;
+  }[];
+  count: number;
+  workspace_id?: string;
+}
+
+export interface CostBudgetCreateRequest {
+  workspace_id?: string;
+  name?: string;
+  monthly_limit_usd: number;
+  daily_limit_usd?: number;
+  /** Alert threshold percentages (e.g. [50, 75, 90, 100]) */
+  alert_thresholds?: number[];
+}
+
+export interface CostConstraintCheckResponse {
+  allowed: boolean;
+  reason: string;
+  workspace_id?: string;
+  estimated_cost_usd?: number;
+  operation?: string;
+  remaining_monthly_budget?: number | null;
+}
+
+export interface CostEstimateResponse {
+  estimated_cost_usd: number;
+  breakdown?: {
+    input_tokens?: number;
+    output_tokens?: number;
+    input_cost_usd?: number;
+    output_cost_usd?: number;
+  };
+  pricing?: {
+    model?: string;
+    provider?: string;
+    input_per_1m?: number;
+    output_per_1m?: number;
+  };
+  operation?: string;
+}
+
+export interface CostForecastDetailedResponse {
+  workspace_id?: string;
+  forecast_days?: number;
+  summary?: Record<string, any>;
+  daily_forecasts?: {
+    date?: string;
+    projected_cost_usd?: number;
+    confidence_low?: number;
+    confidence_high?: number;
+  }[];
+  confidence_level?: number;
+}
+
+export interface CostRecommendationsDetailedResponse {
+  recommendations?: {
+    id?: string;
+    type?: string;
+    description?: string;
+    estimated_savings_usd?: number;
+    implementation_steps?: string[];
+    difficulty?: string;
+    time_to_implement?: string;
+  }[];
+  count?: number;
+  summary?: Record<string, any>;
+  workspace_id?: string;
+  total_potential_savings_usd?: number;
+}
+
+export interface CostAlertCreateResponse {
+  success: boolean;
+  alert?: {
+    id?: string;
+    workspace_id?: string;
+    name?: string;
+    type?: string;
+    threshold?: number;
+    notification_channels?: string[];
+    active?: boolean;
+    created_at?: string;
+  };
+}
+
 export type BudgetPeriod = "daily" | "weekly" | "monthly" | "quarterly" | "annual" | "unlimited";
 
 export type BudgetStatus = "active" | "warning" | "critical" | "exceeded" | "suspended" | "paused" | "closed";
@@ -1414,7 +1528,7 @@ export interface Budget {
   id: string;
   workspace_id: string;
   name: string;
-  description?: string;
+  description?: string | null;
   limit_usd: number;
   period: BudgetPeriod;
   status: BudgetStatus;
@@ -1472,10 +1586,10 @@ export interface BudgetCheckRequest {
 
 export interface BudgetCheckResponse {
   allowed: boolean;
-  budget_id?: string;
-  remaining_usd?: number;
-  current_utilization?: number;
-  reason?: string;
+  budget_id?: string | null;
+  remaining_usd?: number | null;
+  current_utilization?: number | null;
+  reason?: string | null;
 }
 
 export interface BudgetAlert {
@@ -1489,7 +1603,7 @@ export interface BudgetAlert {
   created_at?: string;
   acknowledged?: boolean;
   acknowledged_at?: string;
-  acknowledged_by?: string;
+  acknowledged_by?: string | null;
 }
 
 export interface BudgetAlertListResponse {
@@ -1509,16 +1623,16 @@ export interface BudgetOverrideResponse {
   override_added: boolean;
   budget_id: string;
   user_id: string;
-  duration_hours?: any;
+  duration_hours?: number | null;
 }
 
 export interface SharedInbox {
   id?: string;
   workspace_id?: string;
   name?: string;
-  description?: string;
-  email_address?: string;
-  connector_type?: string;
+  description?: string | null;
+  email_address?: string | null;
+  connector_type?: string | null;
   team_members?: string[];
   admins?: string[];
   message_count?: number;
@@ -1526,7 +1640,7 @@ export interface SharedInbox {
   settings?: Record<string, any>;
   created_at?: string;
   updated_at?: string;
-  created_by?: string;
+  created_by?: string | null;
 }
 
 export interface SharedInboxMessage {
@@ -1539,15 +1653,15 @@ export interface SharedInboxMessage {
   snippet?: string;
   received_at?: string;
   status?: string;
-  assigned_to?: string;
+  assigned_to?: string | null;
   tags?: string[];
-  priority?: string;
+  priority?: string | null;
 }
 
 export interface SharedInboxResponse {
   success: boolean;
   inbox?: SharedInbox;
-  error?: string;
+  error?: string | null;
 }
 
 export interface SharedInboxListResponse {
@@ -1567,7 +1681,7 @@ export interface SharedInboxMessageListResponse {
 export interface SharedInboxMessageResponse {
   success: boolean;
   message?: SharedInboxMessage;
-  error?: string;
+  error?: string | null;
 }
 
 export interface SharedInboxCreateRequest {
@@ -1602,17 +1716,17 @@ export interface RoutingRule {
   actions?: Record<string, any>[];
   priority?: number;
   enabled?: boolean;
-  description?: string;
+  description?: string | null;
   created_at?: string;
   updated_at?: string;
-  created_by?: string;
+  created_by?: string | null;
   stats?: Record<string, any>;
 }
 
 export interface RoutingRuleResponse {
   success: boolean;
   rule?: RoutingRule;
-  error?: string;
+  error?: string | null;
 }
 
 export interface RoutingRuleListResponse {
@@ -1633,7 +1747,7 @@ export interface RoutingRuleTestResponse {
   rule_id?: string;
   match_count?: number;
   rule?: RoutingRule;
-  error?: string;
+  error?: string | null;
 }
 
 export interface RoutingRuleCreateRequest {
@@ -1765,7 +1879,7 @@ export interface KnowledgeFact {
   evidence?: string[];
   contradictions?: string[];
   created_at?: string;
-  verified_at?: string;
+  verified_at?: string | null;
 }
 
 export interface KnowledgeFactList {
@@ -1837,7 +1951,7 @@ export interface PositionFlip {
   new_position?: string;
   reason?: string;
   conviction_delta?: number;
-  timestamp?: string;
+  timestamp?: string | null;
 }
 
 export interface FlipsRecent {
@@ -1851,17 +1965,17 @@ export interface FlipsSummary {
   by_debate?: Record<string, any>;
   average_conviction_delta?: number;
   /** Percentage of debates with flips */
-  flip_rate?: number;
+  flip_rate?: number | null;
 }
 
 export interface Insight {
   id?: string;
   debate_id?: string;
   content?: string;
-  type?: "observation" | "conclusion" | "recommendation";
+  type?: "observation" | "conclusion" | "recommendation" | null;
   confidence?: number;
   supporting_evidence?: string[];
-  extracted_at?: string;
+  extracted_at?: string | null;
 }
 
 export interface InsightsRecent {
@@ -1879,12 +1993,12 @@ export interface InsightsDetailed {
 export interface DebateMoment {
   id?: string;
   debate_id?: string;
-  type?: "breakthrough" | "conflict" | "consensus" | "insight" | "flip";
+  type?: "breakthrough" | "conflict" | "consensus" | "insight" | "flip" | null;
   round?: number;
   description?: string;
   participants?: string[];
   significance_score?: number;
-  timestamp?: string;
+  timestamp?: string | null;
 }
 
 export interface MomentsSummary {
@@ -1923,19 +2037,19 @@ export interface UnifiedCampaign {
   /** Campaign status */
   status: "ENABLED" | "PAUSED" | "REMOVED";
   /** Campaign objective/goal */
-  objective?: string;
+  objective?: string | null;
   /** Daily budget in account currency */
-  daily_budget?: number;
+  daily_budget?: number | null;
   /** Total campaign budget */
-  total_budget?: number;
+  total_budget?: number | null;
   /** Campaign start date */
-  start_date?: string;
+  start_date?: string | null;
   /** Campaign end date */
-  end_date?: string;
+  end_date?: string | null;
   /** When the campaign was created */
-  created_at?: string;
+  created_at?: string | null;
   /** When the campaign was last updated */
-  updated_at?: string;
+  updated_at?: string | null;
 }
 
 export interface AnalyticsDebatesOverview {

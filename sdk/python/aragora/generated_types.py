@@ -14,13 +14,13 @@ from __future__ import annotations
 
 from datetime import date as date_aliased
 from datetime import datetime
-from enum import StrEnum
+from enum import Enum, StrEnum
 from typing import Annotated, Any
 
 from pydantic import AnyUrl, BaseModel, Extra, Field
 
 
-class Code(StrEnum):
+class Code(Enum):
     INVALID_JSON = "INVALID_JSON"
     MISSING_FIELD = "MISSING_FIELD"
     INVALID_VALUE = "INVALID_VALUE"
@@ -39,7 +39,7 @@ class Code(StrEnum):
 
 class Error(BaseModel):
     error: Annotated[
-        str,
+        str | None,
         Field(
             description="Human-readable error message",
             example="Invalid request: missing required field 'task'",
@@ -134,6 +134,10 @@ class Status(StrEnum):
 class HealthCheck(BaseModel):
     status: Status | None = None
     version: str | None = None
+    uptime_seconds: Annotated[float | None, Field(description="Server uptime in seconds")] = None
+    demo_mode: Annotated[bool | None, Field(description="Whether the server is in demo mode")] = (
+        None
+    )
     timestamp: datetime | None = None
     checks: dict[str, dict[str, Any]] | None = None
     response_time_ms: float | None = None
@@ -2188,7 +2192,7 @@ class FlipsSummary(BaseModel):
     flip_rate: Annotated[float | None, Field(description="Percentage of debates with flips")] = None
 
 
-class Type1(StrEnum):
+class Type1(Enum):
     observation = "observation"
     conclusion = "conclusion"
     recommendation = "recommendation"
@@ -2216,7 +2220,7 @@ class InsightsDetailed(BaseModel):
     processing_time_ms: int | None = None
 
 
-class Type2(StrEnum):
+class Type2(Enum):
     breakthrough = "breakthrough"
     conflict = "conflict"
     consensus = "consensus"
