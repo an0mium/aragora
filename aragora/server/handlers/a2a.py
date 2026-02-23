@@ -299,8 +299,8 @@ class A2AHandler(BaseHandler):
         if path == "/api/v1/a2a/openapi.json":
             return self._handle_openapi()
 
-        # Remove prefix
-        subpath = path[8:] if path.startswith("/api/v1/a2a") else path
+        # Remove prefix ("/api/v1/a2a" is 11 characters)
+        subpath = path[11:] if path.startswith("/api/v1/a2a") else path
 
         # Agents
         if subpath == "/agents":
