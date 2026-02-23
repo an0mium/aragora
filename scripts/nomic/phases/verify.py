@@ -293,6 +293,8 @@ class VerifyPhase:
                 "output": result.stdout[-500:] if result.stdout else "",
                 "note": "no tests collected" if no_tests_collected else "",
                 "test_result": result,
+                "num_passed": result.passed,
+                "num_failed": result.failed,
                 "failure_details": failure_details,
                 "stats": {
                     "total": result.total_tests,
