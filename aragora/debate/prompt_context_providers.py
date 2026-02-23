@@ -533,7 +533,7 @@ class PromptContextMixin:
         if not vertical:
             return ""
         try:
-            from aragora.evaluation.llm_judge import WEIGHT_PROFILES, EvaluationDimension
+            from aragora.evaluation.llm_judge import WEIGHT_PROFILES
 
             profile = WEIGHT_PROFILES.get(vertical)
             if not profile:

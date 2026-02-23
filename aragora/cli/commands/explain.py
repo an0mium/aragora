@@ -34,6 +34,7 @@ Displays:
 Examples:
   aragora explain abc123
   aragora explain abc123 --format json
+  aragora explain abc123 --verbose
   aragora explain abc123 --api-url http://localhost:8080
         """,
         formatter_class=argparse.RawDescriptionHelpFormatter,
@@ -48,6 +49,12 @@ Examples:
         choices=["text", "json"],
         default="text",
         help="Output format: text (default) or json",
+    )
+    parser.add_argument(
+        "--verbose",
+        action="store_true",
+        default=False,
+        help="Show full detail (untruncated evidence, belief changes, confidence attribution)",
     )
     parser.add_argument(
         "--api-url",
@@ -66,6 +73,7 @@ def cmd_explain(args: argparse.Namespace) -> int:
     """Handle 'explain' command."""
     debate_id = args.debate_id
     output_format = getattr(args, "output_format", "text")
+    verbose = getattr(args, "verbose", False)
 
     # Try API-first approach
     explanation = _try_api_explanation(debate_id, args)
@@ -88,7 +96,7 @@ def cmd_explain(args: argparse.Namespace) -> int:
     if output_format == "json":
         print(json.dumps(explanation, indent=2, default=str))
     else:
-        _print_text_explanation(debate_id, explanation)
+        _print_text_explanation(debate_id, explanation, verbose=verbose)
 
     return 0
 
@@ -181,52 +189,95 @@ def _try_local_explanation(debate_id: str) -> dict[str, Any] | None:
 
         decision = asyncio.run(builder.build(debate_result))
 
+        # Generate a summary from the builder
+        summary = builder.generate_summary(decision)
+
+        # Map Decision entity fields to the unified dict format.
+        # The Decision dataclass uses:
+        #   conclusion, confidence, evidence_chain (list[EvidenceLink]),
+        #   vote_pivots (list[VotePivot]), confidence_attribution, counterfactuals
         return {
-            "debate_id": debate_id,
-            "decision": getattr(decision, "outcome", ""),
-            "confidence": getattr(decision, "confidence", 0.0),
-            "summary": getattr(decision, "summary", ""),
+            "debate_id": decision.debate_id,
+            "decision": decision.conclusion,
+            "confidence": decision.confidence,
+            "consensus_reached": decision.consensus_reached,
+            "consensus_type": decision.consensus_type,
+            "rounds_used": decision.rounds_used,
+            "agents_participated": decision.agents_participated,
+            "task": decision.task,
+            "domain": decision.domain,
+            "summary": summary,
             "factors": [
                 {
-                    "name": getattr(f, "name", ""),
-                    "description": getattr(f, "description", ""),
-                    "weight": getattr(f, "weight", 0.0),
-                    "evidence": getattr(f, "evidence", []),
-                    "source_agents": getattr(f, "source_agents", []),
+                    "name": attr.factor,
+                    "description": attr.explanation,
+                    "weight": attr.contribution,
+                    "evidence": [],
+                    "source_agents": [],
+                    "raw_value": attr.raw_value,
                 }
-                for f in getattr(decision, "factors", [])
+                for attr in decision.confidence_attribution
             ],
             "evidence_chain": [
                 {
-                    "content": getattr(e, "content", ""),
-                    "source": getattr(e, "source", ""),
-                    "confidence": getattr(e, "confidence", 0.0),
-                    "round_number": getattr(e, "round_number", 0),
-                    "agent_id": getattr(e, "agent_id", ""),
+                    "content": e.content,
+                    "source": e.source,
+                    "confidence": e.relevance_score,
+                    "round_number": e.metadata.get("round", 0),
+                    "agent_id": e.source,
+                    "grounding_type": e.grounding_type,
+                    "quality_scores": e.quality_scores,
+                    "cited_by": e.cited_by,
                 }
-                for e in getattr(decision, "evidence_chain", [])
+                for e in decision.evidence_chain
             ],
             "vote_pivots": [
                 {
-                    "agent_id": getattr(v, "agent_id", ""),
-                    "vote_value": getattr(v, "vote_value", ""),
-                    "confidence": getattr(v, "confidence", 0.0),
-                    "influence_score": getattr(v, "influence_score", 0.0),
-                    "reasoning": getattr(v, "reasoning", ""),
-                    "changed_outcome": getattr(v, "changed_outcome", False),
+                    "agent_id": v.agent,
+                    "vote_value": v.choice,
+                    "confidence": v.confidence,
+                    "influence_score": v.influence_score,
+                    "reasoning": v.reasoning_summary,
+                    "changed_outcome": v.flip_detected,
+                    "weight": v.weight,
+                    "elo_rating": v.elo_rating,
+                    "calibration_adjustment": v.calibration_adjustment,
                 }
-                for v in getattr(decision, "vote_pivots", [])
+                for v in decision.vote_pivots
             ],
             "counterfactuals": [
                 {
-                    "scenario": getattr(c, "scenario", ""),
-                    "description": getattr(c, "description", ""),
-                    "alternative_outcome": getattr(c, "alternative_outcome", ""),
-                    "probability": getattr(c, "probability", 0.0),
-                    "key_differences": getattr(c, "key_differences", []),
+                    "scenario": c.condition,
+                    "description": c.outcome_change,
+                    "alternative_outcome": c.outcome_change,
+                    "probability": c.likelihood,
+                    "sensitivity": c.sensitivity,
+                    "key_differences": [
+                        f"Affected agents: {', '.join(c.affected_agents)}"
+                    ]
+                    if c.affected_agents
+                    else [],
                 }
-                for c in getattr(decision, "counterfactuals", [])
+                for c in decision.counterfactuals
             ],
+            "belief_changes": [
+                {
+                    "agent": b.agent,
+                    "round": b.round,
+                    "topic": b.topic,
+                    "prior_belief": b.prior_belief,
+                    "posterior_belief": b.posterior_belief,
+                    "prior_confidence": b.prior_confidence,
+                    "posterior_confidence": b.posterior_confidence,
+                    "confidence_delta": b.confidence_delta,
+                    "trigger": b.trigger,
+                    "trigger_source": b.trigger_source,
+                }
+                for b in decision.belief_changes
+            ],
+            "evidence_quality_score": decision.evidence_quality_score,
+            "agent_agreement_score": decision.agent_agreement_score,
+            "belief_stability_score": decision.belief_stability_score,
         }
     except ImportError:
         logger.debug("ExplanationBuilder not available")
@@ -261,8 +312,17 @@ def _load_local_debate(debate_id: str) -> Any:
     return None
 
 
-def _print_text_explanation(debate_id: str, explanation: dict[str, Any]) -> None:
-    """Print a human-readable explanation to stdout."""
+def _print_text_explanation(
+    debate_id: str, explanation: dict[str, Any], *, verbose: bool = False
+) -> None:
+    """Print a human-readable explanation to stdout.
+
+    Args:
+        debate_id: The debate identifier.
+        explanation: Explanation dict (unified format from API or local builder).
+        verbose: When True, show full untruncated content and extra sections
+                 (belief changes, confidence attribution, quality scores).
+    """
     print(f"\nDecision Explanation: {debate_id}")
     print("=" * 60)
 
@@ -273,10 +333,32 @@ def _print_text_explanation(debate_id: str, explanation: dict[str, Any]) -> None
 
     print(f"\nDecision:   {decision}")
     print(f"Confidence: {confidence:.1%}")
+
+    # Verbose: show extra metadata
+    if verbose:
+        consensus = explanation.get("consensus_reached")
+        if consensus is not None:
+            print(f"Consensus:  {'Reached' if consensus else 'Not reached'}")
+        consensus_type = explanation.get("consensus_type")
+        if consensus_type:
+            print(f"Type:       {consensus_type}")
+        rounds_used = explanation.get("rounds_used")
+        if rounds_used:
+            print(f"Rounds:     {rounds_used}")
+        agents = explanation.get("agents_participated", [])
+        if agents:
+            print(f"Agents:     {', '.join(agents)}")
+        task = explanation.get("task")
+        if task:
+            print(f"Task:       {task}")
+        domain = explanation.get("domain")
+        if domain and domain != "general":
+            print(f"Domain:     {domain}")
+
     if summary:
         print(f"\nSummary:\n  {summary}")
 
-    # Factors
+    # Factors (confidence attribution)
     factors = explanation.get("factors", [])
     if factors:
         print(f"\n--- Contributing Factors ({len(factors)}) ---")
@@ -290,6 +372,10 @@ def _print_text_explanation(debate_id: str, explanation: dict[str, Any]) -> None
                 print(f"     {desc}")
             if agents:
                 print(f"     Sources: {agents}")
+            if verbose:
+                raw_value = factor.get("raw_value")
+                if raw_value is not None:
+                    print(f"     Raw value: {raw_value}")
 
     # Evidence chain
     evidence = explanation.get("evidence_chain", [])
@@ -300,10 +386,25 @@ def _print_text_explanation(debate_id: str, explanation: dict[str, Any]) -> None
             rnd = e.get("round_number", 0)
             conf = e.get("confidence", 0.0)
             content = e.get("content", "")
-            # Truncate long evidence
-            preview = content[:120] + "..." if len(content) > 120 else content
+            if verbose:
+                # Full content in verbose mode
+                preview = content
+            else:
+                # Truncate long evidence
+                preview = content[:120] + "..." if len(content) > 120 else content
             print(f"\n  [{agent} R{rnd}] (conf: {conf:.0%})")
             print(f"    {preview}")
+            if verbose:
+                grounding = e.get("grounding_type")
+                if grounding:
+                    print(f"    Type: {grounding}")
+                quality = e.get("quality_scores", {})
+                if quality:
+                    scores_str = ", ".join(f"{k}: {v:.2f}" for k, v in quality.items())
+                    print(f"    Quality: {scores_str}")
+                cited = e.get("cited_by", [])
+                if cited:
+                    print(f"    Cited by: {', '.join(cited)}")
 
     # Vote pivots
     pivots = explanation.get("vote_pivots", [])
@@ -316,8 +417,22 @@ def _print_text_explanation(debate_id: str, explanation: dict[str, Any]) -> None
             reasoning = v.get("reasoning", "")
             changed = " [CHANGED OUTCOME]" if v.get("changed_outcome") else ""
             print(f"\n  {agent}: {vote} (influence: {influence:.2f}){changed}")
-            if reasoning:
-                print(f"    Reasoning: {reasoning[:100]}")
+            if verbose:
+                # Full reasoning in verbose mode
+                if reasoning:
+                    print(f"    Reasoning: {reasoning}")
+                weight = v.get("weight")
+                if weight is not None:
+                    print(f"    Weight: {weight:.2f}")
+                elo = v.get("elo_rating")
+                if elo is not None:
+                    print(f"    ELO: {elo:.0f}")
+                cal = v.get("calibration_adjustment")
+                if cal is not None:
+                    print(f"    Calibration adj: {cal:.3f}")
+            else:
+                if reasoning:
+                    print(f"    Reasoning: {reasoning[:100]}")
 
     # Counterfactuals
     counterfactuals = explanation.get("counterfactuals", [])
@@ -329,8 +444,42 @@ def _print_text_explanation(debate_id: str, explanation: dict[str, Any]) -> None
             prob = c.get("probability", 0.0)
             print(f"\n  If: {scenario}")
             print(f"  Then: {alt} (probability: {prob:.0%})")
+            if verbose:
+                sensitivity = c.get("sensitivity")
+                if sensitivity is not None:
+                    print(f"  Sensitivity: {sensitivity:.2f}")
             diffs = c.get("key_differences", [])
-            for d in diffs[:3]:
+            limit = len(diffs) if verbose else 3
+            for d in diffs[:limit]:
                 print(f"    - {d}")
+
+    # Belief changes (verbose only)
+    belief_changes = explanation.get("belief_changes", [])
+    if verbose and belief_changes:
+        print(f"\n--- Belief Changes ({len(belief_changes)}) ---")
+        for b in belief_changes:
+            agent = b.get("agent", "unknown")
+            rnd = b.get("round", 0)
+            prior = b.get("prior_belief", "")
+            posterior = b.get("posterior_belief", "")
+            delta = b.get("confidence_delta", 0.0)
+            trigger = b.get("trigger", "")
+            print(f"\n  [{agent} R{rnd}] {prior} -> {posterior} (delta: {delta:+.2f})")
+            if trigger:
+                print(f"    Trigger: {trigger}")
+
+    # Summary metrics (verbose only)
+    if verbose:
+        eq = explanation.get("evidence_quality_score")
+        aa = explanation.get("agent_agreement_score")
+        bs = explanation.get("belief_stability_score")
+        if eq is not None or aa is not None or bs is not None:
+            print("\n--- Summary Metrics ---")
+            if eq is not None:
+                print(f"  Evidence quality:  {eq:.2f}")
+            if aa is not None:
+                print(f"  Agent agreement:   {aa:.2f}")
+            if bs is not None:
+                print(f"  Belief stability:  {bs:.2f}")
 
     print("\n" + "=" * 60)

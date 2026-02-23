@@ -154,19 +154,39 @@ class OutcomeHandler:
         outcome_id = f"out_{uuid.uuid4().hex[:12]}"
         now = datetime.now(timezone.utc)
 
-        outcome = {
-            "outcome_id": outcome_id,
-            "decision_id": decision_id,
-            "debate_id": debate_id,
-            "outcome_type": outcome_type,
-            "outcome_description": outcome_description,
-            "impact_score": float(impact_score),
-            "measured_at": now.isoformat(),
-            "kpis_before": body.get("kpis_before", {}),
-            "kpis_after": body.get("kpis_after", {}),
-            "lessons_learned": body.get("lessons_learned", ""),
-            "tags": body.get("tags", []),
-        }
+        # Build typed OutcomeRecord for data integrity across the pipeline
+        try:
+            from aragora.storage.governance.models import OutcomeRecord
+
+            record = OutcomeRecord(
+                outcome_id=outcome_id,
+                decision_id=decision_id,
+                debate_id=debate_id,
+                outcome_type=outcome_type,
+                outcome_description=outcome_description,
+                impact_score=float(impact_score),
+                measured_at=now,
+                kpis_before_json=json.dumps(body.get("kpis_before", {})),
+                kpis_after_json=json.dumps(body.get("kpis_after", {})),
+                lessons_learned=body.get("lessons_learned", ""),
+                tags_json=json.dumps(body.get("tags", [])),
+            )
+            outcome = record.to_dict()
+        except (ImportError, TypeError, ValueError):
+            # Fallback to raw dict if model unavailable
+            outcome = {
+                "outcome_id": outcome_id,
+                "decision_id": decision_id,
+                "debate_id": debate_id,
+                "outcome_type": outcome_type,
+                "outcome_description": outcome_description,
+                "impact_score": float(impact_score),
+                "measured_at": now.isoformat(),
+                "kpis_before": body.get("kpis_before", {}),
+                "kpis_after": body.get("kpis_after", {}),
+                "lessons_learned": body.get("lessons_learned", ""),
+                "tags": body.get("tags", []),
+            }
 
         _outcome_store[outcome_id] = outcome
         _evict_old_outcomes()
@@ -197,6 +217,7 @@ class OutcomeHandler:
             status=201,
         )
 
+    @handle_errors("outcome listing")
     @rate_limit(requests_per_minute=60)
     def _handle_list_outcomes(self, path: str, handler: Any) -> HandlerResult:
         """
@@ -225,6 +246,7 @@ class OutcomeHandler:
             "count": len(outcomes),
         })
 
+    @handle_errors("outcome search")
     @rate_limit(requests_per_minute=60)
     def _handle_search_outcomes(self, handler: Any) -> HandlerResult:
         """
@@ -281,6 +303,7 @@ class OutcomeHandler:
             "query": query,
         })
 
+    @handle_errors("impact analytics")
     @rate_limit(requests_per_minute=30)
     def _handle_impact_analytics(self, handler: Any) -> HandlerResult:
         """

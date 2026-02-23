@@ -1,18 +1,27 @@
 """
-GenesisAdapter - Bridges agent evolution data to the Knowledge Mound.
+GenesisAdapter - Bridges agent evolution and fractal debate data to the Knowledge Mound.
 
-Persists AgentGenome evolution history, fitness trajectories, and lineage
-data so that the KM can inform future agent selection and evolution decisions.
+This adapter enables persistence of evolutionary agent data:
+
+- Data flow IN: Agent genomes (traits, fitness, lineage) stored as knowledge items
+- Data flow IN: Fractal debate results (recursive trees) stored with provenance
+- Reverse flow: KM can retrieve lineage and validate genomes
+- Lineage queries: Retrieve full agent evolution history
+- Fitness search: Find high-performing genomes by domain or threshold
 
 The adapter provides:
-- Genome evolution persistence (fitness, traits, expertise)
-- Lineage tracking across generations
-- High-fitness genome discovery for agent selection
-- Domain expertise search across evolved agents
+- Lightweight GenesisEvolutionItem dataclass to decouple from genesis module
+- Automatic extraction from AgentGenome and FractalResult objects
+- Batch sync of pending evolution items to Knowledge Mound
+- Agent lineage retrieval for cross-debate learning
+- Semantic search over high-fitness genomes
+
+"Every agent carries the memory of its ancestors."
 """
 
 from __future__ import annotations
 
+import hashlib
 import logging
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
@@ -32,17 +41,30 @@ from aragora.knowledge.mound.adapters._reverse_flow_base import ReverseFlowMixin
 from aragora.knowledge.mound.adapters._fusion_mixin import FusionMixin
 from aragora.knowledge.mound.adapters._types import SyncResult
 
+# Graceful import of genesis types -- adapter works without them
+_HAS_GENESIS = False
+try:
+    from aragora.genesis.genome import AgentGenome as _AgentGenome
+    from aragora.genesis.fractal import FractalResult as _FractalResult
+
+    _HAS_GENESIS = True
+except ImportError:
+    _AgentGenome = None  # type: ignore[assignment,misc]
+    _FractalResult = None  # type: ignore[assignment,misc]
+
 
 @dataclass
 class GenesisEvolutionItem:
-    """Lightweight representation of a genome for adapter storage.
+    """Lightweight representation of agent evolution data for adapter storage.
 
-    Decoupled from the full AgentGenome dataclass to avoid importing
-    genesis-specific dependencies.
+    Decoupled from the full AgentGenome / FractalResult dataclasses to avoid
+    importing genesis-specific dependencies. Supports both genome and fractal
+    result item types.
     """
 
     genome_id: str
     name: str
+    item_type: str = "genome"  # "genome" or "fractal_result"
     traits: dict[str, float] = field(default_factory=dict)
     expertise: dict[str, float] = field(default_factory=dict)
     model_preference: str = "claude"
@@ -54,6 +76,13 @@ class GenesisEvolutionItem:
     critiques_accepted: int = 0
     predictions_correct: int = 0
     debates_participated: int = 0
+    # Fractal-specific fields (when item_type == "fractal_result")
+    root_debate_id: str = ""
+    sub_debate_count: int = 0
+    total_depth: int = 0
+    tensions_resolved: int = 0
+    tensions_unresolved: int = 0
+    evolved_genome_ids: list[str] = field(default_factory=list)
     metadata: dict[str, Any] = field(default_factory=dict)
     created_at: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
 
@@ -63,6 +92,7 @@ class GenesisEvolutionItem:
         return cls(
             genome_id=getattr(genome, "genome_id", ""),
             name=getattr(genome, "name", ""),
+            item_type="genome",
             traits=getattr(genome, "traits", {}),
             expertise=getattr(genome, "expertise", {}),
             model_preference=getattr(genome, "model_preference", "claude"),
@@ -74,6 +104,58 @@ class GenesisEvolutionItem:
             critiques_accepted=getattr(genome, "critiques_accepted", 0),
             predictions_correct=getattr(genome, "predictions_correct", 0),
             debates_participated=getattr(genome, "debates_participated", 0),
+        )
+
+    @classmethod
+    def from_fractal_result(cls, result: Any) -> GenesisEvolutionItem:
+        """Create a GenesisEvolutionItem from a FractalResult object."""
+        main_result = getattr(result, "main_result", None)
+        task = getattr(main_result, "task", "") if main_result else ""
+        confidence = getattr(main_result, "confidence", 0.5) if main_result else 0.5
+        evolved = getattr(result, "evolved_genomes", [])
+
+        root_id = getattr(result, "root_debate_id", "")
+        item_id_hash = hashlib.sha256(root_id.encode()).hexdigest()[:12]
+
+        return cls(
+            genome_id=f"frac_{item_id_hash}",
+            name="fractal_orchestrator",
+            item_type="fractal_result",
+            fitness_score=confidence,
+            root_debate_id=root_id,
+            sub_debate_count=len(getattr(result, "sub_debates", [])),
+            total_depth=getattr(result, "total_depth", 0),
+            tensions_resolved=getattr(result, "tensions_resolved", 0),
+            tensions_unresolved=getattr(result, "tensions_unresolved", 0),
+            evolved_genome_ids=[getattr(g, "genome_id", "") for g in evolved],
+            metadata={"task": task},
+        )
+
+    @classmethod
+    def from_dict(cls, data: dict[str, Any]) -> GenesisEvolutionItem:
+        """Create a GenesisEvolutionItem from a plain dict."""
+        return cls(
+            genome_id=data.get("genome_id", ""),
+            name=data.get("name", data.get("agent_name", "")),
+            item_type=data.get("item_type", "genome"),
+            traits=data.get("traits", {}),
+            expertise=data.get("expertise", {}),
+            model_preference=data.get("model_preference", "claude"),
+            parent_genomes=data.get("parent_genomes", []),
+            generation=data.get("generation", 0),
+            fitness_score=data.get("fitness_score", 0.5),
+            birth_debate_id=data.get("birth_debate_id"),
+            consensus_contributions=data.get("consensus_contributions", 0),
+            critiques_accepted=data.get("critiques_accepted", 0),
+            predictions_correct=data.get("predictions_correct", 0),
+            debates_participated=data.get("debates_participated", 0),
+            root_debate_id=data.get("root_debate_id", ""),
+            sub_debate_count=data.get("sub_debate_count", 0),
+            total_depth=data.get("total_depth", 0),
+            tensions_resolved=data.get("tensions_resolved", 0),
+            tensions_unresolved=data.get("tensions_unresolved", 0),
+            evolved_genome_ids=data.get("evolved_genome_ids", []),
+            metadata=data.get("metadata", {}),
         )
 
 
@@ -123,8 +205,72 @@ class GenesisAdapter(FusionMixin, ReverseFlowMixin, SemanticSearchMixin, Knowled
         self._pending_genomes: list[GenesisEvolutionItem] = []
         self._synced_genomes: dict[str, GenesisEvolutionItem] = {}
 
+    def ingest(self, item: Any) -> bool:
+        """Ingest a genesis data item for KM sync.
+
+        Accepts AgentGenome, FractalResult, GenesisEvolutionItem, or a plain dict.
+
+        Args:
+            item: The genesis data to ingest.
+
+        Returns:
+            True if ingestion succeeded, False otherwise.
+        """
+        try:
+            if isinstance(item, GenesisEvolutionItem):
+                evolution_item = item
+            elif isinstance(item, dict):
+                evolution_item = GenesisEvolutionItem.from_dict(item)
+            elif _HAS_GENESIS and _AgentGenome is not None and isinstance(item, _AgentGenome):
+                evolution_item = GenesisEvolutionItem.from_genome(item)
+            elif _HAS_GENESIS and _FractalResult is not None and isinstance(item, _FractalResult):
+                evolution_item = GenesisEvolutionItem.from_fractal_result(item)
+            elif hasattr(item, "genome_id") and hasattr(item, "traits"):
+                # Duck-type check for AgentGenome-like objects (check before fractal)
+                evolution_item = GenesisEvolutionItem.from_genome(item)
+            elif hasattr(item, "root_debate_id") and hasattr(item, "sub_debates"):
+                # Duck-type check for FractalResult-like objects
+                evolution_item = GenesisEvolutionItem.from_fractal_result(item)
+            else:
+                logger.warning(
+                    "[genesis_adapter] Unknown item type: %s",
+                    type(item).__name__,
+                )
+                return False
+
+            evolution_item.metadata["km_sync_pending"] = True
+            evolution_item.metadata["km_sync_requested_at"] = (
+                datetime.now(timezone.utc).isoformat()
+            )
+            self._pending_genomes.append(evolution_item)
+
+            self._emit_event(
+                "km_adapter_forward_sync",
+                {
+                    "adapter": self.adapter_name,
+                    "genome_id": evolution_item.genome_id,
+                    "name": evolution_item.name,
+                    "item_type": evolution_item.item_type,
+                    "fitness_score": evolution_item.fitness_score,
+                    "generation": evolution_item.generation,
+                },
+            )
+
+            logger.info(
+                "[genesis_adapter] Ingested %s item %s",
+                evolution_item.item_type,
+                evolution_item.genome_id,
+            )
+            return True
+
+        except (ValueError, TypeError, AttributeError, KeyError) as e:
+            logger.warning("[genesis_adapter] Ingest failed: %s", e)
+            return False
+
     def store_genome(self, genome: Any) -> None:
         """Store a genome for KM sync.
+
+        Convenience wrapper around ingest() for backward compatibility.
 
         Args:
             genome: An AgentGenome or GenesisEvolutionItem object.
@@ -207,6 +353,8 @@ class GenesisAdapter(FusionMixin, ReverseFlowMixin, SemanticSearchMixin, Knowled
 
         all_genomes = list(self._synced_genomes.values()) + self._pending_genomes
         for item in all_genomes:
+            if item.item_type != "genome":
+                continue
             if item.fitness_score < min_fitness:
                 continue
             if domain and domain not in item.expertise:
@@ -232,32 +380,44 @@ class GenesisAdapter(FusionMixin, ReverseFlowMixin, SemanticSearchMixin, Knowled
         from aragora.knowledge.mound.types import KnowledgeItem, KnowledgeSource
         from aragora.knowledge.unified.types import ConfidenceLevel
 
-        top_traits = sorted(item.traits.items(), key=lambda x: x[1], reverse=True)[:3]
-        traits_str = ", ".join(f"{t}: {w:.2f}" for t, w in top_traits)
+        if item.item_type == "fractal_result":
+            content = (
+                f"Fractal Debate Result: {item.metadata.get('task', 'unknown')}\n"
+                f"Depth: {item.total_depth}, Sub-debates: {item.sub_debate_count}\n"
+                f"Tensions resolved: {item.tensions_resolved}, "
+                f"Unresolved: {item.tensions_unresolved}\n"
+                f"Evolved genomes: {len(item.evolved_genome_ids)}"
+            )
+            source_id = item.root_debate_id or item.genome_id
+        else:
+            top_traits = sorted(item.traits.items(), key=lambda x: x[1], reverse=True)[:3]
+            traits_str = ", ".join(f"{t}: {w:.2f}" for t, w in top_traits)
 
-        top_expertise = sorted(item.expertise.items(), key=lambda x: x[1], reverse=True)[:3]
-        expertise_str = ", ".join(f"{d}: {s:.0%}" for d, s in top_expertise)
+            top_expertise = sorted(item.expertise.items(), key=lambda x: x[1], reverse=True)[:3]
+            expertise_str = ", ".join(f"{d}: {s:.0%}" for d, s in top_expertise)
 
-        content = (
-            f"Agent Genome: {item.name}\n"
-            f"Generation: {item.generation} | Fitness: {item.fitness_score:.2f}\n"
-            f"Top Traits: {traits_str}\n"
-            f"Top Expertise: {expertise_str}\n"
-            f"Debates: {item.debates_participated} | "
-            f"Consensus: {item.consensus_contributions} | "
-            f"Critiques: {item.critiques_accepted}"
-        )
+            content = (
+                f"Agent Genome: {item.name}\n"
+                f"Generation: {item.generation} | Fitness: {item.fitness_score:.2f}\n"
+                f"Top Traits: {traits_str}\n"
+                f"Top Expertise: {expertise_str}\n"
+                f"Debates: {item.debates_participated} | "
+                f"Consensus: {item.consensus_contributions} | "
+                f"Critiques: {item.critiques_accepted}"
+            )
+            source_id = item.genome_id
 
         return KnowledgeItem(
             id=f"gen_{item.genome_id}",
             content=content,
-            source=KnowledgeSource.EXTERNAL,
-            source_id=item.genome_id,
+            source=KnowledgeSource.DEBATE,
+            source_id=source_id,
             confidence=ConfidenceLevel.from_float(item.fitness_score),
             created_at=item.created_at,
             updated_at=item.created_at,
             metadata={
                 "adapter": "genesis",
+                "item_type": item.item_type,
                 "name": item.name,
                 "generation": item.generation,
                 "fitness_score": item.fitness_score,
@@ -270,6 +430,17 @@ class GenesisAdapter(FusionMixin, ReverseFlowMixin, SemanticSearchMixin, Knowled
                 "critiques_accepted": item.critiques_accepted,
                 "predictions_correct": item.predictions_correct,
                 "birth_debate_id": item.birth_debate_id,
+                "root_debate_id": item.root_debate_id,
+                "sub_debate_count": item.sub_debate_count,
+                "total_depth": item.total_depth,
+                "tensions_resolved": item.tensions_resolved,
+                "tensions_unresolved": item.tensions_unresolved,
+                "evolved_genome_ids": item.evolved_genome_ids,
+                "tags": [
+                    "genesis",
+                    f"type:{item.item_type}",
+                    f"agent:{item.name}",
+                ],
             },
         )
 
@@ -351,16 +522,21 @@ class GenesisAdapter(FusionMixin, ReverseFlowMixin, SemanticSearchMixin, Knowled
         )
 
     def get_stats(self) -> dict[str, Any]:
-        """Get statistics about stored genomes."""
-        all_genomes = list(self._synced_genomes.values())
+        """Get statistics about stored genesis items."""
+        all_items = list(self._synced_genomes.values())
+        genomes = [i for i in all_items if i.item_type == "genome"]
+        fractals = [i for i in all_items if i.item_type == "fractal_result"]
+
         return {
             "total_synced": len(self._synced_genomes),
             "pending_sync": len(self._pending_genomes),
+            "genomes_stored": len(genomes),
+            "fractals_stored": len(fractals),
             "avg_fitness": (
-                sum(g.fitness_score for g in all_genomes) / len(all_genomes) if all_genomes else 0.0
+                sum(g.fitness_score for g in genomes) / len(genomes) if genomes else 0.0
             ),
-            "max_generation": max((g.generation for g in all_genomes), default=0),
-            "total_debates": sum(g.debates_participated for g in all_genomes),
+            "max_generation": max((g.generation for g in genomes), default=0),
+            "total_debates": sum(g.debates_participated for g in genomes),
         }
 
     # --- SemanticSearchMixin required methods ---
@@ -402,6 +578,8 @@ class GenesisAdapter(FusionMixin, ReverseFlowMixin, SemanticSearchMixin, Knowled
         source_id = item.get("source_id", "")
         if source_id.startswith("gen_"):
             return source_id[4:]
+        if source_id.startswith("frac_"):
+            return source_id[5:]
         return source_id or None
 
     # --- FusionMixin required methods ---
@@ -428,3 +606,27 @@ class GenesisAdapter(FusionMixin, ReverseFlowMixin, SemanticSearchMixin, Knowled
         if hasattr(fusion_result, "fused_confidence"):
             record.metadata["fused_confidence"] = fusion_result.fused_confidence
         return True
+
+
+# Module-level singleton for cross-module access
+_genesis_adapter_singleton: GenesisAdapter | None = None
+
+
+def get_genesis_adapter() -> GenesisAdapter:
+    """Get or create the module-level GenesisAdapter singleton.
+
+    Returns:
+        The singleton GenesisAdapter instance.
+    """
+    global _genesis_adapter_singleton
+    if _genesis_adapter_singleton is None:
+        _genesis_adapter_singleton = GenesisAdapter()
+    return _genesis_adapter_singleton
+
+
+__all__ = [
+    "GenesisAdapter",
+    "GenesisEvolutionItem",
+    "GenesisSearchResult",
+    "get_genesis_adapter",
+]

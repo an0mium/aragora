@@ -1214,6 +1214,42 @@ class DeploymentValidator:
         )
 
 
+    async def readiness_check(self) -> ValidationResult:
+        """Fast readiness probe -- 3 checks only (storage, database, API keys).
+
+        Suitable for Kubernetes /readyz probes. Runs ~100ms vs ~500ms for full validate().
+        """
+        start = time.time()
+        self.issues = []
+        self.components = []
+        self._is_production = os.environ.get("ARAGORA_ENV", "development").lower() in (
+            "production",
+            "prod",
+            "live",
+        )
+
+        await self._check_storage()
+        await self._check_database()
+        await self._check_api_keys()
+
+        duration_ms = (time.time() - start) * 1000
+        critical_issues = [i for i in self.issues if i.severity == Severity.CRITICAL]
+
+        return ValidationResult(
+            ready=len(critical_issues) == 0,
+            live=True,
+            issues=self.issues,
+            components=self.components,
+            validation_duration_ms=duration_ms,
+        )
+
+
+async def readiness_check() -> ValidationResult:
+    """Fast readiness check (3 checks: storage, database, API keys)."""
+    validator = DeploymentValidator()
+    return await validator.readiness_check()
+
+
 async def validate_deployment(*, strict: bool = False) -> ValidationResult:
     """Run deployment validation.
 
@@ -1266,5 +1302,6 @@ __all__ = [
     "ComponentStatus",
     "Severity",
     "validate_deployment",
+    "readiness_check",
     "quick_health_check",
 ]

@@ -122,7 +122,7 @@ async def _run_sica_cycle(
                 return False
             log_fn(f"[sica] Proposed patch: {patch.description}")
             if patch.diff:
-                print("\n" + patch.diff)
+                print("\n" + patch.diff)  # noqa: T201 — CLI output
             response = input("Apply this patch? [y/N]: ").strip().lower()
             return response in ("y", "yes")
 

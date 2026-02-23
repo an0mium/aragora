@@ -32,6 +32,7 @@ from aragora.knowledge.unified.types import (
     KnowledgeItem,
     KnowledgeSource,
 )
+from aragora.storage.governance.models import OutcomeRecord
 
 logger = logging.getLogger(__name__)
 
@@ -127,6 +128,36 @@ class OutcomeAdapter(KnowledgeMoundAdapter):
     def set_mound(self, mound: Any) -> None:
         """Set the Knowledge Mound instance."""
         self._mound = mound
+
+    @staticmethod
+    def record_to_dict(record: OutcomeRecord) -> dict[str, Any]:
+        """Convert an OutcomeRecord dataclass to the dict format expected by ingest().
+
+        This bridges the governance data model to the adapter's ingestion format,
+        keeping the feedback loop type-safe from handler through to Knowledge Mound.
+
+        Args:
+            record: A persisted OutcomeRecord from the governance store.
+
+        Returns:
+            Dict suitable for passing to ingest().
+        """
+        return record.to_dict()
+
+    def ingest_record(self, record: OutcomeRecord) -> bool:
+        """Ingest an OutcomeRecord directly into the Knowledge Mound.
+
+        Convenience method that converts an OutcomeRecord dataclass to dict
+        format and delegates to ingest(). Use this when you have a typed
+        OutcomeRecord from the governance store.
+
+        Args:
+            record: OutcomeRecord instance.
+
+        Returns:
+            True if ingestion succeeded.
+        """
+        return self.ingest(self.record_to_dict(record))
 
     def ingest(self, outcome_data: dict[str, Any]) -> bool:
         """Synchronous convenience method to ingest an outcome from a plain dict.

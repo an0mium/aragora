@@ -696,6 +696,51 @@ async def run_gauntlet_on_diff(
     return findings
 
 
+def _persist_review_to_km(
+    result: DebateResult,
+    findings: dict[str, Any],
+    *,
+    pr_url: str | None = None,
+) -> bool:
+    """Persist review findings to Knowledge Mound as a decision receipt.
+
+    Creates a DecisionReceipt from the review findings and ingests it
+    into the Knowledge Mound via the ReceiptAdapter, following the same
+    pattern as PostDebateCoordinator._step_persist_receipt().
+
+    Args:
+        result: The DebateResult from the review debate.
+        findings: Structured findings dict from extract_review_findings().
+        pr_url: Optional GitHub PR URL for provenance metadata.
+
+    Returns:
+        True if persistence succeeded, False otherwise.
+    """
+    try:
+        from aragora.gauntlet.receipt_models import DecisionReceipt
+        from aragora.knowledge.mound.adapters.receipt_adapter import get_receipt_adapter
+
+        # from_review_result takes the findings dict (not DebateResult)
+        # plus optional pr_url and reviewer_agents keyword args
+        agents_used = list(findings.get("agents_used", []))
+        receipt = DecisionReceipt.from_review_result(
+            findings,
+            pr_url=pr_url,
+            reviewer_agents=agents_used or None,
+        )
+
+        adapter = get_receipt_adapter()
+        adapter.ingest(receipt.to_dict())
+        logger.info("Review findings persisted to Knowledge Mound")
+        return True
+    except ImportError:
+        logger.debug("KM persistence unavailable: missing dependencies")
+        return False
+    except (OSError, ValueError, TypeError, AttributeError, RuntimeError) as e:
+        logger.debug("KM persistence failed: %s", e)
+        return False
+
+
 def cmd_review(args: argparse.Namespace) -> int:
     """Handle 'review' command."""
 
@@ -859,18 +904,7 @@ def cmd_review(args: argparse.Namespace) -> int:
     findings = extract_review_findings(result)
 
     # Persist review findings to Knowledge Mound
-    try:
-        from aragora.gauntlet.receipt_models import DecisionReceipt
-        from aragora.knowledge.mound.adapters.receipt_adapter import get_receipt_adapter
-
-        receipt = DecisionReceipt.from_review_result(result, findings)
-        adapter = get_receipt_adapter()
-        adapter.ingest(receipt)
-        logger.info("Review findings persisted to Knowledge Mound")
-    except ImportError:
-        logger.debug("KM persistence unavailable: missing dependencies")
-    except (OSError, ValueError, TypeError, AttributeError, RuntimeError) as e:
-        logger.debug("KM persistence failed: %s", e)
+    _persist_review_to_km(result, findings, pr_url=getattr(args, "pr_url", None))
 
     # Generate shareable link if requested
     share_url = None

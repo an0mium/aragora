@@ -12,6 +12,7 @@ Tests cover:
 - Statistics tracking
 """
 
+import json
 import pytest
 from datetime import datetime, timezone
 from unittest.mock import AsyncMock, MagicMock, patch
@@ -24,6 +25,7 @@ from aragora.knowledge.mound.adapters.outcome_adapter import (
     get_outcome_adapter,
 )
 from aragora.knowledge.unified.types import ConfidenceLevel, KnowledgeSource
+from aragora.storage.governance.models import OutcomeRecord
 
 
 def _make_outcome(**overrides):
@@ -346,3 +348,237 @@ class TestOutcomeSingleton:
         assert a1 is a2
         # Cleanup
         mod._outcome_adapter_singleton = None
+
+
+def _make_outcome_record(**overrides):
+    """Create a sample OutcomeRecord dataclass for testing."""
+    defaults = {
+        "outcome_id": "out_rec_001",
+        "decision_id": "dec_rec_001",
+        "debate_id": "dbt_rec_001",
+        "outcome_type": "success",
+        "outcome_description": "Migration completed ahead of schedule",
+        "impact_score": 0.75,
+        "measured_at": datetime(2026, 2, 22, 12, 0, 0, tzinfo=timezone.utc),
+        "kpis_before_json": json.dumps({"latency_ms": 200, "uptime": 0.99}),
+        "kpis_after_json": json.dumps({"latency_ms": 120, "uptime": 0.999}),
+        "lessons_learned": "Phased rollout reduced risk significantly",
+        "tags_json": json.dumps(["infrastructure", "migration"]),
+    }
+    defaults.update(overrides)
+    return OutcomeRecord(**defaults)
+
+
+class TestOutcomeRecordBridge:
+    """Tests for OutcomeRecord -> adapter bridge methods."""
+
+    def test_record_to_dict_converts_fields(self):
+        record = _make_outcome_record()
+        d = OutcomeAdapter.record_to_dict(record)
+
+        assert d["outcome_id"] == "out_rec_001"
+        assert d["decision_id"] == "dec_rec_001"
+        assert d["debate_id"] == "dbt_rec_001"
+        assert d["outcome_type"] == "success"
+        assert d["impact_score"] == 0.75
+        assert d["kpis_before"]["latency_ms"] == 200
+        assert d["kpis_after"]["uptime"] == 0.999
+        assert d["lessons_learned"] == "Phased rollout reduced risk significantly"
+        assert "infrastructure" in d["tags"]
+
+    def test_record_to_dict_handles_empty_kpis(self):
+        record = _make_outcome_record(
+            kpis_before_json="{}",
+            kpis_after_json="{}",
+        )
+        d = OutcomeAdapter.record_to_dict(record)
+        assert d["kpis_before"] == {}
+        assert d["kpis_after"] == {}
+
+    def test_record_to_dict_handles_empty_tags(self):
+        record = _make_outcome_record(tags_json="[]")
+        d = OutcomeAdapter.record_to_dict(record)
+        assert d["tags"] == []
+
+    def test_ingest_record_delegates_to_ingest(self):
+        mound = MagicMock()
+        mound.store_sync = MagicMock()
+        adapter = OutcomeAdapter(mound=mound)
+        record = _make_outcome_record()
+
+        result = adapter.ingest_record(record)
+
+        assert result is True
+        mound.store_sync.assert_called_once()
+        item = mound.store_sync.call_args[0][0]
+        assert "Outcome:success" in item.content
+        assert item.metadata["decision_id"] == "dec_rec_001"
+
+    def test_ingest_record_computes_kpi_deltas(self):
+        mound = MagicMock()
+        mound.store_sync = MagicMock()
+        adapter = OutcomeAdapter(mound=mound)
+        record = _make_outcome_record()
+
+        adapter.ingest_record(record)
+
+        item = mound.store_sync.call_args[0][0]
+        deltas = item.metadata["kpi_deltas"]
+        assert deltas["latency_ms"] == -80  # 120 - 200
+        assert abs(deltas["uptime"] - 0.009) < 0.001  # 0.999 - 0.99
+
+    def test_ingest_record_without_mound(self):
+        adapter = OutcomeAdapter(mound=None)
+        record = _make_outcome_record()
+        result = adapter.ingest_record(record)
+        assert result is True
+
+    def test_ingest_record_tracks_ingestion_result(self):
+        adapter = OutcomeAdapter()
+        record = _make_outcome_record(outcome_id="out_tracked")
+        adapter.ingest_record(record)
+
+        ingestion = adapter.get_ingestion_result("out_tracked")
+        assert ingestion is not None
+        assert ingestion.success is True
+
+
+class TestOutcomeEventHandling:
+    """Tests for event emission edge cases."""
+
+    def test_event_callback_error_does_not_break_ingest(self):
+        """A failing event callback should not prevent ingestion."""
+        def bad_callback(event_type, data):
+            raise RuntimeError("callback crashed")
+
+        adapter = OutcomeAdapter(event_callback=bad_callback)
+        result = adapter.ingest(_make_outcome())
+        assert result is True
+
+    def test_event_callback_type_error_is_caught(self):
+        """TypeError in callback should be handled gracefully."""
+        def bad_callback(event_type, data):
+            raise TypeError("wrong type")
+
+        adapter = OutcomeAdapter(event_callback=bad_callback)
+        result = adapter.ingest(_make_outcome())
+        assert result is True
+
+    def test_no_event_emitted_without_callback(self):
+        """No crash when event_callback is None."""
+        adapter = OutcomeAdapter(event_callback=None)
+        result = adapter.ingest(_make_outcome())
+        assert result is True
+
+
+class TestOutcomeEdgeCases:
+    """Tests for edge cases and boundary conditions."""
+
+    def test_ingest_empty_description(self):
+        adapter = OutcomeAdapter()
+        result = adapter.ingest(_make_outcome(outcome_description=""))
+        assert result is True
+
+    def test_ingest_zero_impact_score(self):
+        mound = MagicMock()
+        mound.store_sync = MagicMock()
+        adapter = OutcomeAdapter(mound=mound)
+
+        adapter.ingest(_make_outcome(impact_score=0.0))
+
+        item = mound.store_sync.call_args[0][0]
+        assert item.confidence == ConfidenceLevel.LOW
+
+    def test_ingest_boundary_impact_0_7(self):
+        """Impact score exactly at 0.7 should map to HIGH confidence."""
+        mound = MagicMock()
+        mound.store_sync = MagicMock()
+        adapter = OutcomeAdapter(mound=mound)
+
+        adapter.ingest(_make_outcome(impact_score=0.7))
+
+        item = mound.store_sync.call_args[0][0]
+        assert item.confidence == ConfidenceLevel.HIGH
+
+    def test_ingest_boundary_impact_0_4(self):
+        """Impact score exactly at 0.4 should map to MEDIUM confidence."""
+        mound = MagicMock()
+        mound.store_sync = MagicMock()
+        adapter = OutcomeAdapter(mound=mound)
+
+        adapter.ingest(_make_outcome(impact_score=0.4))
+
+        item = mound.store_sync.call_args[0][0]
+        assert item.confidence == ConfidenceLevel.MEDIUM
+
+    def test_ingest_kpis_only_in_before(self):
+        """KPI key only in before dict should not produce a delta."""
+        mound = MagicMock()
+        mound.store_sync = MagicMock()
+        adapter = OutcomeAdapter(mound=mound)
+
+        adapter.ingest(_make_outcome(
+            kpis_before={"old_metric": 100},
+            kpis_after={},
+        ))
+
+        item = mound.store_sync.call_args[0][0]
+        assert "old_metric" not in item.metadata["kpi_deltas"]
+
+    def test_ingest_kpis_only_in_after(self):
+        """KPI key only in after dict should not produce a delta."""
+        mound = MagicMock()
+        mound.store_sync = MagicMock()
+        adapter = OutcomeAdapter(mound=mound)
+
+        adapter.ingest(_make_outcome(
+            kpis_before={},
+            kpis_after={"new_metric": 50},
+        ))
+
+        item = mound.store_sync.call_args[0][0]
+        assert "new_metric" not in item.metadata["kpi_deltas"]
+
+    def test_ingest_with_mound_async_only(self):
+        """Mound with only async 'store' method (no store_sync) should not crash."""
+        mound = MagicMock(spec=["store"])  # has store but not store_sync
+        adapter = OutcomeAdapter(mound=mound)
+
+        result = adapter.ingest(_make_outcome())
+        assert result is True
+
+    @pytest.mark.asyncio
+    async def test_find_similar_outcomes_handles_query_error(self):
+        """Mound query raising an error should return empty list."""
+        mound = MagicMock()
+        mound.query = AsyncMock(side_effect=RuntimeError("search broke"))
+
+        adapter = OutcomeAdapter(mound=mound)
+        results = await adapter.find_similar_outcomes("test")
+        assert results == []
+
+    @pytest.mark.asyncio
+    async def test_get_outcome_timeline_handles_query_error(self):
+        """Mound query raising an error should return empty list."""
+        mound = MagicMock()
+        mound.query = AsyncMock(side_effect=ValueError("bad query"))
+
+        adapter = OutcomeAdapter(mound=mound)
+        results = await adapter.get_outcome_timeline("dec_123")
+        assert results == []
+
+    def test_get_ingestion_result_not_found(self):
+        adapter = OutcomeAdapter()
+        result = adapter.get_ingestion_result("nonexistent")
+        assert result is None
+
+    def test_multiple_ingestions_different_outcomes(self):
+        adapter = OutcomeAdapter()
+        adapter.ingest(_make_outcome(outcome_id="a"))
+        adapter.ingest(_make_outcome(outcome_id="b"))
+        adapter.ingest(_make_outcome(outcome_id="c"))
+
+        stats = adapter.get_stats()
+        assert stats["outcomes_processed"] == 3
+        assert stats["total_items_ingested"] == 3
+        assert stats["total_errors"] == 0

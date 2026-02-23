@@ -936,7 +936,7 @@ class AdapterFactory:
                     search_fn=deps.get("rlm_context_search_fn"),
                     event_callback=self._event_callback,
                 )
-            elif spec.name in ("idea_canvas", "goal_canvas"):
+            elif spec.name in ("idea_canvas", "goal_canvas", "genesis"):
                 adapter = adapter_class(
                     event_callback=self._event_callback,
                 )
@@ -1039,7 +1039,7 @@ class AdapterFactory:
                         store_fn=deps.get("rlm_context_store_fn"),
                         search_fn=deps.get("rlm_context_search_fn"),
                     )
-                elif spec.name in ("idea_canvas", "goal_canvas"):
+                elif spec.name in ("idea_canvas", "goal_canvas", "genesis"):
                     return adapter_class()
                 elif spec.name == "pipeline":
                     return adapter_class(mound=deps.get("mound"))
