@@ -58,85 +58,23 @@ class SendGridConnector(BaseConnector):
         }
 
     async def search(self, query: str, limit: int = 10, **kwargs: Any) -> list[Evidence]:
-        """Search SendGrid activity for relevant email data."""
-        if not self._configured:
-            logger.debug("SendGrid connector not configured")
-            return []
+        """Search SendGrid activity for relevant email data.
 
-        sanitized = _sanitize_query(query)
-        if not sanitized.strip():
-            return []
-
-        async def _do_request() -> Any:
-            async with httpx.AsyncClient(timeout=30.0) as client:
-                resp = await client.get(
-                    f"{_SG_API_BASE}/messages",
-                    headers=self._get_headers(),
-                    params={"query": sanitized, "limit": limit},
-                )
-                resp.raise_for_status()
-                return resp.json()
-
-        try:
-            data = await self._request_with_retry(_do_request, "search")
-        except Exception:
-            logger.warning("SendGrid search failed", exc_info=True)
-            return []
-
-        results: list[Evidence] = []
-        messages = data.get("messages", [])
-        for msg in messages[:limit]:
-            msg_id = msg.get("msg_id", "")
-            subject = msg.get("subject", "")
-            to_email = msg.get("to_email", "")
-            status = msg.get("status", "")
-            results.append(
-                Evidence(
-                    id=f"sg_msg_{msg_id}",
-                    source_type=self.source_type,
-                    source_id=f"sendgrid://messages/{msg_id}",
-                    content=f"Email to {to_email}: {subject} (status: {status})",
-                    title=subject or f"Message {msg_id}",
-                    confidence=0.7,
-                    freshness=1.0,
-                    authority=0.6,
-                    metadata={"msg_id": msg_id, "to_email": to_email, "status": status},
-                )
-            )
-        return results
+        Raises:
+            NotImplementedError: SendGrid connector is not yet implemented.
+        """
+        raise NotImplementedError(
+            "SendGridConnector.search() is not yet implemented. "
+            "Configure SENDGRID_API_KEY and contribute an implementation."
+        )
 
     async def fetch(self, evidence_id: str, **kwargs: Any) -> Evidence | None:
-        """Fetch a specific email or template from SendGrid."""
-        if not self._configured:
-            return None
+        """Fetch a specific email or template from SendGrid.
 
-        async def _do_request() -> Any:
-            async with httpx.AsyncClient(timeout=30.0) as client:
-                resp = await client.get(
-                    f"{_SG_API_BASE}/messages/{evidence_id}",
-                    headers=self._get_headers(),
-                )
-                resp.raise_for_status()
-                return resp.json()
-
-        try:
-            data = await self._request_with_retry(_do_request, "fetch")
-        except Exception:
-            logger.warning("SendGrid fetch failed", exc_info=True)
-            return None
-
-        msg_id = data.get("msg_id", evidence_id)
-        subject = data.get("subject", "")
-        to_email = data.get("to_email", "")
-        status = data.get("status", "")
-        return Evidence(
-            id=f"sg_msg_{msg_id}",
-            source_type=self.source_type,
-            source_id=f"sendgrid://messages/{msg_id}",
-            content=f"Email to {to_email}: {subject} (status: {status})",
-            title=subject or f"Message {msg_id}",
-            confidence=0.7,
-            freshness=1.0,
-            authority=0.6,
-            metadata={"msg_id": msg_id, "to_email": to_email, "status": status},
+        Raises:
+            NotImplementedError: SendGrid connector is not yet implemented.
+        """
+        raise NotImplementedError(
+            "SendGridConnector.fetch() is not yet implemented. "
+            "Configure SENDGRID_API_KEY and contribute an implementation."
         )
