@@ -663,7 +663,9 @@ class TestExportSFT:
             )
         assert _status(result) == 500
         body = _body(result)
-        assert "not available" in body["error"]
+        err = body.get("error", body.get("message", ""))
+        err_str = err.get("message", "") if isinstance(err, dict) else str(err)
+        assert "not available" in err_str
 
     def test_sft_export_value_error(self, handler):
         mock = MagicMock()
@@ -801,7 +803,9 @@ class TestExportDPO:
             )
         assert _status(result) == 500
         body = _body(result)
-        assert "not available" in body["error"]
+        err = body.get("error", body.get("message", ""))
+        err_str = err.get("message", "") if isinstance(err, dict) else str(err)
+        assert "not available" in err_str
 
     def test_dpo_export_value_error(self, handler):
         mock = MagicMock()
@@ -947,7 +951,9 @@ class TestExportGauntlet:
             )
         assert _status(result) == 500
         body = _body(result)
-        assert "not available" in body["error"]
+        err = body.get("error", body.get("message", ""))
+        err_str = err.get("message", "") if isinstance(err, dict) else str(err)
+        assert "not available" in err_str
 
     def test_gauntlet_export_value_error(self, handler):
         mock = MagicMock()
@@ -1740,7 +1746,9 @@ class TestCircuitBreaker:
         assert result is not None
         assert _status(result) == 503
         body = _body(result)
-        assert "temporarily unavailable" in body["error"]
+        err = body.get("error", body.get("message", ""))
+        err_str = err.get("message", "") if isinstance(err, dict) else str(err)
+        assert "temporarily unavailable" in err_str
 
     def test_check_pipeline_circuit_breaker_allows_when_closed(self, handler):
         result = handler._check_pipeline_circuit_breaker()

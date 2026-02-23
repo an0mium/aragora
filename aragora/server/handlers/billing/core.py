@@ -465,15 +465,30 @@ class BillingHandler(WebhookMixin, ReportingMixin, SecureHandler):
 
         # Check if trial already started
         if org.trial_started_at is not None:
-            # Return current trial status instead of error
             trial_mgr = get_trial_manager()
-            status = trial_mgr.get_trial_status(org)
-            return json_response(
-                {
-                    "trial": status.to_dict(),
-                    "message": "Trial already active",
-                }
-            )
+            trial_status = trial_mgr.get_trial_status(org)
+
+            if org.is_trial_expired:
+                # Trial existed but has expired
+                return json_response(
+                    {
+                        "trial": trial_status.to_dict(),
+                        "message": "Your trial has expired. Upgrade to continue.",
+                    },
+                    status=403,
+                )
+
+            if org.is_in_trial:
+                # Trial is still active -- tell them how long they have left
+                return json_response(
+                    {
+                        "trial": trial_status.to_dict(),
+                        "message": (
+                            f"Trial already active. "
+                            f"{trial_status.days_remaining} day(s) remaining."
+                        ),
+                    }
+                )
 
         # Check if organization has a paid subscription
         if org.tier != SubscriptionTier.FREE:
