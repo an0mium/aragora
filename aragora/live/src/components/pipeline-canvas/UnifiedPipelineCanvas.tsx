@@ -91,9 +91,9 @@ function getVisibleStages(zoom: number): Set<PipelineStageType> {
     return new Set(ALL_STAGES);
   }
   if (zoom >= ZOOM_PARTIAL) {
-    return new Set<PipelineStageType>(['ideas', 'goals', 'actions']);
+    return new Set<PipelineStageType>(['ideas', 'principles', 'goals', 'actions']);
   }
-  return new Set<PipelineStageType>(['ideas', 'goals']);
+  return new Set<PipelineStageType>(['ideas', 'principles', 'goals']);
 }
 
 function getStageForNodeType(type: string): PipelineStageType | null {
@@ -447,6 +447,7 @@ function UnifiedPipelineCanvasInner({
   const nodeCounts = useMemo(() => {
     const counts: Record<PipelineStageType, number> = {
       ideas: 0,
+      principles: 0,
       goals: 0,
       actions: 0,
       orchestration: 0,
@@ -610,8 +611,8 @@ function UnifiedPipelineCanvasInner({
                   {zoomLevel > ZOOM_FULL_DETAIL
                     ? 'all stages'
                     : zoomLevel >= ZOOM_PARTIAL
-                      ? 'ideas + goals + actions'
-                      : 'ideas + goals'
+                      ? 'ideas + principles + goals + actions'
+                      : 'ideas + principles + goals'
                   }
                 </span>
               </div>
