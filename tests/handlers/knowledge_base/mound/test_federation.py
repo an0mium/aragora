@@ -184,7 +184,7 @@ def _mock_metrics():
         return_value=(True, ""),
     ), patch(
         "aragora.server.handlers.knowledge_base.mound.federation._run_async",
-        side_effect=lambda coro: __import__("asyncio").get_event_loop().run_until_complete(coro)
+        side_effect=lambda coro: __import__("asyncio").run(coro)
         if hasattr(coro, "__await__")
         else coro,
     ):
@@ -209,7 +209,7 @@ def _mock_metrics_with_ssrf_fail(error_msg="Blocked private IP"):
         return_value=(False, error_msg),
     ), patch(
         "aragora.server.handlers.knowledge_base.mound.federation._run_async",
-        side_effect=lambda coro: __import__("asyncio").get_event_loop().run_until_complete(coro)
+        side_effect=lambda coro: __import__("asyncio").run(coro)
         if hasattr(coro, "__await__")
         else coro,
     ):
@@ -1322,7 +1322,7 @@ class TestGetFederationStatus:
             "aragora.server.handlers.knowledge_base.mound.federation.track_federation_sync",
         ), patch(
             "aragora.server.handlers.knowledge_base.mound.federation._run_async",
-            side_effect=lambda coro: __import__("asyncio").get_event_loop().run_until_complete(coro)
+            side_effect=lambda coro: __import__("asyncio").run(coro)
             if hasattr(coro, "__await__")
             else coro,
         ):
