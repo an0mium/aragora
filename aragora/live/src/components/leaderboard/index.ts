@@ -8,6 +8,9 @@ export { StatsTabPanel } from './StatsTabPanel';
 export { MindsTabPanel } from './MindsTabPanel';
 export { ReputationTabPanel } from './ReputationTabPanel';
 export { TeamsTabPanel } from './TeamsTabPanel';
+export { EloTrendChart } from './EloTrendChart';
+export { DomainLeaderboard } from './DomainLeaderboard';
+export { EnhancedRankingsTable } from './EnhancedRankingsTable';
 
 export type {
   AgentRanking,
