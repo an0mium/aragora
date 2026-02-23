@@ -172,9 +172,7 @@ class PipelineResult:
             "goals": self.goal_graph.to_dict() if self.goal_graph else None,
             "actions": to_react_flow(self.actions_canvas) if self.actions_canvas else None,
             "orchestration": (
-                to_react_flow(self.orchestration_canvas)
-                if self.orchestration_canvas
-                else None
+                to_react_flow(self.orchestration_canvas) if self.orchestration_canvas else None
             ),
             "transitions": [t.to_dict() for t in self.transitions],
             "provenance": [p.to_dict() for p in self.provenance],
@@ -270,7 +268,9 @@ class IdeaToExecutionPipeline:
 
         pipeline = cls()
         return pipeline.from_ideas(
-            ideas, auto_advance=auto_advance, pipeline_id=pipeline_id,
+            ideas,
+            auto_advance=auto_advance,
+            pipeline_id=pipeline_id,
         )
 
     @classmethod
@@ -379,12 +379,16 @@ class IdeaToExecutionPipeline:
         # Emit node-level events for goals
         if result.goal_graph:
             for goal in result.goal_graph.goals:
-                self._emit_sync(event_callback, "pipeline_node_added", {
-                    "stage": "goals",
-                    "node_id": goal.id,
-                    "node_type": goal.goal_type.value,
-                    "label": goal.title,
-                })
+                self._emit_sync(
+                    event_callback,
+                    "pipeline_node_added",
+                    {
+                        "stage": "goals",
+                        "node_id": goal.id,
+                        "node_type": goal.goal_type.value,
+                        "label": goal.title,
+                    },
+                )
 
         # Stage 3: Actions
         _spectate("pipeline.stage_started", "stage=actions")
@@ -395,12 +399,16 @@ class IdeaToExecutionPipeline:
         # Emit node-level events for action steps
         if result.actions_canvas:
             for node_id, node in result.actions_canvas.nodes.items():
-                self._emit_sync(event_callback, "pipeline_node_added", {
-                    "stage": "actions",
-                    "node_id": node_id,
-                    "node_type": node.data.get("step_type", "task"),
-                    "label": node.label,
-                })
+                self._emit_sync(
+                    event_callback,
+                    "pipeline_node_added",
+                    {
+                        "stage": "actions",
+                        "node_id": node_id,
+                        "node_type": node.data.get("step_type", "task"),
+                        "label": node.label,
+                    },
+                )
 
         # Stage 4: Orchestration
         _spectate("pipeline.stage_started", "stage=orchestration")
@@ -411,12 +419,16 @@ class IdeaToExecutionPipeline:
         # Emit node-level events for orchestration tasks
         if result.orchestration_canvas:
             for node_id, node in result.orchestration_canvas.nodes.items():
-                self._emit_sync(event_callback, "pipeline_node_added", {
-                    "stage": "orchestration",
-                    "node_id": node_id,
-                    "node_type": node.data.get("orch_type", "agent_task"),
-                    "label": node.label,
-                })
+                self._emit_sync(
+                    event_callback,
+                    "pipeline_node_added",
+                    {
+                        "stage": "orchestration",
+                        "node_id": node_id,
+                        "node_type": node.data.get("orch_type", "agent_task"),
+                        "label": node.label,
+                    },
+                )
 
         self._build_universal_graph(result)
 
@@ -492,12 +504,16 @@ class IdeaToExecutionPipeline:
         _spectate("pipeline.stage_completed", "stage=ideation")
         # Emit node-level events for ideas
         for node_id, node in result.ideas_canvas.nodes.items():
-            self._emit_sync(event_callback, "pipeline_node_added", {
-                "stage": "ideas",
-                "node_id": node_id,
-                "node_type": "idea",
-                "label": node.label,
-            })
+            self._emit_sync(
+                event_callback,
+                "pipeline_node_added",
+                {
+                    "stage": "ideas",
+                    "node_id": node_id,
+                    "node_type": "idea",
+                    "label": node.label,
+                },
+            )
 
         # SMART score goals and detect conflicts
         if result.goal_graph and result.goal_graph.goals:
@@ -547,12 +563,16 @@ class IdeaToExecutionPipeline:
         # Emit node-level events for goals
         if result.goal_graph:
             for goal in result.goal_graph.goals:
-                self._emit_sync(event_callback, "pipeline_node_added", {
-                    "stage": "goals",
-                    "node_id": goal.id,
-                    "node_type": goal.goal_type.value,
-                    "label": goal.title,
-                })
+                self._emit_sync(
+                    event_callback,
+                    "pipeline_node_added",
+                    {
+                        "stage": "goals",
+                        "node_id": goal.id,
+                        "node_type": goal.goal_type.value,
+                        "label": goal.title,
+                    },
+                )
 
         if not auto_advance:
             return result
@@ -566,12 +586,16 @@ class IdeaToExecutionPipeline:
         # Emit node-level events for action steps
         if result.actions_canvas:
             for node_id, node in result.actions_canvas.nodes.items():
-                self._emit_sync(event_callback, "pipeline_node_added", {
-                    "stage": "actions",
-                    "node_id": node_id,
-                    "node_type": node.data.get("step_type", "task"),
-                    "label": node.label,
-                })
+                self._emit_sync(
+                    event_callback,
+                    "pipeline_node_added",
+                    {
+                        "stage": "actions",
+                        "node_id": node_id,
+                        "node_type": node.data.get("step_type", "task"),
+                        "label": node.label,
+                    },
+                )
 
         # Stage 4: Orchestration
         _spectate("pipeline.stage_started", "stage=orchestration")
@@ -582,12 +606,16 @@ class IdeaToExecutionPipeline:
         # Emit node-level events for orchestration tasks
         if result.orchestration_canvas:
             for node_id, node in result.orchestration_canvas.nodes.items():
-                self._emit_sync(event_callback, "pipeline_node_added", {
-                    "stage": "orchestration",
-                    "node_id": node_id,
-                    "node_type": node.data.get("orch_type", "agent_task"),
-                    "label": node.label,
-                })
+                self._emit_sync(
+                    event_callback,
+                    "pipeline_node_added",
+                    {
+                        "stage": "orchestration",
+                        "node_id": node_id,
+                        "node_type": node.data.get("orch_type", "agent_task"),
+                        "label": node.label,
+                    },
+                )
 
         self._build_universal_graph(result)
 
@@ -661,7 +689,10 @@ class IdeaToExecutionPipeline:
         # Create ProvenanceChain for cryptographic audit trail
         provenance_chain = None
         try:
-            from aragora.reasoning.provenance import ProvenanceChain as ReasoningProvenanceChain, SourceType
+            from aragora.reasoning.provenance import (
+                ProvenanceChain as ReasoningProvenanceChain,
+                SourceType,
+            )
 
             provenance_chain = ReasoningProvenanceChain()
         except ImportError:
@@ -718,9 +749,7 @@ class IdeaToExecutionPipeline:
 
             # Stage 2: Goal extraction
             if "goals" in cfg.stages_to_run:
-                debate_output = (
-                    result.stage_results[0].output if result.stage_results else None
-                )
+                debate_output = result.stage_results[0].output if result.stage_results else None
                 sr = await self._run_goal_extraction(pipeline_id, debate_output, cfg)
                 result.stage_results.append(sr)
                 if sr.status == "completed" and sr.output:
@@ -765,7 +794,10 @@ class IdeaToExecutionPipeline:
                     result.stage_results.append(sr)
                 else:
                     sr = await self._run_orchestration(
-                        pipeline_id, result.final_workflow, result.goal_graph, cfg,
+                        pipeline_id,
+                        result.final_workflow,
+                        result.goal_graph,
+                        cfg,
                     )
                     result.stage_results.append(sr)
                     if sr.status == "completed" and sr.output:
@@ -795,13 +827,15 @@ class IdeaToExecutionPipeline:
                     hub = KnowledgeBridgeHub()
                     meta_bridge = hub.get_meta_learner_bridge()
                     if meta_bridge:
-                        await meta_bridge.evaluate_learning_efficiency({
-                            "pipeline_id": pipeline_id,
-                            "duration": result.duration,
-                            "stages_completed": sum(
-                                1 for s in result.stage_status.values() if s == "complete"
-                            ),
-                        })
+                        await meta_bridge.evaluate_learning_efficiency(
+                            {
+                                "pipeline_id": pipeline_id,
+                                "duration": result.duration,
+                                "stages_completed": sum(
+                                    1 for s in result.stage_status.values() if s == "complete"
+                                ),
+                            }
+                        )
                 except (ImportError, RuntimeError, ValueError, TypeError, AttributeError) as exc:
                     logger.debug("MetaLearner feedback failed: %s", exc)
 
@@ -832,20 +866,28 @@ class IdeaToExecutionPipeline:
             self._record_pipeline_outcome(result)
 
             result.duration = time.monotonic() - start_time
-            self._emit(cfg, "completed", {
-                "pipeline_id": pipeline_id,
-                "duration": result.duration,
-                "receipt": result.receipt,
-            })
+            self._emit(
+                cfg,
+                "completed",
+                {
+                    "pipeline_id": pipeline_id,
+                    "duration": result.duration,
+                    "receipt": result.receipt,
+                },
+            )
             _spectate("pipeline.completed", f"pipeline_id={pipeline_id}")
 
         except Exception as exc:
             result.duration = time.monotonic() - start_time
             logger.warning("Pipeline %s failed: %s", pipeline_id, exc)
-            self._emit(cfg, "failed", {
-                "pipeline_id": pipeline_id,
-                "error": "Pipeline execution failed",
-            })
+            self._emit(
+                cfg,
+                "failed",
+                {
+                    "pipeline_id": pipeline_id,
+                    "error": "Pipeline execution failed",
+                },
+            )
             _spectate("pipeline.failed", f"pipeline_id={pipeline_id}")
 
         return result
@@ -906,7 +948,8 @@ class IdeaToExecutionPipeline:
                     "nodes": getattr(debate_result, "argument_graph", {}).get("nodes", []),
                 }
                 canvas = debate_to_ideas_canvas(
-                    debate_data, canvas_name="Ideas from Debate",
+                    debate_data,
+                    canvas_name="Ideas from Debate",
                 )
             except (ImportError, RuntimeError, ValueError, TypeError, AttributeError) as exc:
                 logger.debug("Debate ideation unavailable, using text extraction: %s", exc)
@@ -918,6 +961,7 @@ class IdeaToExecutionPipeline:
                 debate_data = {"raw_ideas": ideas, "goal_graph_preview": goal_graph}
 
                 from aragora.canvas.models import Canvas as CanvasModel
+
                 canvas = CanvasModel(
                     id=f"ideas-{uuid.uuid4().hex[:8]}",
                     name="Ideas from Text",
@@ -934,21 +978,27 @@ class IdeaToExecutionPipeline:
                     # Map sub-debates to additional canvas nodes
                     sub_debates = getattr(fractal_result, "sub_debates", [])
                     for i, sub in enumerate(sub_debates):
-                        debate_data.setdefault("fractal_nodes", []).append({
-                            "id": f"fractal-{i}",
-                            "content": getattr(sub, "summary", str(sub)[:200]),
-                            "depth": getattr(sub, "depth", 1),
-                        })
+                        debate_data.setdefault("fractal_nodes", []).append(
+                            {
+                                "id": f"fractal-{i}",
+                                "content": getattr(sub, "summary", str(sub)[:200]),
+                                "depth": getattr(sub, "depth", 1),
+                            }
+                        )
                 except (ImportError, RuntimeError, ValueError, TypeError, AttributeError) as exc:
                     logger.debug("FractalOrchestrator unavailable: %s", exc)
 
             sr.output = {"canvas": canvas, "explanation": explanation_summary, **debate_data}
             sr.status = "completed"
             sr.duration = time.monotonic() - start
-            self._emit(cfg, "stage_completed", {
-                "stage": "ideation",
-                "summary": {"source": "debate" if "debate_result" in debate_data else "text"},
-            })
+            self._emit(
+                cfg,
+                "stage_completed",
+                {
+                    "stage": "ideation",
+                    "summary": {"source": "debate" if "debate_result" in debate_data else "text"},
+                },
+            )
             _spectate("pipeline.stage_completed", "stage=ideation")
         except Exception as exc:
             sr.status = "failed"
@@ -993,7 +1043,9 @@ class IdeaToExecutionPipeline:
                         confidence = node.get("weight", node.get("confidence", 0.5))
                         if node_id and statement:
                             bn.add_claim(
-                                node_id, statement, author,
+                                node_id,
+                                statement,
+                                author,
                                 initial_confidence=float(confidence),
                             )
 
@@ -1018,7 +1070,8 @@ class IdeaToExecutionPipeline:
                         belief_result = bn.propagate()
                         logger.debug(
                             "BeliefNetwork propagated: converged=%s, iterations=%d",
-                            belief_result.converged, belief_result.iterations,
+                            belief_result.converged,
+                            belief_result.iterations,
                         )
                 except (ImportError, RuntimeError, ValueError) as exc:
                     logger.warning("BeliefNetwork integration skipped: %s", exc)
@@ -1092,6 +1145,7 @@ class IdeaToExecutionPipeline:
                     objective = " | ".join(g.title for g in goal_graph.goals[:5])
                     # NomicCycleAdapter.find_similar_cycles is async; use sync wrapper
                     import asyncio
+
                     try:
                         loop = asyncio.get_running_loop()
                     except RuntimeError:
@@ -1100,7 +1154,8 @@ class IdeaToExecutionPipeline:
                     if loop and loop.is_running():
                         # Already in async context — schedule directly
                         similar_cycles = await adapter.find_similar_cycles(
-                            objective, limit=3,
+                            objective,
+                            limit=3,
                         )
                     else:
                         similar_cycles = asyncio.run(
@@ -1111,12 +1166,8 @@ class IdeaToExecutionPipeline:
                         recommendations = []
                         past_failures = []
                         for cycle in similar_cycles:
-                            recommendations.extend(
-                                getattr(cycle, "recommendations", [])
-                            )
-                            past_failures.extend(
-                                getattr(cycle, "what_failed", [])
-                            )
+                            recommendations.extend(getattr(cycle, "recommendations", []))
+                            past_failures.extend(getattr(cycle, "what_failed", []))
                         goal_graph.metadata["cross_cycle_learning"] = {
                             "similar_cycles": len(similar_cycles),
                             "recommendations": recommendations[:10],
@@ -1128,12 +1179,9 @@ class IdeaToExecutionPipeline:
                                 if getattr(cycle, "success_rate", 0) > 0.7:
                                     for tip in getattr(cycle, "what_worked", []):
                                         if any(
-                                            w in goal.title.lower()
-                                            for w in tip.lower().split()[:3]
+                                            w in goal.title.lower() for w in tip.lower().split()[:3]
                                         ):
-                                            goal.confidence = min(
-                                                1.0, goal.confidence + 0.05
-                                            )
+                                            goal.confidence = min(1.0, goal.confidence + 0.05)
                                             break
                         logger.debug(
                             "Cross-cycle learning: %d similar cycles found",
@@ -1150,10 +1198,14 @@ class IdeaToExecutionPipeline:
             sr.output = {"goal_graph": goal_graph}
             sr.status = "completed"
             sr.duration = time.monotonic() - start
-            self._emit(cfg, "stage_completed", {
-                "stage": "goals",
-                "summary": {"goal_count": len(goal_graph.goals) if goal_graph else 0},
-            })
+            self._emit(
+                cfg,
+                "stage_completed",
+                {
+                    "stage": "goals",
+                    "summary": {"goal_count": len(goal_graph.goals) if goal_graph else 0},
+                },
+            )
             _spectate("pipeline.stage_completed", "stage=goals")
         except Exception as exc:
             sr.status = "failed"
@@ -1209,10 +1261,14 @@ class IdeaToExecutionPipeline:
             sr.output = {"workflow": workflow}
             sr.status = "completed"
             sr.duration = time.monotonic() - start
-            self._emit(cfg, "stage_completed", {
-                "stage": "workflow",
-                "summary": {"step_count": len(workflow.get("steps", []))},
-            })
+            self._emit(
+                cfg,
+                "stage_completed",
+                {
+                    "stage": "workflow",
+                    "summary": {"step_count": len(workflow.get("steps", []))},
+                },
+            )
             _spectate("pipeline.stage_completed", "stage=actions")
         except Exception as exc:
             sr.status = "failed"
@@ -1276,23 +1332,33 @@ class IdeaToExecutionPipeline:
             results: list[dict[str, Any]] = []
             for task in execution_plan["tasks"]:
                 if task["type"] == "human_gate":
-                    results.append({
-                        "task_id": task["id"],
-                        "status": "awaiting_approval",
-                        "name": task["name"],
-                    })
-                    self._emit(cfg, "pipeline_node_added", {
-                        "stage": "orchestration",
-                        "node_id": task["id"],
-                        "node_type": "human_gate",
-                        "label": task["name"],
-                    })
+                    results.append(
+                        {
+                            "task_id": task["id"],
+                            "status": "awaiting_approval",
+                            "name": task["name"],
+                        }
+                    )
+                    self._emit(
+                        cfg,
+                        "pipeline_node_added",
+                        {
+                            "stage": "orchestration",
+                            "node_id": task["id"],
+                            "node_type": "human_gate",
+                            "label": task["name"],
+                        },
+                    )
                     continue
 
-                self._emit(cfg, "pipeline_agent_started", {
-                    "task_id": task["id"],
-                    "name": task["name"],
-                })
+                self._emit(
+                    cfg,
+                    "pipeline_agent_started",
+                    {
+                        "task_id": task["id"],
+                        "name": task["name"],
+                    },
+                )
 
                 task_result = await self._execute_task(task, cfg)
                 results.append(task_result)
@@ -1308,16 +1374,24 @@ class IdeaToExecutionPipeline:
                     except (AttributeError, KeyError, TypeError, RuntimeError):
                         pass
 
-                self._emit(cfg, "pipeline_agent_completed", {
-                    "task_id": task["id"],
-                    "status": task_result["status"],
-                })
-                self._emit(cfg, "pipeline_node_added", {
-                    "stage": "orchestration",
-                    "node_id": task["id"],
-                    "node_type": "agent_task",
-                    "label": task["name"],
-                })
+                self._emit(
+                    cfg,
+                    "pipeline_agent_completed",
+                    {
+                        "task_id": task["id"],
+                        "status": task_result["status"],
+                    },
+                )
+                self._emit(
+                    cfg,
+                    "pipeline_node_added",
+                    {
+                        "stage": "orchestration",
+                        "node_id": task["id"],
+                        "node_type": "agent_task",
+                        "label": task["name"],
+                    },
+                )
 
             completed = sum(1 for r in results if r["status"] == "completed")
             total = len(results)
@@ -1331,10 +1405,14 @@ class IdeaToExecutionPipeline:
             sr.output = {"orchestration": orch_result}
             sr.status = "completed"
             sr.duration = time.monotonic() - start
-            self._emit(cfg, "stage_completed", {
-                "stage": "orchestration",
-                "summary": orch_result,
-            })
+            self._emit(
+                cfg,
+                "stage_completed",
+                {
+                    "stage": "orchestration",
+                    "summary": orch_result,
+                },
+            )
             _spectate("pipeline.stage_completed", "stage=orchestration")
         except Exception as exc:
             sr.status = "failed"
@@ -1358,26 +1436,30 @@ class IdeaToExecutionPipeline:
         tasks: list[dict[str, Any]] = []
         if workflow and workflow.get("steps"):
             for step in workflow["steps"]:
-                tasks.append({
-                    "id": step["id"],
-                    "name": step["name"],
-                    "description": step.get("description", ""),
-                    "type": (
-                        "human_gate"
-                        if step.get("step_type") == "human_checkpoint"
-                        else "agent_task"
-                    ),
-                    "test_scope": step.get("config", {}).get("test_scope", []),
-                })
+                tasks.append(
+                    {
+                        "id": step["id"],
+                        "name": step["name"],
+                        "description": step.get("description", ""),
+                        "type": (
+                            "human_gate"
+                            if step.get("step_type") == "human_checkpoint"
+                            else "agent_task"
+                        ),
+                        "test_scope": step.get("config", {}).get("test_scope", []),
+                    }
+                )
         elif goal_graph and goal_graph.goals:
             for goal in goal_graph.goals:
-                tasks.append({
-                    "id": goal.id,
-                    "name": goal.title,
-                    "description": goal.description,
-                    "type": "agent_task",
-                    "test_scope": [],
-                })
+                tasks.append(
+                    {
+                        "id": goal.id,
+                        "name": goal.title,
+                        "description": goal.description,
+                        "type": "agent_task",
+                        "test_scope": [],
+                    }
+                )
         return {"tasks": tasks}
 
     async def _execute_task(
@@ -1396,7 +1478,7 @@ class IdeaToExecutionPipeline:
         instruction = f"Implement: {task['name']}\n\n{task.get('description', '')}"
 
         # Append preferred agents from introspection data
-        preferred = getattr(cfg, '_introspection_data', None)
+        preferred = getattr(cfg, "_introspection_data", None)
         if preferred:
             try:
                 ranked = sorted(
@@ -1493,7 +1575,17 @@ class IdeaToExecutionPipeline:
                 "status": "failed",
                 "output": {"error": "Task execution failed"},
             }
-        except (ImportError, RuntimeError, ValueError, TypeError, OSError, AttributeError, KeyError, ConnectionError, TimeoutError) as exc:
+        except (
+            ImportError,
+            RuntimeError,
+            ValueError,
+            TypeError,
+            OSError,
+            AttributeError,
+            KeyError,
+            ConnectionError,
+            TimeoutError,
+        ) as exc:
             # Harness config errors, path validation, etc.
             # Individual task failures must not crash the entire stage.
             logger.warning("Task %s failed unexpectedly: %s", task["id"], exc)
@@ -1521,7 +1613,9 @@ class IdeaToExecutionPipeline:
 
     @staticmethod
     def _emit_sync(
-        callback: Any | None, event_type: str, data: dict[str, Any],
+        callback: Any | None,
+        event_type: str,
+        data: dict[str, Any],
     ) -> None:
         """Emit an event via a standalone callback (for sync methods)."""
         if callback:
@@ -1548,11 +1642,13 @@ class IdeaToExecutionPipeline:
         # Collect evidence from stage results
         evidence: list[dict[str, Any]] = []
         for sr in result.stage_results:
-            evidence.append({
-                "stage": sr.stage_name,
-                "status": sr.status,
-                "duration": sr.duration,
-            })
+            evidence.append(
+                {
+                    "stage": sr.stage_name,
+                    "status": sr.status,
+                    "duration": sr.duration,
+                }
+            )
 
         # Collect precedent references from goal metadata for audit trail
         precedent_refs: list[dict[str, Any]] = []
@@ -1560,17 +1656,17 @@ class IdeaToExecutionPipeline:
             for goal in result.goal_graph.goals:
                 precs = goal.metadata.get("precedents", [])
                 for p in precs:
-                    precedent_refs.append({
-                        "goal_id": goal.id,
-                        "goal_title": goal.title,
-                        "precedent_title": p.get("title", ""),
-                        "precedent_outcome": p.get("outcome", "unknown"),
-                        "similarity": p.get("similarity", 0.0),
-                    })
+                    precedent_refs.append(
+                        {
+                            "goal_id": goal.id,
+                            "goal_title": goal.title,
+                            "precedent_title": p.get("title", ""),
+                            "precedent_outcome": p.get("outcome", "unknown"),
+                            "similarity": p.get("similarity", 0.0),
+                        }
+                    )
 
-        stages_completed = sum(
-            1 for sr in result.stage_results if sr.status == "completed"
-        )
+        stages_completed = sum(1 for sr in result.stage_results if sr.status == "completed")
 
         try:
             from aragora.gauntlet.receipts import DecisionReceipt
@@ -1617,11 +1713,13 @@ class IdeaToExecutionPipeline:
             goal_outcomes = []
             for stage in stages:
                 status = result.stage_status.get(stage, "pending")
-                goal_outcomes.append({
-                    "track": "core",
-                    "success": status == "complete",
-                    "description": f"pipeline_stage_{stage}",
-                })
+                goal_outcomes.append(
+                    {
+                        "track": "core",
+                        "success": status == "complete",
+                        "description": f"pipeline_stage_{stage}",
+                    }
+                )
             planner.record_outcome(
                 goal_outcomes=goal_outcomes,
                 objective=f"pipeline:{result.pipeline_id}",
@@ -1657,9 +1755,7 @@ class IdeaToExecutionPipeline:
             if past:
                 strategic_hints = [f.description for a in past for f in a.findings[:3]]
                 if strategic_hints:
-                    logger.debug(
-                        "Pipeline enriched with %d strategic hints", len(strategic_hints)
-                    )
+                    logger.debug("Pipeline enriched with %d strategic hints", len(strategic_hints))
         except (ImportError, RuntimeError, ValueError, OSError) as exc:
             logger.debug("Strategic hints enrichment skipped: %s", exc)
 
@@ -1700,12 +1796,8 @@ class IdeaToExecutionPipeline:
                     precs = goal.metadata.get("precedents", [])
                     if not precs:
                         continue
-                    successes = sum(
-                        1 for p in precs if p.get("outcome") == "successful"
-                    )
-                    failures = sum(
-                        1 for p in precs if p.get("outcome") == "failed"
-                    )
+                    successes = sum(1 for p in precs if p.get("outcome") == "successful")
+                    failures = sum(1 for p in precs if p.get("outcome") == "failed")
                     if successes > failures:
                         # Boost confidence for goals similar to past successes
                         goal.confidence = min(1.0, goal.confidence + 0.1)
@@ -1882,9 +1974,7 @@ class IdeaToExecutionPipeline:
 
             # Stage 1: Ideas
             if result.ideas_canvas:
-                ideas_ug = canvas_to_universal_graph(
-                    result.ideas_canvas, PipelineStage.IDEAS
-                )
+                ideas_ug = canvas_to_universal_graph(result.ideas_canvas, PipelineStage.IDEAS)
                 for node in ideas_ug.nodes.values():
                     graph.add_node(node)
                 for edge in ideas_ug.edges.values():
@@ -1898,9 +1988,7 @@ class IdeaToExecutionPipeline:
 
             # Stage 3: Actions
             if result.actions_canvas:
-                actions_ug = canvas_to_universal_graph(
-                    result.actions_canvas, PipelineStage.ACTIONS
-                )
+                actions_ug = canvas_to_universal_graph(result.actions_canvas, PipelineStage.ACTIONS)
                 for node in actions_ug.nodes.values():
                     graph.add_node(node)
                 for edge in actions_ug.edges.values():
@@ -1927,9 +2015,15 @@ class IdeaToExecutionPipeline:
                             if parent.stage == node.stage:
                                 continue  # Skip same-stage edges
                             edge_type = StageEdgeType.DERIVED_FROM
-                            if parent.stage == PipelineStage.GOALS and node.stage == PipelineStage.ACTIONS:
+                            if (
+                                parent.stage == PipelineStage.GOALS
+                                and node.stage == PipelineStage.ACTIONS
+                            ):
                                 edge_type = StageEdgeType.IMPLEMENTS
-                            elif parent.stage == PipelineStage.ACTIONS and node.stage == PipelineStage.ORCHESTRATION:
+                            elif (
+                                parent.stage == PipelineStage.ACTIONS
+                                and node.stage == PipelineStage.ORCHESTRATION
+                            ):
                                 edge_type = StageEdgeType.EXECUTES
                             edge_id = f"xstage-{parent_id[:8]}-{node.id[:8]}"
                             if edge_id not in graph.edges:
@@ -1945,7 +2039,15 @@ class IdeaToExecutionPipeline:
 
             graph.transitions = list(result.transitions)
             result.universal_graph = graph
-        except (ImportError, RuntimeError, ValueError, TypeError, OSError, AttributeError, KeyError) as exc:
+        except (
+            ImportError,
+            RuntimeError,
+            ValueError,
+            TypeError,
+            OSError,
+            AttributeError,
+            KeyError,
+        ) as exc:
             logger.warning("Failed to build universal graph: %s", exc)
 
     # =========================================================================
@@ -2000,9 +2102,12 @@ class IdeaToExecutionPipeline:
         }
 
         for goal in goal_graph.goals:
-            template = decomposition.get(goal.goal_type.value, [
-                ("execute", "task", "{title}"),
-            ])
+            template = decomposition.get(
+                goal.goal_type.value,
+                [
+                    ("execute", "task", "{title}"),
+                ],
+            )
 
             goal_step_ids: list[str] = []
             for phase, step_type, name_fmt in template:
@@ -2026,32 +2131,34 @@ class IdeaToExecutionPipeline:
 
                 # Chain phases within a goal sequentially
                 if goal_step_ids:
-                    transitions.append({
-                        "id": f"seq-{goal_step_ids[-1]}-{step_id}",
-                        "from_step": goal_step_ids[-1],
-                        "to_step": step_id,
-                        "condition": "",
-                        "label": "then",
-                        "priority": 0,
-                    })
+                    transitions.append(
+                        {
+                            "id": f"seq-{goal_step_ids[-1]}-{step_id}",
+                            "from_step": goal_step_ids[-1],
+                            "to_step": step_id,
+                            "condition": "",
+                            "label": "then",
+                            "priority": 0,
+                        }
+                    )
 
                 goal_step_ids.append(step_id)
 
             # Create transitions from goal dependencies (link last step of dep
             # to first step of this goal)
             for dep_goal_id in goal.dependencies:
-                dep_steps = [
-                    s for s in steps if s.get("source_goal_id") == dep_goal_id
-                ]
+                dep_steps = [s for s in steps if s.get("source_goal_id") == dep_goal_id]
                 if dep_steps and goal_step_ids:
-                    transitions.append({
-                        "id": f"dep-{dep_goal_id}-{goal.id}",
-                        "from_step": dep_steps[-1]["id"],
-                        "to_step": goal_step_ids[0],
-                        "condition": "",
-                        "label": "after",
-                        "priority": 0,
-                    })
+                    transitions.append(
+                        {
+                            "id": f"dep-{dep_goal_id}-{goal.id}",
+                            "from_step": dep_steps[-1]["id"],
+                            "to_step": goal_step_ids[0],
+                            "condition": "",
+                            "label": "after",
+                            "priority": 0,
+                        }
+                    )
 
         # Chain independent goal groups sequentially (link last step of one
         # to first step of next, only for goals with no explicit dependencies)
@@ -2064,14 +2171,16 @@ class IdeaToExecutionPipeline:
             last_id = g_steps[-1]["id"]
             has_dep = any(t["to_step"] == first_id for t in transitions)
             if not has_dep and prev_last_step:
-                transitions.append({
-                    "id": f"seq-{prev_last_step}-{first_id}",
-                    "from_step": prev_last_step,
-                    "to_step": first_id,
-                    "condition": "",
-                    "label": "then",
-                    "priority": 0,
-                })
+                transitions.append(
+                    {
+                        "id": f"seq-{prev_last_step}-{first_id}",
+                        "from_step": prev_last_step,
+                        "to_step": first_id,
+                        "condition": "",
+                        "label": "then",
+                        "priority": 0,
+                    }
+                )
             prev_last_step = last_id
 
         return {
@@ -2082,9 +2191,7 @@ class IdeaToExecutionPipeline:
             "entry_step": steps[0]["id"] if steps else None,
         }
 
-    def _actions_to_execution_plan(
-        self, actions_canvas: Canvas
-    ) -> dict[str, Any]:
+    def _actions_to_execution_plan(self, actions_canvas: Canvas) -> dict[str, Any]:
         """Convert action canvas nodes into a multi-agent execution plan.
 
         Assigns tasks to specialized agents based on step phase and type,
@@ -2117,7 +2224,11 @@ class IdeaToExecutionPipeline:
             # Query ELO rankings for each domain
             for domain in set(_PHASE_TO_DOMAIN.values()):
                 try:
-                    rankings = selector.get_rankings(domain=domain) if hasattr(selector, "get_rankings") else []
+                    rankings = (
+                        selector.get_rankings(domain=domain)
+                        if hasattr(selector, "get_rankings")
+                        else []
+                    )
                     if rankings:
                         best = rankings[0]
                         agent_id = getattr(best, "agent_id", None) or str(best)

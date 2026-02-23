@@ -47,55 +47,124 @@ PROTECTED_FILES = [
 
 # Keywords indicating high-risk domains
 HIGH_RISK_KEYWORDS = [
-    "security", "auth", "authentication", "authorization",
-    "encrypt", "decrypt", "credential", "password", "token",
-    "secret", "key_rotation", "ssrf", "injection", "xss",
-    "rbac", "permission", "oidc", "saml", "mfa", "totp",
-    "database", "migration", "schema", "postgres", "redis",
-    "delete", "drop", "truncate", "purge",
-    "billing", "payment", "cost", "metering",
-    "privacy", "gdpr", "anonymization", "consent", "pii",
+    "security",
+    "auth",
+    "authentication",
+    "authorization",
+    "encrypt",
+    "decrypt",
+    "credential",
+    "password",
+    "token",
+    "secret",
+    "key_rotation",
+    "ssrf",
+    "injection",
+    "xss",
+    "rbac",
+    "permission",
+    "oidc",
+    "saml",
+    "mfa",
+    "totp",
+    "database",
+    "migration",
+    "schema",
+    "postgres",
+    "redis",
+    "delete",
+    "drop",
+    "truncate",
+    "purge",
+    "billing",
+    "payment",
+    "cost",
+    "metering",
+    "privacy",
+    "gdpr",
+    "anonymization",
+    "consent",
+    "pii",
 ]
 
 # Keywords indicating critical infrastructure risk
 CRITICAL_RISK_KEYWORDS = [
-    "deploy", "deployment", "infrastructure", "docker",
-    "kubernetes", "k8s", "helm", "terraform",
-    "ci/cd", "pipeline", "github actions", "workflow",
-    "production", "prod", "release",
-    "backup", "disaster recovery", "failover",
-    "nomic_loop", "self_improve", "autonomous",
+    "deploy",
+    "deployment",
+    "infrastructure",
+    "docker",
+    "kubernetes",
+    "k8s",
+    "helm",
+    "terraform",
+    "ci/cd",
+    "pipeline",
+    "github actions",
+    "workflow",
+    "production",
+    "prod",
+    "release",
+    "backup",
+    "disaster recovery",
+    "failover",
+    "nomic_loop",
+    "self_improve",
+    "autonomous",
 ]
 
 # Keywords indicating low-risk domains
 LOW_RISK_KEYWORDS = [
-    "documentation", "readme", "docstring", "comment",
-    "test", "spec", "fixture", "mock",
-    "typo", "formatting", "whitespace", "lint",
-    "type hint", "annotation", "typehint",
-    "changelog", "license",
+    "documentation",
+    "readme",
+    "docstring",
+    "comment",
+    "test",
+    "spec",
+    "fixture",
+    "mock",
+    "typo",
+    "formatting",
+    "whitespace",
+    "lint",
+    "type hint",
+    "annotation",
+    "typehint",
+    "changelog",
+    "license",
 ]
 
 # Paths that indicate low-risk changes
 LOW_RISK_PATHS = [
-    "docs/", "tests/", "test_", "README",
-    "CHANGELOG", "LICENSE", ".md",
-    "examples/", "scripts/demo_",
+    "docs/",
+    "tests/",
+    "test_",
+    "README",
+    "CHANGELOG",
+    "LICENSE",
+    ".md",
+    "examples/",
+    "scripts/demo_",
 ]
 
 # Paths that indicate high-risk changes
 HIGH_RISK_PATHS = [
-    "aragora/security/", "aragora/auth/", "aragora/rbac/",
-    "aragora/privacy/", "aragora/billing/",
-    "aragora/storage/", "aragora/tenancy/",
+    "aragora/security/",
+    "aragora/auth/",
+    "aragora/rbac/",
+    "aragora/privacy/",
+    "aragora/billing/",
+    "aragora/storage/",
+    "aragora/tenancy/",
     "aragora/debate/orchestrator.py",
     "aragora/debate/consensus.py",
 ]
 
 # Paths that indicate critical-risk changes
 CRITICAL_RISK_PATHS = [
-    ".env", ".github/workflows/",
-    "docker/", "Dockerfile",
+    ".env",
+    ".github/workflows/",
+    "docker/",
+    "Dockerfile",
     "scripts/nomic_loop.py",
     "aragora/nomic/self_improve.py",
     "aragora/nomic/autonomous_orchestrator.py",
@@ -146,8 +215,7 @@ class RiskScore:
             "score": self.score,
             "category": self.category.value,
             "factors": [
-                {"name": f.name, "weight": f.weight, "detail": f.detail}
-                for f in self.factors
+                {"name": f.name, "weight": f.weight, "detail": f.detail} for f in self.factors
             ],
             "recommendation": self.recommendation,
             "goal": self.goal,
@@ -204,57 +272,66 @@ class RiskScorer:
         # --- Factor 1: Keyword analysis on goal text ---
         keyword_score = self._score_keywords(goal_lower)
         if keyword_score > 0:
-            factors.append(RiskFactor(
-                name="keyword_analysis",
-                weight=keyword_score,
-                detail=self._keyword_detail(goal_lower),
-            ))
+            factors.append(
+                RiskFactor(
+                    name="keyword_analysis",
+                    weight=keyword_score,
+                    detail=self._keyword_detail(goal_lower),
+                )
+            )
 
         # --- Factor 2: File scope analysis ---
         file_score = self._score_file_scope(file_scope)
         if file_score > 0:
-            factors.append(RiskFactor(
-                name="file_scope",
-                weight=file_score,
-                detail=f"File scope risk from {len(file_scope)} file(s)",
-            ))
+            factors.append(
+                RiskFactor(
+                    name="file_scope",
+                    weight=file_score,
+                    detail=f"File scope risk from {len(file_scope)} file(s)",
+                )
+            )
 
         # --- Factor 3: Protected file detection ---
         protected_hits = self._detect_protected_files(goal_lower, file_scope)
         if protected_hits:
-            factors.append(RiskFactor(
-                name="protected_files",
-                weight=1.0,
-                detail=f"Touches protected files: {', '.join(protected_hits)}",
-            ))
+            factors.append(
+                RiskFactor(
+                    name="protected_files",
+                    weight=1.0,
+                    detail=f"Touches protected files: {', '.join(protected_hits)}",
+                )
+            )
 
         # --- Factor 4: Scale of change ---
-        scale_score = self._score_scale(
-            file_scope, estimated_files_changed, complexity_score
-        )
+        scale_score = self._score_scale(file_scope, estimated_files_changed, complexity_score)
         if scale_score > 0:
-            factors.append(RiskFactor(
-                name="change_scale",
-                weight=scale_score,
-                detail=self._scale_detail(
-                    file_scope, estimated_files_changed, complexity_score
-                ),
-            ))
+            factors.append(
+                RiskFactor(
+                    name="change_scale",
+                    weight=scale_score,
+                    detail=self._scale_detail(
+                        file_scope, estimated_files_changed, complexity_score
+                    ),
+                )
+            )
 
         # --- Factor 5: Test coverage ---
         test_score = self._score_test_coverage(has_tests, goal_lower, file_scope)
         if test_score > 0:
-            factors.append(RiskFactor(
-                name="test_coverage",
-                weight=test_score,
-                detail="Changes lack associated tests" if not has_tests else "Test coverage factor",
-            ))
+            factors.append(
+                RiskFactor(
+                    name="test_coverage",
+                    weight=test_score,
+                    detail="Changes lack associated tests"
+                    if not has_tests
+                    else "Test coverage factor",
+                )
+            )
 
         # --- Factor 6: Test-only change dampening ---
         # If all files in scope are test/doc files, dampen the overall risk
         all_low_risk = file_scope and all(
-            any(lp.lower() in fp.lower() for lp in LOW_RISK_PATHS)
-            for fp in file_scope
+            any(lp.lower() in fp.lower() for lp in LOW_RISK_PATHS) for fp in file_scope
         )
         if all_low_risk and not protected_hits:
             factors = [
@@ -405,9 +482,7 @@ class RiskScorer:
         # Blend: path risk dominates, but count moderates
         return 0.6 * path_risk + 0.4 * count_risk
 
-    def _detect_protected_files(
-        self, goal_lower: str, file_scope: list[str]
-    ) -> list[str]:
+    def _detect_protected_files(self, goal_lower: str, file_scope: list[str]) -> list[str]:
         """Detect if any protected files are referenced."""
         # Generic basenames that appear everywhere (e.g. __init__.py, .env)
         # must use full-path matching only — basename matching would produce
@@ -507,9 +582,7 @@ class RiskScorer:
         # Unknown test status
         return 0.1
 
-    def _aggregate_score(
-        self, factors: list[RiskFactor], protected_hits: list[str]
-    ) -> float:
+    def _aggregate_score(self, factors: list[RiskFactor], protected_hits: list[str]) -> float:
         """Aggregate factor weights into a final score.
 
         Protected file hits immediately push score to CRITICAL range.

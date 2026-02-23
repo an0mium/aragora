@@ -160,7 +160,6 @@ class FeedbackGoal:
         )
 
 
-
 # ---------------------------------------------------------------------------
 # SQLite-backed ImprovementQueue
 # ---------------------------------------------------------------------------
@@ -328,7 +327,7 @@ CREATE TABLE IF NOT EXISTS improvement_queue (
         """Add a FeedbackGoal (legacy). Also pushes to SQLite."""
         self.goals.append(goal)
         if len(self.goals) > self.max_goals:
-            self.goals = self.goals[-self.max_goals:]
+            self.goals = self.goals[-self.max_goals :]
 
         # Mirror into the SQLite store
         try:
@@ -404,7 +403,15 @@ class SelfImproveFeedbackOrchestrator:
                 self._queue.add(g)
                 report.goals_generated += 1
             report.steps_completed += 1
-        except (ImportError, RuntimeError, ValueError, TypeError, OSError, AttributeError, KeyError) as exc:
+        except (
+            ImportError,
+            RuntimeError,
+            ValueError,
+            TypeError,
+            OSError,
+            AttributeError,
+            KeyError,
+        ) as exc:
             logger.warning("feedback_step_gauntlet_failed: %s", exc)
             report.errors.append("gauntlet")
             report.steps_failed += 1
@@ -420,7 +427,15 @@ class SelfImproveFeedbackOrchestrator:
                 self._queue.add(g)
                 report.goals_generated += 1
             report.steps_completed += 1
-        except (ImportError, RuntimeError, ValueError, TypeError, OSError, AttributeError, KeyError) as exc:
+        except (
+            ImportError,
+            RuntimeError,
+            ValueError,
+            TypeError,
+            OSError,
+            AttributeError,
+            KeyError,
+        ) as exc:
             logger.warning("feedback_step_introspection_failed: %s", exc)
             report.errors.append("introspection")
             report.steps_failed += 1
@@ -430,11 +445,17 @@ class SelfImproveFeedbackOrchestrator:
             breeds = self._step_genesis(execution_results)
             report.genesis_breeds = breeds
             if breeds > 0:
-                report.genesis_recommendations.append(
-                    {"action": "breed", "new_genomes": breeds}
-                )
+                report.genesis_recommendations.append({"action": "breed", "new_genomes": breeds})
             report.steps_completed += 1
-        except (ImportError, RuntimeError, ValueError, TypeError, OSError, AttributeError, KeyError) as exc:
+        except (
+            ImportError,
+            RuntimeError,
+            ValueError,
+            TypeError,
+            OSError,
+            AttributeError,
+            KeyError,
+        ) as exc:
             logger.warning("feedback_step_genesis_failed: %s", exc)
             report.errors.append("genesis")
             report.steps_failed += 1
@@ -444,7 +465,15 @@ class SelfImproveFeedbackOrchestrator:
             adjustments = self._step_learning(cycle_id, execution_results)
             report.learning_adjustments = {"adjustment_count": adjustments}
             report.steps_completed += 1
-        except (ImportError, RuntimeError, ValueError, TypeError, OSError, AttributeError, KeyError) as exc:
+        except (
+            ImportError,
+            RuntimeError,
+            ValueError,
+            TypeError,
+            OSError,
+            AttributeError,
+            KeyError,
+        ) as exc:
             logger.warning("feedback_step_learning_failed: %s", exc)
             report.errors.append("learning")
             report.steps_failed += 1
@@ -455,7 +484,15 @@ class SelfImproveFeedbackOrchestrator:
             report.workspace_dedup_results = {"duplicates_found": deduped}
             report.workspace_deduped = deduped
             report.steps_completed += 1
-        except (ImportError, RuntimeError, ValueError, TypeError, OSError, AttributeError, KeyError) as exc:
+        except (
+            ImportError,
+            RuntimeError,
+            ValueError,
+            TypeError,
+            OSError,
+            AttributeError,
+            KeyError,
+        ) as exc:
             logger.warning("feedback_step_workspace_failed: %s", exc)
             report.errors.append("workspace")
             report.steps_failed += 1
@@ -469,7 +506,15 @@ class SelfImproveFeedbackOrchestrator:
                 self._queue.add(g)
                 report.goals_generated += 1
             report.steps_completed += 1
-        except (ImportError, RuntimeError, ValueError, TypeError, OSError, AttributeError, KeyError) as exc:
+        except (
+            ImportError,
+            RuntimeError,
+            ValueError,
+            TypeError,
+            OSError,
+            AttributeError,
+            KeyError,
+        ) as exc:
             logger.warning("feedback_step_pulse_failed: %s", exc)
             report.errors.append("pulse")
             report.steps_failed += 1
@@ -482,7 +527,15 @@ class SelfImproveFeedbackOrchestrator:
                 self._queue.add(g)
                 report.goals_generated += 1
             report.steps_completed += 1
-        except (ImportError, RuntimeError, ValueError, TypeError, OSError, AttributeError, KeyError) as exc:
+        except (
+            ImportError,
+            RuntimeError,
+            ValueError,
+            TypeError,
+            OSError,
+            AttributeError,
+            KeyError,
+        ) as exc:
             logger.warning("feedback_step_knowledge_contradiction_failed: %s", exc)
             report.errors.append("knowledge_contradiction")
             report.steps_failed += 1
@@ -493,12 +546,14 @@ class SelfImproveFeedbackOrchestrator:
         # Push synthesised goals to the SQLite queue
         for goal_dict in report.improvement_goals:
             try:
-                self._queue.push(ImprovementGoal(
-                    goal=goal_dict["goal"],
-                    source=goal_dict["source"],
-                    priority=goal_dict["priority"],
-                    context=goal_dict.get("context", {}),
-                ))
+                self._queue.push(
+                    ImprovementGoal(
+                        goal=goal_dict["goal"],
+                        source=goal_dict["source"],
+                        priority=goal_dict["priority"],
+                        context=goal_dict.get("context", {}),
+                    )
+                )
             except (sqlite3.Error, OSError) as exc:
                 logger.debug("Failed to push synthesized goal: %s", exc)
 
@@ -524,33 +579,39 @@ class SelfImproveFeedbackOrchestrator:
 
         # Gauntlet failures -> fix goals
         for finding in report.gauntlet_findings:
-            goals.append({
-                "goal": f"Fix validation failure: {finding.get('description', 'unknown')[:120]}",
-                "source": "gauntlet_finding",
-                "priority": 0.9,
-                "context": finding.get("metadata", {}),
-            })
+            goals.append(
+                {
+                    "goal": f"Fix validation failure: {finding.get('description', 'unknown')[:120]}",
+                    "source": "gauntlet_finding",
+                    "priority": 0.9,
+                    "context": finding.get("metadata", {}),
+                }
+            )
 
         # Introspection gaps -> agent improvement goals
         for gap in report.introspection_snapshot.get("gaps", []):
             agent = gap.get("metadata", {}).get("agent_name", "unknown")
             rate = gap.get("metadata", {}).get("success_rate", 0)
-            goals.append({
-                "goal": f"Improve agent {agent} performance (acceptance rate: {rate:.0%})",
-                "source": "introspection_gap",
-                "priority": 0.7,
-                "context": gap.get("metadata", {}),
-            })
+            goals.append(
+                {
+                    "goal": f"Improve agent {agent} performance (acceptance rate: {rate:.0%})",
+                    "source": "introspection_gap",
+                    "priority": 0.7,
+                    "context": gap.get("metadata", {}),
+                }
+            )
 
         # Pulse trending -> timely priority goals
         for pulse in report.pulse_priorities:
             desc = pulse.get("description", "")
-            goals.append({
-                "goal": f"Address trending topic: {desc[:100]}",
-                "source": "pulse_trending",
-                "priority": 0.4,
-                "context": pulse.get("metadata", {}),
-            })
+            goals.append(
+                {
+                    "goal": f"Address trending topic: {desc[:100]}",
+                    "source": "pulse_trending",
+                    "priority": 0.4,
+                    "context": pulse.get("metadata", {}),
+                }
+            )
 
         return goals
 
@@ -582,14 +643,16 @@ class SelfImproveFeedbackOrchestrator:
 
                 if critical:
                     desc = f"Gauntlet found {len(critical)} critical findings in {', '.join(files_changed[:3])}"
-                    goals.append(FeedbackGoal(
-                        description=desc,
-                        source="gauntlet_finding",
-                        track="security",
-                        priority=1,
-                        estimated_impact="high",
-                        metadata={"receipt_hash": receipt_hash, "finding_count": len(critical)},
-                    ))
+                    goals.append(
+                        FeedbackGoal(
+                            description=desc,
+                            source="gauntlet_finding",
+                            track="security",
+                            priority=1,
+                            estimated_impact="high",
+                            metadata={"receipt_hash": receipt_hash, "finding_count": len(critical)},
+                        )
+                    )
             except (RuntimeError, ValueError, OSError, AttributeError):
                 continue
 
@@ -612,17 +675,19 @@ class SelfImproveFeedbackOrchestrator:
             success_rate = summary.proposal_acceptance_rate
 
             if success_rate < 0.5:
-                goals.append(FeedbackGoal(
-                    description=(
-                        f"Agent '{agent_name}' has low acceptance rate ({success_rate:.0%}). "
-                        f"Consider retraining or replacing for this domain."
-                    ),
-                    source="introspection_gap",
-                    track="core",
-                    priority=3,
-                    estimated_impact="medium",
-                    metadata={"agent_name": agent_name, "success_rate": success_rate},
-                ))
+                goals.append(
+                    FeedbackGoal(
+                        description=(
+                            f"Agent '{agent_name}' has low acceptance rate ({success_rate:.0%}). "
+                            f"Consider retraining or replacing for this domain."
+                        ),
+                        source="introspection_gap",
+                        track="core",
+                        priority=3,
+                        estimated_impact="medium",
+                        metadata={"agent_name": agent_name, "success_rate": success_rate},
+                    )
+                )
 
         return goals
 
@@ -641,11 +706,13 @@ class SelfImproveFeedbackOrchestrator:
 
         if total > 0 and failed_count / total > 0.5:
             # Get or create the active population and evolve it
-            base_agents = list({
-                er.get("agent_type", "claude")
-                for er in execution_results
-                if not er.get("success")
-            }) or ["claude"]
+            base_agents = list(
+                {
+                    er.get("agent_type", "claude")
+                    for er in execution_results
+                    if not er.get("success")
+                }
+            ) or ["claude"]
             population = manager.get_or_create_population(base_agents)
             evolved = manager.evolve_population(population)
             return len(evolved.genomes)
@@ -746,9 +813,7 @@ class SelfImproveFeedbackOrchestrator:
                     manager.get_trending_topics(limit_per_platform=5),
                 ).result(timeout=30)
         else:
-            trending = asyncio.run(
-                manager.get_trending_topics(limit_per_platform=5)
-            )
+            trending = asyncio.run(manager.get_trending_topics(limit_per_platform=5))
 
         for topic in trending:
             title = getattr(topic, "title", str(topic))
@@ -764,14 +829,16 @@ class SelfImproveFeedbackOrchestrator:
             }
             track = track_map.get(category, "core")
 
-            goals.append(FeedbackGoal(
-                description=f"Trending: {title[:100]}",
-                source="pulse_trending",
-                track=track,
-                priority=4,
-                estimated_impact="low",
-                metadata={"category": category},
-            ))
+            goals.append(
+                FeedbackGoal(
+                    description=f"Trending: {title[:100]}",
+                    source="pulse_trending",
+                    track=track,
+                    priority=4,
+                    estimated_impact="low",
+                    metadata={"category": category},
+                )
+            )
 
         return goals
 
@@ -813,13 +880,12 @@ class SelfImproveFeedbackOrchestrator:
                     detector.detect_contradictions(mound, workspace_id="nomic"),
                 ).result(timeout=30)
         else:
-            report = asyncio.run(
-                detector.detect_contradictions(mound, workspace_id="nomic")
-            )
+            report = asyncio.run(detector.detect_contradictions(mound, workspace_id="nomic"))
 
         if report.contradictions_found == 0:
             logger.debug(
-                "feedback_contradiction_scan cycle=%s clean", cycle_id,
+                "feedback_contradiction_scan cycle=%s clean",
+                cycle_id,
             )
             return goals
 
@@ -838,27 +904,29 @@ class SelfImproveFeedbackOrchestrator:
             priority_map = {"critical": 1, "high": 2, "medium": 3}
             impact_map = {"critical": "high", "high": "high", "medium": "medium"}
 
-            goals.append(FeedbackGoal(
-                description=(
-                    f"KM contradiction ({contradiction.severity}): "
-                    f"{contradiction.contradiction_type.value} conflict "
-                    f"between items {contradiction.item_a_id} and "
-                    f"{contradiction.item_b_id} "
-                    f"(score={contradiction.conflict_score:.2f})"
-                ),
-                source="km_contradiction",
-                track="core",
-                priority=priority_map.get(contradiction.severity, 3),
-                estimated_impact=impact_map.get(contradiction.severity, "medium"),
-                metadata={
-                    "contradiction_type": contradiction.contradiction_type.value,
-                    "severity": contradiction.severity,
-                    "conflict_score": contradiction.conflict_score,
-                    "item_a_id": contradiction.item_a_id,
-                    "item_b_id": contradiction.item_b_id,
-                    "cycle_id": cycle_id,
-                },
-            ))
+            goals.append(
+                FeedbackGoal(
+                    description=(
+                        f"KM contradiction ({contradiction.severity}): "
+                        f"{contradiction.contradiction_type.value} conflict "
+                        f"between items {contradiction.item_a_id} and "
+                        f"{contradiction.item_b_id} "
+                        f"(score={contradiction.conflict_score:.2f})"
+                    ),
+                    source="km_contradiction",
+                    track="core",
+                    priority=priority_map.get(contradiction.severity, 3),
+                    estimated_impact=impact_map.get(contradiction.severity, "medium"),
+                    metadata={
+                        "contradiction_type": contradiction.contradiction_type.value,
+                        "severity": contradiction.severity,
+                        "conflict_score": contradiction.conflict_score,
+                        "item_a_id": contradiction.item_a_id,
+                        "item_b_id": contradiction.item_b_id,
+                        "cycle_id": cycle_id,
+                    },
+                )
+            )
 
         return goals[:10]  # Cap at 10 to avoid flooding the queue
 

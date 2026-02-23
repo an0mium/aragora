@@ -384,7 +384,14 @@ class StuckDetector:
                         await callback(item, action)
                     else:
                         callback(item, action)
-                except (TypeError, ValueError, RuntimeError, AttributeError, KeyError, OSError) as e:
+                except (
+                    TypeError,
+                    ValueError,
+                    RuntimeError,
+                    AttributeError,
+                    KeyError,
+                    OSError,
+                ) as e:
                     logger.error("Callback error: %s", e)
 
             # Take action
@@ -423,7 +430,10 @@ class StuckDetector:
                     )
                     if new_assignment:
                         logger.info(
-                            "Reassigned stuck bead %s from %s to %s", bead_id, item.agent_id, new_assignment.agent_id
+                            "Reassigned stuck bead %s from %s to %s",
+                            bead_id,
+                            item.agent_id,
+                            new_assignment.agent_id,
                         )
                         return True
 

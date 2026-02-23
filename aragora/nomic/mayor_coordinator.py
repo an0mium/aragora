@@ -156,7 +156,9 @@ class MayorCoordinator:
 
             self._started = True
             logger.info(
-                "Mayor coordinator started for node %s (region=%s)", self.node_id, self.region or 'global'
+                "Mayor coordinator started for node %s (region=%s)",
+                self.node_id,
+                self.region or "global",
             )
             return True
 
@@ -196,7 +198,7 @@ class MayorCoordinator:
     async def _handle_leader_change(self, new_leader: str | None) -> None:
         """Called when any leader change occurs."""
         self._current_mayor_node = new_leader
-        logger.info("Mayor changed to node: %s", new_leader or 'none')
+        logger.info("Mayor changed to node: %s", new_leader or "none")
 
     async def _promote_to_mayor(self) -> None:
         """Promote this node to MAYOR role."""
@@ -233,10 +235,26 @@ class MayorCoordinator:
                         result = self._on_become_mayor()
                         if asyncio.iscoroutine(result):
                             await result
-                    except (TypeError, ValueError, RuntimeError, AttributeError, KeyError, OSError) as e:
+                    except (
+                        TypeError,
+                        ValueError,
+                        RuntimeError,
+                        AttributeError,
+                        KeyError,
+                        OSError,
+                    ) as e:
                         logger.error("on_become_mayor callback error: %s", e)
 
-            except (RuntimeError, ValueError, TypeError, OSError, AttributeError, KeyError, ConnectionError, TimeoutError) as e:
+            except (
+                RuntimeError,
+                ValueError,
+                TypeError,
+                OSError,
+                AttributeError,
+                KeyError,
+                ConnectionError,
+                TimeoutError,
+            ) as e:
                 logger.error("Failed to promote to MAYOR: %s", e)
 
     async def _demote_from_mayor(self) -> None:
@@ -266,7 +284,9 @@ class MayorCoordinator:
                 self._mayor_info = None
 
                 logger.info(
-                    "Node %s demoted from MAYOR to WITNESS (agent=%s)", self.node_id, witness_agent_id
+                    "Node %s demoted from MAYOR to WITNESS (agent=%s)",
+                    self.node_id,
+                    witness_agent_id,
                 )
 
                 # Call callback
@@ -275,10 +295,26 @@ class MayorCoordinator:
                         result = self._on_lose_mayor()
                         if asyncio.iscoroutine(result):
                             await result
-                    except (TypeError, ValueError, RuntimeError, AttributeError, KeyError, OSError) as e:
+                    except (
+                        TypeError,
+                        ValueError,
+                        RuntimeError,
+                        AttributeError,
+                        KeyError,
+                        OSError,
+                    ) as e:
                         logger.error("on_lose_mayor callback error: %s", e)
 
-            except (RuntimeError, ValueError, TypeError, OSError, AttributeError, KeyError, ConnectionError, TimeoutError) as e:
+            except (
+                RuntimeError,
+                ValueError,
+                TypeError,
+                OSError,
+                AttributeError,
+                KeyError,
+                ConnectionError,
+                TimeoutError,
+            ) as e:
                 logger.error("Failed to demote from MAYOR: %s", e)
 
 

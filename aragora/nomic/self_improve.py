@@ -218,7 +218,9 @@ class SelfImprovePipeline:
             effective_objective[:100],
             objective is None,
         )
-        self._emit_progress("cycle_started", {"cycle_id": cycle_id, "objective": effective_objective})
+        self._emit_progress(
+            "cycle_started", {"cycle_id": cycle_id, "objective": effective_objective}
+        )
 
         # Step 0: Index codebase for richer planning context
         if self.config.enable_codebase_indexing:
@@ -270,10 +272,13 @@ class SelfImprovePipeline:
                 result.subtasks_failed += 1
                 result.tests_failed += er.get("tests_failed", 0)
 
-        self._emit_progress("execution_complete", {
-            "completed": result.subtasks_completed,
-            "failed": result.subtasks_failed,
-        })
+        self._emit_progress(
+            "execution_complete",
+            {
+                "completed": result.subtasks_completed,
+                "failed": result.subtasks_failed,
+            },
+        )
 
         # Step 5: Capture post-change metrics and compare
         outcome_comparison = None  # OutcomeComparison for feedback loop
@@ -285,12 +290,8 @@ class SelfImprovePipeline:
 
                 if comparison:
                     result.metrics_delta = comparison.get("deltas", {})
-                    result.improvement_score = comparison.get(
-                        "improvement_score", 0.0
-                    )
-                    outcome_comparison = comparison.get(
-                        "_outcome_comparison"
-                    )
+                    result.improvement_score = comparison.get("improvement_score", 0.0)
+                    outcome_comparison = comparison.get("_outcome_comparison")
 
                     if not comparison.get("improved", True):
                         result.regressions_detected = True
@@ -304,9 +305,7 @@ class SelfImprovePipeline:
                             # result.reverted = True
 
         # Step 5b: Semantic goal evaluation
-        goal_eval = self._evaluate_goal(
-            effective_objective, subtasks, result, baseline, after
-        )
+        goal_eval = self._evaluate_goal(effective_objective, subtasks, result, baseline, after)
         if goal_eval is not None:
             result.metrics_delta["goal_achievement"] = goal_eval.achievement_score
             result.metrics_delta["goal_scope_coverage"] = goal_eval.scope_coverage
@@ -331,8 +330,7 @@ class SelfImprovePipeline:
         result.duration_seconds = time.time() - start_time
         result.total_cost_usd = self._total_spend_usd
         logger.info(
-            "self_improve_completed cycle=%s goals=%d subtasks=%d/%d "
-            "duration=%.1fs cost=$%.4f",
+            "self_improve_completed cycle=%s goals=%d subtasks=%d/%d duration=%.1fs cost=$%.4f",
             cycle_id,
             result.goals_planned,
             result.subtasks_completed,
@@ -340,11 +338,14 @@ class SelfImprovePipeline:
             result.duration_seconds,
             result.total_cost_usd,
         )
-        self._emit_progress("cycle_complete", {
-            "completed": result.subtasks_completed,
-            "failed": result.subtasks_failed,
-            "duration": result.duration_seconds,
-        })
+        self._emit_progress(
+            "cycle_complete",
+            {
+                "completed": result.subtasks_completed,
+                "failed": result.subtasks_failed,
+                "duration": result.duration_seconds,
+            },
+        )
 
         return result
 
@@ -399,8 +400,7 @@ class SelfImprovePipeline:
             ],
             "subtasks": [
                 {
-                    "title": getattr(s, "title", None)
-                    or getattr(s, "original_task", str(s)),
+                    "title": getattr(s, "title", None) or getattr(s, "original_task", str(s)),
                     "description": getattr(s, "description", str(s)),
                     "scope": getattr(s, "scope", "unknown"),
                     "file_hints": getattr(s, "file_scope", []),
@@ -420,9 +420,7 @@ class SelfImprovePipeline:
 
     # --- Private pipeline steps ---
 
-    def _apply_risk_scoring(
-        self, subtasks: list[Any], result: SelfImproveResult
-    ) -> list[Any]:
+    def _apply_risk_scoring(self, subtasks: list[Any], result: SelfImproveResult) -> list[Any]:
         """Score subtasks for risk and filter based on safe_mode thresholds.
 
         Returns the subset of subtasks that are approved for execution.
@@ -453,11 +451,14 @@ class SelfImprovePipeline:
                     assessment.score,
                     assessment.category.value,
                 )
-                self._emit_progress("risk_blocked", {
-                    "subtask": title[:80],
-                    "score": assessment.score,
-                    "category": assessment.category.value,
-                })
+                self._emit_progress(
+                    "risk_blocked",
+                    {
+                        "subtask": title[:80],
+                        "score": assessment.score,
+                        "category": assessment.category.value,
+                    },
+                )
             elif assessment.recommendation == "review":
                 result.goals_needs_review += 1
                 title = getattr(subtask, "title", str(subtask))
@@ -467,22 +468,28 @@ class SelfImprovePipeline:
                     assessment.score,
                     assessment.category.value,
                 )
-                self._emit_progress("risk_review_needed", {
-                    "subtask": title[:80],
-                    "score": assessment.score,
-                    "category": assessment.category.value,
-                })
+                self._emit_progress(
+                    "risk_review_needed",
+                    {
+                        "subtask": title[:80],
+                        "score": assessment.score,
+                        "category": assessment.category.value,
+                    },
+                )
                 approved.append(subtask)
             else:
                 result.goals_auto_approved += 1
                 approved.append(subtask)
 
-        self._emit_progress("risk_assessment_complete", {
-            "total": len(subtasks),
-            "auto_approved": result.goals_auto_approved,
-            "needs_review": result.goals_needs_review,
-            "blocked": result.goals_blocked,
-        })
+        self._emit_progress(
+            "risk_assessment_complete",
+            {
+                "total": len(subtasks),
+                "auto_approved": result.goals_auto_approved,
+                "needs_review": result.goals_needs_review,
+                "blocked": result.goals_blocked,
+            },
+        )
 
         logger.info(
             "risk_scoring_complete total=%d auto=%d review=%d blocked=%d",
@@ -602,9 +609,7 @@ class SelfImprovePipeline:
                     subtasks = decomposition.subtasks
                     # Enrich with KM learnings (async overlay)
                     try:
-                        subtasks = await decomposer.enrich_subtasks_from_km(
-                            desc, subtasks
-                        )
+                        subtasks = await decomposer.enrich_subtasks_from_km(desc, subtasks)
                     except (RuntimeError, ValueError, OSError) as km_exc:
                         logger.debug("KM enrichment skipped: %s", km_exc)
                     all_subtasks.extend(subtasks)
@@ -648,17 +653,11 @@ class SelfImprovePipeline:
                     query = f"{title} {desc}".strip()
                     if query:
                         matches = await indexer.query(query, limit=5)
-                        subtask.file_scope = [
-                            str(m.path) for m in matches
-                        ]
+                        subtask.file_scope = [str(m.path) for m in matches]
 
             logger.info(
                 "file_scope_enrichment subtasks=%d",
-                sum(
-                    1
-                    for s in subtasks
-                    if getattr(s, "file_scope", None)
-                ),
+                sum(1 for s in subtasks if getattr(s, "file_scope", None)),
             )
         except ImportError:
             logger.debug("CodebaseIndexer unavailable, skipping file scope enrichment")
@@ -748,9 +747,7 @@ class SelfImprovePipeline:
             return None
         return combined
 
-    def _compare_metrics(
-        self, baseline: Any, after: Any
-    ) -> dict[str, Any] | None:
+    def _compare_metrics(self, baseline: Any, after: Any) -> dict[str, Any] | None:
         """Step 5b: Compare baseline and after metrics (debate + codebase)."""
         if baseline is None or after is None:
             return None
@@ -979,11 +976,7 @@ class SelfImprovePipeline:
                 # Determine track
                 track_name = getattr(subtask, "track", "core")
                 try:
-                    track = (
-                        Track(track_name)
-                        if isinstance(track_name, str)
-                        else track_name
-                    )
+                    track = Track(track_name) if isinstance(track_name, str) else track_name
                 except ValueError:
                     track = Track.CORE
 
@@ -1024,13 +1017,9 @@ class SelfImprovePipeline:
             return results
 
         except ImportError as exc:
-            logger.warning(
-                "Worktree execution unavailable, falling back to sequential: %s", exc
-            )
+            logger.warning("Worktree execution unavailable, falling back to sequential: %s", exc)
         except (RuntimeError, ValueError, TypeError, OSError) as exc:
-            logger.warning(
-                "Worktree execution failed, falling back to sequential: %s", exc
-            )
+            logger.warning("Worktree execution failed, falling back to sequential: %s", exc)
 
         # Fallback: wave-based parallel execution
         results: list[dict[str, Any]] = []
@@ -1043,20 +1032,19 @@ class SelfImprovePipeline:
             for r in wave_results:
                 if isinstance(r, BaseException):
                     logger.warning("Subtask in wave failed: %s", r)
-                    results.append({
-                        "success": False,
-                        "files_changed": [],
-                        "tests_passed": 0,
-                        "tests_failed": 0,
-                    })
+                    results.append(
+                        {
+                            "success": False,
+                            "files_changed": [],
+                            "tests_passed": 0,
+                            "tests_failed": 0,
+                        }
+                    )
                 else:
                     results.append(r)
 
             # Check budget after each wave
-            wave_cost = sum(
-                r.get("cost_usd", 0.0) for r in results
-                if isinstance(r, dict)
-            )
+            wave_cost = sum(r.get("cost_usd", 0.0) for r in results if isinstance(r, dict))
             self._total_spend_usd += wave_cost
             if self._total_spend_usd > self.config.budget_limit_usd:
                 logger.warning(
@@ -1162,9 +1150,7 @@ class SelfImprovePipeline:
             tests_failed = 0
 
             if worktree_path:
-                dispatched = self._write_instruction_to_worktree(
-                    instruction, worktree_path
-                )
+                dispatched = self._write_instruction_to_worktree(instruction, worktree_path)
 
                 # Try debug loop first (iterative test-feedback-retry)
                 debug_result = await self._execute_with_debug_loop(
@@ -1177,9 +1163,7 @@ class SelfImprovePipeline:
                     tests_failed = debug_result.get("tests_failed", 0)
                 else:
                     # Fallback: single dispatch via Claude Code harness
-                    exec_result = await self._dispatch_to_claude_code(
-                        instruction, worktree_path
-                    )
+                    exec_result = await self._dispatch_to_claude_code(instruction, worktree_path)
                     if exec_result is not None:
                         executed = True
                         files_changed = exec_result.get("files_changed", [])
@@ -1224,7 +1208,9 @@ class SelfImprovePipeline:
                     if commit_result.returncode == 0:
                         subprocess.run(
                             [
-                                "git", "commit", "-m",
+                                "git",
+                                "commit",
+                                "-m",
                                 f"self-improve: {getattr(instruction, 'subtask_id', 'unknown')[:40]}",
                             ],
                             capture_output=True,
@@ -1513,9 +1499,7 @@ class SelfImprovePipeline:
                     timeout=10,
                 )
                 if diff_result.returncode == 0:
-                    files_changed = [
-                        f for f in diff_result.stdout.strip().split("\n") if f
-                    ]
+                    files_changed = [f for f in diff_result.stdout.strip().split("\n") if f]
             except (subprocess.TimeoutExpired, OSError):
                 pass
 
@@ -1714,10 +1698,12 @@ class SelfImprovePipeline:
                 adapter = ReceiptAdapter()
                 try:
                     loop = asyncio.get_running_loop()
-                    loop.create_task(adapter.ingest_receipt(
-                        receipt,
-                        tags=["self_improve", "subtask", cycle_id],
-                    ))
+                    loop.create_task(
+                        adapter.ingest_receipt(
+                            receipt,
+                            tags=["self_improve", "subtask", cycle_id],
+                        )
+                    )
                 except RuntimeError:
                     pass
             except ImportError:
@@ -1760,8 +1746,7 @@ class SelfImprovePipeline:
                 started_at=time.time() - result.duration_seconds,
             )
             record.mark_complete(
-                success=result.subtasks_completed > 0
-                and result.subtasks_failed == 0,
+                success=result.subtasks_completed > 0 and result.subtasks_failed == 0,
             )
 
             # Add metadata as evidence quality scores
@@ -1791,9 +1776,7 @@ class SelfImprovePipeline:
                         outcome_comparison.improved,
                     )
                 except (ImportError, RuntimeError, ValueError, OSError) as exc:
-                    logger.debug(
-                        "Failed to record outcome comparison: %s", exc
-                    )
+                    logger.debug("Failed to record outcome comparison: %s", exc)
 
             # Feed outcomes to MetaPlanner for cross-cycle learning
             try:
@@ -1802,11 +1785,14 @@ class SelfImprovePipeline:
                 goal_outcomes = []
                 # Build goal outcomes from result
                 if result.subtasks_completed > 0 or result.subtasks_failed > 0:
-                    goal_outcomes.append({
-                        "track": "core",
-                        "success": result.subtasks_completed > 0 and result.subtasks_failed == 0,
-                        "description": result.objective,
-                    })
+                    goal_outcomes.append(
+                        {
+                            "track": "core",
+                            "success": result.subtasks_completed > 0
+                            and result.subtasks_failed == 0,
+                            "description": result.objective,
+                        }
+                    )
 
                 if goal_outcomes:
                     planner = MetaPlanner()
@@ -1828,21 +1814,22 @@ class SelfImprovePipeline:
 
                 bridge = PipelineKMBridge()
                 if bridge.available:
-                    stored = bridge.store_pipeline_result({
-                        "cycle_id": cycle_id,
-                        "objective": result.objective,
-                        "success": (
-                            result.subtasks_completed > 0
-                            and result.subtasks_failed == 0
-                        ),
-                        "subtasks_completed": result.subtasks_completed,
-                        "subtasks_failed": result.subtasks_failed,
-                        "files_changed": result.files_changed,
-                        "improvement_score": result.improvement_score,
-                        "metrics_delta": result.metrics_delta,
-                        "duration_seconds": result.duration_seconds,
-                        "total_cost_usd": result.total_cost_usd,
-                    })
+                    stored = bridge.store_pipeline_result(
+                        {
+                            "cycle_id": cycle_id,
+                            "objective": result.objective,
+                            "success": (
+                                result.subtasks_completed > 0 and result.subtasks_failed == 0
+                            ),
+                            "subtasks_completed": result.subtasks_completed,
+                            "subtasks_failed": result.subtasks_failed,
+                            "files_changed": result.files_changed,
+                            "improvement_score": result.improvement_score,
+                            "metrics_delta": result.metrics_delta,
+                            "duration_seconds": result.duration_seconds,
+                            "total_cost_usd": result.total_cost_usd,
+                        }
+                    )
                     if stored:
                         result.km_persisted = True
                         logger.info("km_bridge_persisted cycle=%s", cycle_id)

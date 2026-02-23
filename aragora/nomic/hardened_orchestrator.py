@@ -563,7 +563,9 @@ class HardenedOrchestrator(AutonomousOrchestrator):
             logger.debug("Receipt generation failed: %s", e)
 
     def _bridge_ingest_coordinated_result(
-        self, assignment: Any, result: OrchestrationResult,
+        self,
+        assignment: Any,
+        result: OrchestrationResult,
     ) -> None:
         """Use ExecutionBridge to ingest coordinated execution results into KM."""
         bridge = self._get_execution_bridge()
@@ -612,7 +614,10 @@ class HardenedOrchestrator(AutonomousOrchestrator):
         # merges results with a test gate — the full end-to-end pipeline.
         if self.hardened_config.enable_meta_planning:
             return await self.execute_goal_coordinated(
-                goal, tracks, max_cycles, context,
+                goal,
+                tracks,
+                max_cycles,
+                context,
             )
 
         # Reset budget tracking for this run
@@ -715,13 +720,12 @@ class HardenedOrchestrator(AutonomousOrchestrator):
 
             if all_criteria:
                 met, unmet = self._metrics_collector.check_success_criteria(
-                    after_snapshot, all_criteria,
+                    after_snapshot,
+                    all_criteria,
                 )
                 result.success_criteria_met = met
                 if not met:
-                    logger.info(
-                        "success_criteria_unmet: %s", "; ".join(unmet)
-                    )
+                    logger.info("success_criteria_unmet: %s", "; ".join(unmet))
             else:
                 result.success_criteria_met = None
 
@@ -767,13 +771,10 @@ class HardenedOrchestrator(AutonomousOrchestrator):
                 tracks_affected.add(str(assignment.track))
 
                 if assignment.status == "completed":
-                    what_worked.append(
-                        f"{assignment.subtask.title} (agent={agent})"
-                    )
+                    what_worked.append(f"{assignment.subtask.title} (agent={agent})")
                 else:
                     what_failed.append(
-                        f"{assignment.subtask.title} (agent={agent}, "
-                        f"status={assignment.status})"
+                        f"{assignment.subtask.title} (agent={agent}, status={assignment.status})"
                     )
 
             # Determine cycle status
@@ -816,9 +817,7 @@ class HardenedOrchestrator(AutonomousOrchestrator):
             )
 
         except ImportError:
-            logger.debug(
-                "KnowledgeMound unavailable, skipping cross-cycle recording"
-            )
+            logger.debug("KnowledgeMound unavailable, skipping cross-cycle recording")
         except (RuntimeError, OSError, ValueError) as e:
             logger.debug("cross_cycle_record_error: %s", e)
 
@@ -843,7 +842,8 @@ class HardenedOrchestrator(AutonomousOrchestrator):
             mound = get_knowledge_mound(workspace_id="nomic")
             detector = ContradictionDetector()
             report = await detector.detect_contradictions(
-                mound, workspace_id="nomic",
+                mound,
+                workspace_id="nomic",
             )
 
             if report.contradictions_found == 0:
@@ -865,8 +865,7 @@ class HardenedOrchestrator(AutonomousOrchestrator):
 
             # Inject high/critical contradictions into improvement queue
             critical_or_high = [
-                c for c in report.contradictions
-                if c.severity in ("critical", "high")
+                c for c in report.contradictions if c.severity in ("critical", "high")
             ]
 
             if not critical_or_high:
@@ -879,27 +878,29 @@ class HardenedOrchestrator(AutonomousOrchestrator):
 
             queue = ImprovementQueue.load()
             for contradiction in critical_or_high[:5]:  # Cap at 5 to avoid flooding
-                queue.add(FeedbackGoal(
-                    description=(
-                        f"KM contradiction ({contradiction.severity}): "
-                        f"{contradiction.contradiction_type.value} conflict "
-                        f"between items {contradiction.item_a_id} and "
-                        f"{contradiction.item_b_id} "
-                        f"(score={contradiction.conflict_score:.2f})"
-                    ),
-                    source="km_contradiction",
-                    track="core",
-                    priority=1 if contradiction.severity == "critical" else 2,
-                    estimated_impact="high",
-                    metadata={
-                        "contradiction_type": contradiction.contradiction_type.value,
-                        "severity": contradiction.severity,
-                        "conflict_score": contradiction.conflict_score,
-                        "item_a_id": contradiction.item_a_id,
-                        "item_b_id": contradiction.item_b_id,
-                        "goal": goal[:200],
-                    },
-                ))
+                queue.add(
+                    FeedbackGoal(
+                        description=(
+                            f"KM contradiction ({contradiction.severity}): "
+                            f"{contradiction.contradiction_type.value} conflict "
+                            f"between items {contradiction.item_a_id} and "
+                            f"{contradiction.item_b_id} "
+                            f"(score={contradiction.conflict_score:.2f})"
+                        ),
+                        source="km_contradiction",
+                        track="core",
+                        priority=1 if contradiction.severity == "critical" else 2,
+                        estimated_impact="high",
+                        metadata={
+                            "contradiction_type": contradiction.contradiction_type.value,
+                            "severity": contradiction.severity,
+                            "conflict_score": contradiction.conflict_score,
+                            "item_a_id": contradiction.item_a_id,
+                            "item_b_id": contradiction.item_b_id,
+                            "goal": goal[:200],
+                        },
+                    )
+                )
 
             queue.save()
 
@@ -910,10 +911,17 @@ class HardenedOrchestrator(AutonomousOrchestrator):
 
         except ImportError:
             logger.debug(
-                "KnowledgeMound or ContradictionDetector unavailable, "
-                "skipping contradiction scan"
+                "KnowledgeMound or ContradictionDetector unavailable, skipping contradiction scan"
             )
-        except (ImportError, RuntimeError, ValueError, TypeError, OSError, AttributeError, KeyError) as e:
+        except (
+            ImportError,
+            RuntimeError,
+            ValueError,
+            TypeError,
+            OSError,
+            AttributeError,
+            KeyError,
+        ) as e:
             logger.debug("km_contradiction_scan_error: %s", e)
 
     # =========================================================================
@@ -1255,7 +1263,9 @@ class HardenedOrchestrator(AutonomousOrchestrator):
         ]
 
         added_lines = [
-            line[1:] for line in diff_text.split("\n") if line.startswith("+") and not line.startswith("+++")
+            line[1:]
+            for line in diff_text.split("\n")
+            if line.startswith("+") and not line.startswith("+++")
         ]
         added_text = "\n".join(added_lines)
 
@@ -1274,7 +1284,9 @@ class HardenedOrchestrator(AutonomousOrchestrator):
 
         # Large deletions without corresponding additions are suspicious
         deletions = sum(
-            1 for line in diff_text.split("\n") if line.startswith("-") and not line.startswith("---")
+            1
+            for line in diff_text.split("\n")
+            if line.startswith("-") and not line.startswith("---")
         )
         additions = len(added_lines)
         if deletions > 50 and additions < deletions * 0.3:
@@ -1308,7 +1320,9 @@ class HardenedOrchestrator(AutonomousOrchestrator):
                 reviewer = CodeReviewerAgent()
                 code_review_result = reviewer.review_diff(
                     diff_text,
-                    goal=assignment.subtask.description if hasattr(assignment.subtask, "description") else "",
+                    goal=assignment.subtask.description
+                    if hasattr(assignment.subtask, "description")
+                    else "",
                 )
                 # Map code_review score (0.0-1.0) to deductions on the 0-10 scale.
                 # A perfect 1.0 deducts nothing; 0.0 deducts 4 points.
@@ -1324,7 +1338,15 @@ class HardenedOrchestrator(AutonomousOrchestrator):
                         review_deduction,
                         len(code_review_result.issues),
                     )
-            except (ImportError, RuntimeError, ValueError, TypeError, OSError, AttributeError, KeyError) as exc:
+            except (
+                ImportError,
+                RuntimeError,
+                ValueError,
+                TypeError,
+                OSError,
+                AttributeError,
+                KeyError,
+            ) as exc:
                 logger.debug("review_gate code_reviewer unavailable: %s", exc)
 
         score = max(0, score)
@@ -1344,13 +1366,15 @@ class HardenedOrchestrator(AutonomousOrchestrator):
 
                 bus = LearningBus.get_instance()
                 for issue in issues:
-                    bus.publish(Finding(
-                        agent_id="hardened_orchestrator",
-                        topic="code_review",
-                        description=issue,
-                        affected_files=[],
-                        severity="warning",
-                    ))
+                    bus.publish(
+                        Finding(
+                            agent_id="hardened_orchestrator",
+                            topic="code_review",
+                            description=issue,
+                            affected_files=[],
+                            severity="warning",
+                        )
+                    )
             except ImportError:
                 pass
 
@@ -1379,7 +1403,15 @@ class HardenedOrchestrator(AutonomousOrchestrator):
                     diagnosis.failure_type.value,
                     len(diagnosis.fixes),
                 )
-            except (ImportError, RuntimeError, ValueError, TypeError, OSError, AttributeError, KeyError) as exc:
+            except (
+                ImportError,
+                RuntimeError,
+                ValueError,
+                TypeError,
+                OSError,
+                AttributeError,
+                KeyError,
+            ) as exc:
                 logger.debug("forward_fixer unavailable: %s", exc)
 
             logger.warning(
@@ -1730,8 +1762,7 @@ class HardenedOrchestrator(AutonomousOrchestrator):
 
         # Filter out excluded and circuit-broken agents
         available = [
-            a for a in candidates
-            if a not in exclude and self._check_agent_circuit_breaker(a)
+            a for a in candidates if a not in exclude and self._check_agent_circuit_breaker(a)
         ]
         if not available:
             # All preferred agents are excluded/broken — fall back to claude
@@ -1927,10 +1958,7 @@ class HardenedOrchestrator(AutonomousOrchestrator):
             return None
 
         # Find pending assignments sorted by priority
-        pending = [
-            a for a in assignments
-            if a.status == "pending"
-        ]
+        pending = [a for a in assignments if a.status == "pending"]
 
         if not pending:
             return None
@@ -1968,10 +1996,22 @@ class HardenedOrchestrator(AutonomousOrchestrator):
     # OpenClaw Integration — computer-use execution mode
     # =========================================================================
 
-    _COMPUTER_USE_KEYWORDS = frozenset([
-        "browser", "ui", "visual", "click", "screenshot", "playwright",
-        "selenium", "headless", "webpage", "css", "dom", "element",
-    ])
+    _COMPUTER_USE_KEYWORDS = frozenset(
+        [
+            "browser",
+            "ui",
+            "visual",
+            "click",
+            "screenshot",
+            "playwright",
+            "selenium",
+            "headless",
+            "webpage",
+            "css",
+            "dom",
+            "element",
+        ]
+    )
 
     @classmethod
     def _is_computer_use_task(cls, subtask: SubTask) -> bool:
@@ -2270,10 +2310,7 @@ class HardenedOrchestrator(AutonomousOrchestrator):
 
                     # If gauntlet failed and retries remain, re-execute with
                     # gauntlet findings injected as additional context
-                    if (
-                        assignment.status == "failed"
-                        and gauntlet_attempt < gauntlet_max
-                    ):
+                    if assignment.status == "failed" and gauntlet_attempt < gauntlet_max:
                         findings = (assignment.result or {}).get("gauntlet_findings", [])
                         logger.info(
                             "gauntlet_retry subtask=%s attempt=%d findings=%d",
@@ -2293,8 +2330,7 @@ class HardenedOrchestrator(AutonomousOrchestrator):
                             assignment.subtask.description = (
                                 f"{original_desc}\n\n"
                                 f"IMPORTANT: A previous attempt had these issues "
-                                f"that MUST be fixed:\n"
-                                + "\n".join(f"- {f}" for f in findings)
+                                f"that MUST be fixed:\n" + "\n".join(f"- {f}" for f in findings)
                             )
                         try:
                             original_path = self.aragora_path

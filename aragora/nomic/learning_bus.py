@@ -26,6 +26,7 @@ logger = logging.getLogger(__name__)
 # Finding dataclass
 # ---------------------------------------------------------------------------
 
+
 @dataclass
 class Finding:
     """A discovery published to the learning bus."""
@@ -61,6 +62,7 @@ class Finding:
 # Persistence configuration
 # ---------------------------------------------------------------------------
 
+
 @dataclass
 class LearningBusConfig:
     """Configuration for LearningBus persistence behaviour."""
@@ -75,6 +77,7 @@ class LearningBusConfig:
 # ---------------------------------------------------------------------------
 # LearningBus
 # ---------------------------------------------------------------------------
+
 
 class LearningBus:
     """Thread-safe singleton bus for cross-agent finding sharing.
@@ -138,6 +141,7 @@ class LearningBus:
             from aragora.knowledge.mound.adapters.nomic_cycle_adapter import (
                 NomicCycleAdapter,
             )
+
             self._km_adapter = NomicCycleAdapter()
             return self._km_adapter
         except (ImportError, RuntimeError, ValueError, TypeError, OSError, AttributeError):
@@ -178,7 +182,15 @@ class LearningBus:
             else:
                 # No running loop - run synchronously
                 asyncio.run(self._persist_finding_async(finding))
-        except (ImportError, RuntimeError, ValueError, TypeError, OSError, AttributeError, KeyError):
+        except (
+            ImportError,
+            RuntimeError,
+            ValueError,
+            TypeError,
+            OSError,
+            AttributeError,
+            KeyError,
+        ):
             logger.debug("Failed to persist finding to KM")
 
     async def _persist_finding_async(self, finding: Finding) -> None:
@@ -192,9 +204,7 @@ class LearningBus:
             from aragora.knowledge.unified.types import KnowledgeSource
 
             # Build a content string for the finding
-            content = (
-                f"FINDING [{finding.severity.upper()}]: {finding.description}"
-            )
+            content = f"FINDING [{finding.severity.upper()}]: {finding.description}"
             if finding.suggested_action:
                 content += f"\nSuggested action: {finding.suggested_action}"
             if finding.affected_files:
@@ -231,7 +241,15 @@ class LearningBus:
                 finding.topic,
                 finding.agent_id,
             )
-        except (ImportError, RuntimeError, ValueError, TypeError, OSError, AttributeError, KeyError):
+        except (
+            ImportError,
+            RuntimeError,
+            ValueError,
+            TypeError,
+            OSError,
+            AttributeError,
+            KeyError,
+        ):
             logger.debug("Failed to persist finding to KM")
 
     # ------------------------------------------------------------------
@@ -253,15 +271,22 @@ class LearningBus:
 
         try:
             import asyncio
+
             findings = asyncio.run(self._load_historical_findings_async())
             if findings:
                 with self._bus_lock:
                     # Prepend historical findings before any session findings
                     self._findings = findings + self._findings
-                logger.info(
-                    "Loaded %d historical findings from KM", len(findings)
-                )
-        except (ImportError, RuntimeError, ValueError, TypeError, OSError, AttributeError, KeyError):
+                logger.info("Loaded %d historical findings from KM", len(findings))
+        except (
+            ImportError,
+            RuntimeError,
+            ValueError,
+            TypeError,
+            OSError,
+            AttributeError,
+            KeyError,
+        ):
             logger.debug("Could not load historical findings from KM")
 
     async def _load_historical_findings_async(self) -> list[Finding]:
@@ -278,9 +303,7 @@ class LearningBus:
                 filters={"type": "learning_bus_finding"},
             )
 
-            cutoff = datetime.now(timezone.utc) - timedelta(
-                days=self._config.historical_days
-            )
+            cutoff = datetime.now(timezone.utc) - timedelta(days=self._config.historical_days)
 
             findings: list[Finding] = []
             for result in results:
@@ -302,7 +325,15 @@ class LearningBus:
             findings.sort(key=lambda f: f.timestamp)
             return findings[: self._config.max_historical]
 
-        except (ImportError, RuntimeError, ValueError, TypeError, OSError, AttributeError, KeyError):
+        except (
+            ImportError,
+            RuntimeError,
+            ValueError,
+            TypeError,
+            OSError,
+            AttributeError,
+            KeyError,
+        ):
             logger.debug("Failed to load historical findings from KM")
             return []
 
@@ -411,7 +442,15 @@ class LearningBus:
 
             return True
 
-        except (ImportError, RuntimeError, ValueError, TypeError, OSError, AttributeError, KeyError):
+        except (
+            ImportError,
+            RuntimeError,
+            ValueError,
+            TypeError,
+            OSError,
+            AttributeError,
+            KeyError,
+        ):
             logger.warning("Failed to save cycle summary for %s", cycle_id)
             return False
 
@@ -441,12 +480,8 @@ class LearningBus:
                 goals_succeeded=sum(1 for f in findings if f.severity != "critical"),
                 goals_failed=sum(1 for f in findings if f.severity == "critical"),
                 total_files_changed=len(record.files_modified),
-                what_worked=[
-                    f.description for f in findings if f.severity == "info"
-                ][:5],
-                what_failed=[
-                    f.description for f in findings if f.severity == "critical"
-                ][:5],
+                what_worked=[f.description for f in findings if f.severity == "info"][:5],
+                what_failed=[f.description for f in findings if f.severity == "critical"][:5],
                 agents_used=list(record.agent_contributions.keys()),
                 tracks_affected=record.topics_debated,
             )
@@ -463,7 +498,15 @@ class LearningBus:
                 else:
                     asyncio.run(adapter.ingest_cycle_outcome(outcome))
 
-        except (ImportError, RuntimeError, ValueError, TypeError, OSError, AttributeError, KeyError):
+        except (
+            ImportError,
+            RuntimeError,
+            ValueError,
+            TypeError,
+            OSError,
+            AttributeError,
+            KeyError,
+        ):
             logger.debug("Failed to persist cycle to KM adapter")
 
     # ------------------------------------------------------------------
@@ -522,10 +565,7 @@ class LearningBus:
         """Return findings that affect any of the given files."""
         file_set = set(files)
         with self._bus_lock:
-            return [
-                f for f in self._findings
-                if file_set & set(f.affected_files)
-            ]
+            return [f for f in self._findings if file_set & set(f.affected_files)]
 
     def clear(self) -> None:
         """Reset all findings and subscribers (between cycles)."""
@@ -554,6 +594,7 @@ class LearningBus:
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
+
 
 def _severity_to_confidence(severity: str) -> float:
     """Map severity level to a KM confidence score."""

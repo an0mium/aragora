@@ -595,7 +595,14 @@ class WitnessBehavior:
                         await callback(alert)
                     else:
                         callback(alert)
-                except (TypeError, ValueError, RuntimeError, AttributeError, KeyError, OSError) as e:
+                except (
+                    TypeError,
+                    ValueError,
+                    RuntimeError,
+                    AttributeError,
+                    KeyError,
+                    OSError,
+                ) as e:
                     logger.error("Alert callback error: %s", e)
 
             # Notify mayor if critical
