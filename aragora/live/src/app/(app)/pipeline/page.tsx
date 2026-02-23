@@ -1,11 +1,15 @@
 'use client';
 
-import { Suspense, useState, useCallback, useEffect } from 'react';
+import { Suspense, useState, useCallback, useEffect, useMemo } from 'react';
 import { useSearchParams } from 'next/navigation';
 import dynamic from 'next/dynamic';
 import { usePipeline } from '@/hooks/usePipeline';
 import { usePipelineWebSocket } from '@/hooks/usePipelineWebSocket';
-import type { PipelineStageType } from '@/components/pipeline-canvas/types';
+import { useSWRFetch } from '@/hooks/useSWRFetch';
+import { StatusBadge } from '@/components/pipeline-canvas/StatusBadge';
+import { AutoTransitionSuggestion } from '@/components/pipeline-canvas/AutoTransitionSuggestion';
+import type { TransitionSuggestion } from '@/components/pipeline-canvas/AutoTransitionSuggestion';
+import type { PipelineStageType, PipelineResultResponse, ExecutionStatus } from '@/components/pipeline-canvas/types';
 
 const PipelineCanvas = dynamic(
   () => import('@/components/pipeline-canvas/PipelineCanvas').then((m) => m.PipelineCanvas),
@@ -14,6 +18,11 @@ const PipelineCanvas = dynamic(
 
 const UnifiedPipelineCanvas = dynamic(
   () => import('@/components/pipeline-canvas/UnifiedPipelineCanvas').then((m) => m.UnifiedPipelineCanvas),
+  { ssr: false, loading: () => <CanvasLoadingState /> },
+);
+
+const FractalPipelineCanvas = dynamic(
+  () => import('@/components/pipeline-canvas/FractalPipelineCanvas').then((m) => m.FractalPipelineCanvas),
   { ssr: false, loading: () => <CanvasLoadingState /> },
 );
 
@@ -53,6 +62,7 @@ export default function PipelinePage() {
 function PipelinePageContent() {
   const {
     pipelineData,
+    setPipelineData,
     isDemo,
     createFromIdeas,
     createFromBrainDump,
@@ -79,7 +89,25 @@ function PipelinePageContent() {
   const [debateError, setDebateError] = useState('');
   const [key, setKey] = useState(0);
   const [debateImportStatus, setDebateImportStatus] = useState<string | null>(null);
-  const [viewMode, setViewMode] = useState<'stages' | 'unified' | 'provenance'>('stages');
+  const [viewMode, setViewMode] = useState<'stages' | 'unified' | 'fractal' | 'provenance'>('stages');
+  const [sidebarOpen, setSidebarOpen] = useState(true);
+  const [dismissedSuggestions, setDismissedSuggestions] = useState<Set<string>>(new Set());
+
+  // Fetch latest pipeline data from API via SWR for initial load / refresh
+  const {
+    data: swrPipelineData,
+    isLoading: swrLoading,
+  } = useSWRFetch<PipelineResultResponse>(
+    '/api/v1/canvas/pipeline',
+    { refreshInterval: 30000, enabled: !pipelineData && !isDemo },
+  );
+
+  // If SWR fetched a pipeline and we don't have one from user actions, use it
+  useEffect(() => {
+    if (swrPipelineData && !pipelineData && swrPipelineData.pipeline_id) {
+      setPipelineData(swrPipelineData);
+    }
+  }, [swrPipelineData, pipelineData, setPipelineData]);
 
   const wsStageCompleted = useCallback(() => {
     setKey((k) => k + 1);
@@ -266,6 +294,62 @@ function PipelinePageContent() {
     ? pipelineData.stage_status.orchestration === 'complete'
     : false;
 
+  // Derive transition suggestions from pipeline transitions for AutoTransitionSuggestion
+  const transitionSuggestions = useMemo((): TransitionSuggestion[] => {
+    if (!pipelineData?.transitions) return [];
+    return pipelineData.transitions
+      .filter((t) => t.status === 'pending')
+      .filter((t) => !dismissedSuggestions.has(t.id))
+      .map((t) => ({
+        node_id: t.id,
+        node_label: `${t.from_stage} \u2192 ${t.to_stage}`,
+        from_stage: t.from_stage as PipelineStageType,
+        to_stage: t.to_stage as PipelineStageType,
+        confidence: t.confidence,
+        reason: t.ai_rationale || 'AI-suggested transition',
+      }));
+  }, [pipelineData?.transitions, dismissedSuggestions]);
+
+  const handleSuggestionApprove = useCallback(
+    (suggestion: TransitionSuggestion) => {
+      if (pipelineData?.pipeline_id) {
+        approveTransition(pipelineData.pipeline_id, suggestion.from_stage, suggestion.to_stage);
+        setKey((k) => k + 1);
+      }
+    },
+    [pipelineData, approveTransition],
+  );
+
+  const handleSuggestionDismiss = useCallback(
+    (suggestion: TransitionSuggestion) => {
+      setDismissedSuggestions((prev) => new Set(prev).add(suggestion.node_id));
+    },
+    [],
+  );
+
+  // Map pipeline stage_status values to ExecutionStatus for StatusBadge
+  const mapStageStatus = useCallback((status: string): ExecutionStatus => {
+    switch (status) {
+      case 'complete': return 'succeeded';
+      case 'in_progress': return 'in_progress';
+      case 'failed': return 'failed';
+      case 'partial': return 'partial';
+      default: return 'pending';
+    }
+  }, []);
+
+  const handleFractalStageChange = useCallback(
+    (stage: PipelineStageType) => {
+      if (pipelineData?.pipeline_id) {
+        advanceStage(pipelineData.pipeline_id, stage);
+        setKey((k) => k + 1);
+      }
+    },
+    [pipelineData, advanceStage],
+  );
+
+  const isPageLoading = loading || (swrLoading && !pipelineData);
+
   return (
     <div className="flex flex-col h-screen bg-bg">
       {/* Header */}
@@ -296,37 +380,32 @@ function PipelinePageContent() {
             New Pipeline
           </button>
 
+          {/* Stage status badges */}
+          {pipelineData?.stage_status && (
+            <div className="flex items-center gap-1.5">
+              {(['ideas', 'goals', 'actions', 'orchestration'] as const).map((stage) => (
+                <div key={stage} className="flex items-center gap-1">
+                  <span className="text-[10px] font-mono text-text-muted uppercase">{stage.slice(0, 4)}</span>
+                  <StatusBadge status={mapStageStatus(pipelineData.stage_status[stage])} size="sm" />
+                </div>
+              ))}
+            </div>
+          )}
+
           <div className="flex items-center bg-surface border border-border rounded overflow-hidden">
-            <button
-              onClick={() => setViewMode('stages')}
-              className={`px-3 py-2 text-sm font-mono transition-colors ${
-                viewMode === 'stages'
-                  ? 'bg-indigo-600 text-white'
-                  : 'text-text-muted hover:text-text'
-              }`}
-            >
-              Stages
-            </button>
-            <button
-              onClick={() => setViewMode('unified')}
-              className={`px-3 py-2 text-sm font-mono transition-colors ${
-                viewMode === 'unified'
-                  ? 'bg-indigo-600 text-white'
-                  : 'text-text-muted hover:text-text'
-              }`}
-            >
-              Unified
-            </button>
-            <button
-              onClick={() => setViewMode('provenance')}
-              className={`px-3 py-2 text-sm font-mono transition-colors ${
-                viewMode === 'provenance'
-                  ? 'bg-indigo-600 text-white'
-                  : 'text-text-muted hover:text-text'
-              }`}
-            >
-              Provenance
-            </button>
+            {(['stages', 'unified', 'fractal', 'provenance'] as const).map((mode) => (
+              <button
+                key={mode}
+                onClick={() => setViewMode(mode)}
+                className={`px-3 py-2 text-sm font-mono transition-colors ${
+                  viewMode === mode
+                    ? 'bg-indigo-600 text-white'
+                    : 'text-text-muted hover:text-text'
+                }`}
+              >
+                {mode.charAt(0).toUpperCase() + mode.slice(1)}
+              </button>
+            ))}
           </div>
 
           <button
@@ -472,6 +551,105 @@ function PipelinePageContent() {
               pipelineId={pipelineData.pipeline_id}
               initialData={pipelineData}
             />
+          ) : viewMode === 'fractal' ? (
+            <div className="flex h-full">
+              {/* Fractal canvas main area */}
+              <div className="flex-1 h-full overflow-hidden">
+                <FractalPipelineCanvas
+                  key={`fractal-${key}`}
+                  pipelineResult={pipelineData}
+                  onStageChange={handleFractalStageChange}
+                />
+              </div>
+
+              {/* Sidebar with AutoTransitionSuggestion and stage status */}
+              {sidebarOpen && (
+                <aside className="w-72 h-full border-l border-border bg-surface overflow-y-auto flex-shrink-0">
+                  <div className="p-4 space-y-4">
+                    {/* Sidebar header */}
+                    <div className="flex items-center justify-between">
+                      <h3 className="text-sm font-mono font-bold text-text uppercase tracking-wide">
+                        Pipeline Status
+                      </h3>
+                      <button
+                        onClick={() => setSidebarOpen(false)}
+                        className="text-text-muted hover:text-text text-xs font-mono"
+                        title="Close sidebar"
+                      >
+                        {'\u00D7'}
+                      </button>
+                    </div>
+
+                    {/* Stage status overview */}
+                    <div className="space-y-2">
+                      <h4 className="text-xs font-mono text-text-muted uppercase tracking-wider">
+                        Stage Progress
+                      </h4>
+                      {(['ideas', 'goals', 'actions', 'orchestration'] as const).map((stage) => (
+                        <div
+                          key={stage}
+                          className="flex items-center justify-between px-2 py-1.5 rounded bg-bg/50"
+                        >
+                          <span className="text-xs font-mono text-text capitalize">{stage}</span>
+                          <StatusBadge
+                            status={mapStageStatus(pipelineData.stage_status[stage])}
+                            size="sm"
+                          />
+                        </div>
+                      ))}
+                    </div>
+
+                    {/* Transition suggestions */}
+                    {transitionSuggestions.length > 0 && (
+                      <div className="space-y-2">
+                        <h4 className="text-xs font-mono text-text-muted uppercase tracking-wider">
+                          Suggested Transitions
+                        </h4>
+                        <AutoTransitionSuggestion
+                          suggestions={transitionSuggestions}
+                          onApprove={handleSuggestionApprove}
+                          onDismiss={handleSuggestionDismiss}
+                        />
+                      </div>
+                    )}
+
+                    {/* Pipeline metadata */}
+                    <div className="space-y-1.5 pt-2 border-t border-border">
+                      <h4 className="text-xs font-mono text-text-muted uppercase tracking-wider">
+                        Pipeline Info
+                      </h4>
+                      <div className="text-xs font-mono text-text-muted">
+                        <span className="text-text-muted">ID: </span>
+                        <span className="text-text">{pipelineData.pipeline_id.slice(0, 16)}</span>
+                      </div>
+                      {pipelineData.provenance_count > 0 && (
+                        <div className="text-xs font-mono text-text-muted">
+                          <span className="text-text-muted">Provenance links: </span>
+                          <span className="text-text">{pipelineData.provenance_count}</span>
+                        </div>
+                      )}
+                      {pipelineData.integrity_hash && (
+                        <div className="text-xs font-mono text-text-muted">
+                          <span className="text-text-muted">Integrity: </span>
+                          <span className="text-text">{pipelineData.integrity_hash.slice(0, 12)}</span>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                </aside>
+              )}
+
+              {/* Sidebar toggle when closed */}
+              {!sidebarOpen && (
+                <button
+                  onClick={() => setSidebarOpen(true)}
+                  className="absolute right-2 top-1/2 -translate-y-1/2 px-1.5 py-3 bg-surface border border-border rounded-l text-text-muted hover:text-text text-xs font-mono z-10"
+                  title="Open sidebar"
+                >
+                  {'\u00AB'}
+                </button>
+              )}
+            </div>
           ) : (
             <PipelineCanvas
               key={key}
