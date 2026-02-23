@@ -14,7 +14,6 @@ Covers all 9 handler classes:
 Also covers:
 - register_routes helper
 - Rate limiter configuration
-- RBAC permission checks
 - Error handling paths (ImportError, KeyError, ValueError, etc.)
 - Edge cases and input validation
 """
@@ -41,6 +40,18 @@ from aragora.server.handlers.cross_pollination import (
     _cross_pollination_limiter,
     register_routes,
 )
+
+# Patch targets for local imports inside handler methods
+_PATCH_MGR = "aragora.events.cross_subscribers.get_cross_subscriber_manager"
+_PATCH_BRIDGE = "aragora.events.arena_bridge.EVENT_TYPE_MAP"
+_PATCH_METRICS = "aragora.server.prometheus_cross_pollination.get_cross_pollination_metrics_text"
+_PATCH_RANKING = "aragora.knowledge.mound.adapters.ranking_adapter.RankingAdapter"
+_PATCH_RLM = "aragora.knowledge.mound.adapters.rlm_adapter.RlmAdapter"
+_PATCH_MOUND = "aragora.knowledge.mound.get_knowledge_mound"
+_PATCH_STALENESS = "aragora.knowledge.mound.staleness.StalenessDetector"
+_PATCH_STALENESS_CFG = "aragora.knowledge.mound.staleness.StalenessConfig"
+_PATCH_RECORD_SYNC = "aragora.server.prometheus_cross_pollination.record_km_adapter_sync"
+_PATCH_RECORD_STALE = "aragora.server.prometheus_cross_pollination.record_km_staleness_check"
 
 
 # ---------------------------------------------------------------------------
@@ -88,6 +99,11 @@ def _mock_manager(**overrides):
     mgr.reset_stats.return_value = None
     mgr.get_batch_stats.return_value = overrides.get("batch_stats", {"pending": 0})
     mgr.flush_all_batches.return_value = overrides.get("flush_count", 3)
+    # Prevent MagicMock auto-attribute creation for adapter caches.
+    # The handler uses getattr(manager, "_ranking_adapter", None) which
+    # on MagicMock would return a new MagicMock instead of None.
+    mgr._ranking_adapter = None
+    mgr._rlm_adapter = None
     return mgr
 
 
@@ -159,11 +175,8 @@ class TestCrossPollinationStatsHandler:
         mgr = _mock_manager(stats={
             "s1": {"events_processed": 5, "events_failed": 0, "enabled": True},
         })
-        with patch(
-            "aragora.server.handlers.cross_pollination.get_cross_subscriber_manager",
-            return_value=mgr,
-        ):
-            result = await h.get()
+        with patch(_PATCH_MGR, return_value=mgr):
+            result = await h.get.__wrapped__(h)
         assert _status(result) == 200
         body = _body(result)
         assert body["status"] == "ok"
@@ -176,11 +189,8 @@ class TestCrossPollinationStatsHandler:
             "s2": {"events_processed": 20, "events_failed": 2, "enabled": False},
             "s3": {"events_processed": 5, "events_failed": 0, "enabled": True},
         })
-        with patch(
-            "aragora.server.handlers.cross_pollination.get_cross_subscriber_manager",
-            return_value=mgr,
-        ):
-            result = await h.get()
+        with patch(_PATCH_MGR, return_value=mgr):
+            result = await h.get.__wrapped__(h)
         body = _body(result)
         assert body["summary"]["total_subscribers"] == 3
         assert body["summary"]["enabled_subscribers"] == 2
@@ -191,11 +201,8 @@ class TestCrossPollinationStatsHandler:
     async def test_get_empty_stats(self):
         h = self._make()
         mgr = _mock_manager(stats={})
-        with patch(
-            "aragora.server.handlers.cross_pollination.get_cross_subscriber_manager",
-            return_value=mgr,
-        ):
-            result = await h.get()
+        with patch(_PATCH_MGR, return_value=mgr):
+            result = await h.get.__wrapped__(h)
         body = _body(result)
         assert body["summary"]["total_subscribers"] == 0
         assert body["summary"]["total_events_processed"] == 0
@@ -206,11 +213,8 @@ class TestCrossPollinationStatsHandler:
         mgr = _mock_manager(stats={
             "s1": {"events_processed": 1, "events_failed": 0},
         })
-        with patch(
-            "aragora.server.handlers.cross_pollination.get_cross_subscriber_manager",
-            return_value=mgr,
-        ):
-            result = await h.get()
+        with patch(_PATCH_MGR, return_value=mgr):
+            result = await h.get.__wrapped__(h)
         body = _body(result)
         # When enabled key is missing, default is True
         assert body["summary"]["enabled_subscribers"] == 1
@@ -220,11 +224,8 @@ class TestCrossPollinationStatsHandler:
         h = self._make()
         stats = {"sub_a": {"events_processed": 7, "events_failed": 1, "enabled": True}}
         mgr = _mock_manager(stats=stats)
-        with patch(
-            "aragora.server.handlers.cross_pollination.get_cross_subscriber_manager",
-            return_value=mgr,
-        ):
-            result = await h.get()
+        with patch(_PATCH_MGR, return_value=mgr):
+            result = await h.get.__wrapped__(h)
         body = _body(result)
         assert body["subscribers"] == stats
 
@@ -233,62 +234,50 @@ class TestCrossPollinationStatsHandler:
     @pytest.mark.asyncio
     async def test_get_import_error_returns_503(self):
         h = self._make()
-        with patch(
-            "aragora.server.handlers.cross_pollination.get_cross_subscriber_manager",
-            side_effect=ImportError("no module"),
-        ):
-            result = await h.get()
+        with patch.dict("sys.modules", {"aragora.events.cross_subscribers": None}):
+            result = await h.get.__wrapped__(h)
         assert _status(result) == 503
         assert "not available" in _body(result)["error"]
 
     @pytest.mark.asyncio
     async def test_get_key_error_returns_500(self):
         h = self._make()
-        with patch(
-            "aragora.server.handlers.cross_pollination.get_cross_subscriber_manager",
-            side_effect=KeyError("bad key"),
-        ):
-            result = await h.get()
+        mgr = MagicMock()
+        mgr.get_stats.side_effect = KeyError("bad key")
+        with patch(_PATCH_MGR, return_value=mgr):
+            result = await h.get.__wrapped__(h)
         assert _status(result) == 500
 
     @pytest.mark.asyncio
     async def test_get_value_error_returns_500(self):
         h = self._make()
-        with patch(
-            "aragora.server.handlers.cross_pollination.get_cross_subscriber_manager",
-            side_effect=ValueError("bad value"),
-        ):
-            result = await h.get()
+        mgr = MagicMock()
+        mgr.get_stats.side_effect = ValueError("bad value")
+        with patch(_PATCH_MGR, return_value=mgr):
+            result = await h.get.__wrapped__(h)
         assert _status(result) == 500
 
     @pytest.mark.asyncio
     async def test_get_type_error_returns_500(self):
         h = self._make()
-        with patch(
-            "aragora.server.handlers.cross_pollination.get_cross_subscriber_manager",
-            side_effect=TypeError("bad type"),
-        ):
-            result = await h.get()
+        mgr = MagicMock()
+        mgr.get_stats.side_effect = TypeError("bad type")
+        with patch(_PATCH_MGR, return_value=mgr):
+            result = await h.get.__wrapped__(h)
         assert _status(result) == 500
 
     @pytest.mark.asyncio
     async def test_get_attribute_error_returns_500(self):
         h = self._make()
-        with patch(
-            "aragora.server.handlers.cross_pollination.get_cross_subscriber_manager",
-            side_effect=AttributeError("no attr"),
-        ):
-            result = await h.get()
+        with patch(_PATCH_MGR, side_effect=AttributeError("no attr")):
+            result = await h.get.__wrapped__(h)
         assert _status(result) == 500
 
     @pytest.mark.asyncio
     async def test_get_os_error_returns_500(self):
         h = self._make()
-        with patch(
-            "aragora.server.handlers.cross_pollination.get_cross_subscriber_manager",
-            side_effect=OSError("disk full"),
-        ):
-            result = await h.get()
+        with patch(_PATCH_MGR, side_effect=OSError("disk full")):
+            result = await h.get.__wrapped__(h)
         assert _status(result) == 500
 
 
@@ -316,11 +305,8 @@ class TestCrossPollinationSubscribersHandler:
         mgr = MagicMock()
         mgr._subscribers = {evt: [("sub1", handler_fn)]}
 
-        with patch(
-            "aragora.server.handlers.cross_pollination.get_cross_subscriber_manager",
-            return_value=mgr,
-        ):
-            result = await h.get()
+        with patch(_PATCH_MGR, return_value=mgr):
+            result = await h.get.__wrapped__(h)
         body = _body(result)
         assert body["count"] == 1
         assert body["subscribers"][0]["name"] == "sub1"
@@ -343,11 +329,8 @@ class TestCrossPollinationSubscribersHandler:
             evt2: [("s3", fn3)],
         }
 
-        with patch(
-            "aragora.server.handlers.cross_pollination.get_cross_subscriber_manager",
-            return_value=mgr,
-        ):
-            result = await h.get()
+        with patch(_PATCH_MGR, return_value=mgr):
+            result = await h.get.__wrapped__(h)
         body = _body(result)
         assert body["count"] == 3
 
@@ -356,16 +339,12 @@ class TestCrossPollinationSubscribersHandler:
         h = self._make()
         evt = MagicMock()
         evt.value = "ev"
-        # Use an object without __name__ that has a str repr
         handler_obj = 42  # int has no __name__
         mgr = MagicMock()
         mgr._subscribers = {evt: [("anon", handler_obj)]}
 
-        with patch(
-            "aragora.server.handlers.cross_pollination.get_cross_subscriber_manager",
-            return_value=mgr,
-        ):
-            result = await h.get()
+        with patch(_PATCH_MGR, return_value=mgr):
+            result = await h.get.__wrapped__(h)
         body = _body(result)
         assert body["subscribers"][0]["handler"] == "42"
 
@@ -375,11 +354,8 @@ class TestCrossPollinationSubscribersHandler:
         mgr = MagicMock()
         mgr._subscribers = {}
 
-        with patch(
-            "aragora.server.handlers.cross_pollination.get_cross_subscriber_manager",
-            return_value=mgr,
-        ):
-            result = await h.get()
+        with patch(_PATCH_MGR, return_value=mgr):
+            result = await h.get.__wrapped__(h)
         body = _body(result)
         assert body["count"] == 0
         assert body["subscribers"] == []
@@ -387,21 +363,25 @@ class TestCrossPollinationSubscribersHandler:
     @pytest.mark.asyncio
     async def test_get_import_error(self):
         h = self._make()
-        with patch(
-            "aragora.server.handlers.cross_pollination.get_cross_subscriber_manager",
-            side_effect=ImportError("missing"),
-        ):
-            result = await h.get()
+        with patch.dict("sys.modules", {"aragora.events.cross_subscribers": None}):
+            result = await h.get.__wrapped__(h)
         assert _status(result) == 503
 
     @pytest.mark.asyncio
     async def test_get_attribute_error(self):
         h = self._make()
-        with patch(
-            "aragora.server.handlers.cross_pollination.get_cross_subscriber_manager",
-            side_effect=AttributeError("no attr"),
-        ):
-            result = await h.get()
+        with patch(_PATCH_MGR, side_effect=AttributeError("no attr")):
+            result = await h.get.__wrapped__(h)
+        assert _status(result) == 500
+
+    @pytest.mark.asyncio
+    async def test_get_key_error(self):
+        h = self._make()
+        mgr = MagicMock()
+        mgr._subscribers = MagicMock()
+        mgr._subscribers.items.side_effect = KeyError("k")
+        with patch(_PATCH_MGR, return_value=mgr):
+            result = await h.get.__wrapped__(h)
         assert _status(result) == 500
 
 
@@ -436,11 +416,8 @@ class TestCrossPollinationBridgeHandler:
             "debate_start": MagicMock(value="stream_start"),
             "debate_end": MagicMock(value="stream_end"),
         }
-        with patch(
-            "aragora.server.handlers.cross_pollination.EVENT_TYPE_MAP",
-            mock_map,
-        ):
-            result = await h.get()
+        with patch(_PATCH_BRIDGE, mock_map):
+            result = await h.get.__wrapped__(h)
         body = _body(result)
         assert body["status"] == "ok"
         assert body["mapped_event_count"] == 2
@@ -449,11 +426,8 @@ class TestCrossPollinationBridgeHandler:
     @pytest.mark.asyncio
     async def test_get_empty_map(self):
         h = self._make()
-        with patch(
-            "aragora.server.handlers.cross_pollination.EVENT_TYPE_MAP",
-            {},
-        ):
-            result = await h.get()
+        with patch(_PATCH_BRIDGE, {}):
+            result = await h.get.__wrapped__(h)
         body = _body(result)
         assert body["mapped_event_count"] == 0
         assert body["event_mappings"] == {}
@@ -461,15 +435,6 @@ class TestCrossPollinationBridgeHandler:
     @pytest.mark.asyncio
     async def test_get_import_error(self):
         h = self._make()
-        with patch(
-            "aragora.server.handlers.cross_pollination.EVENT_TYPE_MAP",
-            side_effect=ImportError("no bridge"),
-        ):
-            # The ImportError is caught inside the try block where the import happens.
-            # We need to patch the import itself.
-            pass
-
-        # Patch at the import level
         with patch.dict("sys.modules", {"aragora.events.arena_bridge": None}):
             result = await h.get.__wrapped__(h)
         assert _status(result) == 503
@@ -479,11 +444,8 @@ class TestCrossPollinationBridgeHandler:
         h = self._make()
         mock_map = MagicMock()
         mock_map.items.side_effect = KeyError("bad")
-        with patch(
-            "aragora.server.handlers.cross_pollination.EVENT_TYPE_MAP",
-            mock_map,
-        ):
-            result = await h.get()
+        with patch(_PATCH_BRIDGE, mock_map):
+            result = await h.get.__wrapped__(h)
         assert _status(result) == 500
 
     @pytest.mark.asyncio
@@ -491,11 +453,17 @@ class TestCrossPollinationBridgeHandler:
         h = self._make()
         mock_map = MagicMock()
         mock_map.items.side_effect = TypeError("bad")
-        with patch(
-            "aragora.server.handlers.cross_pollination.EVENT_TYPE_MAP",
-            mock_map,
-        ):
-            result = await h.get()
+        with patch(_PATCH_BRIDGE, mock_map):
+            result = await h.get.__wrapped__(h)
+        assert _status(result) == 500
+
+    @pytest.mark.asyncio
+    async def test_get_value_error(self):
+        h = self._make()
+        mock_map = MagicMock()
+        mock_map.items.side_effect = ValueError("bad")
+        with patch(_PATCH_BRIDGE, mock_map):
+            result = await h.get.__wrapped__(h)
         assert _status(result) == 500
 
 
@@ -518,11 +486,8 @@ class TestCrossPollinationMetricsHandler:
     async def test_get_success_str_body(self):
         h = self._make()
         text = "# HELP cross_pollination_events Total events\ncross_pollination_events 42\n"
-        with patch(
-            "aragora.server.handlers.cross_pollination.get_cross_pollination_metrics_text",
-            return_value=text,
-        ):
-            result = await h.get()
+        with patch(_PATCH_METRICS, return_value=text):
+            result = await h.get.__wrapped__(h)
         assert _status(result) == 200
         assert result.content_type == "text/plain; version=0.0.4; charset=utf-8"
         assert result.body == text.encode("utf-8")
@@ -531,11 +496,8 @@ class TestCrossPollinationMetricsHandler:
     async def test_get_success_bytes_body(self):
         h = self._make()
         raw = b"# metrics\nfoo 1\n"
-        with patch(
-            "aragora.server.handlers.cross_pollination.get_cross_pollination_metrics_text",
-            return_value=raw,
-        ):
-            result = await h.get()
+        with patch(_PATCH_METRICS, return_value=raw):
+            result = await h.get.__wrapped__(h)
         assert _status(result) == 200
         assert result.body is raw
 
@@ -552,31 +514,29 @@ class TestCrossPollinationMetricsHandler:
     @pytest.mark.asyncio
     async def test_get_key_error(self):
         h = self._make()
-        with patch(
-            "aragora.server.handlers.cross_pollination.get_cross_pollination_metrics_text",
-            side_effect=KeyError("bad"),
-        ):
-            result = await h.get()
+        with patch(_PATCH_METRICS, side_effect=KeyError("bad")):
+            result = await h.get.__wrapped__(h)
         assert _status(result) == 500
 
     @pytest.mark.asyncio
     async def test_get_os_error(self):
         h = self._make()
-        with patch(
-            "aragora.server.handlers.cross_pollination.get_cross_pollination_metrics_text",
-            side_effect=OSError("io fail"),
-        ):
-            result = await h.get()
+        with patch(_PATCH_METRICS, side_effect=OSError("io fail")):
+            result = await h.get.__wrapped__(h)
+        assert _status(result) == 500
+
+    @pytest.mark.asyncio
+    async def test_get_value_error(self):
+        h = self._make()
+        with patch(_PATCH_METRICS, side_effect=ValueError("bad")):
+            result = await h.get.__wrapped__(h)
         assert _status(result) == 500
 
     @pytest.mark.asyncio
     async def test_get_headers(self):
         h = self._make()
-        with patch(
-            "aragora.server.handlers.cross_pollination.get_cross_pollination_metrics_text",
-            return_value="data",
-        ):
-            result = await h.get()
+        with patch(_PATCH_METRICS, return_value="data"):
+            result = await h.get.__wrapped__(h)
         assert result.headers["Content-Type"] == "text/plain; version=0.0.4; charset=utf-8"
 
 
@@ -599,11 +559,8 @@ class TestCrossPollinationResetHandler:
     async def test_post_success(self):
         h = self._make()
         mgr = _mock_manager()
-        with patch(
-            "aragora.server.handlers.cross_pollination.get_cross_subscriber_manager",
-            return_value=mgr,
-        ):
-            result = await h.post()
+        with patch(_PATCH_MGR, return_value=mgr):
+            result = await h.post.__wrapped__(h)
         assert _status(result) == 200
         body = _body(result)
         assert body["status"] == "ok"
@@ -613,21 +570,17 @@ class TestCrossPollinationResetHandler:
     @pytest.mark.asyncio
     async def test_post_import_error(self):
         h = self._make()
-        with patch(
-            "aragora.server.handlers.cross_pollination.get_cross_subscriber_manager",
-            side_effect=ImportError("missing"),
-        ):
-            result = await h.post()
+        with patch.dict("sys.modules", {"aragora.events.cross_subscribers": None}):
+            result = await h.post.__wrapped__(h)
         assert _status(result) == 503
 
     @pytest.mark.asyncio
     async def test_post_key_error(self):
         h = self._make()
-        with patch(
-            "aragora.server.handlers.cross_pollination.get_cross_subscriber_manager",
-            side_effect=KeyError("k"),
-        ):
-            result = await h.post()
+        mgr = MagicMock()
+        mgr.reset_stats.side_effect = KeyError("k")
+        with patch(_PATCH_MGR, return_value=mgr):
+            result = await h.post.__wrapped__(h)
         assert _status(result) == 500
 
     @pytest.mark.asyncio
@@ -635,11 +588,17 @@ class TestCrossPollinationResetHandler:
         h = self._make()
         mgr = MagicMock()
         mgr.reset_stats.side_effect = ValueError("fail")
-        with patch(
-            "aragora.server.handlers.cross_pollination.get_cross_subscriber_manager",
-            return_value=mgr,
-        ):
-            result = await h.post()
+        with patch(_PATCH_MGR, return_value=mgr):
+            result = await h.post.__wrapped__(h)
+        assert _status(result) == 500
+
+    @pytest.mark.asyncio
+    async def test_post_type_error(self):
+        h = self._make()
+        mgr = MagicMock()
+        mgr.reset_stats.side_effect = TypeError("fail")
+        with patch(_PATCH_MGR, return_value=mgr):
+            result = await h.post.__wrapped__(h)
         assert _status(result) == 500
 
 
@@ -668,11 +627,8 @@ class TestCrossPollinationKMHandler:
             },
             batch_stats={"pending": 2, "flushed": 10},
         )
-        with patch(
-            "aragora.server.handlers.cross_pollination.get_cross_subscriber_manager",
-            return_value=mgr,
-        ):
-            result = await h.get()
+        with patch(_PATCH_MGR, return_value=mgr):
+            result = await h.get.__wrapped__(h)
         body = _body(result)
         assert body["status"] == "ok"
         assert body["summary"]["total_km_handlers"] == 15
@@ -690,13 +646,9 @@ class TestCrossPollinationKMHandler:
                 "mound_to_memory_retrieval": {"events_processed": 5, "events_failed": 0},
             },
         )
-        with patch(
-            "aragora.server.handlers.cross_pollination.get_cross_subscriber_manager",
-            return_value=mgr,
-        ):
-            result = await h.get()
+        with patch(_PATCH_MGR, return_value=mgr):
+            result = await h.get.__wrapped__(h)
         body = _body(result)
-        # inbound = not mound_to; outbound = mound_to
         assert body["summary"]["inbound_events_processed"] == 10
         assert body["summary"]["outbound_events_processed"] == 5
 
@@ -704,13 +656,9 @@ class TestCrossPollinationKMHandler:
     async def test_get_missing_handler_stats_default_to_zero(self):
         h = self._make()
         mgr = _mock_manager(stats={})
-        with patch(
-            "aragora.server.handlers.cross_pollination.get_cross_subscriber_manager",
-            return_value=mgr,
-        ):
-            result = await h.get()
+        with patch(_PATCH_MGR, return_value=mgr):
+            result = await h.get.__wrapped__(h)
         body = _body(result)
-        # All handlers should default to zero
         for name, stat in body["handlers"].items():
             assert stat["events_processed"] == 0
             assert stat["events_failed"] == 0
@@ -720,11 +668,8 @@ class TestCrossPollinationKMHandler:
         h = self._make()
         batch = {"pending": 5, "total_flushed": 100}
         mgr = _mock_manager(batch_stats=batch)
-        with patch(
-            "aragora.server.handlers.cross_pollination.get_cross_subscriber_manager",
-            return_value=mgr,
-        ):
-            result = await h.get()
+        with patch(_PATCH_MGR, return_value=mgr):
+            result = await h.get.__wrapped__(h)
         body = _body(result)
         assert body["batch_queue"] == batch
 
@@ -732,11 +677,8 @@ class TestCrossPollinationKMHandler:
     async def test_get_adapters_dict(self):
         h = self._make()
         mgr = _mock_manager()
-        with patch(
-            "aragora.server.handlers.cross_pollination.get_cross_subscriber_manager",
-            return_value=mgr,
-        ):
-            result = await h.get()
+        with patch(_PATCH_MGR, return_value=mgr):
+            result = await h.get.__wrapped__(h)
         body = _body(result)
         expected_adapters = [
             "ranking", "rlm", "continuum", "belief",
@@ -748,21 +690,22 @@ class TestCrossPollinationKMHandler:
     @pytest.mark.asyncio
     async def test_get_import_error(self):
         h = self._make()
-        with patch(
-            "aragora.server.handlers.cross_pollination.get_cross_subscriber_manager",
-            side_effect=ImportError("no module"),
-        ):
-            result = await h.get()
+        with patch.dict("sys.modules", {"aragora.events.cross_subscribers": None}):
+            result = await h.get.__wrapped__(h)
         assert _status(result) == 503
 
     @pytest.mark.asyncio
     async def test_get_os_error(self):
         h = self._make()
-        with patch(
-            "aragora.server.handlers.cross_pollination.get_cross_subscriber_manager",
-            side_effect=OSError("disk fail"),
-        ):
-            result = await h.get()
+        with patch(_PATCH_MGR, side_effect=OSError("disk fail")):
+            result = await h.get.__wrapped__(h)
+        assert _status(result) == 500
+
+    @pytest.mark.asyncio
+    async def test_get_key_error(self):
+        h = self._make()
+        with patch(_PATCH_MGR, side_effect=KeyError("k")):
+            result = await h.get.__wrapped__(h)
         assert _status(result) == 500
 
 
@@ -795,19 +738,11 @@ class TestCrossPollinationKMSyncHandler:
         mock_rlm = MagicMock()
         mock_rlm.get_stats.return_value = {"total_patterns": 8}
 
-        with patch(
-            "aragora.server.handlers.cross_pollination.get_cross_subscriber_manager",
-            return_value=mgr,
-        ), patch(
-            "aragora.server.handlers.cross_pollination.RankingAdapter",
-            return_value=mock_ranking,
-        ), patch(
-            "aragora.server.handlers.cross_pollination.RlmAdapter",
-            return_value=mock_rlm,
-        ), patch(
-            "aragora.server.handlers.cross_pollination.record_km_adapter_sync",
-        ):
-            result = await h.post()
+        with patch(_PATCH_MGR, return_value=mgr), \
+             patch(_PATCH_RANKING, return_value=mock_ranking), \
+             patch(_PATCH_RLM, return_value=mock_rlm), \
+             patch(_PATCH_RECORD_SYNC):
+            result = await h.post.__wrapped__(h)
         body = _body(result)
         assert body["status"] == "ok"
         assert body["results"]["ranking"]["status"] == "synced"
@@ -828,19 +763,11 @@ class TestCrossPollinationKMSyncHandler:
         mock_rlm = MagicMock()
         mock_rlm.get_stats.return_value = {"total_patterns": 0}
 
-        with patch(
-            "aragora.server.handlers.cross_pollination.get_cross_subscriber_manager",
-            return_value=mgr,
-        ), patch(
-            "aragora.server.handlers.cross_pollination.RankingAdapter",
-            return_value=mock_ranking,
-        ), patch(
-            "aragora.server.handlers.cross_pollination.RlmAdapter",
-            return_value=mock_rlm,
-        ), patch(
-            "aragora.server.handlers.cross_pollination.record_km_adapter_sync",
-        ):
-            result = await h.post()
+        with patch(_PATCH_MGR, return_value=mgr), \
+             patch(_PATCH_RANKING, return_value=mock_ranking), \
+             patch(_PATCH_RLM, return_value=mock_rlm), \
+             patch(_PATCH_RECORD_SYNC):
+            result = await h.post.__wrapped__(h)
         body = _body(result)
         assert body["results"]["ranking"]["status"] == "empty"
         assert body["results"]["rlm"]["status"] == "empty"
@@ -853,22 +780,14 @@ class TestCrossPollinationKMSyncHandler:
         mock_rlm = MagicMock()
         mock_rlm.get_stats.return_value = {"total_patterns": 0}
 
-        with patch(
-            "aragora.server.handlers.cross_pollination.get_cross_subscriber_manager",
-            return_value=mgr,
-        ), patch(
-            "aragora.server.handlers.cross_pollination.RankingAdapter",
-            side_effect=ImportError("no ranking"),
-        ), patch(
-            "aragora.server.handlers.cross_pollination.RlmAdapter",
-            return_value=mock_rlm,
-        ), patch(
-            "aragora.server.handlers.cross_pollination.record_km_adapter_sync",
-        ):
-            result = await h.post()
+        with patch(_PATCH_MGR, return_value=mgr), \
+             patch.dict("sys.modules", {"aragora.knowledge.mound.adapters.ranking_adapter": None}), \
+             patch(_PATCH_RLM, return_value=mock_rlm), \
+             patch(_PATCH_RECORD_SYNC):
+            result = await h.post.__wrapped__(h)
         body = _body(result)
         assert body["results"]["ranking"]["status"] == "unavailable"
-        assert body["status"] == "ok"  # Overall still ok
+        assert body["status"] == "ok"
 
     @pytest.mark.asyncio
     async def test_post_rlm_import_error(self):
@@ -878,19 +797,11 @@ class TestCrossPollinationKMSyncHandler:
         mock_ranking = MagicMock()
         mock_ranking.get_stats.return_value = {"total_expertise_records": 0}
 
-        with patch(
-            "aragora.server.handlers.cross_pollination.get_cross_subscriber_manager",
-            return_value=mgr,
-        ), patch(
-            "aragora.server.handlers.cross_pollination.RankingAdapter",
-            return_value=mock_ranking,
-        ), patch(
-            "aragora.server.handlers.cross_pollination.RlmAdapter",
-            side_effect=ImportError("no rlm"),
-        ), patch(
-            "aragora.server.handlers.cross_pollination.record_km_adapter_sync",
-        ):
-            result = await h.post()
+        with patch(_PATCH_MGR, return_value=mgr), \
+             patch(_PATCH_RANKING, return_value=mock_ranking), \
+             patch.dict("sys.modules", {"aragora.knowledge.mound.adapters.rlm_adapter": None}), \
+             patch(_PATCH_RECORD_SYNC):
+            result = await h.post.__wrapped__(h)
         body = _body(result)
         assert body["results"]["rlm"]["status"] == "unavailable"
 
@@ -905,19 +816,11 @@ class TestCrossPollinationKMSyncHandler:
         mock_rlm = MagicMock()
         mock_rlm.get_stats.return_value = {"total_patterns": 0}
 
-        with patch(
-            "aragora.server.handlers.cross_pollination.get_cross_subscriber_manager",
-            return_value=mgr,
-        ), patch(
-            "aragora.server.handlers.cross_pollination.RankingAdapter",
-            return_value=mock_ranking,
-        ), patch(
-            "aragora.server.handlers.cross_pollination.RlmAdapter",
-            return_value=mock_rlm,
-        ), patch(
-            "aragora.server.handlers.cross_pollination.record_km_adapter_sync",
-        ):
-            result = await h.post()
+        with patch(_PATCH_MGR, return_value=mgr), \
+             patch(_PATCH_RANKING, return_value=mock_ranking), \
+             patch(_PATCH_RLM, return_value=mock_rlm), \
+             patch(_PATCH_RECORD_SYNC):
+            result = await h.post.__wrapped__(h)
         body = _body(result)
         assert body["results"]["ranking"]["status"] == "error"
 
@@ -932,19 +835,11 @@ class TestCrossPollinationKMSyncHandler:
         mock_rlm = MagicMock()
         mock_rlm.get_stats.side_effect = OSError("disk")
 
-        with patch(
-            "aragora.server.handlers.cross_pollination.get_cross_subscriber_manager",
-            return_value=mgr,
-        ), patch(
-            "aragora.server.handlers.cross_pollination.RankingAdapter",
-            return_value=mock_ranking,
-        ), patch(
-            "aragora.server.handlers.cross_pollination.RlmAdapter",
-            return_value=mock_rlm,
-        ), patch(
-            "aragora.server.handlers.cross_pollination.record_km_adapter_sync",
-        ):
-            result = await h.post()
+        with patch(_PATCH_MGR, return_value=mgr), \
+             patch(_PATCH_RANKING, return_value=mock_ranking), \
+             patch(_PATCH_RLM, return_value=mock_rlm), \
+             patch(_PATCH_RECORD_SYNC):
+            result = await h.post.__wrapped__(h)
         body = _body(result)
         assert body["results"]["rlm"]["status"] == "error"
 
@@ -959,16 +854,10 @@ class TestCrossPollinationKMSyncHandler:
         mock_rlm = MagicMock()
         mock_rlm.get_stats.return_value = {"total_patterns": 0}
 
-        with patch(
-            "aragora.server.handlers.cross_pollination.get_cross_subscriber_manager",
-            return_value=mgr,
-        ), patch(
-            "aragora.server.handlers.cross_pollination.RlmAdapter",
-            return_value=mock_rlm,
-        ), patch(
-            "aragora.server.handlers.cross_pollination.record_km_adapter_sync",
-        ):
-            result = await h.post()
+        with patch(_PATCH_MGR, return_value=mgr), \
+             patch(_PATCH_RLM, return_value=mock_rlm), \
+             patch(_PATCH_RECORD_SYNC):
+            result = await h.post.__wrapped__(h)
         body = _body(result)
         assert body["results"]["ranking"]["status"] == "synced"
         cached_adapter.get_stats.assert_called_once()
@@ -984,16 +873,10 @@ class TestCrossPollinationKMSyncHandler:
         mock_ranking = MagicMock()
         mock_ranking.get_stats.return_value = {"total_expertise_records": 0}
 
-        with patch(
-            "aragora.server.handlers.cross_pollination.get_cross_subscriber_manager",
-            return_value=mgr,
-        ), patch(
-            "aragora.server.handlers.cross_pollination.RankingAdapter",
-            return_value=mock_ranking,
-        ), patch(
-            "aragora.server.handlers.cross_pollination.record_km_adapter_sync",
-        ):
-            result = await h.post()
+        with patch(_PATCH_MGR, return_value=mgr), \
+             patch(_PATCH_RANKING, return_value=mock_ranking), \
+             patch(_PATCH_RECORD_SYNC):
+            result = await h.post.__wrapped__(h)
         body = _body(result)
         assert body["results"]["rlm"]["status"] == "synced"
         cached_rlm.get_stats.assert_called_once()
@@ -1009,40 +892,25 @@ class TestCrossPollinationKMSyncHandler:
         mock_rlm = MagicMock()
         mock_rlm.get_stats.return_value = {"total_patterns": 0}
 
-        with patch(
-            "aragora.server.handlers.cross_pollination.get_cross_subscriber_manager",
-            return_value=mgr,
-        ), patch(
-            "aragora.server.handlers.cross_pollination.RankingAdapter",
-            return_value=mock_ranking,
-        ), patch(
-            "aragora.server.handlers.cross_pollination.RlmAdapter",
-            return_value=mock_rlm,
-        ), patch.dict(
-            "sys.modules",
-            {"aragora.server.prometheus_cross_pollination": None},
-        ):
+        with patch(_PATCH_MGR, return_value=mgr), \
+             patch(_PATCH_RANKING, return_value=mock_ranking), \
+             patch(_PATCH_RLM, return_value=mock_rlm), \
+             patch.dict("sys.modules", {"aragora.server.prometheus_cross_pollination": None}):
             result = await h.post.__wrapped__(h)
         assert _status(result) == 200
 
     @pytest.mark.asyncio
     async def test_post_manager_import_error(self):
         h = self._make()
-        with patch(
-            "aragora.server.handlers.cross_pollination.get_cross_subscriber_manager",
-            side_effect=ImportError("no module"),
-        ):
-            result = await h.post()
+        with patch.dict("sys.modules", {"aragora.events.cross_subscribers": None}):
+            result = await h.post.__wrapped__(h)
         assert _status(result) == 503
 
     @pytest.mark.asyncio
     async def test_post_manager_os_error(self):
         h = self._make()
-        with patch(
-            "aragora.server.handlers.cross_pollination.get_cross_subscriber_manager",
-            side_effect=OSError("fail"),
-        ):
-            result = await h.post()
+        with patch(_PATCH_MGR, side_effect=OSError("fail")):
+            result = await h.post.__wrapped__(h)
         assert _status(result) == 500
 
     @pytest.mark.asyncio
@@ -1054,19 +922,11 @@ class TestCrossPollinationKMSyncHandler:
         mock_rlm = MagicMock()
         mock_rlm.get_stats.return_value = {"total_patterns": 0}
 
-        with patch(
-            "aragora.server.handlers.cross_pollination.get_cross_subscriber_manager",
-            return_value=mgr,
-        ), patch(
-            "aragora.server.handlers.cross_pollination.RankingAdapter",
-            return_value=mock_ranking,
-        ), patch(
-            "aragora.server.handlers.cross_pollination.RlmAdapter",
-            return_value=mock_rlm,
-        ), patch(
-            "aragora.server.handlers.cross_pollination.record_km_adapter_sync",
-        ):
-            result = await h.post()
+        with patch(_PATCH_MGR, return_value=mgr), \
+             patch(_PATCH_RANKING, return_value=mock_ranking), \
+             patch(_PATCH_RLM, return_value=mock_rlm), \
+             patch(_PATCH_RECORD_SYNC):
+            result = await h.post.__wrapped__(h)
         body = _body(result)
         assert isinstance(body["duration_ms"], (int, float))
 
@@ -1082,22 +942,52 @@ class TestCrossPollinationKMSyncHandler:
         mock_rlm = MagicMock()
         mock_rlm.get_stats.return_value = {"total_patterns": 0}
 
-        with patch(
-            "aragora.server.handlers.cross_pollination.get_cross_subscriber_manager",
-            return_value=mgr,
-        ), patch(
-            "aragora.server.handlers.cross_pollination.RankingAdapter",
-            return_value=mock_ranking,
-        ), patch(
-            "aragora.server.handlers.cross_pollination.RlmAdapter",
-            return_value=mock_rlm,
-        ), patch(
-            "aragora.server.handlers.cross_pollination.record_km_adapter_sync",
-        ):
-            result = await h.post()
+        with patch(_PATCH_MGR, return_value=mgr), \
+             patch(_PATCH_RANKING, return_value=mock_ranking), \
+             patch(_PATCH_RLM, return_value=mock_rlm), \
+             patch(_PATCH_RECORD_SYNC):
+            result = await h.post.__wrapped__(h)
         body = _body(result)
         assert "domains" in body["results"]["ranking"]
         assert set(body["results"]["ranking"]["domains"]) == {"security", "ops"}
+
+    @pytest.mark.asyncio
+    async def test_post_ranking_attribute_error(self):
+        h = self._make()
+        mgr = _mock_manager()
+
+        mock_ranking = MagicMock()
+        mock_ranking.get_stats.side_effect = AttributeError("no attr")
+
+        mock_rlm = MagicMock()
+        mock_rlm.get_stats.return_value = {"total_patterns": 0}
+
+        with patch(_PATCH_MGR, return_value=mgr), \
+             patch(_PATCH_RANKING, return_value=mock_ranking), \
+             patch(_PATCH_RLM, return_value=mock_rlm), \
+             patch(_PATCH_RECORD_SYNC):
+            result = await h.post.__wrapped__(h)
+        body = _body(result)
+        assert body["results"]["ranking"]["status"] == "error"
+
+    @pytest.mark.asyncio
+    async def test_post_rlm_key_error(self):
+        h = self._make()
+        mgr = _mock_manager()
+
+        mock_ranking = MagicMock()
+        mock_ranking.get_stats.return_value = {"total_expertise_records": 0}
+
+        mock_rlm = MagicMock()
+        mock_rlm.get_stats.side_effect = KeyError("k")
+
+        with patch(_PATCH_MGR, return_value=mgr), \
+             patch(_PATCH_RANKING, return_value=mock_ranking), \
+             patch(_PATCH_RLM, return_value=mock_rlm), \
+             patch(_PATCH_RECORD_SYNC):
+            result = await h.post.__wrapped__(h)
+        body = _body(result)
+        assert body["results"]["rlm"]["status"] == "error"
 
 
 # ============================================================================
@@ -1124,18 +1014,11 @@ class TestCrossPollinationKMStalenessHandler:
             return_value=["node1", "node2", "node3"]
         )
 
-        with patch(
-            "aragora.server.handlers.cross_pollination.get_knowledge_mound",
-            return_value=mock_mound,
-        ), patch(
-            "aragora.server.handlers.cross_pollination.StalenessDetector",
-            return_value=mock_detector,
-        ), patch(
-            "aragora.server.handlers.cross_pollination.StalenessConfig",
-        ), patch(
-            "aragora.server.handlers.cross_pollination.record_km_staleness_check",
-        ):
-            result = await h.post()
+        with patch(_PATCH_MOUND, return_value=mock_mound), \
+             patch(_PATCH_STALENESS, return_value=mock_detector), \
+             patch(_PATCH_STALENESS_CFG), \
+             patch(_PATCH_RECORD_STALE):
+            result = await h.post.__wrapped__(h)
         body = _body(result)
         assert body["status"] == "ok"
         assert body["stale_nodes"] == 3
@@ -1150,18 +1033,11 @@ class TestCrossPollinationKMStalenessHandler:
         mock_detector = MagicMock()
         mock_detector.get_stale_nodes = AsyncMock(return_value=[])
 
-        with patch(
-            "aragora.server.handlers.cross_pollination.get_knowledge_mound",
-            return_value=mock_mound,
-        ), patch(
-            "aragora.server.handlers.cross_pollination.StalenessDetector",
-            return_value=mock_detector,
-        ), patch(
-            "aragora.server.handlers.cross_pollination.StalenessConfig",
-        ), patch(
-            "aragora.server.handlers.cross_pollination.record_km_staleness_check",
-        ):
-            result = await h.post()
+        with patch(_PATCH_MOUND, return_value=mock_mound), \
+             patch(_PATCH_STALENESS, return_value=mock_detector), \
+             patch(_PATCH_STALENESS_CFG), \
+             patch(_PATCH_RECORD_STALE):
+            result = await h.post.__wrapped__(h)
         body = _body(result)
         assert body["stale_nodes"] == 0
 
@@ -1172,33 +1048,21 @@ class TestCrossPollinationKMStalenessHandler:
         mock_detector = MagicMock()
         mock_detector.get_stale_nodes = AsyncMock(return_value=None)
 
-        with patch(
-            "aragora.server.handlers.cross_pollination.get_knowledge_mound",
-            return_value=mock_mound,
-        ), patch(
-            "aragora.server.handlers.cross_pollination.StalenessDetector",
-            return_value=mock_detector,
-        ), patch(
-            "aragora.server.handlers.cross_pollination.StalenessConfig",
-        ), patch(
-            "aragora.server.handlers.cross_pollination.record_km_staleness_check",
-        ):
-            result = await h.post()
+        with patch(_PATCH_MOUND, return_value=mock_mound), \
+             patch(_PATCH_STALENESS, return_value=mock_detector), \
+             patch(_PATCH_STALENESS_CFG), \
+             patch(_PATCH_RECORD_STALE):
+            result = await h.post.__wrapped__(h)
         body = _body(result)
         assert body["stale_nodes"] == 0
 
     @pytest.mark.asyncio
     async def test_post_mound_not_available(self):
         h = self._make()
-        with patch(
-            "aragora.server.handlers.cross_pollination.get_knowledge_mound",
-            return_value=None,
-        ), patch(
-            "aragora.server.handlers.cross_pollination.StalenessDetector",
-        ), patch(
-            "aragora.server.handlers.cross_pollination.StalenessConfig",
-        ):
-            result = await h.post()
+        with patch(_PATCH_MOUND, return_value=None), \
+             patch(_PATCH_STALENESS), \
+             patch(_PATCH_STALENESS_CFG):
+            result = await h.post.__wrapped__(h)
         body = _body(result)
         assert body["status"] == "ok"
         assert body["stale_nodes"] == 0
@@ -1224,18 +1088,10 @@ class TestCrossPollinationKMStalenessHandler:
         mock_detector = MagicMock()
         mock_detector.get_stale_nodes = AsyncMock(return_value=[])
 
-        with patch(
-            "aragora.server.handlers.cross_pollination.get_knowledge_mound",
-            return_value=mock_mound,
-        ), patch(
-            "aragora.server.handlers.cross_pollination.StalenessDetector",
-            return_value=mock_detector,
-        ), patch(
-            "aragora.server.handlers.cross_pollination.StalenessConfig",
-        ), patch.dict(
-            "sys.modules",
-            {"aragora.server.prometheus_cross_pollination": None},
-        ):
+        with patch(_PATCH_MOUND, return_value=mock_mound), \
+             patch(_PATCH_STALENESS, return_value=mock_detector), \
+             patch(_PATCH_STALENESS_CFG), \
+             patch.dict("sys.modules", {"aragora.server.prometheus_cross_pollination": None}):
             result = await h.post.__wrapped__(h)
         body = _body(result)
         assert body["status"] == "ok"
@@ -1243,30 +1099,29 @@ class TestCrossPollinationKMStalenessHandler:
     @pytest.mark.asyncio
     async def test_post_value_error(self):
         h = self._make()
-        with patch(
-            "aragora.server.handlers.cross_pollination.get_knowledge_mound",
-            side_effect=ValueError("bad"),
-        ), patch(
-            "aragora.server.handlers.cross_pollination.StalenessDetector",
-        ), patch(
-            "aragora.server.handlers.cross_pollination.StalenessConfig",
-        ):
-            # The outer handler catches (KeyError, ValueError, ...)
-            result = await h.post()
+        # The outer try catches ValueError
+        with patch(_PATCH_MOUND, side_effect=ValueError("bad")), \
+             patch(_PATCH_STALENESS), \
+             patch(_PATCH_STALENESS_CFG):
+            result = await h.post.__wrapped__(h)
         assert _status(result) == 500
 
     @pytest.mark.asyncio
     async def test_post_os_error(self):
         h = self._make()
-        with patch(
-            "aragora.server.handlers.cross_pollination.get_knowledge_mound",
-            side_effect=OSError("disk"),
-        ), patch(
-            "aragora.server.handlers.cross_pollination.StalenessDetector",
-        ), patch(
-            "aragora.server.handlers.cross_pollination.StalenessConfig",
-        ):
-            result = await h.post()
+        with patch(_PATCH_MOUND, side_effect=OSError("disk")), \
+             patch(_PATCH_STALENESS), \
+             patch(_PATCH_STALENESS_CFG):
+            result = await h.post.__wrapped__(h)
+        assert _status(result) == 500
+
+    @pytest.mark.asyncio
+    async def test_post_key_error(self):
+        h = self._make()
+        with patch(_PATCH_MOUND, side_effect=KeyError("k")), \
+             patch(_PATCH_STALENESS), \
+             patch(_PATCH_STALENESS_CFG):
+            result = await h.post.__wrapped__(h)
         assert _status(result) == 500
 
 
@@ -1296,11 +1151,8 @@ class TestCrossPollinationKMCultureHandler:
         }
         mock_mound._culture_accumulator = mock_accumulator
 
-        with patch(
-            "aragora.server.handlers.cross_pollination.get_knowledge_mound",
-            return_value=mock_mound,
-        ):
-            result = await h.get()
+        with patch(_PATCH_MOUND, return_value=mock_mound):
+            result = await h.get.__wrapped__(h)
         body = _body(result)
         assert body["status"] == "ok"
         assert body["workspace_id"] == "default"
@@ -1309,11 +1161,8 @@ class TestCrossPollinationKMCultureHandler:
     @pytest.mark.asyncio
     async def test_get_mound_none(self):
         h = self._make()
-        with patch(
-            "aragora.server.handlers.cross_pollination.get_knowledge_mound",
-            return_value=None,
-        ):
-            result = await h.get()
+        with patch(_PATCH_MOUND, return_value=None):
+            result = await h.get.__wrapped__(h)
         body = _body(result)
         assert body["status"] == "ok"
         assert body["patterns"] == []
@@ -1323,11 +1172,8 @@ class TestCrossPollinationKMCultureHandler:
     async def test_get_mound_without_accumulator_attr(self):
         h = self._make()
         mock_mound = MagicMock(spec=[])  # Empty spec means no attributes
-        with patch(
-            "aragora.server.handlers.cross_pollination.get_knowledge_mound",
-            return_value=mock_mound,
-        ):
-            result = await h.get()
+        with patch(_PATCH_MOUND, return_value=mock_mound):
+            result = await h.get.__wrapped__(h)
         body = _body(result)
         assert body["status"] == "ok"
         assert body["patterns"] == []
@@ -1338,11 +1184,8 @@ class TestCrossPollinationKMCultureHandler:
         mock_mound = MagicMock()
         mock_mound._culture_accumulator = None
 
-        with patch(
-            "aragora.server.handlers.cross_pollination.get_knowledge_mound",
-            return_value=mock_mound,
-        ):
-            result = await h.get()
+        with patch(_PATCH_MOUND, return_value=mock_mound):
+            result = await h.get.__wrapped__(h)
         body = _body(result)
         assert body["status"] == "ok"
         assert body["patterns"] == []
@@ -1369,11 +1212,8 @@ class TestCrossPollinationKMCultureHandler:
         mock_mound = MagicMock()
         mock_mound._culture_accumulator = None
 
-        with patch(
-            "aragora.server.handlers.cross_pollination.get_knowledge_mound",
-            return_value=mock_mound,
-        ):
-            result = await h.get()
+        with patch(_PATCH_MOUND, return_value=mock_mound):
+            result = await h.get.__wrapped__(h)
         body = _body(result)
         assert body["workspace_id"] == "custom-ws"
 
@@ -1387,32 +1227,30 @@ class TestCrossPollinationKMCultureHandler:
         mock_mound = MagicMock()
         mock_mound._culture_accumulator = None
 
-        with patch(
-            "aragora.server.handlers.cross_pollination.get_knowledge_mound",
-            return_value=mock_mound,
-        ):
-            result = await h.get()
+        with patch(_PATCH_MOUND, return_value=mock_mound):
+            result = await h.get.__wrapped__(h)
         body = _body(result)
         assert body["workspace_id"] == "default"
 
     @pytest.mark.asyncio
     async def test_get_key_error(self):
         h = self._make()
-        with patch(
-            "aragora.server.handlers.cross_pollination.get_knowledge_mound",
-            side_effect=KeyError("k"),
-        ):
-            result = await h.get()
+        with patch(_PATCH_MOUND, side_effect=KeyError("k")):
+            result = await h.get.__wrapped__(h)
         assert _status(result) == 500
 
     @pytest.mark.asyncio
     async def test_get_os_error(self):
         h = self._make()
-        with patch(
-            "aragora.server.handlers.cross_pollination.get_knowledge_mound",
-            side_effect=OSError("io"),
-        ):
-            result = await h.get()
+        with patch(_PATCH_MOUND, side_effect=OSError("io")):
+            result = await h.get.__wrapped__(h)
+        assert _status(result) == 500
+
+    @pytest.mark.asyncio
+    async def test_get_value_error(self):
+        h = self._make()
+        with patch(_PATCH_MOUND, side_effect=ValueError("v")):
+            result = await h.get.__wrapped__(h)
         assert _status(result) == 500
 
 
@@ -1427,11 +1265,10 @@ class TestRegisterRoutes:
     def test_register_with_add_route(self):
         router = MagicMock()
         router.add_route = MagicMock()
-        del router.add_api_route  # Ensure add_api_route not present
+        del router.add_api_route
 
         register_routes(router, server_context={})
 
-        # 9 routes registered
         assert router.add_route.call_count == 9
 
     def test_register_with_add_api_route(self):
@@ -1460,7 +1297,7 @@ class TestRegisterRoutes:
         register_routes(router, server_context=None)
         assert router.add_route.call_count == 9
 
-    def test_register_routes_include_all_methods(self):
+    def test_register_routes_include_all_paths(self):
         router = MagicMock()
         router.add_route = MagicMock()
         del router.add_api_route
@@ -1468,10 +1305,8 @@ class TestRegisterRoutes:
         register_routes(router, server_context={})
 
         calls = router.add_route.call_args_list
-        methods = [c[0][0] for c in calls]
         paths = [c[0][1] for c in calls]
 
-        # Verify all expected paths
         assert "/api/v1/cross-pollination/stats" in paths
         assert "/api/v1/cross-pollination/subscribers" in paths
         assert "/api/v1/cross-pollination/bridge" in paths
@@ -1482,13 +1317,25 @@ class TestRegisterRoutes:
         assert "/api/v1/cross-pollination/km/staleness-check" in paths
         assert "/api/v1/cross-pollination/km/culture" in paths
 
-        # Verify methods
-        for call in calls:
-            method, path, _ = call[0]
-            if "reset" in path or "sync" == path.split("/")[-1] or "staleness" in path:
-                assert method == "POST"
-            elif "metrics" in path or "stats" in path or "subscribers" in path or "bridge" in path or "km" == path.split("/")[-1] or "culture" in path:
-                assert method == "GET"
+    def test_register_correct_methods(self):
+        router = MagicMock()
+        router.add_route = MagicMock()
+        del router.add_api_route
+
+        register_routes(router, server_context={})
+
+        calls = router.add_route.call_args_list
+        method_path = {c[0][1]: c[0][0] for c in calls}
+
+        assert method_path["/api/v1/cross-pollination/stats"] == "GET"
+        assert method_path["/api/v1/cross-pollination/subscribers"] == "GET"
+        assert method_path["/api/v1/cross-pollination/bridge"] == "GET"
+        assert method_path["/api/v1/cross-pollination/metrics"] == "GET"
+        assert method_path["/api/v1/cross-pollination/km"] == "GET"
+        assert method_path["/api/v1/cross-pollination/km/culture"] == "GET"
+        assert method_path["/api/v1/cross-pollination/reset"] == "POST"
+        assert method_path["/api/v1/cross-pollination/km/sync"] == "POST"
+        assert method_path["/api/v1/cross-pollination/km/staleness-check"] == "POST"
 
     def test_register_handles_route_error(self):
         """register_routes should not raise even if add_route fails."""
@@ -1496,7 +1343,6 @@ class TestRegisterRoutes:
         router.add_route = MagicMock(side_effect=ValueError("duplicate route"))
         del router.add_api_route
 
-        # Should not raise
         register_routes(router, server_context={})
 
     def test_register_handles_type_error(self):
@@ -1509,6 +1355,13 @@ class TestRegisterRoutes:
     def test_register_handles_os_error(self):
         router = MagicMock()
         router.add_route = MagicMock(side_effect=OSError("fail"))
+        del router.add_api_route
+
+        register_routes(router, server_context={})
+
+    def test_register_handles_attribute_error(self):
+        router = MagicMock()
+        router.add_route = MagicMock(side_effect=AttributeError("fail"))
         del router.add_api_route
 
         register_routes(router, server_context={})
@@ -1588,11 +1441,8 @@ class TestEdgeCases:
             for i in range(100)
         }
         mgr = _mock_manager(stats=stats)
-        with patch(
-            "aragora.server.handlers.cross_pollination.get_cross_subscriber_manager",
-            return_value=mgr,
-        ):
-            result = await h.get()
+        with patch(_PATCH_MGR, return_value=mgr):
+            result = await h.get.__wrapped__(h)
         body = _body(result)
         assert body["summary"]["total_subscribers"] == 100
         assert body["summary"]["total_events_processed"] == sum(i * 10 for i in range(100))
@@ -1601,11 +1451,8 @@ class TestEdgeCases:
     async def test_km_handler_all_15_handlers_present(self):
         h = CrossPollinationKMHandler(server_context={})
         mgr = _mock_manager()
-        with patch(
-            "aragora.server.handlers.cross_pollination.get_cross_subscriber_manager",
-            return_value=mgr,
-        ):
-            result = await h.get()
+        with patch(_PATCH_MGR, return_value=mgr):
+            result = await h.get.__wrapped__(h)
         body = _body(result)
         assert len(body["handlers"]) == 15
 
@@ -1613,11 +1460,8 @@ class TestEdgeCases:
     async def test_km_handler_specific_handler_names(self):
         h = CrossPollinationKMHandler(server_context={})
         mgr = _mock_manager()
-        with patch(
-            "aragora.server.handlers.cross_pollination.get_cross_subscriber_manager",
-            return_value=mgr,
-        ):
-            result = await h.get()
+        with patch(_PATCH_MGR, return_value=mgr):
+            result = await h.get.__wrapped__(h)
         body = _body(result)
         expected_handlers = [
             "memory_to_mound",
@@ -1644,28 +1488,17 @@ class TestEdgeCases:
         """When no cached adapter, the sync handler creates and caches it."""
         h = CrossPollinationKMSyncHandler(server_context={})
         mgr = _mock_manager()
-        # Ensure no cached adapters
-        assert not hasattr(mgr, "_ranking_adapter")
-        assert not hasattr(mgr, "_rlm_adapter")
 
         mock_ranking = MagicMock()
         mock_ranking.get_stats.return_value = {"total_expertise_records": 0}
         mock_rlm = MagicMock()
         mock_rlm.get_stats.return_value = {"total_patterns": 0}
 
-        with patch(
-            "aragora.server.handlers.cross_pollination.get_cross_subscriber_manager",
-            return_value=mgr,
-        ), patch(
-            "aragora.server.handlers.cross_pollination.RankingAdapter",
-            return_value=mock_ranking,
-        ), patch(
-            "aragora.server.handlers.cross_pollination.RlmAdapter",
-            return_value=mock_rlm,
-        ), patch(
-            "aragora.server.handlers.cross_pollination.record_km_adapter_sync",
-        ):
-            result = await h.post()
+        with patch(_PATCH_MGR, return_value=mgr), \
+             patch(_PATCH_RANKING, return_value=mock_ranking), \
+             patch(_PATCH_RLM, return_value=mock_rlm), \
+             patch(_PATCH_RECORD_SYNC):
+            result = await h.post.__wrapped__(h)
         assert _status(result) == 200
 
     @pytest.mark.asyncio
@@ -1681,11 +1514,8 @@ class TestEdgeCases:
         }
         mock_mound._culture_accumulator = mock_accumulator
 
-        with patch(
-            "aragora.server.handlers.cross_pollination.get_knowledge_mound",
-            return_value=mock_mound,
-        ):
-            result = await h.get()
+        with patch(_PATCH_MOUND, return_value=mock_mound):
+            result = await h.get.__wrapped__(h)
         body = _body(result)
         assert body["categories"] == {"debate": 1}
         assert body["total"] == 1
@@ -1699,18 +1529,11 @@ class TestEdgeCases:
             return_value=["a", "b"]
         )
 
-        with patch(
-            "aragora.server.handlers.cross_pollination.get_knowledge_mound",
-            return_value=mock_mound,
-        ), patch(
-            "aragora.server.handlers.cross_pollination.StalenessDetector",
-            return_value=mock_detector,
-        ), patch(
-            "aragora.server.handlers.cross_pollination.StalenessConfig",
-        ), patch(
-            "aragora.server.handlers.cross_pollination.record_km_staleness_check",
-        ):
-            result = await h.post()
+        with patch(_PATCH_MOUND, return_value=mock_mound), \
+             patch(_PATCH_STALENESS, return_value=mock_detector), \
+             patch(_PATCH_STALENESS_CFG), \
+             patch(_PATCH_RECORD_STALE):
+            result = await h.post.__wrapped__(h)
         body = _body(result)
         assert "2" in body["message"]
 
@@ -1726,10 +1549,64 @@ class TestEdgeCases:
         mgr = MagicMock()
         mgr._subscribers = {evt: [("named_sub", my_handler)]}
 
-        with patch(
-            "aragora.server.handlers.cross_pollination.get_cross_subscriber_manager",
-            return_value=mgr,
-        ):
-            result = await h.get()
+        with patch(_PATCH_MGR, return_value=mgr):
+            result = await h.get.__wrapped__(h)
         body = _body(result)
         assert body["subscribers"][0]["handler"] == "my_handler"
+
+    @pytest.mark.asyncio
+    async def test_stats_all_disabled_subscribers(self):
+        h = CrossPollinationStatsHandler()
+        stats = {
+            "s1": {"events_processed": 5, "events_failed": 0, "enabled": False},
+            "s2": {"events_processed": 3, "events_failed": 0, "enabled": False},
+        }
+        mgr = _mock_manager(stats=stats)
+        with patch(_PATCH_MGR, return_value=mgr):
+            result = await h.get.__wrapped__(h)
+        body = _body(result)
+        assert body["summary"]["enabled_subscribers"] == 0
+        assert body["summary"]["total_subscribers"] == 2
+
+    @pytest.mark.asyncio
+    async def test_stats_all_enabled_subscribers(self):
+        h = CrossPollinationStatsHandler()
+        stats = {
+            "s1": {"events_processed": 5, "events_failed": 0, "enabled": True},
+            "s2": {"events_processed": 3, "events_failed": 0, "enabled": True},
+        }
+        mgr = _mock_manager(stats=stats)
+        with patch(_PATCH_MGR, return_value=mgr):
+            result = await h.get.__wrapped__(h)
+        body = _body(result)
+        assert body["summary"]["enabled_subscribers"] == 2
+
+    @pytest.mark.asyncio
+    async def test_bridge_single_mapping(self):
+        h = CrossPollinationBridgeHandler()
+        mock_map = {"only_event": MagicMock(value="only_stream")}
+        with patch(_PATCH_BRIDGE, mock_map):
+            result = await h.get.__wrapped__(h)
+        body = _body(result)
+        assert body["mapped_event_count"] == 1
+        assert "only_event" in body["event_mappings"]
+
+    @pytest.mark.asyncio
+    async def test_reset_handler_body_message(self):
+        h = CrossPollinationResetHandler(server_context={})
+        mgr = _mock_manager()
+        with patch(_PATCH_MGR, return_value=mgr):
+            result = await h.post.__wrapped__(h)
+        body = _body(result)
+        assert body["message"] == "Cross-subscriber statistics reset"
+
+    @pytest.mark.asyncio
+    async def test_km_handler_inbound_outbound_handler_counts(self):
+        h = CrossPollinationKMHandler(server_context={})
+        mgr = _mock_manager()
+        with patch(_PATCH_MGR, return_value=mgr):
+            result = await h.get.__wrapped__(h)
+        body = _body(result)
+        # 6 outbound (mound_to_*), 9 inbound
+        assert body["summary"]["outbound_handlers"] == 6
+        assert body["summary"]["inbound_handlers"] == 9

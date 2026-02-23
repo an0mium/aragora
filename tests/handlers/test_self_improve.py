@@ -247,7 +247,6 @@ def mock_store():
 def reset_rate_limiters():
     """Reset rate limiters between tests to prevent cross-test pollution."""
     yield
-    # Clear rate limiter state by resetting the distributed limiter buckets
     try:
         from aragora.server.handlers.utils.rate_limit import clear_all_limiters
         clear_all_limiters()
@@ -260,6 +259,10 @@ def clear_active_tasks():
     """Clear the module-level _active_tasks dict between tests."""
     _active_tasks.clear()
     yield
+    # Also cancel any lingering asyncio tasks
+    for task in _active_tasks.values():
+        if hasattr(task, "cancel"):
+            task.cancel()
     _active_tasks.clear()
 
 
@@ -291,9 +294,14 @@ class TestExtractRunId:
         assert _extract_run_id("/api/self-improve/runs/abc-def-123") == "abc-def-123"
 
     def test_extract_with_trailing_slash(self):
-        # strip("/") handles trailing slash
         result = _extract_run_id("/api/self-improve/runs/run-001/")
         assert result is not None
+
+    def test_empty_path(self):
+        assert _extract_run_id("") is None
+
+    def test_root_path(self):
+        assert _extract_run_id("/") is None
 
 
 # ===========================================================================
@@ -347,8 +355,13 @@ class TestCanHandle:
         assert handler.can_handle("/api/v1/billing/plans") is False
 
     def test_handles_any_self_improve_subpath(self, handler):
-        # can_handle allows any path starting with /api/self-improve/
         assert handler.can_handle("/api/self-improve/custom-endpoint") is True
+
+    def test_method_parameter_accepted(self, handler):
+        assert handler.can_handle("/api/self-improve/status", method="POST") is True
+
+    def test_does_not_handle_partial_match(self, handler):
+        assert handler.can_handle("/api/self-improveX/status") is False
 
 
 # ===========================================================================
@@ -369,7 +382,6 @@ class TestGetStatus:
 
     @pytest.mark.asyncio
     async def test_running_with_active_task(self, handler, http_handler, mock_store):
-        # Create a mock active task that is not done
         mock_task = MagicMock()
         mock_task.done.return_value = False
         _active_tasks["run-001"] = mock_task
@@ -412,7 +424,6 @@ class TestGetStatus:
 
     @pytest.mark.asyncio
     async def test_running_store_returns_none_for_run(self, handler, http_handler, mock_store):
-        """Active task but store.get_run returns None for the run id."""
         mock_task = MagicMock()
         mock_task.done.return_value = False
         _active_tasks["run-001"] = mock_task
@@ -447,6 +458,11 @@ class TestGetStatus:
         result = await handler.handle("/api/v1/self-improve/status", {}, http_handler)
         body = _body(result)
         assert body["state"] == "idle"
+
+    @pytest.mark.asyncio
+    async def test_status_200_code(self, handler, http_handler):
+        result = await handler.handle("/api/self-improve/status", {}, http_handler)
+        assert _status(result) == 200
 
 
 # ===========================================================================
@@ -510,6 +526,22 @@ class TestListRuns:
         body = _body(result)
         assert "runs" in body
 
+    @pytest.mark.asyncio
+    async def test_list_runs_empty_result(self, handler, http_handler, mock_store):
+        handler._store = mock_store
+        mock_store.list_runs.return_value = []
+        result = await handler.handle("/api/self-improve/runs", {}, http_handler)
+        body = _body(result)
+        assert body["total"] == 0
+        assert body["runs"] == []
+
+    @pytest.mark.asyncio
+    async def test_history_store_unavailable(self, handler, http_handler):
+        handler._store = None
+        with patch.object(handler, "_get_store", return_value=None):
+            result = await handler.handle("/api/self-improve/history", {}, http_handler)
+        assert _status(result) == 503
+
 
 # ===========================================================================
 # GET /api/self-improve/runs/:id
@@ -548,12 +580,18 @@ class TestGetRun:
         result = await handler.handle(
             "/api/self-improve/runs/run-001/cancel", {}, http_handler
         )
-        # handle() returns None because cancel is a POST path
         assert result is None
+
+    @pytest.mark.asyncio
+    async def test_get_run_200_status(self, handler, http_handler, mock_store):
+        handler._store = mock_store
+        result = await handler.handle("/api/self-improve/runs/run-001", {}, http_handler)
+        assert _status(result) == 200
 
 
 # ===========================================================================
 # POST /api/self-improve/run and /start
+# (Mock _execute_run to prevent background execution)
 # ===========================================================================
 
 
@@ -564,7 +602,8 @@ class TestStartRun:
     async def test_start_run(self, handler, mock_store):
         handler._store = mock_store
         http = MockHTTPHandler(body={"goal": "Improve coverage"})
-        result = await handler.handle_post("/api/self-improve/run", {}, http)
+        with patch.object(handler, "_execute_run", new_callable=AsyncMock):
+            result = await handler.handle_post("/api/self-improve/run", {}, http)
         assert _status(result) == 202
         body = _body(result)
         assert body["status"] == "started"
@@ -574,7 +613,8 @@ class TestStartRun:
     async def test_start_run_legacy_alias(self, handler, mock_store):
         handler._store = mock_store
         http = MockHTTPHandler(body={"goal": "Fix bugs"})
-        result = await handler.handle_post("/api/self-improve/start", {}, http)
+        with patch.object(handler, "_execute_run", new_callable=AsyncMock):
+            result = await handler.handle_post("/api/self-improve/start", {}, http)
         assert _status(result) == 202
 
     @pytest.mark.asyncio
@@ -604,14 +644,16 @@ class TestStartRun:
     async def test_start_run_flat_mode(self, handler, mock_store):
         handler._store = mock_store
         http = MockHTTPHandler(body={"goal": "Test", "mode": "flat"})
-        result = await handler.handle_post("/api/self-improve/run", {}, http)
+        with patch.object(handler, "_execute_run", new_callable=AsyncMock):
+            result = await handler.handle_post("/api/self-improve/run", {}, http)
         assert _status(result) == 202
 
     @pytest.mark.asyncio
     async def test_start_run_hierarchical_mode(self, handler, mock_store):
         handler._store = mock_store
         http = MockHTTPHandler(body={"goal": "Test", "mode": "hierarchical"})
-        result = await handler.handle_post("/api/self-improve/run", {}, http)
+        with patch.object(handler, "_execute_run", new_callable=AsyncMock):
+            result = await handler.handle_post("/api/self-improve/run", {}, http)
         assert _status(result) == 202
 
     @pytest.mark.asyncio
@@ -638,7 +680,8 @@ class TestStartRun:
                 "require_approval": True,
             }
         )
-        result = await handler.handle_post("/api/self-improve/run", {}, http)
+        with patch.object(handler, "_execute_run", new_callable=AsyncMock):
+            result = await handler.handle_post("/api/self-improve/run", {}, http)
         assert _status(result) == 202
 
     @pytest.mark.asyncio
@@ -646,15 +689,29 @@ class TestStartRun:
         handler._store = mock_store
         mock_store.create_run.return_value = MockRun("run-task-test", "Test", "pending")
         http = MockHTTPHandler(body={"goal": "Test"})
-        result = await handler.handle_post("/api/self-improve/run", {}, http)
+        with patch.object(handler, "_execute_run", new_callable=AsyncMock):
+            result = await handler.handle_post("/api/self-improve/run", {}, http)
         assert "run-task-test" in _active_tasks
 
     @pytest.mark.asyncio
     async def test_start_run_versioned_path(self, handler, mock_store):
         handler._store = mock_store
         http = MockHTTPHandler(body={"goal": "Test versioned"})
-        result = await handler.handle_post("/api/v1/self-improve/run", {}, http)
+        with patch.object(handler, "_execute_run", new_callable=AsyncMock):
+            result = await handler.handle_post("/api/v1/self-improve/run", {}, http)
         assert _status(result) == 202
+
+    @pytest.mark.asyncio
+    async def test_start_run_updates_store_status(self, handler, mock_store):
+        """Starting a run should update the store with 'running' status."""
+        handler._store = mock_store
+        http = MockHTTPHandler(body={"goal": "Test update"})
+        with patch.object(handler, "_execute_run", new_callable=AsyncMock):
+            await handler.handle_post("/api/self-improve/run", {}, http)
+        # update_run should be called with status="running"
+        mock_store.update_run.assert_called()
+        call_kwargs = mock_store.update_run.call_args[1]
+        assert call_kwargs["status"] == "running"
 
 
 # ===========================================================================
@@ -666,14 +723,11 @@ class TestDryRun:
     """Tests for dry-run mode via POST /api/self-improve/run."""
 
     @pytest.mark.asyncio
-    async def test_dry_run_with_pipeline(self, handler, mock_store):
+    async def test_dry_run_returns_preview(self, handler, mock_store):
         handler._store = mock_store
-
-        mock_pipeline = MagicMock()
-        mock_pipeline.dry_run = AsyncMock(return_value={"steps": ["a", "b"]})
-
-        with patch(
-            "aragora.server.handlers.self_improve.SelfImproveHandler._generate_plan",
+        with patch.object(
+            handler,
+            "_generate_plan",
             new_callable=AsyncMock,
             return_value={"goal": "Test", "subtasks": [{"desc": "do stuff"}]},
         ):
@@ -683,8 +737,23 @@ class TestDryRun:
         body = _body(result)
         assert body["status"] == "preview"
         assert "plan" in body
-        # Run store should be updated with completed status
+        assert "run_id" in body
+
+    @pytest.mark.asyncio
+    async def test_dry_run_updates_store_completed(self, handler, mock_store):
+        handler._store = mock_store
+        with patch.object(
+            handler,
+            "_generate_plan",
+            new_callable=AsyncMock,
+            return_value={"goal": "Test"},
+        ):
+            http = MockHTTPHandler(body={"goal": "Test", "dry_run": True})
+            await handler.handle_post("/api/self-improve/run", {}, http)
+
         mock_store.update_run.assert_called()
+        call_kwargs = mock_store.update_run.call_args[1]
+        assert call_kwargs["status"] == "completed"
 
     @pytest.mark.asyncio
     async def test_dry_run_emits_websocket_event(self, handler, mock_store):
@@ -701,7 +770,7 @@ class TestDryRun:
                 return_value={"goal": "Test"},
             ):
                 http = MockHTTPHandler(body={"goal": "Test", "dry_run": True})
-                result = await handler.handle_post("/api/self-improve/run", {}, http)
+                await handler.handle_post("/api/self-improve/run", {}, http)
 
         mock_stream.emit_phase_completed.assert_awaited_once()
 
@@ -723,7 +792,26 @@ class TestDryRun:
                 http = MockHTTPHandler(body={"goal": "Test", "dry_run": True})
                 result = await handler.handle_post("/api/self-improve/run", {}, http)
 
-        # Should still succeed
+        assert _body(result)["status"] == "preview"
+
+    @pytest.mark.asyncio
+    async def test_dry_run_os_error_in_stream(self, handler, mock_store):
+        """OSError in stream emit should also be handled."""
+        handler._store = mock_store
+
+        mock_stream = MagicMock()
+        mock_stream.emit_phase_completed = AsyncMock(side_effect=OSError("ws fail"))
+
+        with patch.object(handler, "_get_stream_server", return_value=mock_stream):
+            with patch.object(
+                handler,
+                "_generate_plan",
+                new_callable=AsyncMock,
+                return_value={"goal": "Test"},
+            ):
+                http = MockHTTPHandler(body={"goal": "Test", "dry_run": True})
+                result = await handler.handle_post("/api/self-improve/run", {}, http)
+
         assert _body(result)["status"] == "preview"
 
     @pytest.mark.asyncio
@@ -743,6 +831,23 @@ class TestDryRun:
 
         assert "dry-run-001" not in _active_tasks
 
+    @pytest.mark.asyncio
+    async def test_dry_run_no_stream_server(self, handler, mock_store):
+        """No stream server => event emit is skipped without error."""
+        handler._store = mock_store
+
+        with patch.object(handler, "_get_stream_server", return_value=None):
+            with patch.object(
+                handler,
+                "_generate_plan",
+                new_callable=AsyncMock,
+                return_value={"goal": "Test"},
+            ):
+                http = MockHTTPHandler(body={"goal": "Test", "dry_run": True})
+                result = await handler.handle_post("/api/self-improve/run", {}, http)
+
+        assert _body(result)["status"] == "preview"
+
 
 # ===========================================================================
 # _generate_plan tests
@@ -755,22 +860,14 @@ class TestGeneratePlan:
     @pytest.mark.asyncio
     async def test_generate_plan_pipeline_path(self, handler):
         """Test plan generation via SelfImprovePipeline."""
-        mock_pipeline_cls = MagicMock()
         mock_pipeline = MagicMock()
         mock_pipeline.dry_run = AsyncMock(return_value={"steps": ["a"]})
-        mock_pipeline_cls.return_value = mock_pipeline
 
-        mock_config_cls = MagicMock()
+        mock_module = MagicMock()
+        mock_module.SelfImprovePipeline.return_value = mock_pipeline
+        mock_module.SelfImproveConfig.return_value = MagicMock()
 
-        with patch.dict(
-            "sys.modules",
-            {
-                "aragora.nomic.self_improve": MagicMock(
-                    SelfImprovePipeline=mock_pipeline_cls,
-                    SelfImproveConfig=mock_config_cls,
-                ),
-            },
-        ):
+        with patch.dict("sys.modules", {"aragora.nomic.self_improve": mock_module}):
             plan = await handler._generate_plan("Improve tests", ["qa"])
 
         assert plan["tracks"] == ["qa"]
@@ -781,31 +878,23 @@ class TestGeneratePlan:
         mock_subtask = MockSubtask("Write tests", "qa", 1)
         mock_result = MockDecomposerResult(subtasks=[mock_subtask], complexity_score=0.7)
 
-        mock_decomposer_cls = MagicMock()
         mock_decomposer = MagicMock()
         mock_decomposer.analyze.return_value = mock_result
-        mock_decomposer_cls.return_value = mock_decomposer
+        mock_decomposer_module = MagicMock()
+        mock_decomposer_module.TaskDecomposer.return_value = mock_decomposer
 
-        with patch(
-            "aragora.server.handlers.self_improve.SelfImproveHandler._generate_plan",
-            wraps=handler._generate_plan,
-        ):
-            # Simulate pipeline import failure, decomposer success
-            with patch.dict("sys.modules", {"aragora.nomic.self_improve": None}):
-                with patch.dict(
-                    "sys.modules",
-                    {
-                        "aragora.nomic.task_decomposer": MagicMock(
-                            TaskDecomposer=mock_decomposer_cls,
-                        ),
-                    },
-                ):
-                    plan = await handler._generate_plan("Test", ["qa"])
+        with patch.dict("sys.modules", {"aragora.nomic.self_improve": None}):
+            with patch.dict(
+                "sys.modules",
+                {"aragora.nomic.task_decomposer": mock_decomposer_module},
+            ):
+                plan = await handler._generate_plan("Test", ["qa"])
 
         assert plan["goal"] == "Test"
         assert plan["tracks"] == ["qa"]
         assert len(plan["subtasks"]) == 1
         assert plan["subtasks"][0]["description"] == "Write tests"
+        assert plan["complexity"] == 0.7
 
     @pytest.mark.asyncio
     async def test_generate_plan_full_fallback(self, handler):
@@ -818,6 +907,48 @@ class TestGeneratePlan:
         assert plan["tracks"] == []
         assert plan["subtasks"] == []
         assert "error" in plan
+
+    @pytest.mark.asyncio
+    async def test_generate_plan_pipeline_runtime_error(self, handler):
+        """RuntimeError in pipeline dry_run falls back to decomposer."""
+        mock_pipeline = MagicMock()
+        mock_pipeline.dry_run = AsyncMock(side_effect=RuntimeError("fail"))
+
+        mock_module = MagicMock()
+        mock_module.SelfImprovePipeline.return_value = mock_pipeline
+        mock_module.SelfImproveConfig.return_value = MagicMock()
+
+        with patch.dict("sys.modules", {"aragora.nomic.self_improve": mock_module}):
+            with patch.dict("sys.modules", {"aragora.nomic.task_decomposer": None}):
+                plan = await handler._generate_plan("Test", [])
+
+        # Falls through to full fallback
+        assert plan["goal"] == "Test"
+        assert "error" in plan
+
+    @pytest.mark.asyncio
+    async def test_generate_plan_no_tracks(self, handler):
+        """Tracks=None should produce empty tracks list."""
+        with patch.dict("sys.modules", {"aragora.nomic.self_improve": None}):
+            with patch.dict("sys.modules", {"aragora.nomic.task_decomposer": None}):
+                plan = await handler._generate_plan("Test", None)
+        assert plan["tracks"] == []
+
+    @pytest.mark.asyncio
+    async def test_generate_plan_scan_mode_params(self, handler):
+        """Verify scan_mode and quick_mode are passed to config."""
+        mock_pipeline = MagicMock()
+        mock_pipeline.dry_run = AsyncMock(return_value={"steps": []})
+
+        mock_config_cls = MagicMock()
+        mock_module = MagicMock()
+        mock_module.SelfImprovePipeline.return_value = mock_pipeline
+        mock_module.SelfImproveConfig = mock_config_cls
+
+        with patch.dict("sys.modules", {"aragora.nomic.self_improve": mock_module}):
+            await handler._generate_plan("Test", [], scan_mode=True, quick_mode=True)
+
+        mock_config_cls.assert_called_once_with(scan_mode=True, quick_mode=True)
 
 
 # ===========================================================================
@@ -884,6 +1015,26 @@ class TestCancelRun:
             )
         assert _status(result) == 503
 
+    @pytest.mark.asyncio
+    async def test_cancel_no_active_task(self, handler, mock_store):
+        """Cancel a run that has no active task (already cleaned up)."""
+        handler._store = mock_store
+        http = MockHTTPHandler(body={})
+        result = await handler.handle_post(
+            "/api/self-improve/runs/run-001/cancel", {}, http
+        )
+        body = _body(result)
+        assert body["status"] == "cancelled"
+
+    @pytest.mark.asyncio
+    async def test_cancel_200_status(self, handler, mock_store):
+        handler._store = mock_store
+        http = MockHTTPHandler(body={})
+        result = await handler.handle_post(
+            "/api/self-improve/runs/run-001/cancel", {}, http
+        )
+        assert _status(result) == 200
+
 
 # ===========================================================================
 # POST /api/self-improve/coordinate
@@ -897,7 +1048,8 @@ class TestCoordinate:
     async def test_coordinate_start(self, handler, mock_store):
         handler._store = mock_store
         http = MockHTTPHandler(body={"goal": "Coordinate test"})
-        result = await handler.handle_post("/api/self-improve/coordinate", {}, http)
+        with patch.object(handler, "_execute_coordination", new_callable=AsyncMock):
+            result = await handler.handle_post("/api/self-improve/coordinate", {}, http)
         assert _status(result) == 202
         body = _body(result)
         assert body["status"] == "coordinating"
@@ -914,6 +1066,13 @@ class TestCoordinate:
     async def test_coordinate_empty_goal(self, handler, mock_store):
         handler._store = mock_store
         http = MockHTTPHandler(body={"goal": ""})
+        result = await handler.handle_post("/api/self-improve/coordinate", {}, http)
+        assert _status(result) == 400
+
+    @pytest.mark.asyncio
+    async def test_coordinate_whitespace_goal(self, handler, mock_store):
+        handler._store = mock_store
+        http = MockHTTPHandler(body={"goal": "   \n\t  "})
         result = await handler.handle_post("/api/self-improve/coordinate", {}, http)
         assert _status(result) == 400
 
@@ -937,7 +1096,8 @@ class TestCoordinate:
                 "max_parallel_workers": 8,
             }
         )
-        result = await handler.handle_post("/api/self-improve/coordinate", {}, http)
+        with patch.object(handler, "_execute_coordination", new_callable=AsyncMock):
+            result = await handler.handle_post("/api/self-improve/coordinate", {}, http)
         assert _status(result) == 202
 
     @pytest.mark.asyncio
@@ -945,8 +1105,30 @@ class TestCoordinate:
         handler._store = mock_store
         mock_store.create_run.return_value = MockRun("coord-001", "Test", "pending")
         http = MockHTTPHandler(body={"goal": "Coordinate"})
-        await handler.handle_post("/api/self-improve/coordinate", {}, http)
+        with patch.object(handler, "_execute_coordination", new_callable=AsyncMock):
+            await handler.handle_post("/api/self-improve/coordinate", {}, http)
         assert "coord-001" in _active_tasks
+
+    @pytest.mark.asyncio
+    async def test_coordinate_updates_store(self, handler, mock_store):
+        handler._store = mock_store
+        http = MockHTTPHandler(body={"goal": "Test"})
+        with patch.object(handler, "_execute_coordination", new_callable=AsyncMock):
+            await handler.handle_post("/api/self-improve/coordinate", {}, http)
+        mock_store.update_run.assert_called()
+        call_kwargs = mock_store.update_run.call_args[1]
+        assert call_kwargs["status"] == "running"
+
+    @pytest.mark.asyncio
+    async def test_coordinate_default_max_cycles(self, handler, mock_store):
+        handler._store = mock_store
+        http = MockHTTPHandler(body={"goal": "Test coord defaults"})
+        with patch.object(handler, "_execute_coordination", new_callable=AsyncMock):
+            await handler.handle_post("/api/self-improve/coordinate", {}, http)
+        mock_store.create_run.assert_called_once()
+        call_kwargs = mock_store.create_run.call_args[1]
+        assert call_kwargs["mode"] == "hierarchical"
+        assert call_kwargs["max_cycles"] == 3
 
 
 # ===========================================================================
@@ -969,16 +1151,10 @@ class TestExecuteCoordination:
 
         mock_coordinator = MagicMock()
         mock_coordinator.coordinate = AsyncMock(return_value=mock_result)
+        mock_module = MagicMock()
+        mock_module.HierarchicalCoordinator.return_value = mock_coordinator
 
-        with patch.dict(
-            "sys.modules",
-            {
-                "aragora.nomic.hierarchical_coordinator": MagicMock(
-                    HierarchicalCoordinator=MagicMock(return_value=mock_coordinator),
-                    CoordinatorConfig=MagicMock(),
-                ),
-            },
-        ):
+        with patch.dict("sys.modules", {"aragora.nomic.hierarchical_coordinator": mock_module}):
             await handler._execute_coordination("run-c01", "Improve", None)
 
         mock_store.update_run.assert_called()
@@ -997,16 +1173,10 @@ class TestExecuteCoordination:
 
         mock_coordinator = MagicMock()
         mock_coordinator.coordinate = AsyncMock(return_value=mock_result)
+        mock_module = MagicMock()
+        mock_module.HierarchicalCoordinator.return_value = mock_coordinator
 
-        with patch.dict(
-            "sys.modules",
-            {
-                "aragora.nomic.hierarchical_coordinator": MagicMock(
-                    HierarchicalCoordinator=MagicMock(return_value=mock_coordinator),
-                    CoordinatorConfig=MagicMock(),
-                ),
-            },
-        ):
+        with patch.dict("sys.modules", {"aragora.nomic.hierarchical_coordinator": mock_module}):
             await handler._execute_coordination("run-c02", "Bad goal", None)
 
         call_kwargs = mock_store.update_run.call_args[1]
@@ -1028,16 +1198,10 @@ class TestExecuteCoordination:
 
         mock_coordinator = MagicMock()
         mock_coordinator.coordinate = AsyncMock(side_effect=RuntimeError("boom"))
+        mock_module = MagicMock()
+        mock_module.HierarchicalCoordinator.return_value = mock_coordinator
 
-        with patch.dict(
-            "sys.modules",
-            {
-                "aragora.nomic.hierarchical_coordinator": MagicMock(
-                    HierarchicalCoordinator=MagicMock(return_value=mock_coordinator),
-                    CoordinatorConfig=MagicMock(),
-                ),
-            },
-        ):
+        with patch.dict("sys.modules", {"aragora.nomic.hierarchical_coordinator": mock_module}):
             await handler._execute_coordination("run-c04", "Test", None)
 
         call_kwargs = mock_store.update_run.call_args[1]
@@ -1058,8 +1222,54 @@ class TestExecuteCoordination:
     async def test_coordination_no_store(self, handler):
         handler._store = None
         with patch.object(handler, "_get_store", return_value=None):
-            # Should return silently
             await handler._execute_coordination("run-c06", "Test", None)
+
+    @pytest.mark.asyncio
+    async def test_coordination_value_error(self, handler, mock_store):
+        handler._store = mock_store
+
+        mock_coordinator = MagicMock()
+        mock_coordinator.coordinate = AsyncMock(side_effect=ValueError("bad"))
+        mock_module = MagicMock()
+        mock_module.HierarchicalCoordinator.return_value = mock_coordinator
+
+        with patch.dict("sys.modules", {"aragora.nomic.hierarchical_coordinator": mock_module}):
+            await handler._execute_coordination("run-c07", "Test", None)
+
+        call_kwargs = mock_store.update_run.call_args[1]
+        assert call_kwargs["status"] == "failed"
+
+    @pytest.mark.asyncio
+    async def test_coordination_summary_on_success(self, handler, mock_store):
+        handler._store = mock_store
+
+        mock_result = MockCoordinationResult(success=True, cycles_used=2, worker_reports=[])
+        mock_coordinator = MagicMock()
+        mock_coordinator.coordinate = AsyncMock(return_value=mock_result)
+        mock_module = MagicMock()
+        mock_module.HierarchicalCoordinator.return_value = mock_coordinator
+
+        with patch.dict("sys.modules", {"aragora.nomic.hierarchical_coordinator": mock_module}):
+            await handler._execute_coordination("run-c08", "Test", None)
+
+        call_kwargs = mock_store.update_run.call_args[1]
+        assert "2 cycles" in call_kwargs["summary"]
+
+    @pytest.mark.asyncio
+    async def test_coordination_summary_on_failure(self, handler, mock_store):
+        handler._store = mock_store
+
+        mock_result = MockCoordinationResult(success=False, cycles_used=3, worker_reports=[])
+        mock_coordinator = MagicMock()
+        mock_coordinator.coordinate = AsyncMock(return_value=mock_result)
+        mock_module = MagicMock()
+        mock_module.HierarchicalCoordinator.return_value = mock_coordinator
+
+        with patch.dict("sys.modules", {"aragora.nomic.hierarchical_coordinator": mock_module}):
+            await handler._execute_coordination("run-c09", "Test", None)
+
+        call_kwargs = mock_store.update_run.call_args[1]
+        assert call_kwargs["summary"] == "Coordination failed"
 
 
 # ===========================================================================
@@ -1094,26 +1304,15 @@ class TestExecuteRun:
         mock_pipeline = MagicMock()
         mock_pipeline.run = AsyncMock(return_value=mock_result)
 
-        mock_config_cls = MagicMock()
-        mock_pipeline_cls = MagicMock(return_value=mock_pipeline)
+        mock_module = MagicMock()
+        mock_module.SelfImprovePipeline.return_value = mock_pipeline
 
         with patch.object(handler, "_get_stream_server", return_value=None):
-            with patch.dict(
-                "sys.modules",
-                {
-                    "aragora.nomic.self_improve": MagicMock(
-                        SelfImprovePipeline=mock_pipeline_cls,
-                        SelfImproveConfig=mock_config_cls,
-                    ),
-                },
-            ):
-                await handler._execute_run(
-                    "run-e03", "Improve", None, "flat", None, 5
-                )
+            with patch.dict("sys.modules", {"aragora.nomic.self_improve": mock_module}):
+                await handler._execute_run("run-e03", "Improve", None, "flat", None, 5)
 
-        # Should update store with completed status
         update_calls = [c for c in mock_store.update_run.call_args_list if c[0][0] == "run-e03"]
-        assert any("completed" in str(c) for c in update_calls)
+        assert any(c[1].get("status") == "completed" for c in update_calls)
 
     @pytest.mark.asyncio
     async def test_execute_run_pipeline_import_error_falls_back(self, handler, mock_store):
@@ -1123,20 +1322,13 @@ class TestExecuteRun:
         mock_orch_result = MockOrchestratorResult()
         mock_orch = MagicMock()
         mock_orch.execute_goal_coordinated = AsyncMock(return_value=mock_orch_result)
+        mock_orch_module = MagicMock()
+        mock_orch_module.HardenedOrchestrator.return_value = mock_orch
 
         with patch.object(handler, "_get_stream_server", return_value=None):
             with patch.dict("sys.modules", {"aragora.nomic.self_improve": None}):
-                with patch.dict(
-                    "sys.modules",
-                    {
-                        "aragora.nomic.hardened_orchestrator": MagicMock(
-                            HardenedOrchestrator=MagicMock(return_value=mock_orch),
-                        ),
-                    },
-                ):
-                    await handler._execute_run(
-                        "run-e04", "Test", None, "flat", None, 5
-                    )
+                with patch.dict("sys.modules", {"aragora.nomic.hardened_orchestrator": mock_orch_module}):
+                    await handler._execute_run("run-e04", "Test", None, "flat", None, 5)
 
         update_calls = mock_store.update_run.call_args_list
         assert any(
@@ -1152,12 +1344,8 @@ class TestExecuteRun:
 
         with patch.object(handler, "_get_stream_server", return_value=None):
             with patch.dict("sys.modules", {"aragora.nomic.self_improve": None}):
-                with patch.dict(
-                    "sys.modules", {"aragora.nomic.hardened_orchestrator": None}
-                ):
-                    await handler._execute_run(
-                        "run-e05", "Test", None, "flat", None, 5
-                    )
+                with patch.dict("sys.modules", {"aragora.nomic.hardened_orchestrator": None}):
+                    await handler._execute_run("run-e05", "Test", None, "flat", None, 5)
 
         update_calls = mock_store.update_run.call_args_list
         assert any(
@@ -1173,12 +1361,8 @@ class TestExecuteRun:
 
         with patch.object(handler, "_get_stream_server", return_value=None):
             with patch.dict("sys.modules", {"aragora.nomic.self_improve": None}):
-                with patch.dict(
-                    "sys.modules", {"aragora.nomic.hardened_orchestrator": None}
-                ):
-                    await handler._execute_run(
-                        "run-e06", "Test", None, "flat", None, 5
-                    )
+                with patch.dict("sys.modules", {"aragora.nomic.hardened_orchestrator": None}):
+                    await handler._execute_run("run-e06", "Test", None, "flat", None, 5)
 
         assert "run-e06" not in _active_tasks
 
@@ -1195,22 +1379,194 @@ class TestExecuteRun:
         mock_pipeline = MagicMock()
         mock_pipeline.run = AsyncMock(return_value=mock_result)
 
+        mock_module = MagicMock()
+        mock_module.SelfImprovePipeline.return_value = mock_pipeline
+
         with patch.object(handler, "_get_stream_server", return_value=mock_stream):
-            with patch.dict(
-                "sys.modules",
-                {
-                    "aragora.nomic.self_improve": MagicMock(
-                        SelfImprovePipeline=MagicMock(return_value=mock_pipeline),
-                        SelfImproveConfig=MagicMock(),
-                    ),
-                },
-            ):
-                await handler._execute_run(
-                    "run-e07", "Test", None, "flat", None, 5
-                )
+            with patch.dict("sys.modules", {"aragora.nomic.self_improve": mock_module}):
+                await handler._execute_run("run-e07", "Test", None, "flat", None, 5)
 
         mock_stream.emit_loop_started.assert_awaited_once()
         mock_stream.emit_loop_stopped.assert_awaited_once()
+
+    @pytest.mark.asyncio
+    async def test_execute_run_ws_loop_started_failure(self, handler, mock_store):
+        """WebSocket emit_loop_started failure should not break execution."""
+        handler._store = mock_store
+
+        mock_stream = MagicMock()
+        mock_stream.emit_loop_started = AsyncMock(side_effect=RuntimeError("ws fail"))
+        mock_stream.emit_phase_started = AsyncMock()
+        mock_stream.emit_loop_stopped = AsyncMock()
+
+        mock_result = MockPipelineResult(1, 1, 0)
+        mock_pipeline = MagicMock()
+        mock_pipeline.run = AsyncMock(return_value=mock_result)
+
+        mock_module = MagicMock()
+        mock_module.SelfImprovePipeline.return_value = mock_pipeline
+
+        with patch.object(handler, "_get_stream_server", return_value=mock_stream):
+            with patch.dict("sys.modules", {"aragora.nomic.self_improve": mock_module}):
+                await handler._execute_run("run-e08", "Test", None, "flat", None, 5)
+
+        # Should still complete
+        update_calls = mock_store.update_run.call_args_list
+        assert any(c[1].get("status") == "completed" for c in update_calls if c[0][0] == "run-e08")
+
+    @pytest.mark.asyncio
+    async def test_execute_run_pipeline_runtime_error_falls_back(self, handler, mock_store):
+        """RuntimeError from pipeline should fall back to orchestrator."""
+        handler._store = mock_store
+
+        mock_pipeline = MagicMock()
+        mock_pipeline.run = AsyncMock(side_effect=RuntimeError("pipeline boom"))
+
+        mock_pipeline_module = MagicMock()
+        mock_pipeline_module.SelfImprovePipeline.return_value = mock_pipeline
+
+        mock_orch_result = MockOrchestratorResult()
+        mock_orch = MagicMock()
+        mock_orch.execute_goal_coordinated = AsyncMock(return_value=mock_orch_result)
+        mock_orch_module = MagicMock()
+        mock_orch_module.HardenedOrchestrator.return_value = mock_orch
+
+        mock_stream = MagicMock()
+        mock_stream.emit_loop_started = AsyncMock()
+        mock_stream.emit_phase_started = AsyncMock()
+        mock_stream.emit_error = AsyncMock()
+        mock_stream.emit_loop_stopped = AsyncMock()
+
+        with patch.object(handler, "_get_stream_server", return_value=mock_stream):
+            with patch.dict("sys.modules", {"aragora.nomic.self_improve": mock_pipeline_module}):
+                with patch.dict("sys.modules", {"aragora.nomic.hardened_orchestrator": mock_orch_module}):
+                    await handler._execute_run("run-e09", "Test", None, "flat", None, 5)
+
+        mock_stream.emit_error.assert_awaited_once()
+
+    @pytest.mark.asyncio
+    async def test_execute_run_orchestrator_error_emits_stream(self, handler, mock_store):
+        handler._store = mock_store
+
+        mock_stream = MagicMock()
+        mock_stream.emit_loop_started = AsyncMock()
+        mock_stream.emit_error = AsyncMock()
+
+        mock_orch = MagicMock()
+        mock_orch.execute_goal_coordinated = AsyncMock(side_effect=ValueError("bad"))
+        mock_orch_module = MagicMock()
+        mock_orch_module.HardenedOrchestrator.return_value = mock_orch
+
+        with patch.object(handler, "_get_stream_server", return_value=mock_stream):
+            with patch.dict("sys.modules", {"aragora.nomic.self_improve": None}):
+                with patch.dict("sys.modules", {"aragora.nomic.hardened_orchestrator": mock_orch_module}):
+                    await handler._execute_run("run-e10", "Test", None, "flat", None, 5)
+
+        mock_stream.emit_error.assert_awaited()
+
+    @pytest.mark.asyncio
+    async def test_execute_run_stream_error_emit_failure_swallowed(self, handler, mock_store):
+        """Stream emit_error failure should be swallowed silently."""
+        handler._store = mock_store
+
+        mock_stream = MagicMock()
+        mock_stream.emit_loop_started = AsyncMock()
+        mock_stream.emit_error = AsyncMock(side_effect=OSError("ws dead"))
+
+        mock_orch = MagicMock()
+        mock_orch.execute_goal_coordinated = AsyncMock(side_effect=TypeError("bad type"))
+        mock_orch_module = MagicMock()
+        mock_orch_module.HardenedOrchestrator.return_value = mock_orch
+
+        with patch.object(handler, "_get_stream_server", return_value=mock_stream):
+            with patch.dict("sys.modules", {"aragora.nomic.self_improve": None}):
+                with patch.dict("sys.modules", {"aragora.nomic.hardened_orchestrator": mock_orch_module}):
+                    await handler._execute_run("run-e11", "Test", None, "flat", None, 5)
+
+        # Should not raise
+        update_calls = mock_store.update_run.call_args_list
+        assert any(c[1].get("status") == "failed" for c in update_calls if c[0][0] == "run-e11")
+
+
+# ===========================================================================
+# Pipeline zero-completed subtasks path
+# ===========================================================================
+
+
+class TestPipelineZeroCompleted:
+    """Test pipeline result with zero completed subtasks."""
+
+    @pytest.mark.asyncio
+    async def test_zero_completed_sets_failed(self, handler, mock_store):
+        handler._store = mock_store
+
+        mock_result = MockPipelineResult(subtasks_completed=0, subtasks_total=5, subtasks_failed=5)
+        mock_pipeline = MagicMock()
+        mock_pipeline.run = AsyncMock(return_value=mock_result)
+        mock_module = MagicMock()
+        mock_module.SelfImprovePipeline.return_value = mock_pipeline
+
+        with patch.object(handler, "_get_stream_server", return_value=None):
+            with patch.dict("sys.modules", {"aragora.nomic.self_improve": mock_module}):
+                await handler._execute_run("run-zero", "Test", None, "flat", None, 5)
+
+        update_calls = mock_store.update_run.call_args_list
+        assert any(
+            c[1].get("status") == "failed"
+            for c in update_calls
+            if c[0][0] == "run-zero"
+        )
+
+
+# ===========================================================================
+# Orchestrator success/failure status mapping
+# ===========================================================================
+
+
+class TestOrchestratorStatusMapping:
+    """Test that orchestrator result.success maps correctly."""
+
+    @pytest.mark.asyncio
+    async def test_orchestrator_success_true(self, handler, mock_store):
+        handler._store = mock_store
+        mock_result = MockOrchestratorResult(success=True)
+        mock_orch = MagicMock()
+        mock_orch.execute_goal_coordinated = AsyncMock(return_value=mock_result)
+        mock_module = MagicMock()
+        mock_module.HardenedOrchestrator.return_value = mock_orch
+
+        with patch.object(handler, "_get_stream_server", return_value=None):
+            with patch.dict("sys.modules", {"aragora.nomic.self_improve": None}):
+                with patch.dict("sys.modules", {"aragora.nomic.hardened_orchestrator": mock_module}):
+                    await handler._execute_run("run-orch-ok", "Test", None, "flat", None, 5)
+
+        update_calls = mock_store.update_run.call_args_list
+        assert any(
+            c[1].get("status") == "completed"
+            for c in update_calls
+            if c[0][0] == "run-orch-ok"
+        )
+
+    @pytest.mark.asyncio
+    async def test_orchestrator_success_false(self, handler, mock_store):
+        handler._store = mock_store
+        mock_result = MockOrchestratorResult(success=False)
+        mock_orch = MagicMock()
+        mock_orch.execute_goal_coordinated = AsyncMock(return_value=mock_result)
+        mock_module = MagicMock()
+        mock_module.HardenedOrchestrator.return_value = mock_orch
+
+        with patch.object(handler, "_get_stream_server", return_value=None):
+            with patch.dict("sys.modules", {"aragora.nomic.self_improve": None}):
+                with patch.dict("sys.modules", {"aragora.nomic.hardened_orchestrator": mock_module}):
+                    await handler._execute_run("run-orch-fail", "Test", None, "flat", None, 5)
+
+        update_calls = mock_store.update_run.call_args_list
+        assert any(
+            c[1].get("status") == "failed"
+            for c in update_calls
+            if c[0][0] == "run-orch-fail"
+        )
 
 
 # ===========================================================================
@@ -1226,15 +1582,10 @@ class TestWorktrees:
         mock_wt = MockWorktree()
         mock_coordinator = MagicMock()
         mock_coordinator.list_worktrees.return_value = [mock_wt]
+        mock_module = MagicMock()
+        mock_module.BranchCoordinator.return_value = mock_coordinator
 
-        with patch.dict(
-            "sys.modules",
-            {
-                "aragora.nomic.branch_coordinator": MagicMock(
-                    BranchCoordinator=MagicMock(return_value=mock_coordinator),
-                ),
-            },
-        ):
+        with patch.dict("sys.modules", {"aragora.nomic.branch_coordinator": mock_module}):
             result = await handler.handle("/api/self-improve/worktrees", {}, http_handler)
 
         body = _body(result)
@@ -1246,15 +1597,10 @@ class TestWorktrees:
     async def test_list_worktrees_empty(self, handler, http_handler):
         mock_coordinator = MagicMock()
         mock_coordinator.list_worktrees.return_value = []
+        mock_module = MagicMock()
+        mock_module.BranchCoordinator.return_value = mock_coordinator
 
-        with patch.dict(
-            "sys.modules",
-            {
-                "aragora.nomic.branch_coordinator": MagicMock(
-                    BranchCoordinator=MagicMock(return_value=mock_coordinator),
-                ),
-            },
-        ):
+        with patch.dict("sys.modules", {"aragora.nomic.branch_coordinator": mock_module}):
             result = await handler.handle("/api/self-improve/worktrees", {}, http_handler)
 
         body = _body(result)
@@ -1271,18 +1617,36 @@ class TestWorktrees:
         assert "error" in body
 
     @pytest.mark.asyncio
+    async def test_list_worktrees_value_error(self, handler, http_handler):
+        mock_module = MagicMock()
+        mock_module.BranchCoordinator.side_effect = ValueError("bad config")
+
+        with patch.dict("sys.modules", {"aragora.nomic.branch_coordinator": mock_module}):
+            result = await handler.handle("/api/self-improve/worktrees", {}, http_handler)
+
+        body = _body(result)
+        assert body["total"] == 0
+        assert "error" in body
+
+    @pytest.mark.asyncio
+    async def test_list_worktrees_os_error(self, handler, http_handler):
+        mock_module = MagicMock()
+        mock_module.BranchCoordinator.side_effect = OSError("disk")
+
+        with patch.dict("sys.modules", {"aragora.nomic.branch_coordinator": mock_module}):
+            result = await handler.handle("/api/self-improve/worktrees", {}, http_handler)
+
+        body = _body(result)
+        assert body["total"] == 0
+
+    @pytest.mark.asyncio
     async def test_cleanup_worktrees(self, handler):
         mock_coordinator = MagicMock()
         mock_coordinator.cleanup_all_worktrees.return_value = 3
+        mock_module = MagicMock()
+        mock_module.BranchCoordinator.return_value = mock_coordinator
 
-        with patch.dict(
-            "sys.modules",
-            {
-                "aragora.nomic.branch_coordinator": MagicMock(
-                    BranchCoordinator=MagicMock(return_value=mock_coordinator),
-                ),
-            },
-        ):
+        with patch.dict("sys.modules", {"aragora.nomic.branch_coordinator": mock_module}):
             http = MockHTTPHandler(body={})
             result = await handler.handle_post(
                 "/api/self-improve/worktrees/cleanup", {}, http
@@ -1304,23 +1668,50 @@ class TestWorktrees:
 
     @pytest.mark.asyncio
     async def test_cleanup_worktrees_os_error(self, handler):
-        mock_coordinator = MagicMock()
-        mock_coordinator.cleanup_all_worktrees.side_effect = OSError("disk fail")
+        mock_module = MagicMock()
+        mock_module.BranchCoordinator.return_value.cleanup_all_worktrees.side_effect = OSError("disk")
 
-        with patch.dict(
-            "sys.modules",
-            {
-                "aragora.nomic.branch_coordinator": MagicMock(
-                    BranchCoordinator=MagicMock(return_value=mock_coordinator),
-                ),
-            },
-        ):
+        with patch.dict("sys.modules", {"aragora.nomic.branch_coordinator": mock_module}):
             http = MockHTTPHandler(body={})
             result = await handler.handle_post(
                 "/api/self-improve/worktrees/cleanup", {}, http
             )
 
         assert _status(result) == 503
+
+    @pytest.mark.asyncio
+    async def test_cleanup_worktrees_value_error(self, handler):
+        mock_module = MagicMock()
+        mock_module.BranchCoordinator.side_effect = ValueError("bad")
+
+        with patch.dict("sys.modules", {"aragora.nomic.branch_coordinator": mock_module}):
+            http = MockHTTPHandler(body={})
+            result = await handler.handle_post(
+                "/api/self-improve/worktrees/cleanup", {}, http
+            )
+
+        assert _status(result) == 503
+
+    @pytest.mark.asyncio
+    async def test_multiple_worktrees(self, handler, http_handler):
+        worktrees = [
+            MockWorktree("branch-1", "/tmp/wt1", "qa", "2026-01-01", "a1"),
+            MockWorktree("branch-2", "/tmp/wt2", "dev", "2026-01-02", "a2"),
+        ]
+        mock_coordinator = MagicMock()
+        mock_coordinator.list_worktrees.return_value = worktrees
+        mock_module = MagicMock()
+        mock_module.BranchCoordinator.return_value = mock_coordinator
+
+        with patch.dict("sys.modules", {"aragora.nomic.branch_coordinator": mock_module}):
+            result = await handler.handle("/api/self-improve/worktrees", {}, http_handler)
+
+        body = _body(result)
+        assert body["total"] == 2
+        assert body["worktrees"][0]["branch_name"] == "branch-1"
+        assert body["worktrees"][1]["track"] == "dev"
+        assert body["worktrees"][1]["assignment_id"] == "a2"
+        assert body["worktrees"][0]["worktree_path"] == "/tmp/wt1"
 
 
 # ===========================================================================
@@ -1349,6 +1740,18 @@ class TestUnrecognizedPaths:
         result = await handler.handle_post("/api/self-improve/cancel", {}, http)
         assert result is None
 
+    @pytest.mark.asyncio
+    async def test_handle_get_for_post_only_route(self, handler, http_handler):
+        """GET /api/self-improve/run should return None (it's a POST-only route)."""
+        result = await handler.handle("/api/self-improve/run", {}, http_handler)
+        assert result is None
+
+    @pytest.mark.asyncio
+    async def test_handle_get_coordinate(self, handler, http_handler):
+        """GET /api/self-improve/coordinate should return None."""
+        result = await handler.handle("/api/self-improve/coordinate", {}, http_handler)
+        assert result is None
+
 
 # ===========================================================================
 # Store initialization
@@ -1371,14 +1774,30 @@ class TestStoreInitialization:
         handler._store = mock_store
         assert handler._get_store() is mock_store
 
+    def test_get_store_os_error(self, handler):
+        mock_module = MagicMock()
+        mock_module.SelfImproveRunStore.side_effect = OSError("disk failure")
+        with patch.dict("sys.modules", {"aragora.nomic.stores.run_store": mock_module}):
+            result = handler._get_store()
+        assert result is None
+
     def test_get_stream_server_import_error(self, handler):
         with patch.dict("sys.modules", {"aragora.server.stream.nomic_loop_stream": None}):
             result = handler._get_stream_server()
         assert result is None
 
+    def test_get_stream_server_caches(self, handler):
+        mock_stream = MagicMock()
+        handler._stream_server = mock_stream
+        mock_module = MagicMock()
+        mock_module.NomicLoopStreamServer = MagicMock
+        with patch.dict("sys.modules", {"aragora.server.stream.nomic_loop_stream": mock_module}):
+            result = handler._get_stream_server()
+        assert result is mock_stream
+
 
 # ===========================================================================
-# Handler ROUTES attribute
+# Handler ROUTES and class attributes
 # ===========================================================================
 
 
@@ -1402,9 +1821,12 @@ class TestRoutes:
     def test_resource_type(self, handler):
         assert handler.RESOURCE_TYPE == "self_improve"
 
+    def test_routes_count(self, handler):
+        assert len(handler.ROUTES) == 8
+
 
 # ===========================================================================
-# Edge case: read_json_body returns None
+# Edge case: body parsing
 # ===========================================================================
 
 
@@ -1415,8 +1837,7 @@ class TestBodyParsing:
     async def test_start_run_with_null_body(self, handler, mock_store):
         """read_json_body returns None => body defaults to {}."""
         handler._store = mock_store
-        http = MockHTTPHandler()  # No body provided
-        # Should fail because goal is missing/empty
+        http = MockHTTPHandler()
         result = await handler.handle_post("/api/self-improve/run", {}, http)
         assert _status(result) == 400
 
@@ -1440,9 +1861,9 @@ class TestDefaultParams:
     async def test_start_run_defaults(self, handler, mock_store):
         handler._store = mock_store
         http = MockHTTPHandler(body={"goal": "Test defaults"})
-        await handler.handle_post("/api/self-improve/run", {}, http)
+        with patch.object(handler, "_execute_run", new_callable=AsyncMock):
+            await handler.handle_post("/api/self-improve/run", {}, http)
 
-        # Check create_run was called with expected defaults
         mock_store.create_run.assert_called_once()
         call_kwargs = mock_store.create_run.call_args[1]
         assert call_kwargs["mode"] == "flat"
@@ -1451,363 +1872,22 @@ class TestDefaultParams:
         assert call_kwargs["tracks"] == []
 
     @pytest.mark.asyncio
-    async def test_coordinate_defaults(self, handler, mock_store):
+    async def test_start_run_custom_budget(self, handler, mock_store):
         handler._store = mock_store
-        http = MockHTTPHandler(body={"goal": "Test coord defaults"})
-        await handler.handle_post("/api/self-improve/coordinate", {}, http)
+        http = MockHTTPHandler(body={"goal": "Test", "budget_limit_usd": 25.0})
+        with patch.object(handler, "_execute_run", new_callable=AsyncMock):
+            await handler.handle_post("/api/self-improve/run", {}, http)
 
         mock_store.create_run.assert_called_once()
         call_kwargs = mock_store.create_run.call_args[1]
-        assert call_kwargs["mode"] == "hierarchical"
-        assert call_kwargs["max_cycles"] == 3
-
-
-# ===========================================================================
-# Multiple worktrees serialization
-# ===========================================================================
-
-
-class TestWorktreeSerialization:
-    """Tests for worktree data serialization."""
+        assert call_kwargs["budget_limit_usd"] == 25.0
 
     @pytest.mark.asyncio
-    async def test_multiple_worktrees(self, handler, http_handler):
-        worktrees = [
-            MockWorktree("branch-1", "/tmp/wt1", "qa", "2026-01-01", "a1"),
-            MockWorktree("branch-2", "/tmp/wt2", "dev", "2026-01-02", "a2"),
-        ]
-
-        mock_coordinator = MagicMock()
-        mock_coordinator.list_worktrees.return_value = worktrees
-
-        with patch.dict(
-            "sys.modules",
-            {
-                "aragora.nomic.branch_coordinator": MagicMock(
-                    BranchCoordinator=MagicMock(return_value=mock_coordinator),
-                ),
-            },
-        ):
-            result = await handler.handle("/api/self-improve/worktrees", {}, http_handler)
-
-        body = _body(result)
-        assert body["total"] == 2
-        assert body["worktrees"][0]["branch_name"] == "branch-1"
-        assert body["worktrees"][1]["track"] == "dev"
-        assert body["worktrees"][1]["assignment_id"] == "a2"
-        assert body["worktrees"][0]["worktree_path"] == "/tmp/wt1"
-
-    @pytest.mark.asyncio
-    async def test_worktree_value_error(self, handler, http_handler):
-        """ValueError in BranchCoordinator should return empty worktrees."""
-        mock_coord_cls = MagicMock(side_effect=ValueError("bad config"))
-
-        with patch.dict(
-            "sys.modules",
-            {
-                "aragora.nomic.branch_coordinator": MagicMock(
-                    BranchCoordinator=mock_coord_cls,
-                ),
-            },
-        ):
-            result = await handler.handle("/api/self-improve/worktrees", {}, http_handler)
-
-        body = _body(result)
-        assert body["total"] == 0
-        assert "error" in body
-
-
-# ===========================================================================
-# _get_store OSError path
-# ===========================================================================
-
-
-class TestStoreOSError:
-    """Test _get_store when OSError is raised."""
-
-    def test_get_store_os_error(self, handler):
-        mock_module = MagicMock()
-        mock_module.SelfImproveRunStore.side_effect = OSError("disk failure")
-
-        with patch.dict(
-            "sys.modules",
-            {"aragora.nomic.stores.run_store": mock_module},
-        ):
-            result = handler._get_store()
-        assert result is None
-
-
-# ===========================================================================
-# Pipeline error paths in _execute_run
-# ===========================================================================
-
-
-class TestExecuteRunErrorPaths:
-    """Test error paths in _execute_run."""
-
-    @pytest.mark.asyncio
-    async def test_pipeline_runtime_error_falls_back(self, handler, mock_store):
-        """RuntimeError from pipeline should fall back to orchestrator."""
+    async def test_start_run_with_tracks(self, handler, mock_store):
         handler._store = mock_store
+        http = MockHTTPHandler(body={"goal": "Test", "tracks": ["qa", "dev"]})
+        with patch.object(handler, "_execute_run", new_callable=AsyncMock):
+            await handler.handle_post("/api/self-improve/run", {}, http)
 
-        mock_pipeline = MagicMock()
-        mock_pipeline.run = AsyncMock(side_effect=RuntimeError("pipeline boom"))
-
-        mock_orch_result = MockOrchestratorResult()
-        mock_orch = MagicMock()
-        mock_orch.execute_goal_coordinated = AsyncMock(return_value=mock_orch_result)
-
-        mock_stream = MagicMock()
-        mock_stream.emit_loop_started = AsyncMock()
-        mock_stream.emit_phase_started = AsyncMock()
-        mock_stream.emit_error = AsyncMock()
-        mock_stream.emit_loop_stopped = AsyncMock()
-
-        with patch.object(handler, "_get_stream_server", return_value=mock_stream):
-            with patch.dict(
-                "sys.modules",
-                {
-                    "aragora.nomic.self_improve": MagicMock(
-                        SelfImprovePipeline=MagicMock(return_value=mock_pipeline),
-                        SelfImproveConfig=MagicMock(),
-                    ),
-                    "aragora.nomic.hardened_orchestrator": MagicMock(
-                        HardenedOrchestrator=MagicMock(return_value=mock_orch),
-                    ),
-                },
-            ):
-                await handler._execute_run(
-                    "run-err01", "Test", None, "flat", None, 5
-                )
-
-        # Stream should have emitted error
-        mock_stream.emit_error.assert_awaited_once()
-
-    @pytest.mark.asyncio
-    async def test_orchestrator_runtime_error(self, handler, mock_store):
-        """Orchestrator RuntimeError should set status to failed."""
-        handler._store = mock_store
-
-        mock_orch = MagicMock()
-        mock_orch.execute_goal_coordinated = AsyncMock(
-            side_effect=RuntimeError("orch boom")
-        )
-
-        with patch.object(handler, "_get_stream_server", return_value=None):
-            with patch.dict("sys.modules", {"aragora.nomic.self_improve": None}):
-                with patch.dict(
-                    "sys.modules",
-                    {
-                        "aragora.nomic.hardened_orchestrator": MagicMock(
-                            HardenedOrchestrator=MagicMock(return_value=mock_orch),
-                        ),
-                    },
-                ):
-                    await handler._execute_run(
-                        "run-err02", "Test", None, "flat", None, 5
-                    )
-
-        update_calls = mock_store.update_run.call_args_list
-        assert any(
-            c[1].get("status") == "failed" and c[1].get("error") == "Orchestration failed"
-            for c in update_calls
-            if c[0][0] == "run-err02"
-        )
-
-    @pytest.mark.asyncio
-    async def test_websocket_emit_failure_in_execute_run(self, handler, mock_store):
-        """WebSocket emit failure should not break execution."""
-        handler._store = mock_store
-
-        mock_stream = MagicMock()
-        mock_stream.emit_loop_started = AsyncMock(side_effect=RuntimeError("ws fail"))
-        mock_stream.emit_phase_started = AsyncMock()
-        mock_stream.emit_loop_stopped = AsyncMock()
-
-        mock_result = MockPipelineResult(1, 1, 0)
-        mock_pipeline = MagicMock()
-        mock_pipeline.run = AsyncMock(return_value=mock_result)
-
-        with patch.object(handler, "_get_stream_server", return_value=mock_stream):
-            with patch.dict(
-                "sys.modules",
-                {
-                    "aragora.nomic.self_improve": MagicMock(
-                        SelfImprovePipeline=MagicMock(return_value=mock_pipeline),
-                        SelfImproveConfig=MagicMock(),
-                    ),
-                },
-            ):
-                await handler._execute_run(
-                    "run-err03", "Test", None, "flat", None, 5
-                )
-
-        # Should still complete successfully
-        update_calls = mock_store.update_run.call_args_list
-        assert any(
-            c[1].get("status") == "completed"
-            for c in update_calls
-            if c[0][0] == "run-err03"
-        )
-
-    @pytest.mark.asyncio
-    async def test_orchestrator_error_emits_stream_error(self, handler, mock_store):
-        """Orchestrator failure should emit error event to stream."""
-        handler._store = mock_store
-
-        mock_stream = MagicMock()
-        mock_stream.emit_loop_started = AsyncMock()
-        mock_stream.emit_error = AsyncMock()
-
-        mock_orch = MagicMock()
-        mock_orch.execute_goal_coordinated = AsyncMock(
-            side_effect=ValueError("bad value")
-        )
-
-        with patch.object(handler, "_get_stream_server", return_value=mock_stream):
-            with patch.dict("sys.modules", {"aragora.nomic.self_improve": None}):
-                with patch.dict(
-                    "sys.modules",
-                    {
-                        "aragora.nomic.hardened_orchestrator": MagicMock(
-                            HardenedOrchestrator=MagicMock(return_value=mock_orch),
-                        ),
-                    },
-                ):
-                    await handler._execute_run(
-                        "run-err04", "Test", None, "flat", None, 5
-                    )
-
-        mock_stream.emit_error.assert_awaited()
-
-    @pytest.mark.asyncio
-    async def test_stream_error_emit_failure_swallowed(self, handler, mock_store):
-        """Stream emit_error failure should be swallowed silently."""
-        handler._store = mock_store
-
-        mock_stream = MagicMock()
-        mock_stream.emit_loop_started = AsyncMock()
-        mock_stream.emit_error = AsyncMock(side_effect=OSError("ws dead"))
-
-        mock_orch = MagicMock()
-        mock_orch.execute_goal_coordinated = AsyncMock(
-            side_effect=TypeError("type mismatch")
-        )
-
-        with patch.object(handler, "_get_stream_server", return_value=mock_stream):
-            with patch.dict("sys.modules", {"aragora.nomic.self_improve": None}):
-                with patch.dict(
-                    "sys.modules",
-                    {
-                        "aragora.nomic.hardened_orchestrator": MagicMock(
-                            HardenedOrchestrator=MagicMock(return_value=mock_orch),
-                        ),
-                    },
-                ):
-                    # Should not raise
-                    await handler._execute_run(
-                        "run-err05", "Test", None, "flat", None, 5
-                    )
-
-
-# ===========================================================================
-# Pipeline zero-completed subtasks path
-# ===========================================================================
-
-
-class TestPipelineZeroCompleted:
-    """Test pipeline result with zero completed subtasks."""
-
-    @pytest.mark.asyncio
-    async def test_zero_completed_sets_failed(self, handler, mock_store):
-        handler._store = mock_store
-
-        mock_result = MockPipelineResult(subtasks_completed=0, subtasks_total=5, subtasks_failed=5)
-        mock_pipeline = MagicMock()
-        mock_pipeline.run = AsyncMock(return_value=mock_result)
-
-        with patch.object(handler, "_get_stream_server", return_value=None):
-            with patch.dict(
-                "sys.modules",
-                {
-                    "aragora.nomic.self_improve": MagicMock(
-                        SelfImprovePipeline=MagicMock(return_value=mock_pipeline),
-                        SelfImproveConfig=MagicMock(),
-                    ),
-                },
-            ):
-                await handler._execute_run(
-                    "run-zero", "Test", None, "flat", None, 5
-                )
-
-        update_calls = mock_store.update_run.call_args_list
-        assert any(
-            c[1].get("status") == "failed"
-            for c in update_calls
-            if c[0][0] == "run-zero"
-        )
-
-
-# ===========================================================================
-# Orchestrator success/failure status mapping
-# ===========================================================================
-
-
-class TestOrchestratorStatusMapping:
-    """Test that orchestrator result.success maps correctly."""
-
-    @pytest.mark.asyncio
-    async def test_orchestrator_success_true(self, handler, mock_store):
-        handler._store = mock_store
-        mock_result = MockOrchestratorResult(success=True)
-        mock_orch = MagicMock()
-        mock_orch.execute_goal_coordinated = AsyncMock(return_value=mock_result)
-
-        with patch.object(handler, "_get_stream_server", return_value=None):
-            with patch.dict("sys.modules", {"aragora.nomic.self_improve": None}):
-                with patch.dict(
-                    "sys.modules",
-                    {
-                        "aragora.nomic.hardened_orchestrator": MagicMock(
-                            HardenedOrchestrator=MagicMock(return_value=mock_orch),
-                        ),
-                    },
-                ):
-                    await handler._execute_run(
-                        "run-orch-ok", "Test", None, "flat", None, 5
-                    )
-
-        update_calls = mock_store.update_run.call_args_list
-        assert any(
-            c[1].get("status") == "completed"
-            for c in update_calls
-            if c[0][0] == "run-orch-ok"
-        )
-
-    @pytest.mark.asyncio
-    async def test_orchestrator_success_false(self, handler, mock_store):
-        handler._store = mock_store
-        mock_result = MockOrchestratorResult(success=False)
-        mock_orch = MagicMock()
-        mock_orch.execute_goal_coordinated = AsyncMock(return_value=mock_result)
-
-        with patch.object(handler, "_get_stream_server", return_value=None):
-            with patch.dict("sys.modules", {"aragora.nomic.self_improve": None}):
-                with patch.dict(
-                    "sys.modules",
-                    {
-                        "aragora.nomic.hardened_orchestrator": MagicMock(
-                            HardenedOrchestrator=MagicMock(return_value=mock_orch),
-                        ),
-                    },
-                ):
-                    await handler._execute_run(
-                        "run-orch-fail", "Test", None, "flat", None, 5
-                    )
-
-        update_calls = mock_store.update_run.call_args_list
-        assert any(
-            c[1].get("status") == "failed"
-            for c in update_calls
-            if c[0][0] == "run-orch-fail"
-        )
+        call_kwargs = mock_store.create_run.call_args[1]
+        assert call_kwargs["tracks"] == ["qa", "dev"]

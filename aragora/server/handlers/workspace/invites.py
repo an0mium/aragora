@@ -298,7 +298,7 @@ class WorkspaceInvitesMixin:
         audit_log = self._get_audit_log()
         self._run_async(
             audit_log.log(
-                action=m.AuditAction.CREATE,
+                action=m.AuditAction.WRITE,
                 actor=m.Actor(id=auth_ctx.user_id, type="user"),
                 resource=m.Resource(
                     id=invite.id, type="workspace_invite", workspace_id=workspace_id

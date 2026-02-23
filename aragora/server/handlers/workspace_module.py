@@ -506,6 +506,12 @@ class WorkspaceHandler(
         if normalized in ("/api/workspaces", "/api/v1/workspaces") and method == "GET":
             return self._handle_list_workspaces(handler, query_params)
 
+        # GET /api/workspaces/profiles - List available RBAC profiles
+        # NOTE: Must be checked BEFORE the generic GET /api/workspaces/{id} route
+        # to avoid treating "profiles" as a workspace ID.
+        if normalized in ("/api/workspaces/profiles", "/api/v1/workspaces/profiles") and method == "GET":
+            return self._handle_list_profiles(handler)
+
         # GET /api/workspaces/{id}
         if len(parts) == 3 and method == "GET":
             workspace_id = parts[2]
@@ -541,10 +547,6 @@ class WorkspaceHandler(
             if not valid:
                 return error_response(err, 400)
             return self._handle_remove_member(handler, workspace_id, user_id)
-
-        # GET /api/workspaces/profiles - List available RBAC profiles
-        if normalized in ("/api/workspaces/profiles", "/api/v1/workspaces/profiles") and method == "GET":
-            return self._handle_list_profiles(handler)
 
         # GET /api/workspaces/{id}/roles - Get available roles for workspace
         if len(parts) == 4 and parts[3] == "roles" and method == "GET":

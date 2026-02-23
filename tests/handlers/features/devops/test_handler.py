@@ -1644,7 +1644,8 @@ class TestResponseFormat:
     @pytest.mark.asyncio
     async def test_list_incidents_response_shape(self, handler, mock_connector, mock_circuit_breaker):
         request = MockRequest(query={})
-        incident = MockIncident(created_at=None)
+        incident = MockIncident()
+        incident.created_at = None  # Override __post_init__ default
         mock_connector.list_incidents.return_value = ([incident], True)
         with _patch_connector(mock_connector), _patch_cb(mock_circuit_breaker):
             result = await handler.handle(request, "/api/v1/incidents", "GET")
@@ -1686,7 +1687,9 @@ class TestResponseFormat:
 
     @pytest.mark.asyncio
     async def test_list_notes_response_without_user(self, handler, mock_connector, mock_circuit_breaker):
-        mock_connector.list_notes.return_value = [MockNote(user=None)]
+        note_without_user = MockNote()
+        note_without_user.user = None  # Override __post_init__ default
+        mock_connector.list_notes.return_value = [note_without_user]
         request = MockRequest()
         with _patch_connector(mock_connector), _patch_cb(mock_circuit_breaker):
             result = await handler.handle(
@@ -1711,7 +1714,9 @@ class TestResponseFormat:
 
     @pytest.mark.asyncio
     async def test_get_service_response_without_created_at(self, handler, mock_connector, mock_circuit_breaker):
-        mock_connector.get_service.return_value = MockService(created_at=None)
+        service_without_created = MockService()
+        service_without_created.created_at = None  # Override __post_init__ default
+        mock_connector.get_service.return_value = service_without_created
         request = MockRequest()
         with _patch_connector(mock_connector), _patch_cb(mock_circuit_breaker):
             result = await handler.handle(request, "/api/v1/services/PSVC001", "GET")

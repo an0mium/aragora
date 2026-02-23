@@ -543,10 +543,7 @@ class TestListTemplates:
         with patch(
             "aragora.server.handlers.marketplace._get_registry",
             return_value=mock_registry,
-        ), patch(
-            "aragora.server.handlers.marketplace.TemplateCategory",
-        ) as mock_cat:
-            mock_cat.return_value = "analysis"
+        ):
             result = handler.handle_list_templates()
         assert _status(result) == 200
 

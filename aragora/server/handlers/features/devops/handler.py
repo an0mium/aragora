@@ -181,18 +181,20 @@ class DevOpsHandler(SecureHandler):
                 return await self._handle_list_services(request, tenant_id)
 
             # Incident-specific paths
+            # "/api/v1/incidents/ID".split("/") = ['', 'api', 'v1', 'incidents', 'ID']
+            # indices:                              0     1      2       3          4
             if path.startswith("/api/v1/incidents/"):
                 parts = path.split("/")
-                if len(parts) >= 4:
-                    incident_id = parts[3]
+                if len(parts) >= 5:
+                    incident_id = parts[4]
 
                     # GET /incidents/{id}
-                    if len(parts) == 4 and method == "GET":
+                    if len(parts) == 5 and method == "GET":
                         return await self._handle_get_incident(request, tenant_id, incident_id)
 
                     # Actions on incident
-                    if len(parts) == 5:
-                        action = parts[4]
+                    if len(parts) == 6:
+                        action = parts[5]
                         if action == "acknowledge" and method == "POST":
                             return await self._handle_acknowledge_incident(
                                 request, tenant_id, incident_id
@@ -218,17 +220,19 @@ class DevOpsHandler(SecureHandler):
                                 return await self._handle_add_note(request, tenant_id, incident_id)
 
             # On-call for specific service
+            # "/api/v1/oncall/services/ID".split("/") = ['', 'api', 'v1', 'oncall', 'services', 'ID']
             if path.startswith("/api/v1/oncall/services/"):
                 parts = path.split("/")
-                if len(parts) == 5 and method == "GET":
-                    service_id = parts[4]
+                if len(parts) == 6 and method == "GET":
+                    service_id = parts[5]
                     return await self._handle_get_oncall_for_service(request, tenant_id, service_id)
 
             # Service details
+            # "/api/v1/services/ID".split("/") = ['', 'api', 'v1', 'services', 'ID']
             if path.startswith("/api/v1/services/"):
                 parts = path.split("/")
-                if len(parts) == 4 and method == "GET":
-                    service_id = parts[3]
+                if len(parts) == 5 and method == "GET":
+                    service_id = parts[4]
                     return await self._handle_get_service(request, tenant_id, service_id)
 
             return error_response("Not found", 404)
