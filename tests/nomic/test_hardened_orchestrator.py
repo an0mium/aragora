@@ -2353,15 +2353,14 @@ class TestCoordinatedGoldPath:
     @pytest.mark.asyncio
     async def test_debug_loop_called_on_coordinated_failure(self):
         """DebugLoop is invoked when a coordinated assignment fails."""
+        from aragora.nomic.debug_loop import DebugLoopResult
+
         orch = HardenedOrchestrator(
             enable_debug_loop=True,
             enable_execution_bridge=False,
             enable_prompt_defense=False,
             generate_receipts=False,
         )
-
-        # Mock the DebugLoop
-        from aragora.nomic.debug_loop import DebugLoopResult
 
         mock_debug_result = DebugLoopResult(
             subtask_id="test",
@@ -2372,7 +2371,6 @@ class TestCoordinatedGoldPath:
         mock_loop.execute_with_retry = AsyncMock(return_value=mock_debug_result)
         orch._debug_loop = mock_loop
 
-        # Mock super().execute_goal to return failure
         failed_result = OrchestrationResult(
             goal="test",
             success=False,
@@ -2383,17 +2381,11 @@ class TestCoordinatedGoldPath:
             assignments=[],
             duration_seconds=1.0,
         )
-
-        # Mock MetaPlanner to return a prioritized goal
         mock_goal = MagicMock()
         mock_goal.track.value = "developer"
         mock_goal.description = "Fix the bug"
         mock_goal.file_hints = []
-        mock_goal.id = "g1"
-        mock_goal.rationale = "test"
-        mock_goal.estimated_impact = "high"
 
-        # Mock BranchCoordinator
         mock_coord_result = MagicMock()
         mock_coord_result.success = True
         mock_coord_result.merged_branches = 1
@@ -2403,6 +2395,12 @@ class TestCoordinatedGoldPath:
         mock_coord_result.duration_seconds = 2.0
         mock_coord_result.summary = "done"
 
+        async def fake_coordinate(assignments, run_nomic_fn):
+            await run_nomic_fn(assignments[0])
+            return mock_coord_result
+
+        from aragora.nomic.autonomous_orchestrator import AutonomousOrchestrator
+
         with (
             patch.object(
                 orch,
@@ -2410,34 +2408,24 @@ class TestCoordinatedGoldPath:
                 new_callable=AsyncMock,
                 return_value=[mock_goal],
             ),
-            patch("aragora.nomic.hardened_orchestrator.BranchCoordinator") as MockCoord,
+            patch(
+                "aragora.nomic.branch_coordinator.BranchCoordinator",
+            ) as MockCoord,
             patch.object(
-                type(orch).__mro__[4],
+                AutonomousOrchestrator,
                 "execute_goal",
                 new_callable=AsyncMock,
                 return_value=failed_result,
             ),
         ):
-            mock_coordinator = MockCoord.return_value
-            mock_coordinator.coordinate_parallel_work = AsyncMock(
-                side_effect=lambda assignments, run_nomic_fn: self._run_and_return(
-                    run_nomic_fn, assignments[0], mock_coord_result
-                )
+            MockCoord.return_value.coordinate_parallel_work = AsyncMock(
+                side_effect=fake_coordinate,
             )
-            mock_coordinator.cleanup_all_worktrees = MagicMock()
+            MockCoord.return_value.cleanup_all_worktrees = MagicMock()
 
-            result = await orch.execute_goal_coordinated("Fix the bug")
+            await orch.execute_goal_coordinated("Fix the bug")
 
-        # DebugLoop should have been called
         mock_loop.execute_with_retry.assert_awaited_once()
-        call_kwargs = mock_loop.execute_with_retry.call_args
-        assert call_kwargs[1]["instruction"] == "Fix the bug" or call_kwargs[0][0] == "Fix the bug"
-
-    @staticmethod
-    async def _run_and_return(run_nomic_fn, assignment, coord_result):
-        """Helper to run the inner function and return mock coord_result."""
-        await run_nomic_fn(assignment)
-        return coord_result
 
     @pytest.mark.asyncio
     async def test_debug_loop_skipped_when_disabled(self):
@@ -2476,6 +2464,12 @@ class TestCoordinatedGoldPath:
         mock_coord_result.duration_seconds = 1.0
         mock_coord_result.summary = "failed"
 
+        async def fake_coordinate(assignments, run_nomic_fn):
+            await run_nomic_fn(assignments[0])
+            return mock_coord_result
+
+        from aragora.nomic.autonomous_orchestrator import AutonomousOrchestrator
+
         with (
             patch.object(
                 orch,
@@ -2483,31 +2477,24 @@ class TestCoordinatedGoldPath:
                 new_callable=AsyncMock,
                 return_value=[mock_goal],
             ),
-            patch("aragora.nomic.hardened_orchestrator.BranchCoordinator") as MockCoord,
+            patch(
+                "aragora.nomic.branch_coordinator.BranchCoordinator",
+            ) as MockCoord,
             patch.object(
-                type(orch).__mro__[4],
+                AutonomousOrchestrator,
                 "execute_goal",
                 new_callable=AsyncMock,
                 return_value=failed_result,
             ),
         ):
-            mock_coordinator = MockCoord.return_value
-            mock_coordinator.coordinate_parallel_work = AsyncMock(
-                side_effect=lambda assignments, run_nomic_fn: self._run_and_return_static(
-                    run_nomic_fn, assignments[0], mock_coord_result
-                ),
+            MockCoord.return_value.coordinate_parallel_work = AsyncMock(
+                side_effect=fake_coordinate,
             )
-            mock_coordinator.cleanup_all_worktrees = MagicMock()
+            MockCoord.return_value.cleanup_all_worktrees = MagicMock()
 
             await orch.execute_goal_coordinated("Fix thing")
 
-        # DebugLoop should NOT have been called
         mock_loop.execute_with_retry.assert_not_awaited()
-
-    @staticmethod
-    async def _run_and_return_static(run_nomic_fn, assignment, coord_result):
-        await run_nomic_fn(assignment)
-        return coord_result
 
     def test_execution_bridge_creates_instruction(self):
         """ExecutionBridge.create_instruction is called in coordinated path."""

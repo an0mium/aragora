@@ -423,7 +423,14 @@ class GlobalWorkQueue:
                         await callback("push", work)
                     else:
                         callback("push", work)
-                except (TypeError, ValueError, RuntimeError, AttributeError, KeyError, OSError) as e:
+                except (
+                    TypeError,
+                    ValueError,
+                    RuntimeError,
+                    AttributeError,
+                    KeyError,
+                    OSError,
+                ) as e:
                     logger.error("Callback error: %s", e)
 
             return work
