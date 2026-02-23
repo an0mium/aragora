@@ -557,8 +557,8 @@ class CrossPlatformAnalyticsHandler(SecureHandler):
             # Alert acknowledge
             elif path.startswith("/api/v1/analytics/cross-platform/alerts/"):
                 parts = path.split("/")
-                if len(parts) >= 7 and parts[6] == "acknowledge" and method == "POST":
-                    alert_id = parts[5]
+                if len(parts) >= 8 and parts[7] == "acknowledge" and method == "POST":
+                    alert_id = parts[6]
                     return await self._handle_acknowledge_alert(request, tenant_id, alert_id)
 
             return error_response("Not found", 404)

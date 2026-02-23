@@ -883,6 +883,12 @@ async def handle_create_fix_pr(
         return {"success": False, "error": "Fix PR creation failed"}
 
 
+def _import_audit_sessions():
+    """Import audit_sessions module (extracted for testability)."""
+    from aragora.server.handlers.features.audit_sessions import _findings, _sessions
+    return _sessions, _findings
+
+
 @require_permission("audit:read")
 async def handle_sync_session(
     repository: str,
@@ -924,7 +930,7 @@ async def handle_sync_session(
         # Fetch findings from audit session
         # In production, this would query the actual audit session storage
         try:
-            from aragora.server.handlers.features.audit_sessions import _findings, _sessions
+            _sessions, _findings_store = _import_audit_sessions()
 
             session = _sessions.get(session_id)
             if not session:
@@ -932,7 +938,7 @@ async def handle_sync_session(
                 sync_result.error = f"Session {session_id} not found"
                 return {"success": False, "error": sync_result.error}
 
-            findings = _findings.get(session_id, [])
+            findings = _findings_store.get(session_id, [])
 
         except ImportError:
             # Fallback to demo data
@@ -1129,7 +1135,7 @@ class AuditGitHubBridgeHandler(BaseHandler):
         repository = data.get("repository")
         finding = data.get("finding")
 
-        if not repository or not finding:
+        if not repository or finding is None:
             return error_response("repository and finding required", 400)
 
         result = await handle_create_issue(

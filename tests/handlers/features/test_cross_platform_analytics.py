@@ -387,7 +387,8 @@ class TestDetectAnomalies:
 
     def test_anomaly_severity_levels(self):
         # Create data where deviation is well above 3 std
-        values = [10.0, 10.0, 10.0, 10.0, 10.0, 10.0, 10.0, 100.0]
+        # Need many stable values so std stays small, making the outlier's z-score > 3
+        values = [10.0] * 19 + [100.0]
         result = detect_anomalies(values, "test", Platform.ARAGORA, threshold_std=2.0)
         # Should have at least one anomaly with CRITICAL severity (z > 3)
         severities = [a.severity for a in result]

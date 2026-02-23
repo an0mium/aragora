@@ -696,9 +696,9 @@ class TestHandlePostBulkCreateIssues:
             "findings": findings,
         }
         result = await handler.handle_post_bulk_create_issues(data)
-        body = _body(result)
-        # Some may succeed, some may fail
-        assert body["data"]["total"] == 4
+        # Partial failure: handle_bulk_create_issues returns success=False when
+        # any issues fail, so the handler returns an error response (400).
+        assert _status(result) == 400
 
 
 # ---------------------------------------------------------------------------
@@ -812,6 +812,16 @@ class TestHandlePostCreatePR:
 
 class TestHandlePostSyncSession:
     """Tests for handle_post_sync_session()."""
+
+    @pytest.fixture(autouse=True)
+    def _force_demo_fallback(self):
+        """Make the audit_sessions import inside handle_sync_session raise ImportError,
+        so the function falls back to demo data instead of looking up a real session."""
+        with patch(
+            "aragora.server.handlers.github.audit_bridge._import_audit_sessions",
+            side_effect=ImportError("mocked"),
+        ):
+            yield
 
     @pytest.mark.asyncio
     async def test_success(self, handler, mock_github_client):

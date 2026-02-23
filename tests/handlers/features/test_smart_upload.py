@@ -1437,7 +1437,7 @@ class TestQueueKnowledge:
 
         mock_result = {"knowledge_processing": {"status": "queued"}}
         with patch(
-            "aragora.server.handlers.features.smart_upload.process_uploaded_text",
+            "aragora.knowledge.integration.process_uploaded_text",
             return_value=mock_result,
         ) as mock_process:
             result = await _queue_knowledge_from_result(
@@ -1458,7 +1458,7 @@ class TestQueueKnowledge:
         from aragora.server.handlers.features.smart_upload import _queue_knowledge_from_result
 
         with patch(
-            "aragora.server.handlers.features.smart_upload.process_uploaded_text",
+            "aragora.knowledge.integration.process_uploaded_text",
             return_value={"knowledge_processing": {"status": "queued"}},
         ) as mock_process:
             await _queue_knowledge_from_result(
@@ -1482,7 +1482,7 @@ class TestQueueKnowledge:
         from aragora.server.handlers.features.smart_upload import _queue_knowledge_from_result
 
         with patch(
-            "aragora.server.handlers.features.smart_upload.process_uploaded_text",
+            "aragora.knowledge.integration.process_uploaded_text",
             side_effect=ImportError("not installed"),
         ):
             result = await _queue_knowledge_from_result(

@@ -1313,7 +1313,7 @@ class TestGetEmailActionsServiceInstance:
         mock_svc = MagicMock()
         try:
             with patch(
-                "aragora.server.handlers.inbox.email_actions.get_email_actions_service",
+                "aragora.services.email_actions.get_email_actions_service",
                 return_value=mock_svc,
             ):
                 result = _real_get_email_actions_service_instance()

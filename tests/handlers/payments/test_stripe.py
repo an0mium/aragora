@@ -1367,13 +1367,17 @@ class TestHandleStripeWebhook:
             raw_payload=b'{"type":"checkout.session.completed"}',
             headers={"Stripe-Signature": "t=123,v1=abc"},
         )
+
+        # Patch the dispatch table entry directly because _STRIPE_EVENT_HANDLERS
+        # holds a reference to the original function object.
+        failing_handler = MagicMock(side_effect=ValueError("bad data"))
         with (
             patch(f"{PKG}.get_stripe_connector", return_value=mock_stripe_connector),
             patch(f"{PKG}._is_duplicate_webhook", return_value=False),
             patch(f"{PKG}._mark_webhook_processed"),
-            patch(
-                "aragora.server.handlers.payments.stripe._handle_checkout_session_completed",
-                side_effect=ValueError("bad data"),
+            patch.dict(
+                _STRIPE_EVENT_HANDLERS,
+                {"checkout.session.completed": failing_handler},
             ),
         ):
             resp = await handle_stripe_webhook(request)

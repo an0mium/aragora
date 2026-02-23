@@ -108,9 +108,10 @@ def _reset_rate_limiter():
 @pytest.fixture(autouse=True)
 def _disable_rate_limit(monkeypatch):
     """Disable rate limiting globally for tests."""
-    monkeypatch.setattr(
-        "aragora.server.handlers.utils.rate_limit.RATE_LIMITING_DISABLED", True
-    )
+    import importlib
+
+    rl_mod = importlib.import_module("aragora.server.handlers.utils.rate_limit")
+    monkeypatch.setattr(rl_mod, "RATE_LIMITING_DISABLED", True)
 
 
 # ---------------------------------------------------------------------------
