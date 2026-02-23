@@ -342,6 +342,8 @@
     "POST /api/accounting/invoices/{param}/schedule",
     "POST /api/accounting/reports",
     "POST /api/admin/circuit-breakers/reset",
+    "POST /api/admin/emergency/activate",
+    "POST /api/admin/emergency/deactivate",
     "POST /api/admin/organizations/{param}/credits",
     "POST /api/admin/security/keys/{param}/revoke",
     "POST /api/admin/security/scan",

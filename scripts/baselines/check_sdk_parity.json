@@ -1,5 +1,12 @@
 {
-  "missing_from_both_sdks": [],
+  "missing_from_both_sdks": [
+    "/api/decisions/plans/{param}/approve",
+    "/api/decisions/plans/{param}/execute",
+    "/api/decisions/plans/{param}/outcome",
+    "/api/decisions/plans/{param}/reject",
+    "/api/decisions/{param}/outcome",
+    "/api/decisions/{param}/outcomes"
+  ],
   "stale_python_sdk_paths": [
     "/api/accounting/ar/customers/{param}/balance",
     "/api/accounting/ar/invoices/{param}",
