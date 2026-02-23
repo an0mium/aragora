@@ -77,6 +77,8 @@ jobs:
         uses: actions/setup-python@v5
         with:
           python-version: "3.11"
+          cache: 'pip'
+          cache-dependency-path: pyproject.toml
 
       - name: Set up Node 20
         uses: actions/setup-node@v4
@@ -179,6 +181,8 @@ jobs:
         uses: actions/setup-python@v5
         with:
           python-version: "3.11"
+          cache: 'pip'
+          cache-dependency-path: pyproject.toml
 
       - name: Run skip audit
         run: |
