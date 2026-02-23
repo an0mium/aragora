@@ -342,6 +342,11 @@ SystemHealthDashboardHandler = _safe_import(
     "aragora.server.handlers.system_health", "SystemHealthDashboardHandler"
 )
 
+# System health dashboard
+SystemHealthDashboardHandler = _safe_import(
+    "aragora.server.handlers.system_health", "SystemHealthDashboardHandler"
+)
+
 # Feature flag admin
 FeatureFlagAdminHandler = _safe_import(
     "aragora.server.handlers.admin.feature_flags", "FeatureFlagAdminHandler"

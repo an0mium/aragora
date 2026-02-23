@@ -195,6 +195,8 @@ __all__ = [
     "OutcomeHandler",
     # Decision benchmarking
     "BenchmarkingHandler",
+    # Knowledge flow
+    "KnowledgeFlowHandler",
     # Registry
     "ANALYTICS_HANDLER_REGISTRY",
 ]

@@ -2,41 +2,70 @@
 
 import { useCircuitBreakers } from '@/hooks/useSystemHealth';
 
-const STATE_COLORS: Record<string, string> = {
-  closed: 'text-emerald-400 border-emerald-400/40',
-  open: 'text-red-400 border-red-400/40',
-  half_open: 'text-amber-400 border-amber-400/40',
+const STATE_BADGE: Record<string, { text: string; border: string; bg: string }> = {
+  closed: { text: 'text-acid-green', border: 'border-acid-green/40', bg: 'bg-acid-green/10' },
+  open: { text: 'text-acid-red', border: 'border-acid-red/40', bg: 'bg-acid-red/10' },
+  'half-open': { text: 'text-acid-yellow', border: 'border-acid-yellow/40', bg: 'bg-acid-yellow/10' },
 };
 
 export function CircuitBreakerGrid() {
-  const { breakers, loading } = useCircuitBreakers();
+  const { breakers, isLoading, available } = useCircuitBreakers();
 
-  if (loading) return <div className="animate-pulse p-4 text-[var(--text-muted)] font-mono">Loading circuit breakers...</div>;
+  if (isLoading) {
+    return (
+      <div className="card p-6 animate-pulse">
+        <div className="h-4 bg-surface rounded w-40 mb-4" />
+        <div className="grid grid-cols-2 gap-3">
+          {[1, 2, 3, 4].map((i) => (
+            <div key={i} className="h-20 bg-surface rounded" />
+          ))}
+        </div>
+      </div>
+    );
+  }
 
   return (
-    <div className="space-y-3">
-      <h3 className="font-mono text-xs text-[var(--text-muted)] uppercase tracking-wider">Circuit Breakers</h3>
-      {breakers.length === 0 ? (
-        <p className="text-[var(--text-muted)] font-mono text-sm">No circuit breakers registered.</p>
+    <div className="card p-6">
+      <h3 className="font-mono text-acid-green mb-4">Circuit Breakers</h3>
+      {!available ? (
+        <p className="text-text-muted font-mono text-xs">Resilience registry unavailable</p>
+      ) : breakers.length === 0 ? (
+        <p className="text-text-muted font-mono text-xs">No circuit breakers registered</p>
       ) : (
-        <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
-          {breakers.map((b) => (
-            <div key={b.name} className="card p-3 space-y-2">
-              <div className="flex items-center justify-between">
-                <span className="font-mono text-xs text-[var(--text)] truncate">{b.name}</span>
-                <span className={`text-[10px] font-mono px-2 py-0.5 border rounded ${STATE_COLORS[b.state] || ''}`}>
-                  {b.state.toUpperCase()}
-                </span>
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          {breakers.map((b) => {
+            const badge = STATE_BADGE[b.state] || STATE_BADGE.closed;
+            const barColor = b.success_rate > 0.95
+              ? 'bg-acid-green'
+              : b.success_rate > 0.7
+              ? 'bg-acid-yellow'
+              : 'bg-acid-red';
+            return (
+              <div key={b.name} className="card p-3 space-y-2">
+                <div className="flex items-center justify-between">
+                  <span className="font-mono text-xs text-text truncate max-w-[60%]">{b.name}</span>
+                  <span
+                    className={`text-[10px] font-mono px-2 py-0.5 border rounded ${badge.text} ${badge.border} ${badge.bg}`}
+                  >
+                    {b.state.toUpperCase().replace('-', '_')}
+                  </span>
+                </div>
+                {/* Success rate bar */}
+                <div className="h-1.5 bg-surface rounded overflow-hidden border border-border">
+                  <div
+                    className={`h-full transition-all duration-500 ${barColor}`}
+                    style={{ width: `${b.success_rate * 100}%` }}
+                  />
+                </div>
+                <div className="flex justify-between text-[10px] font-mono text-text-muted">
+                  <span>
+                    Failures: {b.failure_count}/{b.failure_threshold}
+                  </span>
+                  <span>{(b.success_rate * 100).toFixed(1)}%</span>
+                </div>
               </div>
-              <div className="h-1.5 bg-[var(--bg)] rounded overflow-hidden">
-                <div className={`h-full transition-all ${b.success_rate > 0.95 ? 'bg-emerald-400' : b.success_rate > 0.8 ? 'bg-amber-400' : 'bg-red-400'}`} style={{ width: `${b.success_rate * 100}%` }} />
-              </div>
-              <div className="flex justify-between text-[10px] font-mono text-[var(--text-muted)]">
-                <span>Failures: {b.failure_count}</span>
-                <span>{(b.success_rate * 100).toFixed(1)}%</span>
-              </div>
-            </div>
-          ))}
+            );
+          })}
         </div>
       )}
     </div>

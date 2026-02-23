@@ -95,26 +95,27 @@ class KnowledgeFlowHandler(BaseHandler):
             debate_usage = getattr(bridge, "_debate_km_usage", {})
 
             for validation in validations:
-                flows.append({
-                    "source_debate_id": validation.debate_id,
-                    "km_node_id": validation.km_item_id,
-                    "target_debate_id": None,
-                    "confidence_delta": round(validation.confidence_adjustment, 4),
-                    "original_confidence": round(validation.original_confidence, 4),
-                    "new_confidence": round(validation.new_confidence, 4),
-                    "was_successful": validation.was_successful,
-                    "reason": validation.validation_reason,
-                    "timestamp": datetime.now(timezone.utc).isoformat(),
-                })
+                flows.append(
+                    {
+                        "source_debate_id": validation.debate_id,
+                        "km_node_id": validation.km_item_id,
+                        "target_debate_id": None,
+                        "confidence_delta": round(validation.confidence_adjustment, 4),
+                        "original_confidence": round(validation.original_confidence, 4),
+                        "new_confidence": round(validation.new_confidence, 4),
+                        "was_successful": validation.was_successful,
+                        "reason": validation.validation_reason,
+                        "content_preview": f"KM node {validation.km_item_id}",
+                        "timestamp": datetime.now(timezone.utc).isoformat(),
+                    }
+                )
 
             stats["total_flows"] = bridge_stats.get("total_validations", 0)
             stats["debates_enriched"] = bridge_stats.get("debates_tracked", 0)
 
             total_adj = sum(abs(v.confidence_adjustment) for v in validations)
             if validations:
-                stats["avg_confidence_change"] = round(
-                    total_adj / len(validations), 4
-                )
+                stats["avg_confidence_change"] = round(total_adj / len(validations), 4)
 
             # Cross-reference: if a KM item used in debate A was also
             # consumed in debate B, that's a complete flow
@@ -128,24 +129,47 @@ class KnowledgeFlowHandler(BaseHandler):
                     if source and source != debate_id:
                         # Update matching flow entry
                         for flow in flows:
-                            if (
-                                flow["km_node_id"] == km_id
-                                and flow["source_debate_id"] == source
-                            ):
+                            if flow["km_node_id"] == km_id and flow["source_debate_id"] == source:
                                 flow["target_debate_id"] = debate_id
                                 break
 
-        return json_response({
-            "data": {
-                "flows": flows,
-                "stats": stats,
-                "generated_at": datetime.now(timezone.utc).isoformat(),
-            }
-        })
+        # Include cross-adapter synthesis data from FeedbackPhase step 38
+        synthesis_data: dict[str, Any] = {"count": 0, "recent": []}
+        try:
+            from aragora.knowledge.mound.adapters.factory import get_adapter
 
-    async def _get_confidence_history(
-        self, query_params: dict[str, Any]
-    ) -> HandlerResult:
+            mound = self._get_knowledge_mound()
+            if mound:
+                insight_adapter = get_adapter("insight", mound)
+                if insight_adapter and hasattr(insight_adapter, "search_by_topic"):
+                    results = insight_adapter.search_by_topic("cross-adapter-synthesis", limit=5)
+                    for r in results or []:
+                        meta = r if isinstance(r, dict) else getattr(r, "__dict__", {})
+                        item_meta = meta.get("metadata", {})
+                        if item_meta.get("type") == "synthesis":
+                            synthesis_data["count"] += 1
+                            synthesis_data["recent"].append(
+                                {
+                                    "debate_id": item_meta.get("debate_id", ""),
+                                    "topic": item_meta.get("topic", "")[:100],
+                                    "confidence": meta.get("confidence", 0),
+                                }
+                            )
+        except (ImportError, AttributeError, TypeError, RuntimeError):
+            pass
+
+        return json_response(
+            {
+                "data": {
+                    "flows": flows,
+                    "stats": stats,
+                    "synthesis": synthesis_data,
+                    "generated_at": datetime.now(timezone.utc).isoformat(),
+                }
+            }
+        )
+
+    async def _get_confidence_history(self, query_params: dict[str, Any]) -> HandlerResult:
         """Get confidence score changes over time for KM entries."""
         bridge = self._get_km_outcome_bridge()
 
@@ -162,31 +186,37 @@ class KnowledgeFlowHandler(BaseHandler):
             for node_id, item_validations in by_item.items():
                 history = []
                 for v in item_validations:
-                    history.append({
-                        "timestamp": datetime.now(timezone.utc).isoformat(),
-                        "value": round(v.new_confidence, 4),
-                        "previous": round(v.original_confidence, 4),
-                        "reason": (
-                            "debate_outcome_boost"
-                            if v.was_successful
-                            else "debate_outcome_penalty"
-                        ),
-                        "debate_id": v.debate_id,
-                    })
+                    history.append(
+                        {
+                            "timestamp": datetime.now(timezone.utc).isoformat(),
+                            "value": round(v.new_confidence, 4),
+                            "previous": round(v.original_confidence, 4),
+                            "reason": (
+                                "debate_outcome_boost"
+                                if v.was_successful
+                                else "debate_outcome_penalty"
+                            ),
+                            "debate_id": v.debate_id,
+                        }
+                    )
 
                 content_preview = f"KM node {node_id}"
-                entries.append({
-                    "node_id": node_id,
-                    "content_preview": content_preview,
-                    "confidence_history": history,
-                })
+                entries.append(
+                    {
+                        "node_id": node_id,
+                        "content_preview": content_preview,
+                        "confidence_history": history,
+                    }
+                )
 
-        return json_response({
-            "data": {
-                "entries": entries,
-                "generated_at": datetime.now(timezone.utc).isoformat(),
+        return json_response(
+            {
+                "data": {
+                    "entries": entries,
+                    "generated_at": datetime.now(timezone.utc).isoformat(),
+                }
             }
-        })
+        )
 
     async def _get_adapter_health(self) -> HandlerResult:
         """Get health status for all KM adapters."""
@@ -251,16 +281,18 @@ class KnowledgeFlowHandler(BaseHandler):
         # Sort by priority descending (highest priority first)
         adapters_info.sort(key=lambda a: a.get("priority", 0), reverse=True)
 
-        return json_response({
-            "data": {
-                "adapters": adapters_info,
-                "total": total,
-                "active": active,
-                "stale": stale,
-                "offline": offline,
-                "generated_at": datetime.now(timezone.utc).isoformat(),
+        return json_response(
+            {
+                "data": {
+                    "adapters": adapters_info,
+                    "total": total,
+                    "active": active,
+                    "stale": stale,
+                    "offline": offline,
+                    "generated_at": datetime.now(timezone.utc).isoformat(),
+                }
             }
-        })
+        )
 
     # ------------------------------------------------------------------
     # Private helpers
@@ -296,6 +328,21 @@ class KnowledgeFlowHandler(BaseHandler):
                 return injector
             return DebateKnowledgeInjector()
         except ImportError:
+            pass
+        return None
+
+    def _get_knowledge_mound(self) -> Any:
+        """Get the KnowledgeMound instance if available."""
+        try:
+            ctx = self.server_context or {}
+            mound = ctx.get("knowledge_mound")
+            if mound is not None:
+                return mound
+
+            arena = ctx.get("arena")
+            if arena is not None:
+                return getattr(arena, "knowledge_mound", None)
+        except (AttributeError, TypeError):
             pass
         return None
 

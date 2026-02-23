@@ -5,8 +5,9 @@ import { useState } from 'react';
 
 const STATUS_BADGE: Record<string, string> = {
   healthy: 'text-emerald-400 border-emerald-400/40 bg-emerald-400/5',
-  degraded: 'text-amber-400 border-amber-400/40 bg-amber-400/5',
-  unhealthy: 'text-red-400 border-red-400/40 bg-red-400/5',
+  stale: 'text-amber-400 border-amber-400/40 bg-amber-400/5',
+  offline: 'text-red-400 border-red-400/40 bg-red-400/5',
+  unknown: 'text-gray-400 border-gray-400/40 bg-gray-400/5',
 };
 
 type SortKey = 'name' | 'status' | 'entry_count';
@@ -43,7 +44,7 @@ export function AdapterHealthGrid() {
 
       <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3">
         {sorted.map((a) => (
-          <div key={a.name} className={`card p-3 space-y-1 border-l-2 ${a.health === 'healthy' ? 'border-emerald-400' : a.health === 'degraded' ? 'border-amber-400' : 'border-red-400'}`}>
+          <div key={a.name} className={`card p-3 space-y-1 border-l-2 ${a.health === 'healthy' ? 'border-emerald-400' : a.health === 'stale' ? 'border-amber-400' : a.health === 'offline' ? 'border-red-400' : 'border-gray-400'}`}>
             <div className="flex items-center justify-between">
               <span className="font-mono text-xs text-[var(--text)] truncate">{a.name}</span>
               <span className={`text-[9px] font-mono px-1.5 py-0.5 border rounded ${STATUS_BADGE[a.health] || ''}`}>

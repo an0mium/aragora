@@ -1136,11 +1136,10 @@ class TestHardenedConfigDefaults:
 
 
 class TestSelfImprovePipelineNomicCycleAdapter:
-    """Verify _persist_cycle_outcome() records to NomicCycleAdapter."""
+    """Verify _persist_outcome() records to NomicCycleAdapter."""
 
-    @pytest.mark.asyncio
-    async def test_persist_cycle_outcome_records_to_nomic_cycle_adapter(self):
-        """_persist_cycle_outcome() stores via NomicCycleAdapter in addition
+    def test_persist_outcome_records_to_nomic_cycle_adapter(self):
+        """_persist_outcome() stores via NomicCycleAdapter in addition
         to PipelineKMBridge, enabling cross-cycle learning via
         find_similar_cycles()."""
         from aragora.nomic.self_improve import SelfImproveConfig, SelfImprovePipeline
@@ -1170,7 +1169,14 @@ class TestSelfImprovePipelineNomicCycleAdapter:
         mock_adapter = MagicMock()
         mock_adapter.ingest_cycle_outcome = MagicMock()
 
+        mock_record = MagicMock()
+        mock_record_cls = MagicMock(return_value=mock_record)
+
         with (
+            patch(
+                "aragora.nomic.cycle_record.NomicCycleRecord",
+                mock_record_cls,
+            ),
             patch(
                 "aragora.nomic.cycle_store.get_cycle_store",
                 return_value=MagicMock(),
@@ -1180,7 +1186,7 @@ class TestSelfImprovePipelineNomicCycleAdapter:
                 return_value=mock_adapter,
             ),
         ):
-            await pipeline._persist_cycle_outcome("cycle-test-001", result)
+            pipeline._persist_outcome("cycle-test-001", result)
 
             mock_adapter.ingest_cycle_outcome.assert_called_once()
             outcome = mock_adapter.ingest_cycle_outcome.call_args[0][0]
@@ -1194,9 +1200,8 @@ class TestSelfImprovePipelineNomicCycleAdapter:
             # PARTIAL: some succeeded, some failed
             assert outcome.status.value == "partial"
 
-    @pytest.mark.asyncio
-    async def test_persist_cycle_outcome_adapter_failure_is_graceful(self):
-        """NomicCycleAdapter failure doesn't break _persist_cycle_outcome()."""
+    def test_persist_outcome_adapter_failure_is_graceful(self):
+        """NomicCycleAdapter failure doesn't break _persist_outcome()."""
         from aragora.nomic.self_improve import SelfImproveConfig, SelfImprovePipeline
 
         config = SelfImproveConfig(use_meta_planner=False, quick_mode=True)
@@ -1222,7 +1227,14 @@ class TestSelfImprovePipelineNomicCycleAdapter:
 
         result = _FakeResult()
 
+        mock_record = MagicMock()
+        mock_record_cls = MagicMock(return_value=mock_record)
+
         with (
+            patch(
+                "aragora.nomic.cycle_record.NomicCycleRecord",
+                mock_record_cls,
+            ),
             patch(
                 "aragora.nomic.cycle_store.get_cycle_store",
                 return_value=MagicMock(),
@@ -1233,4 +1245,4 @@ class TestSelfImprovePipelineNomicCycleAdapter:
             ),
         ):
             # Should not raise
-            await pipeline._persist_cycle_outcome("cycle-err", result)
+            pipeline._persist_outcome("cycle-err", result)

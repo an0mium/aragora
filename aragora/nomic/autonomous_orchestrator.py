@@ -436,6 +436,10 @@ class AutonomousOrchestrator:
                             "outcome_regression_detected recommendation=%s",
                             _outcome_comparison.recommendation,
                         )
+                        # Auto-replan: queue regression-fix goals for next cycle
+                        self._enqueue_regression_goals(
+                            _outcome_comparison, goal
+                        )
                 except (
                     RuntimeError,
                     OSError,
@@ -1425,6 +1429,79 @@ class AutonomousOrchestrator:
                         test_file = f"tests/{directory}/test_{filename}"
                         test_paths.append(test_file)
         return test_paths
+
+    def _enqueue_regression_goals(
+        self,
+        comparison: Any,
+        original_goal: str,
+    ) -> None:
+        """Convert detected regressions into improvement goals for next cycle.
+
+        When OutcomeTracker detects a regression, this method generates
+        targeted fix goals and pushes them to the ImprovementQueue so
+        MetaPlanner picks them up automatically in the next planning cycle.
+        """
+        try:
+            from aragora.nomic.feedback_orchestrator import ImprovementGoal
+            from aragora.nomic.improvement_queue import get_improvement_queue
+        except ImportError:
+            logger.debug("feedback_orchestrator unavailable for auto-replan")
+            return
+
+        try:
+            queue = get_improvement_queue()
+            metrics_delta = getattr(comparison, "metrics_delta", {}) or {}
+            recommendation = getattr(comparison, "recommendation", "review")
+
+            # Generate a goal for each regressed metric
+            regressed = [
+                (k, v) for k, v in metrics_delta.items() if v is not None
+            ]
+            if not regressed:
+                # No specific metrics — generate a generic regression-fix goal
+                queue.push(
+                    ImprovementGoal(
+                        goal=f"Fix regression caused by: {original_goal}",
+                        source="outcome_tracker_regression",
+                        priority=0.9,  # High priority
+                        context={
+                            "recommendation": recommendation,
+                            "original_goal": original_goal,
+                            "auto_replan": True,
+                        },
+                    )
+                )
+                logger.info("auto_replan: queued generic regression-fix goal")
+                return
+
+            for metric_name, delta_value in regressed:
+                priority = 0.95 if recommendation == "revert" else 0.8
+                queue.push(
+                    ImprovementGoal(
+                        goal=(
+                            f"Fix {metric_name} regression "
+                            f"(delta={delta_value:+.3f}) "
+                            f"after: {original_goal}"
+                        ),
+                        source="outcome_tracker_regression",
+                        priority=priority,
+                        context={
+                            "regressed_metric": metric_name,
+                            "delta": delta_value,
+                            "recommendation": recommendation,
+                            "original_goal": original_goal,
+                            "auto_replan": True,
+                        },
+                    )
+                )
+
+            logger.info(
+                "auto_replan: queued %d regression-fix goals (recommendation=%s)",
+                len(regressed),
+                recommendation,
+            )
+        except (RuntimeError, OSError, ValueError) as e:
+            logger.debug("auto_replan_failed: %s", e)
 
     def _apply_self_correction(
         self,
