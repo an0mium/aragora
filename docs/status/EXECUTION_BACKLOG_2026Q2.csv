@@ -1,0 +1,296 @@
+title,body,labels,milestone
+"[EPIC] Release Integrity and Truth Baseline","Owner: @team-platform
+KPI: Release Gate Completeness = 100% for tagged releases.
+
+Scope:
+- Unify release gating across test/security/integration workflows.
+- Reconcile status docs so capability/roadmap/GA views do not conflict.
+- Make readiness evidence machine-checkable.
+
+Acceptance Criteria:
+- [ ] Release workflow depends on security + integration smoke + nightly evidence checks.
+- [ ] One generated status snapshot is published in CI artifacts.
+- [ ] No contradictory GA blocker status across canonical docs.","program:execution-2026,epic,priority:critical,owner:team-platform","2026-M0 Release Integrity"
+"Gate release workflow on security and integration checks","Owner: @team-platform
+KPI: 0 releases published without successful security+integration gate.
+
+Acceptance Criteria:
+- [ ] `release.yml` requires successful completion of selected `security.yml` and integration suites.
+- [ ] Tag build fails when dependency gates are missing.
+- [ ] Release run summary lists all upstream gate SHAs.","program:execution-2026,priority:critical,owner:team-platform","2026-M0 Release Integrity"
+"Make npm dependency audit blocking for HIGH/CRITICAL","Owner: @team-risk
+KPI: High/Critical npm audit findings merged to main = 0.
+
+Acceptance Criteria:
+- [ ] Security workflow fails on HIGH/CRITICAL npm vulnerabilities.
+- [ ] Warning-only path removed for high-severity findings.
+- [ ] Exception mechanism documented with expiration and owner.","program:execution-2026,security,priority:high,owner:team-risk","2026-M0 Release Integrity"
+"Add PR integration smoke lane for high-risk paths","Owner: @team-platform
+KPI: Escaped regressions from integration/e2e classes <= 2 per month.
+
+Acceptance Criteria:
+- [ ] PR workflow runs a bounded integration smoke suite.
+- [ ] Smoke suite covers API, streaming, receipts, and one connector path.
+- [ ] Runtime budget stays under 15 minutes.","program:execution-2026,ci,testing,priority:high,owner:team-platform","2026-M0 Release Integrity"
+"Tighten skip-marker governance and burn-down","Owner: @team-platform
+KPI: Skip baseline count reduced by >= 30 by milestone close.
+
+Acceptance Criteria:
+- [ ] New skips require ticket reference and expiry date.
+- [ ] CI fails when baseline increases without approved override.
+- [ ] Existing 136 skip baseline has a burn-down plan with owners.","program:execution-2026,testing,priority:high,owner:team-platform","2026-M0 Release Integrity"
+"Automate capability/GA/status reconciliation report","Owner: @team-analytics
+KPI: Status mismatch incidents across canonical docs = 0.
+
+Acceptance Criteria:
+- [ ] CI job compares `CAPABILITY_MATRIX`, `GA_CHECKLIST`, `ROADMAP`, and `STATUS`.
+- [ ] Drift report generated as artifact and PR comment.
+- [ ] Blocking mode enabled for critical-field mismatches.","program:execution-2026,docs,governance,priority:high,owner:team-analytics","2026-M0 Release Integrity"
+"[EPIC] Surface Parity Closure","Owner: @team-core
+KPI: CLI coverage >= 90%, SDK parity >= 97%, UI coverage >= 35%.
+
+Scope:
+- Close explicit capability matrix gaps for API/CLI/SDK/UI.
+- Prioritize decision integrity, workflow, memory, and compliance surfaces.
+
+Acceptance Criteria:
+- [ ] All matrix-listed API/CLI/SDK gaps have tracked implementations.
+- [ ] UI roadmap includes delivery dates and acceptance tests.
+- [ ] Matrix regenerated and trending metrics published weekly.","program:execution-2026,epic,priority:critical,owner:team-core","2026-M1 Surface Parity"
+"Implement `consensus_detection` API surface","Owner: @team-core
+KPI: Missing API gap count reduced from 1 to 0.
+
+Acceptance Criteria:
+- [ ] API routes exist with auth/RBAC and OpenAPI schema.
+- [ ] Handler tests and contract tests pass.
+- [ ] Endpoint appears in generated capability matrix.","program:execution-2026,api,priority:critical,owner:team-core","2026-M1 Surface Parity"
+"Add `consensus_detection` support to Python and TypeScript SDKs","Owner: @team-sdk
+KPI: Missing SDK gap count reduced from 1 to 0.
+
+Acceptance Criteria:
+- [ ] Namespaces/methods generated in both SDKs.
+- [ ] Contract parity tests pass without xfail.
+- [ ] SDK docs include usage example.","program:execution-2026,sdk,priority:critical,owner:team-sdk","2026-M1 Surface Parity"
+"Add CLI command group for compliance framework workflows","Owner: @team-core
+KPI: Missing CLI gap count reduced.
+
+Acceptance Criteria:
+- [ ] CLI includes compliance framework command set with help text.
+- [ ] Commands support dry-run and machine-readable output.
+- [ ] Tests cover happy-path and auth failure behavior.","program:execution-2026,cli,compliance,priority:high,owner:team-core","2026-M1 Surface Parity"
+"Add CLI command group for consensus detection workflows","Owner: @team-core
+KPI: Missing CLI gap count reduced.
+
+Acceptance Criteria:
+- [ ] CLI includes consensus detection command set.
+- [ ] Output can be consumed by CI pipelines (JSON mode).
+- [ ] Documentation includes one end-to-end example.","program:execution-2026,cli,priority:high,owner:team-core","2026-M1 Surface Parity"
+"Add RBAC v2 CLI admin commands","Owner: @team-risk
+KPI: Missing CLI gap count reduced.
+
+Acceptance Criteria:
+- [ ] Role/permission inspection and assignment commands available.
+- [ ] RBAC CLI commands enforce admin permissions.
+- [ ] Audit logs capture all CLI-admin changes.","program:execution-2026,cli,security,priority:high,owner:team-risk","2026-M1 Surface Parity"
+"Ship Decision Integrity UI workbench (debate/workflow/memory/nomic)","Owner: @team-growth
+KPI: UI capability coverage >= 35%.
+
+Acceptance Criteria:
+- [ ] UI surfaces for decision integrity and workflow engine are visible behind production flags.
+- [ ] Read models for continuum memory and nomic loop state available.
+- [ ] Telemetry captures adoption and error rates for each panel.","program:execution-2026,frontend,priority:critical,owner:team-growth","2026-M1 Surface Parity"
+"FastAPI migration wave for critical handlers","Owner: @team-platform
+KPI: Critical handler coverage in FastAPI >= 80% of priority list.
+
+Acceptance Criteria:
+- [ ] Priority handler migration plan approved.
+- [ ] Migrated routes have parity tests vs legacy behavior.
+- [ ] Cutover strategy documented with rollback path.","program:execution-2026,api,platform,priority:high,owner:team-platform","2026-M1 Surface Parity"
+"[EPIC] Channel Productization and FinOps","Owner: @team-integrations
+KPI: Channel workflow success >= 95%; budget-overrun debates <= 3%.
+
+Scope:
+- Turn chat connectors into reliable threaded debate workflows.
+- Enforce workspace cost controls and visibility.
+
+Acceptance Criteria:
+- [ ] Slack and Teams threaded lifecycle GA path validated.
+- [ ] Budget policy + spend dashboard available in workspace scope.
+- [ ] Debate receipts include cost and policy outcome details.","program:execution-2026,epic,priority:critical,owner:team-integrations","2026-M2 Channel and FinOps"
+"Slack thread debate lifecycle v1","Owner: @team-integrations
+KPI: Slack thread success rate >= 95% on pilot tenants.
+
+Acceptance Criteria:
+- [ ] Slash/mention trigger starts debate in thread context.
+- [ ] Progress and final receipt posted into originating thread.
+- [ ] Retries and rate-limit behavior validated under load.","program:execution-2026,integration,slack,priority:critical,owner:team-integrations","2026-M2 Channel and FinOps"
+"Teams thread debate lifecycle v1","Owner: @team-integrations
+KPI: Teams debate workflow success >= 95% on pilot tenants.
+
+Acceptance Criteria:
+- [ ] Bot mention/command starts debate in Teams context.
+- [ ] Adaptive Card summary and receipt link posted on completion.
+- [ ] Error states return actionable user-facing messages.","program:execution-2026,integration,teams,priority:high,owner:team-integrations","2026-M2 Channel and FinOps"
+"Workspace budget policy engine","Owner: @team-finops
+KPI: Budget-overrun debates <= 3% after rollout.
+
+Acceptance Criteria:
+- [ ] Soft and hard limits configurable per workspace.
+- [ ] Policy engine blocks/escales debates at hard limit.
+- [ ] Budget state exposed via API and admin UI.","program:execution-2026,billing,policy,priority:critical,owner:team-finops","2026-M2 Channel and FinOps"
+"Per-debate cost accounting and receipt inclusion","Owner: @team-finops
+KPI: >= 95% receipts include normalized cost accounting.
+
+Acceptance Criteria:
+- [ ] Token usage tracked per agent/provider call.
+- [ ] Provider pricing model is versioned and overridable by workspace.
+- [ ] Receipt export includes cost breakdown and total.","program:execution-2026,billing,receipts,priority:high,owner:team-finops","2026-M2 Channel and FinOps"
+"Spend analytics dashboard v1","Owner: @team-analytics
+KPI: 80% of pilot workspaces actively using spend dashboard.
+
+Acceptance Criteria:
+- [ ] Dashboard shows spend by workspace, debate, provider, and date range.
+- [ ] Budget threshold breaches visualized with alerts.
+- [ ] CSV export available for finance workflows.","program:execution-2026,analytics,billing,priority:high,owner:team-analytics","2026-M2 Channel and FinOps"
+"Promote top 15 beta connectors to production","Owner: @team-integrations
+KPI: Production connectors 99 -> >= 114.
+
+Acceptance Criteria:
+- [ ] Reliability hardening checklist applied (retries, circuit-breakers, tests).
+- [ ] Connector status matrix updated with evidence.
+- [ ] Promotion does not reduce CI stability.","program:execution-2026,connectors,priority:high,owner:team-integrations","2026-M2 Channel and FinOps"
+"Eliminate four stub connectors","Owner: @team-integrations
+KPI: Stub connectors 4 -> 0.
+
+Acceptance Criteria:
+- [ ] SendGrid and Twilio communication connectors implement real search/fetch behavior.
+- [ ] Trello and Instagram connectors move out of stub state or are formally deprecated.
+- [ ] Tests added for all converted connectors.","program:execution-2026,connectors,priority:high,owner:team-integrations","2026-M2 Channel and FinOps"
+"[EPIC] Scale and Reliability","Owner: @team-sre
+KPI: Availability >= 99.9%; streaming error rate <= 0.5%; median debate runtime -25%.
+
+Scope:
+- Performance, load resilience, observability, and recovery hardening.
+
+Acceptance Criteria:
+- [ ] Benchmark and load gates are enforced for release candidates.
+- [ ] Runbooks validated for restore and incident response.
+- [ ] Public reliability reporting path established.","program:execution-2026,epic,priority:critical,owner:team-sre","2026-M3 Scale and Reliability"
+"Debate latency optimization pass","Owner: @team-core
+KPI: Median debate runtime reduced by >= 25% vs baseline.
+
+Acceptance Criteria:
+- [ ] Benchmark baselines committed and reproducible.
+- [ ] Hot-path optimization changes validated by benchmark suite.
+- [ ] No measurable quality regression in output receipts.","program:execution-2026,performance,priority:high,owner:team-core","2026-M3 Scale and Reliability"
+"Streaming reliability and reconnect hardening","Owner: @team-sre
+KPI: Stream error rate <= 0.5%.
+
+Acceptance Criteria:
+- [ ] Reconnect/backoff behavior covered by resilience tests.
+- [ ] WebSocket server instrumentation includes connection failure taxonomy.
+- [ ] Load tests verify stream stability at target concurrency.","program:execution-2026,streaming,reliability,priority:high,owner:team-sre","2026-M3 Scale and Reliability"
+"Load testing and SLO enforcement","Owner: @team-sre
+KPI: Monthly SLO report generated from automated test and runtime metrics.
+
+Acceptance Criteria:
+- [ ] Load suite covers >= 100 concurrent debates and API stress profile.
+- [ ] SLO thresholds codified in alert rules.
+- [ ] CI/nightly artifacts publish trend charts.","program:execution-2026,testing,sre,priority:high,owner:team-sre","2026-M3 Scale and Reliability"
+"Offsite backup automation and restore drill evidence","Owner: @team-sre
+KPI: 100% scheduled backups replicated offsite; restore drill pass rate 100%.
+
+Acceptance Criteria:
+- [ ] Offsite sync automation configured and monitored.
+- [ ] Restore drill runs quarterly with evidence artifact.
+- [ ] RTO/RPO metrics tracked and reported.","program:execution-2026,backup,dr,priority:high,owner:team-sre","2026-M3 Scale and Reliability"
+"Public status page and SLA instrumentation","Owner: @team-sre
+KPI: Public availability report published monthly.
+
+Acceptance Criteria:
+- [ ] Status page deployed with automated update feed.
+- [ ] Incident and maintenance events represented.
+- [ ] SLA calculator uses production telemetry sources.","program:execution-2026,status-page,sla,priority:medium,owner:team-sre","2026-M3 Scale and Reliability"
+"[EPIC] Enterprise Assurance Closure","Owner: @team-risk
+KPI: 0 open HIGH/CRITICAL pentest findings; admin MFA enforcement 100%.
+
+Scope:
+- Close external assurance requirements and security posture gaps before broader rollout.
+
+Acceptance Criteria:
+- [ ] External pentest executed with tracked remediation backlog.
+- [ ] MFA admin enforcement policy active in all production workspaces.
+- [ ] Data classification policy finalized and enforced.","program:execution-2026,epic,security,priority:critical,owner:team-risk","2026-M2 Channel and FinOps"
+"Execute external penetration test and remediate findings","Owner: @team-risk
+KPI: HIGH/CRITICAL open findings = 0.
+
+Acceptance Criteria:
+- [ ] Vendor engaged and scope approved.
+- [ ] Findings triaged with severity, owner, and SLA.
+- [ ] Critical/high findings remediated and verified.","program:execution-2026,security,pentest,priority:critical,owner:team-risk","2026-M2 Channel and FinOps"
+"Enforce MFA for all admin roles","Owner: @team-risk
+KPI: Admin MFA adoption = 100%.
+
+Acceptance Criteria:
+- [ ] Enforcement flag enabled in production.
+- [ ] Break-glass process documented and auditable.
+- [ ] Policy compliance dashboard reports coverage.","program:execution-2026,security,auth,priority:high,owner:team-risk","2026-M2 Channel and FinOps"
+"Finalize and enforce data classification policy","Owner: @team-risk
+KPI: 100% tenant data classes mapped to policy controls.
+
+Acceptance Criteria:
+- [ ] Classification tiers and handling controls approved.
+- [ ] Storage and export paths enforce class-based rules.
+- [ ] Compliance evidence package includes class-control mapping.","program:execution-2026,compliance,data-governance,priority:high,owner:team-risk","2026-M2 Channel and FinOps"
+"[EPIC] Ecosystem and Analytics Expansion","Owner: @team-growth
+KPI: 3 production-grade example apps; analytics adoption >= 60% in pilot cohort.
+
+Scope:
+- Expand developer adoption and measurable outcomes tooling.
+
+Acceptance Criteria:
+- [ ] API explorer and codegen pipeline are production-ready.
+- [ ] Example apps cover top integration patterns.
+- [ ] Outcome analytics and knowledge gap insights available.","program:execution-2026,epic,priority:high,owner:team-growth","2026-M4 Ecosystem and Analytics"
+"Launch interactive API explorer","Owner: @team-sdk
+KPI: 90% of API operations discoverable and testable in explorer.
+
+Acceptance Criteria:
+- [ ] Explorer deployed with auth flow support.
+- [ ] Operation examples available for core workflows.
+- [ ] Explorer build tied to OpenAPI generation pipeline.","program:execution-2026,api,docs,priority:high,owner:team-sdk","2026-M4 Ecosystem and Analytics"
+"Harden SDK code generation pipeline","Owner: @team-sdk
+KPI: SDK generation drift incidents = 0.
+
+Acceptance Criteria:
+- [ ] Generation pipeline runs in CI and fails on drift.
+- [ ] Python and TypeScript artifacts stay contract-aligned.
+- [ ] Developer docs include regeneration and contribution flow.","program:execution-2026,sdk,tooling,priority:high,owner:team-sdk","2026-M4 Ecosystem and Analytics"
+"Ship example app pack (Slack review, document analysis, workflow automation)","Owner: @team-growth
+KPI: >= 3 example apps with runnable setup and passing smoke tests.
+
+Acceptance Criteria:
+- [ ] Three production-representative examples committed under `examples/`.
+- [ ] Setup docs validated on clean environment.
+- [ ] CI smoke checks verify each app boots and runs core path.","program:execution-2026,examples,priority:medium,owner:team-growth","2026-M4 Ecosystem and Analytics"
+"Build decision outcome analytics dashboard","Owner: @team-analytics
+KPI: Pilot dashboard adoption >= 60%; weekly usage trend is positive.
+
+Acceptance Criteria:
+- [ ] Dashboard reports outcome quality, cycle time, and cost efficiency.
+- [ ] Drill-down by workspace, team, and workflow template.
+- [ ] Export endpoints for downstream BI tools.","program:execution-2026,analytics,priority:high,owner:team-analytics","2026-M4 Ecosystem and Analytics"
+"Implement knowledge gap detection and recommendations","Owner: @team-analytics
+KPI: >= 70% of pilot workspaces receive actionable gap recommendations.
+
+Acceptance Criteria:
+- [ ] Gap detection model identifies weak evidence domains.
+- [ ] Recommendations route to debate/workflow templates.
+- [ ] Feedback loop tracks recommendation acceptance and impact.","program:execution-2026,knowledge,analytics,priority:medium,owner:team-analytics","2026-M4 Ecosystem and Analytics"
+"Run marketplace pilot for workflow templates and agent packs","Owner: @team-growth
+KPI: >= 20 reusable assets published in pilot with >= 50% reuse rate.
+
+Acceptance Criteria:
+- [ ] Marketplace pilot has publish/install/version lifecycle.
+- [ ] Security scanning and policy checks gate published assets.
+- [ ] Usage metrics and quality ratings captured.","program:execution-2026,marketplace,priority:medium,owner:team-growth","2026-M4 Ecosystem and Analytics"

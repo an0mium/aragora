@@ -1001,6 +1001,24 @@ class FeedbackPhase:
                         "belief_stability": decision.belief_stability_score,
                     },
                 }
+
+                # Persist explanation to Knowledge Mound via ExplainabilityAdapter
+                if self.enable_knowledge_extraction:
+                    try:
+                        from aragora.knowledge.mound.adapters.explainability_adapter import (
+                            get_explainability_adapter,
+                        )
+
+                        task_str = ctx.env.task if ctx.env else ""
+                        adapter = get_explainability_adapter()
+                        adapter.store_explanation(decision, task=task_str)
+                        logger.info(
+                            "[explainability] Persisted explanation for debate %s to KM",
+                            ctx.debate_id,
+                        )
+                    except (ImportError, RuntimeError, ValueError, TypeError) as e:
+                        logger.debug("[explainability] KM persistence failed: %s", e)
+
             except (ImportError, RuntimeError, ValueError, TypeError) as e:
                 logger.debug("[receipt] Explainability not available: %s", e)
 

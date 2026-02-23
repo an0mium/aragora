@@ -52,6 +52,8 @@ class PromptAssemblyMixin:
     get_codebase_context: Any
     get_prior_claims_context: Any
     format_pulse_context: Any
+    get_pulse_enrichment_context: Any
+    inject_pulse_enrichment: Any
     get_vertical_context: Any
     get_language_constraint: Any
     format_successful_patterns: Any
@@ -245,6 +247,12 @@ class PromptAssemblyMixin:
         if pulse_context:
             pulse_section = f"{pulse_context}"
 
+        # Pulse enrichment: quality + freshness scored trending context
+        pulse_enrichment_section = ""
+        pulse_enrichment_ctx = self.get_pulse_enrichment_context()
+        if pulse_enrichment_ctx:
+            pulse_enrichment_section = pulse_enrichment_ctx
+
         if audience_section:
             audience_section = f"{audience_section}"
 
@@ -289,6 +297,7 @@ class PromptAssemblyMixin:
             ContextSection("trending", trending_section.strip()),
             ContextSection("prior_claims", prior_claims_section.strip()),
             ContextSection("pulse", pulse_section.strip()),
+            ContextSection("pulse_enrichment", pulse_enrichment_section.strip()),
             ContextSection("audience", audience_section.strip()),
             ContextSection("template", template_section.strip()),
             ContextSection("introspection", introspection_section.strip()),

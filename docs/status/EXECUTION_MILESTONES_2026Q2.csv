@@ -1,0 +1,6 @@
+title,due_on,description
+"2026-M0 Release Integrity","2026-03-15","Harden release confidence gates, reconcile status truth, and close critical readiness blockers."
+"2026-M1 Surface Parity","2026-04-15","Close explicit API/CLI/SDK/UI capability matrix gaps for decision integrity surfaces."
+"2026-M2 Channel and FinOps","2026-05-31","Ship threaded human-in-the-loop workflows in Slack/Teams and enforce workspace budget controls."
+"2026-M3 Scale and Reliability","2026-07-31","Reach performance and reliability targets under load with strong backup and observability discipline."
+"2026-M4 Ecosystem and Analytics","2026-10-31","Expand ecosystem adoption with codegen, API explorer, example apps, and measurable outcomes analytics."
