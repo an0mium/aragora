@@ -9,9 +9,12 @@ from __future__ import annotations
 import logging
 import re
 from pathlib import Path
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 from aragora.nomic.types import Track
+
+if TYPE_CHECKING:
+    from aragora.nomic.meta_planner import PrioritizedGoal
 
 logger = logging.getLogger(__name__)
 
