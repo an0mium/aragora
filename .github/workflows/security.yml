@@ -159,7 +159,10 @@ jobs:
         run: |
           # Audit installed packages against the OSV vulnerability database.
           # --strict exits non-zero on any known vulnerability.
-          pip-audit --strict --vulnerability-service osv
+          # CVE-2025-14009: nltk Zip Slip in downloader — transitive dep, no fix version,
+          # and we never call nltk.download() in production code.
+          pip-audit --strict --vulnerability-service osv \
+            --ignore-vuln CVE-2025-14009
 
       - name: Report Python dependency status
         if: always() && (steps.safety.outcome == 'failure' || steps.pip-audit.outcome == 'failure')
