@@ -222,6 +222,77 @@ class AdminAPI:
         """List detected security threats."""
         return self._client.request("GET", "/api/v1/admin/security/threats")
 
+    # ===========================================================================
+    # Emergency Access
+    # ===========================================================================
+
+    def activate_emergency(
+        self,
+        user_id: str,
+        reason: str,
+        duration_minutes: int = 60,
+    ) -> dict[str, Any]:
+        """Activate break-glass emergency access.
+
+        Args:
+            user_id: User to grant emergency access.
+            reason: Reason for emergency access (min 10 chars).
+            duration_minutes: Duration in minutes (default 60, max 1440).
+
+        Returns:
+            Dict with activation status and session details.
+        """
+        return self._client.request(
+            "POST",
+            "/api/v1/admin/emergency/activate",
+            json={
+                "user_id": user_id,
+                "reason": reason,
+                "duration_minutes": duration_minutes,
+            },
+        )
+
+    def deactivate_emergency(self, session_id: str | None = None) -> dict[str, Any]:
+        """Deactivate break-glass emergency access.
+
+        Args:
+            session_id: Optional session ID to deactivate.
+
+        Returns:
+            Dict with deactivation status.
+        """
+        data: dict[str, Any] = {}
+        if session_id:
+            data["session_id"] = session_id
+        return self._client.request(
+            "POST",
+            "/api/v1/admin/emergency/deactivate",
+            json=data if data else None,
+        )
+
+    def get_emergency_status(self) -> dict[str, Any]:
+        """Get active emergency access sessions.
+
+        Returns:
+            Dict with active emergency sessions and counts.
+        """
+        return self._client.request("GET", "/api/v1/admin/emergency/status")
+
+    # ===========================================================================
+    # Feature Flags
+    # ===========================================================================
+
+    def update_feature_flags(self, flags: dict[str, Any]) -> dict[str, Any]:
+        """Update admin feature flags.
+
+        Args:
+            flags: Feature flag key-value pairs to update.
+
+        Returns:
+            Dict with updated flags.
+        """
+        return self._client.request("PUT", "/api/v1/admin/feature-flags", json=flags)
+
 
 class AsyncAdminAPI:
     """
@@ -344,3 +415,47 @@ class AsyncAdminAPI:
     async def list_security_threats(self) -> dict[str, Any]:
         """List detected security threats."""
         return await self._client.request("GET", "/api/v1/admin/security/threats")
+
+    # ===========================================================================
+    # Emergency Access
+    # ===========================================================================
+
+    async def activate_emergency(
+        self,
+        user_id: str,
+        reason: str,
+        duration_minutes: int = 60,
+    ) -> dict[str, Any]:
+        """Activate break-glass emergency access."""
+        return await self._client.request(
+            "POST",
+            "/api/v1/admin/emergency/activate",
+            json={
+                "user_id": user_id,
+                "reason": reason,
+                "duration_minutes": duration_minutes,
+            },
+        )
+
+    async def deactivate_emergency(self, session_id: str | None = None) -> dict[str, Any]:
+        """Deactivate break-glass emergency access."""
+        data: dict[str, Any] = {}
+        if session_id:
+            data["session_id"] = session_id
+        return await self._client.request(
+            "POST",
+            "/api/v1/admin/emergency/deactivate",
+            json=data if data else None,
+        )
+
+    async def get_emergency_status(self) -> dict[str, Any]:
+        """Get active emergency access sessions."""
+        return await self._client.request("GET", "/api/v1/admin/emergency/status")
+
+    # ===========================================================================
+    # Feature Flags
+    # ===========================================================================
+
+    async def update_feature_flags(self, flags: dict[str, Any]) -> dict[str, Any]:
+        """Update admin feature flags."""
+        return await self._client.request("PUT", "/api/v1/admin/feature-flags", json=flags)

@@ -93,6 +93,22 @@ class MetricsAPI:
         """
         return self._client.request("GET", "/api/metrics/debate")
 
+    def get_prometheus_metrics(self) -> dict[str, Any]:
+        """Get Prometheus metrics from the API metrics endpoint.
+
+        Returns:
+            Prometheus-format metrics data.
+        """
+        return self._client.request("GET", "/api/v1/metrics/prometheus")
+
+    def get_prometheus_summary(self) -> dict[str, Any]:
+        """Get summarized Prometheus metrics.
+
+        Returns:
+            Summarized metrics data.
+        """
+        return self._client.request("GET", "/api/v1/metrics/prometheus/summary")
+
 
 class AsyncMetricsAPI:
     """
@@ -131,3 +147,11 @@ class AsyncMetricsAPI:
     async def get_debates(self) -> dict[str, Any]:
         """Get debate metrics."""
         return await self._client.request("GET", "/api/metrics/debate")
+
+    async def get_prometheus_metrics(self) -> dict[str, Any]:
+        """Get Prometheus metrics from the API metrics endpoint."""
+        return await self._client.request("GET", "/api/v1/metrics/prometheus")
+
+    async def get_prometheus_summary(self) -> dict[str, Any]:
+        """Get summarized Prometheus metrics."""
+        return await self._client.request("GET", "/api/v1/metrics/prometheus/summary")
