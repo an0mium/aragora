@@ -10,6 +10,7 @@ import { ExecutionTimeline } from '@/components/self-improve/ExecutionTimeline';
 import { LearningFeed } from '@/components/self-improve/LearningFeed';
 import { RegressionGuard } from '@/components/self-improve/RegressionGuard';
 import { BudgetTracker } from '@/components/self-improve/BudgetTracker';
+import { NomicMetricsDashboard } from '@/components/self-improve/NomicMetricsDashboard';
 
 // --- Types ---
 
@@ -312,7 +313,7 @@ function SelfImprovePageInner() {
           {activeTab === 'planner' && <MetaPlannerView />}
           {activeTab === 'execution' && (<><BudgetTracker /><ExecutionTimeline /></>)}
           {activeTab === 'learning' && <LearningFeed />}
-          {activeTab === 'metrics' && <RegressionGuard />}
+          {activeTab === 'metrics' && <NomicMetricsDashboard />}
 
           {activeTab === 'runs' && (<>
           {/* Start Panel */}

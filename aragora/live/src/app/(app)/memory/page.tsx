@@ -9,6 +9,7 @@ import { UnifiedMemorySearch } from '@/components/memory/UnifiedMemorySearch';
 import { RetentionDecisions } from '@/components/memory/RetentionDecisions';
 import { DedupClusters } from '@/components/memory/DedupClusters';
 import { CrossDebateLearning } from '@/components/memory/CrossDebateLearning';
+import { MemoryTiersPanel } from '@/components/memory/MemoryTiersPanel';
 
 const MemoryExplorerPanel = dynamic(
   () => import('@/components/MemoryExplorerPanel').then(m => ({ default: m.MemoryExplorerPanel })),
