@@ -799,17 +799,17 @@ class Arena(ArenaDelegatesMixin):
     # =========================================================================
 
     @classmethod
-    def from_config(cls, environment, agents, protocol=None, config=None):
+    def from_config(cls, environment, agents, protocol=None, config=None) -> "Arena":
         """Create an Arena from an ArenaConfig for cleaner dependency injection."""
         return _factory_from_config(cls, environment, agents, protocol, config)
 
     @classmethod
-    def from_configs(cls, environment, agents, protocol=None, **kwargs):
+    def from_configs(cls, environment, agents, protocol=None, **kwargs) -> "Arena":
         """Create an Arena from grouped config objects."""
         return _factory_from_configs(cls, environment, agents, protocol, **kwargs)
 
     @classmethod
-    def create(cls, environment, agents, protocol=None, **kwargs):
+    def create(cls, environment, agents, protocol=None, **kwargs) -> "Arena":
         """Create an Arena with a clean, consolidated interface."""
         return _factory_create(cls, environment, agents, protocol, **kwargs)
 
