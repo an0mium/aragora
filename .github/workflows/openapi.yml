@@ -365,46 +365,37 @@ jobs:
 
       - name: Commit updated spec
         if: steps.changes.outputs.changes == 'true'
+        continue-on-error: true
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
 
-          # Retry loop for handling concurrent pushes
-          MAX_RETRIES=3
-          RETRY_COUNT=0
+          # Fetch latest and reset to handle concurrent changes
+          git fetch origin main
+          git reset --hard origin/main
 
-          while [ $RETRY_COUNT -lt $MAX_RETRIES ]; do
-            # Fetch latest and reset to handle concurrent changes
-            git fetch origin main
-            git reset --hard origin/main
+          # Re-apply the generated spec and SDK type files from temp location
+          cp /tmp/openapi-spec/openapi_generated.json docs/api/openapi.json 2>/dev/null || true
+          cp /tmp/openapi-spec/openapi_generated.yaml docs/api/openapi.yaml 2>/dev/null || true
+          cp /tmp/openapi-spec/openapi-types.ts sdk/typescript/src/openapi-types.ts 2>/dev/null || true
+          cp /tmp/openapi-spec/generated_types.py sdk/python/aragora/generated_types.py 2>/dev/null || true
+          cp /tmp/openapi-spec/aragora/live/src/types/api.generated.ts aragora/live/src/types/api.generated.ts 2>/dev/null || true
 
-            # Re-apply the generated spec and SDK type files from temp location
-            cp /tmp/openapi-spec/openapi_generated.json docs/api/openapi.json 2>/dev/null || true
-            cp /tmp/openapi-spec/openapi_generated.yaml docs/api/openapi.yaml 2>/dev/null || true
-            cp /tmp/openapi-spec/openapi-types.ts sdk/typescript/src/openapi-types.ts 2>/dev/null || true
-            cp /tmp/openapi-spec/generated_types.py sdk/python/aragora/generated_types.py 2>/dev/null || true
-            cp /tmp/openapi-spec/aragora/live/src/types/api.generated.ts aragora/live/src/types/api.generated.ts 2>/dev/null || true
+          # Check if there are actual changes
+          if git diff --quiet docs/api/ sdk/typescript/src/openapi-types.ts sdk/python/aragora/generated_types.py aragora/live/src/types/api.generated.ts 2>/dev/null; then
+            echo "No changes to commit"
+            exit 0
+          fi
 
-            # Check if there are actual changes
-            if git diff --quiet docs/api/ sdk/typescript/src/openapi-types.ts sdk/python/aragora/generated_types.py aragora/live/src/types/api.generated.ts 2>/dev/null; then
-              echo "No changes to commit"
-              exit 0
-            fi
+          # Stage and commit
+          git add docs/api/openapi.json docs/api/openapi.yaml sdk/typescript/src/openapi-types.ts sdk/python/aragora/generated_types.py aragora/live/src/types/api.generated.ts
+          git commit -m "chore(api): auto-update OpenAPI spec and SDK types [skip ci]" || true
 
-            # Stage and commit
-            git add docs/api/openapi.json docs/api/openapi.yaml sdk/typescript/src/openapi-types.ts sdk/python/aragora/generated_types.py aragora/live/src/types/api.generated.ts
-            git commit -m "chore(api): auto-update OpenAPI spec and SDK types [skip ci]" || true
-
-            # Try to push
-            if git push origin main; then
-              echo "Successfully pushed OpenAPI spec update"
-              exit 0
-            fi
-
-            RETRY_COUNT=$((RETRY_COUNT + 1))
-            echo "Push failed, retrying ($RETRY_COUNT/$MAX_RETRIES)..."
-            sleep 5
-          done
-
-          echo "Failed to push after $MAX_RETRIES retries"
-          exit 1
+          # Push — may fail if branch protection requires status checks.
+          # This is expected when GITHUB_TOKEN lacks bypass permissions.
+          # The spec generation and validation already passed in the 'generate' job.
+          if git push origin main; then
+            echo "Successfully pushed OpenAPI spec update"
+          else
+            echo "::warning::Could not auto-push spec update (branch protection). The generated spec is available as a workflow artifact."
+          fi

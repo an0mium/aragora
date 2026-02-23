@@ -381,6 +381,11 @@ class IdeaToExecutionPipeline:
             for goal in result.goal_graph.goals:
                 self._emit_sync(
                     event_callback,
+                    "goal_extracted",
+                    {"goal": goal.to_dict()},
+                )
+                self._emit_sync(
+                    event_callback,
                     "pipeline_node_added",
                     {
                         "stage": "goals",
@@ -560,9 +565,14 @@ class IdeaToExecutionPipeline:
         result.stage_status[PipelineStage.GOALS.value] = "complete"
         self._emit_sync(event_callback, "stage_completed", {"stage": "goals"})
         _spectate("pipeline.stage_completed", "stage=goals")
-        # Emit node-level events for goals
+        # Emit individual goal_extracted events and node-level events
         if result.goal_graph:
             for goal in result.goal_graph.goals:
+                self._emit_sync(
+                    event_callback,
+                    "goal_extracted",
+                    {"goal": goal.to_dict()},
+                )
                 self._emit_sync(
                     event_callback,
                     "pipeline_node_added",
