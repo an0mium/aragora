@@ -2,7 +2,6 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import Link from 'next/link';
-import { logger } from '@/utils/logger';
 import { API_BASE_URL } from '@/config';
 import { PanelErrorBoundary } from '@/components/PanelErrorBoundary';
 import { getConfidenceColor, formatRelativeDate } from '../types';

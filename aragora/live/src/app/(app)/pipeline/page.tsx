@@ -348,7 +348,7 @@ function PipelinePageContent() {
     [pipelineData, advanceStage],
   );
 
-  const isPageLoading = loading || (swrLoading && !pipelineData);
+  const _isPageLoading = loading || (swrLoading && !pipelineData);
 
   return (
     <div className="flex flex-col h-screen bg-bg">

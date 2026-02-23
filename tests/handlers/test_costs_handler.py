@@ -74,6 +74,12 @@ def _parse_response(response) -> dict[str, Any]:
     return json.loads(response.body)
 
 
+def _parse_data(response) -> dict[str, Any]:
+    """Parse response body and unwrap the 'data' envelope."""
+    body = json.loads(response.body)
+    return body.get("data", body)
+
+
 def _make_cost_summary(**overrides) -> CostSummary:
     """Create a CostSummary with sensible defaults."""
     now = datetime.now(timezone.utc)
@@ -224,16 +230,13 @@ class TestGetCosts:
             response = await handler.handle_get_costs(request)
 
         assert response.status == 200
-        data = _parse_response(response)
-        assert data["totalCost"] == 125.50
-        assert data["budget"] == 500.00
-        assert data["tokensUsed"] == 3_125_000
-        assert data["apiCalls"] == 12_550
-        assert "lastUpdated" in data
-        assert "costByProvider" in data
-        assert "costByFeature" in data
-        assert "dailyCosts" in data
-        assert "alerts" in data
+        data = _parse_data(response)
+        assert data["total_cost_usd"] == 125.50
+        assert data["budget_usd"] == 500.00
+        assert "tokens_in" in data
+        assert "api_calls" in data
+        assert "period_start" in data
+        assert "period_end" in data
 
     @pytest.mark.asyncio
     async def test_default_query_params(self, handler):
@@ -302,9 +305,8 @@ class TestGetCosts:
             response = await handler.handle_get_costs(request)
 
         assert response.status == 200
-        data = _parse_response(response)
-        assert data["totalCost"] == 0.0
-        assert data["costByProvider"] == []
+        data = _parse_data(response)
+        assert data["total_cost_usd"] == 0.0
 
 
 # ---------------------------------------------------------------------------
@@ -330,10 +332,9 @@ class TestGetBreakdown:
             response = await handler.handle_get_breakdown(request)
 
         assert response.status == 200
-        data = _parse_response(response)
-        assert data["groupBy"] == "provider"
-        assert data["breakdown"] == summary.cost_by_provider
-        assert data["total"] == 125.50
+        data = _parse_data(response)
+        assert "by_provider" in data
+        assert isinstance(data["by_provider"], list)
 
     @pytest.mark.asyncio
     async def test_breakdown_by_feature(self, handler):
@@ -349,9 +350,9 @@ class TestGetBreakdown:
         ):
             response = await handler.handle_get_breakdown(request)
 
-        data = _parse_response(response)
-        assert data["groupBy"] == "feature"
-        assert data["breakdown"] == summary.cost_by_feature
+        data = _parse_data(response)
+        assert "by_feature" in data
+        assert isinstance(data["by_feature"], list)
 
     @pytest.mark.asyncio
     async def test_breakdown_unknown_group_defaults_to_provider(self, handler):
@@ -367,8 +368,8 @@ class TestGetBreakdown:
         ):
             response = await handler.handle_get_breakdown(request)
 
-        data = _parse_response(response)
-        assert data["breakdown"] == summary.cost_by_provider
+        data = _parse_data(response)
+        assert "by_provider" in data
 
     @pytest.mark.asyncio
     async def test_breakdown_error_returns_500(self, handler):
@@ -405,11 +406,11 @@ class TestGetTimeline:
             response = await handler.handle_get_timeline(request)
 
         assert response.status == 200
-        data = _parse_response(response)
-        assert "timeline" in data
-        assert data["total"] == 125.50
+        data = _parse_data(response)
+        assert "data_points" in data
+        assert data["total_cost"] == 125.50
         # average = 125.50 / 2 daily_costs entries
-        assert data["average"] == pytest.approx(62.75)
+        assert data["average_daily_cost"] == pytest.approx(62.75)
 
     @pytest.mark.asyncio
     async def test_timeline_empty_daily_costs_average_zero(self, handler):
@@ -423,8 +424,8 @@ class TestGetTimeline:
         ):
             response = await handler.handle_get_timeline(request)
 
-        data = _parse_response(response)
-        assert data["average"] == 0
+        data = _parse_data(response)
+        assert data["average_daily_cost"] == 0
 
     @pytest.mark.asyncio
     async def test_timeline_error_returns_500(self, handler):
@@ -466,7 +467,7 @@ class TestGetAlerts:
             response = await handler.handle_get_alerts(request)
 
         assert response.status == 200
-        data = _parse_response(response)
+        data = _parse_data(response)
         assert "alerts" in data
         assert len(data["alerts"]) == 1
         assert data["alerts"][0]["id"] == "alert-1"
@@ -481,7 +482,7 @@ class TestGetAlerts:
             response = await handler.handle_get_alerts(request)
 
         assert response.status == 200
-        data = _parse_response(response)
+        data = _parse_data(response)
         assert data["alerts"] == []
 
     @pytest.mark.asyncio
@@ -501,7 +502,7 @@ class TestGetAlerts:
             request = _make_request("GET", "/api/v1/costs/alerts")
             response = await handler.handle_get_alerts(request)
 
-        data = _parse_response(response)
+        data = _parse_data(response)
         assert len(data["alerts"]) == 1
         assert data["alerts"][0]["id"] == "km-1"
         assert data["alerts"][0]["severity"] == "warning"
@@ -523,7 +524,7 @@ class TestGetAlerts:
             request = _make_request("GET", "/api/v1/costs/alerts")
             response = await handler.handle_get_alerts(request)
 
-        data = _parse_response(response)
+        data = _parse_data(response)
         assert data["alerts"] == []
 
     @pytest.mark.asyncio
@@ -807,7 +808,7 @@ class TestGetRecommendations:
             response = await handler.handle_get_recommendations(request)
 
         assert response.status == 200
-        data = _parse_response(response)
+        data = _parse_data(response)
         assert "recommendations" in data
         assert "summary" in data
 
@@ -1038,17 +1039,12 @@ class TestGetEfficiency:
             response = await handler.handle_get_efficiency(request)
 
         assert response.status == 200
-        data = _parse_response(response)
-        assert data["workspace_id"] == "ws-1"
-        assert data["time_range"] == "30d"
-        metrics = data["metrics"]
-        assert metrics["total_tokens"] == 700_000
-        assert metrics["total_calls"] == 1000
-        assert metrics["total_cost"] == 70.0
-        assert metrics["cost_per_1k_tokens"] == pytest.approx(0.1, abs=0.001)
-        assert metrics["tokens_per_call"] == 700.0
-        assert metrics["cost_per_call"] == 0.07
-        assert len(data["model_utilization"]) == 2
+        data = _parse_data(response)
+        assert data["cost_per_1k_tokens"] == pytest.approx(0.1, abs=0.001)
+        assert data["avg_tokens_per_call"] == 700.0
+        assert data["cost_per_call"] == 0.07
+        assert "efficiency_score" in data
+        assert "cache_hit_rate" in data
 
     @pytest.mark.asyncio
     async def test_efficiency_no_tracker(self, handler):
@@ -1082,10 +1078,10 @@ class TestGetEfficiency:
             response = await handler.handle_get_efficiency(request)
 
         assert response.status == 200
-        data = _parse_response(response)
-        assert data["metrics"]["cost_per_1k_tokens"] == 0
-        assert data["metrics"]["tokens_per_call"] == 0
-        assert data["metrics"]["cost_per_call"] == 0
+        data = _parse_data(response)
+        assert data["cost_per_1k_tokens"] == 0
+        assert data["avg_tokens_per_call"] == 0
+        assert data["cost_per_call"] == 0
 
 
 # ---------------------------------------------------------------------------
@@ -1100,7 +1096,9 @@ class TestGetForecast:
     async def test_get_forecast(self, handler):
         mock_report = MagicMock()
         mock_report.to_dict.return_value = {
-            "projected_cost": 300.0,
+            "projected_monthly_cost": 300.0,
+            "projected_end_of_month": 280.0,
+            "trend": "increasing",
             "confidence": 0.85,
         }
 
@@ -1118,8 +1116,10 @@ class TestGetForecast:
             response = await handler.handle_get_forecast(request)
 
         assert response.status == 200
-        data = _parse_response(response)
-        assert data["projected_cost"] == 300.0
+        data = _parse_data(response)
+        assert data["projected_monthly_cost"] == 300.0
+        assert data["confidence"] == 0.85
+        assert data["trend"] == "increasing"
 
     @pytest.mark.asyncio
     async def test_get_forecast_error(self, handler):

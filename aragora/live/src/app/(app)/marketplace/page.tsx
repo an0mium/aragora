@@ -61,7 +61,6 @@ export default function MarketplacePage() {
 
   const router = useRouter();
   const { setContext, clearContext } = useRightSidebar();
-  const { user } = useAuth();
   const [showPublish, setShowPublish] = useState(false);
 
   // Fetch data on mount

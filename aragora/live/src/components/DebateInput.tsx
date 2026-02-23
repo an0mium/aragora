@@ -307,7 +307,7 @@ export function DebateInput({ apiBase, onDebateStarted, onError, onQuestionChang
         clearTimeout(debounceRef.current);
       }
     };
-  }, [question, apiBase, apiStatus]);
+  }, [question, apiBase, apiStatus, tokens?.access_token]);
 
   // Fetch cost estimate when agents/rounds change
   useEffect(() => {
@@ -349,7 +349,7 @@ export function DebateInput({ apiBase, onDebateStarted, onError, onQuestionChang
     }, 600);
 
     return () => { if (costDebounceRef.current) clearTimeout(costDebounceRef.current); };
-  }, [agents, rounds, apiBase, apiStatus]);
+  }, [agents, rounds, apiBase, apiStatus, tokens?.access_token]);
 
   // Apply recommended agents
   const applyRecommendations = useCallback(() => {
@@ -374,7 +374,7 @@ export function DebateInput({ apiBase, onDebateStarted, onError, onQuestionChang
       logger.warn('[DebateInput] Agent availability check error', err);
       return null;
     }
-  }, [apiBase]);
+  }, [apiBase, tokens?.access_token]);
 
   const handleSubmit = useCallback(async (e: React.FormEvent) => {
     e.preventDefault();

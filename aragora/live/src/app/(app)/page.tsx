@@ -217,7 +217,7 @@ export default function Home() {
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to start debate');
     }
-  }, [apiBase, router]);
+  }, [apiBase, router, tokens?.access_token]);
   // Local state for nomicState, initialized from wsNomicState and updated by events
   const [localNomicState, setLocalNomicState] = useState<NomicState | null>(null);
   const [error, setError] = useState<string | null>(null);
