@@ -176,13 +176,16 @@ class AragoraClient:
         from .namespaces.auth import AuthAPI
         from .namespaces.backups import BackupsAPI
         from .namespaces.batch import BatchAPI
+        from .namespaces.benchmarks import BenchmarksAPI
         from .namespaces.belief import BeliefAPI
         from .namespaces.billing import BillingAPI
         from .namespaces.blockchain import BlockchainAPI
         from .namespaces.bots import BotsAPI
+        from .namespaces.breakpoints import BreakpointsAPI
         from .namespaces.budgets import BudgetsAPI
         from .namespaces.calibration import CalibrationAPI
         from .namespaces.canvas import CanvasAPI
+        from .namespaces.channels import ChannelsAPI
         from .namespaces.chat import ChatAPI
         from .namespaces.checkpoints import CheckpointsAPI
         from .namespaces.classify import ClassifyAPI
@@ -192,6 +195,7 @@ class AragoraClient:
         from .namespaces.computer_use import ComputerUseAPI
         from .namespaces.connectors import ConnectorsAPI
         from .namespaces.consensus import ConsensusAPI
+        from .namespaces.context import ContextAPI
         from .namespaces.control_plane import ControlPlaneAPI
         from .namespaces.coordination import CoordinationAPI
         from .namespaces.cost_management import CostManagementAPI
@@ -212,6 +216,7 @@ class AragoraClient:
         from .namespaces.expenses import ExpensesAPI
         from .namespaces.explainability import ExplainabilityAPI
         from .namespaces.facts import FactsAPI
+        from .namespaces.feature_flags import FeatureFlagsAPI
         from .namespaces.feedback import FeedbackAPI
         from .namespaces.flips import FlipsAPI
         from .namespaces.gateway import GatewayAPI
@@ -238,11 +243,13 @@ class AragoraClient:
         from .namespaces.moderation import ModerationAPI
         from .namespaces.modes import ModesAPI
         from .namespaces.monitoring import MonitoringAPI
+        from .namespaces.n8n import N8nAPI
         from .namespaces.nomic import NomicAPI
         from .namespaces.notifications import NotificationsAPI
         from .namespaces.oauth_wizard import OAuthWizardAPI
         from .namespaces.onboarding import OnboardingAPI
         from .namespaces.openapi import OpenApiAPI
+        from .namespaces.outcomes import OutcomesAPI
         from .namespaces.openclaw import OpenclawAPI
         from .namespaces.orchestration import OrchestrationAPI
         from .namespaces.orchestration_canvas import OrchestrationCanvasAPI
@@ -251,6 +258,8 @@ class AragoraClient:
         from .namespaces.partner import PartnerAPI
         from .namespaces.payments import PaymentsAPI
         from .namespaces.pipeline import PipelineAPI
+        from .namespaces.plans import PlansAPI
+        from .namespaces.playbooks import PlaybooksAPI
         from .namespaces.pipeline_transitions import PipelineTransitionsAPI
         from .namespaces.playground import PlaygroundAPI
         from .namespaces.plugins import PluginsAPI
@@ -262,6 +271,7 @@ class AragoraClient:
         from .namespaces.queue import QueueAPI
         from .namespaces.ranking import RankingAPI
         from .namespaces.rbac import RBACAPI
+        from .namespaces.readiness import ReadinessAPI
         from .namespaces.receipts import ReceiptsAPI
         from .namespaces.reconciliation import ReconciliationAPI
         from .namespaces.relationships import RelationshipsAPI
@@ -280,7 +290,9 @@ class AragoraClient:
         from .namespaces.sso import SSOAPI
         from .namespaces.support import SupportAPI
         from .namespaces.system import SystemAPI
+        from .namespaces.tasks import TasksAPI
         from .namespaces.teams import TeamsAPI
+        from .namespaces.templates import TemplatesAPI
         from .namespaces.tenants import TenantsAPI
         from .namespaces.threat_intel import ThreatIntelAPI
         from .namespaces.tournaments import TournamentsAPI
@@ -288,6 +300,7 @@ class AragoraClient:
         from .namespaces.uncertainty import UncertaintyAPI
         from .namespaces.unified_inbox import UnifiedInboxAPI
         from .namespaces.usage import UsageAPI
+        from .namespaces.users import UsersAPI
         from .namespaces.verification import VerificationAPI
         from .namespaces.verticals import VerticalsAPI
         from .namespaces.voice import VoiceAPI
@@ -318,12 +331,15 @@ class AragoraClient:
         self.backups = BackupsAPI(self)
         self.batch = BatchAPI(self)
         self.belief = BeliefAPI(self)
+        self.benchmarks = BenchmarksAPI(self)
         self.bots = BotsAPI(self)
+        self.breakpoints = BreakpointsAPI(self)
         self.billing = BillingAPI(self)
         self.budgets = BudgetsAPI(self)
         self.blockchain = BlockchainAPI(self)
         self.calibration = CalibrationAPI(self)
         self.canvas = CanvasAPI(self)
+        self.channels = ChannelsAPI(self)
         self.chat = ChatAPI(self)
         self.pipeline = PipelineAPI(self)
         self.pipeline_transitions = PipelineTransitionsAPI(self)
@@ -336,6 +352,7 @@ class AragoraClient:
         self.computer_use = ComputerUseAPI(self)
         self.connectors = ConnectorsAPI(self)
         self.consensus = ConsensusAPI(self)
+        self.context = ContextAPI(self)
         self.control_plane = ControlPlaneAPI(self)
         self.coordination = CoordinationAPI(self)
         self.cost_management = CostManagementAPI(self)
@@ -356,6 +373,7 @@ class AragoraClient:
         self.expenses = ExpensesAPI(self)
         self.explainability = ExplainabilityAPI(self)
         self.facts = FactsAPI(self)
+        self.feature_flags = FeatureFlagsAPI(self)
         self.feedback = FeedbackAPI(self)
         self.flips = FlipsAPI(self)
         self.gateway = GatewayAPI(self)
@@ -382,11 +400,13 @@ class AragoraClient:
         self.moderation = ModerationAPI(self)
         self.modes = ModesAPI(self)
         self.monitoring = MonitoringAPI(self)
+        self.n8n = N8nAPI(self)
         self.nomic = NomicAPI(self)
         self.notifications = NotificationsAPI(self)
         self.oauth_wizard = OAuthWizardAPI(self)
         self.openclaw = OpenclawAPI(self)
         self.openapi = OpenApiAPI(self)
+        self.outcomes = OutcomesAPI(self)
         self.orchestration = OrchestrationAPI(self)
         self.orchestration_canvas = OrchestrationCanvasAPI(self)
         self.onboarding = OnboardingAPI(self)
@@ -394,6 +414,8 @@ class AragoraClient:
         self.outlook = OutlookAPI(self)
         self.partner = PartnerAPI(self)
         self.payments = PaymentsAPI(self)
+        self.plans = PlansAPI(self)
+        self.playbooks = PlaybooksAPI(self)
         self.plugins = PluginsAPI(self)
         self.podcast = PodcastAPI(self)
         self.policies = PoliciesAPI(self)
@@ -404,6 +426,7 @@ class AragoraClient:
         self.reconciliation = ReconciliationAPI(self)
         self.ranking = RankingAPI(self)
         self.rbac = RBACAPI(self)
+        self.readiness = ReadinessAPI(self)
         self.receipts = ReceiptsAPI(self)
         self.reputation = ReputationAPI(self)
         self.reviews = ReviewsAPI(self)
@@ -421,7 +444,9 @@ class AragoraClient:
         self.sso = SSOAPI(self)
         self.support = SupportAPI(self)
         self.system = SystemAPI(self)
+        self.tasks = TasksAPI(self)
         self.teams = TeamsAPI(self)
+        self.templates = TemplatesAPI(self)
         self.tenants = TenantsAPI(self)
         self.training = TrainingAPI(self)
         self.threat_intel = ThreatIntelAPI(self)
@@ -429,6 +454,7 @@ class AragoraClient:
         self.uncertainty = UncertaintyAPI(self)
         self.unified_inbox = UnifiedInboxAPI(self)
         self.usage = UsageAPI(self)
+        self.users = UsersAPI(self)
         self.verification = VerificationAPI(self)
         self.verticals = VerticalsAPI(self)
         self.voice = VoiceAPI(self)
