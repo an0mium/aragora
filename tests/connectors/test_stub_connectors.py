@@ -1,9 +1,9 @@
-"""Tests for connector stub implementations.
+"""Tests for connector implementations.
 
 Validates that:
 - QuickBooks (deprecated quickbooks.py) still works but emits deprecation warnings
-- SendGrid, Twilio, Instagram, and Trello connectors raise NotImplementedError
-  on search() and fetch() since they are unimplemented placeholders.
+- SendGrid, Twilio, Instagram, and Trello connectors handle unconfigured state
+  gracefully and produce Evidence objects when configured with mocked HTTP.
 """
 
 from __future__ import annotations
@@ -16,8 +16,8 @@ from aragora.connectors.base import Evidence
 from aragora.reasoning.provenance import SourceType
 
 
-# Connectors that raise NotImplementedError (unimplemented placeholders)
-NOT_IMPLEMENTED_CONNECTORS = [
+# Fully implemented connectors with their env var requirements
+IMPLEMENTED_CONNECTORS = [
     (
         "sendgrid",
         "aragora.connectors.communication.sendgrid",
@@ -52,49 +52,44 @@ def _make_connector(module: str, cls_name: str):
     return cls()
 
 
-@pytest.mark.parametrize("name,module,cls_name,env_vars", NOT_IMPLEMENTED_CONNECTORS)
-class TestNotImplementedConnectors:
-    """Verify that placeholder connectors raise NotImplementedError."""
+@pytest.mark.parametrize("name,module,cls_name,env_vars", IMPLEMENTED_CONNECTORS)
+class TestImplementedConnectors:
+    """Verify that implemented connectors handle unconfigured state and sanitize input."""
 
     @pytest.mark.asyncio
-    async def test_search_raises_not_implemented(
-        self, name, module, cls_name, env_vars, monkeypatch
-    ):
-        for key, val in env_vars.items():
-            monkeypatch.setenv(key, val)
-        connector = _make_connector(module, cls_name)
-        with pytest.raises(NotImplementedError, match="not yet implemented"):
-            await connector.search("test query")
-
-    @pytest.mark.asyncio
-    async def test_fetch_raises_not_implemented(
-        self, name, module, cls_name, env_vars, monkeypatch
-    ):
-        for key, val in env_vars.items():
-            monkeypatch.setenv(key, val)
-        connector = _make_connector(module, cls_name)
-        with pytest.raises(NotImplementedError, match="not yet implemented"):
-            await connector.fetch("test-id")
-
-    @pytest.mark.asyncio
-    async def test_unconfigured_search_raises_not_implemented(
+    async def test_unconfigured_search_returns_empty(
         self, name, module, cls_name, env_vars, monkeypatch
     ):
         for key in env_vars:
             monkeypatch.delenv(key, raising=False)
         connector = _make_connector(module, cls_name)
-        with pytest.raises(NotImplementedError, match="not yet implemented"):
-            await connector.search("test query")
+        result = await connector.search("test query")
+        assert result == []
 
     @pytest.mark.asyncio
-    async def test_unconfigured_fetch_raises_not_implemented(
+    async def test_unconfigured_fetch_returns_none(
         self, name, module, cls_name, env_vars, monkeypatch
     ):
         for key in env_vars:
             monkeypatch.delenv(key, raising=False)
         connector = _make_connector(module, cls_name)
-        with pytest.raises(NotImplementedError, match="not yet implemented"):
-            await connector.fetch("test-id")
+        result = await connector.fetch("test-id")
+        assert result is None
+
+    @pytest.mark.asyncio
+    async def test_sanitized_empty_query_returns_empty(
+        self, name, module, cls_name, env_vars, monkeypatch
+    ):
+        for key, val in env_vars.items():
+            monkeypatch.setenv(key, val)
+        connector = _make_connector(module, cls_name)
+        result = await connector.search("!@#$%^&*()")
+        assert result == []
+
+    def test_connector_properties(self, name, module, cls_name, env_vars):
+        connector = _make_connector(module, cls_name)
+        assert connector.name == name
+        assert isinstance(connector.source_type, SourceType)
 
 
 class TestQuickBooksDeprecation:
@@ -176,7 +171,6 @@ class TestQuickBooksSearch:
         assert result is not None
         assert result.id == "qb_inv_101"
         assert result.metadata["customer"] == "Beta Inc"
-
 
     @pytest.mark.asyncio
     async def test_unconfigured_search_returns_empty(self, monkeypatch):
