@@ -356,6 +356,28 @@ export class AdminAPI {
   async getHandlerDiagnostics(params?: Record<string, unknown>): Promise<Record<string, unknown>> {
     return this.client.request('POST', '/api/v1/diagnostics/handlers', { params }) as Promise<Record<string, unknown>>;
   }
+
+  // --- Emergency Access ---
+
+  /** Activate emergency (break-glass) access. */
+  async activateEmergency(data: Record<string, unknown>): Promise<Record<string, unknown>> {
+    return this.client.request('POST', '/api/v1/admin/emergency/activate', { body: data });
+  }
+
+  /** Deactivate emergency access. */
+  async deactivateEmergency(data?: Record<string, unknown>): Promise<Record<string, unknown>> {
+    return this.client.request('POST', '/api/v1/admin/emergency/deactivate', { body: data });
+  }
+
+  /** Get emergency access status. */
+  async getEmergencyStatus(): Promise<Record<string, unknown>> {
+    return this.client.request('GET', '/api/v1/admin/emergency/status');
+  }
+
+  /** Update feature flags. */
+  async updateFeatureFlags(data: Record<string, unknown>): Promise<Record<string, unknown>> {
+    return this.client.request('PUT', '/api/v1/admin/feature-flags', { body: data });
+  }
 }
 
 // Re-export types for convenience

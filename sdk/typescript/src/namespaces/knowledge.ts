@@ -1157,4 +1157,9 @@ export class KnowledgeAPI {
     const adapterName = 'facts';
     return this.client.request('POST', `/api/v1/knowledge/mound/sync/${adapterName}`, { json: options });
   }
+
+  /** List registered knowledge adapters. */
+  async listAdapters(): Promise<Record<string, unknown>> {
+    return this.client.request('GET', '/api/v1/knowledge/adapters');
+  }
 }

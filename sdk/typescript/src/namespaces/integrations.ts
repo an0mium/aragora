@@ -886,4 +886,50 @@ export class IntegrationsAPI {
   async testPlatform(platform: string): Promise<{ success: boolean; error?: string }> {
     return this.client.request('POST', `/api/v1/integrations/${platform}/test`);
   }
+
+  // --- Integrations Health ---
+
+  /** Get overall integrations health status. */
+  async getOverallHealth(): Promise<Record<string, unknown>> {
+    return this.client.request('GET', '/api/v1/integrations/health');
+  }
+
+  // --- Slack OAuth ---
+
+  /** Initiate Slack OAuth installation flow. */
+  async slackInstall(): Promise<Record<string, unknown>> {
+    return this.client.request('GET', '/api/v1/integrations/slack/install');
+  }
+
+  /** Handle Slack OAuth callback. */
+  async slackCallback(): Promise<Record<string, unknown>> {
+    return this.client.request('GET', '/api/v1/integrations/slack/callback');
+  }
+
+  /** Get Slack integration preview. */
+  async slackPreview(): Promise<Record<string, unknown>> {
+    return this.client.request('GET', '/api/v1/integrations/slack/preview');
+  }
+
+  /** List connected Slack workspaces. */
+  async slackWorkspaces(): Promise<Record<string, unknown>> {
+    return this.client.request('GET', '/api/v1/integrations/slack/workspaces');
+  }
+
+  /** Uninstall Slack integration. */
+  async slackUninstall(): Promise<Record<string, unknown>> {
+    return this.client.request('POST', '/api/v1/integrations/slack/uninstall');
+  }
+
+  // --- Teams Management ---
+
+  /** Disconnect Microsoft Teams integration. */
+  async teamsDisconnect(): Promise<Record<string, unknown>> {
+    return this.client.request('GET', '/api/v1/integrations/teams/disconnect');
+  }
+
+  /** List connected Teams tenants. */
+  async teamsTenants(): Promise<Record<string, unknown>> {
+    return this.client.request('GET', '/api/v1/integrations/teams/tenants');
+  }
 }

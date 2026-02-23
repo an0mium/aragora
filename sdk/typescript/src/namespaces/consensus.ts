@@ -296,4 +296,9 @@ export class ConsensusAPI {
   async seedDemo(): Promise<{ success: boolean; message: string }> {
     return this.client.request<{ success: boolean; message: string }>('GET', '/api/consensus/seed-demo');
   }
+
+  /** Get consensus overview. */
+  async getOverview(): Promise<Record<string, unknown>> {
+    return this.client.request('GET', '/api/v1/consensus');
+  }
 }

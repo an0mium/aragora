@@ -928,4 +928,9 @@ export class ComplianceAPI {
       json: { content, min_confidence: options?.minConfidence ?? 0.5 },
     });
   }
+
+  /** Get compliance overview. */
+  async getComplianceOverview(): Promise<Record<string, unknown>> {
+    return this.client.request('GET', '/api/v1/compliance');
+  }
 }

@@ -40,10 +40,9 @@ from aragora.server.versioning import (
     strip_version_prefix,
     version_response_headers,
 )
-from aragora.server.middleware.rate_limit import (
-    check_default_rate_limit,
-    should_apply_default_rate_limit,
-)
+# Rate limit functions are imported lazily in _try_modular_handler() to avoid
+# importing the full rate_limit package (630+ modules) at module load time.
+# This saves ~1.3s on server startup.
 
 # Import core infrastructure
 from .core import (
@@ -432,6 +431,12 @@ class HandlerRegistryMixin:
                 handler_method_name = "handle"
 
             # Apply default rate limiting if handler doesn't have explicit rate limit
+            # Lazy import to avoid loading 630+ rate_limit modules at startup
+            from aragora.server.middleware.rate_limit import (
+                check_default_rate_limit,
+                should_apply_default_rate_limit,
+            )
+
             if should_apply_default_rate_limit(handler, handler_method_name):
                 rate_limit_result = check_default_rate_limit(self)
                 if not rate_limit_result.allowed:

@@ -221,6 +221,11 @@ export class DisasterRecoveryAPI {
       issues_count: status.issues.length,
     };
   }
+
+  /** Get disaster recovery overview. */
+  async getDrOverview(): Promise<Record<string, unknown>> {
+    return this.client.request('GET', '/api/v1/dr');
+  }
 }
 
 export default DisasterRecoveryAPI;

@@ -614,4 +614,16 @@ export class GatewayAPI {
   }> {
     return this.client.request('GET', `/api/v1/gateway/routing/${routeId}`);
   }
+
+  // --- Gateway Config ---
+
+  /** Create a gateway configuration. */
+  async createConfig(data: Record<string, unknown>): Promise<Record<string, unknown>> {
+    return this.client.request('POST', '/api/v1/gateway/config', { json: data });
+  }
+
+  /** Create default gateway configuration. */
+  async createConfigDefaults(data: Record<string, unknown>): Promise<Record<string, unknown>> {
+    return this.client.request('POST', '/api/v1/gateway/config/defaults', { json: data });
+  }
 }

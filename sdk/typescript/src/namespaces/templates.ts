@@ -1,0 +1,33 @@
+/**
+ * Templates Namespace API
+ *
+ * Provides methods for template management.
+ */
+
+interface TemplatesClientInterface {
+  request<T = unknown>(method: string, path: string, options?: Record<string, unknown>): Promise<T>;
+}
+
+export class TemplatesAPI {
+  constructor(private client: TemplatesClientInterface) {}
+
+  /** List available templates. */
+  async list(params?: Record<string, unknown>): Promise<Record<string, unknown>> {
+    return this.client.request('GET', '/api/v1/templates', { params });
+  }
+
+  /** Get template categories. */
+  async getCategories(): Promise<Record<string, unknown>> {
+    return this.client.request('GET', '/api/v1/templates/categories');
+  }
+
+  /** Get template recommendations. */
+  async recommend(params?: Record<string, unknown>): Promise<Record<string, unknown>> {
+    return this.client.request('GET', '/api/v1/templates/recommend', { params });
+  }
+
+  /** Register a custom template. */
+  async register(data: Record<string, unknown>): Promise<Record<string, unknown>> {
+    return this.client.request('POST', '/api/v1/templates/registry', { body: data });
+  }
+}

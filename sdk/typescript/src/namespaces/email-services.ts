@@ -384,4 +384,26 @@ export class EmailServicesAPI {
       json: feedback as unknown as Record<string, unknown>,
     });
   }
+
+  // --- Email Triage ---
+
+  /** Create an email triage rule. */
+  async createTriageRule(data: Record<string, unknown>): Promise<Record<string, unknown>> {
+    return this.client.request('POST', '/api/v1/email/triage/rules', { json: data });
+  }
+
+  /** Update an email triage rule. */
+  async updateTriageRule(data: Record<string, unknown>): Promise<Record<string, unknown>> {
+    return this.client.request('PUT', '/api/v1/email/triage/rules', { json: data });
+  }
+
+  /** Create an email triage test. */
+  async createTriageTest(data: Record<string, unknown>): Promise<Record<string, unknown>> {
+    return this.client.request('POST', '/api/v1/email/triage/test', { json: data });
+  }
+
+  /** Update an email triage test. */
+  async updateTriageTest(data: Record<string, unknown>): Promise<Record<string, unknown>> {
+    return this.client.request('PUT', '/api/v1/email/triage/test', { json: data });
+  }
 }

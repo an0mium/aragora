@@ -193,4 +193,9 @@ export class SSONamespace {
     const status = await this.getStatus();
     return status.configured;
   }
+
+  /** Initiate SSO login via auth endpoint. */
+  async ssoLogin(): Promise<Record<string, unknown>> {
+    return this.client.request('GET', '/auth/sso/login');
+  }
 }

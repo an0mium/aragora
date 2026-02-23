@@ -140,4 +140,9 @@ export class MomentsAPI {
       params: options as Record<string, unknown> | undefined,
     });
   }
+
+  /** List all moments. */
+  async list(params?: Record<string, unknown>): Promise<Record<string, unknown>> {
+    return this.client.request('GET', '/api/v1/moments', { params });
+  }
 }

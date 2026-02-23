@@ -148,4 +148,9 @@ export class EvolutionAPI {
   async getABTest(testId: string): Promise<ABTest> {
     return this.client.request('GET', `/api/v1/evolution/ab-tests/${testId}`);
   }
+
+  /** Get evolution overview. */
+  async getOverview(): Promise<Record<string, unknown>> {
+    return this.client.request('GET', '/api/v1/evolution');
+  }
 }

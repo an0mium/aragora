@@ -288,6 +288,20 @@ import {
   BlockchainNamespace,
   PipelineNamespace,
   IdeasNamespace,
+  // New namespaces (SDK Parity - Missing Routes)
+  BenchmarksAPI,
+  BreakpointsAPI,
+  ChannelsAPI,
+  ContextAPI,
+  FeatureFlagsAPI,
+  N8nAPI,
+  OutcomesAPI,
+  PlansAPI,
+  PlaybooksAPI,
+  ReadinessAPI,
+  TasksAPI,
+  TemplatesAPI,
+  UsersAPI,
 } from './namespaces';
 
 interface RequestOptions {
@@ -905,6 +919,45 @@ export class AragoraClient {
    */
   readonly pipeline: PipelineNamespace;
 
+  /** Benchmarks API - Performance benchmark listing and comparison. */
+  readonly benchmarks: BenchmarksAPI;
+
+  /** Breakpoints API - Debate breakpoint creation. */
+  readonly breakpoints: BreakpointsAPI;
+
+  /** Channels API - Channel health monitoring. */
+  readonly channels: ChannelsAPI;
+
+  /** Context API - Budget estimation and retrieval. */
+  readonly context: ContextAPI;
+
+  /** Feature Flags API - Feature flag listing. */
+  readonly featureFlags: FeatureFlagsAPI;
+
+  /** N8n API - n8n workflow integration (credentials, nodes, triggers). */
+  readonly n8n: N8nAPI;
+
+  /** Outcomes API - Outcome impact and search. */
+  readonly outcomes: OutcomesAPI;
+
+  /** Plans API - Plan updates. */
+  readonly plans: PlansAPI;
+
+  /** Playbooks API - Playbook CRUD and execution. */
+  readonly playbooks: PlaybooksAPI;
+
+  /** Readiness API - System readiness checks. */
+  readonly readiness: ReadinessAPI;
+
+  /** Tasks API - Task creation. */
+  readonly tasks: TasksAPI;
+
+  /** Templates API - Template listing, categories, recommendations, and registration. */
+  readonly templates: TemplatesAPI;
+
+  /** Users API - User self-service (deletion requests). */
+  readonly users: UsersAPI;
+
   constructor(config: AragoraConfig) {
     this.config = {
       baseUrl: config.baseUrl.replace(/\/+$/, ''), // Remove trailing slashes
@@ -1064,6 +1117,21 @@ export class AragoraClient {
     this.blockchain = new BlockchainNamespace(this);
     this.ideas = new IdeasNamespace(this);
     this.pipeline = new PipelineNamespace(this);
+
+    // New namespaces (SDK Parity - Missing Routes)
+    this.benchmarks = new BenchmarksAPI(this);
+    this.breakpoints = new BreakpointsAPI(this);
+    this.channels = new ChannelsAPI(this);
+    this.context = new ContextAPI(this);
+    this.featureFlags = new FeatureFlagsAPI(this);
+    this.n8n = new N8nAPI(this);
+    this.outcomes = new OutcomesAPI(this);
+    this.plans = new PlansAPI(this);
+    this.playbooks = new PlaybooksAPI(this);
+    this.readiness = new ReadinessAPI(this);
+    this.tasks = new TasksAPI(this);
+    this.templates = new TemplatesAPI(this);
+    this.users = new UsersAPI(this);
   }
 
   // ===========================================================================

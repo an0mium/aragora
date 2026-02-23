@@ -567,6 +567,33 @@ export class DashboardAPI {
   async getDashboard(params?: Record<string, unknown>): Promise<Record<string, unknown>> {
     return this.client.request('POST', '/api/v1/dashboard', { params }) as Promise<Record<string, unknown>>;
   }
+
+  // --- Gastown Dashboard ---
+
+  /** Get Gastown dashboard overview. */
+  async getGastownOverview(): Promise<Record<string, unknown>> {
+    return this.client.request('GET', '/api/v1/dashboard/gastown/overview');
+  }
+
+  /** Get Gastown agent metrics. */
+  async getGastownAgents(): Promise<Record<string, unknown>> {
+    return this.client.request('GET', '/api/v1/dashboard/gastown/agents');
+  }
+
+  /** Get Gastown bead metrics. */
+  async getGastownBeads(): Promise<Record<string, unknown>> {
+    return this.client.request('GET', '/api/v1/dashboard/gastown/beads');
+  }
+
+  /** Get Gastown convoy metrics. */
+  async getGastownConvoys(): Promise<Record<string, unknown>> {
+    return this.client.request('GET', '/api/v1/dashboard/gastown/convoys');
+  }
+
+  /** Get Gastown detailed metrics. */
+  async getGastownMetrics(): Promise<Record<string, unknown>> {
+    return this.client.request('GET', '/api/v1/dashboard/gastown/metrics');
+  }
 }
 
 export default DashboardAPI;

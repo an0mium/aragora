@@ -254,4 +254,14 @@ export class MetricsAPI {
   async listMonitoringTraces(params?: { limit?: number; offset?: number }): Promise<Record<string, unknown>> {
     return this.client.request('GET', '/api/v1/monitoring/traces', { params: params as Record<string, unknown> });
   }
+
+  /** Get Prometheus metrics. */
+  async getPrometheusMetrics(): Promise<Record<string, unknown>> {
+    return this.client.request('GET', '/api/v1/metrics/prometheus');
+  }
+
+  /** Get Prometheus metrics summary. */
+  async getPrometheusSummary(): Promise<Record<string, unknown>> {
+    return this.client.request('GET', '/api/v1/metrics/prometheus/summary');
+  }
 }

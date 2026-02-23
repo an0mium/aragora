@@ -1751,3 +1751,42 @@ export {
   type IndexDocument,
   type UpdateDocumentOptions,
 } from './vector-index';
+
+// Benchmarks
+export { BenchmarksAPI } from './benchmarks';
+
+// Breakpoints
+export { BreakpointsAPI } from './breakpoints';
+
+// Channels
+export { ChannelsAPI } from './channels';
+
+// Context
+export { ContextAPI } from './context';
+
+// Feature Flags
+export { FeatureFlagsAPI } from './feature-flags';
+
+// n8n Integration
+export { N8nAPI } from './n8n';
+
+// Outcomes
+export { OutcomesAPI } from './outcomes';
+
+// Plans
+export { PlansAPI } from './plans';
+
+// Playbooks
+export { PlaybooksAPI } from './playbooks';
+
+// Readiness
+export { ReadinessAPI } from './readiness';
+
+// Tasks
+export { TasksAPI } from './tasks';
+
+// Templates
+export { TemplatesAPI } from './templates';
+
+// Users
+export { UsersAPI } from './users';
