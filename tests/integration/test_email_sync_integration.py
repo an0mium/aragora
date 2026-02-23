@@ -243,7 +243,10 @@ class TestUnifiedInboxIntegration:
 
 @pytest.mark.xfail(
     not os.environ.get("RUN_FUTURE_API_TESTS"),
-    reason="aragora.prioritization module not yet implemented",
+    reason=(
+        "aragora.prioritization module not yet implemented. "
+        "Set RUN_FUTURE_API_TESTS=1 to enable once the module ships."
+    ),
     strict=False,
 )
 class TestEmailPrioritizationPipeline:
