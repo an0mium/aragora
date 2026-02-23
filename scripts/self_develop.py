@@ -734,6 +734,27 @@ Examples:
         "Safer than --autonomous (which executes everything).",
     )
     parser.add_argument(
+        "--safe-mode",
+        action="store_true",
+        default=True,
+        help="Enable risk-scored execution gating (default: on). "
+        "Scores each goal before execution: auto/review/block based on risk threshold. "
+        "Use --no-safe-mode to disable.",
+    )
+    parser.add_argument(
+        "--no-safe-mode",
+        action="store_true",
+        default=False,
+        help="Disable risk-scored safe mode execution gating.",
+    )
+    parser.add_argument(
+        "--risk-threshold",
+        type=float,
+        default=0.5,
+        help="Risk score threshold for auto-execution (default: 0.5). "
+        "Goals scoring below this are auto-executed; above require review or are blocked.",
+    )
+    parser.add_argument(
         "--scan",
         action="store_true",
         help="Use scan mode: prioritize from codebase signals (git log, untested modules, "
@@ -961,6 +982,17 @@ Examples:
             print(f"  [plan] {data['goals']} goals identified")
         elif event == "decomposition_complete":
             print(f"  [decompose] {data['subtasks']} subtasks created")
+        elif event == "risk_assessment_complete":
+            print(
+                f"  [risk] {data['total']} scored: "
+                f"{data['auto_approved']} auto, "
+                f"{data['needs_review']} review, "
+                f"{data['blocked']} blocked"
+            )
+        elif event == "risk_blocked":
+            print(f"  [risk:BLOCKED] {data['subtask'][:60]} (score={data['score']:.2f})")
+        elif event == "risk_review_needed":
+            print(f"  [risk:REVIEW] {data['subtask'][:60]} (score={data['score']:.2f})")
         elif event == "execution_complete":
             print(f"  [exec] {data['completed']} completed, {data['failed']} failed")
         elif event == "cycle_complete":
@@ -971,6 +1003,7 @@ Examples:
         try:
             from aragora.nomic.self_improve import SelfImprovePipeline, SelfImproveConfig
 
+            safe_mode_enabled = args.safe_mode and not args.no_safe_mode
             config = SelfImproveConfig(
                 use_meta_planner=args.meta_plan or args.debate or args.scan,
                 quick_mode=not args.debate and not args.scan,
@@ -981,6 +1014,8 @@ Examples:
                 require_approval=args.require_approval,
                 autonomous=args.autonomous,
                 auto_mode=args.auto,
+                safe_mode=safe_mode_enabled,
+                risk_threshold=args.risk_threshold,
                 progress_callback=_print_progress,
                 run_tests=True,
                 run_review=not args.no_gauntlet,
@@ -1008,6 +1043,25 @@ Examples:
                     if s.get("file_hints"):
                         print(f"      Files: {', '.join(s['file_hints'][:3])}")
                 print(f"\nConfig: worktrees={config.use_worktrees} parallel={config.max_parallel} budget=${config.budget_limit_usd}")
+                print(f"  safe_mode={config.safe_mode} risk_threshold={config.risk_threshold}")
+
+                # Display risk assessments if available
+                risk_assessments = plan.get("risk_assessments", [])
+                if risk_assessments:
+                    print(f"\nRisk Assessments ({len(risk_assessments)}):")
+                    auto_count = sum(1 for r in risk_assessments if r["recommendation"] == "auto")
+                    review_count = sum(1 for r in risk_assessments if r["recommendation"] == "review")
+                    block_count = sum(1 for r in risk_assessments if r["recommendation"] == "block")
+                    print(f"  Auto-approve: {auto_count}  Needs review: {review_count}  Blocked: {block_count}")
+                    for i, ra in enumerate(risk_assessments):
+                        category_label = ra["category"].upper()
+                        rec_label = ra["recommendation"].upper()
+                        goal_preview = ra.get("goal", "")[:60]
+                        print(f"  [{i+1}] score={ra['score']:.2f} [{category_label}] -> {rec_label}")
+                        if goal_preview:
+                            print(f"      {goal_preview}")
+                        for factor in ra.get("factors", [])[:2]:
+                            print(f"      - {factor['name']}: {factor['detail'][:60]}")
 
                 # Generate visual pipeline from dry-run goals
                 if args.visual_pipeline and plan.get("goals"):

@@ -68,6 +68,10 @@ class SelfImproveConfig:
     enable_debug_loop: bool = True
     debug_loop_max_retries: int = 3
 
+    # Risk-scored safe mode
+    safe_mode: bool = True  # Enable risk-based execution gating
+    risk_threshold: float = 0.5  # Auto-execute below this score
+
     # Feedback
     persist_outcomes: bool = True  # Save to CycleLearningStore
     auto_revert_on_regression: bool = True
@@ -97,6 +101,11 @@ class SelfImproveResult:
     total_cost_usd: float = 0.0
     # KnowledgeMound persistence
     km_persisted: bool = False
+    # Risk assessment results
+    risk_assessments: list[dict[str, Any]] = field(default_factory=list)
+    goals_blocked: int = 0
+    goals_auto_approved: int = 0
+    goals_needs_review: int = 0
 
     def to_dict(self) -> dict[str, Any]:
         """Serialize result to a plain dictionary."""
@@ -117,6 +126,10 @@ class SelfImproveResult:
             "improvement_score": self.improvement_score,
             "total_cost_usd": self.total_cost_usd,
             "km_persisted": self.km_persisted,
+            "risk_assessments": self.risk_assessments,
+            "goals_blocked": self.goals_blocked,
+            "goals_auto_approved": self.goals_auto_approved,
+            "goals_needs_review": self.goals_needs_review,
         }
 
 
@@ -232,6 +245,14 @@ class SelfImprovePipeline:
         result.subtasks_total = len(subtasks)
         self._emit_progress("decomposition_complete", {"subtasks": len(subtasks)})
 
+        # Step 2b: Risk scoring (when safe_mode is enabled)
+        if self.config.safe_mode:
+            subtasks = self._apply_risk_scoring(subtasks, result)
+            if not subtasks:
+                logger.warning("self_improve_all_blocked cycle=%s", cycle_id)
+                result.duration_seconds = time.time() - start_time
+                return result
+
         # Step 3: Capture baseline metrics
         baseline = None
         if self.config.capture_metrics:
@@ -343,6 +364,23 @@ class SelfImprovePipeline:
         elif effective_objective is None:
             effective_objective = "self-directed codebase improvement"
 
+        # Risk assessments for dry-run preview
+        risk_assessments: list[dict[str, Any]] = []
+        if self.config.safe_mode:
+            try:
+                from aragora.nomic.risk_scorer import RiskScorer
+
+                scorer = RiskScorer(
+                    threshold=self.config.risk_threshold,
+                )
+                for s in subtasks:
+                    assessment = scorer.score_subtask(s)
+                    risk_assessments.append(assessment.to_dict())
+            except ImportError:
+                logger.debug("RiskScorer unavailable for dry-run preview")
+            except (RuntimeError, ValueError, TypeError) as exc:
+                logger.debug("Risk scoring failed in dry-run: %s", exc)
+
         return {
             "objective": effective_objective,
             "goals": [
@@ -370,14 +408,91 @@ class SelfImprovePipeline:
                 }
                 for s in subtasks
             ],
+            "risk_assessments": risk_assessments,
             "config": {
                 "use_worktrees": self.config.use_worktrees,
                 "max_parallel": self.config.max_parallel,
                 "budget_limit_usd": self.config.budget_limit_usd,
+                "safe_mode": self.config.safe_mode,
+                "risk_threshold": self.config.risk_threshold,
             },
         }
 
     # --- Private pipeline steps ---
+
+    def _apply_risk_scoring(
+        self, subtasks: list[Any], result: SelfImproveResult
+    ) -> list[Any]:
+        """Score subtasks for risk and filter based on safe_mode thresholds.
+
+        Returns the subset of subtasks that are approved for execution.
+        Blocked subtasks are logged and their assessments stored in the result.
+        """
+        try:
+            from aragora.nomic.risk_scorer import RiskScorer
+        except ImportError:
+            logger.debug("RiskScorer unavailable, skipping risk scoring")
+            return subtasks
+
+        scorer = RiskScorer(
+            threshold=self.config.risk_threshold,
+        )
+
+        approved: list[Any] = []
+        for subtask in subtasks:
+            assessment = scorer.score_subtask(subtask)
+            assessment_dict = assessment.to_dict()
+            result.risk_assessments.append(assessment_dict)
+
+            if assessment.recommendation == "block":
+                result.goals_blocked += 1
+                title = getattr(subtask, "title", str(subtask))
+                logger.warning(
+                    "risk_blocked subtask=%s score=%.3f category=%s",
+                    title[:60],
+                    assessment.score,
+                    assessment.category.value,
+                )
+                self._emit_progress("risk_blocked", {
+                    "subtask": title[:80],
+                    "score": assessment.score,
+                    "category": assessment.category.value,
+                })
+            elif assessment.recommendation == "review":
+                result.goals_needs_review += 1
+                title = getattr(subtask, "title", str(subtask))
+                logger.info(
+                    "risk_review_needed subtask=%s score=%.3f category=%s",
+                    title[:60],
+                    assessment.score,
+                    assessment.category.value,
+                )
+                self._emit_progress("risk_review_needed", {
+                    "subtask": title[:80],
+                    "score": assessment.score,
+                    "category": assessment.category.value,
+                })
+                approved.append(subtask)
+            else:
+                result.goals_auto_approved += 1
+                approved.append(subtask)
+
+        self._emit_progress("risk_assessment_complete", {
+            "total": len(subtasks),
+            "auto_approved": result.goals_auto_approved,
+            "needs_review": result.goals_needs_review,
+            "blocked": result.goals_blocked,
+        })
+
+        logger.info(
+            "risk_scoring_complete total=%d auto=%d review=%d blocked=%d",
+            len(subtasks),
+            result.goals_auto_approved,
+            result.goals_needs_review,
+            result.goals_blocked,
+        )
+
+        return approved
 
     async def _index_codebase(self) -> None:
         """Index codebase structure into MemoryFabric for planning context.
