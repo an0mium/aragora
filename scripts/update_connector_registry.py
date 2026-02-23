@@ -116,8 +116,41 @@ def main() -> int:
         normalized_current_md = _normalize_generated_timestamp(current_md)
         normalized_expected_md = _normalize_generated_timestamp(expected_md)
 
-        if current_payload != expected_payload or normalized_current_md != normalized_expected_md:
+        json_match = current_payload == expected_payload
+        md_match = normalized_current_md == normalized_expected_md
+
+        if not json_match or not md_match:
             print("Connector registry artifacts are out of date.")
+            if not json_match:
+                exp_connectors = {(c["name"], c["module"]) for c in expected_payload.get("connectors", [])}
+                cur_connectors = {(c["name"], c["module"]) for c in current_payload.get("connectors", [])}
+                added = sorted(exp_connectors - cur_connectors)
+                removed = sorted(cur_connectors - exp_connectors)
+                if added:
+                    print(f"  Added (expected but not committed): {added}")
+                if removed:
+                    print(f"  Removed (committed but not expected): {removed}")
+                if expected_payload.get("total") != current_payload.get("total"):
+                    print(f"  Total: expected={expected_payload.get('total')} committed={current_payload.get('total')}")
+                if expected_payload.get("by_kind") != current_payload.get("by_kind"):
+                    print(f"  by_kind: expected={expected_payload.get('by_kind')} committed={current_payload.get('by_kind')}")
+                if expected_payload.get("by_category") != current_payload.get("by_category"):
+                    print(f"  by_category: expected={expected_payload.get('by_category')} committed={current_payload.get('by_category')}")
+                if not added and not removed:
+                    # Same connectors but different field values
+                    exp_by_key = {(c["name"], c["module"]): c for c in expected_payload.get("connectors", [])}
+                    cur_by_key = {(c["name"], c["module"]): c for c in current_payload.get("connectors", [])}
+                    for key in sorted(exp_by_key.keys() & cur_by_key.keys()):
+                        if exp_by_key[key] != cur_by_key[key]:
+                            print(f"  Field diff {key}: expected={exp_by_key[key]} committed={cur_by_key[key]}")
+            if not md_match:
+                exp_lines = normalized_expected_md.splitlines()
+                cur_lines = normalized_current_md.splitlines()
+                print(f"  Markdown lines: expected={len(exp_lines)} committed={len(cur_lines)}")
+                for i, (e, c) in enumerate(zip(exp_lines, cur_lines)):
+                    if e != c:
+                        print(f"  First MD diff at line {i}: expected={e!r} committed={c!r}")
+                        break
             print("Run:")
             print("  python scripts/update_connector_registry.py")
             return 1
