@@ -440,6 +440,17 @@ class NomicCycleAdapter(KnowledgeMoundAdapter):
         learnings_ingested = 0
         relationships_created = 0
 
+        # Guard: reject non-NomicCycleOutcome objects (e.g. _IndexOutcome)
+        if not hasattr(outcome, "status") or not hasattr(outcome, "cycle_id"):
+            return CycleIngestionResult(
+                cycle_id=getattr(outcome, "cycle_id", "unknown"),
+                items_ingested=0,
+                learnings_ingested=0,
+                relationships_created=0,
+                knowledge_item_ids=[],
+                errors=["Received incompatible outcome type"],
+            )
+
         mound = self.mound
         if mound is None:
             errors.append("Knowledge Mound not available")
