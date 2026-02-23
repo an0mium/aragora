@@ -1087,6 +1087,27 @@ class TestTaskHistory:
     multiple tasks from a single query.
     """
 
+    @pytest.fixture(autouse=True)
+    def _ensure_auth_bypass(self, monkeypatch):
+        """Ensure @require_permission decorator is bypassed for task history tests.
+
+        _handle_task_history takes only (self, query_params) with no HTTP handler
+        argument. The @require_permission decorator scans args for an object with
+        a ``headers`` attribute; since ControlPlaneHandler lacks one, the decorator
+        falls back to ``_test_user_context_override``. When test ordering causes
+        the conftest autouse fixture to not yet be active or to be torn down, the
+        override can be None, resulting in a spurious 401. This fixture adds a
+        direct patch as a safety net.
+        """
+        from aragora.server.handlers.utils import decorators as _dec
+
+        mock_ctx = MagicMock()
+        mock_ctx.role = "admin"
+        mock_ctx.user_id = "test-user"
+        mock_ctx.is_authenticated = True
+        monkeypatch.setattr(_dec, "_test_user_context_override", mock_ctx)
+        monkeypatch.setattr(_dec, "has_permission", lambda role, perm: True)
+
     def test_task_history_empty(self, handler, mock_coordinator):
         mock_coordinator._scheduler.list_by_status = AsyncMock(return_value=[])
         with patch("aragora.control_plane.scheduler.TaskStatus", MockTaskStatus):

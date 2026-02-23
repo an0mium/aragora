@@ -40,14 +40,20 @@ from aragora.server.handlers.utils.responses import HandlerResult
 
 
 def _body(result: HandlerResult) -> dict:
-    """Extract the JSON body from a HandlerResult."""
+    """Extract the JSON body from a HandlerResult, unwrapping 'data' envelope."""
     if isinstance(result, HandlerResult):
         if isinstance(result.body, bytes):
-            return json.loads(result.body.decode("utf-8"))
-        return result.body
-    if isinstance(result, dict):
-        return result.get("body", result)
-    return {}
+            raw = json.loads(result.body.decode("utf-8"))
+        else:
+            raw = result.body
+    elif isinstance(result, dict):
+        raw = result.get("body", result)
+    else:
+        raw = {}
+    # Unwrap { "data": ... } envelope used by GET endpoints
+    if isinstance(raw, dict) and "data" in raw and len(raw) == 1:
+        return raw["data"]
+    return raw
 
 
 def _status(result: HandlerResult) -> int:
@@ -332,7 +338,7 @@ class TestHandleDispatch:
         result = handler.handle("/api/v1/usage/summary", {}, h)
         assert _status(result) == 200
         body = _body(result)
-        assert "summary" in body
+        assert "period" in body  # summary data unwrapped
 
     @patch("aragora.server.handlers.sme_usage_dashboard.SMEUsageDashboardHandler._get_cost_tracker")
     def test_dispatch_to_breakdown(self, mock_ct, handler):
@@ -341,7 +347,7 @@ class TestHandleDispatch:
         result = handler.handle("/api/v1/usage/breakdown", {}, h)
         assert _status(result) == 200
         body = _body(result)
-        assert "breakdown" in body
+        assert "dimension" in body  # breakdown data unwrapped
 
     def test_dispatch_non_get_returns_405(self, handler):
         h = _make_handler(method="POST")
@@ -576,7 +582,7 @@ class TestGetSummary:
         result = handler.handle("/api/v1/usage/summary", {}, h)
         assert _status(result) == 200
         body = _body(result)
-        summary = body["summary"]
+        summary = body
         assert "period" in summary
         assert "debates" in summary
         assert "costs" in summary
@@ -592,7 +598,7 @@ class TestGetSummary:
         h = _make_handler(query_params={"period": "week"})
         result = handler.handle("/api/v1/usage/summary", {}, h)
         body = _body(result)
-        period = body["summary"]["period"]
+        period = body["period"]
         assert period["type"] == "week"
         assert "start" in period
         assert "end" in period
@@ -607,7 +613,7 @@ class TestGetSummary:
         h = _make_handler()
         result = handler.handle("/api/v1/usage/summary", {}, h)
         body = _body(result)
-        debates = body["summary"]["debates"]
+        debates = body["debates"]
         assert debates["total"] == 45
         assert debates["completed"] == 45
         assert debates["consensus_rate"] == 85.0
@@ -622,7 +628,7 @@ class TestGetSummary:
         h = _make_handler()
         result = handler.handle("/api/v1/usage/summary", {}, h)
         body = _body(result)
-        costs = body["summary"]["costs"]
+        costs = body["costs"]
         assert costs["total_usd"] == "12.50"
         assert "avg_per_debate_usd" in costs
         assert "by_provider" in costs
@@ -637,7 +643,7 @@ class TestGetSummary:
         h = _make_handler()
         result = handler.handle("/api/v1/usage/summary", {}, h)
         body = _body(result)
-        tokens = body["summary"]["tokens"]
+        tokens = body["tokens"]
         assert tokens["total"] == 750000
         assert tokens["input"] == 500000
         assert tokens["output"] == 250000
@@ -652,7 +658,7 @@ class TestGetSummary:
         h = _make_handler(query_params={"period": "month"})
         result = handler.handle("/api/v1/usage/summary", {}, h)
         body = _body(result)
-        activity = body["summary"]["activity"]
+        activity = body["activity"]
         assert "active_days" in activity
         assert "debates_per_day" in activity
         assert activity["api_calls"] == 150
@@ -666,13 +672,13 @@ class TestGetSummary:
         h = _make_handler()
         result = handler.handle("/api/v1/usage/summary", {}, h)
         body = _body(result)
-        debates = body["summary"]["debates"]
+        debates = body["debates"]
         assert debates["total"] == 0
         assert debates["completed"] == 0
-        costs = body["summary"]["costs"]
+        costs = body["costs"]
         # Decimal("0").quantize(Decimal("0.01")) produces "0.00"
         assert costs["avg_per_debate_usd"] == "0.00"
-        activity = body["summary"]["activity"]
+        activity = body["activity"]
         assert activity["active_days"] == 0
 
     @patch("aragora.server.handlers.sme_usage_dashboard._get_real_consensus_rate", return_value=85.0)
@@ -686,7 +692,7 @@ class TestGetSummary:
         result = handler.handle("/api/v1/usage/summary", {}, h)
         assert _status(result) == 200
         body = _body(result)
-        assert body["summary"]["debates"]["total"] == 0
+        assert body["debates"]["total"] == 0
 
     @patch("aragora.server.handlers.sme_usage_dashboard._get_real_consensus_rate", return_value=85.0)
     @patch("aragora.server.handlers.sme_usage_dashboard.SMEUsageDashboardHandler._get_usage_tracker")
@@ -701,7 +707,7 @@ class TestGetSummary:
         result = handler.handle("/api/v1/usage/summary", {}, h)
         assert _status(result) == 200
         body = _body(result)
-        assert body["summary"]["debates"]["total"] == 0
+        assert body["debates"]["total"] == 0
 
     @patch("aragora.server.handlers.sme_usage_dashboard._get_real_consensus_rate", return_value=85.0)
     @patch("aragora.server.handlers.sme_usage_dashboard.SMEUsageDashboardHandler._get_usage_tracker")
@@ -717,7 +723,7 @@ class TestGetSummary:
         h = _make_handler()
         result = handler.handle("/api/v1/usage/summary", {}, h)
         body = _body(result)
-        by_provider = body["summary"]["costs"]["by_provider"]
+        by_provider = body["costs"]["by_provider"]
         assert "anthropic" in by_provider
         assert "openai" in by_provider
 
@@ -748,7 +754,7 @@ class TestGetBreakdown:
         result = handler.handle("/api/v1/usage/breakdown", {}, h)
         assert _status(result) == 200
         body = _body(result)
-        bd = body["breakdown"]
+        bd = body
         assert bd["dimension"] == "agent"
         assert len(bd["items"]) == 2
         # Sorted by cost descending
@@ -765,7 +771,7 @@ class TestGetBreakdown:
         result = handler.handle("/api/v1/usage/breakdown", {}, h)
         assert _status(result) == 200
         body = _body(result)
-        bd = body["breakdown"]
+        bd = body
         assert bd["dimension"] == "model"
         assert len(bd["items"]) == 2
 
@@ -775,7 +781,7 @@ class TestGetBreakdown:
         h = _make_handler()
         result = handler.handle("/api/v1/usage/breakdown", {}, h)
         body = _body(result)
-        assert body["breakdown"]["dimension"] == "agent"
+        assert body["dimension"] == "agent"
 
     @patch("aragora.server.handlers.sme_usage_dashboard.SMEUsageDashboardHandler._get_cost_tracker")
     def test_breakdown_unknown_dimension_returns_empty_items(self, mock_ct, handler):
@@ -783,8 +789,8 @@ class TestGetBreakdown:
         h = _make_handler(query_params={"dimension": "unknown"})
         result = handler.handle("/api/v1/usage/breakdown", {}, h)
         body = _body(result)
-        assert body["breakdown"]["dimension"] == "unknown"
-        assert body["breakdown"]["items"] == []
+        assert body["dimension"] == "unknown"
+        assert body["items"] == []
 
     @patch("aragora.server.handlers.sme_usage_dashboard.SMEUsageDashboardHandler._get_cost_tracker")
     def test_breakdown_includes_period(self, mock_ct, handler):
@@ -792,9 +798,9 @@ class TestGetBreakdown:
         h = _make_handler()
         result = handler.handle("/api/v1/usage/breakdown", {}, h)
         body = _body(result)
-        assert "period" in body["breakdown"]
-        assert "start" in body["breakdown"]["period"]
-        assert "end" in body["breakdown"]["period"]
+        assert "period" in body
+        assert "start" in body["period"]
+        assert "end" in body["period"]
 
     @patch("aragora.server.handlers.sme_usage_dashboard.SMEUsageDashboardHandler._get_cost_tracker")
     def test_breakdown_percentage_calculation(self, mock_ct, handler):
@@ -806,7 +812,7 @@ class TestGetBreakdown:
         h = _make_handler(query_params={"dimension": "agent"})
         result = handler.handle("/api/v1/usage/breakdown", {}, h)
         body = _body(result)
-        items = body["breakdown"]["items"]
+        items = body["items"]
         percentages = [item["percentage"] for item in items]
         assert 75.0 in percentages
         assert 25.0 in percentages
@@ -821,7 +827,7 @@ class TestGetBreakdown:
         h = _make_handler(query_params={"dimension": "agent"})
         result = handler.handle("/api/v1/usage/breakdown", {}, h)
         body = _body(result)
-        assert body["breakdown"]["items"][0]["percentage"] == 0
+        assert body["items"][0]["percentage"] == 0
 
     def test_breakdown_no_user_store(self):
         h_instance = SMEUsageDashboardHandler(ctx={})
@@ -852,7 +858,7 @@ class TestGetROI:
         result = handler.handle("/api/v1/usage/roi", {}, h)
         assert _status(result) == 200
         body = _body(result)
-        assert "roi" in body
+        assert "roi_percent" in body  # ROI data unwrapped
 
     @patch("aragora.billing.roi_calculator.ROICalculator")
     @patch("aragora.billing.roi_calculator.IndustryBenchmark")
@@ -913,8 +919,8 @@ class TestGetBudgetStatus:
         result = handler.handle("/api/v1/usage/budget-status", {}, h)
         assert _status(result) == 200
         body = _body(result)
-        assert "budget" in body
-        b = body["budget"]
+        assert "monthly" in body  # budget data unwrapped
+        b = body
         assert "monthly" in b
         assert "daily" in b
         assert b["monthly"]["limit_usd"] == "100.00"
@@ -930,7 +936,7 @@ class TestGetBudgetStatus:
         h = _make_handler()
         result = handler.handle("/api/v1/usage/budget-status", {}, h)
         body = _body(result)
-        remaining = Decimal(body["budget"]["monthly"]["remaining_usd"])
+        remaining = Decimal(body["monthly"]["remaining_usd"])
         assert remaining == Decimal("54.50")
 
     @patch("aragora.server.handlers.sme_usage_dashboard.SMEUsageDashboardHandler._get_cost_tracker")
@@ -943,7 +949,7 @@ class TestGetBudgetStatus:
         h = _make_handler()
         result = handler.handle("/api/v1/usage/budget-status", {}, h)
         body = _body(result)
-        assert body["budget"]["monthly"]["percent_used"] == 50.0
+        assert body["monthly"]["percent_used"] == 50.0
 
     @patch("aragora.server.handlers.sme_usage_dashboard.SMEUsageDashboardHandler._get_cost_tracker")
     def test_budget_no_budget_set(self, mock_ct, handler):
@@ -954,7 +960,7 @@ class TestGetBudgetStatus:
         result = handler.handle("/api/v1/usage/budget-status", {}, h)
         assert _status(result) == 200
         body = _body(result)
-        b = body["budget"]
+        b = body
         assert b["monthly"]["limit_usd"] == "unlimited"
         assert b["monthly"]["remaining_usd"] == "unlimited"
         assert b["monthly"]["percent_used"] == 0
@@ -970,7 +976,7 @@ class TestGetBudgetStatus:
         h = _make_handler()
         result = handler.handle("/api/v1/usage/budget-status", {}, h)
         body = _body(result)
-        daily = body["budget"]["daily"]
+        daily = body["daily"]
         assert daily["limit_usd"] == "10.00"
         assert daily["spent_usd"] == "3.25"
 
@@ -981,7 +987,7 @@ class TestGetBudgetStatus:
         h = _make_handler()
         result = handler.handle("/api/v1/usage/budget-status", {}, h)
         body = _body(result)
-        assert body["budget"]["daily"]["limit_usd"] == "unlimited"
+        assert body["daily"]["limit_usd"] == "unlimited"
 
     @patch("aragora.server.handlers.sme_usage_dashboard.SMEUsageDashboardHandler._get_cost_tracker")
     def test_budget_with_alert_level(self, mock_ct, handler):
@@ -991,7 +997,7 @@ class TestGetBudgetStatus:
         h = _make_handler()
         result = handler.handle("/api/v1/usage/budget-status", {}, h)
         body = _body(result)
-        assert body["budget"]["alert_level"] == "warning"
+        assert body["alert_level"] == "warning"
 
     @patch("aragora.server.handlers.sme_usage_dashboard.SMEUsageDashboardHandler._get_cost_tracker")
     def test_budget_projected_spend(self, mock_ct, handler):
@@ -1004,7 +1010,7 @@ class TestGetBudgetStatus:
         result = handler.handle("/api/v1/usage/budget-status", {}, h)
         body = _body(result)
         # Projected spend should be a valid decimal string
-        projected = body["budget"]["monthly"]["projected_end_spend_usd"]
+        projected = body["monthly"]["projected_end_spend_usd"]
         assert Decimal(projected) > 0
 
     @patch("aragora.server.handlers.sme_usage_dashboard.SMEUsageDashboardHandler._get_cost_tracker")
@@ -1014,7 +1020,7 @@ class TestGetBudgetStatus:
         h = _make_handler()
         result = handler.handle("/api/v1/usage/budget-status", {}, h)
         body = _body(result)
-        days_remaining = body["budget"]["monthly"]["days_remaining"]
+        days_remaining = body["monthly"]["days_remaining"]
         assert isinstance(days_remaining, int)
         assert 0 <= days_remaining <= 30
 
@@ -1028,7 +1034,7 @@ class TestGetBudgetStatus:
         h = _make_handler()
         result = handler.handle("/api/v1/usage/budget-status", {}, h)
         body = _body(result)
-        remaining = Decimal(body["budget"]["monthly"]["remaining_usd"])
+        remaining = Decimal(body["monthly"]["remaining_usd"])
         assert remaining == Decimal("0")
 
     @patch("aragora.server.handlers.sme_usage_dashboard.SMEUsageDashboardHandler._get_cost_tracker")
@@ -1041,7 +1047,7 @@ class TestGetBudgetStatus:
         h = _make_handler()
         result = handler.handle("/api/v1/usage/budget-status", {}, h)
         body = _body(result)
-        assert body["budget"]["monthly"]["percent_used"] == 0
+        assert body["monthly"]["percent_used"] == 0
 
     def test_budget_no_user_store(self):
         h_instance = SMEUsageDashboardHandler(ctx={})
@@ -1069,7 +1075,7 @@ class TestGetForecast:
         result = handler.handle("/api/v1/usage/forecast", {}, h)
         assert _status(result) == 200
         body = _body(result)
-        assert "forecast" in body
+        assert isinstance(body, (dict, list))  # forecast data unwrapped
 
     @patch("aragora.server.handlers.sme_usage_dashboard.SMEUsageDashboardHandler._get_roi_calculator")
     @patch("aragora.server.handlers.sme_usage_dashboard.SMEUsageDashboardHandler._get_cost_tracker")
@@ -1120,8 +1126,7 @@ class TestGetBenchmarks:
         result = handler.handle("/api/v1/usage/benchmarks", {}, h)
         assert _status(result) == 200
         body = _body(result)
-        assert "benchmarks" in body
-        assert "benchmarks" in body["benchmarks"]
+        assert "benchmarks" in body  # benchmarks data has benchmarks key
 
     @patch("aragora.server.handlers.sme_usage_dashboard.SMEUsageDashboardHandler._get_roi_calculator")
     def test_benchmarks_contains_data(self, mock_get_roi, handler):
@@ -1130,7 +1135,7 @@ class TestGetBenchmarks:
         h = _make_handler()
         result = handler.handle("/api/v1/usage/benchmarks", {}, h)
         body = _body(result)
-        benchmarks = body["benchmarks"]["benchmarks"]
+        benchmarks = body["benchmarks"]
         assert "sme" in benchmarks
         assert "enterprise" in benchmarks
 
@@ -1471,7 +1476,7 @@ class TestEdgeCases:
         result = handler.handle("/api/v1/usage/summary", {}, h)
         assert _status(result) == 200
         body = _body(result)
-        period = body["summary"]["period"]
+        period = body["period"]
         assert "2025-01-01" in period["start"]
         assert "2025-01-31" in period["end"]
 
@@ -1490,7 +1495,7 @@ class TestEdgeCases:
         h = _make_handler()
         result = handler.handle("/api/v1/usage/summary", {}, h)
         body = _body(result)
-        assert body["summary"]["costs"]["by_provider"] == {}
+        assert body["costs"]["by_provider"] == {}
 
     @patch("aragora.server.handlers.sme_usage_dashboard.SMEUsageDashboardHandler._get_cost_tracker")
     def test_breakdown_agent_sorted_descending(self, mock_ct, handler):
@@ -1502,7 +1507,7 @@ class TestEdgeCases:
         h = _make_handler(query_params={"dimension": "agent"})
         result = handler.handle("/api/v1/usage/breakdown", {}, h)
         body = _body(result)
-        items = body["breakdown"]["items"]
+        items = body["items"]
         costs = [Decimal(item["cost_usd"]) for item in items]
         assert costs == sorted(costs, reverse=True)
 
@@ -1524,7 +1529,7 @@ class TestEdgeCases:
         h = _make_handler(query_params={"period": "week"})
         result = handler.handle("/api/v1/usage/summary", {}, h)
         body = _body(result)
-        dpd = body["summary"]["activity"]["debates_per_day"]
+        dpd = body["activity"]["debates_per_day"]
         assert dpd == 1.0
 
     @patch("aragora.server.handlers.sme_usage_dashboard.SMEUsageDashboardHandler._get_cost_tracker")
@@ -1548,5 +1553,5 @@ class TestEdgeCases:
         h = _make_handler()
         result = handler.handle("/api/v1/usage/budget-status", {}, h)
         body = _body(result)
-        assert body["budget"]["daily"]["limit_usd"] == "unlimited"
-        assert body["budget"]["daily"]["spent_usd"] == "5.00"
+        assert body["daily"]["limit_usd"] == "unlimited"
+        assert body["daily"]["spent_usd"] == "5.00"

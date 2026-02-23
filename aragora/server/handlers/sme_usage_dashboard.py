@@ -345,7 +345,7 @@ class SMEUsageDashboardHandler(SecureHandler):
             },
         }
 
-        return json_response({"summary": summary})
+        return json_response({"data": summary})
 
     @handle_errors("get usage breakdown")
     @require_permission("org:usage:read")
@@ -420,7 +420,7 @@ class SMEUsageDashboardHandler(SecureHandler):
         # Sort by cost descending
         breakdown_data["items"].sort(key=lambda x: Decimal(x["cost_usd"]), reverse=True)
 
-        return json_response({"breakdown": breakdown_data})
+        return json_response({"data": breakdown_data})
 
     @handle_errors("get ROI metrics")
     @require_permission("org:usage:read")
@@ -519,7 +519,7 @@ class SMEUsageDashboardHandler(SecureHandler):
             period_end=end_date,
         )
 
-        return json_response({"roi": metrics.to_dict()})
+        return json_response({"data": metrics.to_dict()})
 
     @handle_errors("get budget status")
     @require_permission("org:usage:read")
@@ -621,7 +621,7 @@ class SMEUsageDashboardHandler(SecureHandler):
                 "alert_level": None,
             }
 
-        return json_response({"budget": budget_status})
+        return json_response({"data": budget_status})
 
     @handle_errors("get usage forecast")
     @require_permission("org:usage:read")
@@ -666,7 +666,7 @@ class SMEUsageDashboardHandler(SecureHandler):
             current_cost_per_debate=cost_per_debate,
         )
 
-        return json_response({"forecast": projections})
+        return json_response({"data": projections})
 
     @handle_errors("get benchmarks")
     @require_permission("org:usage:read")
@@ -689,7 +689,7 @@ class SMEUsageDashboardHandler(SecureHandler):
         calculator = self._get_roi_calculator()
         benchmarks = calculator.get_benchmark_comparison()
 
-        return json_response({"benchmarks": benchmarks})
+        return json_response({"data": benchmarks})
 
     @handle_errors("export usage")
     @require_permission("org:usage:read")
