@@ -596,6 +596,10 @@ class TestHandlerInstantiation:
             if handler_class is None:
                 continue
 
+            handler_class = _resolve(handler_class)
+            if handler_class is None:
+                continue
+
             try:
                 handler = handler_class(ctx)
                 assert handler is not None
@@ -612,7 +616,7 @@ class TestHandlerInstantiation:
         from aragora.server.handler_registry import HealthHandler
 
         ctx = {"storage": None}
-        handler = HealthHandler(ctx)
+        handler = _resolve(HealthHandler)(ctx)
 
         assert hasattr(handler, "ctx")
         assert handler.ctx == ctx
