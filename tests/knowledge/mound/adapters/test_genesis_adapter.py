@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from datetime import datetime, timezone
-from unittest.mock import AsyncMock, MagicMock
+from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
@@ -11,6 +11,8 @@ from aragora.knowledge.mound.adapters.genesis_adapter import (
     GenesisAdapter,
     GenesisEvolutionItem,
     GenesisSearchResult,
+    get_genesis_adapter,
+    _HAS_GENESIS,
 )
 
 
@@ -24,6 +26,7 @@ def sample_genome() -> GenesisEvolutionItem:
     return GenesisEvolutionItem(
         genome_id="genome-001",
         name="claude-security-v1",
+        item_type="genome",
         traits={"analytical": 0.9, "cautious": 0.8, "creative": 0.6},
         expertise={"security": 0.85, "api_design": 0.7, "testing": 0.6},
         model_preference="claude",
@@ -43,6 +46,7 @@ def child_genome() -> GenesisEvolutionItem:
     return GenesisEvolutionItem(
         genome_id="genome-002",
         name="claude-security-v2",
+        item_type="genome",
         traits={"analytical": 0.95, "cautious": 0.85, "creative": 0.5},
         expertise={"security": 0.9, "api_design": 0.75},
         model_preference="claude",
@@ -54,6 +58,23 @@ def child_genome() -> GenesisEvolutionItem:
         critiques_accepted=5,
         predictions_correct=6,
         debates_participated=12,
+    )
+
+
+@pytest.fixture
+def fractal_item() -> GenesisEvolutionItem:
+    return GenesisEvolutionItem(
+        genome_id="frac_abc123",
+        name="fractal_orchestrator",
+        item_type="fractal_result",
+        fitness_score=0.85,
+        root_debate_id="debate-root-1",
+        sub_debate_count=3,
+        total_depth=2,
+        tensions_resolved=2,
+        tensions_unresolved=1,
+        evolved_genome_ids=["genome-001", "genome-002"],
+        metadata={"task": "Design a distributed cache"},
     )
 
 
@@ -91,6 +112,7 @@ class TestGenesisEvolutionItem:
 
         assert item.genome_id == "g-123"
         assert item.name == "test-agent"
+        assert item.item_type == "genome"
         assert item.traits == {"bold": 0.7}
         assert item.expertise == {"security": 0.9}
         assert item.model_preference == "gpt4"
@@ -105,6 +127,170 @@ class TestGenesisEvolutionItem:
         assert item.genome_id == ""
         assert item.fitness_score == 0.5
         assert item.generation == 0
+        assert item.item_type == "genome"
+
+    def test_from_fractal_result(self) -> None:
+        mock_result = MagicMock()
+        mock_result.root_debate_id = "root-123"
+        mock_result.sub_debates = [MagicMock(), MagicMock()]
+        mock_result.total_depth = 2
+        mock_result.tensions_resolved = 1
+        mock_result.tensions_unresolved = 1
+        mock_result.evolved_genomes = []
+        mock_result.main_result = MagicMock()
+        mock_result.main_result.task = "Test task"
+        mock_result.main_result.confidence = 0.9
+
+        item = GenesisEvolutionItem.from_fractal_result(mock_result)
+
+        assert item.item_type == "fractal_result"
+        assert item.name == "fractal_orchestrator"
+        assert item.root_debate_id == "root-123"
+        assert item.sub_debate_count == 2
+        assert item.total_depth == 2
+        assert item.tensions_resolved == 1
+        assert item.fitness_score == 0.9
+        assert item.metadata["task"] == "Test task"
+        assert item.genome_id.startswith("frac_")
+
+    def test_from_fractal_result_with_evolved_genomes(self) -> None:
+        genome_mock = MagicMock()
+        genome_mock.genome_id = "evolved-1"
+
+        mock_result = MagicMock()
+        mock_result.root_debate_id = "root-456"
+        mock_result.sub_debates = []
+        mock_result.total_depth = 1
+        mock_result.tensions_resolved = 0
+        mock_result.tensions_unresolved = 0
+        mock_result.evolved_genomes = [genome_mock]
+        mock_result.main_result = MagicMock()
+        mock_result.main_result.task = "Evolve"
+        mock_result.main_result.confidence = 0.7
+
+        item = GenesisEvolutionItem.from_fractal_result(mock_result)
+        assert item.evolved_genome_ids == ["evolved-1"]
+
+    def test_from_dict(self) -> None:
+        data = {
+            "genome_id": "dict-g1",
+            "name": "dict-agent",
+            "item_type": "genome",
+            "traits": {"bold": 0.5},
+            "expertise": {"testing": 0.8},
+            "fitness_score": 0.65,
+            "generation": 3,
+            "parent_genomes": ["parent-1"],
+        }
+        item = GenesisEvolutionItem.from_dict(data)
+
+        assert item.genome_id == "dict-g1"
+        assert item.name == "dict-agent"
+        assert item.item_type == "genome"
+        assert item.traits == {"bold": 0.5}
+        assert item.fitness_score == 0.65
+        assert item.generation == 3
+
+    def test_from_dict_defaults(self) -> None:
+        item = GenesisEvolutionItem.from_dict({})
+        assert item.genome_id == ""
+        assert item.name == ""
+        assert item.item_type == "genome"
+        assert item.fitness_score == 0.5
+
+
+class TestIngest:
+    def test_ingest_evolution_item(
+        self, adapter: GenesisAdapter, sample_genome: GenesisEvolutionItem
+    ) -> None:
+        result = adapter.ingest(sample_genome)
+
+        assert result is True
+        assert len(adapter._pending_genomes) == 1
+        assert adapter._pending_genomes[0].genome_id == "genome-001"
+        assert adapter._pending_genomes[0].metadata["km_sync_pending"] is True
+
+    def test_ingest_dict(self, adapter: GenesisAdapter) -> None:
+        data = {
+            "genome_id": "dict-001",
+            "name": "dict-agent",
+            "fitness_score": 0.7,
+            "traits": {"creative": 0.9},
+        }
+        result = adapter.ingest(data)
+
+        assert result is True
+        assert len(adapter._pending_genomes) == 1
+        assert adapter._pending_genomes[0].genome_id == "dict-001"
+
+    def test_ingest_genome_like_object(self, adapter: GenesisAdapter) -> None:
+        mock_genome = MagicMock()
+        mock_genome.genome_id = "duck-g1"
+        mock_genome.name = "duck-agent"
+        mock_genome.traits = {"bold": 0.8}
+        mock_genome.expertise = {}
+        mock_genome.model_preference = "claude"
+        mock_genome.parent_genomes = []
+        mock_genome.generation = 0
+        mock_genome.fitness_score = 0.6
+        mock_genome.birth_debate_id = None
+        mock_genome.consensus_contributions = 0
+        mock_genome.critiques_accepted = 0
+        mock_genome.predictions_correct = 0
+        mock_genome.debates_participated = 0
+
+        result = adapter.ingest(mock_genome)
+
+        assert result is True
+        assert adapter._pending_genomes[0].genome_id == "duck-g1"
+        assert adapter._pending_genomes[0].item_type == "genome"
+
+    def test_ingest_fractal_like_object(self, adapter: GenesisAdapter) -> None:
+        # Use spec=[] to prevent MagicMock from auto-generating attributes,
+        # then set only the fractal-specific attributes.
+        mock_result = MagicMock(spec=[])
+        mock_result.root_debate_id = "root-789"
+        mock_result.sub_debates = [MagicMock()]
+        mock_result.total_depth = 1
+        mock_result.tensions_resolved = 1
+        mock_result.tensions_unresolved = 0
+        mock_result.evolved_genomes = []
+        mock_result.main_result = MagicMock()
+        mock_result.main_result.task = "Fractal task"
+        mock_result.main_result.confidence = 0.8
+
+        result = adapter.ingest(mock_result)
+
+        assert result is True
+        assert adapter._pending_genomes[0].item_type == "fractal_result"
+
+    def test_ingest_emits_event(self, sample_genome: GenesisEvolutionItem) -> None:
+        callback = MagicMock()
+        adapter = GenesisAdapter(event_callback=callback)
+        adapter.ingest(sample_genome)
+
+        callback.assert_called_once()
+        event_type, event_data = callback.call_args[0]
+        assert event_type == "km_adapter_forward_sync"
+        assert event_data["genome_id"] == "genome-001"
+        assert event_data["item_type"] == "genome"
+
+    def test_ingest_unknown_type_returns_false(self, adapter: GenesisAdapter) -> None:
+        # Object with no genome_id/traits and no root_debate_id/sub_debates
+        unknown_obj = MagicMock(spec=[])
+        result = adapter.ingest(unknown_obj)
+        assert result is False
+        assert len(adapter._pending_genomes) == 0
+
+    def test_ingest_multiple_items(
+        self,
+        adapter: GenesisAdapter,
+        sample_genome: GenesisEvolutionItem,
+        fractal_item: GenesisEvolutionItem,
+    ) -> None:
+        adapter.ingest(sample_genome)
+        adapter.ingest(fractal_item)
+        assert len(adapter._pending_genomes) == 2
 
 
 class TestStoreGenome:
@@ -238,6 +424,22 @@ class TestGetLineage:
         lineage = adapter.get_lineage("cycle-a")
         assert len(lineage) == 2
 
+    def test_lineage_three_generations(self, adapter: GenesisAdapter) -> None:
+        g0 = GenesisEvolutionItem(genome_id="g0", name="ancestor", generation=0)
+        g1 = GenesisEvolutionItem(
+            genome_id="g1", name="parent", generation=1, parent_genomes=["g0"]
+        )
+        g2 = GenesisEvolutionItem(
+            genome_id="g2", name="child", generation=2, parent_genomes=["g1"]
+        )
+        adapter._synced_genomes["g0"] = g0
+        adapter._synced_genomes["g1"] = g1
+        adapter._synced_genomes["g2"] = g2
+
+        lineage = adapter.get_lineage("g2")
+        assert len(lineage) == 3
+        assert [g.genome_id for g in lineage] == ["g2", "g1", "g0"]
+
 
 class TestFindHighFitnessGenomes:
     def test_returns_high_fitness(
@@ -294,9 +496,16 @@ class TestFindHighFitnessGenomes:
         results = adapter.find_high_fitness_genomes(min_fitness=0.5)
         assert len(results) == 1
 
+    def test_excludes_fractal_items(
+        self, adapter: GenesisAdapter, fractal_item: GenesisEvolutionItem
+    ) -> None:
+        adapter._synced_genomes[fractal_item.genome_id] = fractal_item
+        results = adapter.find_high_fitness_genomes(min_fitness=0.0)
+        assert len(results) == 0
+
 
 class TestToKnowledgeItem:
-    def test_converts_to_km_item(
+    def test_converts_genome_to_km_item(
         self, adapter: GenesisAdapter, sample_genome: GenesisEvolutionItem
     ) -> None:
         km_item = adapter.to_knowledge_item(sample_genome)
@@ -306,8 +515,27 @@ class TestToKnowledgeItem:
         assert "Generation: 0" in km_item.content
         assert "Fitness: 0.75" in km_item.content
         assert km_item.metadata["adapter"] == "genesis"
+        assert km_item.metadata["item_type"] == "genome"
         assert km_item.metadata["fitness_score"] == 0.75
         assert km_item.metadata["generation"] == 0
+
+        from aragora.knowledge.unified.types import KnowledgeSource
+
+        assert km_item.source == KnowledgeSource.DEBATE
+
+    def test_converts_fractal_to_km_item(
+        self, adapter: GenesisAdapter, fractal_item: GenesisEvolutionItem
+    ) -> None:
+        km_item = adapter.to_knowledge_item(fractal_item)
+        assert km_item.id.startswith("gen_frac_")
+        assert km_item.source_id == "debate-root-1"
+        assert "Fractal Debate Result" in km_item.content
+        assert "Depth: 2" in km_item.content
+        assert "Sub-debates: 3" in km_item.content
+        assert "Tensions resolved: 2" in km_item.content
+        assert km_item.metadata["item_type"] == "fractal_result"
+        assert km_item.metadata["root_debate_id"] == "debate-root-1"
+        assert km_item.metadata["evolved_genome_ids"] == ["genome-001", "genome-002"]
 
 
 class TestSyncToKM:
@@ -415,6 +643,21 @@ class TestSyncToKM:
         assert result.records_synced == 1
         mound.store.assert_called_once()
 
+    @pytest.mark.asyncio
+    async def test_sync_fractal_item(
+        self, adapter: GenesisAdapter, fractal_item: GenesisEvolutionItem
+    ) -> None:
+        mound = MagicMock()
+        mound.store_item = AsyncMock()
+
+        adapter.ingest(fractal_item)
+        result = await adapter.sync_to_km(mound)
+
+        assert result.records_synced == 1
+        mound.store_item.assert_called_once()
+        stored_item = mound.store_item.call_args[0][0]
+        assert "Fractal Debate Result" in stored_item.content
+
 
 class TestGetStats:
     def test_empty_stats(self, adapter: GenesisAdapter) -> None:
@@ -423,6 +666,8 @@ class TestGetStats:
         assert stats["pending_sync"] == 0
         assert stats["avg_fitness"] == 0.0
         assert stats["max_generation"] == 0
+        assert stats["genomes_stored"] == 0
+        assert stats["fractals_stored"] == 0
 
     def test_stats_with_data(
         self,
@@ -439,9 +684,26 @@ class TestGetStats:
         stats = adapter.get_stats()
         assert stats["total_synced"] == 2
         assert stats["pending_sync"] == 1
+        assert stats["genomes_stored"] == 2
+        assert stats["fractals_stored"] == 0
         assert stats["avg_fitness"] == pytest.approx((0.75 + 0.82) / 2)
         assert stats["max_generation"] == 1
         assert stats["total_debates"] == 20
+
+    def test_stats_with_fractals(
+        self,
+        adapter: GenesisAdapter,
+        sample_genome: GenesisEvolutionItem,
+        fractal_item: GenesisEvolutionItem,
+    ) -> None:
+        adapter._synced_genomes["genome-001"] = sample_genome
+        adapter._synced_genomes[fractal_item.genome_id] = fractal_item
+
+        stats = adapter.get_stats()
+        assert stats["genomes_stored"] == 1
+        assert stats["fractals_stored"] == 1
+        # avg_fitness only counts genomes
+        assert stats["avg_fitness"] == 0.75
 
 
 class TestMixinMethods:
@@ -465,9 +727,16 @@ class TestMixinMethods:
         assert sample_genome.metadata["km_validation_confidence"] == 0.9
         assert sample_genome.metadata["km_cross_references"] == ["ref-1"]
 
-    def test_extract_source_id(self, adapter: GenesisAdapter) -> None:
+    def test_extract_source_id_gen_prefix(self, adapter: GenesisAdapter) -> None:
         assert adapter._extract_source_id({"source_id": "gen_abc"}) == "abc"
+
+    def test_extract_source_id_frac_prefix(self, adapter: GenesisAdapter) -> None:
+        assert adapter._extract_source_id({"source_id": "frac_xyz"}) == "xyz"
+
+    def test_extract_source_id_raw(self, adapter: GenesisAdapter) -> None:
         assert adapter._extract_source_id({"source_id": "raw-id"}) == "raw-id"
+
+    def test_extract_source_id_empty(self, adapter: GenesisAdapter) -> None:
         assert adapter._extract_source_id({}) is None
 
     def test_get_fusion_sources(self, adapter: GenesisAdapter) -> None:
@@ -495,3 +764,77 @@ class TestMixinMethods:
         assert success is True
         assert sample_genome.metadata["fusion_applied"] is True
         assert sample_genome.metadata["fused_confidence"] == 0.88
+
+
+class TestGracefulDegradation:
+    """Tests that the adapter works even when genesis module is unavailable."""
+
+    def test_adapter_loads_without_genesis(self) -> None:
+        """The adapter module can be imported regardless of genesis availability."""
+        # If we got here, the import at module level already succeeded.
+        # The _HAS_GENESIS flag indicates whether genesis was importable.
+        from aragora.knowledge.mound.adapters import genesis_adapter
+
+        assert hasattr(genesis_adapter, "GenesisAdapter")
+        assert hasattr(genesis_adapter, "GenesisEvolutionItem")
+
+    def test_ingest_works_with_mock_genome_no_genesis(
+        self, adapter: GenesisAdapter
+    ) -> None:
+        """ingest() works via duck-typing even if genesis types are unavailable."""
+        mock_genome = MagicMock(spec=[])
+        # Add only the duck-type attributes
+        mock_genome.genome_id = "no-genesis-1"
+        mock_genome.traits = {"stub": 0.5}
+        mock_genome.name = "stub-agent"
+        mock_genome.expertise = {}
+        mock_genome.model_preference = "claude"
+        mock_genome.parent_genomes = []
+        mock_genome.generation = 0
+        mock_genome.fitness_score = 0.5
+        mock_genome.birth_debate_id = None
+        mock_genome.consensus_contributions = 0
+        mock_genome.critiques_accepted = 0
+        mock_genome.predictions_correct = 0
+        mock_genome.debates_participated = 0
+
+        result = adapter.ingest(mock_genome)
+        assert result is True
+
+    def test_ingest_fractal_via_duck_typing(self, adapter: GenesisAdapter) -> None:
+        """Fractal results are detected via duck-typing, not isinstance."""
+        # Use spec=[] so MagicMock does not auto-generate genome_id/traits
+        mock_fractal = MagicMock(spec=[])
+        mock_fractal.root_debate_id = "duck-root"
+        mock_fractal.sub_debates = []
+        mock_fractal.total_depth = 0
+        mock_fractal.tensions_resolved = 0
+        mock_fractal.tensions_unresolved = 0
+        mock_fractal.evolved_genomes = []
+        mock_fractal.main_result = MagicMock()
+        mock_fractal.main_result.task = "Duck task"
+        mock_fractal.main_result.confidence = 0.5
+
+        result = adapter.ingest(mock_fractal)
+        assert result is True
+        assert adapter._pending_genomes[0].item_type == "fractal_result"
+
+
+class TestSingleton:
+    def test_get_genesis_adapter_returns_singleton(self) -> None:
+        import aragora.knowledge.mound.adapters.genesis_adapter as mod
+
+        mod._genesis_adapter_singleton = None
+        a1 = get_genesis_adapter()
+        a2 = get_genesis_adapter()
+        assert a1 is a2
+        # Clean up
+        mod._genesis_adapter_singleton = None
+
+    def test_singleton_is_genesis_adapter(self) -> None:
+        import aragora.knowledge.mound.adapters.genesis_adapter as mod
+
+        mod._genesis_adapter_singleton = None
+        adapter = get_genesis_adapter()
+        assert isinstance(adapter, GenesisAdapter)
+        mod._genesis_adapter_singleton = None
