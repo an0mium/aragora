@@ -84,6 +84,15 @@ def _get_spectator_stream() -> Any:
 
 _spectator_stream_cache: Any = None
 
+# Stages included in default pipeline status (PRINCIPLES is opt-in)
+_DEFAULT_STAGES = [s for s in PipelineStage if s != PipelineStage.PRINCIPLES]
+
+
+def _initial_stage_status(enable_principles: bool = False) -> dict[str, str]:
+    """Build the initial stage_status dict, including PRINCIPLES only when enabled."""
+    stages = list(PipelineStage) if enable_principles else _DEFAULT_STAGES
+    return {s.value: "pending" for s in stages}
+
 
 @dataclass
 class PipelineConfig:
@@ -355,7 +364,7 @@ class IdeaToExecutionPipeline:
         pipeline_id = pipeline_id or f"pipe-{uuid.uuid4().hex[:8]}"
         result = PipelineResult(
             pipeline_id=pipeline_id,
-            stage_status={s.value: "pending" for s in PipelineStage},
+            stage_status=_initial_stage_status(),
         )
         _spectate("pipeline.started", f"pipeline_id={pipeline_id} source=debate")
 
@@ -477,7 +486,7 @@ class IdeaToExecutionPipeline:
         pipeline_id = pipeline_id or f"pipe-{uuid.uuid4().hex[:8]}"
         result = PipelineResult(
             pipeline_id=pipeline_id,
-            stage_status={s.value: "pending" for s in PipelineStage},
+            stage_status=_initial_stage_status(),
         )
         _spectate("pipeline.started", f"pipeline_id={pipeline_id} source=ideas")
 
@@ -701,7 +710,7 @@ class IdeaToExecutionPipeline:
 
         result = PipelineResult(
             pipeline_id=pipeline_id,
-            stage_status={s.value: "pending" for s in PipelineStage},
+            stage_status=_initial_stage_status(enable_principles=cfg.enable_principles),
         )
         _spectate("pipeline.started", f"pipeline_id={pipeline_id} source=async")
 

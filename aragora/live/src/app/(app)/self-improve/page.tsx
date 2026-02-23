@@ -8,7 +8,6 @@ import { API_BASE_URL } from '@/config';
 import { MetaPlannerView } from '@/components/self-improve/MetaPlannerView';
 import { ExecutionTimeline } from '@/components/self-improve/ExecutionTimeline';
 import { LearningFeed } from '@/components/self-improve/LearningFeed';
-import { RegressionGuard } from '@/components/self-improve/RegressionGuard';
 import { BudgetTracker } from '@/components/self-improve/BudgetTracker';
 import { NomicMetricsDashboard } from '@/components/self-improve/NomicMetricsDashboard';
 

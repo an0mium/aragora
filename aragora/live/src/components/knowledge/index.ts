@@ -6,5 +6,6 @@
  */
 
 export { AnalyticsDashboard } from './AnalyticsDashboard';
+export { ContradictionsBrowser } from './ContradictionsBrowser';
 export { KMAdapterActivity } from './KMAdapterActivity';
 export { NotificationBell } from './NotificationBell';

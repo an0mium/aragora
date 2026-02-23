@@ -67,7 +67,7 @@ function PressureGauge({ value, label, color }: { value: number; label: string; 
 export default function MemoryPage() {
   const { config: backendConfig } = useBackend();
   const [pressure, setPressure] = useState<MemoryPressure | null>(null);
-  const [activeTab, setActiveTab] = useState<'explorer' | 'analytics' | 'unified' | 'retention' | 'dedup' | 'learning'>('explorer');
+  const [activeTab, setActiveTab] = useState<'explorer' | 'analytics' | 'tiers' | 'unified' | 'retention' | 'dedup' | 'learning'>('explorer');
 
   // Fetch memory pressure data
   useEffect(() => {
@@ -147,6 +147,7 @@ export default function MemoryPage() {
             {([
               { key: 'explorer', label: 'EXPLORER' },
               { key: 'analytics', label: 'ANALYTICS' },
+              { key: 'tiers', label: 'TIERS' },
               { key: 'unified', label: 'UNIFIED' },
               { key: 'retention', label: 'RETENTION' },
               { key: 'dedup', label: 'DEDUP' },
@@ -174,6 +175,11 @@ export default function MemoryPage() {
           {activeTab === 'analytics' && (
             <PanelErrorBoundary panelName="Memory Analytics">
               <MemoryAnalyticsPanel apiBase={backendConfig.api} />
+            </PanelErrorBoundary>
+          )}
+          {activeTab === 'tiers' && (
+            <PanelErrorBoundary panelName="Memory Tiers">
+              <MemoryTiersPanel />
             </PanelErrorBoundary>
           )}
           {activeTab === 'unified' && <UnifiedMemorySearch />}
