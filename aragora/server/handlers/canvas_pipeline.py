@@ -131,6 +131,7 @@ class CanvasPipelineHandler:
         "GET /api/v1/canvas/pipeline/templates",
         "PUT /api/v1/canvas/pipeline/{id}",
         "POST /api/v1/canvas/pipeline/extract-goals",
+        "POST /api/v1/canvas/pipeline/extract-principles",
         "POST /api/v1/canvas/convert/debate",
         "POST /api/v1/canvas/convert/workflow",
         "POST /api/v1/debates/{id}/to-pipeline",
@@ -224,6 +225,7 @@ class CanvasPipelineHandler:
             "/pipeline/advance": self.handle_advance,
             "/pipeline/run": self.handle_run,
             "/pipeline/extract-goals": self.handle_extract_goals,
+            "/pipeline/extract-principles": self.handle_extract_principles,
             "/convert/debate": self.handle_convert_debate,
             "/convert/workflow": self.handle_convert_workflow,
         }
@@ -647,6 +649,7 @@ class CanvasPipelineHandler:
 
         stage_key = {
             "ideas": "ideas",
+            "principles": "principles",
             "goals": "goals",
             "actions": "actions",
             "orchestration": "orchestration",
@@ -1073,6 +1076,46 @@ class CanvasPipelineHandler:
         except (ImportError, ValueError, TypeError) as e:
             logger.warning("Goal extraction failed: %s", e)
             return error_response("Goal extraction failed", 500)
+
+    async def handle_extract_principles(self, request_data: dict[str, Any]) -> HandlerResult:
+        """POST /api/v1/canvas/pipeline/extract-principles
+
+        Extract principles/values from an ideas canvas.
+
+        Body:
+            ideas_canvas: dict -- Ideas canvas data (nodes + edges)
+            themes: list[str] (optional) -- Pre-computed theme labels
+        """
+        try:
+            from aragora.canvas.converters import ideas_to_principles_canvas, to_react_flow
+
+            ideas_canvas = request_data.get("ideas_canvas", {})
+            themes = request_data.get("themes")
+
+            if not ideas_canvas:
+                return error_response("Missing required field: ideas_canvas", 400)
+
+            canvas = ideas_to_principles_canvas(
+                ideas_canvas,
+                enriched_themes=themes,
+            )
+            rf_data = to_react_flow(canvas)
+
+            # Collect theme labels from output
+            extracted_themes = [
+                n.label
+                for n in canvas.nodes.values()
+                if n.data.get("principle_type") == "theme"
+            ]
+
+            return json_response({
+                "principles_canvas": rf_data,
+                "principle_count": len(canvas.nodes),
+                "themes": extracted_themes,
+            })
+        except (ImportError, ValueError, TypeError) as e:
+            logger.warning("Principles extraction failed: %s", e)
+            return error_response("Principles extraction failed", 500)
 
     # =========================================================================
     # PUT: Save canvas state

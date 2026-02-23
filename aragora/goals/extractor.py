@@ -146,6 +146,155 @@ class GoalExtractor:
         self._agent = agent
         self._domain = domain
 
+    def extract_from_principles(
+        self,
+        principles_canvas_data: dict[str, Any],
+        *,
+        ideas_canvas_data: dict[str, Any] | None = None,
+    ) -> GoalGraph:
+        """Extract goals informed by principles/values extracted from ideas.
+
+        Goals are derived from principles rather than raw ideas, ensuring
+        they align with identified values and priorities.
+
+        Args:
+            principles_canvas_data: Canvas data from the Principles stage
+            ideas_canvas_data: Optional original ideas canvas for provenance
+
+        Returns:
+            GoalGraph with principle-derived goals
+        """
+        nodes = principles_canvas_data.get("nodes", [])
+        edges = principles_canvas_data.get("edges", [])
+
+        if not nodes:
+            return GoalGraph(id=f"goals-{uuid.uuid4().hex[:8]}")
+
+        # Separate principle types
+        goals: list[GoalNode] = []
+        provenance_links: list[ProvenanceLink] = []
+
+        # Build constraint map for dependency tracking
+        constraint_targets: dict[str, list[str]] = {}
+        for edge in edges:
+            edge_data = edge.get("data", {})
+            etype = edge_data.get("stage_edge_type", "")
+            if etype == "constrains":
+                src = edge.get("source", edge.get("source_id", ""))
+                tgt = edge.get("target", edge.get("target_id", ""))
+                constraint_targets.setdefault(tgt, []).append(src)
+
+        # Group nodes by theme (via edges)
+        theme_members: dict[str, list[dict[str, Any]]] = {}
+        node_theme: dict[str, str] = {}
+        for edge in edges:
+            edge_data = edge.get("data", {})
+            etype = edge_data.get("stage_edge_type", "")
+            if etype == "relates_to":
+                src = edge.get("source", edge.get("source_id", ""))
+                tgt = edge.get("target", edge.get("target_id", ""))
+                node_theme[src] = tgt
+                theme_members.setdefault(tgt, [])
+
+        # Process each principle/value/priority node
+        existing_goal_ids: list[str] = []
+        for node in nodes:
+            data = node.get("data", {})
+            p_type = data.get("principle_type", "")
+            if p_type not in ("principle", "value", "priority", "constraint"):
+                continue
+
+            label = node.get("label", "")
+            node_id = node.get("id", "")
+            source_idea_id = data.get("source_idea_id", "")
+
+            # Map principle type to goal type
+            goal_type = {
+                "priority": GoalNodeType.GOAL,
+                "value": GoalNodeType.PRINCIPLE,
+                "principle": GoalNodeType.STRATEGY,
+                "constraint": GoalNodeType.RISK,
+            }.get(p_type, GoalNodeType.GOAL)
+
+            # Priority from principle type
+            priority = {
+                "priority": "high",
+                "constraint": "high",
+                "value": "medium",
+                "principle": "medium",
+            }.get(p_type, "medium")
+
+            # Dependencies from constraints
+            deps = [
+                gid for gid in existing_goal_ids
+                if node_id in constraint_targets.get(gid, [])
+            ]
+
+            goal = GoalNode(
+                id=f"goal-{uuid.uuid4().hex[:8]}",
+                title=self._synthesize_goal_title(label, goal_type),
+                description=self._synthesize_goal_description(
+                    label, data, goal_type
+                ),
+                goal_type=goal_type,
+                priority=priority,
+                dependencies=deps,
+                source_idea_ids=[source_idea_id] if source_idea_id else [node_id],
+                confidence=0.75,
+                metadata={
+                    "source_principle_type": p_type,
+                    "source_principle_id": node_id,
+                    "theme": node_theme.get(node_id, ""),
+                },
+            )
+            goals.append(goal)
+            existing_goal_ids.append(goal.id)
+
+            # Provenance: principle → goal
+            provenance_links.append(
+                ProvenanceLink(
+                    source_node_id=node_id,
+                    source_stage=PipelineStage.PRINCIPLES,
+                    target_node_id=goal.id,
+                    target_stage=PipelineStage.GOALS,
+                    content_hash=content_hash(label),
+                    method="principle_extraction",
+                )
+            )
+
+            # Provenance: original idea → goal (if available)
+            if source_idea_id:
+                provenance_links.append(
+                    ProvenanceLink(
+                        source_node_id=source_idea_id,
+                        source_stage=PipelineStage.IDEAS,
+                        target_node_id=goal.id,
+                        target_stage=PipelineStage.GOALS,
+                        content_hash=content_hash(label),
+                        method="principle_extraction",
+                    )
+                )
+
+        transition = StageTransition(
+            id=f"trans-principles-goals-{uuid.uuid4().hex[:8]}",
+            from_stage=PipelineStage.PRINCIPLES,
+            to_stage=PipelineStage.GOALS,
+            provenance=provenance_links,
+            status="pending",
+            confidence=sum(g.confidence for g in goals) / max(len(goals), 1),
+            ai_rationale=(
+                f"Extracted {len(goals)} goals from {len(nodes)} principle nodes"
+            ),
+        )
+
+        return GoalGraph(
+            id=f"goals-{uuid.uuid4().hex[:8]}",
+            goals=goals,
+            provenance=provenance_links,
+            transition=transition,
+            metadata={"extraction_method": "from_principles"},
+        )
+
     def extract_from_ideas(
         self,
         idea_canvas_data: dict[str, Any],

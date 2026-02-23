@@ -78,6 +78,8 @@ class SelfImproveHandler(SecureEndpointMixin, SecureHandler):  # type: ignore[mi
         "/api/self-improve/worktrees",
         "/api/self-improve/worktrees/cleanup",
         "/api/self-improve/feedback",
+        "/api/self-improve/goals",
+        "/api/self-improve/metrics/summary",
     ]
 
     def __init__(self, server_context: dict[str, Any]) -> None:
@@ -131,6 +133,12 @@ class SelfImproveHandler(SecureEndpointMixin, SecureHandler):  # type: ignore[mi
 
         if path == "/api/self-improve/worktrees":
             return self._list_worktrees()
+
+        if path == "/api/self-improve/goals":
+            return self._get_goal_queue(query_params)
+
+        if path == "/api/self-improve/metrics/summary":
+            return self._get_metrics_summary()
 
         # GET /api/self-improve/runs/:id
         run_id = _extract_run_id(path)
@@ -291,6 +299,180 @@ class SelfImproveHandler(SecureEndpointMixin, SecureHandler):  # type: ignore[mi
                 "regression_history": regression_history,
                 "selection_adjustments": selection_adjustments,
                 "feedback_metrics": feedback_metrics,
+            }
+        })
+
+    # ------------------------------------------------------------------
+    # GET /api/self-improve/goals
+    # ------------------------------------------------------------------
+
+    def _get_goal_queue(self, query_params: dict[str, Any]) -> HandlerResult:
+        """Get improvement goal queue from ImprovementQueue.
+
+        Returns pending goals with source, priority, and context.
+        """
+        limit = get_int_param(query_params, "limit", 20)
+        goals: list[dict[str, Any]] = []
+
+        try:
+            from aragora.nomic.feedback_orchestrator import ImprovementQueue
+
+            queue = ImprovementQueue()
+            pending = queue.peek(limit=limit)
+            for g in pending:
+                goals.append({
+                    "goal": g.goal,
+                    "source": g.source,
+                    "priority": g.priority,
+                    "context": g.context,
+                    "estimated_impact": g.context.get("estimated_impact", "medium"),
+                    "track": g.context.get("track", "core"),
+                    "status": "pending",
+                })
+        except (ImportError, OSError, RuntimeError) as e:
+            logger.debug("ImprovementQueue not available: %s", type(e).__name__)
+
+        # Also include legacy in-memory goals
+        try:
+            from aragora.nomic.feedback_orchestrator import ImprovementQueue as IQ
+
+            legacy_queue = IQ.load()
+            for fg in legacy_queue.goals[-limit:]:
+                goals.append({
+                    "goal": fg.description,
+                    "source": fg.source,
+                    "priority": fg.priority,
+                    "context": fg.metadata,
+                    "estimated_impact": fg.estimated_impact,
+                    "track": fg.track,
+                    "status": "pending",
+                })
+        except (ImportError, OSError, RuntimeError, TypeError, ValueError) as e:
+            logger.debug("Legacy goal queue not available: %s", type(e).__name__)
+
+        # Deduplicate by goal text
+        seen: set[str] = set()
+        deduped: list[dict[str, Any]] = []
+        for g in goals:
+            key = g["goal"]
+            if key not in seen:
+                seen.add(key)
+                deduped.append(g)
+
+        # Sort by priority descending
+        deduped.sort(key=lambda g: g.get("priority", 0), reverse=True)
+
+        return json_response({
+            "data": {
+                "goals": deduped[:limit],
+                "total": len(deduped),
+            }
+        })
+
+    # ------------------------------------------------------------------
+    # GET /api/self-improve/metrics/summary
+    # ------------------------------------------------------------------
+
+    def _get_metrics_summary(self) -> HandlerResult:
+        """Get aggregated metrics summary for the Nomic Loop dashboard.
+
+        Computes:
+        - cycle_success_rate: fraction of completed runs that succeeded
+        - goal_completion_rate: completed_subtasks / total_subtasks
+        - total_cycles: number of runs
+        - total_goals_queued: number of pending improvement goals
+        - recent_activity: last 10 significant events
+        """
+        store = self._get_store()
+
+        total_cycles = 0
+        completed_cycles = 0
+        failed_cycles = 0
+        total_subtasks = 0
+        completed_subtasks = 0
+        recent_activity: list[dict[str, Any]] = []
+
+        if store:
+            runs = store.list_runs(limit=100, offset=0)
+            total_cycles = len(runs)
+            for run in runs:
+                rd = run.to_dict()
+                status = rd.get("status", "")
+                if status == "completed":
+                    completed_cycles += 1
+                elif status == "failed":
+                    failed_cycles += 1
+                total_subtasks += rd.get("total_subtasks", 0)
+                completed_subtasks += rd.get("completed_subtasks", 0)
+
+                # Build activity feed entries from runs
+                if rd.get("summary"):
+                    recent_activity.append({
+                        "type": "cycle_completed" if status == "completed" else "cycle_failed",
+                        "message": rd["summary"],
+                        "timestamp": rd.get("completed_at") or rd.get("started_at") or rd.get("created_at", ""),
+                        "run_id": rd.get("run_id", ""),
+                        "status": status,
+                    })
+
+        # Compute rates
+        cycle_success_rate = (
+            completed_cycles / total_cycles if total_cycles > 0 else 0.0
+        )
+        goal_completion_rate = (
+            completed_subtasks / total_subtasks if total_subtasks > 0 else 0.0
+        )
+
+        # Get queued goal count
+        total_goals_queued = 0
+        try:
+            from aragora.nomic.feedback_orchestrator import ImprovementQueue
+
+            queue = ImprovementQueue()
+            pending = queue.peek(limit=100)
+            total_goals_queued = len(pending)
+        except (ImportError, OSError, RuntimeError):
+            pass
+
+        # Get test pass rate from gauntlet if available
+        test_pass_rate = 1.0
+        try:
+            from aragora.nomic.feedback_orchestrator import ImprovementQueue as IQ
+
+            legacy_queue = IQ.load()
+            gauntlet_goals = [g for g in legacy_queue.goals if g.source == "gauntlet_finding"]
+            if gauntlet_goals:
+                # More gauntlet findings = lower inferred test health
+                test_pass_rate = max(0.0, 1.0 - len(gauntlet_goals) * 0.1)
+        except (ImportError, OSError, RuntimeError, TypeError, ValueError):
+            pass
+
+        # Compute overall health score (weighted average)
+        health_score = (
+            cycle_success_rate * 0.4
+            + goal_completion_rate * 0.35
+            + test_pass_rate * 0.25
+        )
+
+        # Sort activity by timestamp descending, take latest 10
+        recent_activity.sort(
+            key=lambda a: a.get("timestamp", ""), reverse=True
+        )
+        recent_activity = recent_activity[:10]
+
+        return json_response({
+            "data": {
+                "health_score": round(health_score, 4),
+                "cycle_success_rate": round(cycle_success_rate, 4),
+                "goal_completion_rate": round(goal_completion_rate, 4),
+                "test_pass_rate": round(test_pass_rate, 4),
+                "total_cycles": total_cycles,
+                "completed_cycles": completed_cycles,
+                "failed_cycles": failed_cycles,
+                "total_subtasks": total_subtasks,
+                "completed_subtasks": completed_subtasks,
+                "total_goals_queued": total_goals_queued,
+                "recent_activity": recent_activity,
             }
         })
 

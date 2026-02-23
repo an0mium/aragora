@@ -9,9 +9,10 @@
 // Stage Types
 // =============================================================================
 
-export type PipelineStageType = 'ideas' | 'goals' | 'actions' | 'orchestration';
+export type PipelineStageType = 'ideas' | 'principles' | 'goals' | 'actions' | 'orchestration';
 
 export type IdeaType = 'concept' | 'cluster' | 'question' | 'insight' | 'evidence' | 'assumption' | 'constraint';
+export type PrincipleType = 'value' | 'principle' | 'priority' | 'constraint' | 'connection' | 'theme';
 export type GoalType = 'goal' | 'principle' | 'strategy' | 'milestone' | 'metric' | 'risk';
 export type ActionType = 'task' | 'epic' | 'checkpoint' | 'deliverable' | 'dependency';
 export type OrchType = 'agent_task' | 'debate' | 'human_gate' | 'parallel_fan' | 'merge' | 'verification';
@@ -59,6 +60,16 @@ export interface IdeaNodeData {
   contentHash: string;
 }
 
+export interface PrincipleNodeData {
+  label: string;
+  principleType: PrincipleType;
+  description?: string;
+  sourceIdeaIds?: string[];
+  confidence?: number;
+  theme?: string;
+  contentHash?: string;
+}
+
 export interface GoalNodeData {
   label: string;
   goalType: GoalType;
@@ -92,6 +103,7 @@ export interface OrchestrationNodeData {
 
 export type PipelineNodeData =
   | IdeaNodeData
+  | PrincipleNodeData
   | GoalNodeData
   | ActionNodeData
   | OrchestrationNodeData;
@@ -118,6 +130,14 @@ export const PIPELINE_NODE_TYPE_CONFIGS: Record<PipelineStageType, Record<string
     evidence: { label: 'Evidence', icon: '📊', description: 'Supporting evidence', color: 'bg-indigo-500/20', borderColor: 'border-indigo-400' },
     assumption: { label: 'Assumption', icon: '⚠️', description: 'Assumption to validate', color: 'bg-indigo-500/20', borderColor: 'border-indigo-300' },
     constraint: { label: 'Constraint', icon: '🚧', description: 'Known constraint', color: 'bg-indigo-500/20', borderColor: 'border-indigo-400' },
+  },
+  principles: {
+    value: { label: 'Value', icon: '◇', description: 'Core value to uphold', color: 'bg-violet-500/20', borderColor: 'border-violet-500' },
+    principle: { label: 'Principle', icon: '◈', description: 'Guiding principle', color: 'bg-violet-500/20', borderColor: 'border-violet-400' },
+    priority: { label: 'Priority', icon: '▲', description: 'Key priority', color: 'bg-violet-500/20', borderColor: 'border-violet-500' },
+    constraint: { label: 'Constraint', icon: '◻', description: 'Hard constraint', color: 'bg-violet-500/20', borderColor: 'border-violet-400' },
+    connection: { label: 'Connection', icon: '◎', description: 'Cross-cutting connection', color: 'bg-violet-500/20', borderColor: 'border-violet-300' },
+    theme: { label: 'Theme', icon: '◆', description: 'Emergent theme', color: 'bg-violet-500/20', borderColor: 'border-violet-300' },
   },
   goals: {
     goal: { label: 'Goal', icon: '🎯', description: 'Concrete goal to achieve', color: 'bg-emerald-500/20', borderColor: 'border-emerald-500' },
@@ -148,6 +168,8 @@ export function getDefaultPipelineNodeData(stage: PipelineStageType, subtype: st
   switch (stage) {
     case 'ideas':
       return { label: PIPELINE_NODE_TYPE_CONFIGS.ideas[subtype]?.label || 'New Idea', ideaType: subtype as IdeaType, contentHash: '', fullContent: '' };
+    case 'principles':
+      return { label: PIPELINE_NODE_TYPE_CONFIGS.principles[subtype]?.label || 'New Principle', principleType: subtype as PrincipleType, description: '' };
     case 'goals':
       return { label: PIPELINE_NODE_TYPE_CONFIGS.goals[subtype]?.label || 'New Goal', goalType: subtype as GoalType, description: '', priority: 'medium' };
     case 'actions':
@@ -158,7 +180,7 @@ export function getDefaultPipelineNodeData(stage: PipelineStageType, subtype: st
 }
 
 export function getNodeTypeForStage(stage: PipelineStageType): string {
-  const map: Record<PipelineStageType, string> = { ideas: 'ideaNode', goals: 'goalNode', actions: 'actionNode', orchestration: 'orchestrationNode' };
+  const map: Record<PipelineStageType, string> = { ideas: 'ideaNode', principles: 'principleNode', goals: 'goalNode', actions: 'actionNode', orchestration: 'orchestrationNode' };
   return map[stage];
 }
 
@@ -181,6 +203,13 @@ export const PIPELINE_STAGE_CONFIG: Record<PipelineStageType, StageConfig> = {
     secondary: '#c7d2fe',
     accent: '#4f46e5',
     icon: 'lightbulb',
+  },
+  principles: {
+    label: 'Principles',
+    primary: '#8B5CF6',
+    secondary: '#A78BFA',
+    accent: '#C4B5FD',
+    icon: '◈',
   },
   goals: {
     label: 'Goals',
@@ -244,6 +273,7 @@ export interface ProvenanceBreadcrumb {
 /** Stage color classes for provenance display. */
 export const STAGE_COLOR_CLASSES: Record<PipelineStageType, { text: string; bg: string; border: string }> = {
   ideas: { text: 'text-indigo-300', bg: 'bg-indigo-500/20', border: 'border-indigo-500' },
+  principles: { text: 'text-violet-400', bg: 'bg-violet-500/20', border: 'border-violet-500' },
   goals: { text: 'text-emerald-300', bg: 'bg-emerald-500/20', border: 'border-emerald-500' },
   actions: { text: 'text-amber-300', bg: 'bg-amber-500/20', border: 'border-amber-500' },
   orchestration: { text: 'text-pink-300', bg: 'bg-pink-500/20', border: 'border-pink-500' },

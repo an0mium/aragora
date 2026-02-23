@@ -30,7 +30,7 @@ import {
 } from '@xyflow/react';
 import '@xyflow/react/dist/style.css';
 
-import { IdeaNode, GoalNode, ActionNode, OrchestrationNode } from './nodes';
+import { IdeaNode, PrincipleNode, GoalNode, ActionNode, OrchestrationNode } from './nodes';
 import {
   PIPELINE_STAGE_CONFIG,
   type PipelineStageType,
@@ -44,23 +44,26 @@ import { usePipelineCanvas } from '../../hooks/usePipelineCanvas';
 
 const nodeTypes: NodeTypes = {
   ideaNode: IdeaNode,
+  principleNode: PrincipleNode,
   goalNode: GoalNode,
   actionNode: ActionNode,
   orchestrationNode: OrchestrationNode,
 };
 
-const ALL_STAGES: PipelineStageType[] = ['ideas', 'goals', 'actions', 'orchestration'];
+const ALL_STAGES: PipelineStageType[] = ['ideas', 'principles', 'goals', 'actions', 'orchestration'];
 
 const STAGE_OFFSET_X: Record<string, number> = {
   ideas: 0,
-  goals: 600,
-  actions: 1200,
-  orchestration: 1800,
+  principles: 600,
+  goals: 1200,
+  actions: 1800,
+  orchestration: 2400,
 };
 
 /** Stage colors from the spec */
 const STAGE_COLORS: Record<PipelineStageType, string> = {
   ideas: '#3B82F6',
+  principles: '#8B5CF6',
   goals: '#10B981',
   actions: '#F59E0B',
   orchestration: '#8B5CF6',

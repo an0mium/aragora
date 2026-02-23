@@ -55,6 +55,7 @@ const startItems: NavItem[] = [
 // ---------------------------------------------------------------------------
 
 const pipelineItems: NavItem[] = [
+  { label: 'Mission Control', href: '/mission-control', icon: '\u25A3', minMode: 'standard' },
   { label: 'Pipeline', href: '/pipeline', icon: '|', minMode: 'standard' },
   { label: 'Ideas', href: '/ideas', icon: '~', minMode: 'standard' },
   { label: 'Goals', href: '/goals', icon: 'G', minMode: 'standard' },

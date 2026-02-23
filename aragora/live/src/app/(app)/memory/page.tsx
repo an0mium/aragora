@@ -8,6 +8,7 @@ import { PanelErrorBoundary } from '@/components/PanelErrorBoundary';
 import { UnifiedMemorySearch } from '@/components/memory/UnifiedMemorySearch';
 import { RetentionDecisions } from '@/components/memory/RetentionDecisions';
 import { DedupClusters } from '@/components/memory/DedupClusters';
+import { CrossDebateLearning } from '@/components/memory/CrossDebateLearning';
 
 const MemoryExplorerPanel = dynamic(
   () => import('@/components/MemoryExplorerPanel').then(m => ({ default: m.MemoryExplorerPanel })),
@@ -65,7 +66,7 @@ function PressureGauge({ value, label, color }: { value: number; label: string; 
 export default function MemoryPage() {
   const { config: backendConfig } = useBackend();
   const [pressure, setPressure] = useState<MemoryPressure | null>(null);
-  const [activeTab, setActiveTab] = useState<'explorer' | 'analytics' | 'unified' | 'retention' | 'dedup'>('explorer');
+  const [activeTab, setActiveTab] = useState<'explorer' | 'analytics' | 'unified' | 'retention' | 'dedup' | 'learning'>('explorer');
 
   // Fetch memory pressure data
   useEffect(() => {
@@ -148,6 +149,7 @@ export default function MemoryPage() {
               { key: 'unified', label: 'UNIFIED' },
               { key: 'retention', label: 'RETENTION' },
               { key: 'dedup', label: 'DEDUP' },
+              { key: 'learning', label: 'LEARNING' },
             ] as const).map(({ key, label }) => (
               <button
                 key={key}
@@ -176,6 +178,7 @@ export default function MemoryPage() {
           {activeTab === 'unified' && <UnifiedMemorySearch />}
           {activeTab === 'retention' && <RetentionDecisions />}
           {activeTab === 'dedup' && <DedupClusters />}
+          {activeTab === 'learning' && <CrossDebateLearning />}
         </div>
 
         {/* Footer */}
