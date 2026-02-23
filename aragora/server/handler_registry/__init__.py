@@ -230,6 +230,13 @@ class HandlerRegistryMixin:
                     except TypeError:
                         # Facade handlers (route discovery only) don't accept ctx
                         instance = handler_class()
+                    except Exception as e:
+                        # Handler init failure (e.g., read-only DB) — skip handler
+                        logger.warning(
+                            "[init_handlers] %s init failed, skipping: %s: %s",
+                            attr_name, type(e).__name__, e,
+                        )
+                        continue
                     auto_instrument_handler(instance)
                     setattr(cls, attr_name, instance)
 
