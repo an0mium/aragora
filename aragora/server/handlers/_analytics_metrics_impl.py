@@ -24,6 +24,7 @@ Usage Analytics:
 from __future__ import annotations
 
 import logging
+import os
 import re
 from typing import Any
 
@@ -68,6 +69,103 @@ ANALYTICS_METRICS_PERMISSION = "analytics:read"
 
 # Rate limiter for analytics metrics endpoints (60 requests per minute)
 _analytics_metrics_limiter = RateLimiter(requests_per_minute=60)
+
+
+def _is_demo_mode() -> bool:
+    """Check if server is running in demo/offline mode."""
+    return os.environ.get("ARAGORA_DEMO_MODE", "").lower() in ("true", "1", "yes")
+
+
+def _demo_response(normalized: str) -> HandlerResult | None:
+    """Return demo data for analytics endpoints when in demo mode."""
+    from .base import json_response as _json
+
+    demo = {
+        "/api/analytics/debates/overview": {
+            "time_range": "30d",
+            "total_debates": 47,
+            "debates_this_period": 18,
+            "debates_previous_period": 14,
+            "growth_rate": 28.6,
+            "consensus_reached": 34,
+            "consensus_rate": 72.3,
+            "avg_rounds": 3.1,
+            "avg_agents_per_debate": 4.2,
+            "avg_confidence": 0.81,
+        },
+        "/api/analytics/debates/trends": {
+            "data_points": [
+                {"period": "2026-02-16", "total": 8, "consensus_reached": 6, "consensus_rate": 75.0, "avg_rounds": 2.9},
+                {"period": "2026-02-17", "total": 11, "consensus_reached": 8, "consensus_rate": 72.7, "avg_rounds": 3.2},
+                {"period": "2026-02-18", "total": 6, "consensus_reached": 4, "consensus_rate": 66.7, "avg_rounds": 3.5},
+                {"period": "2026-02-19", "total": 13, "consensus_reached": 10, "consensus_rate": 76.9, "avg_rounds": 2.8},
+                {"period": "2026-02-20", "total": 9, "consensus_reached": 6, "consensus_rate": 66.7, "avg_rounds": 3.3},
+            ]
+        },
+        "/api/analytics/debates/topics": {
+            "topics": [
+                {"topic": "API rate limiting strategy", "count": 8, "consensus_rate": 87.5},
+                {"topic": "Database migration approach", "count": 6, "consensus_rate": 66.7},
+                {"topic": "Authentication architecture", "count": 5, "consensus_rate": 80.0},
+                {"topic": "Cost optimization", "count": 4, "consensus_rate": 75.0},
+                {"topic": "Error handling patterns", "count": 3, "consensus_rate": 100.0},
+            ]
+        },
+        "/api/analytics/debates/outcomes": {
+            "outcomes": {"consensus": 34, "no_consensus": 8, "timeout": 3, "error": 2}
+        },
+        "/api/analytics/agents/leaderboard": {
+            "leaderboard": [
+                {"agent_id": "claude-opus", "agent_name": "Claude Opus", "elo": 1847, "win_rate": 0.78, "debates": 42, "rank": 1},
+                {"agent_id": "gpt-4o", "agent_name": "GPT-4o", "elo": 1792, "win_rate": 0.71, "debates": 38, "rank": 2},
+                {"agent_id": "gemini-pro", "agent_name": "Gemini Pro", "elo": 1734, "win_rate": 0.65, "debates": 35, "rank": 3},
+                {"agent_id": "claude-sonnet", "agent_name": "Claude Sonnet", "elo": 1715, "win_rate": 0.62, "debates": 40, "rank": 4},
+                {"agent_id": "mistral-large", "agent_name": "Mistral Large", "elo": 1688, "win_rate": 0.58, "debates": 28, "rank": 5},
+            ],
+            "total_agents": 5,
+        },
+        "/api/analytics/usage/tokens": {
+            "summary": {
+                "total_tokens_in": 284500,
+                "total_tokens_out": 142300,
+                "total_tokens": 426800,
+                "avg_tokens_per_day": 85360,
+            },
+            "by_agent": {
+                "claude-opus": {"tokens": 168200, "percentage": 39.4},
+                "gpt-4o": {"tokens": 124600, "percentage": 29.2},
+                "gemini-pro": {"tokens": 72400, "percentage": 17.0},
+                "claude-sonnet": {"tokens": 38900, "percentage": 9.1},
+                "mistral-large": {"tokens": 22700, "percentage": 5.3},
+            },
+        },
+        "/api/analytics/usage/costs": {
+            "total_cost_usd": 12.47,
+            "projected_monthly_cost": 18.70,
+            "by_provider": {
+                "Anthropic": {"cost": "7.46", "percentage": 59.8},
+                "OpenAI": {"cost": "3.91", "percentage": 31.4},
+                "Google": {"cost": "0.78", "percentage": 6.3},
+                "Mistral": {"cost": "0.32", "percentage": 2.6},
+            },
+            "by_model": {
+                "claude-opus-4": {"cost": "5.82", "percentage": 46.7},
+                "gpt-4o": {"cost": "3.91", "percentage": 31.4},
+                "claude-sonnet-4": {"cost": "1.64", "percentage": 13.1},
+                "gemini-1.5-pro": {"cost": "0.78", "percentage": 6.3},
+                "mistral-large": {"cost": "0.32", "percentage": 2.6},
+            },
+        },
+        "/api/analytics/usage/active_users": {
+            "active_users_24h": 3,
+            "active_users_7d": 5,
+            "active_users_30d": 8,
+        },
+    }
+    data = demo.get(normalized)
+    if data is not None:
+        return _json(data)
+    return None
 
 
 class AnalyticsMetricsHandler(
@@ -154,6 +252,12 @@ class AnalyticsMetricsHandler(
     ) -> HandlerResult | None:
         """Route GET requests to appropriate methods with RBAC."""
         normalized = strip_version_prefix(path)
+
+        # Demo mode: return sample data without auth
+        if _is_demo_mode():
+            demo_result = _demo_response(normalized)
+            if demo_result is not None:
+                return demo_result
 
         # Rate limit check
         client_ip = get_client_ip(handler)
