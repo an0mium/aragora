@@ -34,77 +34,89 @@ logger = logging.getLogger(__name__)
 # Add parent to path for imports
 sys.path.insert(0, str(Path(__file__).parent.parent.parent))
 
-# Built-in modes registered lazily inside main() to avoid import-time hang
-
 # Default API URL from environment or localhost fallback
 DEFAULT_API_URL = os.environ.get("ARAGORA_API_URL", "http://localhost:8080")
 
 # ---------------------------------------------------------------------------
 # Re-exports for backwards compatibility
 #
-# All public symbols that were previously defined in this module are now
-# imported from their new locations. Any code doing
-#   from aragora.cli.main import run_debate
-# will continue to work.
+# Heavy imports (debate engine, agents, memory) are deferred via __getattr__
+# to avoid loading scipy/numpy (~13s) on every CLI invocation.
+# Lightweight parser/config imports remain eager.
 # ---------------------------------------------------------------------------
-from aragora.cli.commands.debate import (  # noqa: E402, F401
-    get_event_emitter_if_available,
-    parse_agents,
-    run_debate,
-    cmd_ask,
-)
-from aragora.cli.commands.stats import (  # noqa: E402, F401
-    cmd_stats,
-    cmd_patterns,
-    cmd_memory,
-    cmd_elo,
-    cmd_cross_pollination,
-)
-from aragora.cli.commands.status import (  # noqa: E402, F401
-    cmd_status,
-    cmd_validate_env,
-    cmd_doctor,
-    cmd_validate,
-)
-from aragora.cli.commands.server import cmd_serve  # noqa: E402, F401
-from aragora.cli.commands.tools import (  # noqa: E402, F401
-    cmd_modes,
-    cmd_templates,
-    cmd_improve,
-    cmd_context,
-)
-from aragora.cli.commands.delegated import (  # noqa: E402, F401
-    cmd_agents,
-    cmd_demo,
-    cmd_export,
-    cmd_init,
-    cmd_setup,
-    cmd_repl,
-    cmd_config,
-    cmd_replay,
-    cmd_bench,
-    cmd_review,
-    cmd_gauntlet,
-    cmd_badge,
-    cmd_billing,
-    cmd_mcp_server,
-    cmd_marketplace,
-    cmd_control_plane,
-)
-from aragora.cli.commands.testfix import cmd_testfix  # noqa: E402, F401
 from aragora.cli.parser import get_version, build_parser  # noqa: E402, F401
 
-# Re-export essential objects used by other modules (e.g., aragora.cli.batch)
-from aragora.agents.spec import AgentSpec  # noqa: E402, F401
-from aragora.memory.store import CritiqueStore  # noqa: E402, F401
-from aragora.agents.base import create_agent  # noqa: E402, F401
-from aragora.debate.orchestrator import Arena, DebateProtocol  # noqa: E402, F401
-from aragora.core import Environment  # noqa: E402, F401
-from aragora.config import DEFAULT_AGENTS, DEFAULT_CONSENSUS, DEFAULT_ROUNDS  # noqa: E402, F401
+# Lazy re-export mapping: name -> (module, attr)
+_LAZY_REEXPORTS: dict[str, tuple[str, str]] = {
+    # From aragora.cli.commands.debate
+    "get_event_emitter_if_available": ("aragora.cli.commands.debate", "get_event_emitter_if_available"),
+    "parse_agents": ("aragora.cli.commands.debate", "parse_agents"),
+    "run_debate": ("aragora.cli.commands.debate", "run_debate"),
+    "cmd_ask": ("aragora.cli.commands.debate", "cmd_ask"),
+    # From aragora.cli.commands.stats
+    "cmd_stats": ("aragora.cli.commands.stats", "cmd_stats"),
+    "cmd_patterns": ("aragora.cli.commands.stats", "cmd_patterns"),
+    "cmd_memory": ("aragora.cli.commands.stats", "cmd_memory"),
+    "cmd_elo": ("aragora.cli.commands.stats", "cmd_elo"),
+    "cmd_cross_pollination": ("aragora.cli.commands.stats", "cmd_cross_pollination"),
+    # From aragora.cli.commands.status
+    "cmd_status": ("aragora.cli.commands.status", "cmd_status"),
+    "cmd_validate_env": ("aragora.cli.commands.status", "cmd_validate_env"),
+    "cmd_doctor": ("aragora.cli.commands.status", "cmd_doctor"),
+    "cmd_validate": ("aragora.cli.commands.status", "cmd_validate"),
+    # From aragora.cli.commands.server
+    "cmd_serve": ("aragora.cli.commands.server", "cmd_serve"),
+    # From aragora.cli.commands.tools
+    "cmd_modes": ("aragora.cli.commands.tools", "cmd_modes"),
+    "cmd_templates": ("aragora.cli.commands.tools", "cmd_templates"),
+    "cmd_improve": ("aragora.cli.commands.tools", "cmd_improve"),
+    "cmd_context": ("aragora.cli.commands.tools", "cmd_context"),
+    # From aragora.cli.commands.delegated
+    "cmd_agents": ("aragora.cli.commands.delegated", "cmd_agents"),
+    "cmd_demo": ("aragora.cli.commands.delegated", "cmd_demo"),
+    "cmd_export": ("aragora.cli.commands.delegated", "cmd_export"),
+    "cmd_init": ("aragora.cli.commands.delegated", "cmd_init"),
+    "cmd_setup": ("aragora.cli.commands.delegated", "cmd_setup"),
+    "cmd_repl": ("aragora.cli.commands.delegated", "cmd_repl"),
+    "cmd_config": ("aragora.cli.commands.delegated", "cmd_config"),
+    "cmd_replay": ("aragora.cli.commands.delegated", "cmd_replay"),
+    "cmd_bench": ("aragora.cli.commands.delegated", "cmd_bench"),
+    "cmd_review": ("aragora.cli.commands.delegated", "cmd_review"),
+    "cmd_gauntlet": ("aragora.cli.commands.delegated", "cmd_gauntlet"),
+    "cmd_badge": ("aragora.cli.commands.delegated", "cmd_badge"),
+    "cmd_billing": ("aragora.cli.commands.delegated", "cmd_billing"),
+    "cmd_mcp_server": ("aragora.cli.commands.delegated", "cmd_mcp_server"),
+    "cmd_marketplace": ("aragora.cli.commands.delegated", "cmd_marketplace"),
+    "cmd_control_plane": ("aragora.cli.commands.delegated", "cmd_control_plane"),
+    # From aragora.cli.commands.testfix
+    "cmd_testfix": ("aragora.cli.commands.testfix", "cmd_testfix"),
+    # Essential objects used by other modules (e.g., aragora.cli.batch)
+    "AgentSpec": ("aragora.agents.spec", "AgentSpec"),
+    "CritiqueStore": ("aragora.memory.store", "CritiqueStore"),
+    "create_agent": ("aragora.agents.base", "create_agent"),
+    "Arena": ("aragora.debate.orchestrator", "Arena"),
+    "DebateProtocol": ("aragora.debate.orchestrator", "DebateProtocol"),
+    "Environment": ("aragora.core", "Environment"),
+    "DEFAULT_AGENTS": ("aragora.config", "DEFAULT_AGENTS"),
+    "DEFAULT_CONSENSUS": ("aragora.config", "DEFAULT_CONSENSUS"),
+    "DEFAULT_ROUNDS": ("aragora.config", "DEFAULT_ROUNDS"),
+}
+
+
+def __getattr__(name: str):
+    if name in _LAZY_REEXPORTS:
+        module_path, attr_name = _LAZY_REEXPORTS[name]
+        import importlib
+
+        mod = importlib.import_module(module_path)
+        val = getattr(mod, attr_name)
+        globals()[name] = val
+        return val
+    raise AttributeError(f"module 'aragora.cli.main' has no attribute {name!r}")
 
 
 def main() -> None:
-    # Register built-in modes here (not at module level) to avoid import-time hang
+    # Register built-in modes here (not at module level) to avoid import-time cost
     from aragora.modes import register_all_builtins
 
     register_all_builtins()

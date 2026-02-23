@@ -488,6 +488,35 @@ export function DebateInput({ apiBase, onDebateStarted, onError, onQuestionChang
         if (responseContentType.includes('application/json')) {
           // Server returned JSON error - parse it
           const errorData = await response.json().catch(() => ({}));
+
+          // Auto-fallback to playground if server suggests it (e.g. no API keys configured)
+          if (errorData.use_playground && !usePlayground) {
+            logger.info('[DebateInput] Server suggests playground fallback, retrying in playground mode');
+            const playgroundUrl = `${apiBase}/api/v1/playground/debate`;
+            const playgroundBody = {
+              topic: trimmedQuestion,
+              rounds,
+              agents: requestedAgents.length || 3,
+            };
+            const pgResponse = await fetch(playgroundUrl, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify(playgroundBody),
+            });
+            if (pgResponse.ok) {
+              const pgData = await pgResponse.json();
+              const pgDebateId = pgData.debate_id || pgData.id;
+              if (pgDebateId) {
+                onDebateStarted?.(pgDebateId, trimmedQuestion);
+                setQuestion('');
+                setIsSubmitting(false);
+                clearTimeout(timeoutId);
+                return;
+              }
+            }
+            // If playground also fails, fall through to show original error
+          }
+
           errorMessage = errorData.error || errorData.message || `Server error: ${response.status}`;
         } else {
           // Server returned HTML or other non-JSON response - log for debugging

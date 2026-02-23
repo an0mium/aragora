@@ -19,6 +19,13 @@ from aragora.mcp.tools_module import (
     list_agents_tool,
     get_debate_tool,
 )
+from aragora.mcp.tools_module.self_improve import (
+    assess_codebase_tool,
+    generate_improvement_goals_tool,
+    run_self_improvement_tool,
+    get_daemon_status_tool,
+    trigger_improvement_cycle_tool,
+)
 
 __all__ = [
     "AragoraMCPServer",
@@ -31,4 +38,9 @@ __all__ = [
     "run_gauntlet_tool",
     "list_agents_tool",
     "get_debate_tool",
+    "assess_codebase_tool",
+    "generate_improvement_goals_tool",
+    "run_self_improvement_tool",
+    "get_daemon_status_tool",
+    "trigger_improvement_cycle_tool",
 ]

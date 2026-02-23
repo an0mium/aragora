@@ -110,6 +110,7 @@ from __future__ import annotations
 import logging
 from typing import TYPE_CHECKING, Any
 
+from aragora.billing.tier_gating import require_tier
 from aragora.rbac.decorators import require_permission
 from aragora.server.http_utils import run_async as _run_async
 
@@ -328,6 +329,7 @@ class KnowledgeMoundHandler(  # type: ignore[misc]
         """Check if this handler can process the given path."""
         return path.startswith("/api/v1/knowledge/mound/")
 
+    @require_tier("professional", feature_name="Knowledge Mound")
     @require_permission("knowledge:read")
     def handle(self, path: str, query_params: dict, handler: Any) -> HandlerResult | None:
         """Route knowledge mound requests to appropriate methods.

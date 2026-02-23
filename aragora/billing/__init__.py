@@ -127,6 +127,16 @@ from aragora.billing.discounts import (
     get_discount_manager,
 )
 from aragora.billing.cost_tracker import DebateBudgetExceededError
+from aragora.billing.tier_gating import (
+    FEATURE_TIER_MAP,
+    TIER_DISPLAY_NAMES,
+    TIER_ORDER,
+    DebateRateLimiter,
+    TierInsufficientError,
+    get_debate_rate_limiter,
+    require_tier,
+    tier_sufficient,
+)
 from aragora.billing.roi_calculator import (
     ROICalculator,
     ROIMetrics,
@@ -228,6 +238,15 @@ __all__ = [
     "get_discount_manager",
     # Budget Errors
     "DebateBudgetExceededError",
+    # Tier Gating
+    "require_tier",
+    "TierInsufficientError",
+    "tier_sufficient",
+    "TIER_ORDER",
+    "TIER_DISPLAY_NAMES",
+    "FEATURE_TIER_MAP",
+    "DebateRateLimiter",
+    "get_debate_rate_limiter",
     # ROI Calculator
     "ROICalculator",
     "ROIMetrics",

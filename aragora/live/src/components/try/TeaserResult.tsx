@@ -68,7 +68,7 @@ export function TeaserResult({ verdict, confidence, explanation }: TeaserResultP
       {/* CTA */}
       <div className="p-4 border-t border-[var(--acid-green)]/20 bg-[var(--acid-green)]/5">
         <Link
-          href="/auth/register"
+          href="/signup"
           className="block w-full py-3 text-center font-mono font-bold text-sm bg-[var(--acid-green)] text-[var(--bg)] hover:bg-[var(--acid-green)]/80 transition-colors"
         >
           UNLOCK FULL ANALYSIS — SIGN UP FREE

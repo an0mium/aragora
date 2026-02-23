@@ -392,12 +392,12 @@ class TestEstimateCostHandler:
 
     @pytest.mark.asyncio
     async def test_estimate_anthropic_opus(self, handler, mock_request):
-        """Estimate cost for claude-3-opus returns correct pricing."""
+        """Estimate cost for claude-opus-4 returns correct pricing."""
         mock_request.json = AsyncMock(
             return_value={
                 "tokens_input": 1_000_000,
                 "tokens_output": 1_000_000,
-                "model": "claude-3-opus",
+                "model": "claude-opus-4",
                 "provider": "anthropic",
             }
         )
@@ -411,7 +411,7 @@ class TestEstimateCostHandler:
 
     @pytest.mark.asyncio
     async def test_estimate_unknown_provider(self, handler, mock_request):
-        """Unknown provider uses default pricing."""
+        """Unknown provider uses openrouter default pricing."""
         mock_request.json = AsyncMock(
             return_value={
                 "tokens_input": 1_000_000,
@@ -423,7 +423,7 @@ class TestEstimateCostHandler:
         response = await handler.handle_estimate_cost(mock_request)
 
         data = json.loads(response.body)
-        assert data["pricing"]["input_per_1m"] == 5.00
+        assert data["pricing"]["input_per_1m"] == 2.00
 
     @pytest.mark.asyncio
     async def test_estimate_zero_tokens(self, handler, mock_request):

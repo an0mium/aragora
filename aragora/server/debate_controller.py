@@ -273,6 +273,7 @@ class DebateResponse:
     task: str | None = None
     error: str | None = None
     status_code: int = 200
+    use_playground: bool = False
 
     def to_dict(self) -> dict[str, Any]:
         """Convert to JSON-serializable dict."""
@@ -285,6 +286,8 @@ class DebateResponse:
             result["task"] = str(self.task)
         if self.error:
             result["error"] = str(self.error)
+        if self.use_playground:
+            result["use_playground"] = True
         return result
 
 
@@ -370,7 +373,18 @@ class DebateController:
             # RuntimeError: agent initialization failure
             # OSError: credential file/network access issues
             logger.warning("Agent credential validation failed: %s", e)
-            return "Failed to validate agent credentials"
+            # Check if ALL agents are missing credentials (no API keys configured at all)
+            if filtered_count := len(specs) if "0 agents have valid credentials" in str(e) or "none" in str(e).lower() else 0:
+                return (
+                    f"No AI model API keys are configured on this server. "
+                    f"None of the {filtered_count} requested agents have valid credentials. "
+                    "Please configure at least one API key (ANTHROPIC_API_KEY, OPENAI_API_KEY, etc.) "
+                    "or use the playground mode for demo debates."
+                )
+            return (
+                "Some AI model API keys are missing. "
+                "Please check your API key configuration or use the playground mode for demo debates."
+            )
 
         if filtered:
             missing_detail = "; ".join(f"{agent}: {reason}" for agent, reason in filtered)
@@ -378,7 +392,7 @@ class DebateController:
             return (
                 "Missing credentials for requested agents. "
                 f"Missing: {missing_detail}. Available: {available_names}. "
-                "Configure API keys in AWS Secrets Manager or environment variables."
+                "Configure API keys or use the playground mode for demo debates."
             )
 
         if requested_count < 2:
@@ -565,10 +579,16 @@ Return JSON with these exact fields:
         preflight_error = self._preflight_agents(agents_str)
         if preflight_error:
             logger.warning("[debate] Agent preflight failed: %s", preflight_error)
+            # Suggest playground fallback for credential-related errors
+            is_credential_error = any(
+                phrase in preflight_error.lower()
+                for phrase in ("credentials", "api key", "playground")
+            )
             return DebateResponse(
                 success=False,
                 error=preflight_error,
                 status_code=400,
+                use_playground=is_credential_error,
             )
 
         # Track debate state (use "task" not "question" for StateManager compatibility)

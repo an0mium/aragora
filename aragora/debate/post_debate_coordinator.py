@@ -58,6 +58,10 @@ class PostDebateConfig:
     # Execution bridge: auto-trigger downstream actions
     auto_execution_bridge: bool = True
     execution_bridge_min_confidence: float = 0.0  # Bridge has per-rule thresholds
+    # LLM-as-Judge: quality evaluation of agent contributions
+    auto_llm_judge: bool = False
+    llm_judge_use_case: str = "debate"
+    llm_judge_threshold: float = 3.5
 
 
 @dataclass
@@ -83,6 +87,7 @@ class PostDebateResult:
     canvas_result: dict[str, Any] | None = None
     pipeline_id: str | None = None  # ID of auto-triggered canvas pipeline
     bridge_results: list[dict[str, Any]] = field(default_factory=list)
+    llm_judge_scores: dict[str, Any] | None = None
     errors: list[str] = field(default_factory=list)
 
     @property
@@ -200,6 +205,12 @@ class PostDebateCoordinator:
             )
             if result.canvas_result:
                 result.pipeline_id = result.canvas_result.get("pipeline_id")
+
+        # Step 8.7: LLM-as-Judge — evaluate agent contributions
+        if self.config.auto_llm_judge:
+            result.llm_judge_scores = self._step_llm_judge(
+                debate_id, debate_result, task, agents,
+            )
 
         # Step 8: Execution bridge — auto-trigger downstream actions
         if self.config.auto_execution_bridge and confidence >= self.config.execution_bridge_min_confidence:
@@ -819,6 +830,89 @@ class PostDebateCoordinator:
             }
         except (ImportError, ValueError, TypeError, AttributeError, RuntimeError, OSError) as e:
             logger.warning("Canvas pipeline auto-trigger failed: %s", e)
+            return None
+
+    def _step_llm_judge(
+        self,
+        debate_id: str,
+        debate_result: Any,
+        task: str,
+        agents: list[Any] | None = None,
+    ) -> dict[str, Any] | None:
+        """Step 8.7: Evaluate agent contributions via LLM-as-Judge.
+
+        Uses LLMJudge to score each agent's final response across multiple
+        quality dimensions, then feeds scores to the ELO system.
+        """
+        try:
+            from aragora.evaluation.llm_judge import LLMJudge, JudgeConfig
+        except ImportError:
+            logger.debug("LLMJudge not available")
+            return None
+
+        try:
+            config = JudgeConfig(
+                use_case=self.config.llm_judge_use_case,
+                pass_threshold=self.config.llm_judge_threshold,
+            )
+            judge = LLMJudge(config)
+
+            # Extract per-agent responses from the debate result
+            agent_responses: dict[str, str] = {}
+            messages = getattr(debate_result, "messages", []) or []
+            for msg in messages:
+                agent_name = str(getattr(msg, "agent", ""))
+                content = getattr(msg, "content", "")
+                if agent_name and content:
+                    # Keep last response per agent
+                    agent_responses[agent_name] = str(content)
+
+            if not agent_responses:
+                logger.debug("No agent responses to evaluate for %s", debate_id)
+                return None
+
+            scores: dict[str, Any] = {}
+            for agent_name, response in agent_responses.items():
+                try:
+                    evaluation = judge.evaluate_sync(
+                        query=task,
+                        response=response,
+                        response_id=f"{debate_id}:{agent_name}",
+                    )
+                    overall = getattr(evaluation, "overall_score", 0.0)
+                    dimensions = getattr(evaluation, "dimension_scores", {})
+                    scores[agent_name] = {
+                        "overall": overall,
+                        "dimensions": dimensions,
+                    }
+                except (RuntimeError, ValueError, TypeError) as exc:
+                    logger.debug("LLMJudge eval failed for %s: %s", agent_name, exc)
+
+            # Feed scores to ELO system
+            if scores:
+                try:
+                    from aragora.ranking.elo import EloSystem
+
+                    elo = EloSystem()
+                    for agent_name, score_data in scores.items():
+                        elo.record_quality_score(
+                            agent_name=agent_name,
+                            debate_id=debate_id,
+                            score=score_data["overall"],
+                            dimension_scores=score_data.get("dimensions"),
+                        )
+                except (ImportError, RuntimeError, ValueError) as exc:
+                    logger.debug("ELO quality score recording skipped: %s", exc)
+
+            logger.info(
+                "llm_judge_evaluated debate=%s agents=%d",
+                debate_id,
+                len(scores),
+            )
+            return {"debate_id": debate_id, "agent_scores": scores}
+
+        except (RuntimeError, ValueError, TypeError, OSError) as e:
+            logger.warning("LLM judge evaluation failed: %s", e)
             return None
 
     @staticmethod

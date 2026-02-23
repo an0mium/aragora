@@ -94,10 +94,10 @@ export function UserMenu() {
           [LOGIN]
         </Link>
         <Link
-          href="/auth/register"
+          href="/signup"
           className="text-xs font-mono px-3 py-1 bg-acid-green/10 border border-acid-green/50 text-acid-green hover:bg-acid-green/20 transition-colors"
         >
-          [REGISTER]
+          [SIGN UP]
         </Link>
       </div>
     );

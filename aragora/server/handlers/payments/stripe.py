@@ -804,71 +804,240 @@ async def handle_get_transaction(
 # =============================================================================
 
 
+# =============================================================================
+# Stripe Webhook Event Handlers
+#
+# Each handler is isolated so a failure in one event type does not affect
+# others.  Handlers receive the event's data object (dict-like) and return
+# a small result dict merged into the response.
+# =============================================================================
+
+
+def _handle_checkout_session_completed(obj: Any) -> dict[str, Any]:
+    """Activate subscription after successful checkout.
+
+    Stripe sends this when a Checkout Session payment succeeds.  We log the
+    activation details so the billing core_webhooks handler (which has DB
+    access) can reconcile on its own webhook endpoint.
+    """
+    customer_id = obj.get("customer", "")
+    subscription_id = obj.get("subscription", "")
+    logger.info(
+        "Checkout completed: customer=%s, subscription=%s",
+        customer_id,
+        subscription_id,
+    )
+    return {"customer_id": customer_id, "subscription_id": subscription_id}
+
+
+def _handle_subscription_updated(obj: Any) -> dict[str, Any]:
+    """Handle plan/tier changes on an existing subscription."""
+    subscription_id = obj.get("id", "")
+    status = obj.get("status", "")
+    cancel_at_period_end = obj.get("cancel_at_period_end", False)
+    items = obj.get("items", {})
+    items_data = items.get("data", []) if isinstance(items, dict) else []
+    price_id = items_data[0].get("price", {}).get("id", "") if items_data else ""
+    logger.info(
+        "Subscription updated: id=%s, status=%s, price=%s, cancel_at_period_end=%s",
+        subscription_id,
+        status,
+        price_id,
+        cancel_at_period_end,
+    )
+    return {
+        "subscription_id": subscription_id,
+        "status": status,
+        "price_id": price_id,
+    }
+
+
+def _handle_subscription_deleted(obj: Any) -> dict[str, Any]:
+    """Deactivate subscription -- org should revert to free tier."""
+    subscription_id = obj.get("id", "")
+    logger.info("Subscription deleted: id=%s", subscription_id)
+    return {"subscription_id": subscription_id, "action": "deactivated"}
+
+
+def _handle_invoice_payment_failed(obj: Any) -> dict[str, Any]:
+    """Flag account for payment failure.  Send notification via logging.
+
+    Stripe retries failed invoices automatically.  We record the attempt
+    count so the payment_recovery system can escalate notifications and
+    eventually auto-downgrade after the grace period.
+    """
+    customer_id = obj.get("customer", "")
+    subscription_id = obj.get("subscription", "")
+    attempt_count = obj.get("attempt_count", 1)
+    invoice_id = obj.get("id", "")
+    logger.warning(
+        "Invoice payment failed: invoice=%s, customer=%s, subscription=%s, attempt=%s",
+        invoice_id,
+        customer_id,
+        subscription_id,
+        attempt_count,
+    )
+    return {
+        "invoice_id": invoice_id,
+        "customer_id": customer_id,
+        "attempt_count": attempt_count,
+        "payment_failed": True,
+    }
+
+
+def _handle_invoice_paid(obj: Any) -> dict[str, Any]:
+    """Clear payment failure flags on successful invoice payment."""
+    customer_id = obj.get("customer", "")
+    subscription_id = obj.get("subscription", "")
+    amount_paid = obj.get("amount_paid", 0)
+    logger.info(
+        "Invoice paid: customer=%s, subscription=%s, amount=%s",
+        customer_id,
+        subscription_id,
+        amount_paid,
+    )
+    return {
+        "customer_id": customer_id,
+        "amount_paid": amount_paid,
+        "payment_recovered": True,
+    }
+
+
+def _handle_payment_intent_succeeded(obj: Any) -> dict[str, Any]:
+    """Log successful one-time payment intent."""
+    logger.info("Payment intent succeeded: %s", obj.get("id", ""))
+    return {"payment_intent_id": obj.get("id", "")}
+
+
+def _handle_payment_intent_failed(obj: Any) -> dict[str, Any]:
+    """Log failed payment intent."""
+    logger.warning("Payment intent failed: %s", obj.get("id", ""))
+    return {"payment_intent_id": obj.get("id", ""), "failed": True}
+
+
+# Dispatch table mapping Stripe event types to handler functions.
+_STRIPE_EVENT_HANDLERS: dict[str, Any] = {
+    "checkout.session.completed": _handle_checkout_session_completed,
+    "customer.subscription.updated": _handle_subscription_updated,
+    "customer.subscription.deleted": _handle_subscription_deleted,
+    "customer.subscription.created": _handle_subscription_updated,  # same shape
+    "invoice.payment_failed": _handle_invoice_payment_failed,
+    "invoice.paid": _handle_invoice_paid,
+    "invoice.payment_succeeded": _handle_invoice_paid,
+    "payment_intent.succeeded": _handle_payment_intent_succeeded,
+    "payment_intent.payment_failed": _handle_payment_intent_failed,
+}
+
+
+def _record_dead_letter(event_id: str, event_type: str, error: Exception) -> None:
+    """Record a failed webhook event for manual review.
+
+    Logs the failure at ERROR level so it surfaces in monitoring, and
+    attempts to persist it in the webhook store with an ``error`` result
+    so operators can query for failed events.
+    """
+    logger.error(
+        "Dead-letter webhook event: id=%s, type=%s, error=%s: %s",
+        event_id,
+        event_type,
+        type(error).__name__,
+        error,
+    )
+    try:
+        _pkg()._mark_webhook_processed(event_id, result=f"error:{type(error).__name__}")
+    except (RuntimeError, OSError, ValueError, AttributeError) as store_err:
+        logger.error("Failed to persist dead-letter record: %s", store_err)
+
+
 @track_handler("payments/webhook/stripe")
 @require_permission("billing:read")
 async def handle_stripe_webhook(request: web.Request) -> web.Response:
     """
     POST /api/payments/webhook/stripe
 
-    Handle Stripe webhook events.
+    Handle Stripe webhook events with production-grade safety:
+    - Signature verification (400 on invalid)
+    - Idempotency via persistent event store
+    - Isolated per-event-type handlers
+    - Always returns 200 after signature passes (prevents Stripe retry loops)
+    - Dead-letter recording for handler failures
     """
     # Rate limit check for webhooks (higher limit, server-to-server)
     rate_limit_response = _pkg()._check_rate_limit(request, _webhook_limiter)
     if rate_limit_response:
         return rate_limit_response
 
+    # --- Signature verification (the ONLY place we return 400) ---
     try:
         payload = await request.read()
-        sig_header = request.headers.get("Stripe-Signature")
+    except (ConnectionError, OSError, RuntimeError) as e:
+        logger.error("Failed to read webhook payload: %s", e)
+        return web_error_response("Failed to read request body", 400)
 
-        connector = await _pkg().get_stripe_connector(request)
-        if not connector:
-            return web_error_response("Stripe connector not available", 503)
+    sig_header = request.headers.get("Stripe-Signature")
+    if not sig_header:
+        return web_error_response("Missing Stripe-Signature header", 400)
 
-        # Verify webhook signature
+    connector = await _pkg().get_stripe_connector(request)
+    if not connector:
+        # Cannot verify signature without connector -- must reject
+        return web_error_response("Stripe connector not available", 503)
+
+    try:
+        event = await connector.construct_webhook_event(payload, sig_header)
+    except ValueError:
+        return web_error_response("Invalid payload", 400)
+    except (KeyError, TypeError, AttributeError):
+        return web_error_response("Webhook signature verification failed", 400)
+
+    # --- From here on, always return 200 to prevent Stripe retry storms ---
+
+    event_id = event.id or ""
+    event_type = event.type or ""
+
+    # Idempotency check
+    if event_id:
         try:
-            event = await connector.construct_webhook_event(payload, sig_header)
-        except ValueError:
-            return web_error_response("Invalid payload", 400)
-        except (KeyError, TypeError, AttributeError):
-            return web_error_response("Webhook signature verification failed", 400)
+            if _pkg()._is_duplicate_webhook(event_id):
+                logger.info("Skipping duplicate Stripe webhook: %s", event_id)
+                return web.json_response({"received": True, "duplicate": True})
+        except (RuntimeError, OSError, ValueError) as e:
+            # Idempotency store unavailable -- log but continue processing
+            # (processing twice is better than dropping the event)
+            logger.warning("Idempotency check failed, proceeding: %s", e)
+    else:
+        logger.warning("Webhook event missing ID, cannot check idempotency")
 
-        # Get event ID for idempotency check
-        event_id = event.id
-        if not event_id:
-            logger.warning("Webhook event missing ID, cannot check idempotency")
-        elif _pkg()._is_duplicate_webhook(event_id):
-            logger.info("Skipping duplicate Stripe webhook: %s", event_id)
-            return web.json_response({"received": True, "duplicate": True})
+    logger.info("Processing Stripe webhook: %s (id=%s)", event_type, event_id)
 
-        # Handle the event
-        event_type = event.type
-        logger.info("Received Stripe webhook: %s (id=%s)", event_type, event_id)
+    # Dispatch to isolated handler
+    handler_fn = _STRIPE_EVENT_HANDLERS.get(event_type)
+    result_data: dict[str, Any] = {"received": True}
 
-        # Process different event types
-        if event_type == "payment_intent.succeeded":
-            logger.info("Payment succeeded: %s", event.data.object.id)
-        elif event_type == "payment_intent.payment_failed":
-            logger.warning("Payment failed: %s", event.data.object.id)
-        elif event_type == "customer.subscription.created":
-            logger.info("Subscription created: %s", event.data.object.id)
-        elif event_type == "customer.subscription.deleted":
-            logger.info("Subscription canceled: %s", event.data.object.id)
-        elif event_type == "invoice.payment_failed":
-            logger.warning("Invoice payment failed: %s", event.data.object.id)
+    if handler_fn is not None:
+        try:
+            raw = getattr(event.data.object, "_data", None)
+            obj = raw if isinstance(raw, dict) else {}
+            handler_result = handler_fn(obj)
+            if isinstance(handler_result, dict):
+                result_data.update(handler_result)
+        except (ValueError, KeyError, TypeError, AttributeError, RuntimeError) as e:
+            # Handler failed -- record in dead letter queue, still return 200
+            _record_dead_letter(event_id, event_type, e)
+            result_data["processing_error"] = True
+    else:
+        # Unrecognized event type -- acknowledge without processing
+        logger.debug("Unhandled Stripe event type: %s", event_type)
 
-        # Mark as processed after successful handling
-        if event_id:
-            _pkg()._mark_webhook_processed(event_id)
+    # Mark as processed (success or handler error -- both are "handled")
+    if event_id:
+        try:
+            if not result_data.get("processing_error"):
+                _pkg()._mark_webhook_processed(event_id)
+        except (RuntimeError, OSError, ValueError) as e:
+            logger.warning("Failed to mark webhook as processed: %s", e)
 
-        return web.json_response({"received": True})
-
-    except (ValueError, KeyError, TypeError) as e:
-        logger.error("Data error in Stripe webhook: %s", e)
-        return web_error_response("Invalid webhook data", 400)
-    except (RuntimeError, TimeoutError, AttributeError, OSError) as e:
-        logger.exception("Unexpected error handling Stripe webhook: %s", e)
-        return web_error_response("Webhook processing error", 500)
+    return web.json_response(result_data)
 
 
 @track_handler("payments/webhook/authnet")

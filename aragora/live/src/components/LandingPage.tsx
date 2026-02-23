@@ -181,13 +181,20 @@ export function LandingPage({ apiBase, onEnterDashboard }: LandingPageProps) {
               </button>
             ) : (
               <Link
-                href="/auth/login"
+                href="/login"
                 onClick={saveDebateBeforeLogin}
                 className="text-xs font-mono px-3 py-1.5 border border-acid-green text-acid-green hover:bg-acid-green hover:text-bg transition-colors"
               >
                 LOG IN
               </Link>
             )}
+            <Link
+              href="/signup"
+              onClick={saveDebateBeforeLogin}
+              className="text-xs font-mono px-3 py-1.5 bg-acid-green text-bg hover:bg-acid-green/80 transition-colors font-bold"
+            >
+              SIGN UP FREE
+            </Link>
           </div>
         </div>
       </nav>

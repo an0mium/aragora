@@ -149,7 +149,7 @@ export function OnboardingWizardFlow({ onComplete, onSkip }: OnboardingWizardFlo
             {/* For create-account step, show login link instead of continue when not authed */}
             {currentStep === 'create-account' && !isAuthenticated ? (
               <Link
-                href="/auth/register"
+                href="/signup"
                 className="px-6 py-2 bg-acid-green text-bg font-mono text-sm hover:bg-acid-green/90 transition-colors inline-block text-center"
               >
                 CREATE ACCOUNT →
@@ -217,7 +217,7 @@ function CreateAccountStep({ isAuthenticated }: { isAuthenticated: boolean }) {
 
       <div className="flex flex-col sm:flex-row gap-3 pt-2">
         <Link
-          href="/auth/register"
+          href="/signup"
           className="flex-1 px-6 py-3 bg-[var(--acid-green)] text-[var(--bg)] font-mono font-bold text-sm text-center hover:opacity-90 transition-opacity"
         >
           CREATE FREE ACCOUNT

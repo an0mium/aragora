@@ -2628,7 +2628,7 @@ class TestWebhookConnectorUnavailable:
 
     @pytest.mark.asyncio
     async def test_stripe_webhook_handles_read_exception(self, mock_stripe_connector):
-        """Stripe webhook returns 500 on unexpected read error."""
+        """Stripe webhook returns 400 on request body read failure."""
         request = MagicMock(spec=web.Request)
         request.headers = {"Stripe-Signature": "test_sig"}
 
@@ -2643,7 +2643,7 @@ class TestWebhookConnectorUnavailable:
         ):
             response = await handle_stripe_webhook(request)
 
-        assert response.status == 500
+        assert response.status == 400
 
     @pytest.mark.asyncio
     async def test_authnet_webhook_handles_verification_exception(self, mock_authnet_connector):
@@ -4093,6 +4093,254 @@ class TestConnectorInitialization:
             assert result1 is result2
 
         payments_module._authnet_connector = None
+
+
+# =============================================================================
+# Stripe Webhook Hardening Tests
+# =============================================================================
+
+
+class TestStripeWebhookHardening:
+    """Tests for production-hardened Stripe webhook handler.
+
+    Covers:
+    - Idempotency (duplicate events skipped)
+    - Event routing to isolated handlers
+    - Dead letter queue on handler failure
+    - Always-200 after signature verification
+    - Missing signature rejection
+    """
+
+    def _make_mock_event(
+        self,
+        event_type: str,
+        event_id: str = "evt_test_001",
+        obj_data: dict | None = None,
+    ):
+        """Build a mock _StripeEvent with realistic _data attribute."""
+
+        class _Obj:
+            def __init__(self, data):
+                self._data = data
+                self.id = data.get("id", "")
+
+        class _Data:
+            def __init__(self, obj):
+                self.object = obj
+
+        class _Event:
+            def __init__(self, eid, etype, data_obj):
+                self.id = eid
+                self.type = etype
+                self.data = data_obj
+
+        data = obj_data or {"id": "obj_123"}
+        return _Event(event_id, event_type, _Data(_Obj(data)))
+
+    @pytest.mark.asyncio
+    async def test_idempotency_skips_duplicate(self, mock_stripe_connector):
+        """Duplicate event IDs are acknowledged but not re-processed."""
+        event = self._make_mock_event("checkout.session.completed")
+        mock_stripe_connector.construct_webhook_event = AsyncMock(return_value=event)
+
+        request = MagicMock(spec=web.Request)
+        request.headers = {"Stripe-Signature": "t=123,v1=abc"}
+
+        async def read_func():
+            return b'{"type": "checkout.session.completed"}'
+
+        request.read = read_func
+
+        mock_store = MagicMock()
+        mock_store.is_processed.return_value = True  # Already seen
+
+        with (
+            patch(
+                "aragora.server.handlers.payments.get_stripe_connector",
+                return_value=mock_stripe_connector,
+            ),
+            patch(
+                "aragora.server.handlers.payments._check_rate_limit",
+                return_value=None,
+            ),
+            patch(
+                "aragora.storage.webhook_store.get_webhook_store",
+                return_value=mock_store,
+            ),
+        ):
+            response = await handle_stripe_webhook(request)
+
+        assert response.status == 200
+        body = json.loads(response.body)
+        assert body["duplicate"] is True
+        # mark_processed should NOT be called for duplicates
+        mock_store.mark_processed.assert_not_called()
+
+    @pytest.mark.asyncio
+    async def test_event_routing_checkout_completed(self, mock_stripe_connector):
+        """checkout.session.completed routes to the correct handler."""
+        obj_data = {
+            "id": "cs_123",
+            "customer": "cus_456",
+            "subscription": "sub_789",
+        }
+        event = self._make_mock_event(
+            "checkout.session.completed", obj_data=obj_data
+        )
+        mock_stripe_connector.construct_webhook_event = AsyncMock(return_value=event)
+
+        request = MagicMock(spec=web.Request)
+        request.headers = {"Stripe-Signature": "t=123,v1=abc"}
+
+        async def read_func():
+            return b'{"type": "checkout.session.completed"}'
+
+        request.read = read_func
+
+        mock_store = MagicMock()
+        mock_store.is_processed.return_value = False
+
+        with (
+            patch(
+                "aragora.server.handlers.payments.get_stripe_connector",
+                return_value=mock_stripe_connector,
+            ),
+            patch(
+                "aragora.server.handlers.payments._check_rate_limit",
+                return_value=None,
+            ),
+            patch(
+                "aragora.storage.webhook_store.get_webhook_store",
+                return_value=mock_store,
+            ),
+        ):
+            response = await handle_stripe_webhook(request)
+
+        assert response.status == 200
+        body = json.loads(response.body)
+        assert body["received"] is True
+        assert body["customer_id"] == "cus_456"
+        assert body["subscription_id"] == "sub_789"
+        mock_store.mark_processed.assert_called_once()
+
+    @pytest.mark.asyncio
+    async def test_event_routing_invoice_payment_failed(self, mock_stripe_connector):
+        """invoice.payment_failed populates failure metadata in response."""
+        obj_data = {
+            "id": "in_fail_001",
+            "customer": "cus_456",
+            "subscription": "sub_789",
+            "attempt_count": 3,
+        }
+        event = self._make_mock_event(
+            "invoice.payment_failed", obj_data=obj_data
+        )
+        mock_stripe_connector.construct_webhook_event = AsyncMock(return_value=event)
+
+        request = MagicMock(spec=web.Request)
+        request.headers = {"Stripe-Signature": "t=123,v1=abc"}
+
+        async def read_func():
+            return b'{"type": "invoice.payment_failed"}'
+
+        request.read = read_func
+
+        mock_store = MagicMock()
+        mock_store.is_processed.return_value = False
+
+        with (
+            patch(
+                "aragora.server.handlers.payments.get_stripe_connector",
+                return_value=mock_stripe_connector,
+            ),
+            patch(
+                "aragora.server.handlers.payments._check_rate_limit",
+                return_value=None,
+            ),
+            patch(
+                "aragora.storage.webhook_store.get_webhook_store",
+                return_value=mock_store,
+            ),
+        ):
+            response = await handle_stripe_webhook(request)
+
+        assert response.status == 200
+        body = json.loads(response.body)
+        assert body["payment_failed"] is True
+        assert body["attempt_count"] == 3
+        assert body["invoice_id"] == "in_fail_001"
+
+    @pytest.mark.asyncio
+    async def test_dead_letter_on_handler_error(self, mock_stripe_connector):
+        """Handler exception triggers dead-letter recording but still returns 200."""
+        from aragora.server.handlers.payments.stripe import _STRIPE_EVENT_HANDLERS
+
+        event = self._make_mock_event("checkout.session.completed")
+        mock_stripe_connector.construct_webhook_event = AsyncMock(return_value=event)
+
+        request = MagicMock(spec=web.Request)
+        request.headers = {"Stripe-Signature": "t=123,v1=abc"}
+
+        async def read_func():
+            return b'{"type": "checkout.session.completed"}'
+
+        request.read = read_func
+
+        mock_store = MagicMock()
+        mock_store.is_processed.return_value = False
+
+        def _broken_handler(obj):
+            raise ValueError("Simulated handler failure")
+
+        with (
+            patch(
+                "aragora.server.handlers.payments.get_stripe_connector",
+                return_value=mock_stripe_connector,
+            ),
+            patch(
+                "aragora.server.handlers.payments._check_rate_limit",
+                return_value=None,
+            ),
+            patch(
+                "aragora.storage.webhook_store.get_webhook_store",
+                return_value=mock_store,
+            ),
+            patch.dict(
+                _STRIPE_EVENT_HANDLERS,
+                {"checkout.session.completed": _broken_handler},
+            ),
+        ):
+            response = await handle_stripe_webhook(request)
+
+        # Must still return 200 to avoid Stripe retry loops
+        assert response.status == 200
+        body = json.loads(response.body)
+        assert body["processing_error"] is True
+        # Dead-letter should have been recorded with error result
+        mark_calls = mock_store.mark_processed.call_args_list
+        assert len(mark_calls) == 1
+        assert "error:" in mark_calls[0][0][1]
+
+    @pytest.mark.asyncio
+    async def test_missing_signature_returns_400(self, mock_stripe_connector):
+        """Missing Stripe-Signature header returns 400, not 200."""
+        request = MagicMock(spec=web.Request)
+        request.headers = {}  # No Stripe-Signature
+
+        async def read_func():
+            return b'{"type": "test"}'
+
+        request.read = read_func
+
+        with (
+            patch(
+                "aragora.server.handlers.payments._check_rate_limit",
+                return_value=None,
+            ),
+        ):
+            response = await handle_stripe_webhook(request)
+
+        assert response.status == 400
 
 
 if __name__ == "__main__":

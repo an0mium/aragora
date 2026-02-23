@@ -25,6 +25,7 @@ from urllib.parse import urlparse
 from aragora.auth.sso import SSOAuthenticationError
 from aragora.exceptions import ConfigurationError
 
+from aragora.billing.tier_gating import require_tier
 from .base import HandlerResult, error_response, json_response, safe_error_message
 from .utils.rate_limit import rate_limit
 from .secure import SecureHandler
@@ -260,6 +261,7 @@ class SSOHandler(SecureHandler):
         return base_routes + alias_routes
 
     @rate_limit(requests_per_minute=10)
+    @require_tier("enterprise", feature_name="SSO")
     async def handle_login(
         self, handler: Any, params: dict[str, Any]
     ) -> HandlerResult | dict[str, Any]:

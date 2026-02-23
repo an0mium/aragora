@@ -994,6 +994,25 @@ PAST FAILURES TO AVOID (learn from these mistakes):
             if len(metric_lines) > 1:
                 topic += "\n" + "\n".join(metric_lines) + "\n"
 
+        # Inject GoalExtractor decomposition for structured goal hints
+        try:
+            from aragora.goals.extractor import GoalExtractor
+
+            extractor = GoalExtractor()
+            goal_graph = extractor.extract_from_text(objective)
+            if goal_graph and hasattr(goal_graph, "goals") and goal_graph.goals:
+                topic += "\nPRE-EXTRACTED GOALS (from GoalExtractor, use as starting points):\n"
+                for g in goal_graph.goals[:5]:
+                    title = getattr(g, "title", str(g))
+                    desc = getattr(g, "description", "")
+                    smart = getattr(g, "smart_score", None)
+                    smart_str = f" [SMART={smart:.1f}]" if smart is not None else ""
+                    topic += f"- {title}{smart_str}: {desc[:120]}\n"
+        except ImportError:
+            pass
+        except (RuntimeError, ValueError, TypeError, AttributeError) as exc:
+            logger.debug("GoalExtractor injection skipped: %s", exc)
+
         # Inject relevant deliberation templates to ground abstract objectives
         try:
             from aragora.deliberation.templates.registry import match_templates

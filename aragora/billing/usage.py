@@ -64,6 +64,7 @@ def calculate_token_cost(
     model: str,
     tokens_in: int,
     tokens_out: int,
+    tokens_cached: int = 0,
 ) -> Decimal:
     """
     Calculate cost for token usage.
@@ -71,8 +72,9 @@ def calculate_token_cost(
     Args:
         provider: Provider name (anthropic, openai, etc.)
         model: Model name
-        tokens_in: Input tokens
+        tokens_in: Input tokens (non-cached)
         tokens_out: Output tokens
+        tokens_cached: Cached input tokens (charged at 10% of input price)
 
     Returns:
         Cost in USD
@@ -91,7 +93,12 @@ def calculate_token_cost(
     input_cost = (Decimal(tokens_in) / Decimal("1000000")) * input_price
     output_cost = (Decimal(tokens_out) / Decimal("1000000")) * output_price
 
-    return input_cost + output_cost
+    # Cached tokens charged at 10% of input price
+    cache_cost = Decimal("0")
+    if tokens_cached > 0:
+        cache_cost = (Decimal(tokens_cached) / Decimal("1000000")) * input_price * Decimal("0.1")
+
+    return input_cost + output_cost + cache_cost
 
 
 @dataclass

@@ -9,6 +9,7 @@ from __future__ import annotations
 import logging
 from typing import Any
 
+from aragora.billing.tier_gating import require_tier
 from aragora.rbac.decorators import require_permission
 from aragora.server.handlers.secure import SecureHandler
 
@@ -28,6 +29,7 @@ class UnifiedMemoryHandler(SecureHandler):
         self.ctx = ctx or {}
         self._gateway = gateway
 
+    @require_tier("professional", feature_name="Unified Memory")
     @require_permission(MEMORY_READ_PERMISSION)
     async def handle_search(self, request_data: dict[str, Any]) -> dict[str, Any]:
         """Handle POST /api/v1/memory/unified/search.

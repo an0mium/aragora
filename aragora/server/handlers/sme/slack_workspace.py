@@ -33,6 +33,7 @@ from ..base import (
 from ..openapi_decorator import api_endpoint
 from ..utils.responses import HandlerResult
 from ..secure import SecureHandler
+from aragora.billing.tier_gating import require_tier
 from aragora.rbac.decorators import require_permission
 from ..utils.rate_limit import RateLimiter, get_client_ip
 
@@ -95,6 +96,7 @@ class SlackWorkspaceHandler(SecureHandler):
                 return route_name, match.group(1)
         return None, None
 
+    @require_tier("professional", feature_name="Slack integration")
     @require_permission("sme:workspaces:read")
     def handle(
         self,

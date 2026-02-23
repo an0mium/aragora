@@ -240,7 +240,7 @@ export function DebateResultPreview({ result }: DebateResultPreviewProps) {
             </p>
             <div className="flex gap-3 justify-center">
               <Link
-                href="/auth/register"
+                href="/signup"
                 onClick={handleSignup}
                 className="font-mono text-sm px-4 py-2 bg-[var(--acid-green)] text-[var(--bg)] font-bold hover:opacity-90 transition-opacity"
               >

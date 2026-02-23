@@ -113,7 +113,7 @@ def patterns_handler(handler_module):
 @pytest.fixture
 def pattern_templates_handler(handler_module):
     """Create a WorkflowPatternTemplatesHandler instance."""
-    return handler_module.WorkflowPatternTemplatesHandler()
+    return handler_module.WorkflowPatternTemplatesHandler(ctx={})
 
 
 @pytest.fixture
@@ -1780,7 +1780,7 @@ class TestAsyncWorkflowExecution:
         from unittest.mock import AsyncMock
         mock_engine.execute = AsyncMock(side_effect=RuntimeError("engine error"))
 
-        mock_execution = {}
+        mock_execution = {"id": "exec-2"}
         mock_store.get_execution.return_value = mock_execution
 
         await handler_module._execute_workflow_async(
@@ -1900,9 +1900,8 @@ class TestHandlerConstructors:
         handler = handler_module.WorkflowTemplatesHandler(ctx=ctx)
         assert handler.ctx == ctx
 
-    def test_pattern_templates_handler_no_ctx(self, handler_module):
-        handler = handler_module.WorkflowPatternTemplatesHandler()
-        # The handler does not have ctx attribute by default (no __init__ with ctx)
+    def test_pattern_templates_handler_with_empty_ctx(self, handler_module):
+        handler = handler_module.WorkflowPatternTemplatesHandler(ctx={})
         assert handler is not None
 
     def test_sme_handler_with_ctx(self, handler_module):

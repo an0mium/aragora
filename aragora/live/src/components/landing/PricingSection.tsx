@@ -41,7 +41,7 @@ const TIERS: Tier[] = [
       'Slack, Teams, Email delivery',
       '1,000 debates/month',
     ],
-    cta: { label: 'START FREE TRIAL', href: '/auth/register?plan=pro' },
+    cta: { label: 'START FREE TRIAL', href: '/signup?plan=pro' },
   },
   {
     name: 'ENTERPRISE',

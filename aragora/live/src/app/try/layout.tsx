@@ -9,12 +9,20 @@ export default function TryLayout({ children }: { children: React.ReactNode }) {
           <span className="text-sm font-mono font-bold text-[var(--acid-green)]">ARAGORA</span>
           <span className="text-xs font-mono text-[var(--text-muted)]">{'// LIVE'}</span>
         </Link>
-        <Link
-          href="/login"
-          className="px-3 py-1 text-xs font-mono border border-[var(--acid-green)]/50 text-[var(--acid-green)] hover:bg-[var(--acid-green)]/10 transition-colors"
-        >
-          SIGN IN
-        </Link>
+        <div className="flex items-center gap-2">
+          <Link
+            href="/login"
+            className="px-3 py-1 text-xs font-mono text-[var(--text-muted)] hover:text-[var(--acid-green)] transition-colors"
+          >
+            SIGN IN
+          </Link>
+          <Link
+            href="/signup"
+            className="px-3 py-1 text-xs font-mono bg-[var(--acid-green)] text-[var(--bg)] hover:bg-[var(--acid-green)]/80 transition-colors font-bold"
+          >
+            SIGN UP FREE
+          </Link>
+        </div>
       </header>
 
       <main>{children}</main>

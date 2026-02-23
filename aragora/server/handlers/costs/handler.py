@@ -19,6 +19,8 @@ from aragora.server.handlers.utils.rate_limit import rate_limit
 from aragora.server.handlers.api_decorators import api_endpoint
 from aragora.server.validation.query_params import safe_query_int
 
+from aragora.billing.usage import PROVIDER_PRICING, calculate_token_cost
+
 from .helpers import (
     _build_export_rows,
     _export_csv_response,
@@ -1202,42 +1204,37 @@ class CostHandler:
             operation = body.get("operation", "unknown")
             tokens_input = body.get("tokens_input", 0)
             tokens_output = body.get("tokens_output", 0)
-            model = body.get("model", "claude-3-opus")
+            model = body.get("model", "claude-opus-4")
             provider = body.get("provider", "anthropic")
 
-            # Token pricing (per 1M tokens) - simplified pricing table
-            pricing = {
-                "anthropic": {
-                    "claude-3-opus": {"input": 15.00, "output": 75.00},
-                    "claude-3-sonnet": {"input": 3.00, "output": 15.00},
-                    "claude-3-haiku": {"input": 0.25, "output": 1.25},
-                    "default": {"input": 3.00, "output": 15.00},
-                },
-                "openai": {
-                    "gpt-4": {"input": 30.00, "output": 60.00},
-                    "gpt-4-turbo": {"input": 10.00, "output": 30.00},
-                    "gpt-3.5-turbo": {"input": 0.50, "output": 1.50},
-                    "default": {"input": 10.00, "output": 30.00},
-                },
-                "default": {"input": 5.00, "output": 15.00},
-            }
+            # Use canonical pricing from billing module
+            total_cost = calculate_token_cost(
+                provider, model, tokens_input, tokens_output
+            )
 
-            provider_pricing = pricing.get(provider, pricing["default"])
-            if isinstance(provider_pricing, dict) and "input" not in provider_pricing:
-                model_pricing = provider_pricing.get(
-                    model, provider_pricing.get("default", pricing["default"])
-                )
-            else:
-                model_pricing = provider_pricing
+            # Get per-unit prices for breakdown
+            provider_prices = PROVIDER_PRICING.get(
+                provider, PROVIDER_PRICING["openrouter"]
+            )
+            input_key = model if model in provider_prices else "default"
+            output_key = (
+                f"{model}-output"
+                if f"{model}-output" in provider_prices
+                else "default-output"
+            )
+            input_price = float(
+                provider_prices.get(input_key, Decimal("2.00"))
+            )
+            output_price = float(
+                provider_prices.get(output_key, Decimal("8.00"))
+            )
 
-            # Calculate cost
-            input_cost = (tokens_input / 1_000_000) * model_pricing["input"]
-            output_cost = (tokens_output / 1_000_000) * model_pricing["output"]
-            total_cost = input_cost + output_cost
+            input_cost = (tokens_input / 1_000_000) * input_price
+            output_cost = (tokens_output / 1_000_000) * output_price
 
             return web.json_response(
                 {
-                    "estimated_cost_usd": round(total_cost, 6),
+                    "estimated_cost_usd": round(float(total_cost), 6),
                     "breakdown": {
                         "input_tokens": tokens_input,
                         "output_tokens": tokens_output,
@@ -1247,8 +1244,8 @@ class CostHandler:
                     "pricing": {
                         "model": model,
                         "provider": provider,
-                        "input_per_1m": model_pricing["input"],
-                        "output_per_1m": model_pricing["output"],
+                        "input_per_1m": input_price,
+                        "output_per_1m": output_price,
                     },
                     "operation": operation,
                 }

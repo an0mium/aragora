@@ -109,10 +109,10 @@ function LoginForm() {
 
         <div className="mt-6 text-center">
           <Link
-            href="/auth/register"
+            href="/signup"
             className="text-sm font-mono text-acid-cyan hover:text-acid-green transition-colors"
           >
-            No account? Register here
+            No account? Sign up free
           </Link>
         </div>
 
