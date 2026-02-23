@@ -862,13 +862,7 @@ class TestDeleteDebateSync:
 
 class TestCleanupOldSync:
     def test_cleanup_old_removes_old_messages(self):
-        # Use days=1 with a 2-day-old message to avoid the source's
-        # cutoff.replace(day=cutoff.day - days) month boundary bug.
         now = datetime.now(timezone.utc)
-        if now.day < 3:
-            pytest.skip(
-                "Skipping on days 1-2 due to known month-boundary bug in source _cleanup_old_sync"
-            )
         store = fresh_store()
         old_ts = now - timedelta(days=2)
         store.record_sync(make_message(debate_id="d-old", ts=old_ts))
@@ -881,11 +875,6 @@ class TestCleanupOldSync:
         store.close()
 
     def test_cleanup_old_no_old_messages(self):
-        now = datetime.now(timezone.utc)
-        if now.day < 3:
-            pytest.skip(
-                "Skipping on days 1-2 due to known month-boundary bug in source _cleanup_old_sync"
-            )
         store = fresh_store()
         store.record_sync(make_message(debate_id="d-recent"))
         deleted = store._cleanup_old_sync(days=1)
@@ -893,11 +882,6 @@ class TestCleanupOldSync:
         store.close()
 
     def test_cleanup_old_empty_store(self):
-        now = datetime.now(timezone.utc)
-        if now.day < 3:
-            pytest.skip(
-                "Skipping on days 1-2 due to known month-boundary bug in source _cleanup_old_sync"
-            )
         store = fresh_store()
         deleted = store._cleanup_old_sync(days=1)
         assert deleted == 0
@@ -1387,10 +1371,6 @@ class TestAsyncProtocolMessageStoreClass:
         # except on the 1st of the month).
         store = fresh_async_store()
         now = datetime.now(timezone.utc)
-        if now.day < 3:
-            pytest.skip(
-                "Skipping on days 1-2 due to known month-boundary bug in source _cleanup_old_sync"
-            )
         old_ts = now - timedelta(days=2)
         store._sync_store.record_sync(make_message(debate_id="d-aclean", ts=old_ts))
         store._sync_store.record_sync(make_message(debate_id="d-aclean"))

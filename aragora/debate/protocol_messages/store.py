@@ -26,7 +26,7 @@ import sqlite3
 import threading
 from contextlib import contextmanager
 from dataclasses import dataclass
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from typing import Any, TypeVar
 from collections.abc import Iterator
 
@@ -601,7 +601,7 @@ class ProtocolMessageStore:
     def _cleanup_old_sync(self, days: int = 30) -> int:
         """Synchronous version of cleanup_old for non-async contexts."""
         cutoff = datetime.now(timezone.utc).replace(hour=0, minute=0, second=0, microsecond=0)
-        cutoff = cutoff.replace(day=cutoff.day - days)
+        cutoff = cutoff - timedelta(days=days)
 
         with self._cursor() as cursor:
             cursor.execute(

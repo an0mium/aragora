@@ -55,31 +55,21 @@ def clean_registry_before_each():
 # Pydantic helpers for tests
 # ============================================================================
 
-try:
-    from pydantic import BaseModel as PydanticBaseModel
-
-    HAS_PYDANTIC = True
-except ImportError:
-    HAS_PYDANTIC = False
-    PydanticBaseModel = None  # type: ignore[assignment,misc]
+from pydantic import BaseModel as PydanticBaseModel
 
 
-if HAS_PYDANTIC:
+class SampleRequest(PydanticBaseModel):
+    name: str
+    count: int = 1
 
-    class SampleRequest(PydanticBaseModel):  # type: ignore[misc]
-        name: str
-        count: int = 1
 
-    class SampleResponse(PydanticBaseModel):  # type: ignore[misc]
-        id: str
-        status: str
+class SampleResponse(PydanticBaseModel):
+    id: str
+    status: str
 
-    class EmptyModel(PydanticBaseModel):  # type: ignore[misc]
-        pass
-else:
-    SampleRequest = None  # type: ignore[assignment,misc]
-    SampleResponse = None  # type: ignore[assignment,misc]
-    EmptyModel = None  # type: ignore[assignment,misc]
+
+class EmptyModel(PydanticBaseModel):
+    pass
 
 
 # ============================================================================
@@ -459,7 +449,6 @@ class TestApiEndpoint:
         paths = {ep.path for ep in endpoints}
         assert paths == {"/a", "/b", "/c"}
 
-    @pytest.mark.skipif(not HAS_PYDANTIC, reason="pydantic not installed")
     def test_request_model_generates_schema(self):
         @api_endpoint(
             path="/p",
@@ -478,7 +467,6 @@ class TestApiEndpoint:
         schema = body["content"]["application/json"]["schema"]
         assert "properties" in schema
 
-    @pytest.mark.skipif(not HAS_PYDANTIC, reason="pydantic not installed")
     def test_response_model_generates_schema(self):
         @api_endpoint(path="/p", summary="S", tags=[], response_model=SampleResponse)
         def my_func():
@@ -489,7 +477,6 @@ class TestApiEndpoint:
         schema = resps["200"]["content"]["application/json"]["schema"]
         assert "properties" in schema
 
-    @pytest.mark.skipif(not HAS_PYDANTIC, reason="pydantic not installed")
     def test_request_body_overrides_request_model(self):
         manual_body = {"description": "Manual", "content": {}}
 
@@ -506,7 +493,6 @@ class TestApiEndpoint:
 
         assert my_func._openapi.request_body == manual_body
 
-    @pytest.mark.skipif(not HAS_PYDANTIC, reason="pydantic not installed")
     def test_responses_overrides_response_model(self):
         manual_resps = {"201": {"description": "Created"}}
 
@@ -804,19 +790,16 @@ class TestJsonBody:
         body = json_body({"type": "string"})
         assert body["description"] == ""
 
-    @pytest.mark.skipif(not HAS_PYDANTIC, reason="pydantic not installed")
     def test_pydantic_model_auto_schema(self):
         body = json_body(SampleRequest)
         schema = body["content"]["application/json"]["schema"]
         assert "properties" in schema
         assert body["description"] == "SampleRequest request"
 
-    @pytest.mark.skipif(not HAS_PYDANTIC, reason="pydantic not installed")
     def test_pydantic_model_with_description(self):
         body = json_body(SampleRequest, description="Custom desc")
         assert body["description"] == "Custom desc"
 
-    @pytest.mark.skipif(not HAS_PYDANTIC, reason="pydantic not installed")
     def test_pydantic_model_auto_description_from_name(self):
         body = json_body(SampleRequest)
         assert "SampleRequest" in body["description"]
@@ -854,7 +837,6 @@ class TestOkResponse:
         resp = ok_response()
         assert resp["200"]["content"]["application/json"]["schema"] == {"type": "object"}
 
-    @pytest.mark.skipif(not HAS_PYDANTIC, reason="pydantic not installed")
     def test_pydantic_model_schema(self):
         resp = ok_response(schema=SampleResponse)
         s = resp["200"]["content"]["application/json"]["schema"]
@@ -900,13 +882,11 @@ class TestErrorResponse:
 class TestExtractPydanticSchema:
     """Tests for _extract_pydantic_schema internal function."""
 
-    @pytest.mark.skipif(not HAS_PYDANTIC, reason="pydantic not installed")
     def test_pydantic_v2_model(self):
         schema = _extract_pydantic_schema(SampleRequest)
         assert isinstance(schema, dict)
         assert "properties" in schema
 
-    @pytest.mark.skipif(not HAS_PYDANTIC, reason="pydantic not installed")
     def test_empty_model(self):
         schema = _extract_pydantic_schema(EmptyModel)
         assert isinstance(schema, dict)
@@ -997,11 +977,9 @@ class TestExtractPydanticSchema:
 class TestIsPydanticModel:
     """Tests for _is_pydantic_model internal function."""
 
-    @pytest.mark.skipif(not HAS_PYDANTIC, reason="pydantic not installed")
     def test_pydantic_model_class(self):
         assert _is_pydantic_model(SampleRequest) is True
 
-    @pytest.mark.skipif(not HAS_PYDANTIC, reason="pydantic not installed")
     def test_pydantic_model_instance_is_false(self):
         """Instances are not model classes."""
         instance = SampleRequest(name="test")
@@ -1166,7 +1144,6 @@ class TestIntegration:
         assert len(get_registered_endpoints()) == 1
         assert get_registered_endpoints()[0].path == "/b"
 
-    @pytest.mark.skipif(not HAS_PYDANTIC, reason="pydantic not installed")
     def test_pydantic_models_in_json_body_helper_with_decorator(self):
         @api_endpoint(
             path="/api/v1/resource",
