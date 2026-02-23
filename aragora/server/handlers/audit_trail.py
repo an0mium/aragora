@@ -133,7 +133,7 @@ class AuditTrailHandler(BaseHandler):
             return error_response("Not found", 404)
 
         except (KeyError, ValueError, TypeError, AttributeError, OSError) as e:  # broad catch: last-resort handler
-            logger.exception(f"Error handling audit trail request: {e}")
+            logger.exception("Error handling audit trail request: %s", e)
             return error_response("Internal server error", 500)
 
     @require_permission("audit:read")
@@ -295,7 +295,7 @@ class AuditTrailHandler(BaseHandler):
             )
 
         except (ImportError, ValueError, TypeError, KeyError, AttributeError) as e:
-            logger.error(f"Error verifying audit trail {trail_id}: {e}")
+            logger.error("Error verifying audit trail %s: %s", trail_id, e)
             return json_response(
                 {
                     "trail_id": trail_id,
@@ -409,7 +409,7 @@ class AuditTrailHandler(BaseHandler):
             )
 
         except (ImportError, ValueError, TypeError, KeyError, AttributeError) as e:
-            logger.error(f"Error verifying receipt {receipt_id}: {e}")
+            logger.error("Error verifying receipt %s: %s", receipt_id, e)
             return json_response(
                 {
                     "receipt_id": receipt_id,
@@ -451,7 +451,7 @@ class AuditTrailHandler(BaseHandler):
                     self._trails[trail_id] = trail_dict
                     return trail_dict
                 except (ImportError, ValueError, TypeError, KeyError, AttributeError) as e:
-                    logger.debug(f"Could not generate audit trail: {e}")
+                    logger.debug("Could not generate audit trail: %s", e)
 
         return None
 
@@ -489,7 +489,7 @@ class AuditTrailHandler(BaseHandler):
                     self._receipts[receipt_id] = receipt_dict
                     return receipt_dict
                 except (ImportError, ValueError, TypeError, KeyError, AttributeError) as e:
-                    logger.debug(f"Could not generate receipt: {e}")
+                    logger.debug("Could not generate receipt: %s", e)
 
         return None
 

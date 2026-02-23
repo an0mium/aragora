@@ -559,7 +559,7 @@ class DebateKnowledgeExtractor:
                 await mound.store(request)
                 promoted += 1
             except (OSError, ConnectionError, TimeoutError, RuntimeError) as e:
-                logger.warning(f"Failed to promote claim {claim.id}: {e}")
+                logger.warning("Failed to promote claim %s: %s", claim.id, e)
 
         return promoted
 

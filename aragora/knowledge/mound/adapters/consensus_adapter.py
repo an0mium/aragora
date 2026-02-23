@@ -614,7 +614,7 @@ class ConsensusAdapter(FusionMixin, ReverseFlowMixin, SemanticSearchMixin, Knowl
             result.duration_ms = (time.time() - start) * 1000
             return result
 
-        logger.info(f"Syncing {len(pending_records[:batch_size])} consensus records to KM")
+        logger.info("Syncing %s consensus records to KM", len(pending_records[:batch_size]))
 
         # Batch process records
         for record in pending_records[:batch_size]:
@@ -669,10 +669,7 @@ class ConsensusAdapter(FusionMixin, ReverseFlowMixin, SemanticSearchMixin, Knowl
         )
 
         logger.info(
-            f"Consensus KM sync complete: "
-            f"synced={result.records_synced}, "
-            f"skipped={result.records_skipped}, "
-            f"failed={result.records_failed}"
+            "Consensus KM sync complete: synced=%s, skipped=%s, failed=%s", result.records_synced, result.records_skipped, result.records_failed
         )
 
         return result
@@ -766,9 +763,7 @@ class ConsensusAdapter(FusionMixin, ReverseFlowMixin, SemanticSearchMixin, Knowl
         duration_ms = (time.time() - start_time) * 1000
 
         logger.info(
-            f"Consensus reverse sync complete: "
-            f"analyzed={result['records_analyzed']}, "
-            f"updated={result['records_updated']}"
+            "Consensus reverse sync complete: analyzed=%s, updated=%s", result['records_analyzed'], result['records_updated']
         )
 
         return ValidationSyncResult(
@@ -872,5 +867,5 @@ class ConsensusAdapter(FusionMixin, ReverseFlowMixin, SemanticSearchMixin, Knowl
             return True
 
         except (RuntimeError, ValueError, OSError, AttributeError) as e:
-            logger.warning(f"Failed to apply fusion result: {e}")
+            logger.warning("Failed to apply fusion result: %s", e)
             return False

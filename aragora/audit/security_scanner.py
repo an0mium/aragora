@@ -796,7 +796,7 @@ class SecurityScanner:
                 content = f.read()
                 lines = content.split("\n")
         except OSError as e:
-            logger.warning(f"Failed to read {file_path}: {e}")
+            logger.warning("Failed to read %s: %s", file_path, e)
             return findings
 
         # Detect language from extension
@@ -889,7 +889,7 @@ class SecurityScanner:
         start_time = datetime.now(timezone.utc)
         scan_id = f"security_scan_{start_time.strftime('%Y%m%d_%H%M%S')}"
 
-        logger.info(f"[{scan_id}] Starting security scan of {directory}")
+        logger.info("[%s] Starting security scan of %s", scan_id, directory)
 
         report = SecurityReport(
             scan_id=scan_id,
@@ -949,7 +949,7 @@ class SecurityScanner:
                 if not excluded:
                     files_to_scan.append(file_path)
 
-        logger.info(f"[{scan_id}] Found {len(files_to_scan)} files to scan")
+        logger.info("[%s] Found %s files to scan", scan_id, len(files_to_scan))
 
         # Scan files
         total_lines = 0
@@ -964,7 +964,7 @@ class SecurityScanner:
                 report.files_scanned += 1
 
             except (SyntaxError, ValueError, OSError) as e:
-                logger.warning(f"[{scan_id}] Error scanning {file_path}: {e}")
+                logger.warning("[%s] Error scanning %s: %s", scan_id, file_path, e)
 
         report.lines_scanned = total_lines
         report.completed_at = datetime.now(timezone.utc)

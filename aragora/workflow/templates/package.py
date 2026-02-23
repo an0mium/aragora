@@ -249,7 +249,7 @@ class TemplatePackage:
         """Save package to file."""
         path = Path(path)
         path.write_text(self.to_json())
-        logger.info(f"Saved template package to {path}")
+        logger.info("Saved template package to %s", path)
         return path
 
     @classmethod

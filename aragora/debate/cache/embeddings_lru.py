@@ -146,10 +146,10 @@ class EmbeddingCache:
                 return np.frombuffer(row[0], dtype=np.float32)
         except (OSError, sqlite3.Error) as e:
             # Expected: DB file issues, permissions, OperationalError
-            logger.debug(f"Failed to load embedding from DB: {e}")
+            logger.debug("Failed to load embedding from DB: %s", e)
         except (RuntimeError, ValueError, TypeError, AttributeError, KeyError) as e:
             # Unexpected: log at warning for visibility
-            logger.warning(f"Unexpected error loading embedding: {type(e).__name__}: {e}")
+            logger.warning("Unexpected error loading embedding: %s: %s", type(e).__name__, e)
 
         return None
 
@@ -180,10 +180,10 @@ class EmbeddingCache:
             conn.close()
         except (OSError, sqlite3.Error) as e:
             # Expected: DB file issues, disk full, permissions, OperationalError
-            logger.debug(f"Failed to save embedding to DB: {e}")
+            logger.debug("Failed to save embedding to DB: %s", e)
         except (RuntimeError, ValueError, TypeError, AttributeError) as e:
             # Unexpected: log at warning for visibility
-            logger.warning(f"Unexpected error saving embedding: {type(e).__name__}: {e}")
+            logger.warning("Unexpected error saving embedding: %s: %s", type(e).__name__, e)
 
     def get_stats(self) -> dict:
         """Get cache statistics."""
@@ -258,7 +258,7 @@ class EmbeddingCacheManager:
                     persist=self._default_persist,
                     db_path=db_path,
                 )
-                logger.debug(f"Created new embedding cache for debate {debate_id}")
+                logger.debug("Created new embedding cache for debate %s", debate_id)
 
             return self._caches[debate_id]
 
@@ -275,7 +275,7 @@ class EmbeddingCacheManager:
             if debate_id in self._caches:
                 self._caches[debate_id].clear()
                 del self._caches[debate_id]
-                logger.debug(f"Cleaned up embedding cache for debate {debate_id}")
+                logger.debug("Cleaned up embedding cache for debate %s", debate_id)
 
     def get_stats(self) -> dict:
         """Get statistics for all active caches."""

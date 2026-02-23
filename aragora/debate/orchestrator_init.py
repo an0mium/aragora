@@ -240,8 +240,7 @@ def init_skills_and_propulsion(arena: Arena, cfg: Any) -> None:
     arena.enable_skills = cfg.enable_skills
     if arena.skill_registry and arena.enable_skills:
         logger.info(
-            f"[skills] Skill registry attached with {arena.skill_registry.count()} skills "
-            f"(debate evidence collection enabled)"
+            "[skills] Skill registry attached with %s skills (debate evidence collection enabled)", arena.skill_registry.count()
         )
     arena.propulsion_engine = cfg.propulsion_engine
     arena.enable_propulsion = cfg.enable_propulsion
@@ -476,14 +475,14 @@ def reinit_convergence_for_debate(arena: Arena, debate_id: str) -> None:
             min_rounds_before_check=1,
             debate_id=debate_id,
         )
-        _conv_logger.debug(f"Reinitialized convergence detector for debate {debate_id}")
+        _conv_logger.debug("Reinitialized convergence detector for debate %s", debate_id)
 
 
 def cleanup_convergence(arena: Arena) -> None:
     """Cleanup embedding cache for the current debate."""
     if arena._convergence_debate_id:
         cleanup_embedding_cache(arena._convergence_debate_id)
-        _conv_logger.debug(f"Cleaned up embedding cache for debate {arena._convergence_debate_id}")
+        _conv_logger.debug("Cleaned up embedding cache for debate %s", arena._convergence_debate_id)
 
 
 # =============================================================================

@@ -91,7 +91,7 @@ def _safe_regex(pattern: str, text: str, flags: int = 0) -> list[str]:
     thread.join(timeout=REGEX_TIMEOUT_SECONDS)
 
     if thread.is_alive():
-        logger.warning(f"Regex operation timed out for pattern: {pattern[:50]}...")
+        logger.warning("Regex operation timed out for pattern: %s...", pattern[:50])
         # Thread will continue but we return empty
         return []
 
@@ -433,7 +433,7 @@ class RLMEnvironment:
             matches = _safe_regex(pattern, text, re.IGNORECASE | re.MULTILINE)
             return matches[:20]  # Limit results
         except SecurityError as e:
-            logger.warning(f"Grep blocked: {e}")
+            logger.warning("Grep blocked: %s", e)
             return []
         except re.error:
             return []
@@ -506,7 +506,7 @@ class RLMEnvironment:
             call_record["response_length"] = len(response)
             return response
         except (RuntimeError, ValueError, ConnectionError, TimeoutError, OSError) as e:
-            logger.error(f"Sub-LM call failed: {e}")
+            logger.error("Sub-LM call failed: %s", e)
             call_record["error"] = str(e)
             return f"[ERROR: Sub-LM call failed: {e}]"
 
@@ -703,7 +703,7 @@ class RLMEnvironment:
                             f"Collection variable '{key}' exceeds size limit ({self._max_namespace_value_size} bytes)"
                         )
                 except (TypeError, RecursionError) as e:
-                    logger.debug(f"Could not check collection size: {e}")
+                    logger.debug("Could not check collection size: %s", e)
                     pass  # Can't check size, allow it
 
     # Maximum allowed code size to prevent memory-based attacks

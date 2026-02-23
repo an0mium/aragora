@@ -157,7 +157,7 @@ class EncryptionMigrator:
             records = list_fn()
             result.total_records = len(records)
 
-            logger.info(f"Starting migration for {store_name}: {result.total_records} records")
+            logger.info("Starting migration for %s: %s records", store_name, result.total_records)
 
             for record in records:
                 record_id = record.get(id_field, "unknown")
@@ -169,7 +169,7 @@ class EncryptionMigrator:
 
                     if self._dry_run:
                         result.migrated_records += 1
-                        logger.debug(f"[DRY RUN] Would migrate record: {record_id}")
+                        logger.debug("[DRY RUN] Would migrate record: %s", record_id)
                         continue
 
                     # Migrate the record
@@ -180,7 +180,7 @@ class EncryptionMigrator:
                     # Save back
                     if save_fn(record_id, migrated):
                         result.migrated_records += 1
-                        logger.debug(f"Migrated record: {record_id}")
+                        logger.debug("Migrated record: %s", record_id)
                     else:
                         result.failed_records += 1
                         result.errors.append(f"Failed to save record: {record_id}")
@@ -188,22 +188,19 @@ class EncryptionMigrator:
                 except (KeyError, ValueError, TypeError, RuntimeError, OSError) as e:
                     result.failed_records += 1
                     result.errors.append(f"Error migrating record: {record_id}")
-                    logger.warning(f"Failed to migrate record {record_id}: {e}")
+                    logger.warning("Failed to migrate record %s: %s", record_id, e)
 
             result.completed_at = datetime.now(timezone.utc)
             result.duration_seconds = (result.completed_at - result.started_at).total_seconds()
 
             logger.info(
-                f"Migration complete for {store_name}: "
-                f"{result.migrated_records} migrated, "
-                f"{result.already_encrypted} already encrypted, "
-                f"{result.failed_records} failed"
+                "Migration complete for %s: %s migrated, %s already encrypted, %s failed", store_name, result.migrated_records, result.already_encrypted, result.failed_records
             )
 
         except (TypeError, RuntimeError, OSError, ValueError) as e:
             result.errors.append("Migration failed due to an internal error")
             result.failed_records = result.total_records
-            logger.error(f"Migration failed for {store_name}: {e}")
+            logger.error("Migration failed for %s: %s", store_name, e)
 
         return result
 
@@ -245,7 +242,7 @@ def migrate_integration_store(dry_run: bool = False) -> MigrationResult:
             id_field="integration_id",
         )
     except ImportError as e:
-        logger.warning(f"Integration store not available: {e}")
+        logger.warning("Integration store not available: %s", e)
         return MigrationResult(store_name="integration_store", errors=["Integration store not available"])
 
 
@@ -276,7 +273,7 @@ def migrate_gmail_token_store(dry_run: bool = False) -> MigrationResult:
             id_field="user_id",
         )
     except ImportError as e:
-        logger.warning(f"Gmail token store not available: {e}")
+        logger.warning("Gmail token store not available: %s", e)
         return MigrationResult(store_name="gmail_token_store", errors=["Gmail token store not available"])
 
 
@@ -316,7 +313,7 @@ def migrate_sync_store(dry_run: bool = False) -> MigrationResult:
             id_field="job_id",
         )
     except ImportError as e:
-        logger.warning(f"Sync store not available: {e}")
+        logger.warning("Sync store not available: %s", e)
         return MigrationResult(store_name="sync_store", errors=["Sync store not available"])
 
 
@@ -383,7 +380,7 @@ def run_startup_migration(
         logger.debug("Startup migration disabled")
         return []
 
-    logger.info(f"Running startup migration (dry_run={config.dry_run}, stores={config.stores})")
+    logger.info("Running startup migration (dry_run=%s, stores=%s)", config.dry_run, config.stores)
 
     results = []
 
@@ -398,7 +395,7 @@ def run_startup_migration(
         migrate_fn = store_migrations.get(store_name)
 
         if migrate_fn is None:
-            logger.warning(f"Unknown store for migration: {store_name}")
+            logger.warning("Unknown store for migration: %s", store_name)
             continue
 
         try:
@@ -409,11 +406,11 @@ def run_startup_migration(
                 raise RuntimeError(f"Migration failed for {store_name}: {result.errors}")
 
         except (RuntimeError, OSError, ValueError, KeyError, TypeError) as e:
-            logger.error(f"Migration error for {store_name}: {e}")
+            logger.error("Migration error for %s: %s", store_name, e)
             if config.fail_on_error:
                 raise
 
-    logger.info(f"Startup migration complete: {len(results)} stores processed")
+    logger.info("Startup migration complete: %s stores processed", len(results))
     return results
 
 
@@ -496,7 +493,7 @@ def rotate_and_reencrypt_store(
         result.total_records = len(records)
 
         logger.info(
-            f"Starting key rotation re-encryption for {store_name}: {result.total_records} records"
+            "Starting key rotation re-encryption for %s: %s records", store_name, result.total_records
         )
 
         for record in records:
@@ -524,7 +521,7 @@ def rotate_and_reencrypt_store(
                             )
                             reencrypted[key] = encrypted.to_base64()
                         except (ValueError, KeyError, TypeError, RuntimeError, OSError) as e:
-                            logger.warning(f"Failed to re-encrypt field {key}: {e}")
+                            logger.warning("Failed to re-encrypt field %s: %s", key, e)
                             reencrypted[key] = value  # Keep original
                     else:
                         reencrypted[key] = value
@@ -532,7 +529,7 @@ def rotate_and_reencrypt_store(
                 # Save back
                 if save_fn(record_id, reencrypted):
                     result.migrated_records += 1
-                    logger.debug(f"Re-encrypted record: {record_id}")
+                    logger.debug("Re-encrypted record: %s", record_id)
                 else:
                     result.failed_records += 1
                     result.errors.append(f"Failed to save record: {record_id}")
@@ -540,22 +537,19 @@ def rotate_and_reencrypt_store(
             except (KeyError, ValueError, TypeError, RuntimeError, OSError) as e:
                 result.failed_records += 1
                 result.errors.append(f"Error re-encrypting record: {record_id}")
-                logger.warning(f"Failed to re-encrypt record {record_id}: {e}")
+                logger.warning("Failed to re-encrypt record %s: %s", record_id, e)
 
         result.completed_at = datetime.now(timezone.utc)
         result.duration_seconds = (result.completed_at - result.started_at).total_seconds()
 
         logger.info(
-            f"Key rotation re-encryption complete for {store_name}: "
-            f"{result.migrated_records} re-encrypted, "
-            f"{result.already_encrypted} skipped, "
-            f"{result.failed_records} failed"
+            "Key rotation re-encryption complete for %s: %s re-encrypted, %s skipped, %s failed", store_name, result.migrated_records, result.already_encrypted, result.failed_records
         )
 
     except (TypeError, RuntimeError, OSError, ValueError) as e:
         result.errors.append("Re-encryption failed due to an internal error")
         result.failed_records = result.total_records
-        logger.error(f"Key rotation re-encryption failed for {store_name}: {e}")
+        logger.error("Key rotation re-encryption failed for %s: %s", store_name, e)
 
     return result
 
@@ -600,7 +594,7 @@ def rotate_encryption_key(
 
     if dry_run:
         logger.info(
-            f"[DRY RUN] Would rotate key {old_key_id} from v{old_version} to v{old_version + 1}"
+            "[DRY RUN] Would rotate key %s from v%s to v%s", old_key_id, old_version, old_version + 1
         )
         # Audit log would go here
         from aragora.audit.unified import audit_security
@@ -618,7 +612,7 @@ def rotate_encryption_key(
         result.new_key_id = new_key.key_id
         result.new_key_version = new_key.version
 
-        logger.info(f"Rotated encryption key: {old_key_id} v{old_version} -> v{new_key.version}")
+        logger.info("Rotated encryption key: %s v%s -> v%s", old_key_id, old_version, new_key.version)
 
         # Audit log key rotation
         try:
@@ -644,7 +638,7 @@ def rotate_encryption_key(
         for store_name in stores_to_process:
             config_fn = store_configs.get(store_name)
             if not config_fn:
-                logger.warning(f"Unknown store for key rotation: {store_name}")
+                logger.warning("Unknown store for key rotation: %s", store_name)
                 continue
 
             try:
@@ -668,20 +662,18 @@ def rotate_encryption_key(
 
             except (ImportError, RuntimeError, ValueError, TypeError, OSError) as e:
                 result.errors.append(f"Store {store_name} re-encryption failed")
-                logger.error(f"Key rotation failed for store {store_name}: {e}")
+                logger.error("Key rotation failed for store %s: %s", store_name, e)
 
         result.completed_at = datetime.now(timezone.utc)
         result.duration_seconds = (result.completed_at - result.started_at).total_seconds()
 
         logger.info(
-            f"Key rotation complete: {result.stores_processed} stores, "
-            f"{result.records_reencrypted} records re-encrypted, "
-            f"{result.failed_records} failures"
+            "Key rotation complete: %s stores, %s records re-encrypted, %s failures", result.stores_processed, result.records_reencrypted, result.failed_records
         )
 
     except (RuntimeError, ValueError, TypeError, OSError, ImportError, AttributeError) as e:
         result.errors.append("Key rotation failed due to an internal error")
-        logger.error(f"Key rotation failed: {e}")
+        logger.error("Key rotation failed: %s", e)
 
     return result
 

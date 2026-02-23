@@ -420,7 +420,7 @@ class DocumentAuditor:
         )
 
         self._sessions[session.id] = session
-        logger.info(f"Created audit session {session.id} for {len(document_ids)} documents")
+        logger.info("Created audit session %s for %s documents", session.id, len(document_ids))
 
         return session
 
@@ -472,11 +472,11 @@ class DocumentAuditor:
             session.status = AuditStatus.COMPLETED
         except asyncio.CancelledError:
             session.status = AuditStatus.CANCELLED
-            logger.info(f"Audit session {session_id} cancelled")
+            logger.info("Audit session %s cancelled", session_id)
         except (ValueError, RuntimeError, OSError) as e:
             session.status = AuditStatus.FAILED
             session.errors.append(str(e))
-            logger.error(f"Audit session {session_id} failed: {e}")
+            logger.error("Audit session %s failed: %s", session_id, e)
             raise
         finally:
             session.completed_at = datetime.now(timezone.utc)
@@ -514,9 +514,9 @@ class DocumentAuditor:
             self._notify_progress(session, 0.95)
             try:
                 stored_count = await self._knowledge_adapter.store_session_findings(session)
-                logger.info(f"Stored {stored_count} findings as facts in knowledge base")
+                logger.info("Stored %s findings as facts in knowledge base", stored_count)
             except (ValueError, RuntimeError, OSError) as e:
-                logger.warning(f"Failed to store findings in knowledge base: {e}")
+                logger.warning("Failed to store findings in knowledge base: %s", e)
                 session.errors.append(f"Knowledge storage error: {e}")
 
         # Phase 6: Finalize
@@ -525,7 +525,7 @@ class DocumentAuditor:
         session.progress = 1.0
         self._notify_progress(session, 1.0)
 
-        logger.info(f"Audit session {session.id} completed: {len(verified_findings)} findings")
+        logger.info("Audit session %s completed: %s findings", session.id, len(verified_findings))
 
     async def _execute_standard_pipeline(
         self,
@@ -623,7 +623,7 @@ class DocumentAuditor:
             return await self._execute_standard_pipeline(session, chunks)
 
         except (ValueError, RuntimeError, OSError) as e:
-            logger.error(f"Hive-Mind execution failed: {e}, falling back to standard")
+            logger.error("Hive-Mind execution failed: %s, falling back to standard", e)
             session.errors.append(f"Hive-Mind error: {e}")
             return await self._execute_standard_pipeline(session, chunks)
 
@@ -651,13 +651,13 @@ class DocumentAuditor:
         for doc_id in session.document_ids:
             doc = store.get(doc_id)
             if not doc:
-                logger.warning(f"Document not found in store: {doc_id}")
+                logger.warning("Document not found in store: %s", doc_id)
                 session.errors.append(f"Document not found: {doc_id}")
                 continue
 
             text = doc.text if hasattr(doc, "text") else ""
             if not text:
-                logger.warning(f"Document {doc_id} has no text content")
+                logger.warning("Document %s has no text content", doc_id)
                 continue
 
             # Try advanced chunking if available
@@ -724,7 +724,7 @@ class DocumentAuditor:
                         )
                         seq += 1
 
-        logger.info(f"Loaded {len(chunks)} chunks from {len(session.document_ids)} documents")
+        logger.info("Loaded %s chunks from %s documents", len(chunks), len(session.document_ids))
         return chunks
 
     async def _initial_scan(
@@ -781,7 +781,7 @@ Format as JSON array of findings."""
             )
 
         except (ValueError, RuntimeError, OSError) as e:
-            logger.error(f"Initial scan failed: {e}")
+            logger.error("Initial scan failed: %s", e)
             session.errors.append(f"Initial scan error: {e}")
 
         return findings
@@ -795,13 +795,13 @@ Format as JSON array of findings."""
         """Run specific type of audit."""
         handler = self._handlers.get(audit_type)
         if not handler:
-            logger.debug(f"No handler for audit type {audit_type.value}")
+            logger.debug("No handler for audit type %s", audit_type.value)
             return []
 
         try:
             return await handler.audit(chunks, session)
         except (ValueError, RuntimeError, OSError) as e:
-            logger.error(f"{audit_type.value} audit failed: {e}")
+            logger.error("%s audit failed: %s", audit_type.value, e)
             session.errors.append(f"{audit_type.value} audit error: {e}")
             return []
 
@@ -879,7 +879,7 @@ Is this a valid finding? Respond with:
                     verified.append(finding)
 
         except (ValueError, RuntimeError, OSError) as e:
-            logger.error(f"Verification failed: {e}")
+            logger.error("Verification failed: %s", e)
             # Return unverified findings if verification fails
             return findings
 

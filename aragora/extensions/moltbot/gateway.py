@@ -229,7 +229,7 @@ class LocalGateway:
         """Start the gateway (heartbeat monitoring, etc.)."""
         if self._heartbeat_task is None:
             self._heartbeat_task = asyncio.create_task(self._heartbeat_monitor())
-            logger.info(f"Gateway {self._gateway_id} started")
+            logger.info("Gateway %s started", self._gateway_id)
 
     async def stop(self) -> None:
         """Stop the gateway."""
@@ -240,7 +240,7 @@ class LocalGateway:
             except asyncio.CancelledError:
                 pass
             self._heartbeat_task = None
-            logger.info(f"Gateway {self._gateway_id} stopped")
+            logger.info("Gateway %s stopped", self._gateway_id)
 
     # ========== Device Management ==========
 
@@ -273,7 +273,7 @@ class LocalGateway:
             )
 
             self._devices[device_id] = device
-            logger.info(f"Registered device {config.name} ({device_id})")
+            logger.info("Registered device %s (%s)", config.name, device_id)
 
             await self._mirror_registry_device(device, status=DeviceStatus.PAIRED)
             await self._emit_event("device_registered", device)
@@ -319,7 +319,7 @@ class LocalGateway:
 
             if device_id in self._devices:
                 del self._devices[device_id]
-            logger.info(f"Unregistered device {device_id}")
+            logger.info("Unregistered device %s", device_id)
 
             await self._mirror_registry_unreg(device_id)
             await self._emit_event("device_unregistered", device)
@@ -534,7 +534,7 @@ class LocalGateway:
     ) -> None:
         """Register a handler for a command type."""
         self._command_handlers[command] = handler
-        logger.info(f"Registered command handler: {command}")
+        logger.info("Registered command handler: %s", command)
 
     # ========== Events ==========
 
@@ -568,7 +568,7 @@ class LocalGateway:
                 else:
                     callback(event)
             except (RuntimeError, ValueError, AttributeError) as e:  # user-supplied subscriber
-                logger.error(f"Event subscriber error: {e}")
+                logger.error("Event subscriber error: %s", e)
 
     # ========== Heartbeat Monitoring ==========
 
@@ -581,7 +581,7 @@ class LocalGateway:
             except asyncio.CancelledError:
                 break
             except (RuntimeError, OSError, ValueError) as e:
-                logger.error(f"Heartbeat monitor error: {e}")
+                logger.error("Heartbeat monitor error: %s", e)
 
     async def _check_heartbeats(self) -> None:
         """Check for stale heartbeats and mark devices offline."""
@@ -599,7 +599,7 @@ class LocalGateway:
                         device.status = "offline"
                         device.updated_at = now
                         self._devices[device.id] = device
-                        logger.warning(f"Device {device.id} marked offline (heartbeat timeout)")
+                        logger.warning("Device %s marked offline (heartbeat timeout)", device.id)
                         await self._emit_event("device_offline", device)
                         await self._mirror_registry_device(
                             device,

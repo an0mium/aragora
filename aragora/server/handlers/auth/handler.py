@@ -416,7 +416,7 @@ class AuthHandler(SecureHandler):
         decision = check_permission(rbac_context, permission_key, resource_id)
         if not decision.allowed:
             logger.warning(
-                f"Permission denied: user={auth_ctx.user_id} permission={permission_key} reason={decision.reason}"
+                "Permission denied: user=%s permission=%s reason=%s", auth_ctx.user_id, permission_key, decision.reason
             )
             return error_response("Permission denied", 403)
 
@@ -490,7 +490,7 @@ class AuthHandler(SecureHandler):
         try:
             revoke_token_persistent(refresh_token)
         except (OSError, ConnectionError, TimeoutError, RuntimeError) as e:
-            logger.error(f"Failed to persist token revocation: {e}")
+            logger.error("Failed to persist token revocation: %s", e)
             return error_response("Token revocation failed, please try again", 500)
 
         # Now update in-memory blacklist (fast local checks)
@@ -538,18 +538,18 @@ class AuthHandler(SecureHandler):
 
             if persistent_ok and in_memory_ok:
                 logger.info(
-                    f"User logged out and token revoked (persistent + in-memory): {auth_ctx.user_id}"
+                    "User logged out and token revoked (persistent + in-memory): %s", auth_ctx.user_id
                 )
             elif persistent_ok:
                 logger.warning(
-                    f"User logged out, persistent revoked but in-memory failed: {auth_ctx.user_id}"
+                    "User logged out, persistent revoked but in-memory failed: %s", auth_ctx.user_id
                 )
             else:
                 logger.warning(
-                    f"User logged out but persistent revocation failed: {auth_ctx.user_id}"
+                    "User logged out but persistent revocation failed: %s", auth_ctx.user_id
                 )
         else:
-            logger.info(f"User logged out (no token to revoke): {auth_ctx.user_id}")
+            logger.info("User logged out (no token to revoke): %s", auth_ctx.user_id)
 
         # Audit log: logout
         if AUDIT_AVAILABLE and audit_logout:
@@ -597,7 +597,7 @@ class AuthHandler(SecureHandler):
             blacklist.revoke_token(token)
             revoke_token_persistent(token)
 
-        logger.info(f"logout_all user_id={auth_ctx.user_id} new_token_version={new_version}")
+        logger.info("logout_all user_id=%s new_token_version=%s", auth_ctx.user_id, new_version)
 
         # Audit log: logout all sessions
         if AUDIT_AVAILABLE and audit_security:
@@ -870,10 +870,10 @@ class AuthHandler(SecureHandler):
 
         if in_memory_ok:
             if persistent_ok:
-                logger.info(f"Token revoked (in-memory + persistent) by user: {auth_ctx.user_id}")
+                logger.info("Token revoked (in-memory + persistent) by user: %s", auth_ctx.user_id)
             else:
                 logger.warning(
-                    f"Token revoked in-memory but persistent failed for user: {auth_ctx.user_id}"
+                    "Token revoked in-memory but persistent failed for user: %s", auth_ctx.user_id
                 )
             return json_response(
                 {

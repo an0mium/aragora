@@ -257,7 +257,7 @@ class CredentialProxy:
         self._rate_limits[external_service] = requests_per_minute
         # Reset the token bucket so it picks up the new limit
         self._rate_limiters.pop(external_service, None)
-        logger.debug(f"Set rate limit for {external_service}: {requests_per_minute}/min")
+        logger.debug("Set rate limit for %s: %s/min", external_service, requests_per_minute)
 
     def get_rate_limit(self, external_service: str) -> int:
         """Get rate limit for an external service."""
@@ -273,8 +273,7 @@ class CredentialProxy:
         self._credentials[credential.credential_id] = credential
         self._invalidate_cache(credential.credential_id)
         logger.info(
-            f"Registered credential {credential.credential_id} "
-            f"for {credential.external_service} (tenant: {credential.tenant_id})"
+            "Registered credential %s for %s (tenant: %s)", credential.credential_id, credential.external_service, credential.tenant_id
         )
 
     def unregister_credential(self, credential_id: str) -> bool:
@@ -290,7 +289,7 @@ class CredentialProxy:
         if credential_id in self._credentials:
             del self._credentials[credential_id]
             self._invalidate_cache(credential_id)
-            logger.info(f"Unregistered credential {credential_id}")
+            logger.info("Unregistered credential %s", credential_id)
             return True
         return False
 
@@ -502,7 +501,7 @@ class CredentialProxy:
             try:
                 await callback(usage)
             except (RuntimeError, ValueError, TypeError) as e:  # noqa: BLE001 - user-provided audit callback
-                logger.error(f"Audit callback failed: {e}")
+                logger.error("Audit callback failed: %s", e)
 
     def get_usage_history(
         self,

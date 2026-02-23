@@ -261,7 +261,7 @@ class GmailClientMixin(EnterpriseConnectorMethods):
                     return False
 
                 if response.status_code >= 400:
-                    logger.error(f"[Gmail] Authentication failed: {response.text}")
+                    logger.error("[Gmail] Authentication failed: %s", response.text)
                     return False
                 response.raise_for_status()
                 data = response.json()
@@ -281,10 +281,10 @@ class GmailClientMixin(EnterpriseConnectorMethods):
             return True
 
         except (OSError, ValueError, KeyError) as e:
-            logger.error(f"[Gmail] Authentication failed: {e}")
+            logger.error("[Gmail] Authentication failed: %s", e)
             return False
         except (RuntimeError, TypeError) as e:
-            logger.error(f"[Gmail] Authentication failed: {e}")
+            logger.error("[Gmail] Authentication failed: %s", e)
             return False
 
     async def _refresh_access_token(self) -> str:
@@ -378,9 +378,9 @@ class GmailClientMixin(EnterpriseConnectorMethods):
         if request_error:
             self.record_failure()
             if isinstance(request_error, TimeoutError):
-                logger.error(f"Gmail API timeout: {request_error}")
+                logger.error("Gmail API timeout: %s", request_error)
             else:
-                logger.error(f"Gmail API error: {request_error}")
+                logger.error("Gmail API error: %s", request_error)
             raise request_error
 
         if response is None:
@@ -388,7 +388,7 @@ class GmailClientMixin(EnterpriseConnectorMethods):
 
         if response.status_code >= 400:
             # Log the full error response for debugging
-            logger.error(f"Gmail API error {response.status_code}: {response.text}")
+            logger.error("Gmail API error %s: %s", response.status_code, response.text)
             # Record failure for circuit breaker on 5xx errors or rate limits
             if response.status_code >= 500 or response.status_code == 429:
                 self.record_failure()

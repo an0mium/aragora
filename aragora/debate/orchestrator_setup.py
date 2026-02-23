@@ -69,7 +69,7 @@ def init_fabric_integration(
         arena._fabric = fabric
         arena._fabric_config = fabric_config
         logger.info(
-            f"[fabric] Arena using fabric pool {fabric_config.pool_id} with {len(agents)} agents"
+            "[fabric] Arena using fabric pool %s with %s agents", fabric_config.pool_id, len(agents)
         )
     else:
         arena._fabric = None
@@ -109,10 +109,10 @@ def init_debate_strategy(
             logger.debug("DebateStrategy not available")
             arena.debate_strategy = None
         except (TypeError, ValueError) as e:
-            logger.warning(f"Failed to initialize DebateStrategy: {e}")
+            logger.warning("Failed to initialize DebateStrategy: %s", e)
             arena.debate_strategy = None
         except (RuntimeError, AttributeError, OSError) as e:
-            logger.exception(f"Unexpected error initializing DebateStrategy: {e}")
+            logger.exception("Unexpected error initializing DebateStrategy: %s", e)
             arena.debate_strategy = None
 
     return arena.debate_strategy
@@ -295,7 +295,7 @@ def init_selection_feedback(arena: Arena) -> None:
         logger.debug("SelectionFeedbackLoop not available")
         arena._selection_feedback_loop = None
     except (TypeError, ValueError) as e:
-        logger.warning(f"Failed to initialize SelectionFeedbackLoop: {e}")
+        logger.warning("Failed to initialize SelectionFeedbackLoop: %s", e)
         arena._selection_feedback_loop = None
 
 
@@ -332,7 +332,7 @@ def init_cost_tracking(arena: Arena) -> None:
         logger.debug("CostTracker not available")
         arena._cost_tracker = None
     except (TypeError, ValueError) as e:
-        logger.warning(f"Failed to initialize CostTracker: {e}")
+        logger.warning("Failed to initialize CostTracker: %s", e)
         arena._cost_tracker = None
 
 
@@ -371,12 +371,12 @@ def init_health_registry(arena: Arena) -> None:
             except (AttributeError, TypeError):
                 pass  # register/record_success may not exist
 
-        logger.debug(f"[health] Registered {len(subsystem_checks)} subsystem health checks")
+        logger.debug("[health] Registered %s subsystem health checks", len(subsystem_checks))
     except ImportError:
         logger.debug("HealthRegistry not available")
         arena._health_registry = None
     except (TypeError, ValueError) as e:
-        logger.warning(f"Failed to initialize HealthRegistry: {e}")
+        logger.warning("Failed to initialize HealthRegistry: %s", e)
         arena._health_registry = None
 
 
@@ -404,7 +404,7 @@ async def setup_agent_channels(arena: Arena, ctx: DebateContext, debate_id: str)
         else:
             arena._channel_integration = None
     except (ImportError, ConnectionError, OSError, ValueError, TypeError, AttributeError) as e:
-        logger.debug(f"[channels] Channel setup failed (non-critical): {e}")
+        logger.debug("[channels] Channel setup failed (non-critical): %s", e)
         arena._channel_integration = None
 
 
@@ -419,7 +419,7 @@ async def teardown_agent_channels(arena: Arena) -> None:
     try:
         await arena._channel_integration.teardown()
     except (ConnectionError, OSError, RuntimeError) as e:
-        logger.debug(f"[channels] Channel teardown failed (non-critical): {e}")
+        logger.debug("[channels] Channel teardown failed (non-critical): %s", e)
     finally:
         arena._channel_integration = None
 
@@ -602,9 +602,9 @@ async def translate_conclusions(
                         f"(confidence: {translation_result.confidence:.2f})"
                     )
             except (ConnectionError, OSError, ValueError, TypeError) as e:
-                logger.warning(f"Translation to {target_code} failed: {e}")
+                logger.warning("Translation to %s failed: %s", target_code, e)
 
     except ImportError as e:
-        logger.debug(f"Translation module not available: {e}")
+        logger.debug("Translation module not available: %s", e)
     except (AttributeError, RuntimeError) as e:
-        logger.warning(f"Translation failed (non-critical): {e}")
+        logger.warning("Translation failed (non-critical): %s", e)

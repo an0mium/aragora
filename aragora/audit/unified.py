@@ -303,7 +303,7 @@ class UnifiedAuditLogger:
             try:
                 handler(event)
             except (ValueError, RuntimeError, OSError) as e:
-                logger.warning(f"Audit handler error: {e}")
+                logger.warning("Audit handler error: %s", e)
 
     def _dispatch_to_compliance(self, event: UnifiedAuditEvent) -> None:
         """Dispatch event to compliance audit logger."""
@@ -368,7 +368,7 @@ class UnifiedAuditLogger:
             )
             log.log(compliance_event)
         except (ValueError, RuntimeError, OSError, TypeError, AttributeError) as e:
-            logger.warning(f"Compliance audit dispatch error: {e}")
+            logger.warning("Compliance audit dispatch error: %s", e)
 
     def _dispatch_to_privacy(self, event: UnifiedAuditEvent) -> None:
         """Dispatch event to privacy audit logger."""
@@ -401,7 +401,7 @@ class UnifiedAuditLogger:
                 metadata=event.details,
             )
         except (ValueError, RuntimeError, OSError) as e:
-            logger.warning(f"Privacy audit dispatch error: {e}")
+            logger.warning("Privacy audit dispatch error: %s", e)
 
     def _dispatch_to_rbac(self, event: UnifiedAuditEvent) -> None:
         """Dispatch event to RBAC auditor."""
@@ -430,7 +430,7 @@ class UnifiedAuditLogger:
                     context=event.details,
                 )
         except (ValueError, RuntimeError, OSError) as e:
-            logger.warning(f"RBAC audit dispatch error: {e}")
+            logger.warning("RBAC audit dispatch error: %s", e)
 
     def _dispatch_to_immutable(self, event: UnifiedAuditEvent) -> None:
         """Dispatch event to immutable audit logger."""
@@ -447,7 +447,7 @@ class UnifiedAuditLogger:
                 details=event.to_dict(),
             )
         except (ValueError, RuntimeError, OSError, TypeError, AttributeError) as e:
-            logger.warning(f"Immutable audit dispatch error: {e}")
+            logger.warning("Immutable audit dispatch error: %s", e)
 
     def _dispatch_to_middleware(self, event: UnifiedAuditEvent) -> None:
         """Dispatch event to middleware audit logger."""
@@ -478,7 +478,7 @@ class UnifiedAuditLogger:
                 ip_address=event.ip_address,
             )
         except (ValueError, RuntimeError, OSError, TypeError, AttributeError) as e:
-            logger.warning(f"Middleware audit dispatch error: {e}")
+            logger.warning("Middleware audit dispatch error: %s", e)
 
     # Convenience methods for common audit events
 

@@ -115,7 +115,7 @@ class EmbeddingBackend(ABC):
         embeddings = []
         for i, result in enumerate(results):
             if isinstance(result, BaseException):
-                logger.warning(f"embed_batch: failed to embed text {i}: {result}")
+                logger.warning("embed_batch: failed to embed text %s: %s", i, result)
                 embeddings.append([0.0] * self.dimension)
             else:
                 embeddings.append(result)

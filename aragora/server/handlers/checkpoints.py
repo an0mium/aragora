@@ -86,7 +86,7 @@ class CheckpointHandler(BaseHandler):
         # Rate limit check
         client_ip = get_client_ip(handler)
         if not _checkpoint_limiter.is_allowed(client_ip):
-            logger.warning(f"Rate limit exceeded for checkpoint endpoint: {client_ip}")
+            logger.warning("Rate limit exceeded for checkpoint endpoint: %s", client_ip)
             return error_response("Rate limit exceeded. Please try again later.", 429)
 
         method = handler.command
@@ -424,7 +424,7 @@ class CheckpointHandler(BaseHandler):
                 await manager.store.save(checkpoint)
 
             logger.info(
-                f"Created manual checkpoint {checkpoint.checkpoint_id} for debate {debate_id}"
+                "Created manual checkpoint %s for debate %s", checkpoint.checkpoint_id, debate_id
             )
 
             return json_response(
@@ -439,7 +439,7 @@ class CheckpointHandler(BaseHandler):
             )
 
         except (OSError, ValueError, TypeError, RuntimeError) as e:
-            logger.error(f"Failed to create checkpoint for {debate_id}: {e}")
+            logger.error("Failed to create checkpoint for %s: %s", debate_id, e)
             return error_response("Checkpoint creation failed", 500)
 
     async def pause_debate(self, debate_id: str, body: bytes | None) -> HandlerResult:
@@ -534,10 +534,10 @@ class CheckpointHandler(BaseHandler):
                     checkpoint.metadata["pause_note"] = note  # type: ignore[attr-defined]
                     await manager.store.save(checkpoint)
 
-                logger.info(f"Paused debate {debate_id} with checkpoint {checkpoint_id}")
+                logger.info("Paused debate %s with checkpoint %s", debate_id, checkpoint_id)
 
             except (OSError, ValueError, TypeError, RuntimeError) as e:
-                logger.warning(f"Failed to create checkpoint during pause: {e}")
+                logger.warning("Failed to create checkpoint during pause: %s", e)
 
         return json_response(
             {

@@ -69,18 +69,14 @@ async def start_dr_drilling() -> DRDrillScheduler | None:
         _dr_drill_scheduler = scheduler
 
         logger.info(
-            f"DR drill scheduler started "
-            f"(monthly_day={config.monthly_drill_day}, "
-            f"target_rto={config.target_rto_seconds}s, "
-            f"target_rpo={config.target_rpo_seconds}s, "
-            f"dry_run={config.dry_run})"
+            "DR drill scheduler started (monthly_day=%s, target_rto=%ss, target_rpo=%ss, dry_run=%s)", config.monthly_drill_day, config.target_rto_seconds, config.target_rpo_seconds, config.dry_run
         )
         return scheduler
 
     except ImportError as e:
-        logger.debug(f"DR drill scheduler not available: {e}")
+        logger.debug("DR drill scheduler not available: %s", e)
     except (RuntimeError, OSError, ValueError, TypeError) as e:
-        logger.warning(f"Failed to start DR drill scheduler: {e}")
+        logger.warning("Failed to start DR drill scheduler: %s", e)
 
     return None
 
@@ -97,7 +93,7 @@ async def stop_dr_drilling() -> None:
             await _dr_drill_scheduler.stop()
             logger.info("DR drill scheduler stopped")
         except (RuntimeError, OSError) as e:
-            logger.warning(f"Error stopping DR drill scheduler: {e}")
+            logger.warning("Error stopping DR drill scheduler: %s", e)
         finally:
             _dr_drill_scheduler = None
 

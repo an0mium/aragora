@@ -142,7 +142,7 @@ class InMemoryOAuthStateStore(OAuthStateStore):
                 remove_count = max(1, len(sorted_states) // 10)
                 for key, _ in sorted_states[:remove_count]:
                     del self._states[key]
-                logger.info(f"OAuth state store: evicted {remove_count} oldest entries")
+                logger.info("OAuth state store: evicted %s oldest entries", remove_count)
 
             self._states[state_token] = OAuthState(
                 user_id=user_id,
@@ -241,7 +241,7 @@ class SQLiteOAuthStateStore(OAuthStateStore):
             except sqlite3.OperationalError:
                 pass  # Column already exists
             conn.commit()
-            logger.info(f"SQLite OAuth state store initialized: {self._db_path}")
+            logger.info("SQLite OAuth state store initialized: %s", self._db_path)
 
     def generate(
         self,
@@ -275,7 +275,7 @@ class SQLiteOAuthStateStore(OAuthStateStore):
                 """,
                     (evict_count,),
                 )
-                logger.info(f"OAuth SQLite store: evicted {evict_count} oldest entries")
+                logger.info("OAuth SQLite store: evicted %s oldest entries", evict_count)
 
             # Insert new state (metadata stored as JSON)
             metadata_json = json.dumps(metadata) if metadata else None
@@ -288,7 +288,7 @@ class SQLiteOAuthStateStore(OAuthStateStore):
             )
             conn.commit()
         except sqlite3.Error as e:
-            logger.error(f"SQLite OAuth store generate failed: {e}")
+            logger.error("SQLite OAuth store generate failed: %s", e)
             raise
 
         return state_token
@@ -337,7 +337,7 @@ class SQLiteOAuthStateStore(OAuthStateStore):
 
             return state_data
         except sqlite3.Error as e:
-            logger.error(f"SQLite OAuth store validate failed: {e}")
+            logger.error("SQLite OAuth store validate failed: %s", e)
             return None
 
     def cleanup_expired(self) -> int:
@@ -352,11 +352,11 @@ class SQLiteOAuthStateStore(OAuthStateStore):
             if count > 0:
                 conn.execute("DELETE FROM oauth_states WHERE expires_at < ?", (now,))
                 conn.commit()
-                logger.debug(f"OAuth SQLite store: cleaned up {count} expired states")
+                logger.debug("OAuth SQLite store: cleaned up %s expired states", count)
 
             return count
         except sqlite3.Error as e:
-            logger.error(f"SQLite OAuth store cleanup failed: {e}")
+            logger.error("SQLite OAuth store cleanup failed: %s", e)
             return 0
 
     def size(self) -> int:
@@ -366,7 +366,7 @@ class SQLiteOAuthStateStore(OAuthStateStore):
             cursor = conn.execute("SELECT COUNT(*) FROM oauth_states")
             return cursor.fetchone()[0]
         except sqlite3.Error as e:
-            logger.error(f"SQLite OAuth store size query failed: {e}")
+            logger.error("SQLite OAuth store size query failed: %s", e)
             return 0
 
     def close(self) -> None:
@@ -422,7 +422,7 @@ class RedisOAuthStateStore(OAuthStateStore):
             return None
         except _REDIS_ERRORS as e:
             if not self._connection_error_logged:
-                logger.warning(f"OAuth state store: Redis connection failed: {e}")
+                logger.warning("OAuth state store: Redis connection failed: %s", e)
                 self._connection_error_logged = True
             return None
 
@@ -488,7 +488,7 @@ class RedisOAuthStateStore(OAuthStateStore):
                 return None
             return state_data
         except (json.JSONDecodeError, KeyError):
-            logger.warning(f"Invalid OAuth state data for {state[:16]}...")
+            logger.warning("Invalid OAuth state data for %s...", state[:16])
             return None
 
     def cleanup_expired(self) -> int:
@@ -516,7 +516,7 @@ class RedisOAuthStateStore(OAuthStateStore):
             return count
         except _REDIS_ERRORS as e:
             # Log but don't fail - size() is for metrics only
-            logger.debug(f"Redis size() query failed: {e}")
+            logger.debug("Redis size() query failed: %s", e)
             return 0
 
 
@@ -616,7 +616,7 @@ class JWTOAuthStateStore(OAuthStateStore):
         try:
             actual_sig = base64.urlsafe_b64decode(sig_b64_padded)
         except (ValueError, binascii.Error) as e:
-            logger.debug(f"JWT state: invalid signature encoding: {e}")
+            logger.debug("JWT state: invalid signature encoding: %s", e)
             return None
 
         if not hmac.compare_digest(expected_sig, actual_sig):
@@ -629,7 +629,7 @@ class JWTOAuthStateStore(OAuthStateStore):
             payload_json = base64.urlsafe_b64decode(payload_b64_padded).decode()
             payload = json.loads(payload_json)
         except (ValueError, binascii.Error, UnicodeDecodeError, json.JSONDecodeError) as e:
-            logger.debug(f"JWT state: payload decode failed: {e}")
+            logger.debug("JWT state: payload decode failed: %s", e)
             return None
 
         # Check expiration
@@ -715,7 +715,7 @@ class FallbackOAuthStateStore(OAuthStateStore):
                     max_size=max_memory_size,
                 )
             except (OSError, sqlite3.Error) as e:
-                logger.warning(f"SQLite OAuth store initialization failed: {e}")
+                logger.warning("SQLite OAuth store initialization failed: %s", e)
                 self._sqlite_failed = True
 
     def _get_active_store(self) -> OAuthStateStore:
@@ -727,7 +727,7 @@ class FallbackOAuthStateStore(OAuthStateStore):
                 if redis_client:
                     return self._redis_store
             except _REDIS_ERRORS as e:
-                logger.debug(f"Redis connectivity check failed: {e}")
+                logger.debug("Redis connectivity check failed: %s", e)
             self._redis_failed = True
             logger.info("OAuth state store: Redis unavailable, using JWT backend.")
 
@@ -806,20 +806,17 @@ class FallbackOAuthStateStore(OAuthStateStore):
         store = self._get_active_store()
         store_type = type(store).__name__
         logger.info(
-            f"OAuth state generate: backend={store_type}, use_jwt={self._use_jwt}, "
-            f"jwt_store_exists={self._jwt_store is not None}, use_redis={self._use_redis}, "
-            f"redis_failed={self._redis_failed}"
+            "OAuth state generate: backend=%s, use_jwt=%s, jwt_store_exists=%s, use_redis=%s, redis_failed=%s", store_type, self._use_jwt, self._jwt_store is not None, self._use_redis, self._redis_failed
         )
         try:
             state = store.generate(user_id, redirect_url, ttl_seconds, metadata)
             logger.info(
-                f"OAuth state generated: len={len(state)}, has_dot={'.' in state}, "
-                f"prefix={state[:30]}..."
+                "OAuth state generated: len=%s, has_dot=%s, prefix=%s...", len(state), '.' in state, state[:30]
             )
             return state
         except _REDIS_ERRORS as e:
             if store is self._redis_store:
-                logger.warning(f"Redis generate failed, using SQLite fallback: {e}")
+                logger.warning("Redis generate failed, using SQLite fallback: %s", e)
                 self._redis_failed = True
                 # Try SQLite
                 if self._use_sqlite and not self._sqlite_failed and self._sqlite_store:
@@ -828,13 +825,13 @@ class FallbackOAuthStateStore(OAuthStateStore):
                             user_id, redirect_url, ttl_seconds, metadata
                         )
                     except (OSError, sqlite3.Error) as sqlite_e:
-                        logger.warning(f"SQLite generate failed, using memory: {sqlite_e}")
+                        logger.warning("SQLite generate failed, using memory: %s", sqlite_e)
                         self._sqlite_failed = True
                 return self._memory_store.generate(user_id, redirect_url, ttl_seconds, metadata)
             raise
         except sqlite3.Error as e:
             if store is self._sqlite_store:
-                logger.warning(f"SQLite generate failed, using memory fallback: {e}")
+                logger.warning("SQLite generate failed, using memory fallback: %s", e)
                 self._sqlite_failed = True
                 return self._memory_store.generate(user_id, redirect_url, ttl_seconds, metadata)
             raise
@@ -848,21 +845,21 @@ class FallbackOAuthStateStore(OAuthStateStore):
                 return result
         except _REDIS_ERRORS as e:
             if store is self._redis_store:
-                logger.warning(f"Redis validate failed: {e}")
+                logger.warning("Redis validate failed: %s", e)
                 self._redis_failed = True
             else:
-                logger.warning(f"OAuth store validate failed: {e}")
+                logger.warning("OAuth store validate failed: %s", e)
         except sqlite3.Error as e:
             if store is self._sqlite_store:
-                logger.warning(f"SQLite validate failed: {e}")
+                logger.warning("SQLite validate failed: %s", e)
                 self._sqlite_failed = True
             else:
-                logger.warning(f"OAuth store validate failed: {e}")
+                logger.warning("OAuth store validate failed: %s", e)
         except (ValueError, KeyError) as e:
             if store is self._jwt_store:
-                logger.warning(f"JWT validate failed: {e}")
+                logger.warning("JWT validate failed: %s", e)
             else:
-                logger.warning(f"OAuth store validate failed: {e}")
+                logger.warning("OAuth store validate failed: %s", e)
 
         # Check fallback stores for state created during previous backend's availability
         # This handles migration from old state formats to new JWT format
@@ -873,7 +870,7 @@ class FallbackOAuthStateStore(OAuthStateStore):
                     logger.info("OAuth state validated from SQLite fallback (migration)")
                     return result
             except (OSError, sqlite3.Error) as e:
-                logger.debug(f"SQLite OAuth store fallback: {e}")
+                logger.debug("SQLite OAuth store fallback: %s", e)
 
         if store is not self._memory_store:
             try:
@@ -882,7 +879,7 @@ class FallbackOAuthStateStore(OAuthStateStore):
                     logger.info("OAuth state validated from memory fallback (migration)")
                     return result
             except (KeyError, ValueError) as e:
-                logger.debug(f"Memory OAuth store fallback: {e}")
+                logger.debug("Memory OAuth store fallback: %s", e)
 
         return None
 
@@ -893,7 +890,7 @@ class FallbackOAuthStateStore(OAuthStateStore):
             try:
                 count += self._sqlite_store.cleanup_expired()
             except (OSError, sqlite3.Error) as e:
-                logger.debug(f"SQLite cleanup failed: {e}")
+                logger.debug("SQLite cleanup failed: %s", e)
         # Redis handles TTL automatically
         return count
 
@@ -915,7 +912,7 @@ class FallbackOAuthStateStore(OAuthStateStore):
                 logger.info("OAuth state store: Reconnected to Redis")
                 return True
         except _REDIS_ERRORS as e:
-            logger.debug(f"Redis reconnection attempt failed: {e}")
+            logger.debug("Redis reconnection attempt failed: %s", e)
         return False
 
     def close(self) -> None:
@@ -924,7 +921,7 @@ class FallbackOAuthStateStore(OAuthStateStore):
             try:
                 self._sqlite_store.close()
             except (OSError, Exception) as e:
-                logger.debug(f"Error closing fallback OAuth store: {e}")
+                logger.debug("Error closing fallback OAuth store: %s", e)
 
 
 # Global singleton
@@ -955,7 +952,7 @@ def get_oauth_state_store(
             use_jwt=use_jwt,
         )
         backend = _oauth_state_store.backend_name
-        logger.info(f"OAuth state store initialized: {backend}")
+        logger.info("OAuth state store initialized: %s", backend)
     return _oauth_state_store
 
 
@@ -984,12 +981,12 @@ def validate_oauth_state(state: str) -> dict[str, Any] | None:
     """
     store = get_oauth_state_store()
     logger.debug(
-        f"Validating OAuth state (backend: {store.backend_name}, state_len: {len(state)}, has_dot: {'.' in state})"
+        "Validating OAuth state (backend: %s, state_len: %s, has_dot: %s)", store.backend_name, len(state), '.' in state
     )
     result = store.validate_and_consume(state)
     if result is None:
         logger.debug(
-            f"OAuth state validation failed (state_prefix: {state[:20] if len(state) > 20 else state}...)"
+            "OAuth state validation failed (state_prefix: %s...)", state[:20] if len(state) > 20 else state
         )
         return None
     logger.debug("OAuth state validation succeeded")

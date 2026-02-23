@@ -251,7 +251,7 @@ class BeliefAdapter(FusionMixin, SemanticSearchMixin, KnowledgeMoundAdapter):
             )
             return True
         except (RuntimeError, ValueError, OSError, AttributeError) as e:
-            logger.warning(f"Failed to apply fusion result to belief: {e}")
+            logger.warning("Failed to apply fusion result to belief: %s", e)
             return False
 
     def __init__(
@@ -493,7 +493,7 @@ class BeliefAdapter(FusionMixin, SemanticSearchMixin, KnowledgeMoundAdapter):
                 if belief_id:
                     stored_ids.append(belief_id)
 
-        logger.info(f"Stored {len(stored_ids)} converged beliefs from network")
+        logger.info("Stored %s converged beliefs from network", len(stored_ids))
         return stored_ids
 
     def store_crux(
@@ -594,7 +594,7 @@ class BeliefAdapter(FusionMixin, SemanticSearchMixin, KnowledgeMoundAdapter):
         """
         # Only store verified chains per plan
         if not verified:
-            logger.debug(f"Provenance chain {chain_id} not verified, skipping")
+            logger.debug("Provenance chain %s not verified, skipping", chain_id)
             return None
 
         debate_id = debate_id or (self._network.debate_id if self._network else None)
@@ -614,7 +614,7 @@ class BeliefAdapter(FusionMixin, SemanticSearchMixin, KnowledgeMoundAdapter):
 
         self._provenance[prov_id] = prov_data
 
-        logger.info(f"Stored provenance chain: {prov_id}")
+        logger.info("Stored provenance chain: %s", prov_id)
         return prov_id
 
     def get_belief(self, belief_id: str) -> dict[str, Any] | None:

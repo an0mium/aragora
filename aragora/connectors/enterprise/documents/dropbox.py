@@ -253,7 +253,7 @@ class DropboxConnector(EnterpriseConnector):
                 return True
             else:
                 error = await resp.text()
-                logger.error(f"Token exchange failed: {error}")
+                logger.error("Token exchange failed: %s", error)
                 return False
 
     async def _refresh_access_token(self) -> bool:
@@ -285,7 +285,7 @@ class DropboxConnector(EnterpriseConnector):
                 return True
             else:
                 error = await resp.text()
-                logger.error(f"Token refresh failed: {error}")
+                logger.error("Token refresh failed: %s", error)
                 return False
 
     async def _ensure_valid_token(self) -> None:
@@ -322,7 +322,7 @@ class DropboxConnector(EnterpriseConnector):
         async with session.post(url, headers=headers, data=json.dumps(data or {})) as resp:
             if resp.status >= 400:
                 error = await resp.text()
-                logger.error(f"API request failed: {resp.status} {error}")
+                logger.error("API request failed: %s %s", resp.status, error)
                 # Map HTTP status to appropriate exception type
                 if resp.status in (401, 403):
                     raise ConnectorAuthError(

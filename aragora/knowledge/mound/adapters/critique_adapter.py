@@ -593,8 +593,7 @@ class CritiqueAdapter(KnowledgeMoundAdapter):
             self._km_boosts_applied += 1
 
             logger.info(
-                f"Applied KM boost to pattern {validation.pattern_id}: "
-                f"+{validation.boost_amount} successes"
+                "Applied KM boost to pattern %s: +%s successes", validation.pattern_id, validation.boost_amount
             )
         except (RuntimeError, ValueError, OSError, AttributeError) as e:
             logger.warning("KM boost application failed: %s", e)
@@ -728,7 +727,7 @@ class CritiqueAdapter(KnowledgeMoundAdapter):
             return True
 
         except (RuntimeError, ValueError, OSError, AttributeError) as e:
-            logger.error(f"Failed to apply reputation adjustment: {e}")
+            logger.error("Failed to apply reputation adjustment: %s", e)
             return False
 
     async def sync_validations_from_km(

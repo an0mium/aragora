@@ -273,11 +273,11 @@ class EcommerceHandler(SecureHandler):
             return result
         except (ConnectionError, TimeoutError, OSError) as e:
             self._circuit_breaker.record_failure()
-            logger.error(f"Ecommerce platform connection error: {e}")
+            logger.error("Ecommerce platform connection error: %s", e)
             return self._error_response(503, "E-commerce platform unavailable")
         except (ValueError, KeyError, TypeError, RuntimeError, OSError) as e:
             # Don't count application-level errors as circuit breaker failures
-            logger.error(f"Ecommerce handler error: {e}")
+            logger.error("Ecommerce handler error: %s", e)
             raise
 
     async def _list_platforms(self, request: Any) -> dict[str, Any]:
@@ -364,9 +364,9 @@ class EcommerceHandler(SecureHandler):
             if connector:
                 _platform_connectors[platform] = connector
         except (ImportError, ConnectionError, TimeoutError, OSError, TypeError, ValueError) as e:
-            logger.warning(f"Could not initialize {platform} connector: {e}")
+            logger.warning("Could not initialize %s connector: %s", platform, e)
 
-        logger.info(f"Connected e-commerce platform: {platform}")
+        logger.info("Connected e-commerce platform: %s", platform)
 
         return self._json_response(
             200,
@@ -390,7 +390,7 @@ class EcommerceHandler(SecureHandler):
 
         del _platform_credentials[platform]
 
-        logger.info(f"Disconnected e-commerce platform: {platform}")
+        logger.info("Disconnected e-commerce platform: %s", platform)
 
         return self._json_response(
             200,
@@ -424,7 +424,7 @@ class EcommerceHandler(SecureHandler):
 
         for platform, result in zip(_platform_credentials.keys(), results):
             if isinstance(result, BaseException):
-                logger.error(f"Error fetching orders from {platform}: {result}")
+                logger.error("Error fetching orders from %s: %s", platform, result)
                 continue
             all_orders.extend(result)
 
@@ -481,11 +481,11 @@ class EcommerceHandler(SecureHandler):
                 return [self._normalize_walmart_order(o) for o in orders]
 
         except (ConnectionError, TimeoutError, OSError) as e:
-            logger.error(f"Connection error fetching {platform} orders: {e}")
+            logger.error("Connection error fetching %s orders: %s", platform, e)
         except ValueError as e:
-            logger.error(f"Data error fetching {platform} orders: {e}")
+            logger.error("Data error fetching %s orders: %s", platform, e)
         except (TypeError, AttributeError, KeyError, RuntimeError) as e:
-            logger.error(f"Unexpected error fetching {platform} orders: {type(e).__name__}: {e}")
+            logger.error("Unexpected error fetching %s orders: %s: %s", platform, type(e).__name__, e)
 
         return []
 
@@ -543,13 +543,13 @@ class EcommerceHandler(SecureHandler):
                 return self._json_response(200, self._normalize_walmart_order(order))
 
         except (ConnectionError, TimeoutError, OSError) as e:
-            logger.error(f"Connection error fetching order {order_id} from {platform}: {e}")
+            logger.error("Connection error fetching order %s from %s: %s", order_id, platform, e)
             return self._error_response(503, f"Platform {platform} temporarily unavailable")
         except ValueError as e:
             return self._error_response(400, "Invalid order request")
         except (TypeError, AttributeError, KeyError, RuntimeError) as e:
             logger.error(
-                f"Error fetching order {order_id} from {platform}: {type(e).__name__}: {e}"
+                "Error fetching order %s from %s: %s: %s", order_id, platform, type(e).__name__, e
             )
             return self._error_response(404, "Order not found")
 
@@ -578,7 +578,7 @@ class EcommerceHandler(SecureHandler):
 
         for platform, result in zip(_platform_credentials.keys(), results):
             if isinstance(result, BaseException):
-                logger.error(f"Error fetching products from {platform}: {result}")
+                logger.error("Error fetching products from %s: %s", platform, result)
                 continue
             all_products.extend(result)
 
@@ -616,11 +616,11 @@ class EcommerceHandler(SecureHandler):
                 return [self._normalize_walmart_item(i) for i in items]
 
         except (ConnectionError, TimeoutError, OSError) as e:
-            logger.error(f"Connection error fetching {platform} products: {e}")
+            logger.error("Connection error fetching %s products: %s", platform, e)
         except ValueError as e:
-            logger.error(f"Data error fetching {platform} products: {e}")
+            logger.error("Data error fetching %s products: %s", platform, e)
         except (TypeError, AttributeError, KeyError, RuntimeError) as e:
-            logger.error(f"Unexpected error fetching {platform} products: {type(e).__name__}: {e}")
+            logger.error("Unexpected error fetching %s products: %s: %s", platform, type(e).__name__, e)
 
         return []
 
@@ -678,13 +678,13 @@ class EcommerceHandler(SecureHandler):
                 return self._json_response(200, self._normalize_walmart_item(item))
 
         except (ConnectionError, TimeoutError, OSError) as e:
-            logger.error(f"Connection error fetching product {product_id} from {platform}: {e}")
+            logger.error("Connection error fetching product %s from %s: %s", product_id, platform, e)
             return self._error_response(503, f"Platform {platform} temporarily unavailable")
         except ValueError as e:
             return self._error_response(400, "Invalid product request")
         except (TypeError, AttributeError, KeyError, RuntimeError) as e:
             logger.error(
-                f"Error fetching product {product_id} from {platform}: {type(e).__name__}: {e}"
+                "Error fetching product %s from %s: %s: %s", product_id, platform, type(e).__name__, e
             )
             return self._error_response(404, "Product not found")
 
@@ -732,7 +732,7 @@ class EcommerceHandler(SecureHandler):
                     ]
 
             except (ConnectionError, TimeoutError, OSError, ValueError, AttributeError) as e:
-                logger.error(f"Error fetching {platform} inventory: {e}")
+                logger.error("Error fetching %s inventory: %s", platform, e)
                 inventory[platform] = [{"error": "Failed to fetch inventory"}]
 
         return self._json_response(
@@ -805,13 +805,11 @@ class EcommerceHandler(SecureHandler):
                             quantity = inv[0].quantity
                 except (ConnectionError, TimeoutError, OSError) as e:
                     logger.error(
-                        f"Connection error fetching source inventory from {source_platform} "
-                        f"for SKU {sku}: {e}"
+                        "Connection error fetching source inventory from %s for SKU %s: %s", source_platform, sku, e
                     )
                 except (ValueError, TypeError, AttributeError, KeyError) as e:
                     logger.error(
-                        f"Error fetching source inventory from {source_platform} "
-                        f"for SKU {sku}: {type(e).__name__}: {e}"
+                        "Error fetching source inventory from %s for SKU %s: %s: %s", source_platform, sku, type(e).__name__, e
                     )
 
         if quantity is None:
@@ -839,14 +837,12 @@ class EcommerceHandler(SecureHandler):
 
             except (ConnectionError, TimeoutError, OSError) as e:
                 logger.error(
-                    f"Connection error syncing inventory to {platform} "
-                    f"(SKU: {sku}, quantity: {quantity}): {e}"
+                    "Connection error syncing inventory to %s (SKU: %s, quantity: %s): %s", platform, sku, quantity, e
                 )
                 results[platform] = {"error": "Platform temporarily unavailable"}
             except (ValueError, TypeError, AttributeError, KeyError, RuntimeError) as e:
                 logger.error(
-                    f"Error syncing inventory to {platform} "
-                    f"(SKU: {sku}, quantity: {quantity}): {type(e).__name__}: {e}"
+                    "Error syncing inventory to %s (SKU: %s, quantity: %s): %s: %s", platform, sku, quantity, type(e).__name__, e
                 )
                 results[platform] = {"error": "Inventory sync failed"}
 
@@ -922,7 +918,7 @@ class EcommerceHandler(SecureHandler):
                         )
 
             except (ConnectionError, TimeoutError, OSError, ValueError, AttributeError) as e:
-                logger.error(f"Error fetching {p} fulfillment: {e}")
+                logger.error("Error fetching %s fulfillment: %s", p, e)
 
         return self._json_response(
             200,
@@ -1041,13 +1037,12 @@ class EcommerceHandler(SecureHandler):
 
         except (ConnectionError, TimeoutError, OSError) as e:
             logger.error(
-                f"Connection error creating shipment on {platform} (order: {order_id}): {e}"
+                "Connection error creating shipment on %s (order: %s): %s", platform, order_id, e
             )
             return self._error_response(503, f"Platform {platform} temporarily unavailable")
         except (ValueError, TypeError, AttributeError, KeyError, RuntimeError) as e:
             logger.error(
-                f"Error creating shipment on {platform} "
-                f"(order: {order_id}): {type(e).__name__}: {e}"
+                "Error creating shipment on %s (order: %s): %s: %s", platform, order_id, type(e).__name__, e
             )
             logger.warning("Handler error: %s", e)
             return self._error_response(500, "Failed to create shipment")
@@ -1083,7 +1078,7 @@ class EcommerceHandler(SecureHandler):
                 )
 
             except (ConnectionError, TimeoutError, OSError, ValueError, AttributeError) as e:
-                logger.error(f"Error fetching {platform} metrics: {e}")
+                logger.error("Error fetching %s metrics: %s", platform, e)
                 metrics["platforms"][platform] = {"error": "Failed to fetch platform metrics"}
 
         if metrics["totals"]["total_orders"] > 0:
@@ -1163,13 +1158,13 @@ class EcommerceHandler(SecureHandler):
             return connector
 
         except ImportError as e:
-            logger.error(f"Missing dependency for {platform} connector: {e}")
+            logger.error("Missing dependency for %s connector: %s", platform, e)
             return None
         except (ValueError, TypeError) as e:
-            logger.error(f"Invalid credentials for {platform} connector: {e}")
+            logger.error("Invalid credentials for %s connector: %s", platform, e)
             return None
         except (ConnectionError, TimeoutError, OSError, AttributeError, RuntimeError) as e:
-            logger.error(f"Failed to create {platform} connector: {type(e).__name__}: {e}")
+            logger.error("Failed to create %s connector: %s: %s", platform, type(e).__name__, e)
             return None
 
     def _sanitize_financial_amount(self, value: Any) -> float:

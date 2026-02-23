@@ -113,7 +113,7 @@ class PruningOperationsMixin:
                 }
             )
         except (KeyError, ValueError, OSError, TypeError, AttributeError) as e:
-            logger.error(f"Error getting prunable items: {e}")
+            logger.error("Error getting prunable items: %s", e)
             return error_response(safe_error_message(e), status=500)
 
     @require_permission("knowledge:admin")
@@ -187,7 +187,7 @@ class PruningOperationsMixin:
                 }
             )
         except (KeyError, ValueError, OSError, TypeError, AttributeError) as e:
-            logger.error(f"Error executing prune: {e}")
+            logger.error("Error executing prune: %s", e)
             return error_response(safe_error_message(e), status=500)
 
     @require_permission("knowledge:admin")
@@ -278,7 +278,7 @@ class PruningOperationsMixin:
                 }
             )
         except (KeyError, ValueError, OSError, TypeError, AttributeError) as e:
-            logger.error(f"Error in auto-prune: {e}")
+            logger.error("Error in auto-prune: %s", e)
             return error_response(safe_error_message(e), status=500)
 
     @require_permission("knowledge:admin")
@@ -342,7 +342,7 @@ class PruningOperationsMixin:
                 }
             )
         except (KeyError, ValueError, OSError, TypeError, AttributeError) as e:
-            logger.error(f"Error getting prune history: {e}")
+            logger.error("Error getting prune history: %s", e)
             return error_response(safe_error_message(e), status=500)
 
     @require_permission("knowledge:admin")
@@ -396,7 +396,7 @@ class PruningOperationsMixin:
                     status=404,
                 )
         except (KeyError, ValueError, OSError, TypeError, AttributeError) as e:
-            logger.error(f"Error restoring pruned item: {e}")
+            logger.error("Error restoring pruned item: %s", e)
             return error_response(safe_error_message(e), status=500)
 
     @require_permission("knowledge:admin")
@@ -455,5 +455,5 @@ class PruningOperationsMixin:
                 }
             )
         except (KeyError, ValueError, OSError, TypeError, AttributeError) as e:
-            logger.error(f"Error applying confidence decay: {e}")
+            logger.error("Error applying confidence decay: %s", e)
             return error_response(safe_error_message(e), status=500)

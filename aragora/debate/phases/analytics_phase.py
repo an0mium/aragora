@@ -181,7 +181,7 @@ class AnalyticsPhase:
             try:
                 await ctx.hook_manager.trigger("post_debate", ctx=ctx, result=result)
             except (RuntimeError, AttributeError, TypeError) as e:  # noqa: BLE001
-                logger.debug(f"POST_DEBATE hook failed: {e}")
+                logger.debug("POST_DEBATE hook failed: %s", e)
 
     def _track_failed_patterns(self, result: DebateResult) -> None:
         """Track failed patterns for balanced learning."""
@@ -201,7 +201,7 @@ class AnalyticsPhase:
                         issue_type=getattr(critique, "category", "general"),
                     )
                 except (RuntimeError, AttributeError, TypeError) as e:  # noqa: BLE001
-                    logger.debug(f"Failed to record pattern failure: {e}")
+                    logger.debug("Failed to record pattern failure: %s", e)
 
     def _record_metrics(self, ctx: DebateContext) -> None:
         """Record debate metrics for observability."""
@@ -218,7 +218,7 @@ class AnalyticsPhase:
         except ImportError:
             logger.debug("Metrics recording not available")
         except Exception as e:  # noqa: BLE001 - phase isolation
-            logger.debug(f"Metrics recording failed: {e}")
+            logger.debug("Metrics recording failed: %s", e)
 
     def _emit_consensus_event(self, result: DebateResult) -> None:
         """Emit consensus event."""
@@ -272,7 +272,7 @@ class AnalyticsPhase:
 
             if stored_count > 0:
                 logger.info(
-                    f"insights_extracted total={insights.total_insights} stored={stored_count}"
+                    "insights_extracted total=%s stored=%s", insights.total_insights, stored_count
                 )
                 if self._notify_spectator:
                     self._notify_spectator(
@@ -281,7 +281,7 @@ class AnalyticsPhase:
                         metric=stored_count,
                     )
         except (RuntimeError, AttributeError, TypeError) as e:  # noqa: BLE001
-            logger.warning(f"insight_extraction_failed error={e}")
+            logger.warning("insight_extraction_failed error=%s", e)
 
     def _determine_winner(self, ctx: DebateContext) -> None:
         """Determine winner from vote tally."""
@@ -293,7 +293,7 @@ class AnalyticsPhase:
             ctx.winner_agent = winner_agent
             ctx.result.winner = winner_agent
         except (RuntimeError, AttributeError, TypeError) as e:  # noqa: BLE001
-            logger.debug(f"Winner determination failed: {e}")
+            logger.debug("Winner determination failed: %s", e)
 
     def _update_relationships(self, ctx: DebateContext) -> None:
         """Update agent relationships for grounded personas."""
@@ -380,7 +380,7 @@ class AnalyticsPhase:
                 )
 
         except (RuntimeError, AttributeError, TypeError) as e:  # noqa: BLE001
-            logger.warning(f"uncertainty_analysis_failed error={e}")
+            logger.warning("uncertainty_analysis_failed error=%s", e)
 
     def _generate_disagreement(self, ctx: DebateContext) -> None:
         """Generate disagreement report."""
@@ -397,13 +397,11 @@ class AnalyticsPhase:
         if result.disagreement_report:
             if result.disagreement_report.unanimous_critiques:
                 logger.debug(
-                    f"disagreement_unanimous_critiques "
-                    f"count={len(result.disagreement_report.unanimous_critiques)}"
+                    "disagreement_unanimous_critiques count=%s", len(result.disagreement_report.unanimous_critiques)
                 )
             if result.disagreement_report.split_opinions:
                 logger.debug(
-                    f"disagreement_split_opinions "
-                    f"count={len(result.disagreement_report.split_opinions)}"
+                    "disagreement_split_opinions count=%s", len(result.disagreement_report.split_opinions)
                 )
 
     async def _generate_verdict(self, ctx: DebateContext) -> None:
@@ -417,7 +415,7 @@ class AnalyticsPhase:
         if result.grounded_verdict:
             logger.info(f"grounding_score score={result.grounded_verdict.grounding_score:.0%}")
             if result.grounded_verdict.claims:
-                logger.debug(f"grounding_claims count={len(result.grounded_verdict.claims)}")
+                logger.debug("grounding_claims count=%s", len(result.grounded_verdict.claims))
 
             self._emit_grounded_verdict_event(result)
 
@@ -437,7 +435,7 @@ class AnalyticsPhase:
                 )
             )
         except (RuntimeError, AttributeError, TypeError) as e:  # noqa: BLE001
-            logger.debug(f"Failed to emit grounded verdict event: {e}")
+            logger.debug("Failed to emit grounded verdict event: %s", e)
 
     async def _verify_formally(self, result: DebateResult) -> None:
         """Perform formal Z3 verification for decidable claims."""
@@ -447,7 +445,7 @@ class AnalyticsPhase:
         try:
             await self._verify_claims_formally(result)
         except (RuntimeError, AttributeError, TypeError) as e:  # noqa: BLE001
-            logger.debug(f"Formal verification failed: {e}")
+            logger.debug("Formal verification failed: %s", e)
 
     def _analyze_beliefs(self, result: DebateResult) -> None:
         """Run belief network analysis for debate cruxes."""
@@ -479,14 +477,14 @@ class AnalyticsPhase:
             setattr(result, "belief_cruxes", cruxes)
 
             if cruxes:
-                logger.debug(f"belief_cruxes_identified count={len(cruxes)}")
+                logger.debug("belief_cruxes_identified count=%s", len(cruxes))
                 for crux in cruxes[:3]:
                     logger.debug(
                         f"belief_crux claim={crux.get('claim', 'unknown')[:60]} "
                         f"uncertainty={crux.get('uncertainty', 0):.2f}"
                     )
         except (RuntimeError, AttributeError, ImportError) as e:  # noqa: BLE001
-            logger.debug(f"Belief analysis failed: {e}")
+            logger.debug("Belief analysis failed: %s", e)
 
     def _log_completion(self, ctx: DebateContext) -> None:
         """Log completion and formatted conclusion."""
@@ -498,7 +496,7 @@ class AnalyticsPhase:
 
         if self._format_conclusion:
             conclusion = self._format_conclusion(result)
-            logger.debug(f"debate_conclusion length={len(conclusion)}")
+            logger.debug("debate_conclusion length=%s", len(conclusion))
 
     def _finalize_recording(self, ctx: DebateContext) -> None:
         """Finalize replay recording."""
@@ -510,4 +508,4 @@ class AnalyticsPhase:
             verdict = result.final_answer[:100] if result.final_answer else "incomplete"
             self.recorder.finalize(verdict, ctx.vote_tally)
         except (RuntimeError, AttributeError, TypeError) as e:  # noqa: BLE001
-            logger.warning(f"Recorder finalize error: {e}")
+            logger.warning("Recorder finalize error: %s", e)

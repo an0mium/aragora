@@ -199,8 +199,7 @@ class ConfidenceDecayScheduler:
         self._running = True
         self._task = asyncio.create_task(self._run_loop())
         logger.info(
-            f"ConfidenceDecayScheduler started: interval={self._decay_interval_hours}h, "
-            f"workspaces={self._workspaces or 'all'}"
+            "ConfidenceDecayScheduler started: interval=%sh, workspaces=%s", self._decay_interval_hours, self._workspaces or 'all'
         )
 
     async def stop(self) -> None:
@@ -229,14 +228,13 @@ class ConfidenceDecayScheduler:
                 self._total_items_processed += total_processed
 
                 logger.info(
-                    f"Decay cycle {self._total_decay_cycles} complete: "
-                    f"{total_processed} items processed, {total_decayed} decayed"
+                    "Decay cycle %s complete: %s items processed, %s decayed", self._total_decay_cycles, total_processed, total_decayed
                 )
 
             except (RuntimeError, ConnectionError, TimeoutError) as e:
-                logger.warning(f"Decay cycle failed: {e}")
+                logger.warning("Decay cycle failed: %s", e)
             except (OSError, ConnectionError, TimeoutError, RuntimeError) as e:
-                logger.exception(f"Unexpected decay cycle error: {e}")
+                logger.exception("Unexpected decay cycle error: %s", e)
 
             # Wait for next cycle
             await asyncio.sleep(interval_seconds)
@@ -270,7 +268,7 @@ class ConfidenceDecayScheduler:
                     # Default to "default" workspace
                     workspaces = ["default"]
             except (RuntimeError, ValueError, OSError, AttributeError) as e:
-                logger.warning(f"Could not list workspaces: {e}")
+                logger.warning("Could not list workspaces: %s", e)
                 workspaces = ["default"]
 
         for workspace_id in workspaces:
@@ -286,9 +284,9 @@ class ConfidenceDecayScheduler:
                         self._on_decay_complete(report)
 
             except (RuntimeError, ValueError, KeyError) as e:
-                logger.warning(f"Decay failed for workspace {workspace_id}: {e}")
+                logger.warning("Decay failed for workspace %s: %s", workspace_id, e)
             except (RuntimeError, ValueError, OSError, AttributeError) as e:
-                logger.exception(f"Unexpected decay error for workspace {workspace_id}: {e}")
+                logger.exception("Unexpected decay error for workspace %s: %s", workspace_id, e)
 
         return reports
 
@@ -346,7 +344,7 @@ class ConfidenceDecayScheduler:
             for attr in required_attrs:
                 if not hasattr(decay_report, attr):
                     logger.warning(
-                        f"Decay report missing attribute '{attr}' for workspace {workspace_id}"
+                        "Decay report missing attribute '%s' for workspace %s", attr, workspace_id
                     )
                     return None
 
@@ -364,13 +362,13 @@ class ConfidenceDecayScheduler:
 
         except AttributeError:
             # apply_confidence_decay not available on this mound instance
-            logger.warning(f"apply_confidence_decay not available for workspace {workspace_id}")
+            logger.warning("apply_confidence_decay not available for workspace %s", workspace_id)
             return None
         except (RuntimeError, ValueError, KeyError) as e:
-            logger.warning(f"Decay application failed for {workspace_id}: {e}")
+            logger.warning("Decay application failed for %s: %s", workspace_id, e)
             return None
         except (RuntimeError, ValueError, OSError, AttributeError) as e:
-            logger.exception(f"Unexpected decay error for {workspace_id}: {e}")
+            logger.exception("Unexpected decay error for %s: %s", workspace_id, e)
             return None
 
     async def trigger_decay_now(

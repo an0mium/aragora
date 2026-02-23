@@ -190,7 +190,7 @@ class SlackHandler(BotHandlerMixin, SecureHandler):
                 # No running loop, create one
                 return asyncio.run(self._get_status_sync(handler))
             except (asyncio.TimeoutError, concurrent.futures.TimeoutError) as e:
-                logger.error(f"Error getting Slack status: {e}")
+                logger.error("Error getting Slack status: %s", e)
                 return error_response(safe_error_message(e, "Slack handler"), 500)
 
         # Webhook endpoints require POST
@@ -230,7 +230,7 @@ class SlackHandler(BotHandlerMixin, SecureHandler):
                 # No running loop, create one
                 return asyncio.run(self.handle_post(normalized_path, query_params, handler))
             except (asyncio.TimeoutError, concurrent.futures.TimeoutError) as e:
-                logger.error(f"Error handling Slack POST: {e}")
+                logger.error("Error handling Slack POST: %s", e)
                 return error_response(safe_error_message(e, "Slack command"), 500)
 
         return None
@@ -274,7 +274,7 @@ class SlackHandler(BotHandlerMixin, SecureHandler):
                 if not verify_slack_signature(body, timestamp, signature, signing_secret):
                     return error_response("Invalid Slack signature", 401)
             except (ValueError, KeyError, AttributeError, OSError) as e:
-                logger.warning(f"Slack signature verification error: {e}")
+                logger.warning("Slack signature verification error: %s", e)
                 return error_response("Slack signature verification failed", 401)
 
         if path == "/api/v1/bots/slack/events":
@@ -320,7 +320,7 @@ class SlackHandler(BotHandlerMixin, SecureHandler):
 
             return verify_slack_signature(body, timestamp, signature, signing_secret)
         except (ValueError, KeyError, AttributeError, OSError) as e:
-            logger.warning(f"Signature verification error: {e}")
+            logger.warning("Signature verification error: %s", e)
             return False
 
     def _get_status(self) -> HandlerResult:
@@ -390,7 +390,7 @@ Need more help? Visit https://aragora.ai/docs/slack"""
             agent_count = 0
             error_msg = type(e).__name__
         except (TypeError, ValueError, KeyError, OSError) as e:
-            logger.exception(f"Unexpected error getting status: {e}")
+            logger.exception("Unexpected error getting status: %s", e)
             agent_count = 0
             error_msg = "unexpected error"
 
@@ -444,7 +444,7 @@ Need more help? Visit https://aragora.ai/docs/slack"""
                 }
             )
         except (ImportError, AttributeError, RuntimeError) as e:
-            logger.error(f"Error getting agents: {e}")
+            logger.error("Error getting agents: %s", e)
             return json_response(
                 {
                     "response_type": "ephemeral",
@@ -452,7 +452,7 @@ Need more help? Visit https://aragora.ai/docs/slack"""
                 }
             )
         except (TypeError, ValueError, KeyError, OSError) as e:
-            logger.exception(f"Unexpected error getting agents: {e}")
+            logger.exception("Unexpected error getting agents: %s", e)
             return json_response(
                 {
                     "response_type": "ephemeral",

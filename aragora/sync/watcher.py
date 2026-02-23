@@ -80,7 +80,7 @@ def _compute_file_hash(path: Path, chunk_size: int = 8192) -> str:
                 hasher.update(chunk)
         return hasher.hexdigest()
     except OSError as e:
-        logger.warning(f"Could not hash file {path}: {e}")
+        logger.warning("Could not hash file %s: %s", path, e)
         return ""
 
 
@@ -142,7 +142,7 @@ class DirectoryWatcher:
 
         # Check if already watching
         if path_str in self._watching:
-            logger.info(f"Already watching: {path_str}")
+            logger.info("Already watching: %s", path_str)
             return self._watching[path_str]
 
         # Create sync state
@@ -154,7 +154,7 @@ class DirectoryWatcher:
 
         # Initial scan to populate known files
         if initial_scan:
-            logger.info(f"Initial scan of {path_str}")
+            logger.info("Initial scan of %s", path_str)
             state.status = SyncStatus.SCANNING
             await self._initial_scan(root, state)
             state.status = SyncStatus.IDLE
@@ -166,7 +166,7 @@ class DirectoryWatcher:
         task = asyncio.create_task(self._watch_loop(root, state))
         self._tasks[path_str] = task
 
-        logger.info(f"Started watching: {path_str} ({state.total_files} files)")
+        logger.info("Started watching: %s (%s files)", path_str, state.total_files)
         return state
 
     async def stop_watching(self, path: str | Path) -> None:
@@ -180,7 +180,7 @@ class DirectoryWatcher:
         path_str = str(root)
 
         if path_str not in self._watching:
-            logger.warning(f"Not watching: {path_str}")
+            logger.warning("Not watching: %s", path_str)
             return
 
         # Signal stop
@@ -199,7 +199,7 @@ class DirectoryWatcher:
         del self._watching[path_str]
         del self._stop_events[path_str]
 
-        logger.info(f"Stopped watching: {path_str}")
+        logger.info("Stopped watching: %s", path_str)
 
     async def stop_all(self) -> None:
         """Stop watching all directories."""
@@ -276,7 +276,7 @@ class DirectoryWatcher:
                         changes.append(change)
 
             except OSError as e:
-                logger.warning(f"Error scanning {file_path}: {e}")
+                logger.warning("Error scanning %s: %s", file_path, e)
 
         # Check for deleted files
         for rel_path in state.known_files:
@@ -379,7 +379,7 @@ class DirectoryWatcher:
                 state.total_files += 1
 
             except OSError as e:
-                logger.warning(f"Error scanning {file_path}: {e}")
+                logger.warning("Error scanning %s: %s", file_path, e)
 
             # Yield control periodically
             await asyncio.sleep(0)
@@ -404,12 +404,12 @@ class DirectoryWatcher:
                     try:
                         await self._handle_change(root, state, change_type, change_path)
                     except (OSError, RuntimeError, ValueError, KeyError, TypeError) as e:
-                        logger.error(f"Error handling change {change_path}: {e}")
+                        logger.error("Error handling change %s: %s", change_path, e)
                         state.error_count += 1
                         state.last_error = str(e)
 
         except asyncio.CancelledError:
-            logger.info(f"Watch loop cancelled for {root}")
+            logger.info("Watch loop cancelled for %s", root)
             raise
 
     async def _handle_change(

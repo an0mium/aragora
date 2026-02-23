@@ -55,7 +55,7 @@ class TelegramBotManagementMixin:
         )
 
         if not success:
-            logger.error(f"Failed to set commands: {error}")
+            logger.error("Failed to set commands: %s", error)
 
         return success
 
@@ -77,7 +77,7 @@ class TelegramBotManagementMixin:
             bot_info: dict[str, Any] | None = data.get("result")
             return bot_info
 
-        logger.error(f"Failed to get bot info: {error}")
+        logger.error("Failed to get bot info: %s", error)
         return None
 
     async def get_chat_member_count(self, channel_id: str) -> int | None:
@@ -101,5 +101,5 @@ class TelegramBotManagementMixin:
             count: int | None = data.get("result")
             return count
 
-        logger.error(f"Failed to get chat member count: {error}")
+        logger.error("Failed to get chat member count: %s", error)
         return None

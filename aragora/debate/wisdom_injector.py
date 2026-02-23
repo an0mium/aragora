@@ -131,7 +131,7 @@ class WisdomInjector:
         # Load existing wisdom for this loop
         self._load_pending()
 
-        logger.info(f"wisdom_injector_init loop={loop_id}")
+        logger.info("wisdom_injector_init loop=%s", loop_id)
 
     def _load_pending(self) -> None:
         """Load pending wisdom from storage."""
@@ -141,9 +141,9 @@ class WisdomInjector:
                 with open(wisdom_file) as f:
                     data = json.load(f)
                 self.pending_wisdom = [WisdomSubmission(**w) for w in data.get("pending", [])]
-                logger.debug(f"wisdom_loaded count={len(self.pending_wisdom)}")
+                logger.debug("wisdom_loaded count=%s", len(self.pending_wisdom))
             except (OSError, IOError, ValueError, TypeError, KeyError) as e:
-                logger.error(f"wisdom_load_failed error={e}")
+                logger.error("wisdom_load_failed error=%s", e)
 
     def _save_pending(self) -> None:
         """Save pending wisdom to storage."""
@@ -159,7 +159,7 @@ class WisdomInjector:
                     indent=2,
                 )
         except (OSError, IOError, ValueError, TypeError) as e:
-            logger.error(f"wisdom_save_failed error={e}")
+            logger.error("wisdom_save_failed error=%s", e)
 
     async def submit_wisdom(
         self,
@@ -186,7 +186,7 @@ class WisdomInjector:
 
         if len(text) > self.MAX_WISDOM_LENGTH:
             text = text[: self.MAX_WISDOM_LENGTH]
-            logger.debug(f"wisdom_truncated length={len(text)}")
+            logger.debug("wisdom_truncated length=%s", len(text))
 
         # Check for duplicates
         text_hash = hashlib.sha256(text.lower().encode()).hexdigest()[:8]
@@ -219,7 +219,7 @@ class WisdomInjector:
             ]
 
         self._save_pending()
-        logger.info(f"wisdom_submitted id={wisdom.id} submitter={submitter_id}")
+        logger.info("wisdom_submitted id=%s submitter=%s", wisdom.id, submitter_id)
 
         return wisdom
 
@@ -361,7 +361,7 @@ class WisdomInjector:
 
         self._save_pending()
         logger.info(
-            f"wisdom_injected id={wisdom.id} reason={reason} submitter={wisdom.submitter_id}"
+            "wisdom_injected id=%s reason=%s submitter=%s", wisdom.id, reason, wisdom.submitter_id
         )
 
         return injection

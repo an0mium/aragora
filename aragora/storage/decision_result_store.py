@@ -199,15 +199,14 @@ class DecisionResultStore:
                 pass  # Guards not available, allow SQLite
 
             self._backend = SQLiteBackend(str(db_path))
-            logger.info(f"DecisionResultStore using SQLite backend: {db_path}")
+            logger.info("DecisionResultStore using SQLite backend: %s", db_path)
 
         # Initialize database
         self._init_db()
         self._cleanup_expired()
 
         logger.info(
-            f"DecisionResultStore initialized: backend={backend}, "
-            f"ttl={ttl_seconds}s, max={max_entries}, cache={cache_size}"
+            "DecisionResultStore initialized: backend=%s, ttl=%ss, max=%s, cache=%s", backend, ttl_seconds, max_entries, cache_size
         )
 
     def _get_connection(self):
@@ -254,7 +253,7 @@ class DecisionResultStore:
                 try:
                     self._backend.execute_write(idx_sql)
                 except (OSError, RuntimeError, sqlite3.Error) as e:
-                    logger.debug(f"Index creation skipped: {e}")
+                    logger.debug("Index creation skipped: %s", e)
             return
 
         # Legacy path
@@ -558,7 +557,7 @@ class DecisionResultStore:
                         "DELETE FROM decision_results WHERE expires_at <= ?",
                         (time.time(),),
                     )
-                    logger.debug(f"Cleaned up {deleted} expired decision results")
+                    logger.debug("Cleaned up %s expired decision results", deleted)
                 return
 
             conn = self._get_connection()
@@ -569,9 +568,9 @@ class DecisionResultStore:
             conn.commit()
             deleted = cursor.rowcount
             if deleted > 0:
-                logger.debug(f"Cleaned up {deleted} expired decision results")
+                logger.debug("Cleaned up %s expired decision results", deleted)
         except (OSError, RuntimeError, sqlite3.Error) as e:
-            logger.warning(f"Failed to cleanup expired results: {e}")
+            logger.warning("Failed to cleanup expired results: %s", e)
 
     def _enforce_max_entries(self) -> None:
         """Enforce maximum entries using LRU eviction."""
@@ -597,7 +596,7 @@ class DecisionResultStore:
                         """,
                         (time.time(), excess),
                     )
-                    logger.info(f"LRU evicted {excess} decision results (max: {self._max_entries})")
+                    logger.info("LRU evicted %s decision results (max: %s)", excess, self._max_entries)
                 return
 
             conn = self._get_connection()
@@ -623,9 +622,9 @@ class DecisionResultStore:
                     (time.time(), excess),
                 )
                 conn.commit()
-                logger.info(f"LRU evicted {excess} decision results (max: {self._max_entries})")
+                logger.info("LRU evicted %s decision results (max: %s)", excess, self._max_entries)
         except (OSError, RuntimeError, sqlite3.Error) as e:
-            logger.warning(f"Failed to enforce max entries: {e}")
+            logger.warning("Failed to enforce max entries: %s", e)
 
     def get_metrics(self) -> dict[str, Any]:
         """Get store metrics for monitoring."""

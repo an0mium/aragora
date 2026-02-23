@@ -388,7 +388,7 @@ class PulseDebateScheduler:
                 limit=limit,
             )
         except (AttributeError, TypeError, ValueError, RuntimeError) as e:
-            logger.warning(f"Failed to query KM for past debates: {e}")
+            logger.warning("Failed to query KM for past debates: %s", e)
             return []
 
     @property
@@ -439,7 +439,7 @@ class PulseDebateScheduler:
         self._run_id = f"run-{int(time.time())}-{uuid.uuid4().hex[:6]}"
         self._metrics = SchedulerMetrics(start_time=time.time())
 
-        logger.info(f"Starting PulseDebateScheduler (run_id={self._run_id})")
+        logger.info("Starting PulseDebateScheduler (run_id=%s)", self._run_id)
 
         self._task = asyncio.create_task(self._scheduler_loop())
 
@@ -453,7 +453,7 @@ class PulseDebateScheduler:
             logger.warning("Scheduler already stopped")
             return
 
-        logger.info(f"Stopping PulseDebateScheduler (graceful={graceful})")
+        logger.info("Stopping PulseDebateScheduler (graceful=%s)", graceful)
         self._state = SchedulerState.STOPPED
         self._stop_event.set()
 
@@ -478,7 +478,7 @@ class PulseDebateScheduler:
     async def pause(self) -> None:
         """Pause the scheduler (stops polling but keeps state)."""
         if self._state != SchedulerState.RUNNING:
-            logger.warning(f"Cannot pause scheduler in state {self._state}")
+            logger.warning("Cannot pause scheduler in state %s", self._state)
             return
 
         self._state = SchedulerState.PAUSED
@@ -487,7 +487,7 @@ class PulseDebateScheduler:
     async def resume(self) -> None:
         """Resume a paused scheduler."""
         if self._state != SchedulerState.PAUSED:
-            logger.warning(f"Cannot resume scheduler in state {self._state}")
+            logger.warning("Cannot resume scheduler in state %s", self._state)
             return
 
         self._state = SchedulerState.RUNNING
@@ -503,7 +503,7 @@ class PulseDebateScheduler:
         config_dict.update(updates)
         self.config = SchedulerConfig.from_dict(config_dict)
         self._topic_selector = TopicSelector(self.config)
-        logger.info(f"Scheduler config updated: {list(updates.keys())}")
+        logger.info("Scheduler config updated: %s", list(updates.keys()))
 
     def get_status(self) -> dict[str, Any]:
         """Get current scheduler status.
@@ -538,7 +538,7 @@ class PulseDebateScheduler:
                     pass  # Continue to next poll
 
             except (OSError, RuntimeError, asyncio.CancelledError) as e:
-                logger.error(f"Error in scheduler loop: {e}", exc_info=True)
+                logger.error("Error in scheduler loop: %s", e, exc_info=True)
                 # Wait before retrying to avoid tight error loop
                 await asyncio.sleep(60)
 
@@ -586,7 +586,7 @@ class PulseDebateScheduler:
 
                 # Check deduplication
                 if self.store.is_duplicate(topic.topic, self.config.dedup_window_hours):
-                    logger.debug(f"Skipping duplicate topic: {topic.topic[:50]}...")
+                    logger.debug("Skipping duplicate topic: %s...", topic.topic[:50])
                     self._metrics.duplicates_skipped += 1
                     continue
 
@@ -595,7 +595,7 @@ class PulseDebateScheduler:
                 break  # Only create one debate per poll
 
         except (OSError, ValueError, TypeError, RuntimeError) as e:
-            logger.error(f"Error in poll_and_create: {e}", exc_info=True)
+            logger.error("Error in poll_and_create: %s", e, exc_info=True)
 
     async def _create_debate(self, topic: TrendingTopic, scored: TopicScore) -> None:
         """Create a debate for the given topic."""
@@ -616,13 +616,12 @@ class PulseDebateScheduler:
             ]
             if recent_consensus:
                 logger.info(
-                    f"Skipping debate - KM has {len(recent_consensus)} recent consensus on topic: "
-                    f"{topic.topic[:50]}... (confidence >= 0.7)"
+                    "Skipping debate - KM has %s recent consensus on topic: %s... (confidence >= 0.7)", len(recent_consensus), topic.topic[:50]
                 )
                 return  # Skip creating a new debate
             else:
                 logger.info(
-                    f"KM has {len(past_debates)} past debates on topic, but none with strong consensus"
+                    "KM has %s past debates on topic, but none with strong consensus", len(past_debates)
                 )
 
         debate_id = f"pulse-{int(time.time())}-{uuid.uuid4().hex[:6]}"
@@ -684,9 +683,9 @@ class PulseDebateScheduler:
                                 confidence=confidence,
                                 rounds_used=rounds_used,
                             )
-                        logger.debug(f"Pulse debate synced to Knowledge Mound: {debate_id}")
+                        logger.debug("Pulse debate synced to Knowledge Mound: %s", debate_id)
                     except (AttributeError, TypeError, ValueError, RuntimeError) as e:
-                        logger.warning(f"Failed to sync pulse debate to KM: {e}")
+                        logger.warning("Failed to sync pulse debate to KM: %s", e)
             else:
                 # Debate creation returned None
                 self._metrics.debates_failed += 1
@@ -694,7 +693,7 @@ class PulseDebateScheduler:
 
         except (OSError, ValueError, TypeError, RuntimeError) as e:
             self._metrics.debates_failed += 1
-            logger.error(f"Failed to create debate: {e}", exc_info=True)
+            logger.error("Failed to create debate: %s", e, exc_info=True)
 
             # Still record the attempt
             record = ScheduledDebateRecord(

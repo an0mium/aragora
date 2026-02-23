@@ -289,7 +289,7 @@ class SnowflakeConnector(EnterpriseConnector):
             await self._async_query(query)
             return True
         except (ValueError, RuntimeError, OSError) as e:
-            logger.debug(f"Change tracking check failed for {table}: {e}")
+            logger.debug("Change tracking check failed for %s: %s", table, e)
             return False
 
     def _find_timestamp_column(self, columns: list[dict[str, Any]]) -> str | None:
@@ -467,7 +467,7 @@ class SnowflakeConnector(EnterpriseConnector):
                         state.last_item_timestamp = updated_at
 
             except (ValueError, RuntimeError, OSError, KeyError) as e:
-                logger.warning(f"Failed to sync table {table}: {e}")
+                logger.warning("Failed to sync table %s: %s", table, e)
                 state.errors.append(f"{table}: sync failed")
                 continue
 
@@ -524,7 +524,7 @@ class SnowflakeConnector(EnterpriseConnector):
                     )
 
             except (ValueError, RuntimeError, OSError) as e:
-                logger.debug(f"Search failed on {tbl}: {e}")
+                logger.debug("Search failed on %s: %s", tbl, e)
                 continue
 
         return sorted(results, key=lambda x: float(x.get("rank") or 0), reverse=True)[:limit]
@@ -541,7 +541,7 @@ class SnowflakeConnector(EnterpriseConnector):
             return None
 
         if parsed.get("is_legacy"):
-            logger.debug(f"[{self.name}] Cannot fetch legacy hash-based ID: {evidence_id}")
+            logger.debug("[%s] Cannot fetch legacy hash-based ID: %s", self.name, evidence_id)
             return None
 
         account = parsed.get("account")
@@ -575,7 +575,7 @@ class SnowflakeConnector(EnterpriseConnector):
             return None
 
         except (ValueError, RuntimeError, OSError, KeyError) as e:
-            logger.error(f"[{self.name}] Fetch failed: {e}")
+            logger.error("[%s] Fetch failed: %s", self.name, e)
             return None
 
     async def execute_query(self, query: str, params: tuple | None = None) -> list[dict[str, Any]]:
@@ -607,7 +607,7 @@ class SnowflakeConnector(EnterpriseConnector):
             if rows:
                 return rows[0]
         except (OSError, RuntimeError, ValueError) as e:
-            logger.warning(f"Failed to get stats for {table}: {e}")
+            logger.warning("Failed to get stats for %s: %s", table, e)
 
         return {"row_count": 0, "max_id": None}
 
@@ -668,7 +668,7 @@ class SnowflakeConnector(EnterpriseConnector):
         operation = payload.get("operation")
 
         if table and operation:
-            logger.info(f"[{self.name}] Webhook: {operation} on {table}")
+            logger.info("[%s] Webhook: %s on %s", self.name, operation, table)
             asyncio.create_task(self.sync(max_items=10))
             return True
 

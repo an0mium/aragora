@@ -324,10 +324,10 @@ MAX_STATEMENT_LENGTH = 1000
 def _handle_task_exception(task: asyncio.Task[Any], task_name: str) -> None:
     """Handle exceptions from fire-and-forget async tasks."""
     if task.cancelled():
-        logger.debug(f"Task {task_name} was cancelled")
+        logger.debug("Task %s was cancelled", task_name)
     elif task.exception():
         exc = task.exception()
-        logger.error(f"Task {task_name} failed: {exc}", exc_info=exc)
+        logger.error("Task %s failed: %s", task_name, exc, exc_info=exc)
 
 
 def create_tracked_task(coro: Coroutine[Any, Any, Any], name: str) -> asyncio.Task[Any]:
@@ -357,10 +357,10 @@ def get_google_chat_connector() -> Any | None:
             )
             logger.info("Google Chat connector initialized")
         except ImportError as e:
-            logger.warning(f"Google Chat connector module not available: {e}")
+            logger.warning("Google Chat connector module not available: %s", e)
             return None
         except (RuntimeError, ValueError, OSError) as e:
-            logger.exception(f"Error initializing Google Chat connector: {e}")
+            logger.exception("Error initializing Google Chat connector: %s", e)
             return None
     return _google_chat_connector
 
@@ -521,7 +521,7 @@ class GoogleChatHandler(BotHandlerMixin, SecureHandler):
                 return err
 
             event_type = event.get("type", "")
-            logger.debug(f"Google Chat event: {event_type}")
+            logger.debug("Google Chat event: %s", event_type)
 
             # Route by event type
             if event_type == "MESSAGE":
@@ -533,7 +533,7 @@ class GoogleChatHandler(BotHandlerMixin, SecureHandler):
             elif event_type == "REMOVED_FROM_SPACE":
                 return self._handle_removed_from_space(event)
             else:
-                logger.debug(f"Unhandled Google Chat event type: {event_type}")
+                logger.debug("Unhandled Google Chat event type: %s", event_type)
                 return json_response({})
 
         except (json.JSONDecodeError, KeyError, TypeError, ValueError, OSError) as e:
@@ -551,7 +551,7 @@ class GoogleChatHandler(BotHandlerMixin, SecureHandler):
         user_name = user.get("displayName", "Unknown")
         text = message.get("text", "")
 
-        logger.info(f"Google Chat message from {user_name}: {text[:50]}...")
+        logger.info("Google Chat message from %s: %s...", user_name, text[:50])
 
         # Check for slash command
         slash_command = message.get("slashCommand")
@@ -591,7 +591,7 @@ class GoogleChatHandler(BotHandlerMixin, SecureHandler):
         command = command.lower()
         user_name = user.get("displayName", "Unknown")
 
-        logger.info(f"Google Chat command from {user_name}: /{command} {args[:50]}...")
+        logger.info("Google Chat command from %s: /%s %s...", user_name, command, args[:50])
 
         if command in ("debate", "plan", "implement"):
             decision_integrity = None
@@ -632,7 +632,7 @@ class GoogleChatHandler(BotHandlerMixin, SecureHandler):
         space = event.get("space", {})
         space_name = space.get("name", "")
 
-        logger.info(f"Google Chat card click: {function_name} from {user_id}")
+        logger.info("Google Chat card click: %s from %s", function_name, user_id)
 
         # Route actions
         if function_name == "vote_agree":
@@ -658,7 +658,7 @@ class GoogleChatHandler(BotHandlerMixin, SecureHandler):
             logger.warning("RBAC denied votes:record for gchat:%s: %s", user_id, exc)
             return self._card_response(body="Permission denied: you cannot vote.")
 
-        logger.info(f"Vote from {user_id} on {debate_id}: {vote_option}")
+        logger.info("Vote from %s on %s: %s", user_id, debate_id, vote_option)
 
         try:
             # ConsensusStore with record_vote is a planned feature.
@@ -691,7 +691,7 @@ class GoogleChatHandler(BotHandlerMixin, SecureHandler):
             logger.warning("ConsensusStore not available")
             return self._card_response(body="Vote acknowledged")
         except (RuntimeError, ValueError, KeyError, AttributeError) as e:
-            logger.error(f"Vote recording failed: {e}")
+            logger.error("Vote recording failed: %s", e)
             return self._card_response(body="Error recording vote")
 
     def _handle_view_details(self, debate_id: str) -> HandlerResult:
@@ -724,7 +724,7 @@ class GoogleChatHandler(BotHandlerMixin, SecureHandler):
             )
 
         except (ImportError, RuntimeError, KeyError, AttributeError) as e:
-            logger.error(f"View details failed: {e}")
+            logger.error("View details failed: %s", e)
             return self._card_response(body="Error fetching debate details")
 
     def _handle_added_to_space(self, event: dict[str, Any]) -> HandlerResult:
@@ -750,7 +750,7 @@ class GoogleChatHandler(BotHandlerMixin, SecureHandler):
     def _handle_removed_from_space(self, event: dict[str, Any]) -> HandlerResult:
         """Handle bot removed from space."""
         space = event.get("space", {})
-        logger.info(f"Bot removed from space: {space.get('name')}")
+        logger.info("Bot removed from space: %s", space.get('name'))
         return json_response({})
 
     # ==========================================================================
@@ -1051,7 +1051,7 @@ class GoogleChatHandler(BotHandlerMixin, SecureHandler):
             router = get_decision_router()
             result = await router.route(request)
             if result and result.success:
-                logger.info(f"DecisionRouter completed debate for Google Chat: {result.request_id}")
+                logger.info("DecisionRouter completed debate for Google Chat: %s", result.request_id)
                 return  # Response handler will post the result
             else:
                 logger.warning("DecisionRouter returned unsuccessful result, falling back")
@@ -1059,7 +1059,7 @@ class GoogleChatHandler(BotHandlerMixin, SecureHandler):
         except ImportError:
             logger.debug("DecisionRouter not available, falling back to direct execution")
         except (RuntimeError, ValueError, KeyError, AttributeError) as e:
-            logger.error(f"DecisionRouter failed: {e}, falling back to direct execution")
+            logger.error("DecisionRouter failed: %s, falling back to direct execution", e)
 
         # Fallback to direct Arena execution
         try:

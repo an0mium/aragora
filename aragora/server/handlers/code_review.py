@@ -292,7 +292,7 @@ async def handle_review_pr(
     except (ConnectionError, TimeoutError, OSError, ValueError, RuntimeError) as e:
         # Record failure for circuit breaker
         cb.record_failure()
-        logger.exception(f"Error reviewing PR: {data.get('pr_url')}")
+        logger.exception("Error reviewing PR: %s", data.get('pr_url'))
         return error_response("PR review failed", status=500)
 
 
@@ -317,7 +317,7 @@ async def handle_get_review_result(
         return success_response({"result": result})
 
     except (KeyError, ValueError, TypeError) as e:
-        logger.exception(f"Error getting review result {result_id}")
+        logger.exception("Error getting review result %s", result_id)
         return error_response("Failed to retrieve result", status=500)
 
 

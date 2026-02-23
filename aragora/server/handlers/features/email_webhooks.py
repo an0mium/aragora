@@ -201,7 +201,7 @@ async def process_gmail_notification(
             data_bytes = base64.b64decode(data_b64)
             data = json.loads(data_bytes.decode("utf-8"))
         except (ValueError, UnicodeDecodeError, json.JSONDecodeError) as e:
-            logger.error(f"Failed to decode Gmail notification data: {e}")
+            logger.error("Failed to decode Gmail notification data: %s", e)
             return None
 
         email_address = data.get("emailAddress", "")
@@ -231,12 +231,12 @@ async def process_gmail_notification(
         # Queue for processing
         await _queue_notification(notification)
 
-        logger.info(f"Processed Gmail notification for {email_address}, history_id={history_id}")
+        logger.info("Processed Gmail notification for %s, history_id=%s", email_address, history_id)
 
         return notification
 
     except (KeyError, ValueError, TypeError, AttributeError) as e:
-        logger.exception(f"Error processing Gmail notification: {e}")
+        logger.exception("Error processing Gmail notification: %s", e)
         return None
 
 
@@ -271,7 +271,7 @@ async def process_outlook_notification(
             change_client_state = change.get("clientState")
             if client_state and change_client_state != client_state:
                 logger.warning(
-                    f"Client state mismatch: expected={client_state}, got={change_client_state}"
+                    "Client state mismatch: expected=%s, got=%s", client_state, change_client_state
                 )
                 continue
 
@@ -312,12 +312,12 @@ async def process_outlook_notification(
             notifications.append(notification)
             await _queue_notification(notification)
 
-            logger.info(f"Processed Outlook notification: {change_type} for {resource}")
+            logger.info("Processed Outlook notification: %s for %s", change_type, resource)
 
         return notifications
 
     except (KeyError, ValueError, TypeError, AttributeError) as e:
-        logger.exception(f"Error processing Outlook notification: {e}")
+        logger.exception("Error processing Outlook notification: %s", e)
         return []
 
 
@@ -350,7 +350,7 @@ async def _queue_notification(notification: WebhookNotification) -> None:
         else:
             await _trigger_outlook_sync(notification)
     except (ConnectionError, TimeoutError, OSError, ImportError) as e:
-        logger.warning(f"Failed to trigger sync: {e}")
+        logger.warning("Failed to trigger sync: %s", e)
 
 
 async def _trigger_gmail_sync(notification: WebhookNotification) -> None:
@@ -360,7 +360,7 @@ async def _trigger_gmail_sync(notification: WebhookNotification) -> None:
 
         # In production, get the sync service instance for this account
         # and call sync_from_history_id(notification.metadata["history_id"])
-        logger.debug(f"Would trigger Gmail sync for history_id={notification.resource_id}")
+        logger.debug("Would trigger Gmail sync for history_id=%s", notification.resource_id)
 
     except ImportError:
         pass
@@ -372,7 +372,7 @@ async def _trigger_outlook_sync(notification: WebhookNotification) -> None:
         from aragora.connectors.email import OutlookSyncService  # noqa: F401
 
         # In production, get the sync service instance and fetch the message
-        logger.debug(f"Would trigger Outlook sync for resource={notification.resource_id}")
+        logger.debug("Would trigger Outlook sync for resource=%s", notification.resource_id)
 
     except ImportError:
         pass
@@ -600,7 +600,7 @@ class EmailWebhooksHandler(BaseHandler):
             return error_response("Not found", 404)
 
         except (ValueError, KeyError, TypeError, RuntimeError, OSError, ConnectionError) as e:
-            logger.exception(f"Error in webhook handler: {e}")
+            logger.exception("Error in webhook handler: %s", e)
             return error_response("Internal server error", 500)
 
     def _get_tenant_id(self, request: Any) -> str:
@@ -656,7 +656,7 @@ class EmailWebhooksHandler(BaseHandler):
                 )
 
         except (json.JSONDecodeError, ValueError, KeyError, TypeError, AttributeError) as e:
-            logger.exception(f"Error handling Gmail webhook: {e}")
+            logger.exception("Error handling Gmail webhook: %s", e)
             # Return 200 to acknowledge
             return success_response({"status": "error", "message": "Internal server error"})
 
@@ -712,7 +712,7 @@ class EmailWebhooksHandler(BaseHandler):
             )
 
         except (json.JSONDecodeError, ValueError, KeyError, TypeError, AttributeError) as e:
-            logger.exception(f"Error handling Outlook webhook: {e}")
+            logger.exception("Error handling Outlook webhook: %s", e)
             return success_response({"status": "error", "message": "Internal server error"})
 
     async def _handle_outlook_validation(self, request: Any) -> HandlerResult:
@@ -823,7 +823,7 @@ class EmailWebhooksHandler(BaseHandler):
                         _tenant_subscriptions[tenant_id] = []
                     _tenant_subscriptions[tenant_id].append(subscription_id)
 
-                logger.info(f"Created {provider.value} webhook subscription: {subscription_id}")
+                logger.info("Created %s webhook subscription: %s", provider.value, subscription_id)
 
                 return success_response(
                     {
@@ -835,7 +835,7 @@ class EmailWebhooksHandler(BaseHandler):
                 return error_response(result.get("error", "Failed to create subscription"), 400)
 
         except (ValueError, KeyError, TypeError, OSError) as e:
-            logger.exception(f"Error creating subscription: {e}")
+            logger.exception("Error creating subscription: %s", e)
             return error_response("Subscription creation failed", 500)
 
     async def _create_gmail_subscription(self, subscription: WebhookSubscription) -> dict[str, Any]:
@@ -909,7 +909,7 @@ class EmailWebhooksHandler(BaseHandler):
                         sid for sid in _tenant_subscriptions[tenant_id] if sid != subscription_id
                     ]
 
-            logger.info(f"Deleted webhook subscription: {subscription_id}")
+            logger.info("Deleted webhook subscription: %s", subscription_id)
 
             return success_response(
                 {
@@ -919,7 +919,7 @@ class EmailWebhooksHandler(BaseHandler):
             )
 
         except (KeyError, ValueError, TypeError, OSError) as e:
-            logger.exception(f"Error deleting subscription: {e}")
+            logger.exception("Error deleting subscription: %s", e)
             return error_response("Subscription deletion failed", 500)
 
     async def _delete_gmail_subscription(self, subscription: WebhookSubscription) -> None:

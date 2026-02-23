@@ -144,7 +144,7 @@ class GlobalKnowledgeOperationsMixin:
             )
             track_global_fact(action="store")
         except (KeyError, ValueError, OSError, TypeError, RuntimeError, AttributeError) as e:
-            logger.error(f"Failed to store verified fact: {e}")
+            logger.error("Failed to store verified fact: %s", e)
             return error_response("Failed to store verified fact", 500)
 
         return json_response(
@@ -187,7 +187,7 @@ class GlobalKnowledgeOperationsMixin:
                 items = _run_async(mound.get_system_facts(limit=limit, topics=topics))
             track_global_query(has_results=len(items) > 0)
         except (KeyError, ValueError, OSError, TypeError, RuntimeError, AttributeError) as e:
-            logger.error(f"Failed to query global knowledge: {e}")
+            logger.error("Failed to query global knowledge: %s", e)
             return error_response("Failed to query global knowledge", 500)
 
         return json_response(
@@ -261,7 +261,7 @@ class GlobalKnowledgeOperationsMixin:
             logger.warning("Handler error: %s", e)
             return error_response("Resource not found", 404)
         except (KeyError, OSError, TypeError, RuntimeError, AttributeError) as e:
-            logger.error(f"Failed to promote to global: {e}")
+            logger.error("Failed to promote to global: %s", e)
             return error_response("Failed to promote to global", 500)
 
         return json_response(
@@ -293,7 +293,7 @@ class GlobalKnowledgeOperationsMixin:
         try:
             facts = _run_async(mound.get_system_facts(limit=limit + offset, topics=topics))
         except (KeyError, ValueError, OSError, TypeError, RuntimeError, AttributeError) as e:
-            logger.error(f"Failed to get system facts: {e}")
+            logger.error("Failed to get system facts: %s", e)
             return error_response("Failed to get system facts", 500)
 
         paginated_facts = facts[offset : offset + limit]
@@ -331,7 +331,7 @@ class GlobalKnowledgeOperationsMixin:
         try:
             workspace_id: str = mound.get_system_workspace_id()
         except (KeyError, ValueError, OSError, TypeError, AttributeError) as e:
-            logger.error(f"Failed to get system workspace ID: {e}")
+            logger.error("Failed to get system workspace ID: %s", e)
             return error_response("Failed to get system workspace ID", 500)
 
         return json_response(

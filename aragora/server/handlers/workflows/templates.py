@@ -76,7 +76,7 @@ def register_template(workflow: WorkflowDefinition) -> None:
 
     backend = get_storage_backend()
     if backend in (StorageBackend.POSTGRES, StorageBackend.SUPABASE):
-        logger.debug(f"Deferring template registration for {workflow.id} to server startup")
+        logger.debug("Deferring template registration for %s to server startup", workflow.id)
         return
 
     store = _get_store()
@@ -333,13 +333,13 @@ def _load_yaml_templates() -> None:
                 store.save_template(template)
                 loaded += 1
         if loaded > 0:
-            logger.info(f"Loaded {loaded} new YAML templates into database")
+            logger.info("Loaded %s new YAML templates into database", loaded)
     except ImportError as e:
-        logger.debug(f"Template loader not available: {e}")
+        logger.debug("Template loader not available: %s", e)
     except OSError as e:
-        logger.warning(f"Failed to read YAML templates from disk: {e}")
+        logger.warning("Failed to read YAML templates from disk: %s", e)
     except (ValueError, KeyError, TypeError) as e:
-        logger.warning(f"Failed to parse YAML templates: {e}")
+        logger.warning("Failed to parse YAML templates: %s", e)
 
 
 async def load_yaml_templates_async() -> None:
@@ -360,11 +360,11 @@ async def load_yaml_templates_async() -> None:
                 await store.save_template(template)
                 loaded += 1
         if loaded > 0:
-            logger.info(f"Loaded {loaded} new YAML templates into database (async)")
+            logger.info("Loaded %s new YAML templates into database (async)", loaded)
     except ImportError as e:
-        logger.debug(f"Template loader not available: {e}")
+        logger.debug("Template loader not available: %s", e)
     except (OSError, ValueError, KeyError, TypeError) as e:
-        logger.warning(f"Failed to load YAML templates (async): {e}")
+        logger.warning("Failed to load YAML templates (async): %s", e)
 
 
 async def register_builtin_templates_async() -> None:
@@ -387,9 +387,9 @@ async def register_builtin_templates_async() -> None:
             existing = await store.get_template(template.id)  # type: ignore[misc]  # WorkflowStoreType union: async/sync method variance
             if not existing:
                 await store.save_template(template)
-                logger.debug(f"Registered built-in template: {template.id}")
+                logger.debug("Registered built-in template: %s", template.id)
     except (OSError, ValueError, KeyError, TypeError, RuntimeError) as e:
-        logger.warning(f"Failed to register built-in templates (async): {e}")
+        logger.warning("Failed to register built-in templates (async): %s", e)
 
 
 def initialize_templates() -> None:

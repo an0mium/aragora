@@ -245,7 +245,7 @@ class TeamsWorkspaceStore:
                         logger.info("Added service_url column to teams_workspaces")
 
                 except sqlite3.Error as e:
-                    logger.debug(f"Migration check: {e}")
+                    logger.debug("Migration check: %s", e)
 
                 self._initialized = True
 
@@ -291,7 +291,7 @@ class TeamsWorkspaceStore:
             logger.warning("cryptography not installed, storing token unencrypted")
             return token
         except (ValueError, TypeError, UnicodeDecodeError) as e:
-            logger.error(f"Token encryption failed: {e}")
+            logger.error("Token encryption failed: %s", e)
             return token
 
     def _decrypt_token(self, encrypted: str) -> str:
@@ -318,7 +318,7 @@ class TeamsWorkspaceStore:
         except ImportError:
             return encrypted
         except (ValueError, TypeError, UnicodeDecodeError) as e:
-            logger.error(f"Token decryption failed: {e}")
+            logger.error("Token decryption failed: %s", e)
             return encrypted
 
     def save(self, workspace: TeamsWorkspace) -> bool:
@@ -362,11 +362,11 @@ class TeamsWorkspaceStore:
                 ),
             )
             conn.commit()
-            logger.info(f"Saved Teams workspace: {workspace.tenant_id}")
+            logger.info("Saved Teams workspace: %s", workspace.tenant_id)
             return True
 
         except sqlite3.Error as e:
-            logger.error(f"Failed to save Teams workspace: {e}")
+            logger.error("Failed to save Teams workspace: %s", e)
             return False
 
     def get(self, tenant_id: str) -> TeamsWorkspace | None:
@@ -396,7 +396,7 @@ class TeamsWorkspaceStore:
             return None
 
         except sqlite3.Error as e:
-            logger.error(f"Failed to get Teams workspace {tenant_id}: {e}")
+            logger.error("Failed to get Teams workspace %s: %s", tenant_id, e)
             return None
 
     def get_by_aragora_tenant(self, aragora_tenant_id: str) -> list[TeamsWorkspace]:
@@ -430,7 +430,7 @@ class TeamsWorkspaceStore:
             return workspaces
 
         except sqlite3.Error as e:
-            logger.error(f"Failed to get Teams workspaces for tenant {aragora_tenant_id}: {e}")
+            logger.error("Failed to get Teams workspaces for tenant %s: %s", aragora_tenant_id, e)
             return []
 
     def list_active(self, limit: int = 100, offset: int = 0) -> list[TeamsWorkspace]:
@@ -466,7 +466,7 @@ class TeamsWorkspaceStore:
             return workspaces
 
         except sqlite3.Error as e:
-            logger.error(f"Failed to list Teams workspaces: {e}")
+            logger.error("Failed to list Teams workspaces: %s", e)
             return []
 
     def deactivate(self, tenant_id: str) -> bool:
@@ -485,11 +485,11 @@ class TeamsWorkspaceStore:
                 (tenant_id,),
             )
             conn.commit()
-            logger.info(f"Deactivated Teams workspace: {tenant_id}")
+            logger.info("Deactivated Teams workspace: %s", tenant_id)
             return True
 
         except sqlite3.Error as e:
-            logger.error(f"Failed to deactivate Teams workspace {tenant_id}: {e}")
+            logger.error("Failed to deactivate Teams workspace %s: %s", tenant_id, e)
             return False
 
     def delete(self, tenant_id: str) -> bool:
@@ -508,11 +508,11 @@ class TeamsWorkspaceStore:
                 (tenant_id,),
             )
             conn.commit()
-            logger.info(f"Deleted Teams workspace: {tenant_id}")
+            logger.info("Deleted Teams workspace: %s", tenant_id)
             return True
 
         except sqlite3.Error as e:
-            logger.error(f"Failed to delete Teams workspace {tenant_id}: {e}")
+            logger.error("Failed to delete Teams workspace %s: %s", tenant_id, e)
             return False
 
     def count(self, active_only: bool = True) -> int:
@@ -534,7 +534,7 @@ class TeamsWorkspaceStore:
             return cursor.fetchone()[0]
 
         except sqlite3.Error as e:
-            logger.error(f"Failed to count Teams workspaces: {e}")
+            logger.error("Failed to count Teams workspaces: %s", e)
             return 0
 
     def get_stats(self) -> dict[str, Any]:
@@ -557,7 +557,7 @@ class TeamsWorkspaceStore:
             }
 
         except sqlite3.Error as e:
-            logger.error(f"Failed to get Teams workspace stats: {e}")
+            logger.error("Failed to get Teams workspace stats: %s", e)
             return {"total_workspaces": 0, "active_workspaces": 0}
 
     async def refresh_workspace_token(
@@ -580,11 +580,11 @@ class TeamsWorkspaceStore:
 
         workspace = self.get(tenant_id)
         if not workspace:
-            logger.error(f"Teams workspace not found for refresh: {tenant_id}")
+            logger.error("Teams workspace not found for refresh: %s", tenant_id)
             return None
 
         if not workspace.refresh_token:
-            logger.error(f"No refresh token available for Teams workspace: {tenant_id}")
+            logger.error("No refresh token available for Teams workspace: %s", tenant_id)
             return None
 
         try:
@@ -608,7 +608,7 @@ class TeamsWorkspaceStore:
 
             if "error" in result:
                 error = result.get("error", "unknown")
-                logger.error(f"Token refresh failed for Teams {tenant_id}: {error}")
+                logger.error("Token refresh failed for Teams %s: %s", tenant_id, error)
                 if error in ("invalid_grant", "invalid_refresh_token"):
                     self.deactivate(tenant_id)
                 return None
@@ -625,16 +625,16 @@ class TeamsWorkspaceStore:
                 workspace.token_expires_at = time.time() + int(expires_in)
 
             if self.save(workspace):
-                logger.info(f"Successfully refreshed token for Teams workspace: {tenant_id}")
+                logger.info("Successfully refreshed token for Teams workspace: %s", tenant_id)
                 return workspace
 
             return None
 
         except httpx.RequestError as e:
-            logger.error(f"Network error refreshing Teams token for {tenant_id}: {e}")
+            logger.error("Network error refreshing Teams token for %s: %s", tenant_id, e)
             return None
         except (ValueError, KeyError) as e:
-            logger.error(f"Invalid response refreshing Teams token for {tenant_id}: {e}")
+            logger.error("Invalid response refreshing Teams token for %s: %s", tenant_id, e)
             return None
 
     def is_token_expired(self, tenant_id: str, buffer_seconds: int = 300) -> bool:
@@ -716,11 +716,11 @@ class SupabaseTeamsWorkspaceStore:
 
             self._client.table("teams_workspaces").upsert(data, on_conflict="tenant_id").execute()
 
-            logger.info(f"Saved Teams workspace to Supabase: {workspace.tenant_id}")
+            logger.info("Saved Teams workspace to Supabase: %s", workspace.tenant_id)
             return True
 
         except (ConnectionError, TimeoutError, OSError, ValueError, KeyError) as e:
-            logger.error(f"Failed to save Teams workspace to Supabase: {e}")
+            logger.error("Failed to save Teams workspace to Supabase: %s", e)
             return False
 
     def get(self, tenant_id: str) -> TeamsWorkspace | None:
@@ -742,7 +742,7 @@ class SupabaseTeamsWorkspaceStore:
             return None
 
         except (ConnectionError, TimeoutError, OSError, ValueError, KeyError) as e:
-            logger.error(f"Failed to get Teams workspace from Supabase: {e}")
+            logger.error("Failed to get Teams workspace from Supabase: %s", e)
             return None
 
     def get_by_aragora_tenant(self, aragora_tenant_id: str) -> list[TeamsWorkspace]:
@@ -763,7 +763,7 @@ class SupabaseTeamsWorkspaceStore:
             return [self._row_to_workspace(row) for row in result.data]
 
         except (ConnectionError, TimeoutError, OSError, ValueError, KeyError) as e:
-            logger.error(f"Failed to get Teams workspaces from Supabase: {e}")
+            logger.error("Failed to get Teams workspaces from Supabase: %s", e)
             return []
 
     def list_active(self, limit: int = 100, offset: int = 0) -> list[TeamsWorkspace]:
@@ -784,7 +784,7 @@ class SupabaseTeamsWorkspaceStore:
             return [self._row_to_workspace(row) for row in result.data]
 
         except (ConnectionError, TimeoutError, OSError, ValueError, KeyError) as e:
-            logger.error(f"Failed to list Teams workspaces from Supabase: {e}")
+            logger.error("Failed to list Teams workspaces from Supabase: %s", e)
             return []
 
     def deactivate(self, tenant_id: str) -> bool:
@@ -800,11 +800,11 @@ class SupabaseTeamsWorkspaceStore:
                 }
             ).eq("tenant_id", tenant_id).execute()
 
-            logger.info(f"Deactivated Teams workspace in Supabase: {tenant_id}")
+            logger.info("Deactivated Teams workspace in Supabase: %s", tenant_id)
             return True
 
         except (ConnectionError, TimeoutError, OSError, ValueError, KeyError) as e:
-            logger.error(f"Failed to deactivate Teams workspace in Supabase: {e}")
+            logger.error("Failed to deactivate Teams workspace in Supabase: %s", e)
             return False
 
     def delete(self, tenant_id: str) -> bool:
@@ -815,11 +815,11 @@ class SupabaseTeamsWorkspaceStore:
         try:
             self._client.table("teams_workspaces").delete().eq("tenant_id", tenant_id).execute()
 
-            logger.info(f"Deleted Teams workspace from Supabase: {tenant_id}")
+            logger.info("Deleted Teams workspace from Supabase: %s", tenant_id)
             return True
 
         except (ConnectionError, TimeoutError, OSError, ValueError, KeyError) as e:
-            logger.error(f"Failed to delete Teams workspace from Supabase: {e}")
+            logger.error("Failed to delete Teams workspace from Supabase: %s", e)
             return False
 
     def count(self, active_only: bool = True) -> int:
@@ -836,7 +836,7 @@ class SupabaseTeamsWorkspaceStore:
             return result.count or 0
 
         except (ConnectionError, TimeoutError, OSError, ValueError, KeyError) as e:
-            logger.error(f"Failed to count Teams workspaces in Supabase: {e}")
+            logger.error("Failed to count Teams workspaces in Supabase: %s", e)
             return 0
 
     def get_stats(self) -> dict[str, Any]:
@@ -855,7 +855,7 @@ class SupabaseTeamsWorkspaceStore:
             }
 
         except (ConnectionError, TimeoutError, OSError, ValueError, KeyError) as e:
-            logger.error(f"Failed to get Teams workspace stats from Supabase: {e}")
+            logger.error("Failed to get Teams workspace stats from Supabase: %s", e)
             return {"total_workspaces": 0, "active_workspaces": 0}
 
     def _row_to_workspace(self, row: dict[str, Any]) -> TeamsWorkspace:

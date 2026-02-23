@@ -238,7 +238,7 @@ class SessionManager:
             try:
                 handler(event)
             except (ValueError, TypeError, RuntimeError, OSError) as e:
-                logger.warning(f"Event handler error: {e}")
+                logger.warning("Event handler error: %s", e)
 
     def _generate_session_id(self) -> str:
         """Generate a secure session ID."""
@@ -400,7 +400,7 @@ class SessionManager:
                 )
             )
 
-            logger.info(f"Created collaboration session {session_id} for debate {debate_id}")
+            logger.info("Created collaboration session %s for debate %s", session_id, debate_id)
             return session
 
     def get_session(self, session_id: str) -> CollaborationSession | None:
@@ -518,7 +518,7 @@ class SessionManager:
                 )
             )
 
-            logger.info(f"User {user_id} joined session {session_id}")
+            logger.info("User %s joined session %s", user_id, session_id)
             return True, "Joined successfully", participant
 
     def leave_session(self, session_id: str, user_id: str) -> bool:
@@ -548,7 +548,7 @@ class SessionManager:
                 )
             )
 
-            logger.info(f"User {user_id} left session {session_id}")
+            logger.info("User %s left session %s", user_id, session_id)
             return True
 
     def update_presence(
@@ -729,7 +729,7 @@ class SessionManager:
                 )
             )
 
-            logger.info(f"Session {session_id} closed by {closed_by}")
+            logger.info("Session %s closed by %s", session_id, closed_by)
             return True
 
     def get_stats(self) -> dict[str, Any]:

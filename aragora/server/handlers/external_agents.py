@@ -263,7 +263,7 @@ class ExternalAgentsHandler(BaseHandler):
                 permissions=permissions,
             )
         except (ImportError, AttributeError, KeyError, TypeError) as e:
-            logger.debug(f"Failed to set auth context: {type(e).__name__}: {e}")
+            logger.debug("Failed to set auth context: %s: %s", type(e).__name__, e)
             self._auth_context = None
 
     @require_permission(AGENTS_READ_PERMISSION)
@@ -287,7 +287,7 @@ class ExternalAgentsHandler(BaseHandler):
                 }
             )
         except (AttributeError, TypeError, ValueError) as e:
-            logger.error(f"Failed to list adapters: {e}")
+            logger.error("Failed to list adapters: %s", e)
             return error_response("Failed to list adapters", 500)
 
     @require_permission(AGENTS_READ_PERMISSION)
@@ -329,7 +329,7 @@ class ExternalAgentsHandler(BaseHandler):
                 }
             )
         except (ImportError, AttributeError, TypeError, ValueError, RuntimeError) as e:
-            logger.error(f"Health check failed: {e}")
+            logger.error("Health check failed: %s", e)
             return error_response("Health check failed", 500)
 
     @require_permission(AGENTS_WRITE_PERMISSION)
@@ -440,7 +440,7 @@ class ExternalAgentsHandler(BaseHandler):
         except (ImportError, ConnectionError, TimeoutError, OSError, ValueError, RuntimeError) as e:
             # Record failure for circuit breaker
             cb.record_failure()
-            logger.error(f"Task submission failed: {e}")
+            logger.error("Task submission failed: %s", e)
             return error_response("Task submission failed", 500)
 
     @require_permission(AGENTS_READ_PERMISSION)
@@ -497,7 +497,7 @@ class ExternalAgentsHandler(BaseHandler):
         except KeyError:
             return error_response(f"Task not found: {task_id}", 404)
         except (ImportError, ConnectionError, TimeoutError, OSError, ValueError, RuntimeError) as e:
-            logger.error(f"Failed to get task {task_id}: {e}")
+            logger.error("Failed to get task %s: %s", task_id, e)
             return error_response("Failed to retrieve task", 500)
 
     @require_permission(AGENTS_WRITE_PERMISSION)
@@ -540,7 +540,7 @@ class ExternalAgentsHandler(BaseHandler):
             )
 
         except (ImportError, ConnectionError, TimeoutError, OSError, ValueError, RuntimeError) as e:
-            logger.error(f"Failed to cancel task {task_id}: {e}")
+            logger.error("Failed to cancel task %s: %s", task_id, e)
             return error_response("Task cancellation failed", 500)
 
 
@@ -561,4 +561,4 @@ def _record_metrics(
     except ImportError:
         pass  # Prometheus not available
     except (TypeError, ValueError, AttributeError) as e:
-        logger.debug(f"Metrics recording failed: {e}")
+        logger.debug("Metrics recording failed: %s", e)

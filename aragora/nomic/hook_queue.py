@@ -198,8 +198,7 @@ class HookQueue:
             [e for e in self._entries.values() if e.status == HookEntryStatus.QUEUED]
         )
         logger.info(
-            f"HookQueue initialized for {self.agent_id}: "
-            f"{len(self._entries)} entries, {pending_count} pending"
+            "HookQueue initialized for %s: %s entries, %s pending", self.agent_id, len(self._entries), pending_count
         )
 
     def _load_entries_sync(self) -> dict[str, HookEntry]:
@@ -219,9 +218,9 @@ class HookQueue:
                         entry = HookEntry.from_dict(data)
                         entries[entry.id] = entry
                     except (json.JSONDecodeError, KeyError) as e:
-                        logger.warning(f"Invalid hook entry: {e}")
+                        logger.warning("Invalid hook entry: %s", e)
         except OSError as e:
-            logger.error(f"Failed to load hook entries: {e}")
+            logger.error("Failed to load hook entries: %s", e)
         return entries
 
     async def _load_entries(self) -> None:
@@ -275,7 +274,7 @@ class HookQueue:
             if existing:
                 entry = existing[0]
                 if entry.status in (HookEntryStatus.QUEUED, HookEntryStatus.PROCESSING):
-                    logger.warning(f"Bead {bead_id} already in hook for {self.agent_id}")
+                    logger.warning("Bead %s already in hook for %s", bead_id, self.agent_id)
                     return entry
 
             entry = HookEntry.create(
@@ -288,7 +287,7 @@ class HookQueue:
             self._entries[entry.id] = entry
             await self._save_entries()
 
-            logger.debug(f"Pushed bead {bead_id} to hook for {self.agent_id}")
+            logger.debug("Pushed bead %s to hook for %s", bead_id, self.agent_id)
             return entry
 
     async def pop(self) -> Bead | None:
@@ -373,7 +372,7 @@ class HookQueue:
             # Update bead status
             await self.bead_store.update_status(bead_id, BeadStatus.COMPLETED)
 
-            logger.debug(f"Completed bead {bead_id} in hook for {self.agent_id}")
+            logger.debug("Completed bead %s in hook for %s", bead_id, self.agent_id)
 
     async def fail(self, bead_id: str, error_message: str) -> bool:
         """
@@ -400,8 +399,7 @@ class HookQueue:
                 entry.status = HookEntryStatus.QUEUED
                 await self._save_entries()
                 logger.info(
-                    f"Bead {bead_id} failed (attempt {entry.attempt_count}/{entry.max_attempts}), "
-                    f"will retry"
+                    "Bead %s failed (attempt %s/%s), will retry", bead_id, entry.attempt_count, entry.max_attempts
                 )
                 return True
             else:
@@ -412,7 +410,7 @@ class HookQueue:
 
                 # Update bead status
                 await self.bead_store.update_status(bead_id, BeadStatus.FAILED, error_message)
-                logger.warning(f"Bead {bead_id} failed after {entry.attempt_count} attempts")
+                logger.warning("Bead %s failed after %s attempts", bead_id, entry.attempt_count)
                 return False
 
     async def has_work(self) -> bool:
@@ -451,7 +449,7 @@ class HookQueue:
                 if bead and not bead.is_terminal():
                     beads.append(bead)
 
-            logger.info(f"GUPP recovery for {self.agent_id}: {len(beads)} beads to process")
+            logger.info("GUPP recovery for %s: %s beads to process", self.agent_id, len(beads))
             return beads
 
     async def get_statistics(self) -> dict[str, Any]:
@@ -556,7 +554,7 @@ class HookQueueRegistry:
                 results[agent_id] = beads
 
         total_beads = sum(len(beads) for beads in results.values())
-        logger.info(f"GUPP recovery complete: {len(results)} agents, {total_beads} beads")
+        logger.info("GUPP recovery complete: %s agents, %s beads", len(results), total_beads)
         return results
 
     async def get_all_statistics(self) -> dict[str, Any]:

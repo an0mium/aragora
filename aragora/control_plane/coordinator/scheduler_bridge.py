@@ -188,7 +188,7 @@ class SchedulerBridge:
                     metadata=metadata,
                 )
             except (ImportError, AttributeError, RuntimeError) as e:
-                logger.debug(f"Notification error on task submission: {e}")
+                logger.debug("Notification error on task submission: %s", e)
 
             return task_id
 
@@ -243,7 +243,7 @@ class SchedulerBridge:
                     workspace_id=task.metadata.get("workspace_id") if task.metadata else None,
                 )
             except (ImportError, AttributeError, RuntimeError) as e:
-                logger.debug(f"Notification error on task claim: {e}")
+                logger.debug("Notification error on task claim: %s", e)
 
         return task
 
@@ -376,7 +376,7 @@ class SchedulerBridge:
                         ),
                     )
                 except (ImportError, AttributeError, RuntimeError) as e:
-                    logger.debug(f"Notification error on task completion: {e}")
+                    logger.debug("Notification error on task completion: %s", e)
 
             return success
 
@@ -467,7 +467,7 @@ class SchedulerBridge:
                     ),
                 )
             except (ImportError, AttributeError, RuntimeError) as e:
-                logger.debug(f"Notification error on task failure: {e}")
+                logger.debug("Notification error on task failure: %s", e)
 
             return success
 

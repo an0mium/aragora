@@ -173,7 +173,7 @@ class FederatedAgentPool:
 
         self._connected = False
 
-        logger.info(f"[FederatedAgentPool] Initialized instance {self._instance_id}")
+        logger.info("[FederatedAgentPool] Initialized instance %s", self._instance_id)
 
     def _generate_instance_id(self) -> str:
         """Generate a unique instance ID."""
@@ -202,7 +202,7 @@ class FederatedAgentPool:
                 await self._event_bus.subscribe(self._handle_remote_event)
 
         self._connected = True
-        logger.info(f"[FederatedAgentPool] Connected with {len(self._agents)} agents")
+        logger.info("[FederatedAgentPool] Connected with %s agents", len(self._agents))
 
     async def close(self) -> None:
         """Stop the federated pool."""
@@ -244,7 +244,7 @@ class FederatedAgentPool:
             except asyncio.CancelledError:
                 break
             except (OSError, ConnectionError, RuntimeError) as e:
-                logger.error(f"[FederatedAgentPool] Discovery error: {e}")
+                logger.error("[FederatedAgentPool] Discovery error: %s", e)
 
     async def _discover_remote_agents(self) -> None:
         """Discover agents from remote instances via event bus."""
@@ -275,11 +275,11 @@ class FederatedAgentPool:
                     await self._event_bus.publish(event)
 
             logger.debug(
-                f"[FederatedAgentPool] Published {len(self.list_local_agents())} agents for discovery"
+                "[FederatedAgentPool] Published %s agents for discovery", len(self.list_local_agents())
             )
 
         except (OSError, ConnectionError, RuntimeError) as e:
-            logger.error(f"[FederatedAgentPool] Discovery broadcast failed: {e}")
+            logger.error("[FederatedAgentPool] Discovery broadcast failed: %s", e)
 
     async def _health_check_loop(self) -> None:
         """Periodically check agent health."""
@@ -290,7 +290,7 @@ class FederatedAgentPool:
             except asyncio.CancelledError:
                 break
             except (OSError, ConnectionError, RuntimeError) as e:
-                logger.error(f"[FederatedAgentPool] Health check error: {e}")
+                logger.error("[FederatedAgentPool] Health check error: %s", e)
 
     async def _check_agent_health(self) -> None:
         """Check health of all agents."""
@@ -344,7 +344,7 @@ class FederatedAgentPool:
                     self._agents[agent_id] = remote_agent
                     self._remote_instances[source_region] = {"last_seen": time.time()}
                     logger.debug(
-                        f"[FederatedAgentPool] Added remote agent {agent_id} from {source_region}"
+                        "[FederatedAgentPool] Added remote agent %s from %s", agent_id, source_region
                     )
 
             elif event_type == RegionalEventType.AGENT_UNREGISTERED:
@@ -354,7 +354,7 @@ class FederatedAgentPool:
                     agent = self._agents[agent_id]
                     if not agent.is_local:
                         del self._agents[agent_id]
-                        logger.debug(f"[FederatedAgentPool] Removed remote agent {agent_id}")
+                        logger.debug("[FederatedAgentPool] Removed remote agent %s", agent_id)
 
             elif event_type == RegionalEventType.AGENT_UPDATED:
                 # Update remote agent status
@@ -365,7 +365,7 @@ class FederatedAgentPool:
                         if "status" in data:
                             agent.info.status = data["status"]
                         agent.last_success_at = time.time()
-                        logger.debug(f"[FederatedAgentPool] Updated remote agent {agent_id}")
+                        logger.debug("[FederatedAgentPool] Updated remote agent %s", agent_id)
 
             elif event_type == RegionalEventType.AGENT_HEARTBEAT:
                 # Update last seen timestamp for remote agent
@@ -377,7 +377,7 @@ class FederatedAgentPool:
                         agent.consecutive_failures = 0
 
         except (RuntimeError, ValueError, KeyError) as e:
-            logger.error(f"[FederatedAgentPool] Error handling remote event: {e}")
+            logger.error("[FederatedAgentPool] Error handling remote event: %s", e)
 
     def find_agents(
         self,
@@ -561,9 +561,9 @@ class FederatedAgentPool:
                 )
                 await self._event_bus.publish(event)
             except (OSError, ConnectionError, RuntimeError) as e:
-                logger.warning(f"[FederatedAgentPool] Failed to broadcast agent registration: {e}")
+                logger.warning("[FederatedAgentPool] Failed to broadcast agent registration: %s", e)
 
-        logger.info(f"[FederatedAgentPool] Registered agent {agent_id}")
+        logger.info("[FederatedAgentPool] Registered agent %s", agent_id)
         return agent
 
     async def unregister_agent(self, agent_id: str) -> bool:
@@ -601,10 +601,10 @@ class FederatedAgentPool:
                     await self._event_bus.publish(event)
                 except (OSError, ConnectionError, RuntimeError) as e:
                     logger.warning(
-                        f"[FederatedAgentPool] Failed to broadcast agent unregistration: {e}"
+                        "[FederatedAgentPool] Failed to broadcast agent unregistration: %s", e
                     )
 
-            logger.info(f"[FederatedAgentPool] Unregistered agent {agent_id}")
+            logger.info("[FederatedAgentPool] Unregistered agent %s", agent_id)
             return True
 
         return False

@@ -51,7 +51,7 @@ try:
 except ImportError as e:
     AB_TESTING_AVAILABLE = False
     ABTestManager = None
-    logger.debug(f"A/B testing module not available: {e}")
+    logger.debug("A/B testing module not available: %s", e)
 
 
 class EvolutionABTestingHandler(BaseHandler):
@@ -376,7 +376,7 @@ class EvolutionABTestingHandler(BaseHandler):
 
         except ValueError as e:
             # Business logic conflict (e.g., duplicate test, invalid state)
-            logger.warning(f"A/B test creation conflict: {e}")
+            logger.warning("A/B test creation conflict: %s", e)
             return error_response("A/B test creation failed - conflict", 409)
 
     @handle_errors("record A/B test result")
@@ -466,7 +466,7 @@ class EvolutionABTestingHandler(BaseHandler):
             )
 
         except ValueError as e:
-            logger.warning(f"A/B test conclusion failed: {type(e).__name__}: {e}")
+            logger.warning("A/B test conclusion failed: %s: %s", type(e).__name__, e)
             return error_response("A/B test conclusion failed", 400)
 
     @handle_errors("cancel A/B test")

@@ -174,7 +174,7 @@ class SharingOperationsMixin:
             logger.warning("Handler error: %s", e)
             return error_response("Resource not found", 404)
         except (KeyError, OSError, TypeError, RuntimeError, AttributeError) as e:
-            logger.error(f"Failed to share item: {e}")
+            logger.error("Failed to share item: %s", e)
             return error_response("Failed to share item", 500)
 
         # Track metrics
@@ -230,7 +230,7 @@ class SharingOperationsMixin:
                 )
             )
         except (KeyError, ValueError, OSError, TypeError, RuntimeError, AttributeError) as e:
-            logger.error(f"Failed to get shared items: {e}")
+            logger.error("Failed to get shared items: %s", e)
             return error_response("Failed to get shared items", 500)
 
         return json_response(
@@ -296,7 +296,7 @@ class SharingOperationsMixin:
             logger.warning("Handler error: %s", e)
             return error_response("Resource not found", 404)
         except (KeyError, OSError, TypeError, RuntimeError, AttributeError) as e:
-            logger.error(f"Failed to revoke share: {e}")
+            logger.error("Failed to revoke share: %s", e)
             return error_response("Failed to revoke share", 500)
 
         return json_response(
@@ -338,7 +338,7 @@ class SharingOperationsMixin:
                 )
             )
         except (KeyError, ValueError, OSError, TypeError, RuntimeError, AttributeError) as e:
-            logger.error(f"Failed to list shares: {e}")
+            logger.error("Failed to list shares: %s", e)
             return error_response("Failed to list shares", 500)
 
         return json_response(
@@ -409,7 +409,7 @@ class SharingOperationsMixin:
             logger.warning("Handler error: %s", e)
             return error_response("Resource not found", 404)
         except (KeyError, OSError, TypeError, RuntimeError, AttributeError) as e:
-            logger.error(f"Failed to update share: {e}")
+            logger.error("Failed to update share: %s", e)
             return error_response("Failed to update share", 500)
 
         return json_response(

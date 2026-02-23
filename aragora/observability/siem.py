@@ -94,7 +94,7 @@ class SIEMConfig:
         try:
             backend = SIEMBackend(backend_str)
         except ValueError:
-            logger.warning(f"Unknown SIEM backend: {backend_str}, using none")
+            logger.warning("Unknown SIEM backend: %s, using none", backend_str)
             backend = SIEMBackend.NONE
 
         return cls(
@@ -232,7 +232,7 @@ class SIEMClient:
         """Start background worker thread."""
         self._worker = threading.Thread(target=self._worker_loop, daemon=True)
         self._worker.start()
-        logger.info(f"SIEM worker started: backend={self.config.backend.value}")
+        logger.info("SIEM worker started: backend=%s", self.config.backend.value)
 
     def _worker_loop(self) -> None:
         """Background worker that batches and sends events."""
@@ -279,11 +279,11 @@ class SIEMClient:
             else:
                 # Log locally if no backend configured
                 for event in events:
-                    logger.info(f"SIEM event: {event.to_json()}")
+                    logger.info("SIEM event: %s", event.to_json())
 
-            logger.debug(f"Sent {len(events)} events to {self.config.backend.value}")
+            logger.debug("Sent %s events to %s", len(events), self.config.backend.value)
         except (OSError, ConnectionError, ImportError, ValueError) as e:
-            logger.error(f"Failed to send SIEM batch: {e}")
+            logger.error("Failed to send SIEM batch: %s", e)
 
     def _send_to_splunk(self, events: list[SecurityEvent]) -> None:
         """Send events to Splunk HTTP Event Collector."""

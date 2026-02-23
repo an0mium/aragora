@@ -150,7 +150,7 @@ class VoiceWakeManager:
             return
 
         self._running = True
-        logger.info(f"VoiceWakeManager started with wake words: {self._config.wake_words}")
+        logger.info("VoiceWakeManager started with wake words: %s", self._config.wake_words)
 
     async def stop(self) -> None:
         """Stop the voice wake manager and all listeners."""
@@ -186,7 +186,7 @@ class VoiceWakeManager:
             self._listener_tasks[device_id] = task
 
             await self._notify_state_change(device_id, VoiceActivityState.LISTENING)
-            logger.info(f"Started listening on device {device_id}")
+            logger.info("Started listening on device %s", device_id)
             return True
 
     async def stop_listening(self, device_id: str) -> bool:
@@ -196,7 +196,7 @@ class VoiceWakeManager:
             task.cancel()
             self._device_states[device_id] = VoiceActivityState.IDLE
             await self._notify_state_change(device_id, VoiceActivityState.IDLE)
-            logger.info(f"Stopped listening on device {device_id}")
+            logger.info("Stopped listening on device %s", device_id)
             return True
         return False
 
@@ -215,7 +215,7 @@ class VoiceWakeManager:
             except asyncio.CancelledError:
                 break
             except (RuntimeError, OSError, ValueError) as e:
-                logger.error(f"Error in listen loop for {device_id}: {e}")
+                logger.error("Error in listen loop for %s: %s", device_id, e)
                 await asyncio.sleep(1.0)
 
     # ========== Wake Word Detection ==========
@@ -301,7 +301,7 @@ class VoiceWakeManager:
         # Notify callbacks
         await self._notify_wake_detected(event)
 
-        logger.info(f"Wake word '{word}' detected on {device_id} (conf: {confidence})")
+        logger.info("Wake word '%s' detected on %s (conf: %s)", word, device_id, confidence)
         return event
 
     # ========== Session Management ==========
@@ -367,7 +367,7 @@ class VoiceWakeManager:
 
             await self._notify_state_change(session.device_id, VoiceActivityState.LISTENING)
 
-            logger.debug(f"Session {session_id} ended: {reason}")
+            logger.debug("Session %s ended: %s", session_id, reason)
             return True
 
     async def get_session(self, session_id: str) -> VoiceSession | None:
@@ -431,7 +431,7 @@ class VoiceWakeManager:
 
         await self._notify_command_processed(command)
 
-        logger.info(f"Processed command: '{transcript}' -> intent={intent}")
+        logger.info("Processed command: '%s' -> intent=%s", transcript, intent)
         return command
 
     async def _parse_command(
@@ -512,7 +512,7 @@ class VoiceWakeManager:
                 else:
                     callback(event)
             except (RuntimeError, ValueError, AttributeError) as e:  # user-supplied callback
-                logger.error(f"Wake callback error: {e}")
+                logger.error("Wake callback error: %s", e)
 
     async def _notify_command_processed(self, command: VoiceCommand) -> None:
         """Notify command processed callbacks."""
@@ -523,7 +523,7 @@ class VoiceWakeManager:
                 else:
                     callback(command)
             except (RuntimeError, ValueError, AttributeError) as e:  # user-supplied callback
-                logger.error(f"Command callback error: {e}")
+                logger.error("Command callback error: %s", e)
 
     async def _notify_state_change(
         self,
@@ -538,7 +538,7 @@ class VoiceWakeManager:
                 else:
                     callback(device_id, state)
             except (RuntimeError, ValueError, AttributeError) as e:  # user-supplied callback
-                logger.error(f"State callback error: {e}")
+                logger.error("State callback error: %s", e)
 
     # ========== Device State ==========
 

@@ -103,7 +103,7 @@ class AuthContext:
                 for role in roles:
                     permissions |= get_role_permissions(role, include_inherited=True)
             except (ImportError, Exception) as e:
-                logger.debug(f"Could not resolve RBAC permissions from roles: {e}")
+                logger.debug("Could not resolve RBAC permissions from roles: %s", e)
 
         return AuthorizationContext(
             user_id=self.user_id or "anonymous",
@@ -318,7 +318,7 @@ def require_auth_or_localhost(func: Callable) -> Callable:
             if isinstance(addr, tuple) and len(addr) >= 1:
                 direct_ip = str(addr[0])
                 if direct_ip in ("127.0.0.1", "::1"):
-                    logger.debug(f"Allowing localhost access from {direct_ip}")
+                    logger.debug("Allowing localhost access from %s", direct_ip)
                     return func(*args, **kwargs)
 
         # Not localhost or in production - require auth

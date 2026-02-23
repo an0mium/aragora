@@ -285,8 +285,7 @@ class ApprovalWorkflow:
             self._by_approver[approver_id].append(request.id)
 
         logger.info(
-            f"Access request created: id={request.id}, "
-            f"requester={requester_id}, permission={permission}"
+            "Access request created: id=%s, requester=%s, permission=%s", request.id, requester_id, permission
         )
 
         # Log audit event
@@ -359,7 +358,7 @@ class ApprovalWorkflow:
             # Grant the permission
             await self._grant_temporary_permission(request)
 
-            logger.info(f"Access request approved: id={request_id}")
+            logger.info("Access request approved: id=%s", request_id)
 
         # Audit log
         await self._audit_log(
@@ -416,7 +415,7 @@ class ApprovalWorkflow:
         request.status = ApprovalStatus.REJECTED
         request.resolved_at = datetime.now(timezone.utc)
 
-        logger.info(f"Access request rejected: id={request_id}, reason={reason}")
+        logger.info("Access request rejected: id=%s, reason=%s", request_id, reason)
 
         # Audit log
         await self._audit_log(
@@ -461,7 +460,7 @@ class ApprovalWorkflow:
         request.resolved_at = datetime.now(timezone.utc)
         request.metadata["cancellation_reason"] = reason
 
-        logger.info(f"Access request cancelled: id={request_id}")
+        logger.info("Access request cancelled: id=%s", request_id)
 
         await self._audit_log(
             "access_request_cancelled",
@@ -560,7 +559,7 @@ class ApprovalWorkflow:
                 )
 
         if count > 0:
-            logger.info(f"Expired {count} old access requests")
+            logger.info("Expired %s old access requests", count)
 
         return count
 
@@ -598,7 +597,7 @@ class ApprovalWorkflow:
             count += 1
 
         if count > 0:
-            logger.info(f"Cleaned up {count} old resolved requests")
+            logger.info("Cleaned up %s old resolved requests", count)
 
         return count
 
@@ -666,7 +665,7 @@ class ApprovalWorkflow:
 
             if approvers:
                 logger.debug(
-                    f"Found {len(approvers)} approvers for {admin_permission}: {approvers}"
+                    "Found %s approvers for %s: %s", len(approvers), admin_permission, approvers
                 )
                 return approvers
 
@@ -682,7 +681,7 @@ class ApprovalWorkflow:
             return approvers
 
         except ImportError as e:
-            logger.warning(f"PermissionChecker not available: {e}")
+            logger.warning("PermissionChecker not available: %s", e)
             return []
         except (
             OSError,
@@ -694,10 +693,10 @@ class ApprovalWorkflow:
             ConnectionError,
             TimeoutError,
         ) as e:
-            logger.warning(f"Error finding default approvers: {e}")
+            logger.warning("Error finding default approvers: %s", e)
             return []
         except Exception as e:  # noqa: BLE001 - catch-all for unexpected errors (e.g., database driver errors) to avoid breaking approval flow
-            logger.warning(f"Unexpected error finding default approvers: {e}")
+            logger.warning("Unexpected error finding default approvers: %s", e)
             return []
 
     async def _grant_temporary_permission(self, request: ApprovalRequest) -> None:
@@ -731,8 +730,7 @@ class ApprovalWorkflow:
             )
 
             logger.info(
-                f"Granted temporary permission: user={request.requester_id}, "
-                f"permission={request.permission}, expires={expires_at}"
+                "Granted temporary permission: user=%s, permission=%s, expires=%s", request.requester_id, request.permission, expires_at
             )
 
         except ImportError:
@@ -750,7 +748,7 @@ class ApprovalWorkflow:
             )
         except ImportError:
             # Fallback to standard logging
-            logger.info(f"Approval audit: {event_type} - {kwargs}")
+            logger.info("Approval audit: %s - %s", event_type, kwargs)
 
 
 # Singleton instance

@@ -67,17 +67,17 @@ class DebateAnalyticsMixin:
             return json_response(summary.to_dict())
 
         except ValueError as e:
-            logger.warning(f"Invalid analytics summary parameter: {e}")
+            logger.warning("Invalid analytics summary parameter: %s", e)
             return error_response(
                 f"Invalid time_range: {time_range_str}", 400, code="INVALID_TIME_RANGE"
             )
         except (KeyError, TypeError, AttributeError) as e:
-            logger.warning(f"Data error in analytics summary: {e}")
+            logger.warning("Data error in analytics summary: %s", e)
             return error_response(
                 safe_error_message(e, "analytics summary"), 400, code="DATA_ERROR"
             )
         except (ImportError, RuntimeError, OSError) as e:
-            logger.exception(f"Unexpected error getting analytics summary: {e}")
+            logger.exception("Unexpected error getting analytics summary: %s", e)
             return error_response(
                 safe_error_message(e, "analytics summary"), 500, code="INTERNAL_ERROR"
             )
@@ -135,13 +135,13 @@ class DebateAnalyticsMixin:
             )
 
         except ValueError as e:
-            logger.warning(f"Invalid finding trends parameter: {e}")
+            logger.warning("Invalid finding trends parameter: %s", e)
             return error_response("Invalid parameter", 400, code="INVALID_PARAMETER")
         except (KeyError, TypeError, AttributeError) as e:
-            logger.warning(f"Data error in finding trends: {e}")
+            logger.warning("Data error in finding trends: %s", e)
             return error_response(safe_error_message(e, "finding trends"), 400, code="DATA_ERROR")
         except (ImportError, RuntimeError, OSError) as e:
-            logger.exception(f"Unexpected error getting finding trends: {e}")
+            logger.exception("Unexpected error getting finding trends: %s", e)
             return error_response(
                 safe_error_message(e, "finding trends"), 500, code="INTERNAL_ERROR"
             )
@@ -184,15 +184,15 @@ class DebateAnalyticsMixin:
             )
 
         except ValueError as e:
-            logger.warning(f"Invalid remediation metrics parameter: {e}")
+            logger.warning("Invalid remediation metrics parameter: %s", e)
             return error_response("Invalid parameter", 400, code="INVALID_PARAMETER")
         except (KeyError, TypeError, AttributeError) as e:
-            logger.warning(f"Data error in remediation metrics: {e}")
+            logger.warning("Data error in remediation metrics: %s", e)
             return error_response(
                 safe_error_message(e, "remediation metrics"), 400, code="DATA_ERROR"
             )
         except (ImportError, RuntimeError, OSError) as e:
-            logger.exception(f"Unexpected error getting remediation metrics: {e}")
+            logger.exception("Unexpected error getting remediation metrics: %s", e)
             return error_response(
                 safe_error_message(e, "remediation metrics"), 500, code="INTERNAL_ERROR"
             )
@@ -231,15 +231,15 @@ class DebateAnalyticsMixin:
             )
 
         except ValueError as e:
-            logger.warning(f"Invalid compliance scorecard parameter: {e}")
+            logger.warning("Invalid compliance scorecard parameter: %s", e)
             return error_response("Invalid parameter", 400, code="INVALID_PARAMETER")
         except (KeyError, TypeError, AttributeError) as e:
-            logger.warning(f"Data error in compliance scorecard: {e}")
+            logger.warning("Data error in compliance scorecard: %s", e)
             return error_response(
                 safe_error_message(e, "compliance scorecard"), 400, code="DATA_ERROR"
             )
         except (ImportError, RuntimeError, OSError) as e:
-            logger.exception(f"Unexpected error getting compliance scorecard: {e}")
+            logger.exception("Unexpected error getting compliance scorecard: %s", e)
             return error_response(
                 safe_error_message(e, "compliance scorecard"), 500, code="INTERNAL_ERROR"
             )
@@ -279,11 +279,11 @@ class DebateAnalyticsMixin:
             )
 
         except ValueError as e:
-            logger.warning(f"Invalid risk heatmap parameter: {e}")
+            logger.warning("Invalid risk heatmap parameter: %s", e)
             return error_response("Invalid parameter", 400, code="INVALID_PARAMETER")
         except (KeyError, TypeError, AttributeError) as e:
-            logger.warning(f"Data error in risk heatmap: {e}")
+            logger.warning("Data error in risk heatmap: %s", e)
             return error_response(safe_error_message(e, "risk heatmap"), 400, code="DATA_ERROR")
         except (ImportError, RuntimeError, OSError) as e:
-            logger.exception(f"Unexpected error getting risk heatmap: {e}")
+            logger.exception("Unexpected error getting risk heatmap: %s", e)
             return error_response(safe_error_message(e, "risk heatmap"), 500, code="INTERNAL_ERROR")

@@ -547,7 +547,7 @@ class AuthBridge:
         self._external_to_aragora: dict[str, list[PermissionMapping]] = {}
         self._rebuild_indexes()
 
-        logger.info(f"AuthBridge initialized with {len(self._permission_mappings)} mappings")
+        logger.info("AuthBridge initialized with %s mappings", len(self._permission_mappings))
 
     def _rebuild_indexes(self) -> None:
         """Rebuild permission mapping indexes."""
@@ -643,7 +643,7 @@ class AuthBridge:
         except AuthBridgeError:
             raise
         except (OSError, ConnectionError, RuntimeError, ValueError) as e:
-            logger.error(f"Authentication verification failed: {e}")
+            logger.error("Authentication verification failed: %s", e)
             if self._enable_audit and context:
                 await self._log_audit(
                     event_type="authentication",
@@ -693,7 +693,7 @@ class AuthBridge:
                 except (ValueError, RuntimeError, KeyError) as e:
                     # Fall back to userinfo fetch with access token
                     logger.debug(
-                        f"ID token validation failed, falling back to userinfo: {type(e).__name__}: {e}"
+                        "ID token validation failed, falling back to userinfo: %s: %s", type(e).__name__, e
                     )
                     tokens = {"access_token": token}
                     user = await provider._get_user_info(tokens)
@@ -705,7 +705,7 @@ class AuthBridge:
         except AuthenticationError:
             raise
         except (OSError, ConnectionError, RuntimeError, ValueError) as e:
-            logger.error(f"OIDC token verification failed: {e}")
+            logger.error("OIDC token verification failed: %s", e)
             raise AuthenticationError(
                 f"OIDC token verification failed: {e}",
                 {"token_type": "oidc"},
@@ -748,7 +748,7 @@ class AuthBridge:
         except AuthenticationError:
             raise
         except (OSError, ConnectionError, RuntimeError, ValueError) as e:
-            logger.error(f"SAML assertion verification failed: {e}")
+            logger.error("SAML assertion verification failed: %s", e)
             raise AuthenticationError(
                 f"SAML assertion verification failed: {e}",
                 {"token_type": "saml"},
@@ -791,7 +791,7 @@ class AuthBridge:
             )
 
         except (OSError, RuntimeError, ValueError) as e:
-            logger.error(f"API key verification failed: {e}")
+            logger.error("API key verification failed: %s", e)
             raise AuthenticationError(
                 f"API key verification failed: {e}",
                 {"token_type": "api_key"},
@@ -825,7 +825,7 @@ class AuthBridge:
                 try:
                     await hook.on_session_expired(session)
                 except (RuntimeError, ValueError, TypeError) as e:  # noqa: BLE001 - user-provided lifecycle hook callback
-                    logger.warning(f"Session expired hook failed: {e}")
+                    logger.warning("Session expired hook failed: %s", e)
             raise SessionExpiredError(session_id)
 
         if session.auth_context is None:
@@ -840,7 +840,7 @@ class AuthBridge:
             try:
                 await hook.on_session_accessed(session)
             except (RuntimeError, ValueError, TypeError) as e:  # noqa: BLE001 - user-provided lifecycle hook callback
-                logger.warning(f"Session accessed hook failed: {e}")
+                logger.warning("Session accessed hook failed: %s", e)
 
         return session.auth_context
 
@@ -948,7 +948,7 @@ class AuthBridge:
         self._permission_mappings.append(mapping)
         self._rebuild_indexes()
         logger.debug(
-            f"Added permission mapping: {mapping.aragora_permission} -> {mapping.external_action}"
+            "Added permission mapping: %s -> %s", mapping.aragora_permission, mapping.external_action
         )
 
     def remove_permission_mapping(
@@ -1220,11 +1220,11 @@ class AuthBridge:
                     },
                 )
 
-            logger.info(f"Token exchanged for user {context.user_id} targeting {target_audience}")
+            logger.info("Token exchanged for user %s targeting %s", context.user_id, target_audience)
             return result
 
         except (OSError, ConnectionError, RuntimeError, ValueError) as e:
-            logger.error(f"Token exchange failed: {e}")
+            logger.error("Token exchange failed: %s", e)
             raise AuthenticationError(
                 f"Token exchange failed: {e}",
                 {"target_audience": target_audience},
@@ -1271,7 +1271,7 @@ class AuthBridge:
             try:
                 await hook.on_session_created(session, context)
             except (RuntimeError, ValueError, TypeError) as e:  # noqa: BLE001 - user-provided lifecycle hook callback
-                logger.warning(f"Session created hook failed: {e}")
+                logger.warning("Session created hook failed: %s", e)
 
         if self._enable_audit:
             await self._log_audit(
@@ -1283,7 +1283,7 @@ class AuthBridge:
                 ip_address=context.ip_address,
             )
 
-        logger.info(f"Created bridged session {session_id} for user {context.user_id}")
+        logger.info("Created bridged session %s for user %s", session_id, context.user_id)
         return session
 
     async def get_session(self, session_id: str) -> BridgedSession | None:
@@ -1331,7 +1331,7 @@ class AuthBridge:
             try:
                 await hook.on_session_destroyed(session, reason)
             except (RuntimeError, ValueError, TypeError) as e:  # noqa: BLE001 - user-provided lifecycle hook callback
-                logger.warning(f"Session destroyed hook failed: {e}")
+                logger.warning("Session destroyed hook failed: %s", e)
 
         if self._enable_audit and session.auth_context:
             await self._log_audit(
@@ -1343,7 +1343,7 @@ class AuthBridge:
                 details={"reason": reason},
             )
 
-        logger.info(f"Destroyed session {session_id} (reason: {reason})")
+        logger.info("Destroyed session %s (reason: %s)", session_id, reason)
         return True
 
     async def cleanup_expired_sessions(self) -> int:
@@ -1358,7 +1358,7 @@ class AuthBridge:
             await self.destroy_session(session_id, reason="expired")
 
         if expired_ids:
-            logger.info(f"Cleaned up {len(expired_ids)} expired sessions")
+            logger.info("Cleaned up %s expired sessions", len(expired_ids))
 
         return len(expired_ids)
 
@@ -1427,7 +1427,7 @@ class AuthBridge:
         if len(self._audit_log) > 10000:
             self._audit_log = self._audit_log[-10000:]
 
-        logger.debug(f"Audit: {event_type} user={user_id} action={action} result={result}")
+        logger.debug("Audit: %s user=%s action=%s result=%s", event_type, user_id, action, result)
 
     async def get_audit_log(
         self,

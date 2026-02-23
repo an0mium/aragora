@@ -163,7 +163,7 @@ class UnifiedInboxHandler(BaseHandler):
             return error_response("Not found", 404)
 
         except (ValueError, KeyError, TypeError, RuntimeError, OSError) as e:
-            logger.exception(f"Error in unified inbox handler: {e}")
+            logger.exception("Error in unified inbox handler: %s", e)
             return error_response("Internal server error", 500)
 
     def _get_tenant_id(self, request: Any) -> str:
@@ -184,7 +184,7 @@ class UnifiedInboxHandler(BaseHandler):
                 return success_response(result["data"])
             return error_response(result["error"], result.get("status_code", 400))
         except (ConnectionError, TimeoutError, OSError, ValueError) as e:
-            logger.exception(f"Error generating Gmail OAuth URL: {e}")
+            logger.exception("Error generating Gmail OAuth URL: %s", e)
             return error_response("OAuth URL generation failed", 500)
 
     async def _handle_outlook_oauth_url(self, request: Any, tenant_id: str) -> HandlerResult:
@@ -196,7 +196,7 @@ class UnifiedInboxHandler(BaseHandler):
                 return success_response(result["data"])
             return error_response(result["error"], result.get("status_code", 400))
         except (ConnectionError, TimeoutError, OSError, ValueError) as e:
-            logger.exception(f"Error generating Outlook OAuth URL: {e}")
+            logger.exception("Error generating Outlook OAuth URL: %s", e)
             return error_response("OAuth URL generation failed", 500)
 
     # =========================================================================
@@ -251,7 +251,7 @@ class UnifiedInboxHandler(BaseHandler):
             if result.get("success"):
                 await self._store.save_account(tenant_id, account_to_record(account))
                 logger.info(
-                    f"Connected {provider.value} account for tenant {tenant_id}: {account.email_address}"
+                    "Connected %s account for tenant %s: %s", provider.value, tenant_id, account.email_address
                 )
                 return success_response(
                     {
@@ -263,7 +263,7 @@ class UnifiedInboxHandler(BaseHandler):
                 return error_response(result.get("error", "Failed to connect account"), 400)
 
         except (ConnectionError, TimeoutError, OSError, ValueError, KeyError) as e:
-            logger.exception(f"Error connecting account: {e}")
+            logger.exception("Error connecting account: %s", e)
             return error_response("Account connection failed", 500)
 
     # =========================================================================
@@ -297,7 +297,7 @@ class UnifiedInboxHandler(BaseHandler):
         await self._store.delete_account(tenant_id, account_id)
 
         logger.info(
-            f"Disconnected {account.provider.value} account for tenant {tenant_id}: {account.email_address}"
+            "Disconnected %s account for tenant %s: %s", account.provider.value, tenant_id, account.email_address
         )
 
         return success_response(
@@ -350,7 +350,7 @@ class UnifiedInboxHandler(BaseHandler):
             )
 
         except (KeyError, ValueError, TypeError) as e:
-            logger.exception(f"Error listing messages: {e}")
+            logger.exception("Error listing messages: %s", e)
             return error_response("Failed to list messages", 500)
 
     async def _handle_get_message(
@@ -412,7 +412,7 @@ class UnifiedInboxHandler(BaseHandler):
             )
 
         except (KeyError, ValueError, TypeError, ConnectionError) as e:
-            logger.exception(f"Error during triage: {e}")
+            logger.exception("Error during triage: %s", e)
             return error_response("Triage operation failed", 500)
 
     # =========================================================================
@@ -438,7 +438,7 @@ class UnifiedInboxHandler(BaseHandler):
             return success_response(result)
 
         except (KeyError, ValueError, TypeError) as e:
-            logger.exception(f"Error executing bulk action: {e}")
+            logger.exception("Error executing bulk action: %s", e)
             return error_response("Bulk action failed", 500)
 
     # =========================================================================
@@ -478,7 +478,7 @@ class UnifiedInboxHandler(BaseHandler):
                     {"last_sync": datetime.now(timezone.utc)},
                 )
             except (OSError, ValueError, KeyError) as e:
-                logger.warning(f"[UnifiedInbox] Failed to persist message: {e}")
+                logger.warning("[UnifiedInbox] Failed to persist message: %s", e)
 
         try:
             loop = asyncio.get_running_loop()

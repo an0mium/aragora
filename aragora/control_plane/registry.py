@@ -277,7 +277,7 @@ class AgentRegistry:
             # Test connection
             await self._redis.ping()
             _registry_redis_cb.record_success()
-            logger.info(f"AgentRegistry connected to Redis: {self._redis_url}")
+            logger.info("AgentRegistry connected to Redis: %s", self._redis_url)
 
             # Start background cleanup task
             self._cleanup_task = asyncio.create_task(self._cleanup_loop())
@@ -287,7 +287,7 @@ class AgentRegistry:
             self._redis = None
         except (ConnectionError, TimeoutError, OSError, RuntimeError) as e:
             _registry_redis_cb.record_failure(e)
-            logger.warning(f"Redis not available, using in-memory fallback: {e}")
+            logger.warning("Redis not available, using in-memory fallback: %s", e)
             self._redis = None
 
     async def close(self) -> None:
@@ -357,8 +357,7 @@ class AgentRegistry:
 
         await self._save_agent(agent)
         logger.info(
-            f"Agent registered: {agent_id} (model={model}, region={region_id}, "
-            f"capabilities={cap_strs})"
+            "Agent registered: %s (model=%s, region=%s, capabilities=%s)", agent_id, model, region_id, cap_strs
         )
 
         return agent
@@ -383,7 +382,7 @@ class AgentRegistry:
             self._local_cache.pop(agent_id, None)
 
         if deleted:
-            logger.info(f"Agent unregistered: {agent_id}")
+            logger.info("Agent unregistered: %s", agent_id)
 
         return deleted
 
@@ -769,7 +768,7 @@ class AgentRegistry:
 
         agent.status = status
         await self._save_agent(agent)
-        logger.debug(f"Agent {agent_id} status updated to {status.value}")
+        logger.debug("Agent %s status updated to %s", agent_id, status.value)
         return True
 
     async def record_task_completion(
@@ -864,7 +863,7 @@ class AgentRegistry:
             except asyncio.CancelledError:
                 break
             except (ConnectionError, TimeoutError, OSError, RuntimeError) as e:
-                logger.error(f"Error in cleanup loop: {e}")
+                logger.error("Error in cleanup loop: %s", e)
 
     async def _cleanup_stale_agents(self) -> int:
         """Mark agents as offline if heartbeat expired."""
@@ -877,9 +876,9 @@ class AgentRegistry:
                     agent.status = AgentStatus.OFFLINE
                     await self._save_agent(agent)
                     marked_offline += 1
-                    logger.warning(f"Agent marked offline: {agent.agent_id}")
+                    logger.warning("Agent marked offline: %s", agent.agent_id)
 
         if marked_offline > 0:
-            logger.info(f"Marked {marked_offline} agents as offline")
+            logger.info("Marked %s agents as offline", marked_offline)
 
         return marked_offline

@@ -175,7 +175,7 @@ class GatewayConfigHandler(BaseHandler):
         for key, value in body.items():
             # Skip unknown keys
             if key not in CONFIG_VALIDATORS:
-                logger.debug(f"Ignoring unknown config key: {key}")
+                logger.debug("Ignoring unknown config key: %s", key)
                 continue
 
             # Validate the value
@@ -197,7 +197,7 @@ class GatewayConfigHandler(BaseHandler):
 
         # Log changes for audit
         if changes:
-            logger.info(f"Gateway config updated: {', '.join(changes)}")
+            logger.info("Gateway config updated: %s", ', '.join(changes))
         else:
             logger.debug("Gateway config POST with no changes")
 

@@ -110,7 +110,7 @@ class NodeOperationsMixin:
                 )
             )
         except (KeyError, ValueError, OSError, TypeError, RuntimeError, AttributeError) as e:
-            logger.error(f"Mound query failed: {e}")
+            logger.error("Mound query failed: %s", e)
             return error_response("Query execution failed", 500)
 
         return json_response(
@@ -189,7 +189,7 @@ class NodeOperationsMixin:
             node_id = _run_async(mound.add_node(node))
             saved_node = _run_async(mound.get_node(node_id))
         except (KeyError, ValueError, OSError, TypeError, RuntimeError, AttributeError) as e:
-            logger.error(f"Failed to create node: {e}")
+            logger.error("Failed to create node: %s", e)
             return error_response("Failed to create node", 500)
 
         return json_response(saved_node.to_dict() if saved_node else {"id": node_id}, status=201)
@@ -206,7 +206,7 @@ class NodeOperationsMixin:
         try:
             node = _run_async(mound.get_node(node_id))
         except (KeyError, ValueError, OSError, TypeError, RuntimeError, AttributeError) as e:
-            logger.error(f"Failed to get node: {e}")
+            logger.error("Failed to get node: %s", e)
             return error_response("Failed to get node", 500)
 
         if not node:
@@ -267,7 +267,7 @@ class NodeOperationsMixin:
                     n for n in nodes if getattr(n, "metadata", {}).get("node_type") in node_types
                 ]
         except (KeyError, ValueError, OSError, TypeError, RuntimeError, AttributeError) as e:
-            logger.error(f"Failed to list nodes: {e}")
+            logger.error("Failed to list nodes: %s", e)
             return error_response("Failed to list nodes", 500)
 
         return json_response(
@@ -291,7 +291,7 @@ class NodeOperationsMixin:
         try:
             stats = _run_async(mound.get_stats())
         except (KeyError, ValueError, OSError, TypeError, RuntimeError, AttributeError) as e:
-            logger.error(f"Failed to get stats: {e}")
+            logger.error("Failed to get stats: %s", e)
             return error_response("Failed to retrieve statistics", 500)
 
         return json_response(stats)

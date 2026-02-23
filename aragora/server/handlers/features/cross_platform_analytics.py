@@ -506,7 +506,7 @@ class CrossPlatformAnalyticsHandler(SecureHandler):
             except UnauthorizedError:
                 return error_response("Authentication required for analytics", 401)
             except ForbiddenError as e:
-                logger.warning(f"Analytics access denied: {e}")
+                logger.warning("Analytics access denied: %s", e)
                 return error_response("Permission denied", 403)
 
             tenant_id = self._get_tenant_id(request)
@@ -564,7 +564,7 @@ class CrossPlatformAnalyticsHandler(SecureHandler):
             return error_response("Not found", 404)
 
         except (ValueError, KeyError, TypeError, RuntimeError, OSError) as e:
-            logger.exception(f"Error in cross-platform analytics handler: {e}")
+            logger.exception("Error in cross-platform analytics handler: %s", e)
             return error_response("Internal server error", 500)
 
     def _get_tenant_id(self, request: Any) -> str:
@@ -959,7 +959,7 @@ class CrossPlatformAnalyticsHandler(SecureHandler):
             return success_response(results)
 
         except (ValueError, KeyError, TypeError, RuntimeError, OSError) as e:
-            logger.exception(f"Query execution error: {e}")
+            logger.exception("Query execution error: %s", e)
             return error_response("Query execution failed", 500)
 
     # =========================================================================
@@ -1029,7 +1029,7 @@ class CrossPlatformAnalyticsHandler(SecureHandler):
             )
 
         except (ValueError, KeyError, TypeError, RuntimeError) as e:
-            logger.exception(f"Error creating alert: {e}")
+            logger.exception("Error creating alert: %s", e)
             return error_response("Alert creation failed", 500)
 
     async def _handle_acknowledge_alert(

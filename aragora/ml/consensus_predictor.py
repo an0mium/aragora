@@ -142,7 +142,7 @@ class ConsensusPredictor:
 
                 self._embedding_service = get_embedding_service()
             except (ImportError, RuntimeError, OSError, ValueError) as e:
-                logger.warning(f"Could not load embedding service: {e}")
+                logger.warning("Could not load embedding service: %s", e)
                 self.config.use_embeddings = False
         return self._embedding_service
 
@@ -154,7 +154,7 @@ class ConsensusPredictor:
 
                 self._quality_scorer = get_quality_scorer()
             except (ImportError, RuntimeError, ValueError) as e:
-                logger.warning(f"Could not load quality scorer: {e}")
+                logger.warning("Could not load quality scorer: %s", e)
         return self._quality_scorer
 
     def _extract_response_features(
@@ -177,14 +177,14 @@ class ConsensusPredictor:
                     rf.quality_score = score.overall
                     rf.confidence = score.confidence
                 except (RuntimeError, ValueError, TypeError) as e:
-                    logger.debug(f"Quality scoring failed: {e}")
+                    logger.debug("Quality scoring failed: %s", e)
 
             # Get embedding
             if embedding_service:
                 try:
                     rf.embedding = embedding_service.embed(text[:1000])
                 except (RuntimeError, ValueError, OSError) as e:
-                    logger.debug(f"Embedding failed: {e}")
+                    logger.debug("Embedding failed: %s", e)
 
             # Detect stance (simple heuristic)
             rf.stance = self._detect_stance(text)
@@ -490,7 +490,7 @@ class ConsensusPredictor:
             if len(self._prediction_accuracy) > 1000:
                 self._prediction_accuracy = self._prediction_accuracy[-1000:]
 
-        logger.debug(f"Recorded outcome for {debate_id}: consensus={reached_consensus}")
+        logger.debug("Recorded outcome for %s: consensus=%s", debate_id, reached_consensus)
 
     def get_calibration_stats(self) -> dict[str, float]:
         """Get calibration statistics.

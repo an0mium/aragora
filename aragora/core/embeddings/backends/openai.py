@@ -135,7 +135,7 @@ class OpenAIBackend(EmbeddingBackend):
                             retry_after = response.headers.get("Retry-After")
                             retry_seconds = float(retry_after) if retry_after else None
                             delay = retry_seconds or self.config.base_delay * (2**attempt)
-                            logger.warning(f"OpenAI rate limited, retrying in {delay}s")
+                            logger.warning("OpenAI rate limited, retrying in %ss", delay)
                             last_error = EmbeddingRateLimitError(
                                 "OpenAI rate limit exceeded",
                                 provider=self.provider_name,
@@ -184,7 +184,7 @@ class OpenAIBackend(EmbeddingBackend):
                 )
                 if attempt < self.config.max_retries - 1:
                     delay = self.config.base_delay * (2**attempt)
-                    logger.warning(f"OpenAI timeout, retrying in {delay}s")
+                    logger.warning("OpenAI timeout, retrying in %ss", delay)
                     await asyncio.sleep(delay)
                     continue
                 raise last_error
@@ -199,7 +199,7 @@ class OpenAIBackend(EmbeddingBackend):
                 )
                 if attempt < self.config.max_retries - 1:
                     delay = self.config.base_delay * (2**attempt)
-                    logger.warning(f"OpenAI connection error, retrying in {delay}s: {e}")
+                    logger.warning("OpenAI connection error, retrying in %ss: %s", delay, e)
                     await asyncio.sleep(delay)
                     continue
                 raise last_error
@@ -208,7 +208,7 @@ class OpenAIBackend(EmbeddingBackend):
                 self._record_failure()
                 if attempt < self.config.max_retries - 1:
                     delay = self.config.base_delay * (2**attempt)
-                    logger.warning(f"OpenAI API error, retrying in {delay}s: {e}")
+                    logger.warning("OpenAI API error, retrying in %ss: %s", delay, e)
                     await asyncio.sleep(delay)
                     continue
                 raise EmbeddingError(

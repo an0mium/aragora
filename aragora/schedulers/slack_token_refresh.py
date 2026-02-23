@@ -217,8 +217,7 @@ class SlackTokenRefreshScheduler:
         self._running = True
         self._task = asyncio.create_task(self._refresh_loop())
         logger.info(
-            f"Started Slack token refresh scheduler "
-            f"(interval={self.interval_minutes}min, window={self.expiry_window_hours}h)"
+            "Started Slack token refresh scheduler (interval=%smin, window=%sh)", self.interval_minutes, self.expiry_window_hours
         )
 
     async def stop(self) -> None:
@@ -247,14 +246,13 @@ class SlackTokenRefreshScheduler:
 
                 if stats.failed > 0:
                     logger.warning(
-                        f"Token refresh cycle completed with errors: "
-                        f"{stats.refreshed} refreshed, {stats.failed} failed"
+                        "Token refresh cycle completed with errors: %s refreshed, %s failed", stats.refreshed, stats.failed
                     )
                 elif stats.refreshed > 0:
-                    logger.info(f"Token refresh cycle completed: {stats.refreshed} refreshed")
+                    logger.info("Token refresh cycle completed: %s refreshed", stats.refreshed)
 
             except (ConnectionError, TimeoutError, OSError, RuntimeError, ValueError) as e:
-                logger.error(f"Error in token refresh cycle: {e}", exc_info=True)
+                logger.error("Error in token refresh cycle: %s", e, exc_info=True)
 
             # Wait for next cycle
             await asyncio.sleep(self.interval_minutes * 60)
@@ -274,7 +272,7 @@ class SlackTokenRefreshScheduler:
             # Update active workspaces metric (total checked represents active)
             _update_active_workspaces(len(expiring))
         except (OSError, RuntimeError, ValueError, KeyError) as e:
-            logger.error(f"Failed to get expiring tokens: {e}")
+            logger.error("Failed to get expiring tokens: %s", e)
             _record_refresh_failure("store_error")
             return stats
 
@@ -282,7 +280,7 @@ class SlackTokenRefreshScheduler:
             logger.debug("No tokens expiring soon")
             return stats
 
-        logger.info(f"Found {len(expiring)} tokens to refresh")
+        logger.info("Found %s tokens to refresh", len(expiring))
 
         # Refresh each token with small delays to avoid rate limiting
         for workspace in expiring:
@@ -300,7 +298,7 @@ class SlackTokenRefreshScheduler:
                     try:
                         self.on_refresh_failure(result)
                     except Exception as e:  # noqa: BLE001 - user-provided callback isolation
-                        logger.error(f"Error in refresh failure callback: {e}")
+                        logger.error("Error in refresh failure callback: %s", e)
 
             # Small delay between refreshes to avoid rate limiting
             await asyncio.sleep(0.5)
@@ -327,7 +325,7 @@ class SlackTokenRefreshScheduler:
             )
 
             if result:
-                logger.info(f"Successfully refreshed token for workspace: {workspace_name}")
+                logger.info("Successfully refreshed token for workspace: %s", workspace_name)
                 return RefreshResult(
                     workspace_id=workspace_id,
                     workspace_name=workspace_name,
@@ -335,7 +333,7 @@ class SlackTokenRefreshScheduler:
                 )
             else:
                 error = "Refresh returned None (token may be revoked)"
-                logger.warning(f"Failed to refresh token for {workspace_name}: {error}")
+                logger.warning("Failed to refresh token for %s: %s", workspace_name, error)
                 return RefreshResult(
                     workspace_id=workspace_id,
                     workspace_name=workspace_name,
@@ -345,7 +343,7 @@ class SlackTokenRefreshScheduler:
 
         except (ConnectionError, TimeoutError, OSError, RuntimeError, ValueError) as e:
             error = str(e)
-            logger.error(f"Exception refreshing token for {workspace_name}: {error}")
+            logger.error("Exception refreshing token for %s: %s", workspace_name, error)
             return RefreshResult(
                 workspace_id=workspace_id,
                 workspace_name=workspace_name,

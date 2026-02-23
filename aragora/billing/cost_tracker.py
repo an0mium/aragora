@@ -526,7 +526,7 @@ class CostTracker:
         # In production, this would persist to a time-series database
         buffer_size = len(self._usage_buffer)
         self._usage_buffer = []
-        logger.debug(f"Flushed {buffer_size} usage records from buffer")
+        logger.debug("Flushed %s usage records from buffer", buffer_size)
 
     async def _update_budget(self, usage: TokenUsage) -> None:
         """Update budget tracking and check for alerts."""
@@ -591,14 +591,14 @@ class CostTracker:
             try:
                 callback(alert)
             except (TypeError, ValueError, RuntimeError, OSError) as e:
-                logger.error(f"Alert callback failed: {e}")
+                logger.error("Alert callback failed: %s", e)
 
         # Store to Knowledge Mound if adapter configured
         if self._km_adapter:
             try:
                 self._km_adapter.store_alert(alert)
             except (OSError, ConnectionError, RuntimeError, ValueError) as e:
-                logger.error(f"Failed to store alert to KM: {e}")
+                logger.error("Failed to store alert to KM: %s", e)
 
         # Emit stream event for real-time budget monitoring
         if self._event_emitter:
@@ -619,7 +619,7 @@ class CostTracker:
             except (ImportError, AttributeError, TypeError):
                 pass
 
-        logger.warning(f"budget_alert {alert.message}")
+        logger.warning("budget_alert %s", alert.message)
 
     def set_budget(self, budget: Budget) -> None:
         """
@@ -937,7 +937,7 @@ class CostTracker:
         self._debate_limits[debate_id] = limit_usd
         if debate_id not in self._debate_costs:
             self._debate_costs[debate_id] = Decimal("0")
-        logger.info(f"Set debate cost limit: debate={debate_id} limit=${limit_usd}")
+        logger.info("Set debate cost limit: debate=%s limit=$%s", debate_id, limit_usd)
 
     def check_debate_budget(
         self,
@@ -1058,7 +1058,7 @@ class CostTracker:
         try:
             return self._km_adapter.get_cost_patterns(workspace_id, agent_id)
         except (OSError, ConnectionError, RuntimeError, ValueError, KeyError) as e:
-            logger.error(f"Failed to query KM cost patterns: {e}")
+            logger.error("Failed to query KM cost patterns: %s", e)
             return {}
 
     def query_km_workspace_alerts(
@@ -1084,7 +1084,7 @@ class CostTracker:
         try:
             return self._km_adapter.get_workspace_alerts(workspace_id, min_level, limit)
         except (OSError, ConnectionError, RuntimeError, ValueError, KeyError) as e:
-            logger.error(f"Failed to query KM alerts: {e}")
+            logger.error("Failed to query KM alerts: %s", e)
             return []
 
     async def detect_and_store_anomalies(
@@ -1171,7 +1171,7 @@ class CostTracker:
 
             return stored, advisory
         except (OSError, ConnectionError, RuntimeError, ValueError, KeyError, TypeError) as e:
-            logger.error(f"Failed to detect/store anomalies: {e}")
+            logger.error("Failed to detect/store anomalies: %s", e)
             return [], no_action
 
     def _build_advisory(
@@ -1252,13 +1252,13 @@ def get_cost_tracker() -> CostTracker:
         try:
             usage_tracker = UsageTracker()
         except (ImportError, ModuleNotFoundError) as e:
-            logger.debug(f"UsageTracker dependency not available: {e}")
+            logger.debug("UsageTracker dependency not available: %s", e)
             usage_tracker = None
         except (RuntimeError, ConnectionError) as e:
-            logger.warning(f"UsageTracker initialization failed: {e}")
+            logger.warning("UsageTracker initialization failed: %s", e)
             usage_tracker = None
         except (OSError, sqlite3.Error, ValueError, TypeError) as e:
-            logger.exception(f"Unexpected error creating UsageTracker: {e}")
+            logger.exception("Unexpected error creating UsageTracker: %s", e)
             usage_tracker = None
         _cost_tracker = CostTracker(usage_tracker=usage_tracker)
 
@@ -1272,7 +1272,7 @@ def get_cost_tracker() -> CostTracker:
         except ImportError:
             logger.debug("KM CostAdapter not available, cost tracking will run without KM sync")
         except (RuntimeError, OSError, ConnectionError, ValueError, TypeError) as km_e:
-            logger.warning(f"Failed to wire KM CostAdapter: {km_e}")
+            logger.warning("Failed to wire KM CostAdapter: %s", km_e)
 
     return _cost_tracker
 

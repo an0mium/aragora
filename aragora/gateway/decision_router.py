@@ -542,8 +542,7 @@ class DecisionRouter:
         self._request_counter = 0
 
         logger.info(
-            f"DecisionRouter initialized with default={default_destination.value}, "
-            f"financial_threshold={self._criteria.financial_threshold}"
+            "DecisionRouter initialized with default=%s, financial_threshold=%s", default_destination.value, self._criteria.financial_threshold
         )
 
     # =========================================================================
@@ -558,7 +557,7 @@ class DecisionRouter:
             rule: Routing rule to add.
         """
         self._rules[rule.rule_id] = rule
-        logger.debug(f"Added routing rule: {rule.rule_id} -> {rule.destination.value}")
+        logger.debug("Added routing rule: %s -> %s", rule.rule_id, rule.destination.value)
 
     def remove_rule(self, rule_id: str) -> bool:
         """
@@ -572,7 +571,7 @@ class DecisionRouter:
         """
         if rule_id in self._rules:
             del self._rules[rule_id]
-            logger.debug(f"Removed routing rule: {rule_id}")
+            logger.debug("Removed routing rule: %s", rule_id)
             return True
         return False
 
@@ -626,7 +625,7 @@ class DecisionRouter:
         """
         async with self._lock:
             self._tenant_configs[config.tenant_id] = config
-            logger.info(f"Added tenant routing config for {config.tenant_id}")
+            logger.info("Added tenant routing config for %s", config.tenant_id)
 
     async def remove_tenant_config(self, tenant_id: str) -> bool:
         """
@@ -641,7 +640,7 @@ class DecisionRouter:
         async with self._lock:
             if tenant_id in self._tenant_configs:
                 del self._tenant_configs[tenant_id]
-                logger.info(f"Removed tenant routing config for {tenant_id}")
+                logger.info("Removed tenant routing config for %s", tenant_id)
                 return True
             return False
 
@@ -861,7 +860,7 @@ class DecisionRouter:
                         rule.rule_id,
                     )
             except (RuntimeError, ValueError, KeyError, TypeError) as e:  # noqa: BLE001 - user-provided rule condition callback
-                logger.warning(f"Error evaluating rule {rule.rule_id}: {e}")
+                logger.warning("Error evaluating rule %s: %s", rule.rule_id, e)
                 continue
 
         return None, None
@@ -1153,11 +1152,10 @@ class DecisionRouter:
                         if asyncio.iscoroutine(result):
                             await result
                     except (RuntimeError, ValueError, TypeError) as e:  # noqa: BLE001 - user-provided event handler callback
-                        logger.error(f"Event handler error: {e}")
+                        logger.error("Event handler error: %s", e)
 
         logger.debug(
-            f"Routed {decision.request_id} to {decision.destination.value} "
-            f"(reason: {decision.reason[:50]}...)"
+            "Routed %s to %s (reason: %s...)", decision.request_id, decision.destination.value, decision.reason[:50]
         )
 
     def _update_destination_count(
@@ -1200,7 +1198,7 @@ class DecisionRouter:
         description: str,
     ) -> None:
         """Handle detected routing anomaly."""
-        logger.warning(f"Routing anomaly detected for tenant={tenant_id}: {description}")
+        logger.warning("Routing anomaly detected for tenant=%s: %s", tenant_id, description)
 
         if self._enable_audit:
             entry = RoutingAuditEntry(
@@ -1226,7 +1224,7 @@ class DecisionRouter:
                     },
                 )
             except (OSError, ConnectionError, RuntimeError) as e:
-                logger.error(f"Failed to send anomaly alert: {e}")
+                logger.error("Failed to send anomaly alert: %s", e)
 
     # =========================================================================
     # Metrics and Monitoring
@@ -1371,7 +1369,7 @@ class DecisionRouter:
             criteria: New routing criteria.
         """
         self._criteria = criteria
-        logger.info(f"Updated routing criteria: financial_threshold={criteria.financial_threshold}")
+        logger.info("Updated routing criteria: financial_threshold=%s", criteria.financial_threshold)
 
     def update_category_config(
         self,
@@ -1387,7 +1385,7 @@ class DecisionRouter:
         """
         self._category_configs[category] = config
         logger.info(
-            f"Updated category config: {category.value} -> {config.default_destination.value}"
+            "Updated category config: %s -> %s", category.value, config.default_destination.value
         )
 
     def set_default_destination(self, destination: RouteDestination) -> None:
@@ -1398,7 +1396,7 @@ class DecisionRouter:
             destination: New default destination.
         """
         self._default_destination = destination
-        logger.info(f"Updated default destination: {destination.value}")
+        logger.info("Updated default destination: %s", destination.value)
 
     # =========================================================================
     # Statistics

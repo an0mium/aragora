@@ -100,7 +100,7 @@ def _secret_configured(name: str) -> bool:
             return True
     except (ImportError, KeyError, ValueError, OSError) as e:
         # Secrets module may not be available, fall back to env vars
-        logger.debug(f"Could not get secret '{name}': {e}")
+        logger.debug("Could not get secret '%s': %s", name, e)
     env_value = os.getenv(name)
     return bool(env_value and env_value.strip())
 
@@ -230,7 +230,7 @@ class AgentsHandler(  # type: ignore[misc]
         # Rate limit check
         client_ip = get_client_ip(handler)
         if not _agent_limiter.is_allowed(client_ip):
-            logger.warning(f"Rate limit exceeded for agent endpoint: {client_ip}")
+            logger.warning("Rate limit exceeded for agent endpoint: %s", client_ip)
             return error_response("Rate limit exceeded. Please try again later.", 429)
 
         normalized_path = strip_version_prefix(path)
@@ -244,7 +244,7 @@ class AgentsHandler(  # type: ignore[misc]
             except UnauthorizedError:
                 return error_response("Authentication required to access agent data", 401)
             except ForbiddenError as e:
-                logger.warning(f"Agent access denied: {e}")
+                logger.warning("Agent access denied: %s", e)
                 return error_response("Permission denied", 403)
 
         path = strip_version_prefix(path)
@@ -427,7 +427,7 @@ class AgentsHandler(  # type: ignore[misc]
                     else:
                         agents.append({"name": name})
             except (KeyError, ValueError, OSError, TypeError, AttributeError) as e:
-                logger.warning(f"Could not get agents from ELO: {e}")
+                logger.warning("Could not get agents from ELO: %s", e)
 
         # Fallback to known agent types if no ELO data
         if not agents:
@@ -470,7 +470,7 @@ class AgentsHandler(  # type: ignore[misc]
                 }
             )
         except (ConnectionError, TimeoutError, OSError, ValueError, RuntimeError) as e:
-            logger.warning(f"Could not detect local LLMs: {e}")
+            logger.warning("Could not detect local LLMs: %s", e)
             return json_response(
                 {
                     "servers": [],
@@ -512,7 +512,7 @@ class AgentsHandler(  # type: ignore[misc]
                 }
             )
         except (ConnectionError, TimeoutError, OSError, ValueError, RuntimeError) as e:
-            logger.warning(f"Could not get local LLM status: {e}")
+            logger.warning("Could not get local LLM status: %s", e)
             return json_response(
                 {
                     "available": False,
@@ -576,7 +576,7 @@ class AgentsHandler(  # type: ignore[misc]
         except ImportError:
             health["circuit_breakers"]["_note"] = "CircuitBreaker module not available"
         except (KeyError, ValueError, TypeError, AttributeError) as e:
-            logger.debug(f"Could not get circuit breaker status: {e}")
+            logger.debug("Could not get circuit breaker status: %s", e)
             health["circuit_breakers"]["_error"] = "Health check failed"
 
         # Get fallback chain status
@@ -591,7 +591,7 @@ class AgentsHandler(  # type: ignore[misc]
         except ImportError:
             health["fallback"]["_note"] = "Fallback module not available"
         except (KeyError, ValueError, TypeError, AttributeError, OSError) as e:
-            logger.debug(f"Could not get fallback status: {e}")
+            logger.debug("Could not get fallback status: %s", e)
             health["fallback"]["_error"] = "Health check failed"
 
         # Get registered agent types and their availability
@@ -633,7 +633,7 @@ class AgentsHandler(  # type: ignore[misc]
         except ImportError:
             health["agents"]["_note"] = "AgentRegistry not available"
         except (KeyError, ValueError, TypeError, AttributeError) as e:
-            logger.debug(f"Could not get agent registry: {e}")
+            logger.debug("Could not get agent registry: %s", e)
             health["agents"]["_error"] = "Health check failed"
 
         # Calculate summary
@@ -688,7 +688,7 @@ class AgentsHandler(  # type: ignore[misc]
         except ImportError:
             health["cross_pollination"] = {"_note": "Cross-pollination module not available"}
         except (KeyError, ValueError, TypeError, AttributeError) as e:
-            logger.debug(f"Could not get cross-pollination status: {e}")
+            logger.debug("Could not get cross-pollination status: %s", e)
             health["cross_pollination"] = {"_error": "Health check failed"}
 
         return json_response(health)

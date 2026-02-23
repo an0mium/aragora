@@ -316,7 +316,7 @@ async def handle_slack_commands(request: Any) -> HandlerResult:
             )
 
     except (KeyError, TypeError, ValueError, UnicodeDecodeError) as e:
-        logger.error(f"Slack commands handler error: {e}")
+        logger.error("Slack commands handler error: %s", e)
         return json_response(
             {
                 "response_type": "ephemeral",

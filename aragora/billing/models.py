@@ -238,7 +238,7 @@ def verify_password(password: str, password_hash: str, salt: str) -> bool:
         try:
             return bcrypt.checkpw(password.encode("utf-8"), stored_hash)
         except (ValueError, TypeError, RuntimeError) as e:
-            logger.error(f"bcrypt verification failed: {e}")
+            logger.error("bcrypt verification failed: %s", e)
             return False
 
     elif password_hash.startswith(HASH_VERSION_SHA256):
@@ -253,7 +253,7 @@ def verify_password(password: str, password_hash: str, salt: str) -> bool:
         return secrets.compare_digest(computed_hash, password_hash)
 
     else:
-        logger.warning(f"Unknown password hash format (length={len(password_hash)})")
+        logger.warning("Unknown password hash format (length=%s)", len(password_hash))
         return False
 
 
@@ -362,7 +362,7 @@ class User:
             return False
         self.password_hash, self.password_salt = hash_password(password)
         self.updated_at = datetime.now(timezone.utc)
-        logger.info(f"Password hash upgraded for user {self.id}")
+        logger.info("Password hash upgraded for user %s", self.id)
         return True
 
     def generate_api_key(self, expires_days: int = 365, bound_ips: str | None = None) -> str:
@@ -409,7 +409,7 @@ class User:
 
         # Check expiration
         if self.api_key_expires_at and datetime.now(timezone.utc) > self.api_key_expires_at:
-            logger.debug(f"API key expired for user {self.id}")
+            logger.debug("API key expired for user %s", self.id)
             return False
 
         # Verify hash
@@ -437,12 +437,11 @@ class User:
                         break
                 if not allowed:
                     logger.warning(
-                        f"API key IP binding rejected: client_ip={client_ip} "
-                        f"not in bound_ips for user {self.id}"
+                        "API key IP binding rejected: client_ip=%s not in bound_ips for user %s", client_ip, self.id
                     )
                     return False
             except ValueError:
-                logger.warning(f"Invalid IP in binding check: {client_ip}")
+                logger.warning("Invalid IP in binding check: %s", client_ip)
                 return False
 
         return True
@@ -484,8 +483,7 @@ class User:
         if not was_admin and not self.mfa_enabled:
             self.mfa_grace_period_started_at = datetime.now(timezone.utc)
             logger.info(
-                f"User {self.id} promoted to {new_role}. "
-                f"MFA grace period started at {self.mfa_grace_period_started_at}"
+                "User %s promoted to %s. MFA grace period started at %s", self.id, new_role, self.mfa_grace_period_started_at
             )
 
     def clear_mfa_grace_period(self) -> None:
@@ -551,8 +549,7 @@ class User:
         self.updated_at = datetime.now(timezone.utc)
 
         logger.info(
-            f"MFA bypass approved for service account {self.id} by {approved_by}. "
-            f"Expires: {self.mfa_bypass_expires_at}"
+            "MFA bypass approved for service account %s by %s. Expires: %s", self.id, approved_by, self.mfa_bypass_expires_at
         )
         try:
             from aragora.audit.unified import audit_admin
@@ -578,8 +575,7 @@ class User:
         self.mfa_bypass_reason = None
         self.updated_at = datetime.now(timezone.utc)
         logger.info(
-            f"MFA bypass revoked for service account {self.id} by {revoked_by}. "
-            f"Reason: {reason}. Previously approved by: {previous_approved_by}"
+            "MFA bypass revoked for service account %s by %s. Reason: %s. Previously approved by: %s", self.id, revoked_by, reason, previous_approved_by
         )
         try:
             from aragora.audit.unified import audit_admin

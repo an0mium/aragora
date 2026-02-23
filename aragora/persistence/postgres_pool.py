@@ -230,7 +230,7 @@ class ReplicaAwarePool:
                     )
                     logger.info("Primary PostgreSQL pool initialized")
                 except (OSError, ConnectionError, RuntimeError) as e:
-                    logger.error(f"Failed to initialize primary pool: {e}")
+                    logger.error("Failed to initialize primary pool: %s", e)
                     raise
 
             # Create replica pools
@@ -245,16 +245,16 @@ class ReplicaAwarePool:
                     )
                     self._replica_pools.append(pool)
                     self._replica_health[dsn] = ReplicaHealth(dsn=dsn)
-                    logger.info(f"Replica pool initialized: {dsn[:30]}...")
+                    logger.info("Replica pool initialized: %s...", dsn[:30])
                 except (OSError, ConnectionError, RuntimeError) as e:
-                    logger.warning(f"Failed to initialize replica pool {dsn[:30]}...: {e}")
+                    logger.warning("Failed to initialize replica pool %s...: %s", dsn[:30], e)
 
             if self._replica_pools:
                 # Start background health checks
                 self._health_task = asyncio.create_task(self._health_check_loop())
 
             self._initialized = True
-            logger.info(f"PostgreSQL pool ready: 1 primary, {len(self._replica_pools)} replicas")
+            logger.info("PostgreSQL pool ready: 1 primary, %s replicas", len(self._replica_pools))
 
     async def close(self) -> None:
         """Close all connection pools."""
@@ -332,7 +332,7 @@ class ReplicaAwarePool:
                 await pool.release(conn)
 
         except asyncio.TimeoutError:
-            logger.warning(f"Connection acquire timeout after {timeout}s")
+            logger.warning("Connection acquire timeout after %ss", timeout)
             raise
 
     def _select_healthy_replica(self) -> Any | None:
@@ -369,7 +369,7 @@ class ReplicaAwarePool:
             except asyncio.CancelledError:
                 break
             except (OSError, ConnectionError, RuntimeError) as e:
-                logger.error(f"Health check failed: {e}")
+                logger.error("Health check failed: %s", e)
 
     async def _check_replica_health(self) -> None:
         """Check health of all replicas."""
@@ -398,7 +398,7 @@ class ReplicaAwarePool:
                 health.consecutive_failures += 1
                 if health.consecutive_failures >= 3:
                     health.healthy = False
-                    logger.warning(f"Replica marked unhealthy: {dsn[:30]}... ({e})")
+                    logger.warning("Replica marked unhealthy: %s... (%s)", dsn[:30], e)
                 health.last_check = time.time()
 
     @property

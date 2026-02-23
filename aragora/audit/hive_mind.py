@@ -219,7 +219,7 @@ class QueenOrchestrator:
             )
             tasks.append(task)
 
-        logger.info(f"Queen decomposed audit into {len(tasks)} tasks")
+        logger.info("Queen decomposed audit into %s tasks", len(tasks))
         return tasks
 
     def _assess_priority(self, content: str) -> TaskPriority:
@@ -270,7 +270,7 @@ class QueenOrchestrator:
 
             await self._task_queue.put(task)
 
-        logger.info(f"Dispatched {len(sorted_tasks)} tasks to queue")
+        logger.info("Dispatched %s tasks to queue", len(sorted_tasks))
 
     async def run_worker_loop(
         self,
@@ -339,7 +339,7 @@ class QueenOrchestrator:
                             await self.hook_manager.trigger("on_finding", finding=finding)
 
                 except (ValueError, RuntimeError, OSError) as e:
-                    logger.error(f"Worker {worker_name} failed on task {task.id}: {e}")
+                    logger.error("Worker %s failed on task %s: %s", worker_name, task.id, e)
                     self._worker_stats[worker_name]["tasks_failed"] += 1
 
                 finally:
@@ -496,7 +496,7 @@ If no issues found, respond with: NO FINDINGS"""
                 findings.append(finding)
 
             except (ValueError, KeyError, TypeError) as e:
-                logger.warning(f"Failed to parse finding block: {e}")
+                logger.warning("Failed to parse finding block: %s", e)
                 continue
 
         return findings
@@ -547,8 +547,7 @@ class AuditHiveMind:
         start_time = time.time()
 
         logger.info(
-            f"HiveMind audit starting: session={session.id} "
-            f"chunks={len(chunks)} workers={len(self.workers)}"
+            "HiveMind audit starting: session=%s chunks=%s workers=%s", session.id, len(chunks), len(self.workers)
         )
 
         # Phase 1: Decompose into tasks
@@ -568,7 +567,7 @@ class AuditHiveMind:
                 await asyncio.sleep(1.0)
                 active = sum(1 for v in self._orchestrator._active_workers.values() if v)
                 pending = self._orchestrator._task_queue.qsize()
-                logger.debug(f"HiveMind: {active} active workers, {pending} pending tasks")
+                logger.debug("HiveMind: %s active workers, %s pending tasks", active, pending)
 
         await asyncio.gather(
             *worker_coros,
@@ -664,6 +663,6 @@ Is this a valid security/compliance finding that should be addressed?"""
                     )
 
             except (ValueError, RuntimeError, OSError) as e:
-                logger.warning(f"Consensus verification failed: {e}")
+                logger.warning("Consensus verification failed: %s", e)
 
         return verified

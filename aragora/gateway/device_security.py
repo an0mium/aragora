@@ -173,7 +173,7 @@ class SecureDeviceRegistry:
         )
 
         self._pending_requests[request_id] = request
-        logger.info(f"Pairing requested for {device_name} ({device_type}): {request_id}")
+        logger.info("Pairing requested for %s (%s): %s", device_name, device_type, request_id)
 
         await _audit_device_action(
             actor_id="system",
@@ -219,7 +219,7 @@ class SecureDeviceRegistry:
         request.approved_by = approved_by
         request.approved_at = time.time()
 
-        logger.info(f"Pairing approved for {request.device_name}: {request_id}")
+        logger.info("Pairing approved for %s: %s", request.device_name, request_id)
 
         await _audit_device_action(
             actor_id=approved_by,
@@ -259,12 +259,12 @@ class SecureDeviceRegistry:
             return None
 
         if request.status != PairingStatus.APPROVED:
-            logger.warning(f"Pairing not approved yet: {request_id}")
+            logger.warning("Pairing not approved yet: %s", request_id)
             return None
 
         # Verify code (timing-safe comparison)
         if not secrets.compare_digest(request.verification_code, verification_code):
-            logger.warning(f"Invalid verification code for {request_id}")
+            logger.warning("Invalid verification code for %s", request_id)
             return None
 
         # Create and register the device
@@ -282,7 +282,7 @@ class SecureDeviceRegistry:
         # Clean up
         del self._pending_requests[request_id]
 
-        logger.info(f"Device paired successfully: {device.device_id}")
+        logger.info("Device paired successfully: %s", device.device_id)
 
         await _audit_device_action(
             actor_id=request.approved_by or "system",
@@ -302,7 +302,7 @@ class SecureDeviceRegistry:
 
         request.status = PairingStatus.REJECTED
         del self._pending_requests[request_id]
-        logger.info(f"Pairing rejected: {request_id}")
+        logger.info("Pairing rejected: %s", request_id)
 
         await _audit_device_action(
             actor_id="system",
@@ -357,7 +357,7 @@ class SecureDeviceRegistry:
             except asyncio.CancelledError:
                 break
             except (OSError, ConnectionError, RuntimeError) as e:
-                logger.error(f"Error in presence monitor: {e}")
+                logger.error("Error in presence monitor: %s", e)
                 await asyncio.sleep(self._heartbeat_interval)
 
     async def _check_presence(self) -> None:
@@ -372,13 +372,13 @@ class SecureDeviceRegistry:
             if device.last_seen and now - device.last_seen > self._offline_threshold:
                 if device.status == DeviceStatus.ONLINE:
                     device.status = DeviceStatus.OFFLINE
-                    logger.info(f"Device went offline: {device.device_id}")
+                    logger.info("Device went offline: %s", device.device_id)
 
                     if self._on_device_offline:
                         try:
                             self._on_device_offline(device.device_id)
                         except (RuntimeError, ValueError, TypeError) as e:  # noqa: BLE001 - user-provided offline callback
-                            logger.error(f"Error in offline callback: {e}")
+                            logger.error("Error in offline callback: %s", e)
 
     async def heartbeat(self, device_id: str) -> bool:
         """

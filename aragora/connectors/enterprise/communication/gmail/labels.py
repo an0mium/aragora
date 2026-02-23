@@ -229,7 +229,7 @@ class GmailLabelsMixin(GmailBaseMethods):
 
             self.record_success()
             result = result or {}
-            logger.info(f"[Gmail] Modified message: {message_id}")
+            logger.info("[Gmail] Modified message: %s", message_id)
 
             return {
                 "message_id": result.get("id"),
@@ -255,7 +255,7 @@ class GmailLabelsMixin(GmailBaseMethods):
             message_id,
             remove_labels=["INBOX"],
         )
-        logger.info(f"[Gmail] Archived message: {message_id}")
+        logger.info("[Gmail] Archived message: %s", message_id)
         return result
 
     async def trash_message(self, message_id: str) -> dict[str, Any]:
@@ -307,7 +307,7 @@ class GmailLabelsMixin(GmailBaseMethods):
                 raise RuntimeError(f"Failed to trash message: {error_message}")
 
             self.record_success()
-            logger.info(f"[Gmail] Trashed message: {message_id}")
+            logger.info("[Gmail] Trashed message: %s", message_id)
 
             return {
                 "message_id": message_id,
@@ -367,7 +367,7 @@ class GmailLabelsMixin(GmailBaseMethods):
                 raise RuntimeError(f"Failed to untrash message: {error_message}")
 
             self.record_success()
-            logger.info(f"[Gmail] Untrashed message: {message_id}")
+            logger.info("[Gmail] Untrashed message: %s", message_id)
 
             return {
                 "message_id": message_id,
@@ -392,7 +392,7 @@ class GmailLabelsMixin(GmailBaseMethods):
             message_id,
             remove_labels=["UNREAD"],
         )
-        logger.info(f"[Gmail] Marked as read: {message_id}")
+        logger.info("[Gmail] Marked as read: %s", message_id)
         return result
 
     async def mark_as_unread(self, message_id: str) -> dict[str, Any]:
@@ -409,7 +409,7 @@ class GmailLabelsMixin(GmailBaseMethods):
             message_id,
             add_labels=["UNREAD"],
         )
-        logger.info(f"[Gmail] Marked as unread: {message_id}")
+        logger.info("[Gmail] Marked as unread: %s", message_id)
         return result
 
     async def star_message(self, message_id: str) -> dict[str, Any]:
@@ -426,7 +426,7 @@ class GmailLabelsMixin(GmailBaseMethods):
             message_id,
             add_labels=["STARRED"],
         )
-        logger.info(f"[Gmail] Starred message: {message_id}")
+        logger.info("[Gmail] Starred message: %s", message_id)
         return result
 
     async def unstar_message(self, message_id: str) -> dict[str, Any]:
@@ -443,7 +443,7 @@ class GmailLabelsMixin(GmailBaseMethods):
             message_id,
             remove_labels=["STARRED"],
         )
-        logger.info(f"[Gmail] Unstarred message: {message_id}")
+        logger.info("[Gmail] Unstarred message: %s", message_id)
         return result
 
     async def mark_important(self, message_id: str) -> dict[str, Any]:
@@ -460,7 +460,7 @@ class GmailLabelsMixin(GmailBaseMethods):
             message_id,
             add_labels=["IMPORTANT"],
         )
-        logger.info(f"[Gmail] Marked important: {message_id}")
+        logger.info("[Gmail] Marked important: %s", message_id)
         return result
 
     async def mark_not_important(self, message_id: str) -> dict[str, Any]:
@@ -477,7 +477,7 @@ class GmailLabelsMixin(GmailBaseMethods):
             message_id,
             remove_labels=["IMPORTANT"],
         )
-        logger.info(f"[Gmail] Marked not important: {message_id}")
+        logger.info("[Gmail] Marked not important: %s", message_id)
         return result
 
     async def move_to_folder(
@@ -503,7 +503,7 @@ class GmailLabelsMixin(GmailBaseMethods):
             add_labels=[folder_label],
             remove_labels=remove_labels,
         )
-        logger.info(f"[Gmail] Moved to {folder_label}: {message_id}")
+        logger.info("[Gmail] Moved to %s: %s", folder_label, message_id)
         return result
 
     async def snooze_message(
@@ -532,9 +532,9 @@ class GmailLabelsMixin(GmailBaseMethods):
             await self.modify_message(message_id, add_labels=["SNOOZED"])
         except (OSError, RuntimeError, ValueError) as e:
             # SNOOZED label might not exist, that's okay
-            logger.debug(f"Could not add SNOOZED label (may not exist): {e}")
+            logger.debug("Could not add SNOOZED label (may not exist): %s", e)
 
-        logger.info(f"[Gmail] Snoozed message until {snooze_until}: {message_id}")
+        logger.info("[Gmail] Snoozed message until %s: %s", snooze_until, message_id)
 
         return {
             "message_id": message_id,
@@ -603,7 +603,7 @@ class GmailLabelsMixin(GmailBaseMethods):
                 raise RuntimeError(f"Failed to batch modify: {error_message}")
 
             self.record_success()
-            logger.info(f"[Gmail] Batch modified {len(message_ids)} messages")
+            logger.info("[Gmail] Batch modified %s messages", len(message_ids))
 
             return {
                 "modified_count": len(message_ids),
@@ -628,7 +628,7 @@ class GmailLabelsMixin(GmailBaseMethods):
             message_ids,
             remove_labels=["INBOX"],
         )
-        logger.info(f"[Gmail] Batch archived {len(message_ids)} messages")
+        logger.info("[Gmail] Batch archived %s messages", len(message_ids))
         return result
 
     async def batch_trash(self, message_ids: list[str]) -> dict[str, Any]:
@@ -683,7 +683,7 @@ class GmailLabelsMixin(GmailBaseMethods):
                 raise RuntimeError(f"Failed to batch delete: {error_message}")
 
             self.record_success()
-            logger.info(f"[Gmail] Batch deleted {len(message_ids)} messages")
+            logger.info("[Gmail] Batch deleted %s messages", len(message_ids))
 
             return {
                 "deleted_count": len(message_ids),

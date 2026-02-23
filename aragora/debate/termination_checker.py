@@ -185,18 +185,18 @@ REASON: <brief explanation>"""
                     reason = line.split(":", 1)[1].strip()
 
             if conclusive:
-                logger.info(f"judge_termination judge={judge.name} reason={reason[:100]}")
+                logger.info("judge_termination judge=%s reason=%s", judge.name, reason[:100])
                 # Emit event
                 if "on_judge_termination" in self.hooks:
                     self.hooks["on_judge_termination"](judge.name, reason)
                 return False, reason
 
         except (asyncio.TimeoutError, asyncio.CancelledError) as e:
-            logger.warning(f"Judge termination check timed out: {e}")
+            logger.warning("Judge termination check timed out: %s", e)
         except (ValueError, TypeError, AttributeError) as e:
-            logger.warning(f"Judge termination check failed to parse response: {e}")
+            logger.warning("Judge termination check failed to parse response: %s", e)
         except (RuntimeError, OSError, ConnectionError, TimeoutError, KeyError) as e:
-            logger.exception(f"Unexpected error in judge termination check: {e}")
+            logger.exception("Unexpected error in judge termination check: %s", e)
 
         return True, ""
 
@@ -288,7 +288,7 @@ Where confidence indicates how certain you are in your assessment:
                     confidence = max(0.0, min(1.0, confidence))  # Clamp to [0, 1]
                     reason = str(data.get("reason", ""))
                 except (json.JSONDecodeError, ValueError) as e:
-                    logger.debug(f"Failed to parse judge termination JSON: {e}")
+                    logger.debug("Failed to parse judge termination JSON: %s", e)
 
             # Fallback to text parsing if JSON failed
             if not reason:
@@ -321,7 +321,7 @@ Where confidence indicates how certain you are in your assessment:
             return result
 
         except (asyncio.TimeoutError, asyncio.CancelledError) as e:
-            logger.warning(f"Judge termination check timed out: {e}")
+            logger.warning("Judge termination check timed out: %s", e)
             return TerminationResult(
                 should_terminate=False,
                 reason=f"Timeout: {e}",
@@ -329,7 +329,7 @@ Where confidence indicates how certain you are in your assessment:
                 source="timeout",
             )
         except (ValueError, TypeError, AttributeError) as e:
-            logger.warning(f"Judge termination check failed to parse response: {e}")
+            logger.warning("Judge termination check failed to parse response: %s", e)
             return TerminationResult(
                 should_terminate=False,
                 reason=f"Parse error: {e}",
@@ -337,7 +337,7 @@ Where confidence indicates how certain you are in your assessment:
                 source="parse_error",
             )
         except (RuntimeError, OSError, ConnectionError, TimeoutError, KeyError) as e:
-            logger.exception(f"Unexpected error in judge termination check: {e}")
+            logger.exception("Unexpected error in judge termination check: %s", e)
             return TerminationResult(
                 should_terminate=False,
                 reason=f"Error: {e}",
@@ -391,7 +391,7 @@ Respond with only: CONTINUE or STOP
         except asyncio.TimeoutError:
             # Timeout during early stopping check - continue debate (safe default)
             logger.warning(
-                f"Early stopping check timed out after {self.protocol.round_timeout_seconds}s"
+                "Early stopping check timed out after %ss", self.protocol.round_timeout_seconds
             )
             return True
 
@@ -410,7 +410,7 @@ Respond with only: CONTINUE or STOP
         should_stop = stop_ratio >= self.protocol.early_stop_threshold
 
         if should_stop:
-            logger.info(f"early_stopping votes={stop_votes}/{total_votes}")
+            logger.info("early_stopping votes=%s/%s", stop_votes, total_votes)
             # Emit early stop event
             if "on_early_stop" in self.hooks:
                 self.hooks["on_early_stop"](round_num, stop_votes, total_votes)

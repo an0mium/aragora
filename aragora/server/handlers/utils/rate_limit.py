@@ -881,7 +881,7 @@ def auth_rate_limit(
                 # Audit module not available - just log
                 pass
             except (TypeError, ValueError, KeyError, AttributeError, OSError) as e:
-                logger.debug(f"Failed to log security audit event: {e}")
+                logger.debug("Failed to log security audit event: %s", e)
 
         def _check_rate_limit(key: str) -> Any:
             """Check rate limit and return error response if exceeded."""
@@ -956,7 +956,7 @@ except RuntimeError:
     raise
 except (TypeError, ValueError, KeyError, AttributeError, OSError) as e:
     # Log but don't fail on unexpected errors during validation
-    logger.warning(f"Rate limit configuration validation failed: {e}")
+    logger.warning("Rate limit configuration validation failed: %s", e)
 
 
 __all__ = [

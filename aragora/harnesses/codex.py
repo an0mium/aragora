@@ -245,7 +245,7 @@ class CodexHarness(CodeAnalysisHarness):
             )
 
         except (OSError, ValueError, TypeError, RuntimeError) as e:
-            logger.exception(f"Codex analysis failed: {e}")
+            logger.exception("Codex analysis failed: %s", e)
             return HarnessResult(
                 harness="codex",
                 analysis_type=analysis_type,
@@ -276,7 +276,7 @@ class CodexHarness(CodeAnalysisHarness):
                         content = file_path.read_text(encoding="utf-8", errors="ignore")
                         files_content[str(file_path)] = content
                     except (OSError, UnicodeDecodeError) as e:
-                        logger.warning(f"Failed to read {file_path}: {e}")
+                        logger.warning("Failed to read %s: %s", file_path, e)
 
             if not files_content:
                 return HarnessResult(
@@ -309,7 +309,7 @@ class CodexHarness(CodeAnalysisHarness):
             )
 
         except (OSError, ValueError, TypeError, RuntimeError) as e:
-            logger.exception(f"Codex file analysis failed: {e}")
+            logger.exception("Codex file analysis failed: %s", e)
             return HarnessResult(
                 harness="codex",
                 analysis_type=analysis_type,
@@ -366,7 +366,7 @@ class CodexHarness(CodeAnalysisHarness):
                     yield chunk.choices[0].delta.content
 
         except (OSError, ValueError, TypeError, RuntimeError) as e:
-            logger.exception(f"Codex stream analysis failed: {e}")
+            logger.exception("Codex stream analysis failed: %s", e)
             yield f"Error: {e}"
 
     async def run_interactive_session(
@@ -431,7 +431,7 @@ class CodexHarness(CodeAnalysisHarness):
             )
 
         except (OSError, ValueError, TypeError, RuntimeError) as e:
-            logger.exception(f"Codex interactive session failed: {e}")
+            logger.exception("Codex interactive session failed: %s", e)
             return SessionResult(
                 session_id=context.session_id,
                 response="Error: session execution failed",
@@ -469,7 +469,7 @@ class CodexHarness(CodeAnalysisHarness):
                         files_content[rel_path] = content
                         files_found += 1
                     except (OSError, UnicodeDecodeError) as e:
-                        logger.warning(f"Failed to read {file_path}: {e}")
+                        logger.warning("Failed to read %s: %s", file_path, e)
 
             if files_found >= max_files:
                 break

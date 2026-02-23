@@ -489,7 +489,7 @@ class SkillMarketplace:
             )
 
         conn.commit()
-        logger.info(f"Published skill: {skill_id} v{manifest.version}")
+        logger.info("Published skill: %s v%s", skill_id, manifest.version)
 
         listing = await self.get_skill(skill_id)
         if listing is None:
@@ -519,7 +519,7 @@ class SkillMarketplace:
         if not row:
             return False
         if row["author_id"] != author_id:
-            logger.warning(f"Unauthorized unpublish attempt for {skill_id}")
+            logger.warning("Unauthorized unpublish attempt for %s", skill_id)
             return False
 
         # Mark as unpublished
@@ -528,7 +528,7 @@ class SkillMarketplace:
             (datetime.now(timezone.utc).isoformat(), skill_id),
         )
         conn.commit()
-        logger.info(f"Unpublished skill: {skill_id}")
+        logger.info("Unpublished skill: %s", skill_id)
         return True
 
     # ==========================================================================
@@ -794,7 +794,7 @@ class SkillMarketplace:
             )
 
         conn.commit()
-        logger.info(f"User {user_id} rated skill {skill_id}: {rating} stars")
+        logger.info("User %s rated skill %s: %s stars", user_id, skill_id, rating)
 
         return SkillRating(
             skill_id=skill_id,
@@ -889,7 +889,7 @@ class SkillMarketplace:
             )
 
         if listing.is_deprecated:
-            logger.warning(f"Installing deprecated skill: {skill_id}")
+            logger.warning("Installing deprecated skill: %s", skill_id)
 
         # Check tier access (simplified - real implementation would check subscription)
         # This would integrate with RBAC and tenant subscription status
@@ -963,7 +963,7 @@ class SkillMarketplace:
             )
 
         conn.commit()
-        logger.info(f"Installed skill {skill_id} v{install_version} for tenant {tenant_id}")
+        logger.info("Installed skill %s v%s for tenant %s", skill_id, install_version, tenant_id)
 
         return InstallResult(
             success=True,
@@ -1009,7 +1009,7 @@ class SkillMarketplace:
                 (skill_id,),
             )
             conn.commit()
-            logger.info(f"Uninstalled skill {skill_id} from tenant {tenant_id}")
+            logger.info("Uninstalled skill %s from tenant %s", skill_id, tenant_id)
             return True
 
         return False

@@ -319,7 +319,7 @@ class Coordinator:
             )
 
             self._ledger[entry_id] = entry
-            logger.info(f"Created ledger entry: {title}")
+            logger.info("Created ledger entry: %s", title)
 
             return entry
 

@@ -223,7 +223,7 @@ class DebateWitness:
                 agent_id=agent_id,
                 debate_id=self.debate_id,
             )
-            logger.debug(f"Witness registered agent: {agent_id}")
+            logger.debug("Witness registered agent: %s", agent_id)
         return self._agents[agent_id]
 
     def start_round(
@@ -247,7 +247,7 @@ class DebateWitness:
         for agent in self._agents.values():
             agent.current_round = round_number
 
-        logger.debug(f"Witness started round {round_number}")
+        logger.debug("Witness started round %s", round_number)
         return self._rounds[round_number]
 
     def complete_round(self, round_number: int) -> RoundProgress | None:
@@ -492,7 +492,7 @@ class DebateWitness:
 
         self._running = True
         self._monitoring_task = asyncio.create_task(self._monitoring_loop())
-        logger.info(f"Witness monitoring started for debate {self.debate_id}")
+        logger.info("Witness monitoring started for debate %s", self.debate_id)
 
     async def stop_monitoring(self) -> None:
         """Stop continuous monitoring."""
@@ -504,7 +504,7 @@ class DebateWitness:
             except asyncio.CancelledError:
                 pass
             self._monitoring_task = None
-        logger.info(f"Witness monitoring stopped for debate {self.debate_id}")
+        logger.info("Witness monitoring stopped for debate %s", self.debate_id)
 
     async def _monitoring_loop(self) -> None:
         """Main monitoring loop."""
@@ -513,13 +513,13 @@ class DebateWitness:
                 stalls = self.detect_stalls()
                 if stalls:
                     logger.warning(
-                        f"Witness detected {len(stalls)} stalls in debate {self.debate_id}"
+                        "Witness detected %s stalls in debate %s", len(stalls), self.debate_id
                     )
                 await asyncio.sleep(self.config.check_interval_seconds)
             except asyncio.CancelledError:
                 break
             except (RuntimeError, ValueError, TypeError, AttributeError, OSError) as e:
-                logger.error(f"Witness monitoring error: {e}")
+                logger.error("Witness monitoring error: %s", e)
                 await asyncio.sleep(1)
 
     def get_agent_progress(self, agent_id: str) -> AgentProgress | None:

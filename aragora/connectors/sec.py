@@ -165,7 +165,7 @@ class SECConnector(BaseConnector):
         # Try to interpret query as ticker or CIK
         cik = await self._resolve_to_cik(query)
         if not cik:
-            logger.info(f"Could not resolve '{query}' to CIK, trying full-text search")
+            logger.info("Could not resolve '%s' to CIK, trying full-text search", query)
             return await self._fulltext_search(query, limit, form_type)
 
         # Fetch company submissions
@@ -223,7 +223,7 @@ class SECConnector(BaseConnector):
             return None
 
         except (httpx.HTTPStatusError, httpx.TimeoutException, OSError, ValueError, KeyError) as e:
-            logger.debug(f"CIK lookup failed for {query}: {e}")
+            logger.debug("CIK lookup failed for %s: %s", query, e)
             return None
 
     async def _get_company_filings(
@@ -251,7 +251,7 @@ class SECConnector(BaseConnector):
                 response = await client.get(url, headers=self._get_headers())
 
                 if response.status_code == 404:
-                    logger.debug(f"No filings found for CIK {cik}")
+                    logger.debug("No filings found for CIK %s", cik)
                     return []
 
                 response.raise_for_status()
@@ -260,10 +260,10 @@ class SECConnector(BaseConnector):
             return self._parse_submissions(data, limit, form_type, date_from, date_to)
 
         except httpx.TimeoutException:
-            logger.warning(f"SEC EDGAR timeout for CIK {cik}")
+            logger.warning("SEC EDGAR timeout for CIK %s", cik)
             return []
         except (httpx.HTTPStatusError, OSError, ValueError, KeyError) as e:
-            logger.error(f"SEC EDGAR fetch failed for CIK {cik}: {e}")
+            logger.error("SEC EDGAR fetch failed for CIK %s: %s", cik, e)
             return []
 
     async def _fulltext_search(
@@ -305,7 +305,7 @@ class SECConnector(BaseConnector):
                 )
 
                 if response.status_code != 200:
-                    logger.debug(f"SEC full-text search returned {response.status_code}")
+                    logger.debug("SEC full-text search returned %s", response.status_code)
                     return []
 
             data = response.json()
@@ -320,7 +320,7 @@ class SECConnector(BaseConnector):
             return results
 
         except (httpx.HTTPStatusError, httpx.TimeoutException, OSError, ValueError, KeyError) as e:
-            logger.debug(f"SEC full-text search failed: {e}")
+            logger.debug("SEC full-text search failed: %s", e)
             return []
 
     async def fetch(self, evidence_id: str) -> Evidence | None:

@@ -232,7 +232,7 @@ class VoteWeightCalculator:
                 rep_weight = 1.0 + (rep_weight - 1.0) * self.config.reputation_contribution
                 weight *= rep_weight
             except (TypeError, ValueError, AttributeError, KeyError, RuntimeError) as e:
-                logger.debug(f"Reputation weight error for {agent_name}: {e}")
+                logger.debug("Reputation weight error for %s: %s", agent_name, e)
 
         # Reliability weight (0-1 multiplier)
         if agent_name in self._reliability_weights and self.config.reliability_contribution > 0:
@@ -250,7 +250,7 @@ class VoteWeightCalculator:
                 )
                 weight *= consistency_weight
             except (TypeError, ValueError, AttributeError, KeyError, RuntimeError) as e:
-                logger.debug(f"Consistency weight error for {agent_name}: {e}")
+                logger.debug("Consistency weight error for %s: %s", agent_name, e)
 
         # Calibration weight (0.5-1.5)
         if self._calibration_source and self.config.calibration_contribution > 0:
@@ -259,7 +259,7 @@ class VoteWeightCalculator:
                 cal_weight = 1.0 + (cal_weight - 1.0) * self.config.calibration_contribution
                 weight *= cal_weight
             except (TypeError, ValueError, AttributeError, KeyError, RuntimeError) as e:
-                logger.debug(f"Calibration weight error for {agent_name}: {e}")
+                logger.debug("Calibration weight error for %s: %s", agent_name, e)
 
         # Clamp to configured bounds
         weight = max(self.config.min_weight, min(self.config.max_weight, weight))
@@ -395,7 +395,7 @@ class VotingEngine:
             for other in list(unassigned):
                 # Skip contradictory choices (e.g., "Accept" vs "Reject")
                 if backend.is_contradictory(choice, other):
-                    logger.debug(f"vote_grouping_skip_contradiction: '{choice}' vs '{other}'")
+                    logger.debug("vote_grouping_skip_contradiction: '%s' vs '%s'", choice, other)
                     continue
 
                 similarity = backend.compute_similarity(choice, other)
@@ -428,7 +428,7 @@ class VotingEngine:
                 choice_mapping[variant] = canonical
 
         if vote_groups:
-            logger.debug(f"vote_grouping_merged groups={vote_groups}")
+            logger.debug("vote_grouping_merged groups=%s", vote_groups)
 
         return vote_groups, choice_mapping
 
@@ -515,7 +515,7 @@ class VotingEngine:
                         intensity, self.protocol
                     )
                 except (TypeError, ValueError, AttributeError, KeyError, RuntimeError) as e:
-                    logger.warning(f"User vote multiplier failed: {e}")
+                    logger.warning("User vote multiplier failed: %s", e)
 
             vote_counts[canonical] = vote_counts.get(canonical, 0.0) + weight
             total_weighted += weight
@@ -618,7 +618,7 @@ class VotingEngine:
                 result.consensus_reached = True
                 result.consensus_strength = ConsensusStrength.UNANIMOUS
                 result.consensus_variance = 0.0
-                logger.info(f"consensus_unanimous winner={winner} votes={count}/{total_voters}")
+                logger.info("consensus_unanimous winner=%s votes=%s/%s", winner, count, total_voters)
             else:
                 result.consensus_reached = False
                 result.consensus_strength = ConsensusStrength.NONE

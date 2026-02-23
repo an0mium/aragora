@@ -190,7 +190,7 @@ class OpenClawAgent(ExternalFrameworkAgent):
 
         if self.openclaw_config.audit_all_requests:
             logger.info(
-                f"[{self.name}] OpenClaw request",
+                "[%s] OpenClaw request", self.name,
                 extra={
                     "prompt_length": len(prompt),
                     "capabilities": self._get_enabled_capabilities(),
@@ -246,7 +246,7 @@ class OpenClawAgent(ExternalFrameworkAgent):
                 "capabilities_used": self._get_enabled_capabilities(),
             }
         except (AgentError, ValueError, KeyError, TypeError, RuntimeError, OSError, Exception) as e:
-            logger.error(f"[{self.name}] Task execution failed: {e}")
+            logger.error("[%s] Task execution failed: %s", self.name, e)
             return {
                 "success": False,
                 "output": "Task execution failed",
@@ -281,8 +281,7 @@ class OpenClawAgent(ExternalFrameworkAgent):
         if self.openclaw_config.allowed_channels:
             if channel.lower() not in [c.lower() for c in self.openclaw_config.allowed_channels]:
                 logger.warning(
-                    f"[{self.name}] Channel '{channel}' not in allowed list: "
-                    f"{self.openclaw_config.allowed_channels}"
+                    "[%s] Channel '%s' not in allowed list: %s", self.name, channel, self.openclaw_config.allowed_channels
                 )
                 return {
                     "success": False,
@@ -312,7 +311,7 @@ class OpenClawAgent(ExternalFrameworkAgent):
                 "channel": channel,
             }
         except (AgentError, ValueError, KeyError, TypeError, RuntimeError, OSError) as e:
-            logger.error(f"[{self.name}] Failed to send message to {channel}: {e}")
+            logger.error("[%s] Failed to send message to %s: %s", self.name, channel, e)
             return {
                 "success": False,
                 "error": "Message send failed",
@@ -328,8 +327,7 @@ class OpenClawAgent(ExternalFrameworkAgent):
         available = await super().is_available()
         if available:
             logger.debug(
-                f"[{self.name}] OpenClaw available at {self.base_url} "
-                f"(mode={self.openclaw_config.gateway_mode})"
+                "[%s] OpenClaw available at %s (mode=%s)", self.name, self.base_url, self.openclaw_config.gateway_mode
             )
         return available
 

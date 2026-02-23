@@ -157,7 +157,7 @@ class ClientManager:
                 self._rate_limiters.pop(k, None)
                 self._rate_limiter_last_access.pop(k, None)
         if stale_keys:
-            logger.debug(f"Cleaned up {len(stale_keys)} stale rate limiters")
+            logger.debug("Cleaned up %s stale rate limiters", len(stale_keys))
         return len(stale_keys)
 
     @property
@@ -309,7 +309,7 @@ class DebateStateCache:
                 # No event loop running - skip TTS
                 pass
             except (RuntimeError, TypeError, ValueError) as e:
-                logger.debug(f"TTS callback failed: {e}")
+                logger.debug("TTS callback failed: %s", e)
 
     def _handle_round_start(self, loop_id: str, event: StreamEvent) -> None:
         """Update round count."""
@@ -623,7 +623,7 @@ class WebSocketBroadcaster:
             try:
                 await client.send(message)
             except (ConnectionError, OSError, RuntimeError) as e:
-                logger.debug(f"Client disconnected during broadcast: {e}")
+                logger.debug("Client disconnected during broadcast: %s", e)
                 disconnected.add(client)
 
         # Remove disconnected clients
@@ -660,7 +660,7 @@ class WebSocketBroadcaster:
             try:
                 await client.send(message)
             except (ConnectionError, OSError, RuntimeError) as e:
-                logger.debug(f"Client disconnected during batch broadcast: {e}")
+                logger.debug("Client disconnected during batch broadcast: %s", e)
                 disconnected.add(client)
 
         for client in disconnected:

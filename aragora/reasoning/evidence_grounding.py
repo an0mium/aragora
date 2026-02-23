@@ -296,7 +296,7 @@ class EvidenceGrounder:
             )
 
         except (ValueError, KeyError, TypeError, AttributeError) as e:
-            logger.warning(f"Error creating grounded verdict: {e}")
+            logger.warning("Error creating grounded verdict: %s", e)
             return None
 
     async def verify_claims_formally(
@@ -395,17 +395,17 @@ class EvidenceGrounder:
                         disproven_count += 1
 
                 except (RuntimeError, ValueError, TypeError, ConnectionError, TimeoutError) as e:
-                    logger.debug(f"Verification skipped for claim: {e}")
+                    logger.debug("Verification skipped for claim: %s", e)
 
             if verified_count > 0 or disproven_count > 0:
                 logger.info(
-                    f"Formal verification: {verified_count} verified, {disproven_count} disproven"
+                    "Formal verification: %s verified, %s disproven", verified_count, disproven_count
                 )
 
             return verified_count, disproven_count
 
         except (RuntimeError, ValueError, TypeError, OSError) as e:
-            logger.warning(f"Formal verification system error: {e}")
+            logger.warning("Formal verification system error: %s", e)
             return 0, 0
 
 

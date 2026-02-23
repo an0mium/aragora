@@ -163,7 +163,7 @@ class WebhookConfig:
         elif isinstance(event_types, set):
             pass  # Already a set
         else:
-            logger.warning(f"Invalid event_types type {type(event_types)}, using defaults")
+            logger.warning("Invalid event_types type %s, using defaults", type(event_types))
             event_types = set(DEFAULT_EVENT_TYPES)
 
         # Normalize loop_ids to set or None
@@ -175,7 +175,7 @@ class WebhookConfig:
         elif isinstance(loop_ids, set):
             pass  # Already a set
         else:
-            logger.warning(f"Invalid loop_ids type {type(loop_ids)}, using None (all loops)")
+            logger.warning("Invalid loop_ids type %s, using None (all loops)", type(loop_ids))
             loop_ids = None
 
         return cls(
@@ -201,7 +201,7 @@ def sign_payload(secret: str, body: bytes) -> str:
         signature = hmac.new(secret.encode("utf-8"), body, hashlib.sha256).hexdigest()
         return f"sha256={signature}"
     except (ValueError, TypeError, UnicodeEncodeError) as e:
-        logger.debug(f"Failed to sign payload: {e}")
+        logger.debug("Failed to sign payload: %s", e)
         return ""
 
 
@@ -226,34 +226,34 @@ def load_webhook_configs() -> list[WebhookConfig]:
                 try:
                     configs.append(WebhookConfig.from_dict(item))
                 except (ValueError, TypeError) as e:
-                    logger.warning(f"Skipping invalid webhook config at index {i}: {e}")
+                    logger.warning("Skipping invalid webhook config at index %s: %s", i, e)
             return configs
         except json.JSONDecodeError as e:
-            logger.warning(f"Failed to parse ARAGORA_WEBHOOKS: {e}")
+            logger.warning("Failed to parse ARAGORA_WEBHOOKS: %s", e)
             return []
 
     # Try file path
     config_path = os.environ.get("ARAGORA_WEBHOOKS_CONFIG", "").strip()
     if config_path:
         if not os.path.exists(config_path):
-            logger.warning(f"Webhook config file not found: {config_path}")
+            logger.warning("Webhook config file not found: %s", config_path)
             return []
         try:
             with open(config_path) as f:
                 configs_data = json.load(f)
             if not isinstance(configs_data, list):
-                logger.warning(f"Webhook config file must contain a JSON array: {config_path}")
+                logger.warning("Webhook config file must contain a JSON array: %s", config_path)
                 return []
             for i, item in enumerate(configs_data):
                 try:
                     configs.append(WebhookConfig.from_dict(item))
                 except (ValueError, TypeError) as e:
                     logger.warning(
-                        f"Skipping invalid webhook config at index {i} in {config_path}: {e}"
+                        "Skipping invalid webhook config at index %s in %s: %s", i, config_path, e
                     )
             return configs
         except (OSError, json.JSONDecodeError) as e:
-            logger.warning(f"Failed to load webhook config from {config_path}: {e}")
+            logger.warning("Failed to load webhook config from %s: %s", config_path, e)
             return []
 
     return []
@@ -329,7 +329,7 @@ class WebhookDispatcher:
         # Register shutdown hook for graceful cleanup
         atexit.register(self.stop)
 
-        logger.info(f"Webhook dispatcher started with {len(self.configs)} endpoint(s)")
+        logger.info("Webhook dispatcher started with %s endpoint(s)", len(self.configs))
 
     @property
     def is_running(self) -> bool:
@@ -382,7 +382,7 @@ class WebhookDispatcher:
                 self._drop_count += 1
                 now = time.time()
                 if now - self._last_drop_log > self.DROP_LOG_INTERVAL_S:
-                    logger.warning(f"Webhook queue full, dropped {self._drop_count} events total")
+                    logger.warning("Webhook queue full, dropped %s events total", self._drop_count)
                     self._last_drop_log = now
             return False
 
@@ -517,7 +517,7 @@ class WebhookDispatcher:
                         with self._stats_lock:
                             self._drop_count += 1
                         logger.warning(
-                            f"webhook_backpressure_drop url={cfg.url[:50]}... executor queue full"
+                            "webhook_backpressure_drop url=%s... executor queue full", cfg.url[:50]
                         )
                         continue
 
@@ -563,14 +563,14 @@ class WebhookDispatcher:
         )
         if not circuit.can_proceed():
             logger.debug(
-                f"Webhook {cfg.name} circuit open, skipping delivery for {event_dict.get('type')}"
+                "Webhook %s circuit open, skipping delivery for %s", cfg.name, event_dict.get('type')
             )
             return False
 
         # SSRF protection: validate URL before making request
         is_valid, error_msg = self._validate_webhook_url(cfg.url)
         if not is_valid:
-            logger.warning(f"Webhook {cfg.name} blocked (SSRF): {error_msg}")
+            logger.warning("Webhook %s blocked (SSRF): %s", cfg.name, error_msg)
             return False
 
         # Use custom encoder for proper set/datetime handling
@@ -599,7 +599,7 @@ class WebhookDispatcher:
                 )
                 if 200 <= resp.status_code < 300:
                     circuit.record_success()
-                    logger.debug(f"Webhook {cfg.name} delivered: {event_dict.get('type')}")
+                    logger.debug("Webhook %s delivered: %s", cfg.name, event_dict.get('type'))
                     return True
                 # Check if we should retry
                 if resp.status_code == 429 or (500 <= resp.status_code < 600):
@@ -621,13 +621,12 @@ class WebhookDispatcher:
                     # Non-retriable 4xx (400, 401, 403, 404, etc.)
                     # Don't record as circuit failure - this is likely a config issue
                     logger.warning(
-                        f"Webhook {cfg.name} failed with non-retriable error {resp.status_code} "
-                        f"for {event_dict.get('type')}"
+                        "Webhook %s failed with non-retriable error %s for %s", cfg.name, resp.status_code, event_dict.get('type')
                     )
                     return False
                 else:
                     # Non-2xx but unexpected status
-                    logger.warning(f"Webhook {cfg.name} got unexpected status {resp.status_code}")
+                    logger.warning("Webhook %s got unexpected status %s", cfg.name, resp.status_code)
 
             except (httpx.TimeoutException, httpx.NetworkError, OSError) as e:
                 # Network errors: retry
@@ -643,8 +642,7 @@ class WebhookDispatcher:
         # All retries exhausted - record circuit failure
         circuit.record_failure()
         logger.warning(
-            f"Webhook {cfg.name} delivery failed after {cfg.max_retries} attempts "
-            f"for {event_dict.get('type')}"
+            "Webhook %s delivery failed after %s attempts for %s", cfg.name, cfg.max_retries, event_dict.get('type')
         )
         return False
 

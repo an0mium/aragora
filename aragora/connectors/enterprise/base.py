@@ -141,7 +141,7 @@ class SyncState:
             with open(path) as f:
                 return cls.from_dict(json.load(f))
         except (OSError, json.JSONDecodeError, KeyError, ValueError) as e:
-            logger.warning(f"Failed to load sync state from {path}: {e}")
+            logger.warning("Failed to load sync state from %s: %s", path, e)
             return None
 
 
@@ -549,12 +549,12 @@ class EnterpriseConnector(BaseConnector):
 
             async for item in self.sync_items(state, batch_size):
                 if self._cancel_requested:
-                    logger.info(f"[{self.name}] Sync cancelled")
+                    logger.info("[%s] Sync cancelled", self.name)
                     state.status = SyncStatus.CANCELLED
                     break
 
                 if max_items and items_synced >= max_items:
-                    logger.info(f"[{self.name}] Reached max items limit: {max_items}")
+                    logger.info("[%s] Reached max items limit: %s", self.name, max_items)
                     break
 
                 try:
@@ -582,7 +582,7 @@ class EnterpriseConnector(BaseConnector):
                     error_msg = f"Failed to ingest {item.id}: {e}"
                     errors.append(error_msg)
                     state.errors.append(error_msg)
-                    logger.warning(f"[{self.name}] {error_msg}")
+                    logger.warning("[%s] %s", self.name, error_msg)
 
                 # Periodic state save
                 if (items_synced + items_updated) % 100 == 0:
@@ -594,7 +594,7 @@ class EnterpriseConnector(BaseConnector):
         except (OSError, ValueError, TypeError, RuntimeError) as e:
             state.status = SyncStatus.FAILED
             errors.append(f"Sync failed: {e}")
-            logger.error(f"[{self.name}] Sync failed: {e}")
+            logger.error("[%s] Sync failed: %s", self.name, e)
 
         finally:
             state.completed_at = datetime.now(timezone.utc)
@@ -665,7 +665,7 @@ class EnterpriseConnector(BaseConnector):
             return "created"
 
         except ImportError:
-            logger.debug(f"[{self.name}] Knowledge Mound not available, skipping ingestion")
+            logger.debug("[%s] Knowledge Mound not available, skipping ingestion", self.name)
             return "skipped"
 
     def cancel_sync(self) -> None:
@@ -709,7 +709,7 @@ class EnterpriseConnector(BaseConnector):
         Returns:
             True if handled successfully
         """
-        logger.debug(f"[{self.name}] Webhook received but not implemented")
+        logger.debug("[%s] Webhook received but not implemented", self.name)
         return False
 
     def get_webhook_secret(self) -> str | None:

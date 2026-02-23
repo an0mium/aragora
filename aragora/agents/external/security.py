@@ -446,9 +446,9 @@ class ExternalAgentSecurityPolicy:
             try:
                 self._audit_logger(event_type, data)
             except (RuntimeError, TypeError, ValueError, OSError) as e:
-                logger.warning(f"Audit log failed: {e}")
+                logger.warning("Audit log failed: %s", e)
         else:
-            logger.info(f"AUDIT [{event_type}]: {data}")
+            logger.info("AUDIT [%s]: %s", event_type, data)
 
     def _redact_secrets(self, content: str) -> str:
         """Redact secrets from content."""

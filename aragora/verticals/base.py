@@ -107,7 +107,7 @@ class VerticalSpecialistAgent(APIAgent):
                     top_p=config.model_config.top_p,
                 )
         except (ImportError, ValueError, TypeError, RuntimeError, OSError) as e:
-            logger.warning(f"[verticals] Failed to initialize delegate agent: {e}")
+            logger.warning("[verticals] Failed to initialize delegate agent: %s", e)
             self._delegate = None
 
     def _resolve_provider(self, provider: str) -> str:
@@ -438,7 +438,7 @@ class VerticalSpecialistAgent(APIAgent):
             Response message
         """
         if self._delegate is None:
-            logger.warning(f"[verticals] No delegate agent for {self.name}, returning placeholder")
+            logger.warning("[verticals] No delegate agent for %s, returning placeholder", self.name)
             return Message(
                 role="assistant",
                 content=f"[{self._config.display_name}] Delegate agent not available. "
@@ -463,7 +463,7 @@ class VerticalSpecialistAgent(APIAgent):
                 agent=self.name,
             )
         except (ConnectionError, TimeoutError, OSError, RuntimeError, ValueError, TypeError) as e:
-            logger.error(f"[verticals] Generation failed for {self.name}: {e}")
+            logger.error("[verticals] Generation failed for %s: %s", self.name, e)
             return Message(
                 role="assistant",
                 content=f"[{self._config.display_name}] Error generating response",

@@ -178,14 +178,14 @@ class SlackIntegration:
                     elif response.status == 429:
                         # Rate limited by Slack - respect Retry-After header
                         retry_after = int(response.headers.get("Retry-After", "5"))
-                        logger.warning(f"Slack rate limited, retrying after {retry_after}s")
+                        logger.warning("Slack rate limited, retrying after %ss", retry_after)
                         await asyncio.sleep(retry_after)
                         continue
                     elif response.status >= 500:
                         # Server error - retry with backoff
                         text = await response.text()
                         logger.warning(
-                            f"Slack server error (attempt {attempt + 1}): {response.status} - {text}"
+                            "Slack server error (attempt %s): %s - %s", attempt + 1, response.status, text
                         )
                         if self._circuit_breaker is not None:
                             self._circuit_breaker.record_failure()
@@ -196,12 +196,12 @@ class SlackIntegration:
                     else:
                         # Client error - don't retry
                         text = await response.text()
-                        logger.error(f"Slack API error: {response.status} - {text}")
+                        logger.error("Slack API error: %s - %s", response.status, text)
                         return False
 
             except aiohttp.ClientError as e:
                 last_error = e
-                logger.warning(f"Slack connection error (attempt {attempt + 1}): {e}")
+                logger.warning("Slack connection error (attempt %s): %s", attempt + 1, e)
                 if self._circuit_breaker is not None:
                     self._circuit_breaker.record_failure()
                 if attempt < max_retries - 1:
@@ -209,7 +209,7 @@ class SlackIntegration:
                     continue
             except asyncio.TimeoutError:
                 last_error = asyncio.TimeoutError()
-                logger.warning(f"Slack request timed out (attempt {attempt + 1})")
+                logger.warning("Slack request timed out (attempt %s)", attempt + 1)
                 if self._circuit_breaker is not None:
                     self._circuit_breaker.record_failure()
                 if attempt < max_retries - 1:
@@ -219,14 +219,14 @@ class SlackIntegration:
                 # Payload construction or data format error -- not retryable
                 last_error = e
                 logger.error(
-                    f"Slack payload error (attempt {attempt + 1}): {type(e).__name__}: {e}"
+                    "Slack payload error (attempt %s): %s: %s", attempt + 1, type(e).__name__, e
                 )
                 break
             except OSError as e:
                 # Low-level network/socket error -- retryable
                 last_error = e
                 logger.warning(
-                    f"Slack network error (attempt {attempt + 1}): {type(e).__name__}: {e}"
+                    "Slack network error (attempt %s): %s: %s", attempt + 1, type(e).__name__, e
                 )
                 if self._circuit_breaker is not None:
                     self._circuit_breaker.record_failure()
@@ -234,7 +234,7 @@ class SlackIntegration:
                     await asyncio.sleep(2**attempt)
                     continue
 
-        logger.error(f"Slack message failed after {max_retries} attempts: {last_error}")
+        logger.error("Slack message failed after %s attempts: %s", max_retries, last_error)
         return False
 
     async def verify_webhook(self) -> bool:
@@ -360,7 +360,7 @@ class SlackIntegration:
 
         if confidence < self.config.min_consensus_confidence:
             logger.debug(
-                f"Skipping consensus alert: confidence {confidence} < {self.config.min_consensus_confidence}"
+                "Skipping consensus alert: confidence %s < %s", confidence, self.config.min_consensus_confidence
             )
             return True
 

@@ -65,7 +65,7 @@ async def canvas_create_tool(
     except ImportError:
         return {"success": False, "error": "Canvas module not available"}
     except (RuntimeError, ValueError, OSError) as e:
-        logger.error(f"Canvas creation failed: {e}")
+        logger.error("Canvas creation failed: %s", e)
         return {"success": False, "error": "Canvas creation failed"}
 
 
@@ -105,7 +105,7 @@ async def canvas_get_tool(
     except ImportError:
         return {"error": "Canvas module not available"}
     except (RuntimeError, ValueError, OSError) as e:
-        logger.error(f"Canvas get failed: {e}")
+        logger.error("Canvas get failed: %s", e)
         return {"error": "Failed to retrieve canvas"}
 
 
@@ -170,7 +170,7 @@ async def canvas_add_node_tool(
     except ImportError:
         return {"error": "Canvas module not available"}
     except (RuntimeError, ValueError, OSError) as e:
-        logger.error(f"Canvas add_node failed: {e}")
+        logger.error("Canvas add_node failed: %s", e)
         return {"error": "Failed to add node to canvas"}
 
 
@@ -228,7 +228,7 @@ async def canvas_add_edge_tool(
     except ImportError:
         return {"error": "Canvas module not available"}
     except (RuntimeError, ValueError, OSError) as e:
-        logger.error(f"Canvas add_edge failed: {e}")
+        logger.error("Canvas add_edge failed: %s", e)
         return {"error": "Failed to add edge to canvas"}
 
 
@@ -271,7 +271,7 @@ async def canvas_execute_action_tool(
     except ImportError:
         return {"error": "Canvas module not available"}
     except (RuntimeError, ValueError, OSError) as e:
-        logger.error(f"Canvas execute_action failed: {e}")
+        logger.error("Canvas execute_action failed: %s", e)
         return {"error": "Canvas action execution failed"}
 
 
@@ -320,7 +320,7 @@ async def canvas_list_tool(
     except ImportError:
         return {"canvases": [], "count": 0, "error": "Canvas module not available"}
     except (RuntimeError, ValueError, OSError) as e:
-        logger.error(f"Canvas list failed: {e}")
+        logger.error("Canvas list failed: %s", e)
         return {"canvases": [], "count": 0, "error": "Failed to list canvases"}
 
 
@@ -350,7 +350,7 @@ async def canvas_delete_node_tool(
     except ImportError:
         return {"error": "Canvas module not available"}
     except (RuntimeError, ValueError, OSError) as e:
-        logger.error(f"Canvas delete_node failed: {e}")
+        logger.error("Canvas delete_node failed: %s", e)
         return {"error": "Failed to delete canvas node"}
 
 

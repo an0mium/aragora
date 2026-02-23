@@ -221,7 +221,7 @@ class GoogleChatConnector(ChatPlatformConnector):
 
         except (httpx.HTTPError, ValueError, RuntimeError, OSError) as e:
             self._record_failure(e)
-            logger.error(f"Google Chat send_message error: {e}")
+            logger.error("Google Chat send_message error: %s", e)
             return SendMessageResponse(success=False, error="Message send failed")
 
     async def update_message(
@@ -280,7 +280,7 @@ class GoogleChatConnector(ChatPlatformConnector):
 
         except (httpx.HTTPError, ValueError, RuntimeError, OSError) as e:
             self._record_failure(e)
-            logger.error(f"Google Chat update_message error: {e}")
+            logger.error("Google Chat update_message error: %s", e)
             return SendMessageResponse(success=False, error="Message update failed")
 
     async def delete_message(
@@ -296,7 +296,7 @@ class GoogleChatConnector(ChatPlatformConnector):
         # Check circuit breaker
         can_proceed, cb_error = self._check_circuit_breaker()
         if not can_proceed:
-            logger.warning(f"Google Chat delete_message blocked by circuit breaker: {cb_error}")
+            logger.warning("Google Chat delete_message blocked by circuit breaker: %s", cb_error)
             return False
 
         try:
@@ -315,7 +315,7 @@ class GoogleChatConnector(ChatPlatformConnector):
 
         except (httpx.HTTPError, ValueError, RuntimeError, OSError) as e:
             self._record_failure(e)
-            logger.error(f"Google Chat delete_message error: {e}")
+            logger.error("Google Chat delete_message error: %s", e)
             return False
 
     async def respond_to_command(
@@ -747,7 +747,7 @@ class GoogleChatConnector(ChatPlatformConnector):
         # Check circuit breaker
         can_proceed, cb_error = self._check_circuit_breaker()
         if not can_proceed:
-            logger.warning(f"Google Chat list_spaces blocked by circuit breaker: {cb_error}")
+            logger.warning("Google Chat list_spaces blocked by circuit breaker: %s", cb_error)
             return []
 
         try:
@@ -777,5 +777,5 @@ class GoogleChatConnector(ChatPlatformConnector):
 
         except (httpx.HTTPError, ValueError, RuntimeError, OSError) as e:
             self._record_failure(e)
-            logger.error(f"Google Chat list_spaces error: {e}")
+            logger.error("Google Chat list_spaces error: %s", e)
             return []

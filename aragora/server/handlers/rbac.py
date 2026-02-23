@@ -183,7 +183,7 @@ class RBACHandler(BaseHandler):
             return error_response("Not found", 404)
 
         except (KeyError, ValueError, TypeError, AttributeError, RuntimeError) as e:
-            logger.exception(f"Error handling RBAC request: {e}")
+            logger.exception("Error handling RBAC request: %s", e)
             return error_response("Internal server error", 500)
 
     # -------------------------------------------------------------------------
@@ -371,7 +371,7 @@ class RBACHandler(BaseHandler):
             "priority": role.priority,
         }
 
-        logger.info(f"Created custom role: {name} for org: {org_id}")
+        logger.info("Created custom role: %s for org: %s", name, org_id)
 
         return json_response({"role": _role_to_dict(role)}, status=201)
 
@@ -421,7 +421,7 @@ class RBACHandler(BaseHandler):
         # Clear cache since role permissions changed
         checker.clear_cache()
 
-        logger.info(f"Updated custom role: {name}")
+        logger.info("Updated custom role: %s", name)
 
         return json_response(
             {
@@ -464,7 +464,7 @@ class RBACHandler(BaseHandler):
         del checker._custom_roles[target_key]
         checker.clear_cache()
 
-        logger.info(f"Deleted custom role: {name}")
+        logger.info("Deleted custom role: %s", name)
 
         return json_response({"deleted": True, "role": name})
 
@@ -552,7 +552,7 @@ class RBACHandler(BaseHandler):
         checker.add_role_assignment(assignment)
         checker.clear_cache(user_id)
 
-        logger.info(f"Created role assignment: {role_id} -> {user_id}")
+        logger.info("Created role assignment: %s -> %s", role_id, user_id)
 
         return json_response({"assignment": _assignment_to_dict(assignment)}, status=201)
 
@@ -572,7 +572,7 @@ class RBACHandler(BaseHandler):
                     checker.remove_role_assignment(uid, assignment.role_id, assignment.org_id)
                     checker.clear_cache(uid)
 
-                    logger.info(f"Deleted role assignment: {assignment.role_id} -> {uid}")
+                    logger.info("Deleted role assignment: %s -> %s", assignment.role_id, uid)
 
                     return json_response(
                         {

@@ -175,7 +175,7 @@ class GmailQueryHandler(SecureHandler):
             return json_response(response.to_dict())
 
         except (ConnectionError, TimeoutError, OSError, ValueError, KeyError, AttributeError) as e:
-            logger.error(f"[GmailQuery] Query failed: {e}")
+            logger.error("[GmailQuery] Query failed: %s", e)
             return error_response("Query execution failed", 500)
 
     async def _run_query(
@@ -297,7 +297,7 @@ class GmailQueryHandler(SecureHandler):
         except ImportError:
             logger.debug("[GmailQuery] RLM not available, using fallback")
         except (ConnectionError, TimeoutError, OSError, ValueError, AttributeError, TypeError) as e:
-            logger.warning(f"[GmailQuery] RLM failed: {e}")
+            logger.warning("[GmailQuery] RLM failed: %s", e)
 
         # Fallback: Try using an LLM directly
         try:
@@ -315,7 +315,7 @@ class GmailQueryHandler(SecureHandler):
             return response.content if response else self._simple_answer(question, emails_content)
 
         except (ImportError, ConnectionError, TimeoutError, OSError, ValueError, AttributeError) as e:
-            logger.debug(f"[GmailQuery] LLM fallback failed: {e}")
+            logger.debug("[GmailQuery] LLM fallback failed: %s", e)
             return self._simple_answer(question, emails_content)
 
     def _simple_answer(self, question: str, emails_content: list[str]) -> str:
@@ -395,7 +395,7 @@ class GmailQueryHandler(SecureHandler):
             return json_response(result)
 
         except (ConnectionError, TimeoutError, OSError, ValueError, KeyError, AttributeError, TypeError) as e:
-            logger.error(f"[GmailQuery] Voice query failed: {e}")
+            logger.error("[GmailQuery] Voice query failed: %s", e)
             return error_response("Voice query failed", 500)
 
     async def _transcribe(self, audio_bytes: bytes) -> str | None:
@@ -412,7 +412,7 @@ class GmailQueryHandler(SecureHandler):
             logger.warning("[GmailQuery] Whisper not available")
             return None
         except (ConnectionError, TimeoutError, OSError, ValueError, AttributeError) as e:
-            logger.error(f"[GmailQuery] Transcription failed: {e}")
+            logger.error("[GmailQuery] Transcription failed: %s", e)
             return None
 
     async def _get_priority_inbox(
@@ -441,7 +441,7 @@ class GmailQueryHandler(SecureHandler):
             )
 
         except (ConnectionError, TimeoutError, OSError, ValueError, KeyError, AttributeError) as e:
-            logger.error(f"[GmailQuery] Priority inbox failed: {e}")
+            logger.error("[GmailQuery] Priority inbox failed: %s", e)
             return error_response("Failed to retrieve priority inbox", 500)
 
     async def _get_prioritized_emails(
@@ -560,7 +560,7 @@ class GmailQueryHandler(SecureHandler):
             )
 
         except (ImportError, KeyError, ValueError, OSError, TypeError, AttributeError) as e:
-            logger.error(f"[GmailQuery] Feedback recording failed: {e}")
+            logger.error("[GmailQuery] Feedback recording failed: %s", e)
             return error_response("Feedback recording failed", 500)
 
 

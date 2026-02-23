@@ -294,7 +294,7 @@ class EscalationChain:
         import uuid
 
         if not self.can_escalate():
-            logger.warning(f"Cannot escalate chain {self.id}: already at max level or not active")
+            logger.warning("Cannot escalate chain %s: already at max level or not active", self.id)
             return None
 
         next_level = self.get_next_level()
@@ -323,7 +323,7 @@ class EscalationChain:
         if self._store:
             await self._store._save_chain(self)
 
-        logger.info(f"Escalated chain {self.id}: {previous_level.value} -> {next_level.value}")
+        logger.info("Escalated chain %s: %s -> %s", self.id, previous_level.value, next_level.value)
         return event
 
     async def resolve(
@@ -364,7 +364,7 @@ class EscalationChain:
         if self._store:
             await self._store._save_chain(self)
 
-        logger.info(f"Resolved escalation chain {self.id} at level {self.current_level.value}")
+        logger.info("Resolved escalation chain %s at level %s", self.id, self.current_level.value)
         return event
 
     async def deescalate(
@@ -386,7 +386,7 @@ class EscalationChain:
 
         if not self.can_deescalate():
             logger.warning(
-                f"Cannot de-escalate chain {self.id}: already at min level or not active"
+                "Cannot de-escalate chain %s: already at min level or not active", self.id
             )
             return None
 
@@ -416,7 +416,7 @@ class EscalationChain:
         if self._store:
             await self._store._save_chain(self)
 
-        logger.info(f"De-escalated chain {self.id}: {old_level.value} -> {previous_level.value}")
+        logger.info("De-escalated chain %s: %s -> %s", self.id, old_level.value, previous_level.value)
         return event
 
     async def suppress(
@@ -457,7 +457,7 @@ class EscalationChain:
         if self._store:
             await self._store._save_chain(self)
 
-        logger.info(f"Suppressed escalation chain {self.id} for {duration_minutes} minutes")
+        logger.info("Suppressed escalation chain %s for %s minutes", self.id, duration_minutes)
         return event
 
     @property
@@ -519,7 +519,7 @@ class EscalationStore:
         self.storage_dir.mkdir(parents=True, exist_ok=True)
         await self._load_chains()
         self._initialized = True
-        logger.info(f"EscalationStore initialized with {len(self._chains)} chains")
+        logger.info("EscalationStore initialized with %s chains", len(self._chains))
 
     async def _load_chains(self) -> None:
         """Load chains from storage."""
@@ -539,9 +539,9 @@ class EscalationStore:
                         self._chains[chain.id] = chain
                         self._index_chain(chain)
                     except (json.JSONDecodeError, KeyError) as e:
-                        logger.warning(f"Invalid chain data: {e}")
+                        logger.warning("Invalid chain data: %s", e)
         except OSError as e:
-            logger.error(f"Failed to load chains: {e}")
+            logger.error("Failed to load chains: %s", e)
 
     def _index_chain(self, chain: EscalationChain) -> None:
         """Add chain to lookup indices."""
@@ -571,7 +571,7 @@ class EscalationStore:
         except OSError as e:
             if temp_file.exists():
                 temp_file.unlink()
-            logger.error(f"Failed to save chains: {e}")
+            logger.error("Failed to save chains: %s", e)
 
     def register_handler(
         self,
@@ -619,7 +619,7 @@ class EscalationStore:
                 # Check suppression
                 if existing.suppress_until and datetime.now(timezone.utc) < existing.suppress_until:
                     logger.info(
-                        f"Escalation for {target} is suppressed until {existing.suppress_until}"
+                        "Escalation for %s is suppressed until %s", target, existing.suppress_until
                     )
                     return existing
 
@@ -628,7 +628,7 @@ class EscalationStore:
                     minutes=(config or self.default_config).suppress_duplicates_minutes
                 )
                 if datetime.now(timezone.utc) - existing.updated_at < suppress_window:
-                    logger.info(f"Duplicate escalation for {target} suppressed")
+                    logger.info("Duplicate escalation for %s suppressed", target)
                     return existing
 
             chain_config = config or self.default_config
@@ -666,8 +666,7 @@ class EscalationStore:
             await self._save_all_chains()
 
             logger.info(
-                f"Created escalation chain {chain.id}: source={source} target={target} "
-                f"level={start_level.value}"
+                "Created escalation chain %s: source=%s target=%s level=%s", chain.id, source, target, start_level.value
             )
 
             # Execute handler if registered
@@ -683,7 +682,7 @@ class EscalationStore:
         """Execute the handler for an escalation level."""
         handler = self._handlers.get(level)
         if not handler:
-            logger.debug(f"No handler registered for level {level.value}")
+            logger.debug("No handler registered for level %s", level.value)
             return None
 
         try:
@@ -760,7 +759,7 @@ class EscalationStore:
                     chain.updated_at = now
                     chain.events.append(event)
                     events.append(event)
-                    logger.info(f"Escalation chain {chain.id} expired")
+                    logger.info("Escalation chain %s expired", chain.id)
                     continue
 
                 # Check for suppression expiry
@@ -772,7 +771,7 @@ class EscalationStore:
                             minutes=chain.config.auto_escalate_minutes
                         )
                         chain.updated_at = now
-                        logger.info(f"Escalation chain {chain.id} unsuppressed")
+                        logger.info("Escalation chain %s unsuppressed", chain.id)
 
                 # Check for auto-escalation
                 if chain.needs_auto_escalate and chain.can_escalate():
@@ -871,10 +870,10 @@ class EscalationRecovery:
             # Check if chain needs attention
             if chain.needs_auto_escalate:
                 recovered.append(chain)
-                logger.info(f"Recovered escalation chain {chain.id} (needs auto-escalate)")
+                logger.info("Recovered escalation chain %s (needs auto-escalate)", chain.id)
             elif chain.is_expired:
                 recovered.append(chain)
-                logger.info(f"Recovered escalation chain {chain.id} (expired)")
+                logger.info("Recovered escalation chain %s (expired)", chain.id)
 
         # Process any pending escalations
         if recovered:

@@ -37,7 +37,7 @@ def _get_governance_store():
 
             _governance_store = get_governance_store()
         except (ImportError, RuntimeError, OSError) as e:
-            logger.debug(f"Governance store not available: {e}")
+            logger.debug("Governance store not available: %s", e)
     return _governance_store
 
 
@@ -183,10 +183,10 @@ def recover_pending_approvals() -> int:
 
         _approvals_recovered = True
         if recovered > 0:
-            logger.info(f"Recovered {recovered} pending approvals from GovernanceStore")
+            logger.info("Recovered %s pending approvals from GovernanceStore", recovered)
 
     except (RuntimeError, ValueError, TypeError, OSError, AttributeError, KeyError) as e:
-        logger.warning(f"Failed to recover approvals from GovernanceStore: {e}")
+        logger.warning("Failed to recover approvals from GovernanceStore: %s", e)
 
     return recovered
 
@@ -258,7 +258,7 @@ class HumanCheckpointStep(BaseStep):
         auto_approve_condition = config.get("auto_approve_if", "")
         if auto_approve_condition:
             if self._evaluate_condition(auto_approve_condition, context):
-                logger.info(f"Auto-approving checkpoint '{self.name}' based on condition")
+                logger.info("Auto-approving checkpoint '%s' based on condition", self.name)
                 return {
                     "status": "approved",
                     "auto_approved": True,
@@ -279,7 +279,7 @@ class HumanCheckpointStep(BaseStep):
 
         # Store the request in memory
         _pending_approvals[request.id] = request
-        logger.info(f"Created approval request {request.id} for checkpoint '{self.name}'")
+        logger.info("Created approval request %s for checkpoint '%s'", request.id, self.name)
 
         # Persist to GovernanceStore for durability
         store = _get_governance_store()
@@ -305,14 +305,14 @@ class HumanCheckpointStep(BaseStep):
                     },
                 )
             except (RuntimeError, OSError, ValueError, TypeError) as e:
-                logger.warning(f"Failed to persist approval to store: {e}")
+                logger.warning("Failed to persist approval to store: %s", e)
 
         # Notify listeners
         if self.on_approval_requested:
             try:
                 self.on_approval_requested(request)
             except (RuntimeError, ValueError, TypeError, OSError, AttributeError) as e:
-                logger.warning(f"Failed to notify approval listener: {e}")
+                logger.warning("Failed to notify approval listener: %s", e)
 
         # Send notifications via notification service (Slack/Email)
         await self._send_approval_notification(request, config, context)
@@ -367,7 +367,7 @@ class HumanCheckpointStep(BaseStep):
         except asyncio.TimeoutError:
             # Handle timeout
             request.status = ApprovalStatus.TIMEOUT
-            logger.warning(f"Approval request {request.id} timed out")
+            logger.warning("Approval request %s timed out", request.id)
 
             # Persist timeout status to GovernanceStore
             store = _get_governance_store()
@@ -379,7 +379,7 @@ class HumanCheckpointStep(BaseStep):
                         rejection_reason="Approval request timed out",
                     )
                 except (RuntimeError, OSError, ValueError, TypeError) as e:
-                    logger.warning(f"Failed to persist timeout status: {e}")
+                    logger.warning("Failed to persist timeout status: %s", e)
 
             # Trigger escalation
             await self._handle_escalation(request)
@@ -443,12 +443,11 @@ class HumanCheckpointStep(BaseStep):
                             # Update in-memory cache
                             _pending_approvals[request.id] = request
                             logger.debug(
-                                f"Detected approval {request.id} status change "
-                                f"from governance store: {record.status}"
+                                "Detected approval %s status change from governance store: %s", request.id, record.status
                             )
                             break
                     except (RuntimeError, OSError, ValueError, TypeError, AttributeError) as e:
-                        logger.debug(f"Error polling governance store: {e}")
+                        logger.debug("Error polling governance store: %s", e)
 
         # Validate checklist if approved
         if request.status == ApprovalStatus.APPROVED:
@@ -480,7 +479,7 @@ class HumanCheckpointStep(BaseStep):
             return
 
         request.status = ApprovalStatus.ESCALATED
-        logger.info(f"Escalating approval request {request.id} to: {request.escalation_emails}")
+        logger.info("Escalating approval request %s to: %s", request.id, request.escalation_emails)
 
         # Persist escalation status to GovernanceStore
         store = _get_governance_store()
@@ -492,7 +491,7 @@ class HumanCheckpointStep(BaseStep):
                     rejection_reason=f"Escalated to: {', '.join(request.escalation_emails)}",
                 )
             except (RuntimeError, OSError, ValueError, TypeError) as e:
-                logger.warning(f"Failed to persist escalation status: {e}")
+                logger.warning("Failed to persist escalation status: %s", e)
 
         # Send escalation notifications via Slack/Email
         try:
@@ -510,7 +509,7 @@ class HumanCheckpointStep(BaseStep):
         except ImportError:
             logger.debug("Notification service not available for escalation")
         except (RuntimeError, OSError, ValueError, TypeError, ConnectionError) as e:
-            logger.warning(f"Failed to send escalation notification: {e}")
+            logger.warning("Failed to send escalation notification: %s", e)
 
     def _build_description(self, config: dict[str, Any], context: WorkflowContext) -> str:
         """Build the approval request description."""
@@ -569,7 +568,7 @@ class HumanCheckpointStep(BaseStep):
         except ImportError:
             logger.debug("Notification service not available")
         except (RuntimeError, OSError, ValueError, TypeError, ConnectionError) as e:
-            logger.warning(f"Failed to send approval notification: {e}")
+            logger.warning("Failed to send approval notification: %s", e)
 
         # Send interactive chat approval request (best-effort)
         try:
@@ -669,7 +668,7 @@ def resolve_approval(
     # Try to get request from memory or recover from persistent store
     request = get_approval_request(request_id)
     if request is None:
-        logger.warning(f"Approval request {request_id} not found in memory or store")
+        logger.warning("Approval request %s not found in memory or store", request_id)
         return False
     request.status = status
     request.responder_id = responder_id
@@ -681,7 +680,7 @@ def resolve_approval(
             if item.id in checklist_updates:
                 item.checked = checklist_updates[item.id]
 
-    logger.info(f"Resolved approval request {request_id}: {status.value}")
+    logger.info("Resolved approval request %s: %s", request_id, status.value)
 
     # Persist to GovernanceStore
     store = _get_governance_store()
@@ -695,7 +694,7 @@ def resolve_approval(
                 rejection_reason=rejection_reason,
             )
         except (RuntimeError, OSError, ValueError, TypeError) as e:
-            logger.warning(f"Failed to update approval in store: {e}")
+            logger.warning("Failed to update approval in store: %s", e)
 
     # Send resolution notification (async in background)
     _send_resolution_notification_background(request)
@@ -723,7 +722,7 @@ def _send_resolution_notification_background(request: ApprovalRequest) -> None:
         except ImportError:
             pass  # Notification service not available
         except (RuntimeError, OSError, ValueError, TypeError, ConnectionError) as e:
-            logger.warning(f"Failed to send resolution notification: {e}")
+            logger.warning("Failed to send resolution notification: %s", e)
 
     # Try to schedule in existing event loop or create new one
     try:
@@ -734,9 +733,9 @@ def _send_resolution_notification_background(request: ApprovalRequest) -> None:
         try:
             asyncio.run(_send())
         except (RuntimeError, asyncio.CancelledError) as e:
-            logger.debug(f"Resolution notification send failed (event loop): {e}")
+            logger.debug("Resolution notification send failed (event loop): %s", e)
         except (RuntimeError, OSError, ValueError, TypeError, ConnectionError) as e:
-            logger.warning(f"Unexpected error sending resolution notification: {e}")
+            logger.warning("Unexpected error sending resolution notification: %s", e)
 
 
 def get_pending_approvals(workflow_id: str | None = None) -> list[ApprovalRequest]:
@@ -813,9 +812,9 @@ def get_approval_request(request_id: str) -> ApprovalRequest | None:
                 )
                 # Cache for future lookups
                 _pending_approvals[request_id] = request
-                logger.debug(f"Recovered approval {request_id} from governance store")
+                logger.debug("Recovered approval %s from governance store", request_id)
                 return request
         except (RuntimeError, OSError, ValueError, TypeError, KeyError, AttributeError) as e:
-            logger.debug(f"Could not recover approval {request_id}: {e}")
+            logger.debug("Could not recover approval %s: %s", request_id, e)
 
     return None

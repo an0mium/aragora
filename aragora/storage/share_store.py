@@ -127,7 +127,7 @@ class ShareLinkStore(SQLiteStore):
         else:
             # Use SQLiteStore initialization for SQLite
             super().__init__(db_path, **kwargs)
-            logger.info(f"ShareLinkStore initialized: {db_path}")
+            logger.info("ShareLinkStore initialized: %s", db_path)
 
     def _init_postgresql_schema(self) -> None:
         """Initialize PostgreSQL schema."""
@@ -161,7 +161,7 @@ class ShareLinkStore(SQLiteStore):
             try:
                 self._backend.execute_write(idx_sql)
             except (OSError, RuntimeError, ValueError) as e:
-                logger.debug(f"Index creation skipped: {e}")
+                logger.debug("Index creation skipped: %s", e)
 
         # Run post-init cleanup
         self._post_init()
@@ -244,7 +244,7 @@ class ShareLinkStore(SQLiteStore):
                 )
 
         self._maybe_cleanup()
-        logger.debug(f"Saved share settings for debate {settings.debate_id}")
+        logger.debug("Saved share settings for debate %s", settings.debate_id)
 
     def get(self, debate_id: str) -> ShareSettings | None:
         """
@@ -323,7 +323,7 @@ class ShareLinkStore(SQLiteStore):
                 "DELETE FROM share_links WHERE debate_id = ?",
                 (debate_id,),
             )
-            logger.info(f"Deleted share settings for debate {debate_id}")
+            logger.info("Deleted share settings for debate %s", debate_id)
             return True
 
         with self.connection() as conn:
@@ -334,7 +334,7 @@ class ShareLinkStore(SQLiteStore):
             deleted = cursor.rowcount > 0
 
         if deleted:
-            logger.info(f"Deleted share settings for debate {debate_id}")
+            logger.info("Deleted share settings for debate %s", debate_id)
 
         return deleted
 
@@ -366,7 +366,7 @@ class ShareLinkStore(SQLiteStore):
                 """,
                 (debate_id,),
             )
-            logger.info(f"Revoked share token for debate {debate_id}")
+            logger.info("Revoked share token for debate %s", debate_id)
             return True
 
         with self.connection() as conn:
@@ -381,7 +381,7 @@ class ShareLinkStore(SQLiteStore):
             revoked = cursor.rowcount > 0
 
         if revoked:
-            logger.info(f"Revoked share token for debate {debate_id}")
+            logger.info("Revoked share token for debate %s", debate_id)
 
         return revoked
 
@@ -458,7 +458,7 @@ class ShareLinkStore(SQLiteStore):
         self._last_cleanup = time.time()
 
         if removed > 0:
-            logger.info(f"ShareLinkStore cleanup: removed {removed} expired links")
+            logger.info("ShareLinkStore cleanup: removed %s expired links", removed)
 
         return removed
 

@@ -135,7 +135,7 @@ class VisibilityOperationsMixin:
             logger.warning("Handler error: %s", e)
             return error_response("Resource not found", 404)
         except (KeyError, OSError, TypeError, RuntimeError, AttributeError) as e:
-            logger.error(f"Failed to set visibility: {e}")
+            logger.error("Failed to set visibility: %s", e)
             return error_response("Failed to set visibility", 500)
 
         # Track metrics
@@ -168,7 +168,7 @@ class VisibilityOperationsMixin:
         try:
             node = _run_async(mound.get_node(node_id))
         except (KeyError, ValueError, OSError, TypeError, RuntimeError, AttributeError) as e:
-            logger.error(f"Failed to get node: {e}")
+            logger.error("Failed to get node: %s", e)
             return error_response("Failed to get node", 500)
 
         if not node:
@@ -256,7 +256,7 @@ class VisibilityOperationsMixin:
             logger.warning("Handler error: %s", e)
             return error_response("Resource not found", 404)
         except (KeyError, OSError, TypeError, RuntimeError, AttributeError) as e:
-            logger.error(f"Failed to grant access: {e}")
+            logger.error("Failed to grant access: %s", e)
             return error_response("Failed to grant access", 500)
 
         # Track metrics
@@ -328,7 +328,7 @@ class VisibilityOperationsMixin:
             logger.warning("Handler error: %s", e)
             return error_response("Resource not found", 404)
         except (KeyError, OSError, TypeError, RuntimeError, AttributeError) as e:
-            logger.error(f"Failed to revoke access: {e}")
+            logger.error("Failed to revoke access: %s", e)
             return error_response("Failed to revoke access", 500)
 
         # Track metrics
@@ -364,7 +364,7 @@ class VisibilityOperationsMixin:
             logger.warning("Handler error: %s", e)
             return error_response("Resource not found", 404)
         except (KeyError, OSError, TypeError, RuntimeError, AttributeError) as e:
-            logger.error(f"Failed to list access grants: {e}")
+            logger.error("Failed to list access grants: %s", e)
             return error_response("Failed to list access grants", 500)
 
         return json_response(

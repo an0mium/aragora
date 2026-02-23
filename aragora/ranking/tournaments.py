@@ -485,7 +485,7 @@ class TournamentManager:
                 )
 
                 conn.commit()
-                logger.info(f"Created tournament: {tournament_id}")
+                logger.info("Created tournament: %s", tournament_id)
 
         # Generate initial bracket/matches
         self._generate_matches(tournament)
@@ -546,7 +546,7 @@ class TournamentManager:
                     ),
                 )
             conn.commit()
-            logger.info(f"Generated {len(matches)} matches for tournament {tournament_id}")
+            logger.info("Generated %s matches for tournament %s", len(matches), tournament_id)
 
     def _generate_single_elimination_matches(self, tournament: Tournament) -> None:
         """Generate first round matches for single elimination."""
@@ -611,7 +611,7 @@ class TournamentManager:
 
         self._insert_matches(matches, tournament.tournament_id)
         logger.info(
-            f"Generated double elimination bracket with {len(matches)} winners bracket matches"
+            "Generated double elimination bracket with %s winners bracket matches", len(matches)
         )
 
     def record_match_result(
@@ -694,7 +694,7 @@ class TournamentManager:
                 )
 
                 conn.commit()
-                logger.info(f"Recorded result for match {match_id}: winner={winner}")
+                logger.info("Recorded result for match %s: winner=%s", match_id, winner)
 
         # Update ELO ratings if configured and requested
         if update_elo and self._elo_system and agent1 and agent2:
@@ -712,7 +712,7 @@ class TournamentManager:
                     f"{agent2}={elo_changes.get(agent2, 0):+.1f}"
                 )
             except (ValueError, TypeError, KeyError, RuntimeError, OSError) as e:
-                logger.warning(f"Failed to update ELO for match {match_id}: {e}")
+                logger.warning("Failed to update ELO for match %s: %s", match_id, e)
 
         return elo_changes
 
@@ -1038,7 +1038,7 @@ class TournamentManager:
                         {"final_winner": winners[0] if winners else None},
                     )
                     conn.commit()
-                    logger.info(f"Tournament {tournament_id} completed")
+                    logger.info("Tournament %s completed", tournament_id)
                     return False
 
                 # Generate next round matches
@@ -1096,7 +1096,7 @@ class TournamentManager:
                 )
 
                 conn.commit()
-                logger.info(f"Advanced tournament {tournament_id} to round {next_round}")
+                logger.info("Advanced tournament %s to round %s", tournament_id, next_round)
 
         return True
 
@@ -1130,6 +1130,6 @@ class TournamentManager:
                 )
                 self._log_event(conn, tournament_id, TournamentEvent.CANCELLED)
                 conn.commit()
-                logger.info(f"Cancelled tournament {tournament_id}")
+                logger.info("Cancelled tournament %s", tournament_id)
 
         return True

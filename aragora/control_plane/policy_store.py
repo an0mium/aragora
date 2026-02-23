@@ -980,7 +980,7 @@ def get_control_plane_policy_store(
                 return _policy_store_instance
             except (RuntimeError, ValueError, OSError, ConnectionError, TimeoutError, ImportError) as e:
                 logger.warning(
-                    f"Failed to initialize PostgreSQL policy store: {e}, falling back to SQLite"
+                    "Failed to initialize PostgreSQL policy store: %s, falling back to SQLite", e
                 )
 
     _policy_store_instance = ControlPlanePolicyStore(db_path)

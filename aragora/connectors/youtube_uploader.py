@@ -238,7 +238,7 @@ class YouTubeUploaderConnector:
             if not self.refresh_token:
                 missing.append("YOUTUBE_REFRESH_TOKEN")
             logger.warning(
-                f"YouTube credentials incomplete. Missing: {', '.join(missing)}. Uploads will fail."
+                "YouTube credentials incomplete. Missing: %s. Uploads will fail.", ', '.join(missing)
             )
 
     @property
@@ -307,7 +307,7 @@ class YouTubeUploaderConnector:
                     return data
                 else:
                     # Don't log full response which may contain sensitive data
-                    logger.error(f"Token exchange failed: HTTP {response.status_code}")
+                    logger.error("Token exchange failed: HTTP %s", response.status_code)
                     raise YouTubeAuthError(
                         f"Token exchange failed with status {response.status_code}"
                     )
@@ -315,7 +315,7 @@ class YouTubeUploaderConnector:
         except YouTubeAuthError:
             raise
         except (httpx.TimeoutException, httpx.RequestError, json.JSONDecodeError, KeyError) as e:
-            logger.error(f"Token exchange error: {e}")
+            logger.error("Token exchange error: %s", e)
             raise YouTubeAuthError(f"Token exchange failed: {e}") from e
 
     async def _refresh_access_token(self) -> bool:
@@ -345,17 +345,17 @@ class YouTubeUploaderConnector:
                     return True
                 else:
                     # Don't log full response which may contain sensitive data
-                    logger.error(f"Token refresh failed: HTTP {response.status_code}")
+                    logger.error("Token refresh failed: HTTP %s", response.status_code)
                     return False
 
         except httpx.TimeoutException as e:
-            logger.error(f"Token refresh timeout: {e}")
+            logger.error("Token refresh timeout: %s", e)
             return False
         except httpx.RequestError as e:
-            logger.error(f"Token refresh network error: {e}")
+            logger.error("Token refresh network error: %s", e)
             return False
         except (json.JSONDecodeError, KeyError) as e:
-            logger.error(f"Token refresh parse error: {e}")
+            logger.error("Token refresh parse error: %s", e)
             return False
 
     async def _get_access_token(self) -> str | None:
@@ -495,7 +495,7 @@ class YouTubeUploaderConnector:
                     self.circuit_breaker.record_success()
                     self.rate_limiter.record_upload()
 
-                    logger.info(f"Uploaded video: {video_id}")
+                    logger.info("Uploaded video: %s", video_id)
                     return UploadResult(
                         video_id=video_id,
                         title=metadata.title,
@@ -514,7 +514,7 @@ class YouTubeUploaderConnector:
                     )
 
         except httpx.TimeoutException as e:
-            logger.error(f"YouTube upload timeout: {e}")
+            logger.error("YouTube upload timeout: %s", e)
             self.circuit_breaker.record_failure()
             return UploadResult(
                 video_id="",
@@ -524,7 +524,7 @@ class YouTubeUploaderConnector:
                 error=f"Upload timeout: {e}",
             )
         except httpx.RequestError as e:
-            logger.error(f"YouTube upload network error: {e}")
+            logger.error("YouTube upload network error: %s", e)
             self.circuit_breaker.record_failure()
             return UploadResult(
                 video_id="",
@@ -534,7 +534,7 @@ class YouTubeUploaderConnector:
                 error=f"Network error: {e}",
             )
         except (json.JSONDecodeError, KeyError, OSError) as e:
-            logger.error(f"YouTube upload error: {e}")
+            logger.error("YouTube upload error: %s", e)
             self.circuit_breaker.record_failure()
             return UploadResult(
                 video_id="",
@@ -588,7 +588,7 @@ class YouTubeUploaderConnector:
         except (YouTubeAuthError, YouTubeAPIError):
             raise
         except (httpx.TimeoutException, httpx.RequestError, json.JSONDecodeError, KeyError) as e:
-            logger.error(f"Failed to get video status: {e}")
+            logger.error("Failed to get video status: %s", e)
             raise YouTubeAPIError(f"Failed to get video status: {e}") from e
 
 

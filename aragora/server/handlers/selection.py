@@ -128,7 +128,7 @@ class SelectionHandler(BaseHandler):
         # Rate limit check
         client_ip = get_client_ip(handler)
         if not _selection_limiter.is_allowed(client_ip):
-            logger.warning(f"Rate limit exceeded for selection endpoint: {client_ip}")
+            logger.warning("Rate limit exceeded for selection endpoint: %s", client_ip)
             return error_response("Rate limit exceeded. Please try again later.", 429)
 
         # Normalize agent-selection alias paths
@@ -233,11 +233,11 @@ class SelectionHandler(BaseHandler):
         try:
             body = self._get_json_body(handler)
         except (json.JSONDecodeError, ValueError) as e:
-            logger.debug(f"Invalid JSON in score_agents request: {type(e).__name__}: {e}")
+            logger.debug("Invalid JSON in score_agents request: %s: %s", type(e).__name__, e)
             return error_response("Invalid JSON body", 400)
         except (AttributeError, TypeError, OSError) as e:
             logger.warning(
-                f"Unexpected error parsing score_agents request: {type(e).__name__}: {e}"
+                "Unexpected error parsing score_agents request: %s: %s", type(e).__name__, e
             )
             return error_response("Invalid JSON body", 400)
 
@@ -307,10 +307,10 @@ class SelectionHandler(BaseHandler):
         try:
             body = self._get_json_body(handler)
         except (json.JSONDecodeError, ValueError) as e:
-            logger.debug(f"Invalid JSON in select_team request: {type(e).__name__}: {e}")
+            logger.debug("Invalid JSON in select_team request: %s: %s", type(e).__name__, e)
             return error_response("Invalid JSON body", 400)
         except (AttributeError, TypeError, OSError) as e:
-            logger.warning(f"Unexpected error parsing select_team request: {type(e).__name__}: {e}")
+            logger.warning("Unexpected error parsing select_team request: %s: %s", type(e).__name__, e)
             return error_response("Invalid JSON body", 400)
 
         task_description = body.get("task_description")

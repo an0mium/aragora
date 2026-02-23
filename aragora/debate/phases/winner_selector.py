@@ -140,7 +140,7 @@ class WinnerSelector:
             if agent != winner_agent:
                 result.dissenting_views.append(f"[{agent}]: {prop}")
 
-        logger.info(f"consensus_winner winner={winner_agent} votes={count}/{len(ctx.agents)}")
+        logger.info("consensus_winner winner=%s votes=%s/%s", winner_agent, count, len(ctx.agents))
 
         if self._notify_spectator:
             self._notify_spectator(
@@ -153,7 +153,7 @@ class WinnerSelector:
             try:
                 self.recorder.record_phase_change(f"consensus_reached: {winner_agent}")
             except (RuntimeError, AttributeError, TypeError) as e:  # noqa: BLE001
-                logger.debug(f"Recorder error for consensus: {e}")
+                logger.debug("Recorder error for consensus: %s", e)
 
         # Finalize for truth-grounded personas
         if self.position_tracker:
@@ -168,7 +168,7 @@ class WinnerSelector:
                     consensus_confidence=result.confidence,
                 )
             except (RuntimeError, AttributeError, TypeError) as e:  # noqa: BLE001
-                logger.debug(f"Position tracker finalize error: {e}")
+                logger.debug("Position tracker finalize error: %s", e)
 
         # Record calibration predictions
         self._record_calibration_predictions(ctx, winner_agent, choice_mapping)
@@ -200,10 +200,10 @@ class WinnerSelector:
                         domain=domain,
                         debate_id=debate_id,
                     )
-            logger.debug(f"calibration_recorded predictions={len(result.votes)}")
+            logger.debug("calibration_recorded predictions=%s", len(result.votes))
         except (ValueError, KeyError, TypeError) as e:  # noqa: BLE001
             category, msg, exc_info = _build_error_action(e, "calibration")
-            logger.warning(f"calibration_error category={category} error={msg}", exc_info=exc_info)
+            logger.warning("calibration_error category=%s error=%s", category, msg, exc_info=exc_info)
 
     def set_unanimous_winner(
         self,
@@ -251,7 +251,7 @@ class WinnerSelector:
             try:
                 self.recorder.record_phase_change(f"consensus_reached: {winner}")
             except (RuntimeError, AttributeError, TypeError) as e:  # noqa: BLE001
-                logger.debug(f"Recorder error for unanimous consensus: {e}")
+                logger.debug("Recorder error for unanimous consensus: %s", e)
 
         # Record calibration predictions
         if self.calibration_tracker:
@@ -270,11 +270,11 @@ class WinnerSelector:
                             domain=domain,
                             debate_id=debate_id,
                         )
-                logger.debug(f"calibration_recorded_unanimous predictions={len(result.votes)}")
+                logger.debug("calibration_recorded_unanimous predictions=%s", len(result.votes))
             except (ValueError, KeyError, TypeError) as e:  # noqa: BLE001
                 category, msg, exc_info = _build_error_action(e, "calibration")
                 logger.warning(
-                    f"calibration_error_unanimous category={category} error={msg}",
+                    "calibration_error_unanimous category=%s error=%s", category, msg,
                     exc_info=exc_info,
                 )
 
@@ -380,10 +380,10 @@ class WinnerSelector:
                         for c in analysis.cruxes
                     ],
                 )
-                logger.info(f"belief_cruxes_identified count={len(analysis.cruxes)}")
+                logger.info("belief_cruxes_identified count=%s", len(analysis.cruxes))
 
         except (RuntimeError, AttributeError, ImportError) as e:  # noqa: BLE001
-            logger.debug(f"Belief network analysis failed: {e}")
+            logger.debug("Belief network analysis failed: %s", e)
 
 
 __all__ = ["WinnerSelector"]

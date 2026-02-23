@@ -80,7 +80,7 @@ def init_circuit_breaker_persistence(db_path: str = "circuit_breaker.db") -> Non
         """)
         conn.commit()
 
-    logger.info(f"Circuit breaker persistence initialized: {_DB_PATH}")
+    logger.info("Circuit breaker persistence initialized: %s", _DB_PATH)
 
 
 def persist_circuit_breaker(name: str, cb: CircuitBreaker) -> None:
@@ -114,7 +114,7 @@ def persist_circuit_breaker(name: str, cb: CircuitBreaker) -> None:
             )
             conn.commit()
     except (sqlite3.Error, OSError) as e:
-        logger.warning(f"Failed to persist circuit breaker {name}: {type(e).__name__}: {e}")
+        logger.warning("Failed to persist circuit breaker %s: %s: %s", name, type(e).__name__, e)
 
 
 def persist_all_circuit_breakers() -> int:
@@ -134,7 +134,7 @@ def persist_all_circuit_breakers() -> int:
             persist_circuit_breaker(name, cb)
             count += 1
 
-    logger.debug(f"Persisted {count} circuit breakers")
+    logger.debug("Persisted %s circuit breakers", count)
     return count
 
 
@@ -171,13 +171,13 @@ def load_circuit_breakers() -> int:
                         _circuit_breakers[name] = cb
                         count += 1
                     except (json.JSONDecodeError, KeyError) as e:
-                        logger.warning(f"Malformed circuit breaker record {name}: {e}")
+                        logger.warning("Malformed circuit breaker record %s: %s", name, e)
 
-            logger.info(f"Loaded {count} circuit breakers from {_DB_PATH}")
+            logger.info("Loaded %s circuit breakers from %s", count, _DB_PATH)
             return count
 
     except (sqlite3.Error, OSError) as e:
-        logger.warning(f"Failed to load circuit breakers: {type(e).__name__}: {e}")
+        logger.warning("Failed to load circuit breakers: %s: %s", type(e).__name__, e)
         return 0
 
 
@@ -207,11 +207,11 @@ def cleanup_stale_persisted(max_age_hours: float = 72.0) -> int:
             deleted = cursor.rowcount
 
         if deleted > 0:
-            logger.info(f"Cleaned up {deleted} stale persisted circuit breakers")
+            logger.info("Cleaned up %s stale persisted circuit breakers", deleted)
         return deleted
 
     except (sqlite3.Error, OSError) as e:
-        logger.warning(f"Failed to cleanup stale circuit breakers: {type(e).__name__}: {e}")
+        logger.warning("Failed to cleanup stale circuit breakers: %s: %s", type(e).__name__, e)
         return 0
 
 

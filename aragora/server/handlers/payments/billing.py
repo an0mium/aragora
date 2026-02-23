@@ -154,7 +154,7 @@ async def handle_create_customer(
             )
 
     except (ConnectionError, TimeoutError, ValueError, OSError) as e:
-        logger.exception(f"Error creating customer: {e}")
+        logger.exception("Error creating customer: %s", e)
         return web_error_response(safe_error_message(e, "create customer"), 500)
 
 
@@ -233,7 +233,7 @@ async def handle_get_customer(
             )
 
     except (ConnectionError, TimeoutError, ValueError, KeyError, OSError) as e:
-        logger.exception(f"Error getting customer: {e}")
+        logger.exception("Error getting customer: %s", e)
         return web_error_response(safe_error_message(e, "get customer"), 500)
 
 
@@ -289,7 +289,7 @@ async def handle_delete_customer(
             return web.json_response({"success": result.deleted})
 
     except (ConnectionError, TimeoutError, ValueError, OSError) as e:
-        logger.exception(f"Error deleting customer: {e}")
+        logger.exception("Error deleting customer: %s", e)
         return web_error_response(safe_error_message(e, "delete customer"), 500)
 
 
@@ -381,7 +381,7 @@ async def handle_update_customer(
             )
 
     except (ConnectionError, TimeoutError, ValueError, OSError) as e:
-        logger.exception(f"Error updating customer: {e}")
+        logger.exception("Error updating customer: %s", e)
         return web_error_response(safe_error_message(e, "update customer"), 500)
 
 
@@ -470,7 +470,7 @@ async def handle_get_subscription(
             )
 
     except (ConnectionError, TimeoutError, ValueError, KeyError, OSError) as e:
-        logger.exception(f"Error getting subscription: {e}")
+        logger.exception("Error getting subscription: %s", e)
         return web_error_response(safe_error_message(e, "get subscription"), 500)
 
 
@@ -566,7 +566,7 @@ async def handle_update_subscription(
             )
 
     except (ConnectionError, TimeoutError, ValueError, KeyError, OSError) as e:
-        logger.exception(f"Error updating subscription: {e}")
+        logger.exception("Error updating subscription: %s", e)
         return web_error_response(safe_error_message(e, "update subscription"), 500)
 
 
@@ -676,7 +676,7 @@ async def handle_create_subscription(
             )
 
     except (ConnectionError, TimeoutError, ValueError, OSError) as e:
-        logger.exception(f"Error creating subscription: {e}")
+        logger.exception("Error creating subscription: %s", e)
         return web_error_response(safe_error_message(e, "create subscription"), 500)
 
 
@@ -738,5 +738,5 @@ async def handle_cancel_subscription(
             )
 
     except (ConnectionError, TimeoutError, ValueError, OSError) as e:
-        logger.exception(f"Error canceling subscription: {e}")
+        logger.exception("Error canceling subscription: %s", e)
         return web_error_response(safe_error_message(e, "cancel subscription"), 500)

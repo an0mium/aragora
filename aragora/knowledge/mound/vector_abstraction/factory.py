@@ -70,7 +70,7 @@ class VectorStoreFactory:
             store_class: Store class implementing BaseVectorStore
         """
         cls._registry[backend] = store_class
-        logger.debug(f"Registered vector store: {backend.value} -> {store_class.__name__}")
+        logger.debug("Registered vector store: %s -> %s", backend.value, store_class.__name__)
 
     @classmethod
     def unregister(cls, backend: VectorBackend) -> bool:
@@ -202,7 +202,7 @@ class VectorStoreFactory:
 
             # Check if preferred backend is registered and available
             if cls.is_registered(preferred_backend):
-                logger.debug(f"Using namespace routing: {namespace} -> {preferred_backend.value}")
+                logger.debug("Using namespace routing: %s -> %s", namespace, preferred_backend.value)
                 config = VectorStoreConfig(
                     backend=preferred_backend,
                     namespace=namespace,
@@ -214,8 +214,7 @@ class VectorStoreFactory:
                 return cls.create(config)
             else:
                 logger.debug(
-                    f"Preferred backend {preferred_backend.value} not available "
-                    f"for namespace {namespace}, falling back to default"
+                    "Preferred backend %s not available for namespace %s, falling back to default", preferred_backend.value, namespace
                 )
 
         # Fall back to environment-based config

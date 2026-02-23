@@ -67,7 +67,7 @@ class LearningHandler(SecureHandler):
         # Rate limit check
         client_ip = get_client_ip(handler)
         if not _learning_limiter.is_allowed(client_ip):
-            logger.warning(f"Rate limit exceeded for learning endpoint: {client_ip}")
+            logger.warning("Rate limit exceeded for learning endpoint: %s", client_ip)
             return error_response("Rate limit exceeded. Please try again later.", 429)
 
         # RBAC: Require authentication and memory:read permission
@@ -77,7 +77,7 @@ class LearningHandler(SecureHandler):
         except UnauthorizedError:
             return error_response("Authentication required to access learning data", 401)
         except ForbiddenError as e:
-            logger.warning(f"Learning endpoint access denied: {e}")
+            logger.warning("Learning endpoint access denied: %s", e)
             return error_response("Permission denied", 403)
 
         if path == "/api/v1/learning/cycles":
@@ -145,7 +145,7 @@ class LearningHandler(SecureHandler):
                     }
                 )
             except (json.JSONDecodeError, ValueError) as e:
-                logger.warning(f"Failed to parse {meta_file}: {e}")
+                logger.warning("Failed to parse %s: %s", meta_file, e)
                 continue
 
             if len(cycles) >= limit:
@@ -211,7 +211,7 @@ class LearningHandler(SecureHandler):
                 patterns["failed_patterns"] = failed_cycles[-10:]
                 patterns["successful_patterns"] = successful_cycles[-10:]
             except (json.JSONDecodeError, ValueError, KeyError, OSError, TypeError) as e:
-                logger.warning(f"Failed to read risk register: {e}")
+                logger.warning("Failed to read risk register: %s", e)
 
         # Analyze replays for recurring themes (bounded iteration)
         replays_dir = nomic_dir / "replays"
@@ -317,7 +317,7 @@ class LearningHandler(SecureHandler):
                                 }
                             )
                     except (json.JSONDecodeError, ValueError) as e:
-                        logger.debug(f"Failed to parse {meta_file}: {e}")
+                        logger.debug("Failed to parse %s: %s", meta_file, e)
                         continue
 
         # Calculate trends
@@ -387,7 +387,7 @@ class LearningHandler(SecureHandler):
                             }
                         )
             except (KeyError, ValueError, OSError, TypeError, RuntimeError) as e:
-                logger.warning(f"Failed to read insights DB: {e}")
+                logger.warning("Failed to read insights DB: %s", e)
 
         # Aggregate by category
         category_counts: dict[str, int] = defaultdict(int)

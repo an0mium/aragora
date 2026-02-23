@@ -37,10 +37,10 @@ def init_circuit_breaker_persistence(nomic_dir: Path | None) -> int:
         _init_cb_persistence(db_path)
         loaded = load_circuit_breakers()
         if loaded > 0:
-            logger.info(f"Restored {loaded} circuit breaker states from disk")
+            logger.info("Restored %s circuit breaker states from disk", loaded)
         return loaded
     except (ImportError, OSError, RuntimeError) as e:
-        logger.debug(f"Circuit breaker persistence not available: {e}")
+        logger.debug("Circuit breaker persistence not available: %s", e)
         return 0
 
 
@@ -143,7 +143,7 @@ async def init_pulse_scheduler(stream_emitter: Any | None = None) -> bool:
                     "rounds_used": result.rounds_used,
                 }
             except (RuntimeError, ValueError, OSError, ImportError) as e:
-                logger.error(f"Auto-scheduled debate failed: {e}")
+                logger.error("Auto-scheduled debate failed: %s", e)
                 return None
 
         scheduler.set_debate_creator(auto_create_debate)
@@ -157,9 +157,9 @@ async def init_pulse_scheduler(stream_emitter: Any | None = None) -> bool:
         return True
 
     except ImportError as e:
-        logger.debug(f"Pulse scheduler autostart not available: {e}")
+        logger.debug("Pulse scheduler autostart not available: %s", e)
     except (RuntimeError, OSError, ValueError, AttributeError) as e:
-        logger.warning(f"Failed to auto-start pulse scheduler: {e}")
+        logger.warning("Failed to auto-start pulse scheduler: %s", e)
     return False
 
 
@@ -180,7 +180,7 @@ def init_state_cleanup_task() -> bool:
         logger.debug("State cleanup task started (5 min interval)")
         return True
     except (ImportError, RuntimeError) as e:
-        logger.debug(f"State cleanup task not started: {e}")
+        logger.debug("State cleanup task not started: %s", e)
         return False
 
 
@@ -202,7 +202,7 @@ async def init_stuck_debate_watchdog() -> asyncio.Task | None:
         logger.info("Stuck debate watchdog started (10 min timeout)")
         return task
     except (ImportError, RuntimeError) as e:
-        logger.debug(f"Stuck debate watchdog not started: {e}")
+        logger.debug("Stuck debate watchdog not started: %s", e)
         return None
 
 
@@ -300,7 +300,7 @@ async def init_slack_token_refresh_scheduler() -> asyncio.Task | None:
                     expiring = store.get_expiring_tokens(hours=lookahead_hours)
 
                     if expiring:
-                        logger.info(f"Found {len(expiring)} Slack tokens expiring soon")
+                        logger.info("Found %s Slack tokens expiring soon", len(expiring))
 
                     for workspace in expiring:
                         try:
@@ -311,19 +311,19 @@ async def init_slack_token_refresh_scheduler() -> asyncio.Task | None:
                             )
                             if result:
                                 logger.info(
-                                    f"Refreshed Slack token for workspace {workspace.workspace_id}"
+                                    "Refreshed Slack token for workspace %s", workspace.workspace_id
                                 )
                             else:
                                 logger.warning(
-                                    f"Failed to refresh Slack token for {workspace.workspace_id}"
+                                    "Failed to refresh Slack token for %s", workspace.workspace_id
                                 )
                         except (ConnectionError, TimeoutError, OSError, ValueError, RuntimeError) as e:
                             logger.error(
-                                f"Error refreshing token for {workspace.workspace_id}: {e}"
+                                "Error refreshing token for %s: %s", workspace.workspace_id, e
                             )
 
                 except (ConnectionError, TimeoutError, OSError, ValueError, RuntimeError) as e:
-                    logger.error(f"Error in Slack token refresh scheduler: {e}")
+                    logger.error("Error in Slack token refresh scheduler: %s", e)
 
                 await asyncio.sleep(refresh_interval)
 
@@ -337,8 +337,8 @@ async def init_slack_token_refresh_scheduler() -> asyncio.Task | None:
         return task
 
     except ImportError as e:
-        logger.debug(f"Slack token refresh scheduler not available: {e}")
+        logger.debug("Slack token refresh scheduler not available: %s", e)
         return None
     except (RuntimeError, OSError) as e:
-        logger.warning(f"Failed to start Slack token refresh scheduler: {e}")
+        logger.warning("Failed to start Slack token refresh scheduler: %s", e)
         return None

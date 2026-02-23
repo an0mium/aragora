@@ -272,8 +272,7 @@ class MoleculeTracker:
         self._debate_molecules[debate_id].append(molecule.molecule_id)
 
         logger.debug(
-            f"Created molecule {molecule.molecule_id} "
-            f"type={molecule_type.value} debate={debate_id} round={round_number}"
+            "Created molecule %s type=%s debate=%s round=%s", molecule.molecule_id, molecule_type.value, debate_id, round_number
         )
 
         return molecule
@@ -331,7 +330,7 @@ class MoleculeTracker:
             agent.capabilities
         ):
             missing = molecule.required_capabilities - agent.capabilities
-            logger.debug(f"Agent {agent.name} missing capabilities: {missing}")
+            logger.debug("Agent %s missing capabilities: %s", agent.name, missing)
             return False
 
         # Check if agent can retry failed molecule
@@ -343,8 +342,7 @@ class MoleculeTracker:
         self._agent_workload[agent.name] = self._agent_workload.get(agent.name, 0) + 1
 
         logger.info(
-            f"Assigned molecule {molecule_id} to {agent.name} "
-            f"(attempt {molecule.attempts}/{molecule.max_attempts})"
+            "Assigned molecule %s to %s (attempt %s/%s)", molecule_id, agent.name, molecule.attempts, molecule.max_attempts
         )
 
         return True
@@ -428,7 +426,7 @@ class MoleculeTracker:
                     if all_satisfied:
                         other_mol.status = MoleculeStatus.PENDING
 
-        logger.info(f"Completed molecule {molecule_id}")
+        logger.info("Completed molecule %s", molecule_id)
         return True
 
     def fail_molecule(
@@ -454,8 +452,7 @@ class MoleculeTracker:
             self._agent_workload[agent_name] = max(0, self._agent_workload.get(agent_name, 1) - 1)
 
         logger.warning(
-            f"Molecule {molecule_id} failed: {error} "
-            f"(attempts {molecule.attempts}/{molecule.max_attempts})"
+            "Molecule %s failed: %s (attempts %s/%s)", molecule_id, error, molecule.attempts, molecule.max_attempts
         )
 
         return True

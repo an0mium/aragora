@@ -336,7 +336,7 @@ class StreamingCircuitBreaker:
 
             if error:
                 logger.warning(
-                    f"[CircuitBreaker:{self.name}] Failure #{self._failure_count}: {error}"
+                    "[CircuitBreaker:%s] Failure #%s: %s", self.name, self._failure_count, error
                 )
 
             if self._state == CircuitState.CLOSED:
@@ -353,7 +353,7 @@ class StreamingCircuitBreaker:
         self._state_changes.append((datetime.now(timezone.utc), old_state, new_state))
 
         logger.info(
-            f"[CircuitBreaker:{self.name}] State transition: {old_state.value} -> {new_state.value}"
+            "[CircuitBreaker:%s] State transition: %s -> %s", self.name, old_state.value, new_state.value
         )
 
         # Reset counters on state change
@@ -389,7 +389,7 @@ class StreamingCircuitBreaker:
         self._success_count = 0
         self._half_open_calls = 0
         self._last_failure_time = None
-        logger.info(f"[CircuitBreaker:{self.name}] Reset to CLOSED")
+        logger.info("[CircuitBreaker:%s] Reset to CLOSED", self.name)
 
     def get_stats(self) -> dict[str, Any]:
         """Get circuit breaker statistics."""
@@ -607,7 +607,7 @@ class DLQHandler(Generic[T]):
 
         if retry_count < self.config.dlq_max_retries:
             logger.warning(
-                f"[DLQ] Message {message_id} failed (attempt {retry_count}/{self.config.dlq_max_retries}): {error}"
+                "[DLQ] Message %s failed (attempt %s/%s): %s", message_id, retry_count, self.config.dlq_max_retries, error
             )
             return False
 
@@ -649,7 +649,7 @@ class DLQHandler(Generic[T]):
             retry_count: Number of retry attempts
         """
         if not self.config.dlq_enabled:
-            logger.warning(f"[DLQ] DLQ disabled, dropping failed message from {topic}")
+            logger.warning("[DLQ] DLQ disabled, dropping failed message from %s", topic)
             return
 
         dlq_topic = topic + self.config.dlq_topic_suffix
@@ -670,20 +670,20 @@ class DLQHandler(Generic[T]):
         if self._dlq_sender:
             try:
                 await self._dlq_sender(dlq_topic, dlq_message)
-                logger.info(f"[DLQ] Sent message to {dlq_topic}")
+                logger.info("[DLQ] Sent message to %s", dlq_topic)
             except (OSError, RuntimeError, ConnectionError, TimeoutError) as send_error:
-                logger.error(f"[DLQ] Failed to send to {dlq_topic}: {send_error}")
+                logger.error("[DLQ] Failed to send to %s: %s", dlq_topic, send_error)
                 raise
         else:
             logger.warning(
-                f"[DLQ] No sender configured, logging failed message: {dlq_message.to_dict()}"
+                "[DLQ] No sender configured, logging failed message: %s", dlq_message.to_dict()
             )
 
         if self._on_dlq_send:
             try:
                 await self._on_dlq_send(dlq_message)
             except (RuntimeError, ValueError, TypeError) as callback_error:
-                logger.warning(f"[DLQ] Callback error: {callback_error}")
+                logger.warning("[DLQ] Callback error: %s", callback_error)
 
     def get_stats(self) -> dict[str, Any]:
         """Get DLQ handler statistics."""
@@ -747,7 +747,7 @@ class GracefulShutdown:
         loop = asyncio.get_running_loop()
 
         def signal_handler(sig: signal.Signals) -> None:
-            logger.info(f"Received {sig.name}, initiating graceful shutdown...")
+            logger.info("Received %s, initiating graceful shutdown...", sig.name)
             self._shutting_down = True
             self._shutdown_event.set()
             # Schedule cleanup
@@ -772,7 +772,7 @@ class GracefulShutdown:
 
     async def _run_cleanup(self) -> None:
         """Run all registered cleanup tasks."""
-        logger.info(f"Running {len(self._cleanup_tasks)} cleanup tasks...")
+        logger.info("Running %s cleanup tasks...", len(self._cleanup_tasks))
 
         for i, cleanup_fn in enumerate(self._cleanup_tasks):
             try:
@@ -786,11 +786,11 @@ class GracefulShutdown:
                             inner = result()
                             if inspect.isawaitable(inner):
                                 await inner
-                logger.debug(f"Cleanup task {i + 1}/{len(self._cleanup_tasks)} completed")
+                logger.debug("Cleanup task %s/%s completed", i + 1, len(self._cleanup_tasks))
             except asyncio.TimeoutError:
-                logger.warning(f"Cleanup task {i + 1} timed out")
+                logger.warning("Cleanup task %s timed out", i + 1)
             except (RuntimeError, OSError, ValueError, ConnectionError) as e:
-                logger.error(f"Cleanup task {i + 1} failed: {e}")
+                logger.error("Cleanup task %s failed: %s", i + 1, e)
 
         logger.info("All cleanup tasks completed")
 
@@ -887,8 +887,7 @@ class HealthMonitor:
             if self._consecutive_failures >= self.config.unhealthy_threshold:
                 self._healthy = False
                 logger.warning(
-                    f"[HealthMonitor:{self.name}] Marked unhealthy after "
-                    f"{self._consecutive_failures} consecutive failures"
+                    "[HealthMonitor:%s] Marked unhealthy after %s consecutive failures", self.name, self._consecutive_failures
                 )
 
     async def get_status(self) -> HealthStatus:
@@ -910,7 +909,7 @@ class HealthMonitor:
             self._healthy = True
             self._consecutive_failures = 0
             self._last_error = None
-            logger.info(f"[HealthMonitor:{self.name}] Reset to healthy")
+            logger.info("[HealthMonitor:%s] Reset to healthy", self.name)
 
 
 # =============================================================================
@@ -948,7 +947,7 @@ def with_retry(
                     last_error = e
                     if attempt == cfg.max_retries:
                         logger.error(
-                            f"[Retry] {func.__name__} failed after {attempt + 1} attempts: {e}"
+                            "[Retry] %s failed after %s attempts: %s", func.__name__, attempt + 1, e
                         )
                         raise
 

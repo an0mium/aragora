@@ -181,7 +181,7 @@ class EmbeddingRelevanceScorer:
             logger.debug("Embedding provider not available, using keyword fallback")
             return False
         except (RuntimeError, ValueError, OSError, ConnectionError) as e:
-            logger.warning(f"Failed to initialize embedding provider: {e}")
+            logger.warning("Failed to initialize embedding provider: %s", e)
             return False
 
     def _get_content(self, item: Any) -> str:
@@ -220,7 +220,7 @@ class EmbeddingRelevanceScorer:
             self._cache[key] = embedding
             return embedding
         except (RuntimeError, ValueError, OSError) as e:
-            logger.debug(f"Failed to get embedding: {e}")
+            logger.debug("Failed to get embedding: %s", e)
             return None
 
     async def prepare_query(self, query: str) -> None:
@@ -263,7 +263,7 @@ class EmbeddingRelevanceScorer:
                     # Normalize from [-1, 1] to [0, 1]
                     return (sim + 1) / 2
                 except (ImportError, ValueError, TypeError, ZeroDivisionError) as e:
-                    logger.debug(f"Cosine similarity failed in sync score: {e}")
+                    logger.debug("Cosine similarity failed in sync score: %s", e)
 
         # Fallback to keyword matching
         return self._keyword_score(item, query)
@@ -316,7 +316,7 @@ class EmbeddingRelevanceScorer:
             # Normalize from [-1, 1] to [0, 1]
             return (sim + 1) / 2
         except (ImportError, ValueError, TypeError, ZeroDivisionError) as e:
-            logger.debug(f"Cosine similarity failed: {e}")
+            logger.debug("Cosine similarity failed: %s", e)
             return self._keyword_score(item, query)
 
 
@@ -385,14 +385,14 @@ class FederatedQueryAggregator:
             source = QuerySource(source)
 
         if not hasattr(adapter, search_method):
-            logger.warning(f"Adapter for {source.value} missing search method: {search_method}")
+            logger.warning("Adapter for %s missing search method: %s", source.value, search_method)
             # Try common alternatives
             for alt in ["search", "search_similar", "search_by_keyword", "query"]:
                 if hasattr(adapter, alt):
                     search_method = alt
                     break
             else:
-                logger.error(f"No suitable search method found for {source.value}")
+                logger.error("No suitable search method found for %s", source.value)
                 return
 
         self._adapters[source] = AdapterRegistration(
@@ -403,7 +403,7 @@ class FederatedQueryAggregator:
             enabled=enabled,
         )
 
-        logger.debug(f"Registered adapter: {source.value} (method={search_method})")
+        logger.debug("Registered adapter: %s (method=%s)", source.value, search_method)
 
     def unregister_adapter(self, source: QuerySource | str) -> bool:
         """Unregister an adapter."""
@@ -541,7 +541,7 @@ class FederatedQueryAggregator:
         except ImportError:
             logger.debug("Prometheus metrics not available for federated query")
         except (TypeError, ValueError, RuntimeError) as e:
-            logger.debug(f"Failed to record Prometheus metrics: {e}")
+            logger.debug("Failed to record Prometheus metrics: %s", e)
 
     async def _query_parallel(
         self,

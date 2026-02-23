@@ -80,7 +80,7 @@ class APIKeyRotationHandler(RotationHandler):
         # Check if a new key was provided manually
         if "new_key" in metadata:
             new_key = metadata["new_key"]
-            logger.info(f"Using manually provided new key for {secret_id}")
+            logger.info("Using manually provided new key for %s", secret_id)
             return new_key, {
                 **metadata,
                 "version": f"v{datetime.now(timezone.utc).strftime('%Y%m%d%H%M%S')}",
@@ -123,7 +123,7 @@ class APIKeyRotationHandler(RotationHandler):
 
                 admin_key = get_secret("OPENAI_ADMIN_KEY")
             except (ImportError, KeyError, OSError) as e:
-                logger.debug(f"Could not load OpenAI admin key from secrets: {e}")
+                logger.debug("Could not load OpenAI admin key from secrets: %s", e)
 
         if not admin_key:
             await self._notify_manual_rotation(secret_id, "openai", metadata)
@@ -158,7 +158,7 @@ class APIKeyRotationHandler(RotationHandler):
             if not new_key:
                 raise RotationError("No key in OpenAI response", secret_id)
 
-            logger.info(f"Created new OpenAI API key for {secret_id}")
+            logger.info("Created new OpenAI API key for %s", secret_id)
 
             return new_key, {
                 **metadata,
@@ -171,7 +171,7 @@ class APIKeyRotationHandler(RotationHandler):
         except ImportError as e:
             raise RotationError(f"Required module not installed: {e}", secret_id)
         except (OSError, ConnectionError, TimeoutError, ValueError, KeyError) as e:
-            logger.error(f"OpenAI key rotation failed: {e}")
+            logger.error("OpenAI key rotation failed: %s", e)
             await self._notify_manual_rotation(secret_id, "openai", metadata)
             raise RotationError(
                 f"OpenAI programmatic rotation failed: {e}. Notification sent for manual rotation.",
@@ -209,7 +209,7 @@ class APIKeyRotationHandler(RotationHandler):
 
                 admin_key = get_secret("ANTHROPIC_ADMIN_KEY")
             except (ImportError, KeyError, OSError) as e:
-                logger.debug(f"Could not load Anthropic admin key: {e}")
+                logger.debug("Could not load Anthropic admin key: %s", e)
 
         if not admin_key:
             await self._notify_manual_rotation(secret_id, "anthropic", metadata)
@@ -261,7 +261,7 @@ class APIKeyRotationHandler(RotationHandler):
             if not new_key:
                 raise RotationError("No key in Anthropic response", secret_id)
 
-            logger.info(f"Created new Anthropic API key for {secret_id}")
+            logger.info("Created new Anthropic API key for %s", secret_id)
 
             return new_key, {
                 **metadata,
@@ -274,7 +274,7 @@ class APIKeyRotationHandler(RotationHandler):
         except ImportError as e:
             raise RotationError(f"Required module not installed: {e}", secret_id)
         except (OSError, ConnectionError, TimeoutError, ValueError, KeyError) as e:
-            logger.error(f"Anthropic key rotation failed: {e}")
+            logger.error("Anthropic key rotation failed: %s", e)
             await self._notify_manual_rotation(secret_id, "anthropic", metadata)
             raise RotationError(
                 f"Anthropic programmatic rotation failed: {e}. "
@@ -297,7 +297,7 @@ class APIKeyRotationHandler(RotationHandler):
 
                 current_key = get_secret(secret_id)
             except (ImportError, KeyError, OSError) as e:
-                logger.debug(f"Could not load current Stripe key: {e}")
+                logger.debug("Could not load current Stripe key: %s", e)
 
         if not current_key:
             await self._notify_manual_rotation(secret_id, "stripe", metadata)
@@ -328,8 +328,7 @@ class APIKeyRotationHandler(RotationHandler):
                 raise RotationError("No key in Stripe roll response", secret_id)
 
             logger.info(
-                f"Rolled Stripe API key for {secret_id}. "
-                f"Old key valid for 24 hours."
+                "Rolled Stripe API key for %s. Old key valid for 24 hours.", secret_id
             )
 
             return new_key, {
@@ -345,7 +344,7 @@ class APIKeyRotationHandler(RotationHandler):
         except ImportError as e:
             raise RotationError(f"Required module not installed: {e}", secret_id)
         except (OSError, ConnectionError, TimeoutError, ValueError, KeyError) as e:
-            logger.error(f"Stripe key rotation failed: {e}")
+            logger.error("Stripe key rotation failed: %s", e)
             await self._notify_manual_rotation(secret_id, "stripe", metadata)
             raise RotationError(
                 f"Stripe programmatic rotation failed: {e}. "
@@ -369,7 +368,7 @@ class APIKeyRotationHandler(RotationHandler):
 
                 admin_token = get_secret("CLOUDFLARE_ADMIN_TOKEN")
             except (ImportError, KeyError, OSError) as e:
-                logger.debug(f"Could not load Cloudflare admin token: {e}")
+                logger.debug("Could not load Cloudflare admin token: %s", e)
 
         if not admin_token:
             await self._notify_manual_rotation(secret_id, "cloudflare", metadata)
@@ -419,7 +418,7 @@ class APIKeyRotationHandler(RotationHandler):
             new_token = result["result"]["value"]
             new_token_id = result["result"]["id"]
 
-            logger.info(f"Created new Cloudflare API token for {secret_id}")
+            logger.info("Created new Cloudflare API token for %s", secret_id)
 
             # Schedule old token deletion if we have the old token ID
             old_token_id = metadata.get("old_token_id")
@@ -433,9 +432,9 @@ class APIKeyRotationHandler(RotationHandler):
                             },
                             timeout=10.0,
                         )
-                    logger.info(f"Deleted old Cloudflare token {old_token_id}")
+                    logger.info("Deleted old Cloudflare token %s", old_token_id)
                 except (OSError, ConnectionError, TimeoutError) as e:
-                    logger.warning(f"Failed to delete old Cloudflare token: {e}")
+                    logger.warning("Failed to delete old Cloudflare token: %s", e)
 
             return new_token, {
                 **metadata,
@@ -449,7 +448,7 @@ class APIKeyRotationHandler(RotationHandler):
         except ImportError as e:
             raise RotationError(f"Required module not installed: {e}", secret_id)
         except (OSError, ConnectionError, TimeoutError, ValueError, KeyError) as e:
-            logger.error(f"Cloudflare token rotation failed: {e}")
+            logger.error("Cloudflare token rotation failed: %s", e)
             await self._notify_manual_rotation(secret_id, "cloudflare", metadata)
             raise RotationError(
                 f"Cloudflare programmatic rotation failed: {e}. "
@@ -470,13 +469,12 @@ class APIKeyRotationHandler(RotationHandler):
                     f"Please generate a new key and update the secret.",
                     metadata=metadata,
                 )
-                logger.info(f"Sent rotation notification for {secret_id}")
+                logger.info("Sent rotation notification for %s", secret_id)
             except (OSError, ConnectionError, TimeoutError, RuntimeError) as e:
-                logger.error(f"Failed to send notification for {secret_id}: {e}")
+                logger.error("Failed to send notification for %s: %s", secret_id, e)
         else:
             logger.warning(
-                f"Manual rotation required for {secret_id} ({provider}) "
-                f"but no notification callback configured"
+                "Manual rotation required for %s (%s) but no notification callback configured", secret_id, provider
             )
 
     async def validate_credentials(
@@ -511,7 +509,7 @@ class APIKeyRotationHandler(RotationHandler):
         if validator:
             return await validator(secret_id, secret_value, metadata)
 
-        logger.warning(f"No validator for provider {provider}")
+        logger.warning("No validator for provider %s", provider)
         return True
 
     async def _validate_anthropic(self, secret_id: str, key: str, metadata: dict[str, Any]) -> bool:
@@ -533,7 +531,7 @@ class APIKeyRotationHandler(RotationHandler):
                 return response.status_code != 401
 
         except (ImportError, OSError, ConnectionError, TimeoutError, ValueError) as e:
-            logger.error(f"Anthropic validation error: {e}")
+            logger.error("Anthropic validation error: %s", e)
             return False
 
     async def _validate_openai(self, secret_id: str, key: str, metadata: dict[str, Any]) -> bool:
@@ -551,7 +549,7 @@ class APIKeyRotationHandler(RotationHandler):
                 return response.status_code == 200
 
         except (ImportError, OSError, ConnectionError, TimeoutError, ValueError) as e:
-            logger.error(f"OpenAI validation error: {e}")
+            logger.error("OpenAI validation error: %s", e)
             return False
 
     async def _validate_google(self, secret_id: str, key: str, metadata: dict[str, Any]) -> bool:
@@ -568,7 +566,7 @@ class APIKeyRotationHandler(RotationHandler):
                 return response.status_code == 200
 
         except (ImportError, OSError, ConnectionError, TimeoutError, ValueError) as e:
-            logger.error(f"Google validation error: {e}")
+            logger.error("Google validation error: %s", e)
             return False
 
     async def _validate_mistral(self, secret_id: str, key: str, metadata: dict[str, Any]) -> bool:
@@ -586,7 +584,7 @@ class APIKeyRotationHandler(RotationHandler):
                 return response.status_code == 200
 
         except (ImportError, OSError, ConnectionError, TimeoutError, ValueError) as e:
-            logger.error(f"Mistral validation error: {e}")
+            logger.error("Mistral validation error: %s", e)
             return False
 
     async def _validate_openrouter(
@@ -606,7 +604,7 @@ class APIKeyRotationHandler(RotationHandler):
                 return response.status_code == 200
 
         except (ImportError, OSError, ConnectionError, TimeoutError, ValueError) as e:
-            logger.error(f"OpenRouter validation error: {e}")
+            logger.error("OpenRouter validation error: %s", e)
             return False
 
     async def _validate_xai(self, secret_id: str, key: str, metadata: dict[str, Any]) -> bool:
@@ -624,7 +622,7 @@ class APIKeyRotationHandler(RotationHandler):
                 return response.status_code == 200
 
         except (ImportError, OSError, ConnectionError, TimeoutError, ValueError) as e:
-            logger.error(f"xAI validation error: {e}")
+            logger.error("xAI validation error: %s", e)
             return False
 
     async def _validate_deepseek(self, secret_id: str, key: str, metadata: dict[str, Any]) -> bool:
@@ -642,7 +640,7 @@ class APIKeyRotationHandler(RotationHandler):
                 return response.status_code == 200
 
         except (ImportError, OSError, ConnectionError, TimeoutError, ValueError) as e:
-            logger.error(f"DeepSeek validation error: {e}")
+            logger.error("DeepSeek validation error: %s", e)
             return False
 
     async def _validate_stripe(self, secret_id: str, key: str, metadata: dict[str, Any]) -> bool:
@@ -660,7 +658,7 @@ class APIKeyRotationHandler(RotationHandler):
                 return response.status_code == 200
 
         except (ImportError, OSError, ConnectionError, TimeoutError, ValueError) as e:
-            logger.error(f"Stripe validation error: {e}")
+            logger.error("Stripe validation error: %s", e)
             return False
 
     async def _validate_cloudflare(
@@ -683,7 +681,7 @@ class APIKeyRotationHandler(RotationHandler):
                 return False
 
         except (ImportError, OSError, ConnectionError, TimeoutError, ValueError) as e:
-            logger.error(f"Cloudflare validation error: {e}")
+            logger.error("Cloudflare validation error: %s", e)
             return False
 
     async def revoke_old_credentials(
@@ -710,8 +708,7 @@ class APIKeyRotationHandler(RotationHandler):
 
         # Most providers don't support programmatic revocation
         logger.info(
-            f"Provider {provider} doesn't support programmatic key revocation. "
-            f"Old key for {secret_id} should be manually revoked."
+            "Provider %s doesn't support programmatic key revocation. Old key for %s should be manually revoked.", provider, secret_id
         )
         return True
 
@@ -724,10 +721,10 @@ class APIKeyRotationHandler(RotationHandler):
 
                 admin_key = get_secret("OPENAI_ADMIN_KEY")
             except (ImportError, KeyError, OSError) as e:
-                logger.debug(f"Could not load OpenAI admin key from secrets for revocation: {e}")
+                logger.debug("Could not load OpenAI admin key from secrets for revocation: %s", e)
 
         if not admin_key:
-            logger.warning(f"No admin key for OpenAI revocation of {secret_id}")
+            logger.warning("No admin key for OpenAI revocation of %s", secret_id)
             return False
 
         try:
@@ -741,14 +738,14 @@ class APIKeyRotationHandler(RotationHandler):
                     timeout=30.0,
                 )
                 if response.status_code < 400:
-                    logger.info(f"Revoked old OpenAI key {key_id}")
+                    logger.info("Revoked old OpenAI key %s", key_id)
                     return True
                 else:
-                    logger.warning(f"OpenAI revocation returned {response.status_code}")
+                    logger.warning("OpenAI revocation returned %s", response.status_code)
                     return False
 
         except (ImportError, OSError, ConnectionError, TimeoutError, ValueError) as e:
-            logger.error(f"OpenAI revocation error: {e}")
+            logger.error("OpenAI revocation error: %s", e)
             return False
 
     async def _revoke_anthropic(
@@ -762,7 +759,7 @@ class APIKeyRotationHandler(RotationHandler):
 
                 admin_key = get_secret("ANTHROPIC_ADMIN_KEY")
             except (ImportError, KeyError, OSError) as e:
-                logger.debug(f"Could not load Anthropic admin key for revocation: {e}")
+                logger.debug("Could not load Anthropic admin key for revocation: %s", e)
 
         org_id = metadata.get("org_id")
         if not org_id:
@@ -774,7 +771,7 @@ class APIKeyRotationHandler(RotationHandler):
                 pass
 
         if not admin_key or not org_id:
-            logger.warning(f"No admin key/org_id for Anthropic revocation of {secret_id}")
+            logger.warning("No admin key/org_id for Anthropic revocation of %s", secret_id)
             return False
 
         try:
@@ -791,14 +788,14 @@ class APIKeyRotationHandler(RotationHandler):
                     timeout=30.0,
                 )
                 if response.status_code < 400:
-                    logger.info(f"Revoked old Anthropic key {key_id}")
+                    logger.info("Revoked old Anthropic key %s", key_id)
                     return True
                 else:
-                    logger.warning(f"Anthropic revocation returned {response.status_code}")
+                    logger.warning("Anthropic revocation returned %s", response.status_code)
                     return False
 
         except (ImportError, OSError, ConnectionError, TimeoutError, ValueError) as e:
-            logger.error(f"Anthropic revocation error: {e}")
+            logger.error("Anthropic revocation error: %s", e)
             return False
 
     async def rotate_with_new_key(

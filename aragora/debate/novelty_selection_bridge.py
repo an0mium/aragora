@@ -149,9 +149,7 @@ class NoveltySelectionBridge:
             self._novelty_adjustments[agent_name] = adjustment
 
         logger.debug(
-            f"novelty_selection_recorded round={novelty_result.round_num} "
-            f"agents={len(adjustments)} "
-            f"low_novelty={novelty_result.low_novelty_agents}"
+            "novelty_selection_recorded round=%s agents=%s low_novelty=%s", novelty_result.round_num, len(adjustments), novelty_result.low_novelty_agents
         )
 
         return adjustments
@@ -326,7 +324,7 @@ class NoveltySelectionBridge:
                 self.selection_feedback._selection_adjustments[agent_name] = current + adjustment
                 updated += 1
 
-        logger.info(f"novelty_selection_synced agents_updated={updated}")
+        logger.info("novelty_selection_synced agents_updated=%s", updated)
         return updated
 
     def get_agent_stats(self, agent_name: str) -> AgentNoveltyStats | None:
@@ -363,7 +361,7 @@ class NoveltySelectionBridge:
                 adjustment = self._compute_adjustment(stats)
                 self._novelty_adjustments[stats.agent_name] = adjustment
 
-        logger.debug(f"novelty_decay_applied agents={len(self._agent_stats)}")
+        logger.debug("novelty_decay_applied agents=%s", len(self._agent_stats))
 
     def get_stats(self) -> dict[str, Any]:
         """Get bridge statistics.

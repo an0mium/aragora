@@ -280,7 +280,7 @@ class DocumentBatchHandler(BaseHandler):
             for filename, content in files:
                 file_size = len(content)
                 if file_size > MAX_FILE_SIZE_MB * 1024 * 1024:
-                    logger.warning(f"Skipping file {filename}: exceeds size limit")
+                    logger.warning("Skipping file %s: exceeds size limit", filename)
                     continue
 
                 total_size += file_size
@@ -310,7 +310,7 @@ class DocumentBatchHandler(BaseHandler):
                     estimated_chunks += max(1, tokens // chunk_size)
                 except (ValueError, TypeError, UnicodeDecodeError) as e:
                     # Token counting fallback - use estimate of 1 chunk
-                    logger.debug(f"Token counting failed, using fallback: {e}")
+                    logger.debug("Token counting failed, using fallback: %s", e)
                     estimated_chunks += 1
 
             # Queue knowledge processing if enabled
@@ -329,12 +329,12 @@ class DocumentBatchHandler(BaseHandler):
                         )
                         knowledge_job_ids.append(kp_job_id)
                     logger.info(
-                        f"Queued {len(knowledge_job_ids)} knowledge processing jobs for batch {batch_id}"
+                        "Queued %s knowledge processing jobs for batch %s", len(knowledge_job_ids), batch_id
                     )
                 except ImportError:
                     logger.warning("Knowledge pipeline not available for batch processing")
                 except (RuntimeError, ValueError, TypeError, OSError) as ke:
-                    logger.warning(f"Knowledge processing queue failed: {ke}")
+                    logger.warning("Knowledge processing queue failed: %s", ke)
 
             # Build response
             response_data: dict[str, Any] = {
@@ -362,13 +362,13 @@ class DocumentBatchHandler(BaseHandler):
             return json_response(response_data, status=202)  # Accepted for processing
 
         except (ValueError, TypeError) as e:
-            logger.warning(f"Batch upload failed (invalid params): {e}")
+            logger.warning("Batch upload failed (invalid params): %s", e)
             return error_response(safe_error_message(e, "Batch upload"), 400)
         except json.JSONDecodeError as e:
-            logger.warning(f"Batch upload failed (invalid JSON): {e}")
+            logger.warning("Batch upload failed (invalid JSON): %s", e)
             return error_response(safe_error_message(e, "Batch upload"), 400)
         except OSError as e:
-            logger.exception(f"Batch upload failed (I/O error): {e}")
+            logger.exception("Batch upload failed (I/O error): %s", e)
             return error_response(safe_error_message(e, "Batch upload"), 500)
         except RuntimeError as e:
             logger.exception("Batch upload failed")
@@ -586,7 +586,7 @@ class DocumentBatchHandler(BaseHandler):
                     form_data[field_name] = content.decode("utf-8", errors="ignore")
 
             except (ValueError, UnicodeDecodeError, IndexError, KeyError) as e:
-                logger.warning(f"Error parsing multipart part: {e}")
+                logger.warning("Error parsing multipart part: %s", e)
                 continue
 
         return files, form_data
@@ -624,10 +624,10 @@ class DocumentBatchHandler(BaseHandler):
         except ImportError:
             return error_response("Knowledge pipeline not available", 503)
         except (ValueError, TypeError) as e:
-            logger.warning(f"Error listing knowledge jobs (invalid params): {e}")
+            logger.warning("Error listing knowledge jobs (invalid params): %s", e)
             return error_response(safe_error_message(e, "Failed to list jobs"), 400)
         except (KeyError, AttributeError) as e:
-            logger.exception(f"Error listing knowledge jobs: {e}")
+            logger.exception("Error listing knowledge jobs: %s", e)
             return error_response(safe_error_message(e, "Failed to list jobs"), 500)
 
     def _get_knowledge_job_status(self, job_id: str) -> HandlerResult:
@@ -642,10 +642,10 @@ class DocumentBatchHandler(BaseHandler):
         except ImportError:
             return error_response("Knowledge pipeline not available", 503)
         except (KeyError, ValueError) as e:
-            logger.warning(f"Error getting knowledge job status (not found or invalid): {e}")
+            logger.warning("Error getting knowledge job status (not found or invalid): %s", e)
             return error_response(safe_error_message(e, "Failed to get job status"), 404)
         except AttributeError as e:
-            logger.exception(f"Error getting knowledge job status: {e}")
+            logger.exception("Error getting knowledge job status: %s", e)
             return error_response(safe_error_message(e, "Failed to get job status"), 500)
 
 

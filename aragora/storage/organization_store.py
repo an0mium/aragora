@@ -116,7 +116,7 @@ class OrganizationStore:
                 logger.info("OrganizationStore using PostgreSQL backend")
             else:
                 self._backend = SQLiteBackend(str(db_path))
-                logger.info(f"OrganizationStore using SQLite backend: {db_path}")
+                logger.info("OrganizationStore using SQLite backend: %s", db_path)
 
     def _get_connection(self) -> sqlite3.Connection:
         """Get per-context database connection."""
@@ -249,7 +249,7 @@ class OrganizationStore:
         if self._external_update_user:
             self._external_update_user(owner_id, org_id=org.id, role="owner")
 
-        logger.info(f"organization_created id={org.id} name={name} owner={owner_id}")
+        logger.info("organization_created id=%s name=%s owner=%s", org.id, name, owner_id)
         return org
 
     def get_organization_by_id(self, org_id: str) -> Organization | None:
@@ -735,7 +735,7 @@ class OrganizationStore:
                     """,
                     (cutoff,),
                 )
-                logger.info(f"Cleaned up {count} expired invitations")
+                logger.info("Cleaned up %s expired invitations", count)
             return count
 
         with self._transaction() as cursor:
@@ -750,7 +750,7 @@ class OrganizationStore:
             )
             count = cursor.rowcount
             if count > 0:
-                logger.info(f"Cleaned up {count} expired invitations")
+                logger.info("Cleaned up %s expired invitations", count)
             return count
 
     def _row_to_invitation(self, row: Any) -> OrganizationInvitation:

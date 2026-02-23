@@ -83,14 +83,14 @@ class RequestSanitizer:
             try:
                 text = body[: self.settings.max_body_log_size].decode("utf-8", errors="replace")
             except (UnicodeDecodeError, ValueError) as e:
-                logger.debug(f"Failed to decode truncated body as UTF-8: {type(e).__name__}: {e}")
+                logger.debug("Failed to decode truncated body as UTF-8: %s: %s", type(e).__name__, e)
                 text = f"[Binary data, {len(body)} bytes]"
             return f"{text}... [truncated, {len(body)} bytes total]"
 
         try:
             text = body.decode("utf-8", errors="replace")
         except (UnicodeDecodeError, ValueError) as e:
-            logger.debug(f"Failed to decode body as UTF-8: {type(e).__name__}: {e}")
+            logger.debug("Failed to decode body as UTF-8: %s: %s", type(e).__name__, e)
             return f"[Binary data, {len(body)} bytes]"
 
         # Apply redaction patterns

@@ -124,13 +124,13 @@ class MigrationContext:
     async def __aenter__(self) -> MigrationContext:
         """Enter migration context."""
         self._started_at = datetime.now()
-        logger.info(f"Starting migration: {self._migration_id}")
+        logger.info("Starting migration: %s", self._migration_id)
         return self
 
     async def __aexit__(self, exc_type, exc_val, exc_tb) -> bool:
         """Exit migration context, rolling back on error."""
         if exc_type is not None:
-            logger.error(f"Migration {self._migration_id} failed: {exc_val}, rolling back...")
+            logger.error("Migration %s failed: %s, rolling back...", self._migration_id, exc_val)
             # Rollback is handled by deleting created nodes
             # In production, we'd have more sophisticated rollback
             self._completed = False
@@ -243,7 +243,7 @@ class KnowledgeMoundMigrator:
                 entries = [e for e in entries if e.importance >= min_importance]
 
             result.total_records = len(entries)
-            logger.info(f"Migrating {len(entries)} ContinuumMemory entries")
+            logger.info("Migrating %s ContinuumMemory entries", len(entries))
 
             for entry in entries:
                 try:
@@ -388,7 +388,7 @@ class KnowledgeMoundMigrator:
                 records = [r for r in records if r.confidence >= min_confidence]
 
             result.total_records = len(records)
-            logger.info(f"Migrating {len(records)} ConsensusMemory records")
+            logger.info("Migrating %s ConsensusMemory records", len(records))
 
             for record in records:
                 try:
@@ -595,7 +595,7 @@ class KnowledgeMoundMigrator:
         # Log summary
         total_migrated = sum(r.migrated_count for r in results.values())
         total_errors = sum(r.error_count for r in results.values())
-        logger.info(f"Migration complete: {total_migrated} records migrated, {total_errors} errors")
+        logger.info("Migration complete: %s records migrated, %s errors", total_migrated, total_errors)
 
         return results
 

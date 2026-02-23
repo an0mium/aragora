@@ -326,11 +326,11 @@ class SecretManager:
             return None
         except (BotoCoreError, ClientError) as e:
             # Catch boto3/botocore specific exceptions
-            logger.warning(f"Failed to initialize AWS client ({region}): {type(e).__name__}: {e}")
+            logger.warning("Failed to initialize AWS client (%s): %s: %s", region, type(e).__name__, e)
             return None
         except (OSError, RuntimeError, ValueError) as e:
             # Catch remaining non-boto exceptions (e.g., config errors, network)
-            logger.warning(f"Failed to initialize AWS client ({region}): {type(e).__name__}: {e}")
+            logger.warning("Failed to initialize AWS client (%s): %s: %s", region, type(e).__name__, e)
             return None
 
     def _load_from_aws(self) -> dict[str, str]:
@@ -443,7 +443,7 @@ class SecretManager:
 
             self._cached_secrets = self._load_from_aws()
             self._cache_timestamp = time.time()
-            logger.debug(f"Secrets cache refreshed, TTL: {self.config.cache_ttl_seconds}s")
+            logger.debug("Secrets cache refreshed, TTL: %ss", self.config.cache_ttl_seconds)
 
     def refresh(self) -> None:
         """Force refresh secrets from AWS (for manual rotation)."""

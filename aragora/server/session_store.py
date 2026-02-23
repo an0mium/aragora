@@ -662,7 +662,7 @@ class InMemorySessionStore(SessionStore):
             try:
                 cb(event)
             except (RuntimeError, ValueError, TypeError) as e:
-                logger.warning(f"Event callback error: {e}")
+                logger.warning("Event callback error: %s", e)
 
     def subscribe_events(self, channel: str, callback) -> None:
         with self._sub_lock:
@@ -900,7 +900,7 @@ class RedisSessionStore(SessionStore):
             TypeError,
             UnicodeDecodeError,
         ) as e:
-            logger.warning(f"Redis get_debate_state error: {e}")
+            logger.warning("Redis get_debate_state error: %s", e)
             return None
 
     def set_debate_state(self, loop_id: str, state: dict[str, Any]) -> None:
@@ -911,13 +911,13 @@ class RedisSessionStore(SessionStore):
                 json.dumps(state, default=str),
             )
         except (ConnectionError, TimeoutError, OSError, ValueError, TypeError) as e:
-            logger.warning(f"Redis set_debate_state error: {e}")
+            logger.warning("Redis set_debate_state error: %s", e)
 
     def delete_debate_state(self, loop_id: str) -> bool:
         try:
             return self._redis.delete(self._key("debate", loop_id)) > 0
         except (ConnectionError, TimeoutError, OSError) as e:
-            logger.warning(f"Redis delete_debate_state error: {e}")
+            logger.warning("Redis delete_debate_state error: %s", e)
             return False
 
     # Active loop methods
@@ -938,7 +938,7 @@ class RedisSessionStore(SessionStore):
             TypeError,
             UnicodeDecodeError,
         ) as e:
-            logger.warning(f"Redis get_active_loop error: {e}")
+            logger.warning("Redis get_active_loop error: %s", e)
             return None
 
     def set_active_loop(self, loop_id: str, data: dict[str, Any]) -> None:
@@ -952,7 +952,7 @@ class RedisSessionStore(SessionStore):
             # Also add to index set (for list_active_loops)
             self._redis.sadd(self._key("loop_index"), loop_id)
         except (ConnectionError, TimeoutError, OSError, ValueError, TypeError) as e:
-            logger.warning(f"Redis set_active_loop error: {e}")
+            logger.warning("Redis set_active_loop error: %s", e)
 
     def delete_active_loop(self, loop_id: str) -> bool:
         try:
@@ -961,7 +961,7 @@ class RedisSessionStore(SessionStore):
             self._redis.srem(self._key("loop_index"), loop_id)
             return deleted
         except (ConnectionError, TimeoutError, OSError) as e:
-            logger.warning(f"Redis delete_active_loop error: {e}")
+            logger.warning("Redis delete_active_loop error: %s", e)
             return False
 
     def list_active_loops(self) -> list[str]:
@@ -993,11 +993,11 @@ class RedisSessionStore(SessionStore):
             # Clean up stale index entries
             if stale_ids:
                 self._redis.srem(self._key("loop_index"), *stale_ids)
-                logger.debug(f"Cleaned up {len(stale_ids)} stale loop index entries")
+                logger.debug("Cleaned up %s stale loop index entries", len(stale_ids))
 
             return active_ids
         except (ConnectionError, TimeoutError, OSError, UnicodeDecodeError) as e:
-            logger.warning(f"Redis list_active_loops error: {e}")
+            logger.warning("Redis list_active_loops error: %s", e)
             return []
 
     # Auth state methods
@@ -1016,7 +1016,7 @@ class RedisSessionStore(SessionStore):
             TypeError,
             UnicodeDecodeError,
         ) as e:
-            logger.warning(f"Redis get_auth_state error: {e}")
+            logger.warning("Redis get_auth_state error: %s", e)
             return None
 
     def set_auth_state(self, connection_id: str, state: dict[str, Any]) -> None:
@@ -1027,13 +1027,13 @@ class RedisSessionStore(SessionStore):
                 json.dumps(state, default=str),
             )
         except (ConnectionError, TimeoutError, OSError, ValueError, TypeError) as e:
-            logger.warning(f"Redis set_auth_state error: {e}")
+            logger.warning("Redis set_auth_state error: %s", e)
 
     def delete_auth_state(self, connection_id: str) -> bool:
         try:
             return self._redis.delete(self._key("auth", connection_id)) > 0
         except (ConnectionError, TimeoutError, OSError) as e:
-            logger.warning(f"Redis delete_auth_state error: {e}")
+            logger.warning("Redis delete_auth_state error: %s", e)
             return False
 
     # Pub/Sub for cross-server messaging
@@ -1041,7 +1041,7 @@ class RedisSessionStore(SessionStore):
         try:
             self._redis.publish(self._key("events", channel), json.dumps(event, default=str))
         except (ConnectionError, TimeoutError, OSError, ValueError, TypeError) as e:
-            logger.warning(f"Redis publish error: {e}")
+            logger.warning("Redis publish error: %s", e)
 
     def subscribe_events(self, channel: str, callback) -> None:
         with self._callbacks_lock:
@@ -1067,7 +1067,7 @@ class RedisSessionStore(SessionStore):
             self._pubsub_thread = pubsub.run_in_thread(sleep_time=0.1)
             logger.info("Redis pub/sub listener started")
         except (ConnectionError, TimeoutError, OSError, RuntimeError) as e:
-            logger.warning(f"Failed to start Redis pub/sub: {e}")
+            logger.warning("Failed to start Redis pub/sub: %s", e)
 
     def _handle_message(self, message: dict[str, Any]) -> None:
         """Handle incoming pub/sub message."""
@@ -1100,9 +1100,9 @@ class RedisSessionStore(SessionStore):
                 try:
                     cb(event)
                 except (RuntimeError, ValueError, TypeError) as e:
-                    logger.warning(f"Pub/sub callback error: {e}")
+                    logger.warning("Pub/sub callback error: %s", e)
         except (ValueError, TypeError, UnicodeDecodeError, KeyError) as e:
-            logger.warning(f"Failed to handle pub/sub message: {e}")
+            logger.warning("Failed to handle pub/sub message: %s", e)
 
     # Debate session methods
     def get_debate_session(self, session_id: str) -> DebateSession | None:
@@ -1123,7 +1123,7 @@ class RedisSessionStore(SessionStore):
             UnicodeDecodeError,
             KeyError,
         ) as e:
-            logger.warning(f"Redis get_debate_session error: {e}")
+            logger.warning("Redis get_debate_session error: %s", e)
             return None
 
     def set_debate_session(self, session: DebateSession) -> None:
@@ -1144,7 +1144,7 @@ class RedisSessionStore(SessionStore):
                     self._key("dsession_debate", session.debate_id), session.session_id
                 )
         except (ConnectionError, TimeoutError, OSError, ValueError, TypeError) as e:
-            logger.warning(f"Redis set_debate_session error: {e}")
+            logger.warning("Redis set_debate_session error: %s", e)
 
     def delete_debate_session(self, session_id: str) -> bool:
         try:
@@ -1158,7 +1158,7 @@ class RedisSessionStore(SessionStore):
                     self._redis.srem(self._key("dsession_debate", session.debate_id), session_id)
             return self._redis.delete(self._key("dsession", session_id)) > 0
         except (ConnectionError, TimeoutError, OSError) as e:
-            logger.warning(f"Redis delete_debate_session error: {e}")
+            logger.warning("Redis delete_debate_session error: %s", e)
             return False
 
     def find_sessions_by_user(
@@ -1184,7 +1184,7 @@ class RedisSessionStore(SessionStore):
             UnicodeDecodeError,
             KeyError,
         ) as e:
-            logger.warning(f"Redis find_sessions_by_user error: {e}")
+            logger.warning("Redis find_sessions_by_user error: %s", e)
             return []
 
     def find_sessions_by_debate(self, debate_id: str) -> list[DebateSession]:
@@ -1207,7 +1207,7 @@ class RedisSessionStore(SessionStore):
             UnicodeDecodeError,
             KeyError,
         ) as e:
-            logger.warning(f"Redis find_sessions_by_debate error: {e}")
+            logger.warning("Redis find_sessions_by_debate error: %s", e)
             return []
 
     # Voice session methods
@@ -1234,7 +1234,7 @@ class RedisSessionStore(SessionStore):
             UnicodeDecodeError,
             KeyError,
         ) as e:
-            logger.warning(f"Redis get_voice_session error: {e}")
+            logger.warning("Redis get_voice_session error: %s", e)
             return None
 
     def set_voice_session(self, session: VoiceSession) -> None:
@@ -1257,7 +1257,7 @@ class RedisSessionStore(SessionStore):
                     session.session_id,
                 )
         except (ConnectionError, TimeoutError, OSError, ValueError, TypeError) as e:
-            logger.warning(f"Redis set_voice_session error: {e}")
+            logger.warning("Redis set_voice_session error: %s", e)
 
     def delete_voice_session(self, session_id: str) -> bool:
         try:
@@ -1270,7 +1270,7 @@ class RedisSessionStore(SessionStore):
                     self._redis.delete(self._key("vsession_token", session.reconnect_token))
             return self._redis.delete(self._key("vsession", session_id)) > 0
         except (ConnectionError, TimeoutError, OSError) as e:
-            logger.warning(f"Redis delete_voice_session error: {e}")
+            logger.warning("Redis delete_voice_session error: %s", e)
             return False
 
     def find_voice_session_by_token(self, reconnect_token: str) -> VoiceSession | None:
@@ -1292,7 +1292,7 @@ class RedisSessionStore(SessionStore):
             UnicodeDecodeError,
             KeyError,
         ) as e:
-            logger.warning(f"Redis find_voice_session_by_token error: {e}")
+            logger.warning("Redis find_voice_session_by_token error: %s", e)
             return None
 
     def find_voice_sessions_by_user(self, user_id: str) -> list[VoiceSession]:
@@ -1315,7 +1315,7 @@ class RedisSessionStore(SessionStore):
             UnicodeDecodeError,
             KeyError,
         ) as e:
-            logger.warning(f"Redis find_voice_sessions_by_user error: {e}")
+            logger.warning("Redis find_voice_sessions_by_user error: %s", e)
             return []
 
     # Device session methods
@@ -1342,7 +1342,7 @@ class RedisSessionStore(SessionStore):
             UnicodeDecodeError,
             KeyError,
         ) as e:
-            logger.warning(f"Redis get_device_session error: {e}")
+            logger.warning("Redis get_device_session error: %s", e)
             return None
 
     def set_device_session(self, session: DeviceSession) -> None:
@@ -1369,7 +1369,7 @@ class RedisSessionStore(SessionStore):
                 session.device_id,
             )
         except (ConnectionError, TimeoutError, OSError, ValueError, TypeError) as e:
-            logger.warning(f"Redis set_device_session error: {e}")
+            logger.warning("Redis set_device_session error: %s", e)
 
     def delete_device_session(self, device_id: str) -> bool:
         try:
@@ -1381,7 +1381,7 @@ class RedisSessionStore(SessionStore):
                 self._redis.delete(self._key("device_token", session.push_token))
             return self._redis.delete(self._key("device", device_id)) > 0
         except (ConnectionError, TimeoutError, OSError) as e:
-            logger.warning(f"Redis delete_device_session error: {e}")
+            logger.warning("Redis delete_device_session error: %s", e)
             return False
 
     def find_device_by_token(self, push_token: str) -> DeviceSession | None:
@@ -1401,7 +1401,7 @@ class RedisSessionStore(SessionStore):
             UnicodeDecodeError,
             KeyError,
         ) as e:
-            logger.warning(f"Redis find_device_by_token error: {e}")
+            logger.warning("Redis find_device_by_token error: %s", e)
             return None
 
     def find_devices_by_user(self, user_id: str) -> list[DeviceSession]:
@@ -1424,7 +1424,7 @@ class RedisSessionStore(SessionStore):
             UnicodeDecodeError,
             KeyError,
         ) as e:
-            logger.warning(f"Redis find_devices_by_user error: {e}")
+            logger.warning("Redis find_devices_by_user error: %s", e)
             return []
 
     def cleanup_expired(self) -> dict[str, int]:
@@ -1478,7 +1478,7 @@ def get_session_store(force_memory: bool = False) -> SessionStore:
                 logger.info("Using Redis session store (distributed)")
                 return _session_store
         except (ImportError, RuntimeError, ConnectionError, TimeoutError, OSError) as e:
-            logger.debug(f"Redis session store unavailable: {e}")
+            logger.debug("Redis session store unavailable: %s", e)
 
         # Check if distributed state is required (multi-instance or production)
         if is_distributed_state_required():

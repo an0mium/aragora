@@ -50,7 +50,7 @@ def _get_decision_router(ctx: dict | None = None):
                 evidence_store=ctx.get("evidence_store"),
             )
         except (ImportError, TypeError, ValueError, AttributeError) as e:
-            logger.warning(f"DecisionRouter not available: {e}")
+            logger.warning("DecisionRouter not available: %s", e)
     elif ctx:
         # Fill in stores if they were not set initially.
         if getattr(_decision_router, "_document_store", None) is None:
@@ -81,7 +81,7 @@ def _save_result(request_id: str, data: dict[str, Any]) -> None:
             store.save(request_id, data)
             return
         except (KeyError, ValueError, OSError, TypeError) as e:
-            logger.warning(f"Failed to persist result, using fallback: {e}")
+            logger.warning("Failed to persist result, using fallback: %s", e)
     # Fallback to in-memory
     _decision_results_fallback[request_id] = data
 
@@ -95,7 +95,7 @@ def _get_result(request_id: str) -> dict[str, Any] | None:
             if result:
                 return result
         except (KeyError, ValueError, OSError, TypeError) as e:
-            logger.warning(f"Failed to retrieve from store: {e}")
+            logger.warning("Failed to retrieve from store: %s", e)
     # Fallback to in-memory
     return _decision_results_fallback.get(request_id)
 
@@ -235,7 +235,7 @@ class DecisionHandler(BaseHandler):
             logger.warning("Handler error: %s", e)
             return error_response("Invalid request", 400)
         except (ImportError, TypeError, KeyError, AttributeError) as e:
-            logger.warning(f"Failed to parse decision request: {e}")
+            logger.warning("Failed to parse decision request: %s", e)
             return error_response("Failed to parse request", 400)
 
         # Get router
@@ -265,7 +265,7 @@ class DecisionHandler(BaseHandler):
                     ctx,
                 )
             except (ImportError, TypeError, ValueError, AttributeError, RuntimeError) as e:
-                logger.error(f"RBAC authorization check failed: {e}")
+                logger.error("RBAC authorization check failed: %s", e)
                 return error_response("Authorization service unavailable", 503)
 
         # Route the decision
@@ -311,7 +311,7 @@ class DecisionHandler(BaseHandler):
             return error_response("Decision request timed out", 408)
 
         except (ConnectionError, TimeoutError, OSError, ValueError, RuntimeError) as e:
-            logger.exception(f"Decision routing failed: {e}")
+            logger.exception("Decision routing failed: %s", e)
             _save_result(
                 request.request_id,
                 {
@@ -337,7 +337,7 @@ class DecisionHandler(BaseHandler):
             try:
                 return json_response(store.get_status(request_id))
             except (KeyError, ValueError, OSError, TypeError) as e:
-                logger.warning(f"Failed to get status from store: {e}")
+                logger.warning("Failed to get status from store: %s", e)
 
         # Fallback to in-memory
         if request_id in _decision_results_fallback:
@@ -372,7 +372,7 @@ class DecisionHandler(BaseHandler):
                     }
                 )
             except (KeyError, ValueError, OSError, TypeError) as e:
-                logger.warning(f"Failed to list from store: {e}")
+                logger.warning("Failed to list from store: %s", e)
 
         # Fallback to in-memory
         decisions = list(_decision_results_fallback.values())[-limit:]
@@ -430,7 +430,7 @@ class DecisionHandler(BaseHandler):
         # Persist the update
         _save_result(request_id, result)
 
-        logger.info(f"Decision {request_id} cancelled by user. Reason: {reason or 'not provided'}")
+        logger.info("Decision %s cancelled by user. Reason: %s", request_id, reason or 'not provided')
 
         return json_response(
             {
@@ -509,7 +509,7 @@ class DecisionHandler(BaseHandler):
             request.context.metadata["retry_count"] = original_result.get("retry_count", 0) + 1
 
         except (ImportError, TypeError, ValueError, KeyError, AttributeError) as e:
-            logger.warning(f"Failed to build retry request: {e}")
+            logger.warning("Failed to build retry request: %s", e)
             return error_response("Retry request creation failed", 400)
 
         # Route the new decision
@@ -528,7 +528,7 @@ class DecisionHandler(BaseHandler):
                 },
             )
 
-            logger.info(f"Decision {request_id} retried as {new_request_id}")
+            logger.info("Decision %s retried as %s", request_id, new_request_id)
 
             return json_response(
                 {
@@ -555,7 +555,7 @@ class DecisionHandler(BaseHandler):
             return error_response("Decision retry timed out", 408)
 
         except (ConnectionError, TimeoutError, OSError, ValueError, RuntimeError) as e:
-            logger.exception(f"Decision retry failed: {e}")
+            logger.exception("Decision retry failed: %s", e)
             _save_result(
                 new_request_id,
                 {

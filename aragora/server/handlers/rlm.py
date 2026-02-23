@@ -250,7 +250,7 @@ class RLMContextHandler(BaseHandler):
             return json_response(stats)
 
         except ImportError as e:
-            logger.warning(f"RLM module not fully available: {e}")
+            logger.warning("RLM module not fully available: %s", e)
             return json_response(
                 {
                     "cache": {"error": "RLM module not available"},
@@ -867,7 +867,7 @@ class RLMContextHandler(BaseHandler):
             raw_body = handler.rfile.read(content_length)
             return json.loads(raw_body.decode("utf-8"))
         except (json.JSONDecodeError, ValueError, AttributeError) as e:
-            logger.debug(f"Failed to parse JSON body: {e}")
+            logger.debug("Failed to parse JSON body: %s", e)
             return None
 
     # ============================================================================

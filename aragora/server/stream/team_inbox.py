@@ -210,7 +210,7 @@ class TeamInboxEmitter:
             if inbox_id not in self._inbox_subscriptions:
                 self._inbox_subscriptions[inbox_id] = set()
             self._inbox_subscriptions[inbox_id].add(websocket)
-            logger.debug(f"[TeamInbox] Subscribed to inbox {inbox_id}")
+            logger.debug("[TeamInbox] Subscribed to inbox %s", inbox_id)
 
     async def unsubscribe_from_inbox(self, inbox_id: str, websocket: Any) -> None:
         """Unsubscribe from inbox events."""
@@ -230,7 +230,7 @@ class TeamInboxEmitter:
             try:
                 callback(event)
             except (RuntimeError, TypeError, ValueError) as e:
-                logger.error(f"[TeamInbox] Callback error: {e}")
+                logger.error("[TeamInbox] Callback error: %s", e)
 
         async with self._lock:
             clients = self._inbox_subscriptions.get(inbox_id, set()).copy()
@@ -246,7 +246,7 @@ class TeamInboxEmitter:
                 await websocket.send(message)
                 sent_count += 1
             except (ConnectionError, OSError, RuntimeError) as e:
-                logger.debug(f"[TeamInbox] Failed to send to client: {e}")
+                logger.debug("[TeamInbox] Failed to send to client: %s", e)
                 dead_clients.append(websocket)
 
         # Cleanup dead connections

@@ -143,15 +143,15 @@ class VoiceHandler:
         registry = self._device_registry
         device = await registry.get(device_id)  # type: ignore[union-attr]
         if not device:
-            logger.warning(f"Device {device_id} not found for call {call_sid}")
+            logger.warning("Device %s not found for call %s", device_id, call_sid)
             return False
 
         if "voice" not in device.capabilities:
-            logger.warning(f"Device {device_id} lacks voice capability for call {call_sid}")
+            logger.warning("Device %s lacks voice capability for call %s", device_id, call_sid)
             return False
 
         self._call_device_map[call_sid] = device_id
-        logger.info(f"Associated call {call_sid} with device {device_id}")
+        logger.info("Associated call %s with device %s", call_sid, device_id)
         return True
 
     async def get_device_for_call(self, call_sid: str) -> DeviceNode | None:
@@ -241,11 +241,11 @@ class VoiceHandler:
             is_valid = validator.validate(url, params, signature)
 
             if not is_valid:
-                logger.warning(f"Invalid Twilio signature for {url}")
+                logger.warning("Invalid Twilio signature for %s", url)
 
             return is_valid
         except (ValueError, TypeError, RuntimeError) as e:
-            logger.error(f"Twilio signature verification failed: {e}")
+            logger.error("Twilio signature verification failed: %s", e)
             return False
 
     async def _get_post_params(self, request: Request) -> dict[str, str]:
@@ -254,7 +254,7 @@ class VoiceHandler:
             data = await request.post()
             return {k: str(v) for k, v in data.items()}
         except (ValueError, TypeError, OSError) as e:
-            logger.debug(f"Failed to parse POST data: {e}")
+            logger.debug("Failed to parse POST data: %s", e)
             return {}
 
     # =========================================================================
@@ -430,7 +430,7 @@ class VoiceHandler:
         if call_status in ("completed", "failed", "busy", "no-answer", "canceled"):
             device_id = self._call_device_map.pop(call_sid, None)
             if device_id:
-                logger.debug(f"Removed device association for ended call {call_sid}")
+                logger.debug("Removed device association for ended call %s", call_sid)
 
         # Return empty 200 OK
         return web.Response(text="OK", status=200)
@@ -501,7 +501,7 @@ class VoiceHandler:
             question: Transcribed question/topic
         """
         if not self.debate_starter:
-            logger.info(f"No debate_starter configured, skipping debate for {call_sid}")
+            logger.info("No debate_starter configured, skipping debate for %s", call_sid)
             return
 
         try:
@@ -517,8 +517,7 @@ class VoiceHandler:
                 context["device_capabilities"] = device.capabilities
 
             logger.info(
-                f"Queuing debate from voice: {question[:100]}... "
-                f"(caller: {caller}, device: {context.get('device_id', 'none')})"
+                "Queuing debate from voice: %s... (caller: %s, device: %s)", question[:100], caller, context.get('device_id', 'none')
             )
 
             # Start debate asynchronously with device context
@@ -533,10 +532,10 @@ class VoiceHandler:
 
             if debate_id:
                 self.voice.mark_debate_started(call_sid, debate_id)
-                logger.info(f"Debate {debate_id} started from call {call_sid}")
+                logger.info("Debate %s started from call %s", debate_id, call_sid)
 
         except (ValueError, KeyError, TypeError, RuntimeError, OSError) as e:
-            logger.error(f"Failed to start debate from voice: {e}")
+            logger.error("Failed to start debate from voice: %s", e)
 
 
 def setup_voice_routes(
@@ -575,8 +574,7 @@ def setup_voice_routes(
     app.router.add_post("/api/voice/gather/confirm", handler.handle_gather_confirm)
 
     logger.info(
-        f"Voice webhook routes registered "
-        f"(device_runtime={'enabled' if handler.device_registry else 'disabled'})"
+        "Voice webhook routes registered (device_runtime=%s)", 'enabled' if handler.device_registry else 'disabled'
     )
     return handler
 

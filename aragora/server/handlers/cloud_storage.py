@@ -510,7 +510,7 @@ class CloudStorageHandler(BaseHandler):
                 503,
             )
         except (KeyError, ValueError, OSError, RuntimeError) as e:  # broad catch: last-resort handler
-            logger.exception(f"Error handling cloud storage GET request: {e}")
+            logger.exception("Error handling cloud storage GET request: %s", e)
             cb = self._get_circuit_breaker()
             cb.record_failure()
             return error_response(safe_error_message(e, "cloud storage upload"), 500)
@@ -568,7 +568,7 @@ class CloudStorageHandler(BaseHandler):
                 503,
             )
         except (KeyError, ValueError, OSError, RuntimeError) as e:  # broad catch: last-resort handler
-            logger.exception(f"Error handling cloud storage POST request: {e}")
+            logger.exception("Error handling cloud storage POST request: %s", e)
             cb = self._get_circuit_breaker()
             cb.record_failure()
             return error_response(safe_error_message(e, "cloud storage list"), 500)
@@ -620,7 +620,7 @@ class CloudStorageHandler(BaseHandler):
                 503,
             )
         except (KeyError, ValueError, OSError, RuntimeError) as e:  # broad catch: last-resort handler
-            logger.exception(f"Error handling cloud storage DELETE request: {e}")
+            logger.exception("Error handling cloud storage DELETE request: %s", e)
             cb = self._get_circuit_breaker()
             cb.record_failure()
             return error_response(safe_error_message(e, "cloud storage delete"), 500)
@@ -713,7 +713,7 @@ class CloudStorageHandler(BaseHandler):
         except (OSError, ConnectionError, TimeoutError, RuntimeError) as e:
             cb = self._get_circuit_breaker()
             cb.record_failure()
-            logger.error(f"Failed to download file {file_id}: {e}")
+            logger.error("Failed to download file %s: %s", file_id, e)
             return error_response("Failed to download file", 500)
 
     @require_permission("storage:write")
@@ -772,7 +772,7 @@ class CloudStorageHandler(BaseHandler):
         except (OSError, ConnectionError, TimeoutError, RuntimeError) as e:
             cb = self._get_circuit_breaker()
             cb.record_failure()
-            logger.error(f"Failed to upload file: {e}")
+            logger.error("Failed to upload file: %s", e)
             return error_response("Failed to upload file to storage", 500)
 
         # Create metadata record
@@ -818,7 +818,7 @@ class CloudStorageHandler(BaseHandler):
         except (OSError, ConnectionError, TimeoutError, RuntimeError) as e:
             cb = self._get_circuit_breaker()
             cb.record_failure()
-            logger.error(f"Failed to delete file {file_id} from storage: {e}")
+            logger.error("Failed to delete file %s from storage: %s", file_id, e)
             # Continue to mark as deleted even if backend delete fails
 
         # Mark as deleted
@@ -868,7 +868,7 @@ class CloudStorageHandler(BaseHandler):
         except (OSError, ConnectionError, TimeoutError, ValueError, RuntimeError) as e:
             cb = self._get_circuit_breaker()
             cb.record_failure()
-            logger.error(f"Failed to generate presigned URL: {e}")
+            logger.error("Failed to generate presigned URL: %s", e)
             return error_response("Failed to generate presigned URL", 500)
 
         cb = self._get_circuit_breaker()

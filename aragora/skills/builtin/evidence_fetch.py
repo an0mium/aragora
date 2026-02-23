@@ -134,7 +134,7 @@ class EvidenceFetchSkill(Skill):
             return SkillResult.create_success(results)
 
         except (RuntimeError, ValueError, OSError, ConnectionError, TimeoutError) as e:
-            logger.exception(f"Evidence fetch failed: {e}")
+            logger.exception("Evidence fetch failed: %s", e)
             return SkillResult.create_failure(f"Evidence fetch failed: {e}")
 
     async def _fetch_url(self, url: str) -> dict[str, Any]:
@@ -142,7 +142,7 @@ class EvidenceFetchSkill(Skill):
         # SSRF protection: validate URL before fetching
         is_valid, error = _validate_webhook_url(url)
         if not is_valid:
-            logger.warning(f"Evidence fetch URL blocked by SSRF protection: {error}")
+            logger.warning("Evidence fetch URL blocked by SSRF protection: %s", error)
             return {"url": url, "error": f"URL blocked: {error}"}
 
         try:
@@ -171,7 +171,7 @@ class EvidenceFetchSkill(Skill):
                 }
 
         except (OSError, ConnectionError, TimeoutError, RuntimeError) as e:
-            logger.warning(f"URL fetch error: {e}")
+            logger.warning("URL fetch error: %s", e)
             return {"url": url, "error": str(e)}
 
     def _extract_main_content(self, html: str) -> str:
@@ -207,7 +207,7 @@ class EvidenceFetchSkill(Skill):
         except (ValueError, RuntimeError) as e:
             # Fall back to basic text extraction
             logger.debug(
-                f"HTML parsing failed, using fallback text extraction: {type(e).__name__}: {e}"
+                "HTML parsing failed, using fallback text extraction: %s: %s", type(e).__name__, e
             )
             import re
 
@@ -250,7 +250,7 @@ class EvidenceFetchSkill(Skill):
             logger.debug("duckduckgo-search not installed")
             return []
         except (RuntimeError, OSError, ConnectionError, TimeoutError) as e:
-            logger.warning(f"Web search error: {e}")
+            logger.warning("Web search error: %s", e)
             return []
 
     async def _search_academic(
@@ -299,7 +299,7 @@ class EvidenceFetchSkill(Skill):
                 return results
 
         except (OSError, ConnectionError, TimeoutError, RuntimeError, ValueError) as e:
-            logger.warning(f"Academic search error: {e}")
+            logger.warning("Academic search error: %s", e)
             return []
 
     async def _search_news(
@@ -331,7 +331,7 @@ class EvidenceFetchSkill(Skill):
             logger.debug("duckduckgo-search not installed")
             return []
         except (RuntimeError, OSError, ConnectionError, TimeoutError) as e:
-            logger.warning(f"News search error: {e}")
+            logger.warning("News search error: %s", e)
             return []
 
     async def _check_facts(self, claim: str) -> list[dict[str, Any]]:
@@ -379,12 +379,12 @@ class EvidenceFetchSkill(Skill):
                                 }
                             )
                     if results:
-                        logger.info(f"Found {len(results)} fact-checks for claim")
+                        logger.info("Found %s fact-checks for claim", len(results))
                         return results
         except ImportError:
             logger.debug("http_client_pool not available for fact checking")
         except (OSError, ConnectionError, TimeoutError, RuntimeError, ValueError) as e:
-            logger.debug(f"Google Fact Check API error: {e}")
+            logger.debug("Google Fact Check API error: %s", e)
 
         # 2. Fallback: check local fact store if available
         try:
@@ -408,7 +408,7 @@ class EvidenceFetchSkill(Skill):
         except (ImportError, AttributeError):
             logger.debug("Local fact store not available")
         except (RuntimeError, ValueError, OSError) as e:
-            logger.debug(f"Local fact store query failed: {e}")
+            logger.debug("Local fact store query failed: %s", e)
 
         return results
 

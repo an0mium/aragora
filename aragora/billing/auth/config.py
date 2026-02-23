@@ -177,10 +177,10 @@ def get_secret() -> bytes:
 
     if not validate_secret_strength(jwt_secret):
         if running_under_pytest:
-            logger.debug(f"TEST MODE: JWT secret is weak (< {MIN_SECRET_LENGTH} chars)")
+            logger.debug("TEST MODE: JWT secret is weak (< %s chars)", MIN_SECRET_LENGTH)
         else:
             logger.error(
-                f"[JWT_DEBUG] get_secret: Secret too weak! Length={len(jwt_secret)}, required={MIN_SECRET_LENGTH}"
+                "[JWT_DEBUG] get_secret: Secret too weak! Length=%s, required=%s", len(jwt_secret), MIN_SECRET_LENGTH
             )
             raise ConfigurationError(
                 component="JWT Authentication",
@@ -193,7 +193,7 @@ def get_secret() -> bytes:
 
     secret_fingerprint = hashlib.sha256(jwt_secret.encode()).hexdigest()[:8]
     logger.info(
-        f"[JWT_DEBUG] get_secret: Using secret with fingerprint={secret_fingerprint}, length={len(jwt_secret)}"
+        "[JWT_DEBUG] get_secret: Using secret with fingerprint=%s, length=%s", secret_fingerprint, len(jwt_secret)
     )
 
     return jwt_secret.encode("utf-8")
@@ -220,7 +220,7 @@ def get_previous_secret() -> bytes | None:
             grace_seconds = JWT_ROTATION_GRACE_HOURS * 3600
             if time.time() - rotated_at > grace_seconds:
                 logger.debug(
-                    f"jwt_previous_secret_expired: rotated {JWT_ROTATION_GRACE_HOURS}+ hours ago"
+                    "jwt_previous_secret_expired: rotated %s+ hours ago", JWT_ROTATION_GRACE_HOURS
                 )
                 return None
         except ValueError:

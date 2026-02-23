@@ -179,7 +179,7 @@ Respond with just "yes" or "no".""",
             content = str(getattr(content_block, "text", "")).strip().lower()
             return content.startswith("yes")
         except (OSError, ConnectionError, TimeoutError, ValueError, RuntimeError) as e:
-            logger.warning(f"LLM classification failed: {e}")
+            logger.warning("LLM classification failed: %s", e)
             return self.is_current_event(question)
 
     async def search_brave(self, query: str, max_results: int = 5) -> list[SearchResult]:
@@ -210,7 +210,7 @@ Respond with just "yes" or "no".""",
                 return results
 
         except (httpx.HTTPError, OSError, ValueError, RuntimeError) as e:
-            logger.warning(f"Brave search failed: {e}")
+            logger.warning("Brave search failed: %s", e)
             return []
 
     async def search_serper(self, query: str, max_results: int = 5) -> list[SearchResult]:
@@ -244,7 +244,7 @@ Respond with just "yes" or "no".""",
                 return results
 
         except (httpx.HTTPError, OSError, ValueError, RuntimeError) as e:
-            logger.warning(f"Serper search failed: {e}")
+            logger.warning("Serper search failed: %s", e)
             return []
 
     async def search_with_claude(self, question: str) -> ResearchResult:
@@ -264,7 +264,7 @@ Respond with just "yes" or "no".""",
 
         try:
             logger.info(
-                f"[claude_web_search] Researching with {RESEARCH_MODEL}: {question[:100]}..."
+                "[claude_web_search] Researching with %s: %s...", RESEARCH_MODEL, question[:100]
             )
 
             # Define the sync API call to run in thread pool
@@ -314,7 +314,7 @@ Focus on facts and cite your sources.""",
                     summary_parts.append(block.text)
                 elif hasattr(block, "type") and block.type == "tool_use":
                     # Claude used web_search tool
-                    logger.debug(f"[claude_web_search] Tool used: {block.name}")
+                    logger.debug("[claude_web_search] Tool used: %s", block.name)
 
             summary = "\n".join(summary_parts)
 
@@ -335,7 +335,7 @@ Focus on facts and cite your sources.""",
                 )
 
             logger.info(
-                f"[claude_web_search] Complete: {len(summary)} chars, {len(sources)} sources"
+                "[claude_web_search] Complete: %s chars, %s sources", len(summary), len(sources)
             )
 
             return ResearchResult(
@@ -347,13 +347,13 @@ Focus on facts and cite your sources.""",
             )
 
         except asyncio.TimeoutError:
-            logger.warning(f"[claude_web_search] Timed out after {CLAUDE_SEARCH_TIMEOUT}s")
+            logger.warning("[claude_web_search] Timed out after %ss", CLAUDE_SEARCH_TIMEOUT)
             return ResearchResult(
                 query=question,
                 is_current_event=self.is_current_event(question),
             )
         except (OSError, ConnectionError, ValueError, RuntimeError) as e:
-            logger.warning(f"[claude_web_search] Failed: {e}")
+            logger.warning("[claude_web_search] Failed: %s", e)
             return ResearchResult(
                 query=question,
                 is_current_event=self.is_current_event(question),
@@ -409,7 +409,7 @@ Focus on facts and cite your sources.""",
         3. Serper/Google Search API
         """
         query = self._extract_search_query(question)
-        logger.info(f"[research] Searching for: {query}")
+        logger.info("[research] Searching for: %s", query)
 
         results: list[SearchResult] = []
 
@@ -494,7 +494,7 @@ Focus on facts, not opinions. Include relevant dates and specifics.""",
             result.summary = str(getattr(content_block, "text", ""))
 
         except (OSError, ConnectionError, TimeoutError, ValueError, RuntimeError) as e:
-            logger.warning(f"[research] Summary generation failed: {e}")
+            logger.warning("[research] Summary generation failed: %s", e)
 
         return result
 
@@ -532,7 +532,7 @@ Note: Clearly indicate if certain information may be outdated or requires verifi
             )
 
         except (OSError, ConnectionError, TimeoutError, ValueError, RuntimeError) as e:
-            logger.warning(f"[research] Claude knowledge fallback failed: {e}")
+            logger.warning("[research] Claude knowledge fallback failed: %s", e)
             return ResearchResult(
                 query=question,
                 summary="",
@@ -567,7 +567,7 @@ async def research_question(
         logger.debug("[research] Topic doesn't require current event research, skipping")
         return None
 
-    logger.info(f"[research] Starting pre-debate research for: {question[:80]}...")
+    logger.info("[research] Starting pre-debate research for: %s...", question[:80])
 
     if summarize:
         return await researcher.research_and_summarize(question, max_results)
@@ -598,9 +598,9 @@ async def research_for_debate(question: str) -> str:
         # Format as debate context
         context = result.to_context()
         if context:
-            logger.info(f"[research] Prepared {len(context)} chars of research context")
+            logger.info("[research] Prepared %s chars of research context", len(context))
         return context
 
     except (OSError, ConnectionError, TimeoutError, ValueError, RuntimeError) as e:
-        logger.warning(f"[research] Pre-debate research failed: {e}")
+        logger.warning("[research] Pre-debate research failed: %s", e)
         return ""

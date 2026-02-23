@@ -187,26 +187,26 @@ class ArXivConnector(BaseConnector):
 
             # Parse XML response
             results = self._parse_arxiv_response(response.text)
-            logger.info(f"ArXiv search '{query}' returned {len(results)} results")
+            logger.info("ArXiv search '%s' returned %s results", query, len(results))
             return results
 
         except httpx.TimeoutException:
-            logger.warning(f"ArXiv search timeout for query: {query}")
+            logger.warning("ArXiv search timeout for query: %s", query)
             return []
         except httpx.HTTPStatusError as e:
-            logger.error(f"ArXiv API error: {e.response.status_code}")
+            logger.error("ArXiv API error: %s", e.response.status_code)
             return []
         except httpx.ConnectError as e:
-            logger.error(f"ArXiv connection error: {e}")
+            logger.error("ArXiv connection error: %s", e)
             return []
         except httpx.RequestError as e:
-            logger.error(f"ArXiv request error: {e}")
+            logger.error("ArXiv request error: %s", e)
             return []
         except ET.ParseError as e:
-            logger.error(f"ArXiv XML parsing error: {e}")
+            logger.error("ArXiv XML parsing error: %s", e)
             return []
         except (OSError, UnicodeDecodeError, AttributeError) as e:
-            logger.error(f"ArXiv search failed unexpectedly ({type(e).__name__}): {e}")
+            logger.error("ArXiv search failed unexpectedly (%s): %s", type(e).__name__, e)
             return []
 
     async def fetch(self, evidence_id: str) -> Evidence | None:
@@ -252,23 +252,23 @@ class ArXivConnector(BaseConnector):
             return None
 
         except httpx.TimeoutException:
-            logger.warning(f"ArXiv fetch timeout for {evidence_id}")
+            logger.warning("ArXiv fetch timeout for %s", evidence_id)
             return None
         except httpx.HTTPStatusError as e:
-            logger.error(f"ArXiv API error fetching {evidence_id}: {e.response.status_code}")
+            logger.error("ArXiv API error fetching %s: %s", evidence_id, e.response.status_code)
             return None
         except httpx.ConnectError as e:
-            logger.error(f"ArXiv connection error for {evidence_id}: {e}")
+            logger.error("ArXiv connection error for %s: %s", evidence_id, e)
             return None
         except httpx.RequestError as e:
-            logger.error(f"ArXiv request error for {evidence_id}: {e}")
+            logger.error("ArXiv request error for %s: %s", evidence_id, e)
             return None
         except ET.ParseError as e:
-            logger.error(f"ArXiv XML parsing error for {evidence_id}: {e}")
+            logger.error("ArXiv XML parsing error for %s: %s", evidence_id, e)
             return None
         except (OSError, UnicodeDecodeError, AttributeError) as e:
             logger.error(
-                f"ArXiv fetch failed unexpectedly for {evidence_id} ({type(e).__name__}): {e}"
+                "ArXiv fetch failed unexpectedly for %s (%s): %s", evidence_id, type(e).__name__, e
             )
             return None
 
@@ -291,11 +291,11 @@ class ArXivConnector(BaseConnector):
                     if evidence:
                         results.append(evidence)
                 except (KeyError, TypeError, ValueError, AttributeError) as e:
-                    logger.debug(f"Error parsing ArXiv entry: {e}")
+                    logger.debug("Error parsing ArXiv entry: %s", e)
                     continue
 
         except ET.ParseError as e:
-            logger.error(f"Failed to parse ArXiv XML: {e}")
+            logger.error("Failed to parse ArXiv XML: %s", e)
 
         return results
 

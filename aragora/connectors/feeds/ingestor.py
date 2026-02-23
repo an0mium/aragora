@@ -147,7 +147,7 @@ class FeedIngestor:
     def add_source(self, source: FeedSource) -> None:
         """Add a feed source."""
         self.sources.append(source)
-        logger.info(f"Added feed source: {source.name} ({source.url})")
+        logger.info("Added feed source: %s (%s)", source.name, source.url)
 
     def remove_source(self, url: str) -> bool:
         """Remove a feed source by URL."""
@@ -155,7 +155,7 @@ class FeedIngestor:
         self.sources = [s for s in self.sources if s.url != url]
         removed = len(self.sources) < original_len
         if removed:
-            logger.info(f"Removed feed source: {url}")
+            logger.info("Removed feed source: %s", url)
         return removed
 
     def _get_circuit_breaker(self, url: str) -> CircuitBreaker:
@@ -169,7 +169,7 @@ class FeedIngestor:
         cb = self._get_circuit_breaker(source.url)
 
         if not cb.can_proceed():
-            logger.warning(f"Circuit breaker open for {source.name}")
+            logger.warning("Circuit breaker open for %s", source.name)
             return []
 
         async with httpx.AsyncClient(timeout=self.timeout) as client:
@@ -188,11 +188,11 @@ class FeedIngestor:
                     )
 
                     cb.record_success()
-                    logger.debug(f"Fetched {len(entries)} entries from {source.name}")
+                    logger.debug("Fetched %s entries from %s", len(entries), source.name)
                     return entries[: source.max_entries]
 
                 except httpx.HTTPStatusError as e:
-                    logger.warning(f"HTTP error fetching {source.name}: {e.response.status_code}")
+                    logger.warning("HTTP error fetching %s: %s", source.name, e.response.status_code)
                     if e.response.status_code >= 500:
                         # Server error, retry with backoff
                         delay = self.base_retry_delay * (2**attempt)
@@ -203,12 +203,12 @@ class FeedIngestor:
                         return []
 
                 except httpx.RequestError as e:
-                    logger.warning(f"Request error fetching {source.name}: {e}")
+                    logger.warning("Request error fetching %s: %s", source.name, e)
                     delay = self.base_retry_delay * (2**attempt)
                     await asyncio.sleep(delay)
 
                 except DefusedET.ParseError as e:
-                    logger.error(f"Parse error for {source.name}: {e}")
+                    logger.error("Parse error for %s: %s", source.name, e)
                     cb.record_failure()
                     return []
 
@@ -220,7 +220,7 @@ class FeedIngestor:
         try:
             root = DefusedET.fromstring(content)
         except DefusedET.ParseError as e:
-            logger.error(f"Failed to parse feed XML: {e}")
+            logger.error("Failed to parse feed XML: %s", e)
             return []
 
         # Detect feed type
@@ -229,7 +229,7 @@ class FeedIngestor:
         elif root.tag == "rss" or root.find("channel") is not None:
             return self._parse_rss(root, source)
         else:
-            logger.warning(f"Unknown feed format: {root.tag}")
+            logger.warning("Unknown feed format: %s", root.tag)
             return []
 
     def _parse_rss(self, root: Element, source: FeedSource) -> list[FeedEntry]:
@@ -405,7 +405,7 @@ class FeedIngestor:
                 if isinstance(result, list):
                     all_entries.extend(result)
                 elif isinstance(result, Exception):
-                    logger.error(f"Feed fetch failed: {result}")
+                    logger.error("Feed fetch failed: %s", result)
 
         # Deduplicate based on content hash
         if deduplicate:
@@ -419,7 +419,7 @@ class FeedIngestor:
             self._seen_hashes = seen
             all_entries = unique_entries
 
-        logger.info(f"Fetched {len(all_entries)} entries from {len(enabled_sources)} sources")
+        logger.info("Fetched %s entries from %s sources", len(all_entries), len(enabled_sources))
         return all_entries
 
     async def fetch_source(self, url: str) -> list[FeedEntry]:

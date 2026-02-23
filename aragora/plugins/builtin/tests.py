@@ -151,7 +151,7 @@ def _parse_json_report(output: str) -> dict[str, Any]:
                 "total": summary.get("total", 0),
             }
     except (json.JSONDecodeError, AttributeError) as e:
-        logger.debug(f"Failed to parse pytest JSON output: {e}")
+        logger.debug("Failed to parse pytest JSON output: %s", e)
     return {}
 
 

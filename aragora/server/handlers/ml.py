@@ -97,7 +97,7 @@ def _get_ml_component(name: str) -> Any:
     # Check circuit breaker first
     circuit_breaker = _get_circuit_breaker(name)
     if not circuit_breaker.can_proceed():
-        logger.debug(f"ML component {name} circuit breaker is open, skipping")
+        logger.debug("ML component %s circuit breaker is open, skipping", name)
         return None
 
     with _ml_components_lock:
@@ -130,11 +130,11 @@ def _get_ml_component(name: str) -> Any:
                 if _ml_components.get(name) is not None:
                     circuit_breaker.record_success()
             except ImportError as e:
-                logger.warning(f"ML component {name} not available: {e}")
+                logger.warning("ML component %s not available: %s", name, e)
                 _ml_components[name] = None
                 circuit_breaker.record_failure()
             except (RuntimeError, OSError, TypeError, ValueError, AttributeError) as e:
-                logger.error(f"Error loading ML component {name}: {e}")
+                logger.error("Error loading ML component %s: %s", name, e)
                 _ml_components[name] = None
                 circuit_breaker.record_failure()
 
@@ -184,7 +184,7 @@ class MLHandler(BaseHandler):
         # Rate limit check
         client_ip = get_client_ip(handler)
         if not _ml_limiter.is_allowed(client_ip):
-            logger.warning(f"Rate limit exceeded for ML endpoint: {client_ip}")
+            logger.warning("Rate limit exceeded for ML endpoint: %s", client_ip)
             return error_response("Rate limit exceeded. Please try again later.", 429)
 
         if path == "/api/v1/ml/models":
@@ -207,7 +207,7 @@ class MLHandler(BaseHandler):
         # Rate limit check
         client_ip = get_client_ip(handler)
         if not _ml_limiter.is_allowed(client_ip):
-            logger.warning(f"Rate limit exceeded for ML endpoint: {client_ip}")
+            logger.warning("Rate limit exceeded for ML endpoint: %s", client_ip)
             return error_response("Rate limit exceeded. Please try again later.", 429)
 
         if path == "/api/v1/ml/export-training":
@@ -287,10 +287,10 @@ class MLHandler(BaseHandler):
             )
 
         except (ValueError, KeyError, TypeError) as e:
-            logger.warning(f"Invalid ML routing request: {e}")
+            logger.warning("Invalid ML routing request: %s", e)
             return error_response(safe_error_message(e, "routing"), 400)
         except (RuntimeError, OSError, AttributeError) as e:
-            logger.exception(f"Unexpected ML routing error: {e}")
+            logger.exception("Unexpected ML routing error: %s", e)
             return error_response(safe_error_message(e, "routing"), 500)
 
     def _handle_score(self, data: dict) -> HandlerResult:
@@ -341,10 +341,10 @@ class MLHandler(BaseHandler):
             )
 
         except (ValueError, KeyError, TypeError) as e:
-            logger.warning(f"Invalid ML scoring request: {e}")
+            logger.warning("Invalid ML scoring request: %s", e)
             return error_response(safe_error_message(e, "scoring"), 400)
         except (RuntimeError, OSError, AttributeError) as e:
-            logger.exception(f"Unexpected ML scoring error: {e}")
+            logger.exception("Unexpected ML scoring error: %s", e)
             return error_response(safe_error_message(e, "scoring"), 500)
 
     def _handle_score_batch(self, data: dict) -> HandlerResult:
@@ -398,10 +398,10 @@ class MLHandler(BaseHandler):
             )
 
         except (ValueError, KeyError, TypeError) as e:
-            logger.warning(f"Invalid ML batch scoring request: {e}")
+            logger.warning("Invalid ML batch scoring request: %s", e)
             return error_response(safe_error_message(e, "batch scoring"), 400)
         except (RuntimeError, OSError, AttributeError) as e:
-            logger.exception(f"Unexpected ML batch scoring error: {e}")
+            logger.exception("Unexpected ML batch scoring error: %s", e)
             return error_response(safe_error_message(e, "batch scoring"), 500)
 
     def _handle_consensus(self, data: dict) -> HandlerResult:
@@ -466,10 +466,10 @@ class MLHandler(BaseHandler):
             )
 
         except (ValueError, KeyError, TypeError) as e:
-            logger.warning(f"Invalid ML consensus prediction request: {e}")
+            logger.warning("Invalid ML consensus prediction request: %s", e)
             return error_response(safe_error_message(e, "prediction"), 400)
         except (RuntimeError, OSError, AttributeError) as e:
-            logger.exception(f"Unexpected ML consensus prediction error: {e}")
+            logger.exception("Unexpected ML consensus prediction error: %s", e)
             return error_response(safe_error_message(e, "prediction"), 500)
 
     def _handle_export_training(self, data: dict) -> HandlerResult:
@@ -530,10 +530,10 @@ class MLHandler(BaseHandler):
                 )
 
         except (ValueError, KeyError, TypeError) as e:
-            logger.warning(f"Invalid ML export request: {e}")
+            logger.warning("Invalid ML export request: %s", e)
             return error_response(safe_error_message(e, "export"), 400)
         except (RuntimeError, OSError, AttributeError) as e:
-            logger.exception(f"Unexpected ML export error: {e}")
+            logger.exception("Unexpected ML export error: %s", e)
             return error_response(safe_error_message(e, "export"), 500)
 
     def _handle_embed(self, data: dict) -> HandlerResult:
@@ -579,10 +579,10 @@ class MLHandler(BaseHandler):
             )
 
         except (ValueError, KeyError, TypeError) as e:
-            logger.warning(f"Invalid ML embedding request: {e}")
+            logger.warning("Invalid ML embedding request: %s", e)
             return error_response(safe_error_message(e, "embedding"), 400)
         except (RuntimeError, OSError, AttributeError) as e:
-            logger.exception(f"Unexpected ML embedding error: {e}")
+            logger.exception("Unexpected ML embedding error: %s", e)
             return error_response(safe_error_message(e, "embedding"), 500)
 
     def _handle_search(self, data: dict) -> HandlerResult:
@@ -644,10 +644,10 @@ class MLHandler(BaseHandler):
             )
 
         except (ValueError, KeyError, TypeError) as e:
-            logger.warning(f"Invalid ML search request: {e}")
+            logger.warning("Invalid ML search request: %s", e)
             return error_response(safe_error_message(e, "search"), 400)
         except (RuntimeError, OSError, AttributeError) as e:
-            logger.exception(f"Unexpected ML search error: {e}")
+            logger.exception("Unexpected ML search error: %s", e)
             return error_response(safe_error_message(e, "search"), 500)
 
     def _handle_list_models(self) -> HandlerResult:

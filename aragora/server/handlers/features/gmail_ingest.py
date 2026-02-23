@@ -161,7 +161,7 @@ class GmailIngestHandler(SecureHandler):
         # Rate limit check
         client_ip = get_client_ip(handler)
         if not _gmail_limiter.is_allowed(client_ip):
-            logger.warning(f"Rate limit exceeded for Gmail endpoint: {client_ip}")
+            logger.warning("Rate limit exceeded for Gmail endpoint: %s", client_ip)
             return error_response("Rate limit exceeded. Please try again later.", 429)
 
         # RBAC: Require authentication and gmail:read permission
@@ -212,7 +212,7 @@ class GmailIngestHandler(SecureHandler):
         # Rate limit check
         client_ip = get_client_ip(handler)
         if not _gmail_limiter.is_allowed(client_ip):
-            logger.warning(f"Rate limit exceeded for Gmail endpoint: {client_ip}")
+            logger.warning("Rate limit exceeded for Gmail endpoint: %s", client_ip)
             return error_response("Rate limit exceeded. Please try again later.", 429)
 
         # RBAC: Require authentication and appropriate permission
@@ -297,7 +297,7 @@ class GmailIngestHandler(SecureHandler):
             return json_response({"url": url})
 
         except (ImportError, ConnectionError, OSError, ValueError, AttributeError) as e:
-            logger.error(f"[Gmail] Failed to generate auth URL: {e}")
+            logger.error("[Gmail] Failed to generate auth URL: %s", e)
             return error_response("Failed to generate authorization URL", 500)
 
     def _start_connect(self, body: dict[str, Any], user_id: str) -> HandlerResult:
@@ -321,7 +321,7 @@ class GmailIngestHandler(SecureHandler):
             )
 
         except (ImportError, ConnectionError, OSError, ValueError, AttributeError) as e:
-            logger.error(f"[Gmail] Failed to start connect: {e}")
+            logger.error("[Gmail] Failed to start connect: %s", e)
             return error_response("Failed to start connection", 500)
 
     async def _handle_oauth_callback(
@@ -350,8 +350,7 @@ class GmailIngestHandler(SecureHandler):
         # State should contain user_id for verification, but we ALWAYS use JWT user_id
         if state and state != user_id:
             logger.warning(
-                f"OAuth state mismatch: state={state}, jwt_user={user_id}. "
-                "Using JWT user_id for security."
+                "OAuth state mismatch: state=%s, jwt_user=%s. Using JWT user_id for security.", state, user_id
             )
 
         return await self._complete_oauth(
@@ -379,8 +378,7 @@ class GmailIngestHandler(SecureHandler):
         # SECURITY: Validate state matches authenticated user to prevent CSRF
         if state and state != user_id:
             logger.warning(
-                f"OAuth state mismatch: state={state}, jwt_user={user_id}. "
-                "Using JWT user_id for security."
+                "OAuth state mismatch: state=%s, jwt_user=%s. Using JWT user_id for security.", state, user_id
             )
 
         return await self._complete_oauth(code, redirect_uri, user_id, org_id)
@@ -436,7 +434,7 @@ class GmailIngestHandler(SecureHandler):
             )
 
         except (ImportError, ConnectionError, TimeoutError, OSError, ValueError, KeyError, AttributeError) as e:
-            logger.error(f"[Gmail] OAuth completion failed: {e}")
+            logger.error("[Gmail] OAuth completion failed: %s", e)
             return error_response(safe_error_message(e, "Authentication"), 500)
 
     async def _start_sync(self, body: dict[str, Any], user_id: str) -> HandlerResult:
@@ -572,10 +570,10 @@ class GmailIngestHandler(SecureHandler):
             finally:
                 loop.close()
 
-            logger.info(f"[Gmail] Sync completed for {user_id}: {result.items_synced} messages")
+            logger.info("[Gmail] Sync completed for %s: %s messages", user_id, result.items_synced)
 
         except (ValueError, KeyError, TypeError, RuntimeError, OSError, ConnectionError) as e:
-            logger.error(f"[Gmail] Sync failed for {user_id}: {e}")
+            logger.error("[Gmail] Sync failed for %s: %s", user_id, e)
             # Update job status on failure - needs event loop
             loop = asyncio.new_event_loop()
             try:
@@ -661,7 +659,7 @@ class GmailIngestHandler(SecureHandler):
             )
 
         except (ImportError, ConnectionError, TimeoutError, OSError, ValueError, KeyError, AttributeError) as e:
-            logger.error(f"[Gmail] List messages failed: {e}")
+            logger.error("[Gmail] List messages failed: %s", e)
             return error_response(safe_error_message(e, "Failed to list messages"), 500)
 
     async def _get_message(self, user_id: str, message_id: str) -> HandlerResult:
@@ -686,7 +684,7 @@ class GmailIngestHandler(SecureHandler):
             return json_response(msg.to_dict())
 
         except (ImportError, ConnectionError, TimeoutError, OSError, ValueError, KeyError, AttributeError) as e:
-            logger.error(f"[Gmail] Get message failed: {e}")
+            logger.error("[Gmail] Get message failed: %s", e)
             return error_response(safe_error_message(e, "Failed to get message"), 500)
 
     async def _search(self, user_id: str, body: dict[str, Any]) -> HandlerResult:
@@ -733,7 +731,7 @@ class GmailIngestHandler(SecureHandler):
             )
 
         except (ImportError, ConnectionError, TimeoutError, OSError, ValueError, KeyError, AttributeError) as e:
-            logger.error(f"[Gmail] Search failed: {e}")
+            logger.error("[Gmail] Search failed: %s", e)
             return error_response(safe_error_message(e, "Search"), 500)
 
     async def _disconnect(self, user_id: str) -> HandlerResult:

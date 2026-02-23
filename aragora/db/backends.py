@@ -127,7 +127,7 @@ class DatabaseConfig:
         if database_url:
             if database_url.startswith(("postgresql://", "postgres://")):
                 backend = "postgres"
-            logger.info(f"Using DATABASE_URL, backend auto-detected as: {backend}")
+            logger.info("Using DATABASE_URL, backend auto-detected as: %s", backend)
 
         config = cls(
             backend=backend,
@@ -180,11 +180,10 @@ class DatabaseConfig:
                 self.pg_ssl_mode = query_params["sslmode"][0]
 
             logger.debug(
-                f"Parsed DATABASE_URL: host={self.pg_host}, port={self.pg_port}, "
-                f"database={self.pg_database}, sslmode={self.pg_ssl_mode}"
+                "Parsed DATABASE_URL: host=%s, port=%s, database=%s, sslmode=%s", self.pg_host, self.pg_port, self.pg_database, self.pg_ssl_mode
             )
         except (ValueError, TypeError, AttributeError) as e:
-            logger.warning(f"Failed to parse DATABASE_URL: {e}")
+            logger.warning("Failed to parse DATABASE_URL: %s", e)
 
     @property
     def pg_dsn(self) -> str:
@@ -327,11 +326,11 @@ class SQLiteBackend(DatabaseBackend):
             yield conn
             conn.commit()
         except sqlite3.Error as e:
-            logger.error(f"SQLite error: {e}")
+            logger.error("SQLite error: %s", e)
             conn.rollback()
             raise
         except Exception as e:  # noqa: BLE001 - Ensures rollback on any error before re-raising
-            logger.error(f"Unexpected error in database operation: {e}", exc_info=True)
+            logger.error("Unexpected error in database operation: %s", e, exc_info=True)
             conn.rollback()
             raise
         finally:
@@ -372,7 +371,7 @@ class SQLiteBackend(DatabaseBackend):
                 conn.execute("SELECT 1")
             return True
         except (sqlite3.Error, OSError) as e:
-            logger.warning(f"SQLite health check failed: {e}")
+            logger.warning("SQLite health check failed: %s", e)
             return False
 
     def close(self) -> None:
@@ -416,7 +415,7 @@ class PostgresBackend(DatabaseBackend):
             )
             self._initialized = True
             logger.info(
-                f"PostgreSQL backend initialized (psycopg2) - {config.pg_host}:{config.pg_port}"
+                "PostgreSQL backend initialized (psycopg2) - %s:%s", config.pg_host, config.pg_port
             )
         except ImportError:
             logger.warning("psycopg2 not installed. Install with: pip install psycopg2-binary")
@@ -458,7 +457,7 @@ class PostgresBackend(DatabaseBackend):
             yield conn
             conn.commit()
         except Exception as e:  # noqa: BLE001 - Ensures rollback on any error before re-raising
-            logger.error(f"PostgreSQL error: {e}")
+            logger.error("PostgreSQL error: %s", e)
             conn.rollback()
             raise
         finally:
@@ -509,7 +508,7 @@ class PostgresBackend(DatabaseBackend):
                 cursor.execute("SELECT 1")
             return True
         except (OSError, RuntimeError) as e:
-            logger.warning(f"PostgreSQL health check failed: {e}")
+            logger.warning("PostgreSQL health check failed: %s", e)
             return False
 
     def close(self) -> None:
@@ -546,7 +545,7 @@ def configure_database(config: DatabaseConfig | None = None) -> DatabaseBackend:
         else:
             _database = SQLiteBackend(config)
 
-        logger.info(f"Database configured: {config.backend}")
+        logger.info("Database configured: %s", config.backend)
         return _database
 
 

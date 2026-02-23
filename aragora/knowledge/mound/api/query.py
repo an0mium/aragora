@@ -315,7 +315,7 @@ class QueryOperationsMixin(_QueryMixinBase):
                         if isinstance(query_result, list):
                             items.extend(query_result)
                         elif isinstance(query_result, Exception):
-                            logger.warning(f"Query source failed: {query_result}")
+                            logger.warning("Query source failed: %s", query_result)
                     span.add_event("parallel_queries_complete")
 
             # Optional GraphRAG hybrid retrieval on local mound
@@ -467,7 +467,7 @@ class QueryOperationsMixin(_QueryMixinBase):
                 )
                 return [self._vector_result_to_item(r) for r in results]
             except (RuntimeError, ValueError, OSError) as e:
-                logger.warning(f"Weaviate search failed: {e}, falling back")
+                logger.warning("Weaviate search failed: %s, falling back", e)
 
         # Try local semantic store (embeddings in SQLite)
         if self._semantic_store:
@@ -486,7 +486,7 @@ class QueryOperationsMixin(_QueryMixinBase):
                         items.append(node)
                 return items
             except (RuntimeError, ValueError, OSError) as e:
-                logger.warning(f"Semantic store search failed: {e}, falling back")
+                logger.warning("Semantic store search failed: %s, falling back", e)
 
         if not allow_fallback:
             return []
@@ -686,7 +686,7 @@ class QueryOperationsMixin(_QueryMixinBase):
             valid_node_ids = []
             for node_id, node_result in zip(to_visit, node_results):
                 if isinstance(node_result, BaseException):
-                    logger.warning(f"Failed to fetch node {node_id}: {node_result}")
+                    logger.warning("Failed to fetch node %s: %s", node_id, node_result)
                     continue
                 if node_result:
                     nodes[node_id] = node_result

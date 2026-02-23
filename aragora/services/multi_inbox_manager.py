@@ -286,7 +286,7 @@ class MultiInboxManager:
                     profile = await connector._api_request("/profile")
                     email_address = profile.get("emailAddress", f"{account_id}@unknown")
                 except (ValueError, OSError, ConnectionError, RuntimeError) as e:
-                    logger.warning(f"Failed to get email address: {e}")
+                    logger.warning("Failed to get email address: %s", e)
                     email_address = f"{account_id}@unknown"
 
             # Create account record
@@ -308,7 +308,7 @@ class MultiInboxManager:
             self._accounts[account_id] = account
             self._connectors[account_id] = connector
 
-            logger.info(f"[MultiInbox] Added account {account_id}: {email_address}")
+            logger.info("[MultiInbox] Added account %s: %s", account_id, email_address)
 
             return account
 
@@ -318,7 +318,7 @@ class MultiInboxManager:
             if account_id in self._accounts:
                 del self._accounts[account_id]
                 del self._connectors[account_id]
-                logger.info(f"[MultiInbox] Removed account {account_id}")
+                logger.info("[MultiInbox] Removed account %s", account_id)
                 return True
             return False
 
@@ -374,12 +374,12 @@ class MultiInboxManager:
             # Update sender profiles with EmailMessage objects
             await self._update_sender_profiles(account_id, messages)
 
-            logger.info(f"[MultiInbox] Synced {len(messages)} messages from {account_id}")
+            logger.info("[MultiInbox] Synced %s messages from %s", len(messages), account_id)
             return len(messages)
 
         except (ValueError, OSError, ConnectionError, RuntimeError) as e:
             account.sync_error = str(e)
-            logger.error(f"[MultiInbox] Sync failed for {account_id}: {e}")
+            logger.error("[MultiInbox] Sync failed for %s: %s", account_id, e)
             raise
 
     async def sync_all_accounts(
@@ -400,7 +400,7 @@ class MultiInboxManager:
                 count = await self.sync_account(account_id, max_messages_per_account)
                 return account_id, count
             except (ValueError, OSError, ConnectionError, RuntimeError) as e:
-                logger.error(f"[MultiInbox] Failed to sync {account_id}: {e}")
+                logger.error("[MultiInbox] Failed to sync %s: %s", account_id, e)
                 return account_id, 0
 
         tasks = [sync_one(aid) for aid in self._accounts.keys()]
@@ -485,7 +485,7 @@ class MultiInboxManager:
                     all_emails.append(unified)
 
             except (ValueError, OSError, ConnectionError, RuntimeError) as e:
-                logger.error(f"[MultiInbox] Failed to fetch from {account_id}: {e}")
+                logger.error("[MultiInbox] Failed to fetch from %s: %s", account_id, e)
 
         # Prioritize all emails
         all_emails = await self._prioritize_unified_emails(all_emails)
@@ -545,7 +545,7 @@ class MultiInboxManager:
                 email.unified_score = min(1.0, base_score)
 
             except (ValueError, OSError, ConnectionError, RuntimeError) as e:
-                logger.warning(f"Failed to prioritize email {email.email.id}: {e}")
+                logger.warning("Failed to prioritize email %s: %s", email.email.id, e)
                 email.unified_score = 0.5
 
         return emails
@@ -733,7 +733,7 @@ class MultiInboxManager:
                     email_id=email_id,
                 )
             except (ValueError, OSError, ConnectionError, RuntimeError) as e:
-                logger.debug(f"Failed to record in sender history: {e}")
+                logger.debug("Failed to record in sender history: %s", e)
 
     def get_stats(self) -> dict[str, Any]:
         """Get manager statistics."""

@@ -489,7 +489,7 @@ class TokenRotationManager:
             self._recent_uses.pop(jti, None)
 
         if to_remove:
-            logger.debug(f"Cleaned up {len(to_remove)} stale token records")
+            logger.debug("Cleaned up %s stale token records", len(to_remove))
 
 
 # Singleton instance

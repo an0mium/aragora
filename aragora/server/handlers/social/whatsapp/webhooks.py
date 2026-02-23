@@ -78,7 +78,7 @@ def verify_signature(handler: Any) -> bool:
         return hmac.compare_digest(expected_sig, actual_sig)
 
     except (ValueError, TypeError, AttributeError) as e:
-        logger.warning(f"Error verifying WhatsApp signature: {e}")
+        logger.warning("Error verifying WhatsApp signature: %s", e)
         return False
 
 
@@ -108,7 +108,7 @@ def verify_webhook(query_params: dict[str, Any]) -> HandlerResult:
         else query_params.get("hub.challenge", "")
     )
 
-    logger.info(f"WhatsApp webhook verification: mode={mode}, token={(token or '')[:10]}...")
+    logger.info("WhatsApp webhook verification: mode=%s, token=%s...", mode, (token or '')[:10])
 
     if mode == "subscribe":
         if _config.WHATSAPP_VERIFY_TOKEN:
@@ -181,7 +181,7 @@ class WebhookProcessor:
             body = handler.rfile.read(content_length).decode("utf-8")
             data = json.loads(body)
 
-            logger.debug(f"WhatsApp webhook received: {data.get('object')}")
+            logger.debug("WhatsApp webhook received: %s", data.get('object'))
 
             if data.get("object") != "whatsapp_business_account":
                 return json_response({"status": "ok"})
@@ -202,7 +202,7 @@ class WebhookProcessor:
             record_error("whatsapp", "json_parse")
             return json_response({"status": "ok"})
         except (ValueError, KeyError, TypeError, RuntimeError, OSError, ConnectionError) as e:
-            logger.error(f"Error handling WhatsApp webhook: {e}", exc_info=True)
+            logger.error("Error handling WhatsApp webhook: %s", e, exc_info=True)
             status = "error"
             record_error("whatsapp", "unknown")
             return json_response({"status": "ok"})

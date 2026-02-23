@@ -192,7 +192,7 @@ class MakeIntegration(BaseIntegration):
         # SSRF protection: validate URL before making request
         is_valid, error = _validate_webhook_url(webhook_url)
         if not is_valid:
-            logger.warning(f"Make webhook URL blocked by SSRF protection: {error}")
+            logger.warning("Make webhook URL blocked by SSRF protection: %s", error)
             return False
 
         session = await self._get_session()
@@ -204,10 +204,10 @@ class MakeIntegration(BaseIntegration):
             ) as response:
                 return response.status == 200
         except (aiohttp.ClientError, asyncio.TimeoutError, OSError) as e:
-            logger.error(f"Make webhook connection error: {type(e).__name__}: {e}")
+            logger.error("Make webhook connection error: %s: %s", type(e).__name__, e)
             return False
         except (ValueError, TypeError) as e:
-            logger.error(f"Make webhook payload error: {type(e).__name__}: {e}")
+            logger.error("Make webhook payload error: %s: %s", type(e).__name__, e)
             return False
 
     # =========================================================================
@@ -233,7 +233,7 @@ class MakeIntegration(BaseIntegration):
         )
 
         self._connections[conn_id] = connection
-        logger.info(f"Created Make connection {conn_id} for workspace {workspace_id}")
+        logger.info("Created Make connection %s for workspace %s", conn_id, workspace_id)
         return connection
 
     def get_connection(self, conn_id: str) -> MakeConnection | None:
@@ -258,7 +258,7 @@ class MakeIntegration(BaseIntegration):
         """Delete a Make connection."""
         if conn_id in self._connections:
             del self._connections[conn_id]
-            logger.info(f"Deleted Make connection {conn_id}")
+            logger.info("Deleted Make connection %s", conn_id)
             return True
         return False
 
@@ -288,22 +288,22 @@ class MakeIntegration(BaseIntegration):
         """
         connection = self._connections.get(conn_id)
         if not connection:
-            logger.warning(f"Make connection not found: {conn_id}")
+            logger.warning("Make connection not found: %s", conn_id)
             return None
 
         module_config = self.MODULE_TYPES.get(module_type)
         if not module_config:
-            logger.warning(f"Invalid module type: {module_type}")
+            logger.warning("Invalid module type: %s", module_type)
             return None
 
         if module_config.get("type") != "trigger":
-            logger.warning(f"Module {module_type} is not a trigger")
+            logger.warning("Module %s is not a trigger", module_type)
             return None
 
         # SSRF protection: validate URL before storing
         is_valid, error = _validate_webhook_url(webhook_url)
         if not is_valid:
-            logger.warning(f"Webhook URL blocked by SSRF protection: {error}")
+            logger.warning("Webhook URL blocked by SSRF protection: %s", error)
             return None
 
         webhook_id = f"webhook_{secrets.token_hex(8)}"
@@ -316,7 +316,7 @@ class MakeIntegration(BaseIntegration):
         )
 
         connection.webhooks[webhook_id] = webhook
-        logger.info(f"Registered webhook {webhook_id} ({module_type}) for connection {conn_id}")
+        logger.info("Registered webhook %s (%s) for connection %s", webhook_id, module_type, conn_id)
         return webhook
 
     def unregister_webhook(self, conn_id: str, webhook_id: str) -> bool:
@@ -335,7 +335,7 @@ class MakeIntegration(BaseIntegration):
 
         if webhook_id in connection.webhooks:
             del connection.webhooks[webhook_id]
-            logger.info(f"Unregistered webhook {webhook_id} from connection {conn_id}")
+            logger.info("Unregistered webhook %s from connection %s", webhook_id, conn_id)
             return True
         return False
 
@@ -387,7 +387,7 @@ class MakeIntegration(BaseIntegration):
                     triggered_count += 1
 
         if triggered_count > 0:
-            logger.info(f"Triggered {triggered_count} Make webhooks for {module_type}")
+            logger.info("Triggered %s Make webhooks for %s", triggered_count, module_type)
 
         return triggered_count
 
@@ -423,13 +423,13 @@ class MakeIntegration(BaseIntegration):
                 if response.status == 200:
                     return True
                 else:
-                    logger.warning(f"Make webhook {webhook.id} failed: {response.status}")
+                    logger.warning("Make webhook %s failed: %s", webhook.id, response.status)
                     return False
         except (aiohttp.ClientError, asyncio.TimeoutError, OSError) as e:
-            logger.error(f"Make webhook {webhook.id} connection error: {type(e).__name__}: {e}")
+            logger.error("Make webhook %s connection error: %s: %s", webhook.id, type(e).__name__, e)
             return False
         except (ValueError, TypeError) as e:
-            logger.error(f"Make webhook {webhook.id} payload error: {type(e).__name__}: {e}")
+            logger.error("Make webhook %s payload error: %s: %s", webhook.id, type(e).__name__, e)
             return False
 
     def _format_webhook_payload(

@@ -106,7 +106,7 @@ class OpenRouterRateLimiter:
         self._backoff = ExponentialBackoff(base_delay=2.0, max_delay=60.0, jitter=0.15)
 
         logger.debug(
-            f"OpenRouter rate limiter initialized: tier={self.tier.name}, rpm={self.tier.requests_per_minute}"
+            "OpenRouter rate limiter initialized: tier=%s, rpm=%s", self.tier.name, self.tier.requests_per_minute
         )
 
     async def acquire(self, timeout: float = 30.0) -> bool:
@@ -181,7 +181,7 @@ class OpenRouterRateLimiter:
         Returns:
             The recommended delay before retrying (in seconds)
         """
-        logger.warning(f"rate_limit_error status={status_code}")
+        logger.warning("rate_limit_error status=%s", status_code)
         delay = self._backoff.record_failure()
         # Also release the token back since request failed
         self.release_on_error()
@@ -365,8 +365,7 @@ class ProviderRateLimiter:
         self._backoff = ExponentialBackoff(base_delay=2.0, max_delay=60.0, jitter=0.15)
 
         logger.debug(
-            f"Provider rate limiter initialized: provider={self.provider}, "
-            f"rpm={self.requests_per_minute}, burst={self.burst_size}"
+            "Provider rate limiter initialized: provider=%s, rpm=%s, burst=%s", self.provider, self.requests_per_minute, self.burst_size
         )
 
     async def acquire(self, timeout: float = 30.0) -> bool:
@@ -403,7 +402,7 @@ class ProviderRateLimiter:
         acquired = await self._bucket.acquire_async(timeout=remaining_timeout)
 
         if not acquired:
-            logger.warning(f"[{self.provider}] rate limit timeout")
+            logger.warning("[%s] rate limit timeout", self.provider)
             return False
 
         # Stagger delay to allow parallel token acquisition
@@ -427,7 +426,7 @@ class ProviderRateLimiter:
 
     def record_rate_limit_error(self, status_code: int = 429) -> float:
         """Record a rate limit error (429/403) and return backoff delay."""
-        logger.warning(f"[{self.provider}] rate_limit_error status={status_code}")
+        logger.warning("[%s] rate_limit_error status=%s", self.provider, status_code)
         delay = self._backoff.record_failure()
         self.release_on_error()
         return delay
@@ -571,7 +570,7 @@ class ProviderRateLimiterRegistry:
                 self._limiters[provider] = ProviderRateLimiter(
                     provider=provider, rpm=rpm, burst=burst
                 )
-                logger.debug(f"Created rate limiter for provider: {provider}")
+                logger.debug("Created rate limiter for provider: %s", provider)
             return self._limiters[provider]
 
     def reset(self, provider: str | None = None) -> None:
@@ -584,7 +583,7 @@ class ProviderRateLimiterRegistry:
             if provider:
                 if provider.lower() in self._limiters:
                     del self._limiters[provider.lower()]
-                    logger.debug(f"Reset rate limiter for provider: {provider}")
+                    logger.debug("Reset rate limiter for provider: %s", provider)
             else:
                 self._limiters.clear()
                 logger.debug("Reset all provider rate limiters")

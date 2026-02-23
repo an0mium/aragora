@@ -113,7 +113,7 @@ class DebateWorker:
         Runs until stop() is called or a signal is received.
         """
         if self._running:
-            logger.warning(f"Worker {self._worker_id} is already running")
+            logger.warning("Worker %s is already running", self._worker_id)
             return
 
         self._running = True
@@ -125,7 +125,7 @@ class DebateWorker:
         for sig in (signal.SIGTERM, signal.SIGINT):
             loop.add_signal_handler(sig, self._handle_signal)
 
-        logger.info(f"Worker {self._worker_id} started (max_concurrent={self._max_concurrent})")
+        logger.info("Worker %s started (max_concurrent=%s)", self._worker_id, self._max_concurrent)
 
         try:
             # Start background tasks
@@ -162,7 +162,7 @@ class DebateWorker:
                     break
                 except (RuntimeError, ValueError, OSError) as e:  # noqa: BLE001 - worker isolation
                     self._semaphore.release()
-                    logger.error(f"Error in worker loop: {e}", exc_info=True)
+                    logger.error("Error in worker loop: %s", e, exc_info=True)
                     await asyncio.sleep(1)  # Brief pause before retrying
 
         finally:
@@ -171,7 +171,7 @@ class DebateWorker:
                 loop.remove_signal_handler(sig)
 
             self._running = False
-            logger.info(f"Worker {self._worker_id} stopped")
+            logger.info("Worker %s stopped", self._worker_id)
 
     async def stop(self, timeout: float = 30.0) -> None:
         """
@@ -185,7 +185,7 @@ class DebateWorker:
         if not self._running:
             return
 
-        logger.info(f"Worker {self._worker_id} stopping (timeout={timeout}s)")
+        logger.info("Worker %s stopping (timeout=%ss)", self._worker_id, timeout)
         self._running = False
         self._shutdown_event.set()
 
@@ -197,7 +197,7 @@ class DebateWorker:
                     timeout=timeout,
                 )
             except asyncio.TimeoutError:
-                logger.warning(f"Timeout waiting for {len(self._tasks)} tasks")
+                logger.warning("Timeout waiting for %s tasks", len(self._tasks))
                 # Cancel remaining tasks
                 for task in self._tasks:
                     task.cancel()
@@ -206,7 +206,7 @@ class DebateWorker:
 
     def _handle_signal(self) -> None:
         """Handle shutdown signal."""
-        logger.info(f"Worker {self._worker_id} received shutdown signal")
+        logger.info("Worker %s received shutdown signal", self._worker_id)
         self._running = False
         self._shutdown_event.set()
 
@@ -218,7 +218,7 @@ class DebateWorker:
             job: The job to process
         """
         try:
-            logger.info(f"Processing job {job.id} (attempt {job.attempts})")
+            logger.info("Processing job %s (attempt %s)", job.id, job.attempts)
             start_time = time.time()
 
             # Execute the debate
@@ -235,7 +235,7 @@ class DebateWorker:
 
         except (RuntimeError, OSError, ConnectionError, TimeoutError, ValueError) as e:
             error_msg = str(e)
-            logger.error(f"Job {job.id} failed: {error_msg}", exc_info=True)
+            logger.error("Job %s failed: %s", job.id, error_msg, exc_info=True)
 
             job.mark_retrying(error_msg)
             self._jobs_failed += 1
@@ -258,7 +258,7 @@ class DebateWorker:
                 # Mark as permanently failed
                 job.mark_failed(error_msg)
                 await self._queue.nack(job.id, requeue=False)
-                logger.warning(f"Job {job.id} permanently failed after {job.attempts} attempts")
+                logger.warning("Job %s permanently failed after %s attempts", job.id, job.attempts)
 
         finally:
             self._semaphore.release()
@@ -278,12 +278,12 @@ class DebateWorker:
                 # Claim stale jobs
                 claimed = await self._queue.claim_stale_jobs(self._config.claim_idle_ms)
                 if claimed > 0:
-                    logger.info(f"Claimed {claimed} stale jobs")
+                    logger.info("Claimed %s stale jobs", claimed)
 
             except asyncio.CancelledError:
                 break
             except (RuntimeError, OSError, ConnectionError) as e:
-                logger.error(f"Error claiming stale jobs: {e}")
+                logger.error("Error claiming stale jobs: %s", e)
 
 
 async def create_default_executor() -> DebateExecutor:

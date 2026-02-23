@@ -153,7 +153,7 @@ def admin_secure_endpoint(
 
                 user = user_store.get_user_by_id(auth_context.user_id)
                 if not user or user.role not in ADMIN_ROLES:
-                    logger.warning(f"Non-admin user {auth_context.user_id} attempted admin access")
+                    logger.warning("Non-admin user %s attempted admin access", auth_context.user_id)
                     record_blocked_request("admin_required", "user")
                     return error_response("Admin access required", 403)
 
@@ -161,7 +161,7 @@ def admin_secure_endpoint(
                 mfa_result = enforce_admin_mfa_policy(user, user_store)
                 if mfa_result is not None:
                     reason = mfa_result.get("reason", "MFA required")
-                    logger.warning(f"Admin user {auth_context.user_id} denied: {reason}")
+                    logger.warning("Admin user %s denied: %s", auth_context.user_id, reason)
                     record_blocked_request("mfa_required", "admin")
                     return error_response(
                         f"Administrative access requires MFA. {reason}",
@@ -298,7 +298,7 @@ class AdminHandler(
         # Check if user has admin role
         user = user_store.get_user_by_id(auth_ctx.user_id)
         if not user or user.role not in ADMIN_ROLES:
-            logger.warning(f"Non-admin user {auth_ctx.user_id} attempted admin access")
+            logger.warning("Non-admin user %s attempted admin access", auth_ctx.user_id)
             return None, error_response("Admin access required", 403)
 
         # Enforce MFA for admin users (SOC 2 CC5-01)
@@ -307,7 +307,7 @@ class AdminHandler(
         if mfa_policy_result is not None:
             reason = mfa_policy_result.get("reason", "MFA required")
             action = mfa_policy_result.get("action", "enable_mfa")
-            logger.warning(f"Admin user {auth_ctx.user_id} denied: {reason} (action={action})")
+            logger.warning("Admin user %s denied: %s (action=%s)", auth_ctx.user_id, reason, action)
             return None, error_response(
                 f"Administrative access requires MFA. {reason}. "
                 "Please enable MFA at /api/auth/mfa/setup",
@@ -363,21 +363,20 @@ class AdminHandler(
                 # backward compatibility while still recording the check for audit.
                 if user_role in ADMIN_ROLES:
                     logger.debug(
-                        f"RBAC permission {permission_key} not explicitly granted, "
-                        f"allowing admin {auth_ctx.user_id} by role fallback"
+                        "RBAC permission %s not explicitly granted, allowing admin %s by role fallback", permission_key, auth_ctx.user_id
                     )
                     record_rbac_check(permission_key, granted=True)  # type: ignore[call-arg]
                     return None
 
                 logger.warning(
-                    f"RBAC permission denied: {permission_key} for user {auth_ctx.user_id}: {decision.reason}"
+                    "RBAC permission denied: %s for user %s: %s", permission_key, auth_ctx.user_id, decision.reason
                 )
                 record_rbac_check(permission_key, granted=False)  # type: ignore[call-arg]
                 return error_response("Permission denied", 403)
             record_rbac_check(permission_key, granted=True)  # type: ignore[call-arg]
         except PermissionDeniedError as e:
             logger.warning(
-                f"RBAC permission denied: {permission_key} for user {auth_ctx.user_id}: {e}"
+                "RBAC permission denied: %s for user %s: %s", permission_key, auth_ctx.user_id, e
             )
             record_rbac_check(permission_key, granted=False)
             logger.warning("Handler error: %s", e)
@@ -396,7 +395,7 @@ class AdminHandler(
         if test_name and client_ip not in _admin_limiter._buckets:
             rate_key = f"{client_ip}:{test_name}"
         if not _admin_limiter.is_allowed(rate_key):
-            logger.warning(f"Rate limit exceeded for admin endpoint: {client_ip}")
+            logger.warning("Rate limit exceeded for admin endpoint: %s", client_ip)
             return error_response("Rate limit exceeded. Please try again later.", 429)
 
         # Determine HTTP method from handler if not provided

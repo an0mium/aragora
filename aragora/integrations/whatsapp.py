@@ -216,10 +216,10 @@ class WhatsAppIntegration:
                     return True
                 else:
                     text = await response.text()
-                    logger.error(f"WhatsApp Meta API error: {response.status} - {text}")
+                    logger.error("WhatsApp Meta API error: %s - %s", response.status, text)
                     return False
         except aiohttp.ClientError as e:
-            logger.error(f"WhatsApp Meta API connection error: {e}")
+            logger.error("WhatsApp Meta API connection error: %s", e)
             return False
         except asyncio.TimeoutError:
             logger.error("WhatsApp Meta API request timed out")
@@ -253,10 +253,10 @@ class WhatsAppIntegration:
                     return True
                 else:
                     text = await response.text()
-                    logger.error(f"Twilio API error: {response.status} - {text}")
+                    logger.error("Twilio API error: %s - %s", response.status, text)
                     return False
         except aiohttp.ClientError as e:
-            logger.error(f"Twilio API connection error: {e}")
+            logger.error("Twilio API connection error: %s", e)
             return False
         except asyncio.TimeoutError:
             logger.error("Twilio API request timed out")

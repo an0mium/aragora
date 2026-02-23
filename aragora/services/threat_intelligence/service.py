@@ -152,11 +152,7 @@ class ThreatIntelligenceService(
         self._http_session: Any | None = None  # aiohttp.ClientSession
 
         logger.info(
-            f"ThreatIntelligenceService initialized "
-            f"(VT: {bool(self.config.virustotal_api_key)}, "
-            f"AIPDB: {bool(self.config.abuseipdb_api_key)}, "
-            f"PT: {bool(self.config.phishtank_api_key)}, "
-            f"UH: {self.config.enable_urlhaus})"
+            "ThreatIntelligenceService initialized (VT: %s, AIPDB: %s, PT: %s, UH: %s)", bool(self.config.virustotal_api_key), bool(self.config.abuseipdb_api_key), bool(self.config.phishtank_api_key), self.config.enable_urlhaus
         )
 
     # =========================================================================
@@ -183,7 +179,7 @@ class ThreatIntelligenceService(
             try:
                 handler(event_type, data)
             except (RuntimeError, TypeError, ValueError) as e:
-                logger.warning(f"Error in threat event handler: {e}")
+                logger.warning("Error in threat event handler: %s", e)
 
     # =========================================================================
     # Rate limiting and circuit breakers
@@ -245,8 +241,7 @@ class ThreatIntelligenceService(
             self._circuit_breakers[service].record_failure()
             if self._circuit_breakers[service].get_status() == "open":
                 logger.warning(
-                    f"[ThreatIntel] Circuit breaker OPEN for {service} - "
-                    f"API calls will be skipped for {self._circuit_breakers[service].cooldown_seconds}s"
+                    "[ThreatIntel] Circuit breaker OPEN for %s - API calls will be skipped for %ss", service, self._circuit_breakers[service].cooldown_seconds
                 )
 
     def get_circuit_breaker_status(self) -> dict[str, Any]:

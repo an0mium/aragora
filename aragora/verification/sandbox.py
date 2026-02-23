@@ -163,7 +163,7 @@ class ProofSandbox:
                 try:
                     shutil.rmtree(temp_dir)
                 except OSError as e:
-                    logger.warning(f"Failed to cleanup temp dir {temp_dir}: {e}")
+                    logger.warning("Failed to cleanup temp dir %s: %s", temp_dir, e)
         self._temp_dirs.clear()
 
     def _set_resource_limits(self):
@@ -180,26 +180,26 @@ class ProofSandbox:
         try:
             resource.setrlimit(resource.RLIMIT_AS, (memory_bytes, memory_bytes))
         except (OSError, ValueError) as e:
-            logger.debug(f"Could not set memory limit: {e}")
+            logger.debug("Could not set memory limit: %s", e)
 
         # CPU time limit (backup for timeout)
         cpu_seconds = int(self.config.timeout_seconds * 2)  # 2x margin
         try:
             resource.setrlimit(resource.RLIMIT_CPU, (cpu_seconds, cpu_seconds))
         except (OSError, ValueError) as e:
-            logger.debug(f"Could not set CPU limit: {e}")
+            logger.debug("Could not set CPU limit: %s", e)
 
         # Limit file descriptor count
         try:
             resource.setrlimit(resource.RLIMIT_NOFILE, (256, 256))
         except (OSError, ValueError) as e:
-            logger.debug(f"Could not set file descriptor limit: {e}")
+            logger.debug("Could not set file descriptor limit: %s", e)
 
         # Limit number of processes/threads
         try:
             resource.setrlimit(resource.RLIMIT_NPROC, (64, 64))
         except (OSError, ValueError) as e:
-            logger.debug(f"Could not set process limit: {e}")
+            logger.debug("Could not set process limit: %s", e)
 
     async def _run_subprocess(
         self,
@@ -258,7 +258,7 @@ class ProofSandbox:
                 error_message=f"Permission denied: {cmd[0]}",
             )
         except OSError as e:
-            logger.warning(f"Failed to start subprocess: {e}")
+            logger.warning("Failed to start subprocess: %s", e)
             return SandboxResult(
                 status=SandboxStatus.SETUP_FAILED,
                 error_message=f"Failed to start process: {type(e).__name__}: {e}",
@@ -307,7 +307,7 @@ class ProofSandbox:
             except ProcessLookupError as exc:
                 logger.debug("Process cleanup failed: %s", exc)
 
-            logger.warning(f"Subprocess execution error: {type(e).__name__}: {e}")
+            logger.warning("Subprocess execution error: %s: %s", type(e).__name__, e)
             return SandboxResult(
                 status=SandboxStatus.EXECUTION_ERROR,
                 error_message=f"Execution error: {type(e).__name__}: {e}",
@@ -343,7 +343,7 @@ class ProofSandbox:
         try:
             source_file.write_text(lean_code, encoding="utf-8")
         except OSError as e:
-            logger.warning(f"Failed to write Lean source file: {e}")
+            logger.warning("Failed to write Lean source file: %s", e)
             return SandboxResult(
                 status=SandboxStatus.SETUP_FAILED,
                 error_message=f"Failed to write source file: {e}",
@@ -388,7 +388,7 @@ class ProofSandbox:
         try:
             source_file.write_text(smtlib_code, encoding="utf-8")
         except OSError as e:
-            logger.warning(f"Failed to write SMT-LIB source file: {e}")
+            logger.warning("Failed to write SMT-LIB source file: %s", e)
             return SandboxResult(
                 status=SandboxStatus.SETUP_FAILED,
                 error_message=f"Failed to write source file: {e}",

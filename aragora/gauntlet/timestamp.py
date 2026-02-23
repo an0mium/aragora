@@ -304,7 +304,7 @@ class TimestampAuthority:
                 tsa_name=self._get_tsa_name(),
             )
 
-            logger.info(f"Timestamp obtained from {self._tsa_url}")
+            logger.info("Timestamp obtained from %s", self._tsa_url)
             return TimestampResult(success=True, token=token)
 
         except httpx.HTTPStatusError as e:

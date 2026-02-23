@@ -56,7 +56,7 @@ async def get_consensus_proofs_tool(
                         if proof_type == "all" or proof.get("type") == proof_type:
                             proofs.append(proof)
         except (RuntimeError, ValueError, OSError, ImportError) as e:
-            logger.debug(f"Failed to fetch proofs for debate {debate_id}: {e}")
+            logger.debug("Failed to fetch proofs for debate %s: %s", debate_id, e)
 
     proofs = proofs[:limit]
 

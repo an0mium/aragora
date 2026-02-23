@@ -285,7 +285,7 @@ class ExternalAgentGateway:
     def register_adapter(self, adapter: ExternalAgentAdapter) -> None:
         """Register an external agent adapter."""
         self._adapters[adapter.agent_name] = adapter
-        logger.info(f"Registered external agent adapter: {adapter.agent_name}")
+        logger.info("Registered external agent adapter: %s", adapter.agent_name)
 
     def get_adapter(self, name: str) -> ExternalAgentAdapter | None:
         """Get a registered adapter by name."""
@@ -397,7 +397,7 @@ class ExternalAgentGateway:
                 )
 
             except (OSError, ConnectionError, RuntimeError, ValueError) as e:
-                logger.exception(f"External agent execution failed: {e}")
+                logger.exception("External agent execution failed: %s", e)
                 return ExternalAgentResult(
                     task_id=task.task_id,
                     success=False,
@@ -460,8 +460,7 @@ class ExternalAgentGateway:
 
         # Fallback: no credentials available without vault
         logger.warning(
-            f"No credential vault configured - agent {adapter.agent_name} "
-            "will execute without injected credentials"
+            "No credential vault configured - agent %s will execute without injected credentials", adapter.agent_name
         )
         return {}
 

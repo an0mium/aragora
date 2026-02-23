@@ -524,7 +524,7 @@ class RetrievalMixin:
             )
 
         count: int = self._hybrid_search.rebuild_keyword_index()
-        logger.info(f"Rebuilt keyword index: {count} entries")
+        logger.info("Rebuilt keyword index: %s entries", count)
         return count
 
 

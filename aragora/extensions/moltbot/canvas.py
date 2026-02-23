@@ -178,7 +178,7 @@ class CanvasManager:
             canvas.active_layer = default_layer.id
 
             self._canvases[canvas_id] = canvas
-            logger.info(f"Created canvas {config.name} ({canvas_id})")
+            logger.info("Created canvas %s (%s)", config.name, canvas_id)
 
             return canvas
 
@@ -222,7 +222,7 @@ class CanvasManager:
             del self._canvases[canvas_id]
             self._subscribers.pop(canvas_id, None)
 
-            logger.info(f"Deleted canvas {canvas_id}")
+            logger.info("Deleted canvas %s", canvas_id)
             return True
 
     # ========== Layer Management ==========
@@ -666,7 +666,7 @@ class CanvasManager:
                 else:
                     callback(event)
             except (RuntimeError, ValueError, AttributeError) as e:  # user-supplied callback
-                logger.error(f"Canvas event broadcast error: {e}")
+                logger.error("Canvas event broadcast error: %s", e)
 
     # ========== Statistics ==========
 

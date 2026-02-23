@@ -71,7 +71,7 @@ class OIDCOAuthMixin:
             try:
                 discovery = await asyncio.wait_for(discovery, timeout=10.0)
             except asyncio.TimeoutError:
-                logger.error(f"OIDC discovery timed out for issuer: {oidc_issuer}")
+                logger.error("OIDC discovery timed out for issuer: %s", oidc_issuer)
                 return error_response("OIDC provider discovery timed out", 504)
         auth_endpoint = discovery.get("authorization_endpoint")
 
@@ -124,7 +124,7 @@ class OIDCOAuthMixin:
             if inspect.isawaitable(token_data):
                 token_data = await token_data
         except (httpx.HTTPError, ConnectionError, TimeoutError, OSError, ValueError) as e:
-            logger.error(f"OIDC token exchange failed: {e}")
+            logger.error("OIDC token exchange failed: %s", e)
             return self._redirect_with_error("Failed to exchange authorization code")
 
         access_token = token_data.get("access_token")
@@ -135,7 +135,7 @@ class OIDCOAuthMixin:
             if inspect.isawaitable(user_info):
                 user_info = await user_info
         except (httpx.HTTPError, ConnectionError, TimeoutError, OSError, ValueError, KeyError) as e:
-            logger.error(f"Failed to get OIDC user info: {e}")
+            logger.error("Failed to get OIDC user info: %s", e)
             return self._redirect_with_error("Failed to get user info")
 
         return await _maybe_await(self._complete_oauth_flow(user_info, state_data))
@@ -153,7 +153,7 @@ class OIDCOAuthMixin:
                     body = response.read()
                 return json.loads(body.decode("utf-8")) if body else {}
             except (ConnectionError, TimeoutError, OSError, ValueError, json.JSONDecodeError) as e:
-                logger.error(f"OIDC discovery failed: {e}")
+                logger.error("OIDC discovery failed: %s", e)
                 return {}
 
         async def _discovery_async() -> dict[str, Any]:
@@ -162,7 +162,7 @@ class OIDCOAuthMixin:
                     response = await client.get(discovery_url)
                     return response.json()
             except (httpx.HTTPError, ConnectionError, TimeoutError, OSError, ValueError) as e:
-                logger.error(f"OIDC discovery failed: {e}")
+                logger.error("OIDC discovery failed: %s", e)
                 return {}
 
         return _discovery_async()
@@ -258,7 +258,7 @@ class OIDCOAuthMixin:
                         body = response.read()
                     user_data = json.loads(body.decode("utf-8")) if body else {}
                 except (ConnectionError, TimeoutError, OSError, ValueError, json.JSONDecodeError) as e:
-                    logger.warning(f"OIDC userinfo failed, falling back to id_token: {e}")
+                    logger.warning("OIDC userinfo failed, falling back to id_token: %s", e)
 
             user_data = _fallback_id_token(user_data)
             return _build_user(user_data)
@@ -274,7 +274,7 @@ class OIDCOAuthMixin:
                         )
                         user_data = response.json()
                 except (httpx.HTTPError, ConnectionError, TimeoutError, OSError, ValueError) as e:
-                    logger.warning(f"OIDC userinfo failed, falling back to id_token: {e}")
+                    logger.warning("OIDC userinfo failed, falling back to id_token: %s", e)
 
             user_data = _fallback_id_token(user_data)
             return _build_user(user_data)

@@ -449,8 +449,7 @@ class MultiPartyValidator:
         await self._notify_validators(request, "validation_requested")
 
         logger.info(
-            f"Created validation request {request_id} for item {item_id} "
-            f"with {len(validators)} validators"
+            "Created validation request %s for item %s with %s validators", request_id, item_id, len(validators)
         )
 
         return request
@@ -481,11 +480,11 @@ class MultiPartyValidator:
         """
         request = self._requests.get(request_id)
         if not request:
-            logger.warning(f"Validation request {request_id} not found")
+            logger.warning("Validation request %s not found", request_id)
             return False
 
         if request.is_complete:
-            logger.warning(f"Validation request {request_id} is already complete")
+            logger.warning("Validation request %s is already complete", request_id)
             return False
 
         if request.is_expired:
@@ -493,14 +492,14 @@ class MultiPartyValidator:
             return False
 
         if validator_id not in request.validators:
-            logger.warning(f"Validator {validator_id} not authorized for request {request_id}")
+            logger.warning("Validator %s not authorized for request %s", validator_id, request_id)
             return False
 
         # Check if already voted
         existing_vote = next((v for v in request.votes if v.validator_id == validator_id), None)
         if existing_vote:
             if not self.config.allow_vote_change:
-                logger.warning(f"Validator {validator_id} already voted on request {request_id}")
+                logger.warning("Validator %s already voted on request %s", validator_id, request_id)
                 return False
             # Remove existing vote to replace
             request.votes = [v for v in request.votes if v.validator_id != validator_id]
@@ -523,7 +522,7 @@ class MultiPartyValidator:
         if request.state == ValidationState.PENDING:
             request.state = ValidationState.IN_REVIEW
 
-        logger.info(f"Vote {vote_type.value} submitted by {validator_id} for request {request_id}")
+        logger.info("Vote %s submitted by %s for request %s", vote_type.value, validator_id, request_id)
 
         # Check if consensus reached
         result = await self.check_consensus(request_id)
@@ -787,7 +786,7 @@ class MultiPartyValidator:
         self._escalations[request.request_id] = escalation
 
         logger.info(
-            f"Escalated request {request.request_id} to {escalation.escalated_to}: {reason}"
+            "Escalated request %s to %s: %s", request.request_id, escalation.escalated_to, reason
         )
 
         return escalation
@@ -813,7 +812,7 @@ class MultiPartyValidator:
             return None
 
         if request.state not in (ValidationState.DEADLOCKED, ValidationState.IN_REVIEW):
-            logger.warning(f"Cannot escalate request {request_id} in state {request.state}")
+            logger.warning("Cannot escalate request %s in state %s", request_id, request.state)
             return None
 
         return self._create_escalation(
@@ -885,7 +884,7 @@ class MultiPartyValidator:
         request.metadata["cancellation_reason"] = reason
         request.updated_at = datetime.now(timezone.utc)
 
-        logger.info(f"Cancelled validation request {request_id}: {reason}")
+        logger.info("Cancelled validation request %s: %s", request_id, reason)
         return True
 
     async def _notify_validators(
@@ -914,7 +913,7 @@ class MultiPartyValidator:
                     },
                 )
             except (OSError, ConnectionError, TimeoutError, RuntimeError) as e:
-                logger.warning(f"Failed to notify {validator_id}: {e}")
+                logger.warning("Failed to notify %s: %s", validator_id, e)
 
     async def _notify_proposer(
         self,
@@ -943,7 +942,7 @@ class MultiPartyValidator:
                 },
             )
         except (OSError, ConnectionError, TimeoutError, RuntimeError) as e:
-            logger.warning(f"Failed to notify proposer {request.proposer_id}: {e}")
+            logger.warning("Failed to notify proposer %s: %s", request.proposer_id, e)
 
     def get_request(self, request_id: str) -> ValidationRequest | None:
         """Get a validation request by ID.

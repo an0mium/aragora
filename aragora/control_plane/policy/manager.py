@@ -719,7 +719,7 @@ class ControlPlanePolicyManager:
             logger.debug("Control plane policy store not available")
             return 0
         except REDIS_CONNECTION_ERRORS as e:
-            logger.warning(f"Policy store sync failed: {e}")
+            logger.warning("Policy store sync failed: %s", e)
             return 0
 
     def sync_to_store(self) -> int:
@@ -752,7 +752,7 @@ class ControlPlanePolicyManager:
             logger.debug("Control plane policy store not available")
             return 0
         except REDIS_CONNECTION_ERRORS as e:
-            logger.warning(f"Policy store sync failed: {e}")
+            logger.warning("Policy store sync failed: %s", e)
             return 0
 
     def sync_violations_to_store(self) -> int:
@@ -786,5 +786,5 @@ class ControlPlanePolicyManager:
             logger.debug("Control plane policy store not available")
             return 0
         except REDIS_CONNECTION_ERRORS as e:
-            logger.warning(f"Violation store sync failed: {e}")
+            logger.warning("Violation store sync failed: %s", e)
             return 0

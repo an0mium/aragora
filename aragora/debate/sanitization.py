@@ -28,7 +28,7 @@ class OutputSanitizer:
         """
         if not isinstance(raw_output, str):
             logger.warning(
-                f"[Stability] Agent {agent_name} returned non-string output: {type(raw_output)}"
+                "[Stability] Agent %s returned non-string output: %s", agent_name, type(raw_output)
             )
             return "(Agent output type error)"
 
@@ -37,7 +37,7 @@ class OutputSanitizer:
         # Critical: Remove null bytes (proven failure mode)
         if "\x00" in raw_output:
             count = raw_output.count("\x00")
-            logger.warning(f"[Stability] Removed {count} null bytes from {agent_name}")
+            logger.warning("[Stability] Removed %s null bytes from %s", count, agent_name)
             raw_output = raw_output.replace("\x00", "")
 
         # Remove dangerous control characters (NUL through backspace, vertical tab,
@@ -51,8 +51,7 @@ class OutputSanitizer:
         stripped_chars = original_len - len(raw_output)
         if stripped_chars > 0:
             logger.debug(
-                f"[Stability] {agent_name}: stripped {stripped_chars} control chars "
-                f"(original: {original_len} chars)"
+                "[Stability] %s: stripped %s control chars (original: %s chars)", agent_name, stripped_chars, original_len
             )
 
         result = raw_output.strip()
@@ -61,9 +60,7 @@ class OutputSanitizer:
             # Include repr of original for debugging encoding/control char issues
             original_sample = repr(raw_output[:200]) if original_len > 0 else "empty"
             logger.warning(
-                f"[Stability] {agent_name}: output empty after sanitization. "
-                f"Original: {original_len} chars, stripped: {stripped_chars}. "
-                f"Sample: {original_sample}"
+                "[Stability] %s: output empty after sanitization. Original: %s chars, stripped: %s. Sample: %s", agent_name, original_len, stripped_chars, original_sample
             )
             return "(Agent produced empty output)"
 

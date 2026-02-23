@@ -249,7 +249,7 @@ class CognitiveLoadLimiter:
                 return message
             except (AttributeError, TypeError) as e:
                 # Object is immutable, return raw truncated content
-                logger.debug(f"Could not mutate message object: {e}")
+                logger.debug("Could not mutate message object: %s", e)
 
         return truncated
 
@@ -325,7 +325,7 @@ class CognitiveLoadLimiter:
                 return critique
             except (AttributeError, TypeError) as e:
                 # Object is immutable, return raw summarized content
-                logger.debug(f"Could not mutate critique object: {e}")
+                logger.debug("Could not mutate critique object: %s", e)
 
         return summarized
 
@@ -385,10 +385,7 @@ class CognitiveLoadLimiter:
         )
 
         logger.debug(
-            f"cognitive_limit total_chars={total_chars} "
-            f"budget={self.budget.max_context_chars} "
-            f"messages={len(result.get('messages', []))} "
-            f"critiques={len(result.get('critiques', []))}"
+            "cognitive_limit total_chars=%s budget=%s messages=%s critiques=%s", total_chars, self.budget.max_context_chars, len(result.get('messages', [])), len(result.get('critiques', []))
         )
 
         return result

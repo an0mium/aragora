@@ -236,7 +236,7 @@ class GauntletHandler(
             result.headers["Deprecation"] = "true"
             result.headers["Sunset"] = "2026-06-01"  # 6 months notice
             result.headers["Link"] = f'</api/v1{original_path[4:]}>; rel="successor-version"'
-            logger.debug(f"Legacy route accessed: {original_path}")
+            logger.debug("Legacy route accessed: %s", original_path)
 
         return result
 

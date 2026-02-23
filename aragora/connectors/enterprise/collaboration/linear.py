@@ -1037,7 +1037,7 @@ class LinearConnector(EnterpriseConnector):
             logger.info("Connected to Linear API")
             return True
         except (LinearError, ValueError, OSError) as e:
-            logger.error(f"Failed to connect to Linear: {e}")
+            logger.error("Failed to connect to Linear: %s", e)
             return False
 
     async def disconnect(self) -> None:
@@ -1084,7 +1084,7 @@ class LinearConnector(EnterpriseConnector):
                 )
 
         except (LinearError, ValueError, KeyError) as e:
-            logger.error(f"Search failed: {e}")
+            logger.error("Search failed: %s", e)
 
         return results[:limit]
 
@@ -1137,7 +1137,7 @@ class LinearConnector(EnterpriseConnector):
                     )
 
         except (LinearError, ValueError, KeyError) as e:
-            logger.error(f"Failed to fetch {evidence_id}: {e}")
+            logger.error("Failed to fetch %s: %s", evidence_id, e)
 
         return None
 

@@ -153,7 +153,7 @@ class AdminMixin:
                 _set_cb_state(name, False)  # Closed = not open
             return True
         except (RuntimeError, TypeError, AttributeError, ValueError, KeyError) as e:
-            logger.debug(f"Circuit breaker reset failed for '{name}': {type(e).__name__}: {e}")
+            logger.debug("Circuit breaker reset failed for '%s': %s: %s", name, type(e).__name__, e)
             return False
 
     def reset_all_circuit_breakers(self) -> None:

@@ -429,7 +429,7 @@ class ConfidenceDecayManager:
                         # KnowledgeMound inherits update_confidence from CRUDMixin
                         await mound.update_confidence(item.id, new_confidence)
                 except (RuntimeError, ValueError, AttributeError, KeyError) as e:  # noqa: BLE001 - adapter isolation
-                    logger.warning(f"Failed to update confidence for {item.id}: {e}")
+                    logger.warning("Failed to update confidence for %s: %s", item.id, e)
 
         # Record run time
         self._last_decay_run[workspace_id] = now
@@ -503,7 +503,7 @@ class ConfidenceDecayManager:
                 # KnowledgeMound inherits update_confidence from CRUDMixin
                 await mound.update_confidence(item_id, new_confidence)
         except (RuntimeError, ValueError, OSError, AttributeError) as e:
-            logger.warning(f"Failed to update confidence for {item_id}: {e}")
+            logger.warning("Failed to update confidence for %s: %s", item_id, e)
 
         async with self._lock:
             self._adjustments.append(adjustment)
@@ -651,7 +651,7 @@ class ConfidenceDecayManager:
                 if hasattr(mound, "update_confidence"):
                     await mound.update_confidence(decision.item_id, new_confidence)
             except (RuntimeError, ValueError, AttributeError, KeyError) as e:
-                logger.warning(f"Failed to update confidence for {decision.item_id}: {e}")
+                logger.warning("Failed to update confidence for %s: %s", decision.item_id, e)
 
         async with self._lock:
             self._adjustments.extend(adjustments)

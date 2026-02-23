@@ -39,7 +39,7 @@ class MemoryExternalMixin:
         try:
             client = get_client(config)
         except (ConnectionError, TimeoutError, OSError, ValueError, RuntimeError) as exc:  # pragma: no cover - external dependency
-            logger.debug(f"Supermemory client init failed: {exc}")
+            logger.debug("Supermemory client init failed: %s", exc)
             return None
 
         setattr(self, "_supermemory_client", client)
@@ -60,7 +60,7 @@ class MemoryExternalMixin:
                 client.search(query=query, limit=limit, container_tag=container_tag)
             )
         except (ConnectionError, TimeoutError, OSError, ValueError, RuntimeError) as exc:  # pragma: no cover - external dependency
-            logger.debug(f"Supermemory search failed: {exc}")
+            logger.debug("Supermemory search failed: %s", exc)
             return []
 
         results: list[dict[str, Any]] = []
@@ -95,7 +95,7 @@ class MemoryExternalMixin:
         try:
             evidence = run_async(connector.search(query, limit=limit, project=project))
         except (ConnectionError, TimeoutError, OSError, ValueError, RuntimeError) as exc:  # pragma: no cover - external dependency
-            logger.debug(f"Claude-mem search failed: {exc}")
+            logger.debug("Claude-mem search failed: %s", exc)
             return []
 
         results: list[dict[str, Any]] = []

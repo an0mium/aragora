@@ -321,7 +321,7 @@ class RBACEnforcer:
         # Invalidate cache
         self._invalidate_cache(actor_id)
 
-        logger.info(f"Assigned role {role_id} to {actor_id} in {scope.value}:{scope_id}")
+        logger.info("Assigned role %s to %s in %s:%s", role_id, actor_id, scope.value, scope_id)
 
         return assignment
 
@@ -359,7 +359,7 @@ class RBACEnforcer:
         revoked = len(self._role_assignments[actor_id]) < initial_count
 
         if revoked:
-            logger.info(f"Revoked role {role_id} from {actor_id} in {scope_id}")
+            logger.info("Revoked role %s from %s in %s", role_id, actor_id, scope_id)
 
         return revoked
 
@@ -405,7 +405,7 @@ class RBACEnforcer:
 
         self._roles[role_id] = role
 
-        logger.info(f"Created role {role_id}")
+        logger.info("Created role %s", role_id)
 
         return role
 
@@ -427,7 +427,7 @@ class RBACEnforcer:
             ]
             self._invalidate_cache(actor_id)
 
-        logger.info(f"Deleted role {role_id}")
+        logger.info("Deleted role %s", role_id)
 
         return True
 

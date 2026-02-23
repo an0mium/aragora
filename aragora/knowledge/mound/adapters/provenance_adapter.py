@@ -172,7 +172,7 @@ class ProvenanceAdapter(KnowledgeMoundAdapter):
             try:
                 self._event_callback(event_type, data)
             except (RuntimeError, ValueError, TypeError, AttributeError) as e:  # noqa: BLE001 - adapter isolation
-                logger.warning(f"Failed to emit event {event_type}: {e}")
+                logger.warning("Failed to emit event %s: %s", event_type, e)
 
     async def ingest_provenance(
         self,
@@ -510,7 +510,7 @@ class ProvenanceAdapter(KnowledgeMoundAdapter):
                 return item.id
             return item.id
         except (RuntimeError, ValueError, OSError, AttributeError) as e:
-            logger.warning(f"Failed to store item {item.id}: {e}")
+            logger.warning("Failed to store item %s: %s", item.id, e)
             return None
 
     async def _create_relationship(
@@ -532,7 +532,7 @@ class ProvenanceAdapter(KnowledgeMoundAdapter):
                 )
                 return True
         except (RuntimeError, ValueError, OSError, AttributeError) as e:
-            logger.debug(f"Failed to create relationship: {e}")
+            logger.debug("Failed to create relationship: %s", e)
         return False
 
     async def find_related_evidence(
@@ -565,7 +565,7 @@ class ProvenanceAdapter(KnowledgeMoundAdapter):
                 )
                 return results.items if hasattr(results, "items") else []
         except (RuntimeError, ValueError, OSError) as e:
-            logger.warning(f"Failed to find related evidence: {e}")
+            logger.warning("Failed to find related evidence: %s", e)
 
         return []
 
@@ -597,7 +597,7 @@ class ProvenanceAdapter(KnowledgeMoundAdapter):
                 )
                 return results.items if hasattr(results, "items") else []
         except (RuntimeError, ValueError, OSError) as e:
-            logger.warning(f"Failed to find citations for claim: {e}")
+            logger.warning("Failed to find citations for claim: %s", e)
 
         return []
 

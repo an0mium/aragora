@@ -426,12 +426,10 @@ class FindingWorkflow:
             try:
                 hook(transition)
             except (ValueError, RuntimeError, OSError) as e:
-                logger.warning(f"Transition hook error: {e}")
+                logger.warning("Transition hook error: %s", e)
 
         logger.info(
-            f"Finding {self.data.finding_id} transitioned: "
-            f"{from_state.value} → {to_state.value} by {user_id}"
-        )
+            "Finding %s transitioned: %s → %s by %s", self.data.finding_id, from_state.value, to_state.value, user_id       )
 
         return event
 
@@ -479,7 +477,7 @@ class FindingWorkflow:
 
         self.data.history.append(event)
 
-        logger.info(f"Finding {self.data.finding_id} assigned to {user_id} by {assigned_by}")
+        logger.info("Finding %s assigned to %s by %s", self.data.finding_id, user_id, assigned_by)
 
         return event
 

@@ -98,7 +98,7 @@ class MetricsHelper:
             range_size = self._max_cal_weight - self._min_cal_weight
             return self._min_cal_weight + (cal_score * range_size)
         except (ValueError, KeyError, TypeError, RuntimeError) as e:  # noqa: BLE001
-            logger.debug(f"Calibration weight lookup failed for {agent_name}: {e}")
+            logger.debug("Calibration weight lookup failed for %s: %s", agent_name, e)
             return 1.0
 
     def get_composite_judge_score(self, agent_name: str) -> float:
@@ -130,7 +130,7 @@ class MetricsHelper:
             # Weighted combination
             return (elo_normalized * self._elo_weight) + (cal_score * self._calibration_weight)
         except (ValueError, KeyError, TypeError, RuntimeError) as e:  # noqa: BLE001
-            logger.debug(f"Composite score calculation failed for {agent_name}: {e}")
+            logger.debug("Composite score calculation failed for %s: %s", agent_name, e)
             return 0.0
 
     def extract_domain(self, task: str) -> str:
@@ -182,7 +182,7 @@ class MetricsHelper:
         try:
             return self.elo_system.get_rating(agent_name)
         except (RuntimeError, AttributeError, TypeError) as e:  # noqa: BLE001
-            logger.debug(f"Rating lookup failed for {agent_name}: {e}")
+            logger.debug("Rating lookup failed for %s: %s", agent_name, e)
             return None
 
     def get_ratings_batch(self, agent_names: list[str]) -> dict[str, Any]:
@@ -202,7 +202,7 @@ class MetricsHelper:
             result: dict[str, Any] = self.elo_system.get_ratings_batch(agent_names)
             return result
         except (RuntimeError, AttributeError, TypeError) as e:  # noqa: BLE001
-            logger.debug(f"Batch ratings lookup failed: {e}")
+            logger.debug("Batch ratings lookup failed: %s", e)
             return {}
 
 

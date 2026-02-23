@@ -280,7 +280,7 @@ class BackupScheduler:
             try:
                 self._event_callback(event_type, data)
             except (OSError, RuntimeError, ValueError) as e:
-                logger.warning(f"Failed to emit event {event_type}: {e}")
+                logger.warning("Failed to emit event %s: %s", event_type, e)
 
     def _record_metric(
         self,
@@ -300,7 +300,7 @@ class BackupScheduler:
         except (ImportError, AttributeError):
             pass
         except (OSError, RuntimeError, ValueError) as e:
-            logger.debug(f"Failed to record metric: {e}")
+            logger.debug("Failed to record metric: %s", e)
 
     async def start(self) -> None:
         """Start the backup scheduler."""
@@ -421,18 +421,18 @@ class BackupScheduler:
 
             try:
                 # Create backup
-                logger.info(f"Starting backup job {job.id} (type={job.schedule_type.value})")
+                logger.info("Starting backup job %s (type=%s)", job.id, job.schedule_type.value)
 
                 backup_metadata = self._manager.create_backup()
                 job.backup_id = backup_metadata.id
 
                 # Verify if requested
                 if verify and self._schedule.verify_after_backup:
-                    logger.info(f"Verifying backup {backup_metadata.id}")
+                    logger.info("Verifying backup %s", backup_metadata.id)
                     result = self._manager.verify_backup(backup_metadata.id)
                     job.verified = result.verified
                     if not result.verified:
-                        logger.warning(f"Backup verification failed: {result.errors}")
+                        logger.warning("Backup verification failed: %s", result.errors)
                         job.metadata["verification_errors"] = result.errors
 
                 # Cleanup expired backups
@@ -470,7 +470,7 @@ class BackupScheduler:
                 self._stats.last_backup_at = job.completed_at
                 self._stats.last_backup_status = "failed"
 
-                logger.error(f"Backup job {job.id} failed: {e}")
+                logger.error("Backup job %s failed: %s", job.id, e)
 
                 self._emit_event(
                     "backup_failed",
@@ -484,7 +484,7 @@ class BackupScheduler:
                 # Retry if configured
                 if job.retries < self._schedule.max_retries:
                     job.retries += 1
-                    logger.info(f"Retrying backup job {job.id} (attempt {job.retries})")
+                    logger.info("Retrying backup job %s (attempt %s)", job.id, job.retries)
                     await asyncio.sleep(self._schedule.retry_delay_seconds)
                     await self._execute_backup(job, verify=verify, cleanup=cleanup)
 
@@ -519,7 +519,7 @@ class BackupScheduler:
             except asyncio.CancelledError:
                 break
             except (OSError, IOError, RuntimeError) as e:
-                logger.error(f"Hourly schedule error: {e}")
+                logger.error("Hourly schedule error: %s", e)
                 await asyncio.sleep(60)
 
     async def _run_daily_schedule(self) -> None:
@@ -549,7 +549,7 @@ class BackupScheduler:
             except asyncio.CancelledError:
                 break
             except (OSError, IOError, RuntimeError) as e:
-                logger.error(f"Daily schedule error: {e}")
+                logger.error("Daily schedule error: %s", e)
                 await asyncio.sleep(300)
 
     async def _run_weekly_schedule(self) -> None:
@@ -564,7 +564,7 @@ class BackupScheduler:
                 if next_time:
                     wait_seconds = (next_time - datetime.now(timezone.utc)).total_seconds()
                     if wait_seconds > 0:
-                        logger.info(f"Next weekly backup at {next_time}")
+                        logger.info("Next weekly backup at %s", next_time)
                         await asyncio.sleep(wait_seconds)
 
                     if self._status == SchedulerStatus.RUNNING:
@@ -579,7 +579,7 @@ class BackupScheduler:
             except asyncio.CancelledError:
                 break
             except (OSError, IOError, RuntimeError) as e:
-                logger.error(f"Weekly schedule error: {e}")
+                logger.error("Weekly schedule error: %s", e)
                 await asyncio.sleep(300)
 
     async def _run_monthly_schedule(self) -> None:
@@ -594,7 +594,7 @@ class BackupScheduler:
                 if next_time:
                     wait_seconds = (next_time - datetime.now(timezone.utc)).total_seconds()
                     if wait_seconds > 0:
-                        logger.info(f"Next monthly backup at {next_time}")
+                        logger.info("Next monthly backup at %s", next_time)
                         await asyncio.sleep(wait_seconds)
 
                     if self._status == SchedulerStatus.RUNNING:
@@ -609,7 +609,7 @@ class BackupScheduler:
             except asyncio.CancelledError:
                 break
             except (OSError, IOError, RuntimeError) as e:
-                logger.error(f"Monthly schedule error: {e}")
+                logger.error("Monthly schedule error: %s", e)
                 await asyncio.sleep(300)
 
     async def _run_custom_schedule(self) -> None:
@@ -633,7 +633,7 @@ class BackupScheduler:
             except asyncio.CancelledError:
                 break
             except (OSError, IOError, RuntimeError) as e:
-                logger.error(f"Custom schedule error: {e}")
+                logger.error("Custom schedule error: %s", e)
                 await asyncio.sleep(60)
 
     async def _run_dr_drill_schedule(self) -> None:
@@ -651,7 +651,7 @@ class BackupScheduler:
             except asyncio.CancelledError:
                 break
             except (OSError, IOError, RuntimeError) as e:
-                logger.error(f"DR drill schedule error: {e}")
+                logger.error("DR drill schedule error: %s", e)
                 await asyncio.sleep(3600)
 
     async def _execute_dr_drill(self) -> dict[str, Any]:

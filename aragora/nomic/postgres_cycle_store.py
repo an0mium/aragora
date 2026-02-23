@@ -156,7 +156,7 @@ class PostgresCycleLearningStore(PostgresStore):
                 data_json,
             )
 
-        logger.debug(f"cycle_saved cycle_id={record.cycle_id} success={record.success}")
+        logger.debug("cycle_saved cycle_id=%s success=%s", record.cycle_id, record.success)
 
     async def load_cycle_async(self, cycle_id: str) -> NomicCycleRecord | None:
         """Load a specific cycle by ID asynchronously."""
@@ -348,7 +348,7 @@ class PostgresCycleLearningStore(PostgresStore):
                 deleted = 0
 
             if deleted > 0:
-                logger.info(f"cycles_cleaned deleted={deleted} retained={keep_count}")
+                logger.info("cycles_cleaned deleted=%s retained=%s", deleted, keep_count)
 
             return deleted
 

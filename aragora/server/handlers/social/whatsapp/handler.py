@@ -120,7 +120,7 @@ class WhatsAppHandler(BaseHandler):
                 org_id=user_info.org_id,
             )
         except (TypeError, ValueError, KeyError, AttributeError) as e:
-            logger.debug(f"Could not extract auth context: {e}")
+            logger.debug("Could not extract auth context: %s", e)
             return None
 
     def _check_permission(self, handler: Any, permission_key: str) -> HandlerResult | None:
@@ -137,10 +137,10 @@ class WhatsAppHandler(BaseHandler):
         try:
             decision = check_permission(context, permission_key)
             if not decision.allowed:
-                logger.warning(f"Permission denied: {permission_key} for user {context.user_id}")
+                logger.warning("Permission denied: %s for user %s", permission_key, context.user_id)
                 return error_response("Permission denied", 403)
         except (TypeError, ValueError, KeyError, AttributeError) as e:
-            logger.warning(f"RBAC check failed: {e}")
+            logger.warning("RBAC check failed: %s", e)
             return None
 
         return None
@@ -180,7 +180,7 @@ class WhatsAppHandler(BaseHandler):
                 roles={"whatsapp_user"},
             )
         except (TypeError, ValueError, KeyError, AttributeError) as e:
-            logger.debug(f"Could not build auth context from message: {e}")
+            logger.debug("Could not build auth context from message: %s", e)
             return None
 
     def _check_whatsapp_permission(
@@ -225,12 +225,11 @@ class WhatsAppHandler(BaseHandler):
                 if enforce_rbac:
                     user_display = profile_name or from_number
                     logger.warning(
-                        f"WhatsApp permission denied: {permission_key} for user "
-                        f"{user_display} ({context.user_id}), reason: {decision.reason}"
+                        "WhatsApp permission denied: %s for user %s (%s), reason: %s", permission_key, user_display, context.user_id, decision.reason
                     )
                     return "Permission denied"
         except (TypeError, ValueError, KeyError, AttributeError) as e:
-            logger.warning(f"WhatsApp RBAC check failed: {e}")
+            logger.warning("WhatsApp RBAC check failed: %s", e)
             # On error, allow by default (fail open)
             return None
 
@@ -274,7 +273,7 @@ class WhatsAppHandler(BaseHandler):
 
     def handle(self, path: str, query_params: dict[str, Any], handler: Any) -> HandlerResult | None:
         """Route WhatsApp requests to appropriate methods."""
-        logger.debug(f"WhatsApp request: {path} {handler.command}")
+        logger.debug("WhatsApp request: %s %s", path, handler.command)
 
         if path == "/api/v1/integrations/whatsapp/status":
             # RBAC: Check permission to read WhatsApp status
@@ -402,12 +401,12 @@ class WhatsAppHandler(BaseHandler):
         RBAC: Requires whatsapp:messages:send permission for sending responses.
         """
         text = text.strip()
-        logger.info(f"WhatsApp message from {profile_name} ({from_number}): {text[:50]}...")
+        logger.info("WhatsApp message from %s (%s): %s...", profile_name, from_number, text[:50])
 
         # Validate phone number format
         is_valid, validation_error = self._validate_phone_number(from_number)
         if not is_valid:
-            logger.warning(f"Invalid WhatsApp phone number: {validation_error}")
+            logger.warning("Invalid WhatsApp phone number: %s", validation_error)
             return
 
         # RBAC: Check permission to interact with WhatsApp (send messages back)
@@ -415,7 +414,7 @@ class WhatsAppHandler(BaseHandler):
             from_number, PERM_WHATSAPP_MESSAGES, profile_name
         )
         if perm_error:
-            logger.warning(f"WhatsApp user {from_number} denied: {perm_error}")
+            logger.warning("WhatsApp user %s denied: %s", from_number, perm_error)
             # Still allow receiving - just log and continue
             # (webhook must return 200 to WhatsApp regardless)
 
@@ -538,7 +537,7 @@ class WhatsAppHandler(BaseHandler):
         is_valid, validation_error = self._validate_phone_number(from_number)
         if not is_valid:
             logger.warning(
-                f"Invalid WhatsApp phone number in interactive reply: {validation_error}"
+                "Invalid WhatsApp phone number in interactive reply: %s", validation_error
             )
             return
 
@@ -569,7 +568,7 @@ class WhatsAppHandler(BaseHandler):
         # Validate phone number format first
         is_valid, validation_error = self._validate_phone_number(from_number)
         if not is_valid:
-            logger.warning(f"Invalid WhatsApp phone number in button reply: {validation_error}")
+            logger.warning("Invalid WhatsApp phone number in button reply: %s", validation_error)
             return
 
         # Map button text to action
@@ -578,9 +577,9 @@ class WhatsAppHandler(BaseHandler):
             # Extract debate_id from context if available
             message.get("context", {})
             # For quick replies, we might not have the ID directly
-            logger.info(f"Quick reply 'agree' from {profile_name}")
+            logger.info("Quick reply 'agree' from %s", profile_name)
         elif "disagree" in lower_text:
-            logger.info(f"Quick reply 'disagree' from {profile_name}")
+            logger.info("Quick reply 'disagree' from %s", profile_name)
 
     def _process_button_click(
         self,
@@ -589,7 +588,7 @@ class WhatsAppHandler(BaseHandler):
         button_id: str,
     ) -> None:
         """Process button click by ID."""
-        logger.info(f"Button click from {profile_name}: {button_id}")
+        logger.info("Button click from %s: %s", profile_name, button_id)
 
         if button_id.startswith("vote_agree_"):
             debate_id = button_id[11:]
@@ -627,7 +626,7 @@ class WhatsAppHandler(BaseHandler):
             )
             return
 
-        logger.info(f"Vote received: {debate_id} -> {vote_option} from {profile_name}")
+        logger.info("Vote received: %s -> %s from %s", debate_id, vote_option, profile_name)
 
         # Emit webhook event for vote received
         emit_vote_received(
@@ -654,7 +653,7 @@ class WhatsAppHandler(BaseHandler):
                     source="whatsapp",
                 )
         except (ImportError, KeyError, ValueError, OSError, TypeError) as e:
-            logger.warning(f"Failed to record vote: {e}")
+            logger.warning("Failed to record vote: %s", e)
 
         emoji = "+" if vote_option == "agree" else "-"
         _config.create_tracked_task(
@@ -695,7 +694,7 @@ class WhatsAppHandler(BaseHandler):
             if db:
                 debate_data = db.get(debate_id)
         except (ImportError, KeyError, ValueError, OSError, TypeError) as e:
-            logger.warning(f"Failed to fetch debate: {e}")
+            logger.warning("Failed to fetch debate: %s", e)
 
         if not debate_data:
             _config.create_tracked_task(

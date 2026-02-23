@@ -117,7 +117,7 @@ class TrialManager:
             TrialStatus with trial details
         """
         if org.trial_started_at is not None:
-            logger.warning(f"Trial already started for org {org.id}")
+            logger.warning("Trial already started for org %s", org.id)
             return self.get_trial_status(org)
 
         org.start_trial(
@@ -129,8 +129,7 @@ class TrialManager:
             self.user_store.save_organization(org)
 
         logger.info(
-            f"Started trial for org {org.id}: "
-            f"{self.trial_duration_days} days, {self.trial_debates_limit} debates"
+            "Started trial for org %s: %s days, %s debates", org.id, self.trial_duration_days, self.trial_debates_limit
         )
 
         return self.get_trial_status(org)
@@ -218,7 +217,7 @@ class TrialManager:
             True if converted successfully
         """
         if not org.is_in_trial and not org.is_trial_expired:
-            logger.warning(f"Cannot convert non-trial org {org.id}")
+            logger.warning("Cannot convert non-trial org %s", org.id)
             return False
 
         org.convert_trial(new_tier)
@@ -226,7 +225,7 @@ class TrialManager:
         if self.user_store:
             self.user_store.save_organization(org)
 
-        logger.info(f"Converted trial for org {org.id} to tier {new_tier.value}")
+        logger.info("Converted trial for org %s to tier %s", org.id, new_tier.value)
         return True
 
     def extend_trial(
@@ -245,7 +244,7 @@ class TrialManager:
             Updated TrialStatus
         """
         if org.trial_expires_at is None:
-            logger.warning(f"Cannot extend - no trial exists for org {org.id}")
+            logger.warning("Cannot extend - no trial exists for org %s", org.id)
             return self.get_trial_status(org)
 
         org.trial_expires_at = org.trial_expires_at + timedelta(days=additional_days)
@@ -254,7 +253,7 @@ class TrialManager:
         if self.user_store:
             self.user_store.save_organization(org)
 
-        logger.info(f"Extended trial for org {org.id} by {additional_days} days")
+        logger.info("Extended trial for org %s by %s days", org.id, additional_days)
         return self.get_trial_status(org)
 
     def get_expiring_trials(
@@ -274,7 +273,7 @@ class TrialManager:
         """
         # This is a placeholder - actual implementation depends on user store
         # supporting query by trial_expires_at range
-        logger.debug(f"Would query for trials expiring within {days_ahead} days")
+        logger.debug("Would query for trials expiring within %s days", days_ahead)
         return []
 
 

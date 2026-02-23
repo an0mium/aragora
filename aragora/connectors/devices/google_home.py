@@ -176,7 +176,7 @@ class GoogleHomeConnector(DeviceConnector):
                     with open(self._credentials_path) as f:
                         self._credentials = json.load(f)
                 else:
-                    logger.warning(f"Credentials file not found: {self._credentials_path}")
+                    logger.warning("Credentials file not found: %s", self._credentials_path)
                     return False
 
             self._initialized = True
@@ -184,7 +184,7 @@ class GoogleHomeConnector(DeviceConnector):
             return True
 
         except (json.JSONDecodeError, OSError, ValueError) as e:
-            logger.warning(f"Google Home connector initialization failed: {e}")
+            logger.warning("Google Home connector initialization failed: %s", e)
             return False
 
     async def shutdown(self) -> None:
@@ -290,7 +290,7 @@ class GoogleHomeConnector(DeviceConnector):
                 raise RuntimeError(f"Token exchange failed: {error}")
 
         except (OSError, ValueError, RuntimeError) as e:
-            logger.error(f"Failed to get access token: {e}")
+            logger.error("Failed to get access token: %s", e)
             raise
 
     # ==========================================================================
@@ -330,7 +330,7 @@ class GoogleHomeConnector(DeviceConnector):
             return await handler(request)
 
         # Default response for unknown intents
-        logger.warning(f"No handler for intent: {intent}")
+        logger.warning("No handler for intent: %s", intent)
         return VoiceDeviceResponse(
             text="I'm not sure how to help with that. "
             "You can ask me to start a debate, get a decision, or list your debates.",
@@ -478,7 +478,7 @@ class GoogleHomeConnector(DeviceConnector):
                 reprompt="Please tell me a topic to debate.",
             )
 
-        logger.info(f"Starting voice debate on topic: {topic}")
+        logger.info("Starting voice debate on topic: %s", topic)
 
         return VoiceDeviceResponse(
             text=f"Starting a debate on: {topic}. "
@@ -490,7 +490,7 @@ class GoogleHomeConnector(DeviceConnector):
 
     async def _handle_get_decision(self, request: VoiceDeviceRequest) -> VoiceDeviceResponse:
         """Handle get decision intent."""
-        logger.info(f"Getting decision for user: {request.user_id}")
+        logger.info("Getting decision for user: %s", request.user_id)
 
         return VoiceDeviceResponse(
             text="Your latest debate concluded with the agents recommending "
@@ -502,7 +502,7 @@ class GoogleHomeConnector(DeviceConnector):
 
     async def _handle_list_debates(self, request: VoiceDeviceRequest) -> VoiceDeviceResponse:
         """Handle list debates intent."""
-        logger.info(f"Listing debates for user: {request.user_id}")
+        logger.info("Listing debates for user: %s", request.user_id)
 
         return VoiceDeviceResponse(
             text="You have 3 active debates. "
@@ -515,7 +515,7 @@ class GoogleHomeConnector(DeviceConnector):
     async def _handle_get_status(self, request: VoiceDeviceRequest) -> VoiceDeviceResponse:
         """Handle get status intent."""
         debate_name = request.slots.get("debate_name", "")
-        logger.info(f"Getting status for debate: {debate_name}")
+        logger.info("Getting status for debate: %s", debate_name)
 
         return VoiceDeviceResponse(
             text="The debate is in round 3 of 5. Early consensus is forming around option B.",
@@ -563,14 +563,14 @@ class GoogleHomeConnector(DeviceConnector):
             )
 
             if success:
-                logger.info(f"Requested sync for user {agent_user_id}")
+                logger.info("Requested sync for user %s", agent_user_id)
                 return True
             else:
-                logger.warning(f"Failed to request sync: {error}")
+                logger.warning("Failed to request sync: %s", error)
                 return False
 
         except (OSError, ValueError, RuntimeError) as e:
-            logger.error(f"Error requesting sync: {e}")
+            logger.error("Error requesting sync: %s", e)
             return False
 
     async def report_state(
@@ -619,14 +619,14 @@ class GoogleHomeConnector(DeviceConnector):
             )
 
             if success:
-                logger.info(f"Reported state for user {agent_user_id}")
+                logger.info("Reported state for user %s", agent_user_id)
                 return True
             else:
-                logger.warning(f"Failed to report state: {error}")
+                logger.warning("Failed to report state: %s", error)
                 return False
 
         except (OSError, ValueError, RuntimeError) as e:
-            logger.error(f"Error reporting state: {e}")
+            logger.error("Error reporting state: %s", e)
             return False
 
     # ==========================================================================
@@ -698,14 +698,14 @@ class GoogleHomeConnector(DeviceConnector):
             )
 
             if success:
-                logger.info(f"Sent broadcast to user {user_id[:20]}...")
+                logger.info("Sent broadcast to user %s...", user_id[:20])
                 return True
             else:
-                logger.warning(f"Failed to send broadcast: {error}")
+                logger.warning("Failed to send broadcast: %s", error)
                 return False
 
         except (OSError, ValueError, RuntimeError) as e:
-            logger.error(f"Error sending broadcast: {e}")
+            logger.error("Error sending broadcast: %s", e)
             return False
 
     # ==========================================================================
@@ -783,11 +783,11 @@ class GoogleHomeConnector(DeviceConnector):
             )
 
             store.set_device_session(device_session)
-            logger.info(f"Linked Google user to Aragora user {aragora_user_id}")
+            logger.info("Linked Google user to Aragora user %s", aragora_user_id)
             return True
 
         except (ImportError, RuntimeError, ValueError) as e:
-            logger.error(f"Failed to link account: {e}")
+            logger.error("Failed to link account: %s", e)
             return False
 
     async def unlink_account(self, google_user_id: str) -> bool:
@@ -807,7 +807,7 @@ class GoogleHomeConnector(DeviceConnector):
             return store.delete_device_session(device_id)
 
         except (ImportError, RuntimeError) as e:
-            logger.error(f"Failed to unlink account: {e}")
+            logger.error("Failed to unlink account: %s", e)
             return False
 
     # ==========================================================================

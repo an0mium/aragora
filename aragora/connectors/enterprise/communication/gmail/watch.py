@@ -222,7 +222,7 @@ class GmailWatchMixin(GmailBaseMethods):
             self._gmail_state.watch_expiration = expiration
             self._gmail_state.watch_resource_id = "active"
 
-            logger.info(f"[Gmail] Watch set up successfully, expires at {expiration}")
+            logger.info("[Gmail] Watch set up successfully, expires at %s", expiration)
 
             return {
                 "success": True,
@@ -235,7 +235,7 @@ class GmailWatchMixin(GmailBaseMethods):
         except (OSError, ConnectionError) as e:
             if not recorded_failure:
                 self.record_failure()
-            logger.error(f"[Gmail] Watch setup failed: {e}")
+            logger.error("[Gmail] Watch setup failed: %s", e)
             raise
 
     async def stop_watch(self) -> dict[str, Any]:
@@ -290,8 +290,7 @@ class GmailWatchMixin(GmailBaseMethods):
                     if response.status_code >= 500 or response.status_code == 429:
                         self.record_failure()
                     logger.warning(
-                        f"[Gmail] Stop watch returned {response.status_code}: "
-                        f"{error.get('message', response.text)}"
+                        "[Gmail] Stop watch returned %s: %s", response.status_code, error.get('message', response.text)
                     )
                     return {
                         "success": False,
@@ -300,7 +299,7 @@ class GmailWatchMixin(GmailBaseMethods):
 
         except (OSError, ConnectionError) as e:
             self.record_failure()
-            logger.error(f"[Gmail] Failed to stop watch: {e}")
+            logger.error("[Gmail] Failed to stop watch: %s", e)
             raise
 
     async def handle_pubsub_notification(
@@ -328,12 +327,11 @@ class GmailWatchMixin(GmailBaseMethods):
                 and webhook.email_address != self._gmail_state.email_address
             ):
                 logger.warning(
-                    f"[Gmail] Webhook for {webhook.email_address} "
-                    f"but expecting {self._gmail_state.email_address}"
+                    "[Gmail] Webhook for %s but expecting %s", webhook.email_address, self._gmail_state.email_address
                 )
                 return []
 
-        logger.info(f"[Gmail] Pub/Sub notification received: historyId={webhook.history_id}")
+        logger.info("[Gmail] Pub/Sub notification received: historyId=%s", webhook.history_id)
 
         # Use History API to get changes
         if not self._gmail_state or not self._gmail_state.history_id:
@@ -381,7 +379,7 @@ class GmailWatchMixin(GmailBaseMethods):
                         msg = await self.get_message(msg_id)
                         new_messages.append(msg)
                     except (OSError, ValueError, KeyError, RuntimeError) as e:
-                        logger.warning(f"[Gmail] Failed to fetch message {msg_id}: {e}")
+                        logger.warning("[Gmail] Failed to fetch message %s: %s", msg_id, e)
 
                 if history_id:
                     new_history_id = history_id
@@ -394,14 +392,14 @@ class GmailWatchMixin(GmailBaseMethods):
             self._gmail_state.last_sync = datetime.now(timezone.utc)
             self._gmail_state.indexed_messages += len(new_messages)
 
-            logger.info(f"[Gmail] Webhook processed: {len(new_messages)} new messages")
+            logger.info("[Gmail] Webhook processed: %s new messages", len(new_messages))
             return new_messages
 
         except (OSError, ValueError, KeyError, RuntimeError) as e:
             if self._gmail_state:
                 self._gmail_state.sync_errors += 1
                 self._gmail_state.last_error = "Webhook processing failed"
-            logger.error(f"[Gmail] Webhook processing failed: {e}")
+            logger.error("[Gmail] Webhook processing failed: %s", e)
             raise
 
     async def start_watch_renewal(
@@ -426,7 +424,7 @@ class GmailWatchMixin(GmailBaseMethods):
         self._watch_task = asyncio.create_task(
             self._watch_renewal_loop(topic_name, renewal_hours, project_id)
         )
-        logger.info(f"[Gmail] Watch renewal started (every {renewal_hours} hours)")
+        logger.info("[Gmail] Watch renewal started (every %s hours)", renewal_hours)
 
     async def _watch_renewal_loop(
         self,
@@ -454,7 +452,7 @@ class GmailWatchMixin(GmailBaseMethods):
             except asyncio.CancelledError:
                 break
             except (OSError, ConnectionError, RuntimeError) as e:
-                logger.error(f"[Gmail] Watch renewal failed: {e}")
+                logger.error("[Gmail] Watch renewal failed: %s", e)
                 # Retry in 1 minute on failure
                 await asyncio.sleep(60)
                 await _REAL_ASYNCIO_SLEEP(0)

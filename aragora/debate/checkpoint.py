@@ -660,10 +660,10 @@ class CheckpointWebhook:
                 else:
                     handler(data)
             except (TypeError, ValueError, AttributeError) as e:
-                logger.warning(f"Checkpoint webhook handler failed for event '{event}': {e}")
+                logger.warning("Checkpoint webhook handler failed for event '%s': %s", event, e)
             except (RuntimeError, KeyError, OSError) as e:
                 logger.exception(
-                    f"Unexpected error in checkpoint webhook handler for event '{event}': {e}"
+                    "Unexpected error in checkpoint webhook handler for event '%s': %s", event, e
                 )
 
         # Send to webhook if configured
@@ -683,11 +683,11 @@ class CheckpointWebhook:
                     timeout=10,
                 )
         except ImportError as e:
-            logger.debug(f"Webhook notification failed - http pool not available: {e}")
+            logger.debug("Webhook notification failed - http pool not available: %s", e)
         except (ConnectionError, TimeoutError, OSError) as e:
-            logger.debug(f"Webhook notification failed - connection error: {e}")
+            logger.debug("Webhook notification failed - connection error: %s", e)
         except (RuntimeError, ValueError, TypeError, AttributeError) as e:
-            logger.warning(f"Unexpected webhook notification error: {e}")
+            logger.warning("Unexpected webhook notification error: %s", e)
 
 
 # Convenience function for quick checkpointing

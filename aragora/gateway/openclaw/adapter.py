@@ -289,7 +289,7 @@ class OpenClawAdapter:
                 if asyncio.iscoroutine(result):
                     await result
             except (RuntimeError, ValueError, TypeError) as e:  # noqa: BLE001 - user-provided session callback
-                logger.error(f"Session callback error: {e}")
+                logger.error("Session callback error: %s", e)
 
         return session
 
@@ -379,7 +379,7 @@ class OpenClawAdapter:
                 if asyncio.iscoroutine(result):
                     await result
             except (RuntimeError, ValueError, TypeError) as e:  # noqa: BLE001 - user-provided session callback
-                logger.error(f"Session callback error: {e}")
+                logger.error("Session callback error: %s", e)
 
         return session
 
@@ -769,7 +769,7 @@ class OpenClawAdapter:
             )
 
         except (OSError, ConnectionError, RuntimeError, ValueError) as e:
-            logger.exception(f"Action {action_id} failed")
+            logger.exception("Action %s failed", action_id)
             action_result = ActionResult(
                 action_id=action_id,
                 status=ActionStatus.FAILED,
@@ -795,7 +795,7 @@ class OpenClawAdapter:
                 if asyncio.iscoroutine(cb_result):
                     await cb_result
             except (RuntimeError, ValueError, TypeError) as e:  # noqa: BLE001 - user-provided action callback
-                logger.error(f"Action callback error: {e}")
+                logger.error("Action callback error: %s", e)
 
         return action_result
 
@@ -1024,7 +1024,7 @@ class OpenClawAdapter:
         except (OSError, RuntimeError, AttributeError) as e:
             # Fallback to sync check
             logger.debug(
-                f"Async permission check failed, falling back to sync: {type(e).__name__}: {e}"
+                "Async permission check failed, falling back to sync: %s: %s", type(e).__name__, e
             )
             return self.rbac_checker.check_permission(actor_id, permission)
 
@@ -1037,7 +1037,7 @@ class OpenClawAdapter:
     ) -> None:
         """Log an audit event."""
         if not self.audit_logger:
-            logger.info(f"Audit: {event.value} actor={actor_id} resource={resource_id}")
+            logger.info("Audit: %s actor=%s resource=%s", event.value, actor_id, resource_id)
             return
 
         severity = get_event_severity(event)
@@ -1052,7 +1052,7 @@ class OpenClawAdapter:
             )
         except (OSError, RuntimeError, AttributeError) as e:
             # Fallback to sync log
-            logger.debug(f"Async audit log failed, falling back to sync: {type(e).__name__}: {e}")
+            logger.debug("Async audit log failed, falling back to sync: %s: %s", type(e).__name__, e)
             self.audit_logger.log(
                 event.value,
                 actor_id,

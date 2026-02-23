@@ -390,8 +390,7 @@ class TenantIsolationMiddleware:
                 metadata={"error": str(e)},
             )
             security_logger.warning(
-                "Tenant membership check failed (access denied): "
-                f"user={user_id} tenant={tenant_id} error={e}"
+                "Tenant membership check failed (access denied): user=%s tenant=%s error=%s", user_id, tenant_id, e
             )
             raise TenantMembershipCheckError(
                 "Unable to verify tenant membership. Access denied.",
@@ -408,7 +407,7 @@ class TenantIsolationMiddleware:
                 reason="User is not a member of tenant",
             )
             security_logger.warning(
-                f"Cross-tenant access attempt blocked: user={user_id} tenant={tenant_id}"
+                "Cross-tenant access attempt blocked: user=%s tenant=%s", user_id, tenant_id
             )
             raise TenantAccessDeniedError(
                 f"User {user_id} does not have access to tenant {tenant_id}.",
@@ -593,15 +592,15 @@ def require_tenant_isolation(func: F) -> F:
             return await func(*args, **kwargs)
 
         except TenantIdMissingError as e:
-            logger.warning(f"Tenant isolation: {e}")
+            logger.warning("Tenant isolation: %s", e)
             return _error_response("Tenant ID required", 400)
 
         except TenantAccessDeniedError as e:
-            logger.warning(f"Tenant isolation: {e}")
+            logger.warning("Tenant isolation: %s", e)
             return _error_response("Access denied to tenant", 403)
 
         except TenantMembershipCheckError as e:
-            logger.error(f"Tenant isolation check failed: {e}")
+            logger.error("Tenant isolation check failed: %s", e)
             return _error_response("Access denied", 403)
 
     return cast(F, wrapper)
@@ -688,8 +687,7 @@ async def verify_tenant_access(
         return await store.is_member(user_id, tenant_id)
     except Exception as e:  # noqa: BLE001 - Security fail-closed: membership store may raise DB driver exceptions not in builtins
         security_logger.warning(
-            f"Tenant access verification failed (denied): "
-            f"user={user_id} tenant={tenant_id} error={e}"
+            "Tenant access verification failed (denied): user=%s tenant=%s error=%s", user_id, tenant_id, e
         )
         return False
 
@@ -712,7 +710,7 @@ async def get_user_accessible_tenants(
     try:
         return await store.get_user_tenants(user_id)
     except (OSError, ConnectionError, TimeoutError, RuntimeError, ValueError, KeyError) as e:
-        security_logger.warning(f"Failed to get user tenants: user={user_id} error={e}")
+        security_logger.warning("Failed to get user tenants: user=%s error=%s", user_id, e)
         return []
 
 

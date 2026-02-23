@@ -191,9 +191,7 @@ class VoteCollector:
 
         if lead >= min_lead:
             logger.info(
-                f"rlm_early_termination_majority leader={leader} "
-                f"votes={leader_count}/{votes_collected} lead={lead} "
-                f"total_agents={total_agents}"
+                "rlm_early_termination_majority leader=%s votes=%s/%s lead=%s total_agents=%s", leader, leader_count, votes_collected, lead, total_agents
             )
             return True, leader
 
@@ -220,7 +218,7 @@ class VoteCollector:
 
         async def cast_vote(agent: Agent) -> tuple[Any, Any] | None:
             """Cast a vote for a single agent."""
-            logger.debug(f"agent_voting_permutation agent={agent.name} perm={permutation_idx}")
+            logger.debug("agent_voting_permutation agent=%s perm=%s", agent.name, permutation_idx)
             try:
                 timeout = get_complexity_governor().get_scaled_timeout(
                     float(self.config.agent_timeout)
@@ -236,8 +234,7 @@ class VoteCollector:
                 return (agent, vote_result)
             except (ValueError, KeyError, TypeError) as e:  # noqa: BLE001
                 logger.warning(
-                    f"vote_exception_permutation agent={agent.name} "
-                    f"perm={permutation_idx} error={type(e).__name__}: {e}"
+                    "vote_exception_permutation agent=%s perm=%s error=%s: %s", agent.name, permutation_idx, type(e).__name__, e
                 )
                 return (agent, e)
 
@@ -250,13 +247,13 @@ class VoteCollector:
                 raise
             except Exception as e:  # noqa: BLE001 - phase isolation
                 logger.error(
-                    f"task_exception phase=vote_permutation perm={permutation_idx} error={e}"
+                    "task_exception phase=vote_permutation perm=%s error=%s", permutation_idx, e
                 )
                 continue
 
             if vote_result is None or isinstance(vote_result, Exception):
                 if isinstance(vote_result, Exception):
-                    logger.error(f"vote_error_permutation agent={agent.name} error={vote_result}")
+                    logger.error("vote_error_permutation agent=%s error=%s", agent.name, vote_result)
             else:
                 votes.append(vote_result)
 
@@ -282,8 +279,7 @@ class VoteCollector:
         seed = self.config.position_shuffling_seed
 
         logger.info(
-            f"position_shuffling_start permutations={num_permutations} "
-            f"proposals={len(ctx.proposals)} seed={seed}"
+            "position_shuffling_start permutations=%s proposals=%s seed=%s", num_permutations, len(ctx.proposals), seed
         )
 
         # Generate permutations
@@ -308,15 +304,14 @@ class VoteCollector:
                 votes_by_agent[agent_name].append(vote)
 
             logger.debug(
-                f"position_shuffling_permutation_done perm={perm_idx} votes={len(perm_votes)}"
+                "position_shuffling_permutation_done perm=%s votes=%s", perm_idx, len(perm_votes)
             )
 
         # Average votes across permutations
         averaged_votes = average_permutation_votes(votes_by_agent, ctx.proposals)
 
         logger.info(
-            f"position_shuffling_complete permutations={num_permutations} "
-            f"agents_voted={len(votes_by_agent)} averaged_votes={len(averaged_votes)}"
+            "position_shuffling_complete permutations=%s agents_voted=%s averaged_votes=%s", num_permutations, len(votes_by_agent), len(averaged_votes)
         )
 
         # Handle success callbacks for averaged votes
@@ -359,8 +354,7 @@ class VoteCollector:
                 )
             except asyncio.TimeoutError:
                 logger.warning(
-                    f"position_shuffling_timeout "
-                    f"timeout={self.VOTE_COLLECTION_TIMEOUT * self.config.position_shuffling_permutations}s"
+                    "position_shuffling_timeout timeout=%ss", self.VOTE_COLLECTION_TIMEOUT * self.config.position_shuffling_permutations
                 )
                 return []
 
@@ -369,7 +363,7 @@ class VoteCollector:
 
         async def cast_vote(agent: Agent) -> tuple[Any, Any]:
             """Cast a vote for a single agent with timeout protection."""
-            logger.debug(f"agent_voting agent={agent.name}")
+            logger.debug("agent_voting agent=%s", agent.name)
             try:
                 timeout = get_complexity_governor().get_scaled_timeout(
                     float(self.config.agent_timeout)
@@ -384,7 +378,7 @@ class VoteCollector:
                     vote_result = await self._vote_with_agent(agent, ctx.proposals, task)
                 return (agent, vote_result)
             except (ValueError, KeyError, TypeError) as e:  # noqa: BLE001
-                logger.warning(f"vote_exception agent={agent.name} error={type(e).__name__}: {e}")
+                logger.warning("vote_exception agent=%s error=%s: %s", agent.name, type(e).__name__, e)
                 return (agent, e)
 
         async def collect_all_votes() -> None:
@@ -399,14 +393,14 @@ class VoteCollector:
                 except asyncio.CancelledError:
                     raise
                 except Exception as e:  # noqa: BLE001 - phase isolation
-                    logger.error(f"task_exception phase=vote error={e}")
+                    logger.error("task_exception phase=vote error=%s", e)
                     continue
 
                 if vote_result is None or isinstance(vote_result, Exception):
                     if isinstance(vote_result, Exception):
-                        logger.error(f"vote_error agent={agent.name} error={vote_result}")
+                        logger.error("vote_error agent=%s error=%s", agent.name, vote_result)
                     else:
-                        logger.error(f"vote_error agent={agent.name} error=vote returned None")
+                        logger.error("vote_error agent=%s error=vote returned None", agent.name)
                 else:
                     votes.append(vote_result)
                     self._handle_vote_success(ctx, agent, vote_result)
@@ -441,8 +435,7 @@ class VoteCollector:
 
             if early_terminated:
                 logger.info(
-                    f"vote_collection_early_terminated collected={len(votes)} "
-                    f"total_agents={total_agents}"
+                    "vote_collection_early_terminated collected=%s total_agents=%s", len(votes), total_agents
                 )
 
         # Apply outer timeout to prevent N*agent_timeout runaway
@@ -450,8 +443,7 @@ class VoteCollector:
             await asyncio.wait_for(collect_all_votes(), timeout=self.VOTE_COLLECTION_TIMEOUT)
         except asyncio.TimeoutError:
             logger.warning(
-                f"vote_collection_timeout collected={len(votes)} "
-                f"expected={len(ctx.agents)} timeout={self.VOTE_COLLECTION_TIMEOUT}s"
+                "vote_collection_timeout collected=%s expected=%s timeout=%ss", len(votes), len(ctx.agents), self.VOTE_COLLECTION_TIMEOUT
             )
             # Return partial votes - better than nothing
 
@@ -478,7 +470,7 @@ class VoteCollector:
 
         async def cast_vote(agent: Agent) -> tuple[Any, Any]:
             """Cast a vote for unanimous consensus with timeout protection."""
-            logger.debug(f"agent_voting_unanimous agent={agent.name}")
+            logger.debug("agent_voting_unanimous agent=%s", agent.name)
             try:
                 timeout = get_complexity_governor().get_scaled_timeout(
                     float(self.config.agent_timeout)
@@ -494,7 +486,7 @@ class VoteCollector:
                 return (agent, vote_result)
             except (ValueError, KeyError, TypeError) as e:  # noqa: BLE001
                 logger.warning(
-                    f"vote_exception_unanimous agent={agent.name} error={type(e).__name__}: {e}"
+                    "vote_exception_unanimous agent=%s error=%s: %s", agent.name, type(e).__name__, e
                 )
                 return (agent, e)
 
@@ -509,16 +501,16 @@ class VoteCollector:
                 except asyncio.CancelledError:
                     raise
                 except Exception as e:  # noqa: BLE001 - phase isolation
-                    logger.error(f"task_exception phase=unanimous_vote error={e}")
+                    logger.error("task_exception phase=unanimous_vote error=%s", e)
                     voting_errors += 1
                     continue
 
                 if vote_result is None or isinstance(vote_result, Exception):
                     if isinstance(vote_result, Exception):
-                        logger.error(f"vote_error_unanimous agent={agent.name} error={vote_result}")
+                        logger.error("vote_error_unanimous agent=%s error=%s", agent.name, vote_result)
                     else:
                         logger.error(
-                            f"vote_error_unanimous agent={agent.name} error=vote returned None"
+                            "vote_error_unanimous agent=%s error=vote returned None", agent.name
                         )
                     voting_errors += 1
                 else:
@@ -533,9 +525,7 @@ class VoteCollector:
             missing = len(ctx.agents) - len(votes) - voting_errors
             voting_errors += missing
             logger.warning(
-                f"vote_collection_timeout_unanimous collected={len(votes)} "
-                f"errors={voting_errors} expected={len(ctx.agents)} "
-                f"timeout={self.VOTE_COLLECTION_TIMEOUT}s"
+                "vote_collection_timeout_unanimous collected=%s errors=%s expected=%s timeout=%ss", len(votes), voting_errors, len(ctx.agents), self.VOTE_COLLECTION_TIMEOUT
             )
 
         return votes, voting_errors
@@ -580,7 +570,7 @@ class VoteCollector:
             try:
                 self.recorder.record_vote(agent.name, vote.choice, vote.reasoning)
             except (RuntimeError, AttributeError, TypeError) as e:  # noqa: BLE001
-                logger.debug(f"Recorder error for vote: {e}")
+                logger.debug("Recorder error for vote: %s", e)
 
         # Record position for truth-grounded personas
         if self.position_tracker:
@@ -597,7 +587,7 @@ class VoteCollector:
                     confidence=vote.confidence,
                 )
             except (RuntimeError, AttributeError, TypeError) as e:  # noqa: BLE001
-                logger.debug(f"Position tracking error for vote: {e}")
+                logger.debug("Position tracking error for vote: %s", e)
 
     def compute_vote_groups(self, votes: list[Vote]) -> tuple[dict[str, list[str]], dict[str, str]]:
         """Group similar votes and create choice mapping.
@@ -623,7 +613,7 @@ class VoteCollector:
                 choice_mapping[variant] = canonical
 
         if vote_groups:
-            logger.debug(f"vote_grouping_merged groups={vote_groups}")
+            logger.debug("vote_grouping_merged groups=%s", vote_groups)
 
         return vote_groups, choice_mapping
 

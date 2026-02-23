@@ -626,10 +626,10 @@ class AuthorizationAuditor:
                 TimeoutError,
                 PermissionError,
             ) as e:
-                logger.error(f"Error in audit handler: {e}")
+                logger.error("Error in audit handler: %s", e)
                 # Continue to next handler
             except Exception as e:  # noqa: BLE001 - catch-all ensures all audit handlers run even if one fails unexpectedly
-                logger.error(f"Unexpected error in audit handler: {e}")
+                logger.error("Unexpected error in audit handler: %s", e)
 
         # Buffer for batch processing
         self._event_buffer.append(event)

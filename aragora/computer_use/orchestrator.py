@@ -343,7 +343,7 @@ class ComputerUseOrchestrator:
         self._current_task = result
         self._metrics.total_tasks += 1
 
-        logger.info(f"Starting computer-use task: {task_id} - {goal}")
+        logger.info("Starting computer-use task: %s - %s", task_id, goal)
 
         try:
             # Initial screenshot
@@ -373,7 +373,7 @@ class ComputerUseOrchestrator:
                 if is_complete:
                     result.status = TaskStatus.COMPLETED
                     result.final_screenshot_b64 = screenshot_b64
-                    logger.info(f"Task {task_id} completed successfully")
+                    logger.info("Task %s completed successfully", task_id)
                     break
 
                 if action is None:
@@ -515,7 +515,7 @@ class ComputerUseOrchestrator:
             result.status = TaskStatus.FAILED
             result.error = str(e)
             self._metrics.failed_tasks += 1
-            logger.exception(f"Task {task_id} failed: {e}")
+            logger.exception("Task %s failed: %s", task_id, e)
 
         finally:
             result.end_time = time.time()

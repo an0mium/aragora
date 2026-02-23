@@ -409,7 +409,7 @@ class FileGatewayStore:
                     msg = _dict_to_message(msg_data)
                     self._messages[msg.message_id] = msg
                 except (KeyError, ValueError, TypeError) as e:
-                    logger.warning(f"Failed to load message: {e}")
+                    logger.warning("Failed to load message: %s", e)
 
             # Load devices
             for dev_data in data.get("devices", []):
@@ -417,7 +417,7 @@ class FileGatewayStore:
                     device = _dict_to_device(dev_data)
                     self._devices[device.device_id] = device
                 except (KeyError, ValueError, TypeError) as e:
-                    logger.warning(f"Failed to load device: {e}")
+                    logger.warning("Failed to load device: %s", e)
 
             # Load rules
             for rule_data in data.get("rules", []):
@@ -425,7 +425,7 @@ class FileGatewayStore:
                     rule = _dict_to_rule(rule_data)
                     self._rules[rule.rule_id] = rule
                 except (KeyError, ValueError, TypeError) as e:
-                    logger.warning(f"Failed to load rule: {e}")
+                    logger.warning("Failed to load rule: %s", e)
 
             # Load sessions
             for session_data in data.get("sessions", []):
@@ -434,17 +434,15 @@ class FileGatewayStore:
                     if session_id:
                         self._sessions[session_id] = session_data
                 except (KeyError, ValueError, TypeError) as e:
-                    logger.warning(f"Failed to load session: {e}")
+                    logger.warning("Failed to load session: %s", e)
 
             logger.debug(
-                f"Loaded gateway state: {len(self._messages)} messages, "
-                f"{len(self._devices)} devices, {len(self._rules)} rules, "
-                f"{len(self._sessions)} sessions"
+                "Loaded gateway state: %s messages, %s devices, %s rules, %s sessions", len(self._messages), len(self._devices), len(self._rules), len(self._sessions)
             )
         except json.JSONDecodeError as e:
-            logger.error(f"Failed to parse gateway state file: {e}")
+            logger.error("Failed to parse gateway state file: %s", e)
         except (OSError, PermissionError) as e:
-            logger.error(f"Failed to load gateway state: {e}")
+            logger.error("Failed to load gateway state: %s", e)
 
     async def _save(self, force: bool = False) -> None:
         """Save state to disk."""
@@ -476,9 +474,9 @@ class FileGatewayStore:
 
             self._dirty = False
             self._last_save = now
-            logger.debug(f"Saved gateway state to {self._path}")
+            logger.debug("Saved gateway state to %s", self._path)
         except (OSError, PermissionError) as e:
-            logger.error(f"Failed to save gateway state: {e}")
+            logger.error("Failed to save gateway state: %s", e)
 
     async def save_message(self, message: InboxMessage) -> None:
         """Save an inbox message."""
@@ -762,7 +760,7 @@ class RedisGatewayStore:
                     msg = _dict_to_message(json.loads(data))
                     messages.append(msg)
                 except (KeyError, ValueError, TypeError, json.JSONDecodeError) as e:
-                    logger.warning(f"Failed to parse message: {e}")
+                    logger.warning("Failed to parse message: %s", e)
         return messages
 
     async def delete_message(self, message_id: str) -> bool:
@@ -839,7 +837,7 @@ class RedisGatewayStore:
                     device = _dict_to_device(json.loads(data))
                     devices.append(device)
                 except (KeyError, ValueError, TypeError, json.JSONDecodeError) as e:
-                    logger.warning(f"Failed to parse device: {e}")
+                    logger.warning("Failed to parse device: %s", e)
         return devices
 
     async def delete_device(self, device_id: str) -> bool:
@@ -883,7 +881,7 @@ class RedisGatewayStore:
                     rule = _dict_to_rule(json.loads(data))
                     rules.append(rule)
                 except (KeyError, ValueError, TypeError, json.JSONDecodeError) as e:
-                    logger.warning(f"Failed to parse rule: {e}")
+                    logger.warning("Failed to parse rule: %s", e)
         return rules
 
     async def delete_rule(self, rule_id: str) -> bool:
@@ -933,7 +931,7 @@ class RedisGatewayStore:
                     if isinstance(sess, dict):
                         sessions.append(sess)
                 except (KeyError, ValueError, TypeError, json.JSONDecodeError) as e:
-                    logger.warning(f"Failed to parse session: {e}")
+                    logger.warning("Failed to parse session: %s", e)
         return sessions
 
     async def delete_session(self, session_id: str) -> bool:

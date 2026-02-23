@@ -251,7 +251,7 @@ class WorkspaceAdapter(KnowledgeMoundAdapter):
                 return item_id
 
             except (RuntimeError, ValueError, OSError, AttributeError) as e:
-                logger.error(f"Failed to store rig snapshot: {e}")
+                logger.error("Failed to store rig snapshot: %s", e)
                 return None
 
     async def store_convoy_outcome(
@@ -336,7 +336,7 @@ class WorkspaceAdapter(KnowledgeMoundAdapter):
                 return item_id
 
             except (OSError, ConnectionError, RuntimeError) as e:
-                logger.error(f"Failed to store convoy outcome: {e}")
+                logger.error("Failed to store convoy outcome: %s", e)
                 return None
 
     async def store_merge_outcome(
@@ -417,7 +417,7 @@ class WorkspaceAdapter(KnowledgeMoundAdapter):
                 return item_id
 
             except (RuntimeError, ValueError, OSError, AttributeError) as e:
-                logger.error(f"Failed to store merge outcome: {e}")
+                logger.error("Failed to store merge outcome: %s", e)
                 return None
 
     # =========================================================================
@@ -492,7 +492,7 @@ class WorkspaceAdapter(KnowledgeMoundAdapter):
                 return snapshots[:limit]
 
             except (RuntimeError, ValueError, OSError, AttributeError) as e:
-                logger.error(f"Failed to get rig performance history: {e}")
+                logger.error("Failed to get rig performance history: %s", e)
                 return []
 
     async def get_convoy_patterns(
@@ -564,7 +564,7 @@ class WorkspaceAdapter(KnowledgeMoundAdapter):
                 return outcomes[:limit]
 
             except (RuntimeError, ValueError, OSError, AttributeError) as e:
-                logger.error(f"Failed to get convoy patterns: {e}")
+                logger.error("Failed to get convoy patterns: %s", e)
                 return []
 
     async def get_rig_recommendations(
@@ -651,7 +651,7 @@ class WorkspaceAdapter(KnowledgeMoundAdapter):
                 return recommendations[:top_n]
 
             except (RuntimeError, ValueError, OSError, AttributeError) as e:
-                logger.error(f"Failed to get rig recommendations: {e}")
+                logger.error("Failed to get rig recommendations: %s", e)
                 return []
 
     async def get_optimal_agent_count(
@@ -885,7 +885,7 @@ class WorkspaceAdapter(KnowledgeMoundAdapter):
                     if await self.store_convoy_outcome(outcome):
                         synced["convoys"] += 1
 
-                logger.info(f"Synced from workspace: {synced}")
+                logger.info("Synced from workspace: %s", synced)
                 return synced
 
             except (RuntimeError, ValueError, OSError, AttributeError) as e:

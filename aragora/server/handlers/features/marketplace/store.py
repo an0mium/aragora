@@ -84,7 +84,7 @@ def _load_templates() -> dict[str, TemplateMetadata]:
     try:
         templates_dir = marketplace_module._get_templates_dir()
         if not templates_dir.exists():
-            logger.warning(f"Templates directory not found: {templates_dir}")
+            logger.warning("Templates directory not found: %s", templates_dir)
             cb.record_success()
             return _templates_cache
 
@@ -95,14 +95,14 @@ def _load_templates() -> dict[str, TemplateMetadata]:
                 if template:
                     _templates_cache[template.id] = template
             except (yaml.YAMLError, OSError, ValueError, KeyError) as e:
-                logger.warning(f"Failed to parse template {yaml_file}: {e}")
+                logger.warning("Failed to parse template %s: %s", yaml_file, e)
 
-        logger.info(f"Loaded {len(_templates_cache)} templates from {templates_dir}")
+        logger.info("Loaded %s templates from %s", len(_templates_cache), templates_dir)
         cb.record_success()
         return _templates_cache
 
     except (yaml.YAMLError, OSError, ValueError, KeyError, RuntimeError) as e:
-        logger.exception(f"Error loading templates: {e}")
+        logger.exception("Error loading templates: %s", e)
         cb.record_failure()
         return _templates_cache
 
@@ -157,7 +157,7 @@ def _parse_template_file(file_path: Path) -> TemplateMetadata | None:
         )
 
     except (yaml.YAMLError, OSError, ValueError, KeyError) as e:
-        logger.warning(f"Error parsing template {file_path}: {e}")
+        logger.warning("Error parsing template %s: %s", file_path, e)
         return None
 
 
@@ -173,7 +173,7 @@ def _get_full_template(template_id: str) -> dict[str, Any] | None:
         with open(meta.file_path) as f:
             return yaml.safe_load(f)
     except (yaml.YAMLError, OSError) as e:
-        logger.warning(f"Error loading template {template_id}: {e}")
+        logger.warning("Error loading template %s: %s", template_id, e)
         return None
 
 

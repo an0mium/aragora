@@ -84,7 +84,7 @@ async def route_debate_result(
     """
     origin = get_debate_origin(debate_id)
     if not origin:
-        logger.warning(f"No origin found for debate {debate_id}")
+        logger.warning("No origin found for debate %s", debate_id)
         return False
 
     event_type = result.get("event")
@@ -97,11 +97,11 @@ async def route_debate_result(
     is_aux_event = event_type in aux_events or "package" in result or "progress" in result
 
     if origin.result_sent and not is_aux_event:
-        logger.debug(f"Result already sent for debate {debate_id}")
+        logger.debug("Result already sent for debate %s", debate_id)
         return True
 
     platform = origin.platform.lower()
-    logger.info(f"Routing result for {debate_id} to {platform}:{origin.channel_id}")
+    logger.info("Routing result for %s to %s:%s", debate_id, platform, origin.channel_id)
 
     # Use dock-based routing if enabled
     if USE_DOCK_ROUTING:
@@ -127,13 +127,13 @@ async def route_debate_result(
                     try:
                         await post_receipt_to_channel(origin, receipt, receipt_url)
                     except (OSError, RuntimeError) as e:
-                        logger.warning(f"Failed to post receipt for {debate_id}: {e}")
+                        logger.warning("Failed to post receipt for %s: %s", debate_id, e)
                 return True
             else:
-                logger.warning(f"Dock routing failed for {platform}: {send_result.error}")
+                logger.warning("Dock routing failed for %s: %s", platform, send_result.error)
                 # Fall through to legacy routing
         except (ImportError, OSError, RuntimeError) as e:
-            logger.warning(f"Dock routing error, falling back to legacy: {e}")
+            logger.warning("Dock routing error, falling back to legacy: %s", e)
             # Fall through to legacy routing
 
     # Legacy platform-specific routing (fallback)
@@ -160,7 +160,7 @@ async def route_debate_result(
         elif platform in ("google_chat", "gchat"):
             success = await _send_google_chat_result(origin, result)
         else:
-            logger.warning(f"Unknown platform: {platform}")
+            logger.warning("Unknown platform: %s", platform)
             return False
 
         if success:
@@ -171,12 +171,12 @@ async def route_debate_result(
                 try:
                     await post_receipt_to_channel(origin, receipt, receipt_url)
                 except (OSError, RuntimeError) as e:
-                    logger.warning(f"Failed to post receipt for {debate_id}: {e}")
+                    logger.warning("Failed to post receipt for %s: %s", debate_id, e)
 
         return success
 
     except (OSError, RuntimeError, ValueError) as e:
-        logger.error(f"Failed to route result for {debate_id}: {e}")
+        logger.error("Failed to route result for %s: %s", debate_id, e)
         return False
 
 
@@ -196,7 +196,7 @@ async def post_receipt_to_channel(
         True if receipt was posted successfully
     """
     platform = origin.platform.lower()
-    logger.info(f"Posting receipt to {platform}:{origin.channel_id}")
+    logger.info("Posting receipt to %s:%s", platform, origin.channel_id)
 
     # Use dock-based routing if enabled
     if USE_DOCK_ROUTING:
@@ -216,10 +216,10 @@ async def post_receipt_to_channel(
             if send_result.success:
                 return True
             else:
-                logger.warning(f"Dock receipt routing failed: {send_result.error}")
+                logger.warning("Dock receipt routing failed: %s", send_result.error)
                 # Fall through to legacy routing
         except (ImportError, OSError, RuntimeError) as e:
-            logger.warning(f"Dock receipt routing error, falling back: {e}")
+            logger.warning("Dock receipt routing error, falling back: %s", e)
             # Fall through to legacy routing
 
     # Legacy routing (fallback)
@@ -237,10 +237,10 @@ async def post_receipt_to_channel(
         elif platform in ("google_chat", "gchat"):
             return await _send_google_chat_receipt(origin, summary)
         else:
-            logger.debug(f"Receipt posting not supported for {platform}")
+            logger.debug("Receipt posting not supported for %s", platform)
             return False
     except (OSError, RuntimeError, ValueError) as e:
-        logger.error(f"Receipt post error for {platform}: {e}")
+        logger.error("Receipt post error for %s: %s", platform, e)
         return False
 
 
@@ -260,7 +260,7 @@ async def send_error_to_channel(
         True if the message was sent successfully
     """
     platform = origin.platform.lower()
-    logger.info(f"Sending error to {platform}:{origin.channel_id}")
+    logger.info("Sending error to %s:%s", platform, origin.channel_id)
 
     # Use dock-based routing if enabled
     if USE_DOCK_ROUTING:
@@ -281,10 +281,10 @@ async def send_error_to_channel(
             if send_result.success:
                 return True
             else:
-                logger.warning(f"Dock error routing failed: {send_result.error}")
+                logger.warning("Dock error routing failed: %s", send_result.error)
                 # Fall through to legacy routing
         except (ImportError, OSError, RuntimeError) as e:
-            logger.warning(f"Dock error routing error, falling back: {e}")
+            logger.warning("Dock error routing error, falling back: %s", e)
             # Fall through to legacy routing
 
     # Legacy routing (fallback)
@@ -300,10 +300,10 @@ async def send_error_to_channel(
         elif platform == "discord":
             return await _send_discord_error(origin, friendly_message)
         else:
-            logger.debug(f"Error notification not supported for {platform}")
+            logger.debug("Error notification not supported for %s", platform)
             return False
     except (OSError, RuntimeError, ValueError) as e:
-        logger.error(f"Failed to send error to {platform}: {e}")
+        logger.error("Failed to send error to %s: %s", platform, e)
         return False
 
 
@@ -372,12 +372,12 @@ async def route_result_to_all_sessions(
 
                 if success:
                     success_count += 1
-                    logger.info(f"Routed result to session {session.session_id[:8]}")
+                    logger.info("Routed result to session %s", session.session_id[:8])
             except (OSError, RuntimeError) as e:
-                logger.warning(f"Failed to route to session {session.session_id[:8]}: {e}")
+                logger.warning("Failed to route to session %s: %s", session.session_id[:8], e)
 
     except (OSError, RuntimeError, KeyError, AttributeError) as e:
-        logger.debug(f"Multi-session routing failed: {e}")
+        logger.debug("Multi-session routing failed: %s", e)
 
     return success_count
 
@@ -402,12 +402,12 @@ async def route_plan_result(
     """
     origin = get_debate_origin(debate_id)
     if not origin:
-        logger.warning(f"No origin found for debate {debate_id} (plan routing)")
+        logger.warning("No origin found for debate %s (plan routing)", debate_id)
         return False
 
     plan_id = outcome.get("plan_id", "unknown")
     platform = origin.platform.lower()
-    logger.info(f"Routing plan {plan_id} outcome to {platform}:{origin.channel_id}")
+    logger.info("Routing plan %s outcome to %s:%s", plan_id, platform, origin.channel_id)
 
     # Get pre-formatted message or format one
     message = outcome.get("formatted_message")
@@ -434,13 +434,13 @@ async def route_plan_result(
             )
 
             if send_result.success:
-                logger.info(f"Plan outcome routed via dock to {platform}")
+                logger.info("Plan outcome routed via dock to %s", platform)
                 return True
             else:
-                logger.warning(f"Dock plan routing failed: {send_result.error}")
+                logger.warning("Dock plan routing failed: %s", send_result.error)
                 # Fall through to legacy routing
         except (ImportError, OSError, RuntimeError) as e:
-            logger.warning(f"Dock plan routing error, falling back: {e}")
+            logger.warning("Dock plan routing error, falling back: %s", e)
             # Fall through to legacy routing
 
     # Legacy routing - use result senders with plan outcome as "result"
@@ -468,11 +468,11 @@ async def route_plan_result(
         elif platform in ("google_chat", "gchat"):
             success = await _send_google_chat_result(origin, result_like)
         else:
-            logger.warning(f"Unknown platform for plan routing: {platform}")
+            logger.warning("Unknown platform for plan routing: %s", platform)
             return False
 
         return success
 
     except (OSError, RuntimeError, ValueError) as e:
-        logger.error(f"Failed to route plan outcome for {plan_id}: {e}")
+        logger.error("Failed to route plan outcome for %s: %s", plan_id, e)
         return False

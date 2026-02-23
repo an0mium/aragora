@@ -232,7 +232,7 @@ def handle_errors(context: str, default_status: int = 500) -> Callable[[Callable
                     return await func(*args, **kwargs)
                 except Exception as e:  # noqa: BLE001 - generic handler decorator: wraps arbitrary handlers, must catch all to return proper HTTP error responses
                     logger.error(
-                        f"[{trace_id}] Error in {context}: {type(e).__name__}: {e}",
+                        "[%s] Error in %s: %s: %s", trace_id, context, type(e).__name__, e,
                         exc_info=True,
                     )
                     status = map_exception_to_status(e, default_status)
@@ -253,7 +253,7 @@ def handle_errors(context: str, default_status: int = 500) -> Callable[[Callable
                     return func(*args, **kwargs)
                 except Exception as e:  # noqa: BLE001 - generic handler decorator: wraps arbitrary handlers, must catch all to return proper HTTP error responses
                     logger.error(
-                        f"[{trace_id}] Error in {context}: {type(e).__name__}: {e}",
+                        "[%s] Error in %s: %s: %s", trace_id, context, type(e).__name__, e,
                         exc_info=True,
                     )
                     status = map_exception_to_status(e, default_status)
@@ -295,21 +295,21 @@ def auto_error_response(
             try:
                 return func(*args, **kwargs)
             except sqlite3.OperationalError as e:
-                logger.error(f"Database error in {operation}: {e}")
+                logger.error("Database error in %s: %s", operation, e)
                 return error_response("Database unavailable", 503)
             except PermissionError:
                 return error_response("Access denied", 403)
             except ValueError as e:
-                logger.warning(f"Invalid request in {operation}: {e}")
+                logger.warning("Invalid request in %s: %s", operation, e)
                 return error_response("Invalid request", 400)
             except Exception as e:  # noqa: BLE001 - generic handler decorator: wraps arbitrary handlers, must catch all to return proper HTTP error responses
                 if log_level == "error":
                     logger.error(
-                        f"Failed to {operation}: {e}",
+                        "Failed to %s: %s", operation, e,
                         exc_info=include_traceback,
                     )
                 elif log_level == "warning":
-                    logger.warning(f"Failed to {operation}: {e}")
+                    logger.warning("Failed to %s: %s", operation, e)
                 return error_response(safe_error_message(e, operation), 500)
 
         return wrapper
@@ -339,7 +339,7 @@ def log_request(context: str, log_response: bool = False) -> Callable[[Callable]
         def wrapper(*args: Any, **kwargs: Any) -> Any:
             trace_id = generate_trace_id()
             start_time = time.time()
-            logger.info(f"[{trace_id}] {context}: started")
+            logger.info("[%s] %s: started", trace_id, context)
 
             try:
                 result = func(*args, **kwargs)
@@ -360,7 +360,7 @@ def log_request(context: str, log_response: bool = False) -> Callable[[Callable]
                     body = getattr(result, "body", b"")
                     if body and len(body) < 1000:  # Only log small responses
                         logger.debug(
-                            f"[{trace_id}] Response: {body.decode('utf-8', errors='ignore')[:500]}"
+                            "[%s] Response: %s", trace_id, body.decode('utf-8', errors='ignore')[:500]
                         )
 
                 return result
@@ -368,7 +368,7 @@ def log_request(context: str, log_response: bool = False) -> Callable[[Callable]
             except Exception as e:  # noqa: BLE001 - logging decorator: captures any exception for timing/tracing then re-raises
                 duration_ms = round((time.time() - start_time) * 1000, 2)
                 logger.error(
-                    f"[{trace_id}] {context}: failed in {duration_ms}ms - {type(e).__name__}: {e}",
+                    "[%s] %s: failed in %sms - %s: %s", trace_id, context, duration_ms, type(e).__name__, e,
                     exc_info=True,
                 )
                 raise
@@ -633,7 +633,7 @@ def require_permission(permission: str) -> Callable[[Callable], Callable]:
                 # Test hook: when no handler is found, use override instead of 401
                 if _test_user_context_override is not None:
                     return _test_user_context_override, None
-                logger.warning(f"require_permission({permission}): No handler provided")
+                logger.warning("require_permission(%s): No handler provided", permission)
                 return None, error_response("Authentication required", 401)
 
             user_store = None
@@ -653,8 +653,7 @@ def require_permission(permission: str) -> Callable[[Callable], Callable]:
 
             if not has_permission(user_ctx.role, permission):
                 logger.warning(
-                    f"Permission denied: user={user_ctx.user_id} role={user_ctx.role} "
-                    f"permission={permission}"
+                    "Permission denied: user=%s role=%s permission=%s", user_ctx.user_id, user_ctx.role, permission
                 )
                 return None, error_response("Permission denied", 403)
 
@@ -858,7 +857,7 @@ def safe_fetch(
         yield
     except Exception as e:  # noqa: BLE001 - safe_fetch context manager: wraps arbitrary data retrieval, must catch all to provide fallback
         if log_errors:
-            logger.warning(f"safe_fetch '{key}' failed: {type(e).__name__}: {e}")
+            logger.warning("safe_fetch '%s' failed: %s: %s", key, type(e).__name__, e)
         errors_dict[key] = "Fetch failed"
         data_dict[key] = fallback
 
@@ -888,7 +887,7 @@ def with_error_recovery(
             except Exception as e:  # noqa: BLE001 - error recovery decorator: wraps arbitrary functions, must catch all to return fallback value
                 if log_errors:
                     logger.warning(
-                        f"with_error_recovery '{func.__name__}' failed: {type(e).__name__}: {e}"
+                        "with_error_recovery '%s' failed: %s: %s", func.__name__, type(e).__name__, e
                     )
                 return fallback_value
 
@@ -963,7 +962,7 @@ def deprecated_endpoint(
                         # Format: Sat, 01 Jun 2025 00:00:00 GMT
                         headers["Sunset"] = dt.strftime("%a, %d %b %Y %H:%M:%S GMT")
                     except ValueError:
-                        logger.warning(f"Invalid sunset_date format: {sunset_date}")
+                        logger.warning("Invalid sunset_date format: %s", sunset_date)
 
                 # Add Link header for replacement
                 if replacement:

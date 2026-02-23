@@ -78,14 +78,14 @@ class LazySubsystem(Generic[T]):
         try:
             instance = self.factory(obj)
             setattr(obj, self.private_attr, instance)
-            logger.debug(f"[lazy] Initialized {self.private_attr}")
+            logger.debug("[lazy] Initialized %s", self.private_attr)
 
             if self.on_create and instance is not None:
                 self.on_create(obj, instance)
 
             return instance
         except Exception as e:  # noqa: BLE001 - lazy factory isolation: user-provided factory can raise any exception
-            logger.warning(f"[lazy] Failed to initialize {self.private_attr}: {e}")
+            logger.warning("[lazy] Failed to initialize %s: %s", self.private_attr, e)
             # Cache None to prevent repeated attempts
             setattr(obj, self.private_attr, None)
             return None
@@ -127,14 +127,14 @@ def lazy_property(
             try:
                 instance = func(self)
                 setattr(self, private_attr, instance)
-                logger.debug(f"[lazy] Initialized {func.__name__}")
+                logger.debug("[lazy] Initialized %s", func.__name__)
 
                 if on_create and instance is not None:
                     on_create(self, instance)
 
                 return instance
             except Exception as e:  # noqa: BLE001 - lazy factory isolation: user-provided factory can raise any exception
-                logger.warning(f"[lazy] Failed to initialize {func.__name__}: {e}")
+                logger.warning("[lazy] Failed to initialize %s: %s", func.__name__, e)
                 setattr(self, private_attr, None)
                 return None
 
@@ -177,19 +177,17 @@ def create_lazy_knowledge_mound(arena: Arena):
             auto_initialize=True,
         )
         logger.info(
-            f"[lazy] Auto-created KM instance for debate "
-            f"(retrieval={arena.enable_knowledge_retrieval}, "
-            f"ingestion={arena.enable_knowledge_ingestion})"
+            "[lazy] Auto-created KM instance for debate (retrieval=%s, ingestion=%s)", arena.enable_knowledge_retrieval, arena.enable_knowledge_ingestion
         )
         return mound
     except ImportError as e:
-        logger.warning(f"[lazy] Could not create KnowledgeMound: {e}")
+        logger.warning("[lazy] Could not create KnowledgeMound: %s", e)
         return None
     except (RuntimeError, ConnectionError, OSError) as e:
-        logger.warning(f"[lazy] KM infrastructure error: {e}")
+        logger.warning("[lazy] KM infrastructure error: %s", e)
         return None
     except (ValueError, TypeError, AttributeError, KeyError) as e:
-        logger.exception(f"[lazy] Unexpected KM error: {e}")
+        logger.exception("[lazy] Unexpected KM error: %s", e)
         return None
 
 
@@ -208,7 +206,7 @@ def create_lazy_population_manager(arena: Arena):
         logger.warning("[lazy] PopulationManager not available")
         return None
     except (RuntimeError, ValueError, TypeError, AttributeError, OSError) as e:
-        logger.warning(f"[lazy] Failed to initialize PopulationManager: {e}")
+        logger.warning("[lazy] Failed to initialize PopulationManager: %s", e)
         return None
 
 
@@ -243,7 +241,7 @@ def create_lazy_cross_debate_memory(arena: Arena):
         logger.warning("[lazy] CrossDebateMemory not available")
         return None
     except (RuntimeError, ValueError, TypeError, AttributeError, OSError) as e:
-        logger.warning(f"[lazy] Failed to initialize CrossDebateMemory: {e}")
+        logger.warning("[lazy] Failed to initialize CrossDebateMemory: %s", e)
         return None
 
 
@@ -298,5 +296,5 @@ def create_lazy_memory_gateway(arena: Arena):
         logger.warning("[lazy] MemoryGateway not available")
         return None
     except (RuntimeError, ValueError, TypeError, AttributeError, OSError) as e:
-        logger.warning(f"[lazy] Failed to initialize MemoryGateway: {e}")
+        logger.warning("[lazy] Failed to initialize MemoryGateway: %s", e)
         return None

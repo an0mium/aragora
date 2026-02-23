@@ -141,7 +141,7 @@ async def handle_update_config(
         }
 
     except (KeyError, ValueError, OSError, TypeError, RuntimeError) as e:
-        logger.exception(f"Failed to update config: {e}")
+        logger.exception("Failed to update config: %s", e)
         return {
             "success": False,
             "error": "Failed to update configuration",

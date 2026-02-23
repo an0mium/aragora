@@ -85,7 +85,7 @@ def get_governance_store(
             _postgres_store = run_async(init_postgres_store())
             return _postgres_store
         except (OSError, RuntimeError, ValueError) as e:
-            logger.warning(f"PostgreSQL not available, falling back to SQLite: {e}")
+            logger.warning("PostgreSQL not available, falling back to SQLite: %s", e)
 
             # Enforce distributed storage in production for RBAC policies
             from aragora.storage.production_guards import (

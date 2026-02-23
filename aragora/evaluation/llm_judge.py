@@ -609,7 +609,7 @@ class LLMJudge:
             result.suggestions = feedback.get("suggestions", [])
 
         except (ValueError, TypeError, KeyError, RuntimeError, ConnectionError, TimeoutError, OSError) as e:
-            logger.error(f"Evaluation failed: {e}")
+            logger.error("Evaluation failed: %s", e)
             # Return partial result with error
             result.summary = f"Evaluation error: {e}"
             return result
@@ -673,7 +673,7 @@ class LLMJudge:
             result.explanation = parsed.get("explanation", "")
 
         except (ValueError, TypeError, KeyError, RuntimeError, ConnectionError, TimeoutError, OSError) as e:
-            logger.error(f"Comparison failed: {e}")
+            logger.error("Comparison failed: %s", e)
             result.winner = "tie"
             result.explanation = f"Comparison error: {e}"
 
@@ -895,7 +895,7 @@ Provide your comparison:"""
                         )
 
             except json.JSONDecodeError as e:
-                logger.warning(f"Failed to parse evaluation JSON: {e}")
+                logger.warning("Failed to parse evaluation JSON: %s", e)
                 # Return default scores
                 for dim in self._dimensions:
                     scores[dim] = DimensionScore(
@@ -1035,7 +1035,7 @@ Provide your comparison:"""
             result.judge_model = f"{self._config.model}+{self._config.secondary_model}"
 
         except (ValueError, TypeError, KeyError, RuntimeError, ConnectionError, TimeoutError, OSError) as e:
-            logger.warning(f"Secondary evaluation failed: {e}")
+            logger.warning("Secondary evaluation failed: %s", e)
 
 
 # Convenience functions

@@ -318,7 +318,7 @@ class ConversationIngestorConnector(BaseConnector):
                 ValueError,
                 KeyError,
             ) as e:
-                logger.warning(f"Failed to load {path}: {e}")
+                logger.warning("Failed to load %s: %s", path, e)
 
         return exports
 
@@ -364,7 +364,7 @@ class ConversationIngestorConnector(BaseConnector):
                 if conv and conv.messages:  # Only include non-empty conversations
                     conversations.append(conv)
             except (KeyError, TypeError, ValueError, AttributeError) as e:
-                logger.debug(f"Failed to parse ChatGPT conversation: {e}")
+                logger.debug("Failed to parse ChatGPT conversation: %s", e)
 
         return ConversationExport(
             conversations=conversations,
@@ -465,7 +465,7 @@ class ConversationIngestorConnector(BaseConnector):
                 if conv and conv.messages:
                     conversations.append(conv)
             except (KeyError, TypeError, ValueError, AttributeError) as e:
-                logger.debug(f"Failed to parse Claude conversation: {e}")
+                logger.debug("Failed to parse Claude conversation: %s", e)
 
         return ConversationExport(
             conversations=conversations,

@@ -92,8 +92,7 @@ def _evaluate_rule(rule: RoutingRule, message: MessageLike) -> bool:
             if match is None:
                 # Log if regex timed out (potential ReDoS attempt)
                 logger.warning(
-                    f"[SharedInbox] Regex evaluation timed out or failed for rule "
-                    f"condition pattern: {condition_value[:50]}..."
+                    "[SharedInbox] Regex evaluation timed out or failed for rule condition pattern: %s...", condition_value[:50]
                 )
         results.append(matched)
 
@@ -140,7 +139,7 @@ async def get_matching_rules_for_email(
                 workspace_id=workspace_id,
             )
         except (OSError, RuntimeError, ValueError, KeyError) as e:
-            logger.warning(f"[SharedInbox] Failed to get matching rules from RulesStore: {e}")
+            logger.warning("[SharedInbox] Failed to get matching rules from RulesStore: %s", e)
 
     # Fallback to in-memory evaluation
     with _storage_lock:
@@ -256,7 +255,7 @@ async def apply_routing_rules_to_message(
             try:
                 rules_store.increment_rule_stats(rule["id"], matched=0, applied=1)
             except (OSError, RuntimeError, ValueError, KeyError) as e:
-                logger.debug(f"Failed to increment rule stats for {rule['id']}: {e}")
+                logger.debug("Failed to increment rule stats for %s: %s", rule['id'], e)
 
     return {
         "applied": bool(applied_actions),

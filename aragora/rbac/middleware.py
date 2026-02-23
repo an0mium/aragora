@@ -110,8 +110,7 @@ def validate_route_permissions(
 
     if warnings:
         logger.error(
-            f"SECURITY: {len(warnings)} route permission(s) reference undefined permissions. "
-            f"These routes may have incorrect access control."
+            "SECURITY: %s route permission(s) reference undefined permissions. These routes may have incorrect access control.", len(warnings)
         )
     else:
         logger.info("Route permission validation passed: all permissions are defined.")

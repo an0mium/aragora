@@ -157,7 +157,7 @@ class ToolRegistry:
     def register(self, tool: Tool) -> None:
         """Register a tool."""
         if tool.name in self._tools:
-            logger.warning(f"Tool '{tool.name}' already registered, overwriting")
+            logger.warning("Tool '%s' already registered, overwriting", tool.name)
 
         self._tools[tool.name] = tool
 
@@ -169,8 +169,7 @@ class ToolRegistry:
                 self._capability_index[cap.name].append(tool.name)
 
         logger.info(
-            f"Registered tool '{tool.name}' with {len(tool.capabilities)} capabilities "
-            f"(risk: {tool.risk_level.name}, blast: {tool.blast_radius.name})"
+            "Registered tool '%s' with %s capabilities (risk: %s, blast: %s)", tool.name, len(tool.capabilities), tool.risk_level.name, tool.blast_radius.name
         )
 
     def unregister(self, name: str) -> bool:
@@ -185,7 +184,7 @@ class ToolRegistry:
                     t for t in self._capability_index[cap.name] if t != name
                 ]
 
-        logger.info(f"Unregistered tool '{name}'")
+        logger.info("Unregistered tool '%s'", name)
         return True
 
     def get(self, name: str) -> Tool | None:

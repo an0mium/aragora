@@ -248,7 +248,7 @@ class ConvoyTracker:
                 metadata=ws_metadata,
                 assigned_agents=convoy.assigned_agents,
             )
-            logger.info(f"Created convoy {title} ({convoy_id})")
+            logger.info("Created convoy %s (%s)", title, convoy_id)
             return self._from_workspace_convoy(ws_convoy)
 
     async def get_convoy(self, convoy_id: str) -> Convoy | None:
@@ -311,7 +311,7 @@ class ConvoyTracker:
                 metadata_updates=metadata_updates,
                 assigned_agents=assigned_agents,
             )
-            logger.info(f"Started convoy {convoy_id} with agent {agent_id}")
+            logger.info("Started convoy %s with agent %s", convoy_id, agent_id)
             if not ws_convoy:
                 return None
             return self._from_workspace_convoy(ws_convoy)
@@ -364,7 +364,7 @@ class ConvoyTracker:
                 metadata_updates=metadata_updates,
                 assigned_agents=assigned_agents,
             )
-            logger.info(f"Handed off convoy {convoy_id} from {from_agent} to {to_agent}")
+            logger.info("Handed off convoy %s from %s to %s", convoy_id, from_agent, to_agent)
             if not ws_convoy:
                 return None
             return self._from_workspace_convoy(ws_convoy)
@@ -405,7 +405,7 @@ class ConvoyTracker:
                 metadata_updates=metadata_updates,
                 assigned_agents=convoy.assigned_agents,
             )
-            logger.info(f"Blocked convoy {convoy_id}: {reason}")
+            logger.info("Blocked convoy %s: %s", convoy_id, reason)
             if not ws_convoy:
                 return None
             return self._from_workspace_convoy(ws_convoy)
@@ -433,7 +433,7 @@ class ConvoyTracker:
                 metadata_updates=metadata_updates,
                 assigned_agents=convoy.assigned_agents,
             )
-            logger.info(f"Unblocked convoy {convoy_id}")
+            logger.info("Unblocked convoy %s", convoy_id)
             if not ws_convoy:
                 return None
             return self._from_workspace_convoy(ws_convoy)
@@ -451,7 +451,7 @@ class ConvoyTracker:
                 metadata_updates={"gastown_status": ConvoyStatus.REVIEW.value},
                 assigned_agents=convoy.assigned_agents,
             )
-            logger.info(f"Submitted convoy {convoy_id} for review")
+            logger.info("Submitted convoy %s for review", convoy_id)
             if not ws_convoy:
                 return None
             return self._from_workspace_convoy(ws_convoy)
@@ -488,7 +488,7 @@ class ConvoyTracker:
                 },
                 assigned_agents=convoy.assigned_agents,
             )
-            logger.info(f"Completed convoy {convoy_id}")
+            logger.info("Completed convoy %s", convoy_id)
             if not ws_convoy:
                 return None
             return self._from_workspace_convoy(ws_convoy)
@@ -513,7 +513,7 @@ class ConvoyTracker:
                 },
                 assigned_agents=convoy.assigned_agents,
             )
-            logger.info(f"Cancelled convoy {convoy_id}: {reason}")
+            logger.info("Cancelled convoy %s: %s", convoy_id, reason)
             if not ws_convoy:
                 return None
             return self._from_workspace_convoy(ws_convoy)
@@ -565,7 +565,7 @@ class ConvoyTracker:
             payload["created_at"] = artifact.created_at.isoformat()
             artifacts_metadata.append(payload)
 
-            logger.debug(f"Added artifact {artifact_type} to convoy {convoy_id}")
+            logger.debug("Added artifact %s to convoy %s", artifact_type, convoy_id)
             await self._workspace_tracker.update_metadata(
                 convoy_id,
                 metadata_updates={

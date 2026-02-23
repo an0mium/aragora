@@ -201,7 +201,7 @@ class ErrorHandlerMiddleware:
 
             if self.log_errors:
                 logger.warning(
-                    f"API error: {exc.code} - {exc.message}",
+                    "API error: %s - %s", exc.code, exc.message,
                     extra={
                         "request_id": request_id,
                         "error_code": exc.code,
@@ -226,7 +226,7 @@ class ErrorHandlerMiddleware:
         if status >= 500:
             if self.log_errors:
                 logger.exception(
-                    f"Internal error: {exc}",
+                    "Internal error: %s", exc,
                     extra={
                         "request_id": request_id,
                         "error_type": type(exc).__name__,

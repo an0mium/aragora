@@ -369,7 +369,7 @@ class EmailPrioritizer:
         try:
             sender_profiles = await self._get_sender_profiles_batch(sender_addresses)
         except (ValueError, OSError, ConnectionError, RuntimeError) as e:
-            logger.warning(f"Failed to batch load sender profiles: {e}")
+            logger.warning("Failed to batch load sender profiles: %s", e)
             sender_profiles = {}
 
         # Score all emails concurrently using pre-loaded profiles
@@ -387,7 +387,7 @@ class EmailPrioritizer:
         scored_results: list[EmailPriorityResult] = []
         for i, result in enumerate(results):
             if isinstance(result, BaseException):
-                logger.warning(f"Failed to score email {emails[i].id}: {result}")
+                logger.warning("Failed to score email %s: %s", emails[i].id, result)
                 # Create a default low-priority result for failed emails
                 scored_results.append(
                     EmailPriorityResult(
@@ -446,7 +446,7 @@ class EmailPrioritizer:
             try:
                 is_blocked = await self.sender_history.is_blocked(self.user_id, email_address)
             except (ValueError, OSError, ConnectionError, RuntimeError) as e:
-                logger.warning(f"Failed to check blocklist for {email_address}: {e}")
+                logger.warning("Failed to check blocklist for %s: %s", email_address, e)
 
         # Create profile
         profile = SenderProfile(
@@ -474,7 +474,7 @@ class EmailPrioritizer:
                             history["last_interaction"]
                         )
             except (ValueError, OSError, ConnectionError, RuntimeError) as e:
-                logger.warning(f"Failed to load sender history: {e}")
+                logger.warning("Failed to load sender history: %s", e)
 
         self._sender_profiles[email_address] = profile
         return profile
@@ -529,7 +529,7 @@ class EmailPrioritizer:
                         if isinstance(result, bool) and result:
                             blocked_addresses.add(addr)
             except (ValueError, OSError, ConnectionError, RuntimeError) as e:
-                logger.warning(f"Failed to batch check blocklist: {e}")
+                logger.warning("Failed to batch check blocklist: %s", e)
 
         # Batch load sender histories from knowledge mound
         sender_histories: dict[str, dict[str, Any]] = {}
@@ -537,7 +537,7 @@ class EmailPrioritizer:
             try:
                 sender_histories = await self._load_sender_histories_batch(uncached_addresses)
             except (ValueError, OSError, ConnectionError, RuntimeError) as e:
-                logger.warning(f"Failed to batch load sender histories: {e}")
+                logger.warning("Failed to batch load sender histories: %s", e)
 
         # Pre-compute VIP and internal domain lookups (case-insensitive)
         vip_addresses_lower = {a.lower() for a in self.config.vip_addresses}
@@ -613,13 +613,13 @@ class EmailPrioritizer:
                 results = await asyncio.gather(*query_tasks, return_exceptions=True)
                 for addr, result in zip(email_addresses, results):
                     if isinstance(result, Exception):
-                        logger.debug(f"Failed to load history for {addr}: {result}")
+                        logger.debug("Failed to load history for %s: %s", addr, result)
                         continue
                     if result and hasattr(result, "items") and result.items:
                         histories[addr] = result.items[0].metadata
 
         except (ValueError, OSError, ConnectionError, RuntimeError) as e:
-            logger.debug(f"Batch sender history load failed: {e}")
+            logger.debug("Batch sender history load failed: %s", e)
 
         return histories
 
@@ -637,7 +637,7 @@ class EmailPrioritizer:
             if results and hasattr(results, "items") and results.items:
                 return results.items[0].metadata
         except (ValueError, OSError, ConnectionError, RuntimeError) as e:
-            logger.debug(f"No sender history found: {e}")
+            logger.debug("No sender history found: %s", e)
 
         return None
 
@@ -670,7 +670,7 @@ class EmailPrioritizer:
             return result
 
         except (ValueError, OSError, ConnectionError, RuntimeError) as e:
-            logger.warning(f"Threat check failed for email {email.id}: {e}")
+            logger.warning("Threat check failed for email %s: %s", email.id, e)
             return None
 
     async def _tier_1_score(
@@ -903,7 +903,7 @@ Output format: PRIORITY: [1-5], CONFIDENCE: [0-1], REASON: [brief explanation]""
             )
 
         except (ValueError, OSError, ConnectionError, RuntimeError, ImportError) as e:
-            logger.warning(f"Tier 2 scoring failed, using Tier 1 result: {e}")
+            logger.warning("Tier 2 scoring failed, using Tier 1 result: %s", e)
             tier_1_result.tier_used = ScoringTier.TIER_2_LIGHTWEIGHT
             tier_1_result.rationale += " (Tier 2 fallback to rules)"
             return tier_1_result
@@ -986,7 +986,7 @@ Provide: PRIORITY (1-5), CONFIDENCE (0-1), and RATIONALE."""
                 )
 
         except (ValueError, OSError, ConnectionError, RuntimeError, ImportError) as e:
-            logger.warning(f"Tier 3 debate failed, using Tier 2 result: {e}")
+            logger.warning("Tier 3 debate failed, using Tier 2 result: %s", e)
             tier_2_result.tier_used = ScoringTier.TIER_3_DEBATE
             tier_2_result.rationale += " (Tier 3 fallback to lightweight)"
 
@@ -1069,11 +1069,11 @@ Provide: PRIORITY (1-5), CONFIDENCE (0-1), and RATIONALE."""
                         history_service = SenderHistoryService()
                         await history_service.initialize()
                 except (ImportError, KeyError, AttributeError) as e:
-                    logger.debug(f"Service registry unavailable, creating temporary instance: {e}")
+                    logger.debug("Service registry unavailable, creating temporary instance: %s", e)
                     history_service = SenderHistoryService()
                     await history_service.initialize()
                 except (ValueError, OSError, ConnectionError, RuntimeError) as e:
-                    logger.warning(f"Unexpected error getting history service: {e}")
+                    logger.warning("Unexpected error getting history service: %s", e)
                     history_service = SenderHistoryService()
                     await history_service.initialize()
 
@@ -1096,7 +1096,7 @@ Provide: PRIORITY (1-5), CONFIDENCE (0-1), and RATIONALE."""
                     },
                 )
             except (ValueError, OSError, ConnectionError, RuntimeError) as e:
-                logger.debug(f"Failed to record sender history: {e}")
+                logger.debug("Failed to record sender history: %s", e)
 
         # Store action in knowledge mound for learning
         if self.mound:
@@ -1117,7 +1117,7 @@ Provide: PRIORITY (1-5), CONFIDENCE (0-1), and RATIONALE."""
                 )
                 await self.mound.store(request)
             except (ValueError, OSError, ConnectionError, RuntimeError) as e:
-                logger.debug(f"Failed to store in knowledge mound: {e}")
+                logger.debug("Failed to store in knowledge mound: %s", e)
 
         # Update sender profile if we have the email
         if email:
@@ -1133,7 +1133,7 @@ Provide: PRIORITY (1-5), CONFIDENCE (0-1), and RATIONALE."""
 
                 profile.last_interaction = datetime.now()
             except (ValueError, OSError, ConnectionError, RuntimeError) as e:
-                logger.debug(f"Failed to update sender profile: {e}")
+                logger.debug("Failed to update sender profile: %s", e)
 
 
 # Convenience function for quick access

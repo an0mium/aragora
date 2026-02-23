@@ -164,15 +164,15 @@ class BidirectionalCoordinator:
             True if registered successfully
         """
         if name in self._adapters:
-            logger.warning(f"Adapter '{name}' already registered, updating")
+            logger.warning("Adapter '%s' already registered, updating", name)
 
         # Verify methods exist
         if not hasattr(adapter, forward_method):
-            logger.error(f"Adapter '{name}' missing forward method: {forward_method}")
+            logger.error("Adapter '%s' missing forward method: %s", name, forward_method)
             return False
 
         if reverse_method and not hasattr(adapter, reverse_method):
-            logger.warning(f"Adapter '{name}' missing reverse method: {reverse_method}")
+            logger.warning("Adapter '%s' missing reverse method: %s", name, reverse_method)
             reverse_method = None
 
         self._adapters[name] = AdapterRegistration(
@@ -185,8 +185,7 @@ class BidirectionalCoordinator:
         )
 
         logger.info(
-            f"Registered adapter: {name} (forward={forward_method}, "
-            f"reverse={reverse_method}, priority={priority})"
+            "Registered adapter: %s (forward=%s, reverse=%s, priority=%s)", name, forward_method, reverse_method, priority
         )
         return True
 
@@ -201,11 +200,11 @@ class BidirectionalCoordinator:
             True if unregistered successfully
         """
         if name not in self._adapters:
-            logger.warning(f"Adapter '{name}' not found")
+            logger.warning("Adapter '%s' not found", name)
             return False
 
         del self._adapters[name]
-        logger.info(f"Unregistered adapter: {name}")
+        logger.info("Unregistered adapter: %s", name)
         return True
 
     def get_adapter(self, name: str) -> Any | None:
@@ -255,7 +254,7 @@ class BidirectionalCoordinator:
             remaining = circuit.cooldown_remaining()
             return False, f"Circuit open for {adapter_name}, retry in {remaining:.1f}s"
         except (OSError, ConnectionError, TimeoutError, RuntimeError) as e:
-            logger.debug(f"Circuit breaker check failed for {adapter_name}: {e}")
+            logger.debug("Circuit breaker check failed for %s: %s", adapter_name, e)
             return True, "Circuit check failed, allowing request"
 
     async def _sync_adapter_forward(
@@ -285,7 +284,7 @@ class BidirectionalCoordinator:
         if not can_proceed and self.config.skip_open_circuits:
             result.errors.append(f"Skipped: {reason}")
             result.duration_ms = int((time.time() - start_time) * 1000)
-            logger.info(f"Skipping forward sync for {registration.name}: {reason}")
+            logger.info("Skipping forward sync for %s: %s", registration.name, reason)
             return result
 
         try:
@@ -364,7 +363,7 @@ class BidirectionalCoordinator:
         if not can_proceed and self.config.skip_open_circuits:
             result.errors.append(f"Skipped: {reason}")
             result.duration_ms = int((time.time() - start_time) * 1000)
-            logger.info(f"Skipping reverse sync for {registration.name}: {reason}")
+            logger.info("Skipping reverse sync for %s: %s", registration.name, reason)
             return result
 
         try:
@@ -439,7 +438,7 @@ class BidirectionalCoordinator:
         except ImportError:
             pass
         except (RuntimeError, ValueError, OSError, AttributeError) as e:
-            logger.debug(f"Failed to record Prometheus metrics: {e}")
+            logger.debug("Failed to record Prometheus metrics: %s", e)
 
     async def sync_all_to_km(self) -> list[SyncResult]:
         """
@@ -558,7 +557,7 @@ class BidirectionalCoordinator:
                 )
                 return items
         except (RuntimeError, ValueError, OSError, AttributeError) as e:
-            logger.error(f"Error getting KM items: {e}")
+            logger.error("Error getting KM items: %s", e)
 
         return []
 
@@ -626,11 +625,7 @@ class BidirectionalCoordinator:
             self._sync_history = self._sync_history[-self._max_history :]
 
         logger.info(
-            f"Bidirectional sync complete: "
-            f"forward={report.successful_forward}/{len(report.forward_results)}, "
-            f"reverse={report.successful_reverse}/{len(report.reverse_results)}, "
-            f"errors={report.total_errors}, "
-            f"duration={report.total_duration_ms}ms"
+            "Bidirectional sync complete: forward=%s/%s, reverse=%s/%s, errors=%s, duration=%sms", report.successful_forward, len(report.forward_results), report.successful_reverse, len(report.reverse_results), report.total_errors, report.total_duration_ms
         )
 
         return report

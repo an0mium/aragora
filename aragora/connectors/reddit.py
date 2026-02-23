@@ -120,7 +120,7 @@ class RedditConnector(BaseConnector):
             logger.debug("Reddit health check timed out")
             return False
         except httpx.RequestError as e:
-            logger.debug(f"Reddit health check failed: {e}")
+            logger.debug("Reddit health check failed: %s", e)
             return False
 
     async def _rate_limit(self) -> None:
@@ -208,7 +208,7 @@ class RedditConnector(BaseConnector):
         try:
             data = await self._request_with_retry(do_request, f"search '{query}'")
             results = self._parse_listing(data)
-            logger.info(f"Reddit search '{query}' returned {len(results)} results")
+            logger.info("Reddit search '%s' returned %s results", query, len(results))
             return results
 
         except (
@@ -220,7 +220,7 @@ class RedditConnector(BaseConnector):
             KeyError,
             TypeError,
         ) as e:
-            logger.debug(f"Reddit search failed: {e}")
+            logger.debug("Reddit search failed: %s", e)
             return []
 
     async def fetch(self, evidence_id: str) -> Evidence | None:
@@ -272,7 +272,7 @@ class RedditConnector(BaseConnector):
             KeyError,
             TypeError,
         ) as e:
-            logger.debug(f"Reddit fetch failed for {evidence_id}: {e}")
+            logger.debug("Reddit fetch failed for %s: %s", evidence_id, e)
             return None
 
     def _parse_listing(self, data: dict) -> list[Evidence]:
@@ -288,7 +288,7 @@ class RedditConnector(BaseConnector):
                     if evidence:
                         results.append(evidence)
             except (ValueError, TypeError, KeyError, AttributeError) as e:
-                logger.debug(f"Error parsing Reddit post: {e}")
+                logger.debug("Error parsing Reddit post: %s", e)
                 continue
 
         return results
@@ -462,7 +462,7 @@ class RedditConnector(BaseConnector):
         try:
             data = await self._request_with_retry(do_request, f"get r/{subreddit}/{sort}")
             results = self._parse_listing(data)
-            logger.info(f"Reddit r/{subreddit}/{sort} returned {len(results)} results")
+            logger.info("Reddit r/%s/%s returned %s results", subreddit, sort, len(results))
             return results
 
         except (
@@ -474,7 +474,7 @@ class RedditConnector(BaseConnector):
             KeyError,
             TypeError,
         ) as e:
-            logger.debug(f"Reddit get_subreddit failed for r/{subreddit}: {e}")
+            logger.debug("Reddit get_subreddit failed for r/%s: %s", subreddit, e)
             return []
 
     async def get_hot(self, subreddit: str = "all", limit: int = 25) -> list[Evidence]:

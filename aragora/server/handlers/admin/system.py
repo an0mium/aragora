@@ -410,7 +410,7 @@ class SystemHandler(BaseHandler):
             logger.error("Filesystem error during maintenance '%s': %s", task, e)
             return error_response(f"Filesystem error during maintenance task '{task}'", 500)
         except (ValueError, KeyError, TypeError, RuntimeError, OSError) as e:
-            logger.exception(f"Maintenance task '{task}' failed: {e}")
+            logger.exception("Maintenance task '%s' failed: %s", task, e)
             return error_response(safe_error_message(e, "maintenance"), 500)
 
     @require_permission("admin:security")
@@ -516,7 +516,7 @@ class SystemHandler(BaseHandler):
         except ImportError:
             return error_response("Metrics module not available", 503)
         except (RuntimeError, ValueError, TypeError, OSError) as e:
-            logger.exception(f"Metrics generation failed: {e}")
+            logger.exception("Metrics generation failed: %s", e)
             return error_response(safe_error_message(e, "metrics"), 500)
 
     @require_permission("monitoring:resilience")
@@ -546,7 +546,7 @@ class SystemHandler(BaseHandler):
         except ImportError:
             return error_response("Resilience module not available", 503)
         except (RuntimeError, ValueError, TypeError, AttributeError) as e:
-            logger.exception(f"Circuit breaker metrics failed: {e}")
+            logger.exception("Circuit breaker metrics failed: %s", e)
             return error_response(safe_error_message(e, "circuit breaker metrics"), 500)
 
     @require_permission("admin:diagnostics")
@@ -622,5 +622,5 @@ class SystemHandler(BaseHandler):
             logger.warning("Handler error: %s", e)
             return error_response("Service temporarily unavailable", 503)
         except (TypeError, ValueError, KeyError, AttributeError, RuntimeError) as e:
-            logger.exception(f"Handler diagnostics failed: {e}")
+            logger.exception("Handler diagnostics failed: %s", e)
             return error_response(safe_error_message(e, "handler diagnostics"), 500)

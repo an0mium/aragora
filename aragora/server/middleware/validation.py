@@ -1032,7 +1032,7 @@ class ValidationMiddleware:
             if route_key not in self._unvalidated_routes:
                 self._unvalidated_routes.add(route_key)
                 if self.config.log_all:
-                    logger.debug(f"No validation rule for: {route_key}")
+                    logger.debug("No validation rule for: %s", route_key)
             return result
 
         # Validate body size
@@ -1102,10 +1102,10 @@ class ValidationMiddleware:
             except ImportError:
                 pass  # Audit module not available
             except (RuntimeError, ValueError, TypeError, OSError) as e:
-                logger.debug(f"Failed to emit validation audit event: {e}")
+                logger.debug("Failed to emit validation audit event: %s", e)
 
         elif self.config.log_all:
-            logger.debug(f"Validation passed for {method} {path}")
+            logger.debug("Validation passed for %s %s", method, path)
 
         return result
 
@@ -1204,4 +1204,4 @@ def add_route_validation(
         required_params=required_params or [],
     )
     VALIDATION_REGISTRY.append(rule)
-    logger.info(f"Added validation rule: {method} {pattern}")
+    logger.info("Added validation rule: %s %s", method, pattern)

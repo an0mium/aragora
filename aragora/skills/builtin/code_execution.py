@@ -444,7 +444,7 @@ class CodeExecutionSkill(Skill):
             return SkillResult.create_success(result)
 
         except CodeValidationError as e:
-            logger.warning(f"Code validation failed: {e}")
+            logger.warning("Code validation failed: %s", e)
             return SkillResult.create_failure(
                 f"Code validation failed: {e}",
                 error_code="validation_failed",
@@ -452,7 +452,7 @@ class CodeExecutionSkill(Skill):
         except asyncio.TimeoutError:
             return SkillResult.create_timeout(timeout)
         except (RuntimeError, ValueError, OSError) as e:
-            logger.exception(f"Code execution failed: {e}")
+            logger.exception("Code execution failed: %s", e)
             return SkillResult.create_failure(f"Execution failed: {e}")
 
     @staticmethod

@@ -68,7 +68,7 @@ async def send_message_tool(
         }
 
     except (RuntimeError, OSError, ConnectionError, TimeoutError) as e:
-        logger.error(f"Failed to send message: {e}")
+        logger.error("Failed to send message: %s", e)
         return {
             "error": str(e),
             "channel_id": channel_id,
@@ -147,7 +147,7 @@ async def create_poll_tool(
         }
 
     except (RuntimeError, OSError, ConnectionError, TimeoutError) as e:
-        logger.error(f"Failed to create poll: {e}")
+        logger.error("Failed to create poll: %s", e)
         return {"error": str(e), "channel_id": channel_id}
 
 
@@ -234,7 +234,7 @@ async def trigger_debate_tool(
         }
 
     except (RuntimeError, OSError, ConnectionError, TimeoutError, ImportError) as e:
-        logger.error(f"Failed to trigger debate: {e}")
+        logger.error("Failed to trigger debate: %s", e)
         return {"error": str(e), "channel_id": channel_id}
 
 
@@ -314,7 +314,7 @@ async def post_receipt_tool(
         }
 
     except (RuntimeError, OSError, ImportError, ValueError) as e:
-        logger.error(f"Failed to post receipt: {e}")
+        logger.error("Failed to post receipt: %s", e)
         return {"error": str(e), "debate_id": debate_id}
 
 
@@ -356,7 +356,7 @@ async def update_message_tool(
         }
 
     except (RuntimeError, OSError, ConnectionError, TimeoutError) as e:
-        logger.error(f"Failed to update message: {e}")
+        logger.error("Failed to update message: %s", e)
         return {"error": str(e), "message_id": message_id}
 
 
@@ -397,7 +397,7 @@ async def add_reaction_tool(
         }
 
     except (RuntimeError, OSError, ConnectionError, TimeoutError) as e:
-        logger.error(f"Failed to add reaction: {e}")
+        logger.error("Failed to add reaction: %s", e)
         return {"error": str(e), "message_id": message_id}
 
 
@@ -483,10 +483,10 @@ async def _get_chat_connector(platform: str) -> Any | None:
 
             return TeamsConnector()
         else:
-            logger.warning(f"Unknown platform: {platform}")
+            logger.warning("Unknown platform: %s", platform)
             return None
     except ImportError as e:
-        logger.warning(f"Could not import connector for {platform}: {e}")
+        logger.warning("Could not import connector for %s: %s", platform, e)
         return None
 
 

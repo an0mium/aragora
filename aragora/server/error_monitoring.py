@@ -154,14 +154,14 @@ def init_monitoring() -> bool:
             )
 
             _sentry_available = True
-            logger.info(f"Sentry initialized: env={environment}, release={release}")
+            logger.info("Sentry initialized: env=%s, release=%s", environment, release)
 
         except ImportError:
             logger.debug("sentry-sdk not installed, error monitoring disabled")
             _sentry_available = False
         except (ValueError, TypeError, RuntimeError) as e:
             # Configuration errors (invalid DSN, bad sample rates, SDK runtime issues)
-            logger.error(f"Failed to initialize Sentry: {e}")
+            logger.error("Failed to initialize Sentry: %s", e)
             _sentry_available = False
 
         _initialized = True
@@ -191,7 +191,7 @@ def capture_exception(
         Event ID if captured, None otherwise.
     """
     if not _sentry_available:
-        logger.exception(f"Uncaptured exception: {exception}")
+        logger.exception("Uncaptured exception: %s", exception)
         return None
 
     try:
@@ -205,7 +205,7 @@ def capture_exception(
             event_id: str | None = sentry_sdk.capture_exception(exception)
             return event_id
     except Exception as e:  # noqa: BLE001 - Intentional catch-all: error monitoring must never crash the main application
-        logger.error(f"Failed to capture exception: {e}")
+        logger.error("Failed to capture exception: %s", e)
         return None
 
 
@@ -240,7 +240,7 @@ def capture_message(
             event_id: str | None = sentry_sdk.capture_message(message, level=level)
             return event_id
     except Exception as e:  # noqa: BLE001 - Intentional catch-all: error monitoring must never crash the main application
-        logger.error(f"Failed to capture message: {e}")
+        logger.error("Failed to capture message: %s", e)
         return None
 
 
@@ -294,7 +294,7 @@ def set_user(
         )
 
     except Exception as e:  # noqa: BLE001 - Intentional catch-all: error monitoring must never crash the main application
-        logger.error(f"Failed to set user: {e}")
+        logger.error("Failed to set user: %s", e)
 
 
 def set_tag(key: str, value: str):
@@ -312,7 +312,7 @@ def set_tag(key: str, value: str):
 
         sentry_sdk.set_tag(key, value)
     except Exception as e:  # noqa: BLE001 - Intentional catch-all: error monitoring must never crash the main application
-        logger.error(f"Failed to set tag: {e}")
+        logger.error("Failed to set tag: %s", e)
 
 
 def set_debate_context(
@@ -354,7 +354,7 @@ def set_debate_context(
             },
         )
     except Exception as e:  # noqa: BLE001 - Intentional catch-all: error monitoring must never crash the main application
-        logger.error(f"Failed to set debate context: {e}")
+        logger.error("Failed to set debate context: %s", e)
 
 
 def monitor_errors(func: F) -> F:
@@ -409,8 +409,7 @@ def track_error_recovery(
     """
     if not _sentry_available:
         logger.info(
-            f"Error recovery: type={error_type}, strategy={recovery_strategy}, "
-            f"success={success}, duration_ms={duration_ms}"
+            "Error recovery: type=%s, strategy=%s, success=%s, duration_ms=%s", error_type, recovery_strategy, success, duration_ms
         )
         return
 
@@ -445,7 +444,7 @@ def track_error_recovery(
             )
 
     except Exception as e:  # noqa: BLE001 - Intentional catch-all: error monitoring must never crash the main application
-        logger.error(f"Failed to track error recovery: {e}")
+        logger.error("Failed to track error recovery: %s", e)
 
 
 def start_transaction(name: str, op: str = "task") -> Any:
@@ -466,7 +465,7 @@ def start_transaction(name: str, op: str = "task") -> Any:
 
         return sentry_sdk.start_transaction(name=name, op=op)
     except Exception as e:  # noqa: BLE001 - Intentional catch-all: error monitoring must never crash the main application
-        logger.error(f"Failed to start transaction: {e}")
+        logger.error("Failed to start transaction: %s", e)
         return None
 
 

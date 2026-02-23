@@ -72,7 +72,7 @@ class UsageMeteringHandler(SecureHandler):
         # Rate limit check
         client_ip = get_client_ip(handler)
         if not _usage_limiter.is_allowed(client_ip):
-            logger.warning(f"Rate limit exceeded for usage endpoint: {client_ip}")
+            logger.warning("Rate limit exceeded for usage endpoint: %s", client_ip)
             return error_response("Rate limit exceeded. Please try again later.", 429)
 
         # Determine HTTP method from handler if not provided
@@ -407,7 +407,7 @@ class UsageMeteringHandler(SecureHandler):
                         ),
                     }
             except (RuntimeError, OSError, ValueError, KeyError, TypeError, AttributeError) as e:
-                logger.warning(f"Failed to get quota status for {resource}: {e}")
+                logger.warning("Failed to get quota status for %s: %s", resource, e)
                 continue
 
         return json_response({"quotas": quotas})

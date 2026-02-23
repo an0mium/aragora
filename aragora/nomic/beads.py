@@ -313,7 +313,7 @@ class BeadStore:
         # Load existing beads into cache
         await self._load_beads()
         self._initialized = True
-        logger.info(f"BeadStore initialized with {len(self._beads_cache)} beads")
+        logger.info("BeadStore initialized with %s beads", len(self._beads_cache))
 
     async def _init_git(self) -> None:
         """Initialize git repository if not exists."""
@@ -333,9 +333,9 @@ class BeadStore:
                     proc.kill()
                     await proc.wait()
                     raise
-                logger.info(f"Initialized git repository in {self.bead_dir}")
+                logger.info("Initialized git repository in %s", self.bead_dir)
             except OSError as e:
-                logger.warning(f"Could not initialize git: {e}")
+                logger.warning("Could not initialize git: %s", e)
                 self.git_enabled = False
 
     def _load_beads_sync(self) -> tuple[dict[str, Bead], dict[str, int]]:
@@ -357,9 +357,9 @@ class BeadStore:
                         cache[bead.id] = bead
                         index[bead.id] = line_num
                     except (json.JSONDecodeError, KeyError) as e:
-                        logger.warning(f"Invalid bead at line {line_num}: {e}")
+                        logger.warning("Invalid bead at line %s: %s", line_num, e)
         except OSError as e:
-            logger.error(f"Failed to load beads: {e}")
+            logger.error("Failed to load beads: %s", e)
         return cache, index
 
     async def _load_beads(self) -> None:
@@ -443,7 +443,7 @@ class BeadStore:
             if self.auto_commit:
                 await self.commit_to_git(f"Created bead: {bead.title}")
 
-            logger.debug(f"Created bead: {bead.id} ({bead.title})")
+            logger.debug("Created bead: %s (%s)", bead.id, bead.title)
             return bead.id
 
     async def get(self, bead_id: str) -> Bead | None:
@@ -524,7 +524,7 @@ class BeadStore:
             )
             await self._record_event(event)
 
-            logger.debug(f"Bead {bead_id} claimed by {agent_id}")
+            logger.debug("Bead %s claimed by %s", bead_id, agent_id)
             return True
 
     async def update_status(
@@ -693,11 +693,11 @@ class BeadStore:
             _, out = await _git("rev-parse", "HEAD")
             commit_hash = out[:8]
 
-            logger.info(f"Committed beads: {commit_hash} - {message}")
+            logger.info("Committed beads: %s - %s", commit_hash, message)
             return commit_hash
 
         except OSError as e:
-            logger.warning(f"Git commit failed: {e}")
+            logger.warning("Git commit failed: %s", e)
             return None
 
 

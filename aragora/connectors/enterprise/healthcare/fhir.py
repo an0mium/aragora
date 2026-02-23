@@ -390,7 +390,7 @@ class FHIRAuditLogger:
             query_params=query_params,
         )
         self._events.append(event)
-        logger.info(f"[AUDIT] READ {resource_type}/{resource_id} by {self.user_id} reason={reason}")
+        logger.info("[AUDIT] READ %s/%s by %s reason=%s", resource_type, resource_id, self.user_id, reason)
         return event
 
     def log_search(
@@ -416,8 +416,7 @@ class FHIRAuditLogger:
         )
         self._events.append(event)
         logger.info(
-            f"[AUDIT] SEARCH {resource_type} by {self.user_id} "
-            f"results={results_count} reason={reason}"
+            "[AUDIT] SEARCH %s by %s results=%s reason=%s", resource_type, self.user_id, results_count, reason
         )
         return event
 
@@ -443,8 +442,7 @@ class FHIRAuditLogger:
         )
         self._events.append(event)
         logger.info(
-            f"[AUDIT] EXPORT {resource_types} by {self.user_id} "
-            f"records={record_count} reason={reason}"
+            "[AUDIT] EXPORT %s by %s records=%s reason=%s", resource_types, self.user_id, record_count, reason
         )
         return event
 
@@ -649,7 +647,7 @@ class FHIRConnector(EnterpriseConnector):
                         # Fallback to metadata
                         token_url = f"{self.base_url}/oauth2/token"
                 except httpx.RequestError as e:
-                    logger.debug(f"[{self.name}] SMART config discovery failed, using default: {e}")
+                    logger.debug("[%s] SMART config discovery failed, using default: %s", self.name, e)
                     token_url = f"{self.base_url}/oauth2/token"
 
                 # Request token (client credentials flow)
@@ -670,12 +668,12 @@ class FHIRConnector(EnterpriseConnector):
                     self._token_expires_at = datetime.now(timezone.utc) + timedelta(
                         seconds=expires_in - 60
                     )
-                    logger.info(f"[{self.name}] Authenticated successfully")
+                    logger.info("[%s] Authenticated successfully", self.name)
                 else:
-                    logger.warning(f"[{self.name}] Authentication failed: {response.status_code}")
+                    logger.warning("[%s] Authentication failed: %s", self.name, response.status_code)
 
         except httpx.RequestError as e:
-            logger.warning(f"[{self.name}] Authentication error: {e}")
+            logger.warning("[%s] Authentication error: %s", self.name, e)
 
     def _get_headers(self) -> dict[str, str]:
         """Get request headers with authentication."""
@@ -842,7 +840,7 @@ class FHIRConnector(EnterpriseConnector):
                         )
                     if response.status_code != 200:
                         logger.warning(
-                            f"[{self.name}] Failed to fetch {resource_name}: {response.status_code}"
+                            "[%s] Failed to fetch %s: %s", self.name, resource_name, response.status_code
                         )
                         break
 
@@ -884,7 +882,7 @@ class FHIRConnector(EnterpriseConnector):
                                     last_updated.replace("Z", "+00:00")
                                 )
                             except ValueError as e:
-                                logger.debug(f"Invalid FHIR lastUpdated format: {e}")
+                                logger.debug("Invalid FHIR lastUpdated format: %s", e)
 
                         # Create sync item
                         item_id = f"fhir:{self.organization_id}:{resource_name}:{resource_id}"
@@ -920,7 +918,7 @@ class FHIRConnector(EnterpriseConnector):
                     params = {}
 
             except (FHIRError, httpx.RequestError) as e:
-                logger.error(f"[{self.name}] Error syncing {resource_name}: {e}")
+                logger.error("[%s] Error syncing %s: %s", self.name, resource_name, e)
                 state.errors.append(f"{resource_name}: sync failed")
 
     async def search(
@@ -984,7 +982,7 @@ class FHIRConnector(EnterpriseConnector):
                         )
 
             except (FHIRError, httpx.RequestError) as e:
-                logger.debug(f"Search failed for {rt}: {e}")
+                logger.debug("Search failed for %s: %s", rt, e)
 
         return sorted(results, key=lambda x: x.get("score", 0), reverse=True)[:limit]
 
@@ -1026,7 +1024,7 @@ class FHIRConnector(EnterpriseConnector):
                 return resource
 
         except (FHIRError, httpx.RequestError) as e:
-            logger.error(f"[{self.name}] Fetch failed: {e}")
+            logger.error("[%s] Fetch failed: %s", self.name, e)
 
         return None
 
@@ -1046,7 +1044,7 @@ class FHIRConnector(EnterpriseConnector):
         if notification_type == "subscription-notification":
             entries = payload.get("entry", [])
             if entries:
-                logger.info(f"[{self.name}] Webhook: {len(entries)} resource updates")
+                logger.info("[%s] Webhook: %s resource updates", self.name, len(entries))
                 asyncio.create_task(self.sync(max_items=len(entries) * 2))
                 return True
 

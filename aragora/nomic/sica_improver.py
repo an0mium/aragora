@@ -408,7 +408,7 @@ class SICAImprover:
             started_at=started_at,
         )
 
-        logger.info(f"sica_cycle_start cycle_id={cycle_id}")
+        logger.info("sica_cycle_start cycle_id=%s", cycle_id)
 
         try:
             # Step 1: Find opportunities
@@ -418,7 +418,7 @@ class SICAImprover:
             )
             result.opportunities = opportunities
             result.opportunities_found = len(opportunities)
-            logger.info(f"sica_opportunities_found count={len(opportunities)}")
+            logger.info("sica_opportunities_found count=%s", len(opportunities))
 
             # Limit to max per cycle
             opportunities = opportunities[: self.config.max_opportunities_per_cycle]
@@ -459,7 +459,7 @@ class SICAImprover:
                     if test_passed:
                         result.patches_successful += 1
                         logger.info(
-                            f"sica_patch_success patch_id={patch.id} file={patch.file_path}"
+                            "sica_patch_success patch_id=%s file=%s", patch.id, patch.file_path
                         )
                     else:
                         # Rollback
@@ -468,7 +468,7 @@ class SICAImprover:
                             result.patches_rolled_back += 1
                             rollbacks_this_cycle += 1
                             logger.warning(
-                                f"sica_patch_rollback patch_id={patch.id} reason=test_failure"
+                                "sica_patch_rollback patch_id=%s reason=test_failure", patch.id
                             )
 
                             if rollbacks_this_cycle >= self.config.max_rollbacks_per_cycle:
@@ -478,13 +478,13 @@ class SICAImprover:
                     result.patches_successful += 1
 
         except (RuntimeError, OSError, ValueError) as e:
-            logger.error(f"sica_cycle_error error={e}")
+            logger.error("sica_cycle_error error=%s", e)
             raise
 
         result.finished_at = datetime.now()
         self._cycle_history.append(result)
 
-        logger.info(f"sica_cycle_complete {result.summary()}")
+        logger.info("sica_cycle_complete %s", result.summary())
 
         if self.config.on_cycle_complete:
             await self.config.on_cycle_complete(result)
@@ -854,7 +854,7 @@ Only return the JSON array, no other text."""
                     for i, item in enumerate(items)
                 ]
         except (RuntimeError, ValueError, OSError, KeyError) as e:
-            logger.debug(f"LLM analysis failed: {e}")
+            logger.debug("LLM analysis failed: %s", e)
 
         return []
 
@@ -872,7 +872,7 @@ Only return the JSON array, no other text."""
         """
         file_path = self.repo_path / opportunity.file_path
         if not file_path.exists():
-            logger.warning(f"File not found: {file_path}")
+            logger.warning("File not found: %s", file_path)
             return None
 
         original_content = file_path.read_text()
@@ -962,7 +962,7 @@ Preserve all existing functionality while fixing the issue."""
                 response = response.split("```")[1].split("```")[0]
             return response.strip()
         except (RuntimeError, ValueError, OSError) as e:
-            logger.debug(f"LLM patch generation failed: {e}")
+            logger.debug("LLM patch generation failed: %s", e)
             return None
 
     def _heuristic_fix(
@@ -1059,8 +1059,7 @@ Preserve all existing functionality while fixing the issue."""
             file_path.write_text(original)
 
         logger.info(
-            f"sica_validation patch_id={patch.id} "
-            f"result={patch.validation_result.value if patch.validation_result else 'none'}"
+            "sica_validation patch_id=%s result=%s", patch.id, patch.validation_result.value if patch.validation_result else 'none'
         )
 
         return patch.validation_result == ValidationResult.PASSED
@@ -1162,7 +1161,7 @@ Preserve all existing functionality while fixing the issue."""
         # Check for auto-approval conditions
         if self._can_auto_approve(patch):
             patch.approval_status = PatchApprovalStatus.AUTO_APPROVED
-            logger.info(f"sica_auto_approved patch_id={patch.id}")
+            logger.info("sica_auto_approved patch_id=%s", patch.id)
             return True
 
         # Use callback if provided
@@ -1176,7 +1175,7 @@ Preserve all existing functionality while fixing the issue."""
         # If no callback and human approval required, reject
         if self.config.require_human_approval:
             patch.approval_status = PatchApprovalStatus.PENDING
-            logger.info(f"sica_approval_pending patch_id={patch.id}")
+            logger.info("sica_approval_pending patch_id=%s", patch.id)
             return False
 
         # Default: approve
@@ -1233,14 +1232,14 @@ Preserve all existing functionality while fixing the issue."""
             patch.applied_at = datetime.now()
             self._applied_patches.append(patch)
 
-            logger.info(f"sica_patch_applied patch_id={patch.id} file={patch.file_path}")
+            logger.info("sica_patch_applied patch_id=%s file=%s", patch.id, patch.file_path)
 
             if self.config.on_patch_applied:
                 await self.config.on_patch_applied(patch)
 
             return True
         except OSError as e:
-            logger.error(f"sica_patch_apply_failed patch_id={patch.id} error={e}")
+            logger.error("sica_patch_apply_failed patch_id=%s error=%s", patch.id, e)
             return False
 
     def _create_backup(self, file_path: str) -> FileBackup:
@@ -1277,7 +1276,7 @@ Preserve all existing functionality while fixing the issue."""
 
         backup = self._backups.get(patch.id)
         if not backup:
-            logger.error(f"No backup found for patch {patch.id}")
+            logger.error("No backup found for patch %s", patch.id)
             return False
 
         try:
@@ -1285,10 +1284,10 @@ Preserve all existing functionality while fixing the issue."""
             file_path.write_text(backup.content)
             patch.applied = False
 
-            logger.info(f"sica_patch_rolled_back patch_id={patch.id}")
+            logger.info("sica_patch_rolled_back patch_id=%s", patch.id)
             return True
         except OSError as e:
-            logger.error(f"sica_rollback_failed patch_id={patch.id} error={e}")
+            logger.error("sica_rollback_failed patch_id=%s error=%s", patch.id, e)
             return False
 
     def get_metrics(self) -> dict[str, Any]:

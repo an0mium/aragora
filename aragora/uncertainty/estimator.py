@@ -132,7 +132,7 @@ class ConfidenceEstimator:
         confidences = {}
         for agent, result in zip(agents, results):
             if isinstance(result, Exception):
-                logger.warning(f"Error getting confidence from {agent.name}: {result}")
+                logger.warning("Error getting confidence from %s: %s", agent.name, result)
                 # Default confidence
                 confidences[agent.name] = ConfidenceScore(
                     agent.name, 0.5, "Error estimating confidence"
@@ -162,7 +162,7 @@ class ConfidenceEstimator:
             )
         except (RuntimeError, ValueError, TypeError, OSError) as e:
             # Fallback to default confidence
-            logger.warning(f"Failed to get confidence from {agent.name}: {e}")
+            logger.warning("Failed to get confidence from %s: %s", agent.name, e)
             return ConfidenceScore(agent.name, 0.5, "Default confidence")
 
     def _store_confidence(self, agent_name: str, confidence: ConfidenceScore):

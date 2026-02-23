@@ -93,7 +93,7 @@ class DeliberationAnalyticsMixin:
             )
 
         except (ImportError, RuntimeError, OSError, LookupError) as e:
-            logger.exception(f"Error getting deliberation summary: {e}")
+            logger.exception("Error getting deliberation summary: %s", e)
             return error_response(
                 safe_error_message(e, "deliberation summary"), 500, code="INTERNAL_ERROR"
             )
@@ -173,7 +173,7 @@ class DeliberationAnalyticsMixin:
             )
 
         except (ImportError, RuntimeError, OSError, LookupError) as e:
-            logger.exception(f"Error getting deliberation by channel: {e}")
+            logger.exception("Error getting deliberation by channel: %s", e)
             return error_response(
                 safe_error_message(e, "deliberation channels"), 500, code="INTERNAL_ERROR"
             )
@@ -229,7 +229,7 @@ class DeliberationAnalyticsMixin:
             )
 
         except (ImportError, RuntimeError, OSError, LookupError) as e:
-            logger.exception(f"Error getting consensus rates: {e}")
+            logger.exception("Error getting consensus rates: %s", e)
             return error_response(
                 safe_error_message(e, "consensus rates"), 500, code="INTERNAL_ERROR"
             )
@@ -292,7 +292,7 @@ class DeliberationAnalyticsMixin:
             )
 
         except (ImportError, RuntimeError, OSError, LookupError) as e:
-            logger.exception(f"Error getting deliberation performance: {e}")
+            logger.exception("Error getting deliberation performance: %s", e)
             return error_response(
                 safe_error_message(e, "deliberation performance"), 500, code="INTERNAL_ERROR"
             )

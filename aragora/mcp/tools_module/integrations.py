@@ -78,10 +78,10 @@ async def trigger_external_webhook_tool(
         }
 
     except ImportError:
-        logger.warning(f"{platform} integration not available")
+        logger.warning("%s integration not available", platform)
         return {"error": f"{platform} integration module not available"}
     except (RuntimeError, OSError, ConnectionError, TimeoutError) as e:
-        logger.error(f"Failed to trigger {platform} webhook: {e}")
+        logger.error("Failed to trigger %s webhook: %s", platform, e)
         return {"error": "Webhook trigger failed"}
 
 
@@ -124,7 +124,7 @@ async def list_integrations_tool(
     except ImportError:
         logger.debug("Zapier integration not available")
     except (RuntimeError, OSError, ValueError) as e:
-        logger.warning(f"Failed to list Zapier integrations: {e}")
+        logger.warning("Failed to list Zapier integrations: %s", e)
 
     try:
         if platform in ("all", "make"):
@@ -145,7 +145,7 @@ async def list_integrations_tool(
     except ImportError:
         logger.debug("Make integration not available")
     except (RuntimeError, OSError, ValueError) as e:
-        logger.warning(f"Failed to list Make integrations: {e}")
+        logger.warning("Failed to list Make integrations: %s", e)
 
     try:
         if platform in ("all", "n8n"):
@@ -166,7 +166,7 @@ async def list_integrations_tool(
     except ImportError:
         logger.debug("n8n integration not available")
     except (RuntimeError, OSError, ValueError) as e:
-        logger.warning(f"Failed to list n8n integrations: {e}")
+        logger.warning("Failed to list n8n integrations: %s", e)
 
     # Calculate totals
     total = sum(len(v) for v in integrations.values())
@@ -244,7 +244,7 @@ async def test_integration_tool(
     except ImportError:
         return {"error": f"{platform} integration module not available"}
     except (RuntimeError, OSError, ConnectionError, TimeoutError) as e:
-        logger.error(f"Failed to test {platform} integration: {e}")
+        logger.error("Failed to test %s integration: %s", platform, e)
         return {"error": "Integration test failed"}
 
     return {"error": "Unknown platform"}
@@ -302,7 +302,7 @@ async def get_integration_events_tool(
     except ImportError:
         return {"error": f"{platform} integration module not available"}
     except (RuntimeError, OSError, ValueError) as e:
-        logger.error(f"Failed to get {platform} events: {e}")
+        logger.error("Failed to get %s events: %s", platform, e)
         return {"error": "Failed to retrieve integration events"}
 
     return {"error": "Unknown platform"}

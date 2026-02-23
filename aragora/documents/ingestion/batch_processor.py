@@ -207,7 +207,7 @@ class BatchProcessor:
             return
 
         self._running = True
-        logger.info(f"Starting batch processor with {self.max_workers} workers")
+        logger.info("Starting batch processor with %s workers", self.max_workers)
 
         # Start worker tasks
         for i in range(self.max_workers):
@@ -298,7 +298,7 @@ class BatchProcessor:
         priority_value = -priority.value  # Negate so higher priority comes first
         await self._queue.put((priority_value, job.created_at.timestamp(), job.id))
 
-        logger.debug(f"Job {job.id} submitted: {filename}")
+        logger.debug("Job %s submitted: %s", job.id, filename)
         return job.id
 
     async def submit_batch(
@@ -442,7 +442,7 @@ class BatchProcessor:
 
     async def _worker(self, worker_id: int) -> None:
         """Worker coroutine that processes jobs from queue."""
-        logger.debug(f"Worker {worker_id} started")
+        logger.debug("Worker %s started", worker_id)
 
         while self._running:
             try:
@@ -462,7 +462,7 @@ class BatchProcessor:
                 try:
                     await self._process_job(job)
                 except (ValueError, RuntimeError, OSError, TypeError) as e:
-                    logger.exception(f"Worker {worker_id} error processing {job_id}")
+                    logger.exception("Worker %s error processing %s", worker_id, job_id)
                     job.status = JobStatus.FAILED
                     job.error_message = str(e)
                     self._stats["total_failed"] += 1
@@ -472,11 +472,11 @@ class BatchProcessor:
                             job.on_error(job, e)
                         except (TypeError, ValueError, AttributeError) as callback_err:
                             logger.debug(
-                                f"Job {job_id} error callback raised expected error: {callback_err}"
+                                "Job %s error callback raised expected error: %s", job_id, callback_err
                             )
                         except (RuntimeError, OSError) as callback_err:
                             logger.warning(
-                                f"Job {job_id} error callback raised unexpected error: {callback_err}"
+                                "Job %s error callback raised unexpected error: %s", job_id, callback_err
                             )
                 finally:
                     self._active_workers -= 1
@@ -485,9 +485,9 @@ class BatchProcessor:
             except asyncio.CancelledError:
                 break
             except (RuntimeError, OSError, ValueError) as e:
-                logger.exception(f"Worker {worker_id} unexpected error: {e}")
+                logger.exception("Worker %s unexpected error: %s", worker_id, e)
 
-        logger.debug(f"Worker {worker_id} stopped")
+        logger.debug("Worker %s stopped", worker_id)
 
     async def _process_job(self, job: DocumentJob) -> None:
         """Process a single document job."""
@@ -582,11 +582,10 @@ class BatchProcessor:
             try:
                 job.on_complete(job)
             except (TypeError, ValueError, RuntimeError) as e:
-                logger.warning(f"Error in completion callback: {e}")
+                logger.warning("Error in completion callback: %s", e)
 
         logger.info(
-            f"Job {job.id} completed: {job.filename} -> "
-            f"{len(chunks)} chunks, {document.total_tokens} tokens"
+            "Job %s completed: %s -> %s chunks, %s tokens", job.id, job.filename, len(chunks), document.total_tokens
         )
 
     def _update_progress(self, job: DocumentJob, progress: float, message: str) -> None:
@@ -597,7 +596,7 @@ class BatchProcessor:
             try:
                 job.on_progress(progress, message)
             except (TypeError, ValueError, RuntimeError) as e:
-                logger.warning(f"Error in progress callback: {e}")
+                logger.warning("Error in progress callback: %s", e)
 
 
 # Global processor instance

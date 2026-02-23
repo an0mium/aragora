@@ -226,7 +226,7 @@ class PlaywrightConnector:
         self._page.set_default_timeout(self.timeout_ms)
 
         self._initialized = True
-        logger.info(f"Browser connector initialized: {self.browser_type}, headless={self.headless}")
+        logger.info("Browser connector initialized: %s, headless=%s", self.browser_type, self.headless)
 
     async def close(self) -> None:
         """Close browser and cleanup resources."""
@@ -259,7 +259,7 @@ class PlaywrightConnector:
         # Check blocked domains first
         for blocked in self.blocked_domains:
             if domain == blocked or domain.endswith(f".{blocked}"):
-                logger.warning(f"Domain blocked: {domain}")
+                logger.warning("Domain blocked: %s", domain)
                 return False
 
         # If allowed_domains is set, check if domain is in the list
@@ -267,7 +267,7 @@ class PlaywrightConnector:
             for allowed in self.allowed_domains:
                 if domain == allowed or domain.endswith(f".{allowed}"):
                     return True
-            logger.warning(f"Domain not in allowed list: {domain}")
+            logger.warning("Domain not in allowed list: %s", domain)
             return False
 
         return True
@@ -618,7 +618,7 @@ class PlaywrightConnector:
                 result[field_name] = await self._page.text_content(selector) or ""
             except (TimeoutError, ValueError, RuntimeError) as e:
                 result[field_name] = None
-                logger.warning(f"Failed to extract {field_name} ({selector}): {e}")
+                logger.warning("Failed to extract %s (%s): %s", field_name, selector, e)
 
         return result
 

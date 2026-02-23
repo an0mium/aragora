@@ -124,7 +124,7 @@ class RequestDeduplicator:
 
             # Check if already seen
             if request_hash in self._seen:
-                logger.debug(f"Duplicate request detected: {request_hash[:8]}...")
+                logger.debug("Duplicate request detected: %s...", request_hash[:8])
                 # Return the in-flight future if available
                 return True, self._in_flight.get(request_hash)
 
@@ -244,11 +244,11 @@ class ResponseCache:
                     del self._cache[cache_key]
                     self._invalidations += 1
                     self._misses += 1
-                    logger.debug(f"Cache invalidated due to policy change: {cache_key[:8]}...")
+                    logger.debug("Cache invalidated due to policy change: %s...", cache_key[:8])
                     return None
 
                 self._hits += 1
-                logger.debug(f"Cache hit for: {cache_key[:8]}...")
+                logger.debug("Cache hit for: %s...", cache_key[:8])
                 return entry.result
 
             self._misses += 1
@@ -322,7 +322,7 @@ class ResponseCache:
 
             self._invalidations += len(keys_to_remove)
             logger.info(
-                f"Invalidated {len(keys_to_remove)} cache entries for workspace {workspace_id}"
+                "Invalidated %s cache entries for workspace %s", len(keys_to_remove), workspace_id
             )
             return len(keys_to_remove)
 
@@ -342,7 +342,7 @@ class ResponseCache:
                 del self._cache[key]
 
             self._invalidations += len(keys_to_remove)
-            logger.info(f"Invalidated {len(keys_to_remove)} cache entries with tag '{tag}'")
+            logger.info("Invalidated %s cache entries with tag '%s'", len(keys_to_remove), tag)
             return len(keys_to_remove)
 
     async def invalidate_by_agent_version(self, agent_name: str, old_version: str) -> int:
@@ -370,8 +370,7 @@ class ResponseCache:
 
             self._invalidations += len(keys_to_remove)
             logger.info(
-                f"Invalidated {len(keys_to_remove)} cache entries for "
-                f"agent {agent_name} version {old_version}"
+                "Invalidated %s cache entries for agent %s version %s", len(keys_to_remove), agent_name, old_version
             )
             return len(keys_to_remove)
 
@@ -387,7 +386,7 @@ class ResponseCache:
         """
         old_version = self._policy_version
         self._policy_version = version
-        logger.info(f"Policy version updated: {old_version} -> {version}")
+        logger.info("Policy version updated: %s -> %s", old_version, version)
 
     async def get_stats(self) -> dict[str, Any]:
         """
@@ -497,7 +496,7 @@ class DecisionRoutingMiddleware:
             }
             cached = await self._cache.get(content, cache_context)
             if cached:
-                logger.info(f"Serving cached response for {context.request_id}")
+                logger.info("Serving cached response for %s", context.request_id)
                 return {
                     "success": True,
                     "cached": True,
@@ -512,7 +511,7 @@ class DecisionRoutingMiddleware:
             )
             if is_duplicate:
                 if future:
-                    logger.info(f"Waiting for in-flight duplicate: {context.request_id}")
+                    logger.info("Waiting for in-flight duplicate: %s", context.request_id)
                     try:
                         result = await asyncio.wait_for(future, timeout=300.0)
                         return {
@@ -522,7 +521,7 @@ class DecisionRoutingMiddleware:
                             "request_id": context.request_id,
                         }
                     except asyncio.TimeoutError:
-                        logger.warning(f"Timeout waiting for duplicate: {context.request_id}")
+                        logger.warning("Timeout waiting for duplicate: %s", context.request_id)
                 else:
                     return {
                         "success": False,
@@ -572,7 +571,7 @@ class DecisionRoutingMiddleware:
             }
 
         except (OSError, ConnectionError, TimeoutError, RuntimeError, ValueError) as e:
-            logger.error(f"Routing error for {context.request_id}: {e}")
+            logger.error("Routing error for %s: %s", context.request_id, e)
 
             if self._deduplicator:
                 await self._deduplicator.fail(content, context.user_id, context.channel, e)
@@ -583,7 +582,7 @@ class DecisionRoutingMiddleware:
                 "request_id": context.request_id,
             }
         except Exception as e:  # noqa: BLE001 - Top-level request handler: catch-all after specific catches prevents unhandled 500s
-            logger.error(f"Unexpected routing error for {context.request_id}: {e}")
+            logger.error("Unexpected routing error for %s: %s", context.request_id, e)
 
             if self._deduplicator:
                 await self._deduplicator.fail(content, context.user_id, context.channel, e)
@@ -615,7 +614,7 @@ class DecisionRoutingMiddleware:
         except ImportError:
             logger.debug("debate_origin not available for origin registration")
         except (OSError, RuntimeError, ValueError, TypeError) as e:
-            logger.warning(f"Failed to register origin: {e}")
+            logger.warning("Failed to register origin: %s", e)
 
     async def _route_via_decision_router(
         self,
@@ -745,7 +744,7 @@ class DecisionRoutingMiddleware:
             }
 
         except (OSError, ConnectionError, TimeoutError, RuntimeError, ValueError, ImportError) as e:
-            logger.error(f"Fallback routing failed: {e}")
+            logger.error("Fallback routing failed: %s", e)
             return {
                 "success": False,
                 "error": "Fallback routing failed",

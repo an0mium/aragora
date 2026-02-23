@@ -147,7 +147,7 @@ class MatrixDebatesHandler(SecureHandler):
         except UnauthorizedError:
             return error_response("Authentication required", 401)
         except ForbiddenError as e:
-            logger.warning(f"Matrix debates GET access denied: {e}")
+            logger.warning("Matrix debates GET access denied: %s", e)
             return error_response("Permission denied", 403)
 
         normalized = strip_version_prefix(path)
@@ -233,13 +233,13 @@ class MatrixDebatesHandler(SecureHandler):
         except UnauthorizedError:
             return error_response("Authentication required", 401)
         except ForbiddenError as e:
-            logger.warning(f"Matrix debates POST access denied: {e}")
+            logger.warning("Matrix debates POST access denied: %s", e)
             return error_response("Permission denied", 403)
 
         # Rate limit check (5/min - expensive parallel operations)
         client_ip = get_client_ip(handler)
         if not _matrix_limiter.is_allowed(client_ip):
-            logger.warning(f"Rate limit exceeded for matrix debates: {client_ip}")
+            logger.warning("Rate limit exceeded for matrix debates: %s", client_ip)
             return error_response("Rate limit exceeded. Please try again later.", 429)
 
         logger.debug("POST /api/debates/matrix - running matrix debate")
@@ -382,10 +382,10 @@ class MatrixDebatesHandler(SecureHandler):
             )
 
         except ImportError as e:
-            logger.warning(f"Matrix debate module not available, using fallback: {e}")
+            logger.warning("Matrix debate module not available, using fallback: %s", e)
             return await self._run_matrix_debate_fallback(handler, data)
         except (ValueError, TypeError, KeyError, AttributeError, RuntimeError, OSError) as e:
-            logger.exception(f"Matrix debate failed: {e}")
+            logger.exception("Matrix debate failed: %s", e)
             return error_response(safe_error_message(e, "matrix debate"), 500)
 
     async def _run_matrix_debate_fallback(
@@ -462,7 +462,7 @@ class MatrixDebatesHandler(SecureHandler):
             valid_results: list[dict[str, Any]] = []
             for r in gather_results:
                 if isinstance(r, BaseException):
-                    logger.error(f"Scenario failed: {r}")
+                    logger.error("Scenario failed: %s", r)
                 else:
                     valid_results.append(r)
                     if r.get("final_answer"):
@@ -493,7 +493,7 @@ class MatrixDebatesHandler(SecureHandler):
             )
 
         except (ValueError, TypeError, KeyError, AttributeError, RuntimeError, OSError) as e:
-            logger.exception(f"Matrix debate fallback failed: {e}")
+            logger.exception("Matrix debate fallback failed: %s", e)
             return error_response(safe_error_message(e, "matrix debate"), 500)
 
     def _find_universal_conclusions(self, results: list[dict]) -> list[str]:
@@ -549,10 +549,10 @@ class MatrixDebatesHandler(SecureHandler):
                     agent = create_agent(cast(AgentType, name))
                     agents.append(agent)
                 except (ImportError, ValueError, TypeError, KeyError, AttributeError) as e:
-                    logger.warning(f"Failed to create agent {name}: {e}")
+                    logger.warning("Failed to create agent %s: %s", name, e)
             return agents
         except (ImportError, ValueError, TypeError) as e:
-            logger.warning(f"Failed to load agents: {e}")
+            logger.warning("Failed to load agents: %s", e)
             return []
 
     async def _get_matrix_debate(self, handler: Any, matrix_id: str) -> HandlerResult:
@@ -568,7 +568,7 @@ class MatrixDebatesHandler(SecureHandler):
 
             return json_response(matrix)
         except (KeyError, ValueError, OSError, TypeError, AttributeError) as e:
-            logger.error(f"Failed to get matrix debate {matrix_id}: {e}")
+            logger.error("Failed to get matrix debate %s: %s", matrix_id, e)
             return error_response("Failed to retrieve matrix debate", 500)
 
     @api_endpoint(
@@ -596,7 +596,7 @@ class MatrixDebatesHandler(SecureHandler):
             scenarios = await storage.get_matrix_scenarios(matrix_id)
             return json_response({"matrix_id": matrix_id, "scenarios": scenarios})
         except (KeyError, ValueError, OSError, TypeError, AttributeError) as e:
-            logger.error(f"Failed to get scenarios for {matrix_id}: {e}")
+            logger.error("Failed to get scenarios for %s: %s", matrix_id, e)
             return error_response("Failed to retrieve scenarios", 500)
 
     @api_endpoint(
@@ -630,5 +630,5 @@ class MatrixDebatesHandler(SecureHandler):
                 }
             )
         except (KeyError, ValueError, OSError, TypeError, AttributeError) as e:
-            logger.error(f"Failed to get conclusions for {matrix_id}: {e}")
+            logger.error("Failed to get conclusions for %s: %s", matrix_id, e)
             return error_response("Failed to retrieve conclusions", 500)

@@ -65,7 +65,7 @@ def sync_status(handler: Any) -> HandlerResult:
             }
         )
     except (TypeError, ValueError, KeyError, AttributeError, RuntimeError, OSError) as e:
-        logger.warning(f"Sync status check failed: {e}")
+        logger.warning("Sync status check failed: %s", e)
         return json_response(
             {
                 "enabled": False,
@@ -213,7 +213,7 @@ def circuit_breakers_status(handler: Any) -> HandlerResult:
             }
         )
     except (TypeError, ValueError, KeyError, AttributeError, RuntimeError, OSError) as e:
-        logger.warning(f"Circuit breaker status check failed: {e}")
+        logger.warning("Circuit breaker status check failed: %s", e)
         return json_response(
             {
                 "status": "error",
@@ -274,7 +274,7 @@ def component_health_status(handler: Any) -> HandlerResult:
             }
         )
     except (TypeError, ValueError, KeyError, AttributeError, RuntimeError, OSError) as e:
-        logger.warning(f"Component health status check failed: {e}")
+        logger.warning("Component health status check failed: %s", e)
         return json_response(
             {
                 "status": "error",

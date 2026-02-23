@@ -784,7 +784,7 @@ class TelegramCommandsMixin:
             logger.warning("Storage not available for search")
             return "Search service temporarily unavailable."
         except (KeyError, ValueError, TypeError, AttributeError, OSError) as e:
-            logger.exception(f"Unexpected search error: {e}")
+            logger.exception("Unexpected search error: %s", e)
             return "Sorry, an error occurred while processing your request."
 
     def _command_recent(self) -> str:
@@ -820,7 +820,7 @@ class TelegramCommandsMixin:
             logger.warning("Storage not available for recent debates")
             return "Recent debates service temporarily unavailable."
         except (KeyError, ValueError, TypeError, AttributeError, OSError) as e:
-            logger.exception(f"Unexpected recent debates error: {e}")
+            logger.exception("Unexpected recent debates error: %s", e)
             return "Sorry, an error occurred while processing your request."
 
     def _command_receipt(self, args: str) -> str:
@@ -869,7 +869,7 @@ class TelegramCommandsMixin:
                 return self._format_debate_as_receipt(debate)
 
         except (KeyError, ValueError, TypeError, AttributeError, OSError) as e:
-            logger.exception(f"Unexpected receipt error: {e}")
+            logger.exception("Unexpected receipt error: %s", e)
             return "Sorry, an error occurred while processing your request."
 
     def _format_receipt(self, receipt_data: dict) -> str:

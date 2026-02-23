@@ -231,10 +231,7 @@ class ThreatIntelEnrichment:
 
         if self._enabled:
             logger.info(
-                f"[threat_intel] Enrichment enabled "
-                f"(max_indicators={max_indicators}, "
-                f"threat_client={self._threat_client is not None}, "
-                f"cve_client={self._cve_client is not None})"
+                "[threat_intel] Enrichment enabled (max_indicators=%s, threat_client=%s, cve_client=%s)", max_indicators, self._threat_client is not None, self._cve_client is not None
             )
 
     def _create_threat_intel_client(self) -> ThreatIntelligenceService | None:
@@ -249,7 +246,7 @@ class ThreatIntelEnrichment:
             logger.debug("[threat_intel] ThreatIntelligenceService not available")
             return None
         except (ValueError, TypeError, OSError) as e:
-            logger.warning(f"[threat_intel] Failed to create ThreatIntelligenceService: {e}")
+            logger.warning("[threat_intel] Failed to create ThreatIntelligenceService: %s", e)
             return None
 
     def _create_cve_client(self) -> CVEClient | None:
@@ -264,7 +261,7 @@ class ThreatIntelEnrichment:
             logger.debug("[threat_intel] CVEClient not available")
             return None
         except (ValueError, TypeError, OSError) as e:
-            logger.warning(f"[threat_intel] Failed to create CVEClient: {e}")
+            logger.warning("[threat_intel] Failed to create CVEClient: %s", e)
             return None
 
     def is_security_topic(self, topic: str) -> bool:
@@ -337,7 +334,7 @@ class ThreatIntelEnrichment:
         if cache_key in self._cache:
             cached_at, context = self._cache[cache_key]
             if datetime.now(timezone.utc) - cached_at < timedelta(seconds=self._cache_ttl):
-                logger.debug(f"[threat_intel] Cache hit for {cache_key}")
+                logger.debug("[threat_intel] Cache hit for %s", cache_key)
                 return context
             del self._cache[cache_key]
         return None
@@ -456,7 +453,7 @@ class ThreatIntelEnrichment:
                     "published_at": vuln.published_at.isoformat() if vuln.published_at else None,
                 }
         except (OSError, ValueError, KeyError, AttributeError, asyncio.TimeoutError) as e:
-            logger.debug(f"[threat_intel] CVE lookup failed for {cve_id}: {e}")
+            logger.debug("[threat_intel] CVE lookup failed for %s: %s", cve_id, e)
 
         return None
 
@@ -479,7 +476,7 @@ class ThreatIntelEnrichment:
                     tags=result.categories[:5] if result.categories else [],
                 )
         except (OSError, ValueError, KeyError, AttributeError, asyncio.TimeoutError) as e:
-            logger.debug(f"[threat_intel] IP lookup failed for {ip}: {e}")
+            logger.debug("[threat_intel] IP lookup failed for %s: %s", ip, e)
 
         return None
 
@@ -503,7 +500,7 @@ class ThreatIntelEnrichment:
                     ),
                 )
         except (OSError, ValueError, KeyError, AttributeError, asyncio.TimeoutError) as e:
-            logger.debug(f"[threat_intel] URL lookup failed: {e}")
+            logger.debug("[threat_intel] URL lookup failed: %s", e)
 
         return None
 
@@ -528,7 +525,7 @@ class ThreatIntelEnrichment:
                     last_seen=result.last_seen,
                 )
         except (OSError, ValueError, KeyError, AttributeError, asyncio.TimeoutError) as e:
-            logger.debug(f"[threat_intel] Hash lookup failed for {hash_value}: {e}")
+            logger.debug("[threat_intel] Hash lookup failed for %s: %s", hash_value, e)
 
         return None
 

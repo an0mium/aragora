@@ -69,7 +69,7 @@ class TelegramInlineMixin:
         )
 
         if not success:
-            logger.error(f"Failed to answer inline query: {error}")
+            logger.error("Failed to answer inline query: %s", error)
 
         return success
 

@@ -228,9 +228,9 @@ async def generate_implement_plan(
     design_hash = hashlib.sha256(design.encode()).hexdigest()
     tasks = [ImplementTask.from_dict(t) for t in plan_data["tasks"]]
 
-    logger.info(f"  Plan generated: {len(tasks)} tasks")
+    logger.info("  Plan generated: %s tasks", len(tasks))
     for task in tasks:
-        logger.info(f"    - [{task.complexity}] {task.id}: {task.description[:50]}...")
+        logger.info("    - [%s] %s: %s...", task.complexity, task.id, task.description[:50])
 
     return ImplementPlan(design_hash=design_hash, tasks=tasks)
 
@@ -304,10 +304,10 @@ async def decompose_failed_task(
 
     # Only decompose complex tasks with many files
     if task.complexity != "complex" or len(task.files) <= 2:
-        logger.info(f"    Task {task.id} not suitable for decomposition")
+        logger.info("    Task %s not suitable for decomposition", task.id)
         return [task]
 
-    logger.info(f"    Decomposing failed task {task.id} into subtasks...")
+    logger.info("    Decomposing failed task %s into subtasks...", task.id)
 
     gemini = GeminiCLIAgent(
         name="task-decomposer",
@@ -359,14 +359,14 @@ async def decompose_failed_task(
             )
             subtasks.append(subtask)
 
-        logger.info(f"    Decomposed into {len(subtasks)} subtasks:")
+        logger.info("    Decomposed into %s subtasks:", len(subtasks))
         for st in subtasks:
-            logger.info(f"      - [{st.complexity}] {st.id}: {st.description[:40]}...")
+            logger.info("      - [%s] %s: %s...", st.complexity, st.id, st.description[:40])
 
         return subtasks
 
     except (RuntimeError, OSError, ValueError) as e:
-        logger.warning(f"    Decomposition failed: {e}, keeping original task")
+        logger.warning("    Decomposition failed: %s, keeping original task", e)
         return [task]
 
 

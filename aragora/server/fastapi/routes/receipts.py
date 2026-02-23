@@ -139,7 +139,7 @@ async def get_receipt_store(request: Request):
 
         return _get_store()
     except (ImportError, RuntimeError, OSError, ValueError) as e:
-        logger.warning(f"Receipt store not available: {e}")
+        logger.warning("Receipt store not available: %s", e)
         raise HTTPException(status_code=503, detail="Receipt store not available")
 
 
@@ -224,7 +224,7 @@ async def list_receipts(
         )
 
     except (RuntimeError, ValueError, TypeError, OSError, KeyError, AttributeError) as e:
-        logger.exception(f"Error listing receipts: {e}")
+        logger.exception("Error listing receipts: %s", e)
         raise HTTPException(status_code=500, detail="Failed to list receipts")
 
 
@@ -328,7 +328,7 @@ async def get_receipt(
     except NotFoundError:
         raise
     except (RuntimeError, ValueError, TypeError, OSError, KeyError, AttributeError) as e:
-        logger.exception(f"Error getting receipt {receipt_id}: {e}")
+        logger.exception("Error getting receipt %s: %s", receipt_id, e)
         raise HTTPException(status_code=500, detail="Failed to get receipt")
 
 
@@ -395,7 +395,7 @@ async def verify_receipt(
             )
 
         except (ImportError, ValueError, TypeError, KeyError) as e:
-            logger.warning(f"Receipt verification failed for {receipt_id}: {e}")
+            logger.warning("Receipt verification failed for %s: %s", receipt_id, e)
             return VerifyResponse(
                 receipt_id=receipt_id,
                 verified=False,
@@ -407,7 +407,7 @@ async def verify_receipt(
     except NotFoundError:
         raise
     except (RuntimeError, ValueError, TypeError, OSError, KeyError, AttributeError) as e:
-        logger.exception(f"Error verifying receipt {receipt_id}: {e}")
+        logger.exception("Error verifying receipt %s: %s", receipt_id, e)
         raise HTTPException(status_code=500, detail="Failed to verify receipt")
 
 
@@ -469,5 +469,5 @@ async def export_receipt(
     except HTTPException:
         raise
     except (RuntimeError, ValueError, TypeError, OSError, KeyError, AttributeError) as e:
-        logger.exception(f"Error exporting receipt {receipt_id}: {e}")
+        logger.exception("Error exporting receipt %s: %s", receipt_id, e)
         raise HTTPException(status_code=500, detail="Failed to export receipt")

@@ -174,7 +174,7 @@ class ControlPlaneConfig:
                         enabled=redis_ha_enabled,
                     )
             except (AttributeError, ValueError, KeyError, OSError) as e:
-                logger.debug(f"Redis HA config not available: {e}")
+                logger.debug("Redis HA config not available: %s", e)
 
         return cls(
             redis_url=redis_url,
@@ -603,7 +603,7 @@ class StateManager:
                 return agent_map.get(selected_id)
 
         except (KeyError, AttributeError, TypeError) as e:
-            logger.debug(f"KM recommendation failed, using fallback: {e}")
+            logger.debug("KM recommendation failed, using fallback: %s", e)
 
         # Fallback to registry selection
         return await self._registry.select_agent(
@@ -681,7 +681,7 @@ class StateManager:
                 for r in records
             ]
         except (AttributeError, TypeError, ZeroDivisionError) as e:
-            logger.debug(f"Failed to get agent recommendations: {e}")
+            logger.debug("Failed to get agent recommendations: %s", e)
             return []
 
     async def get_agent_recommendations_from_km(
@@ -714,7 +714,7 @@ class StateManager:
                 top_n=limit,
             )
         except (KeyError, AttributeError, TypeError) as e:
-            logger.debug(f"Failed to get KM recommendations: {e}")
+            logger.debug("Failed to get KM recommendations: %s", e)
             return []
 
     async def store_task_outcome(

@@ -54,9 +54,9 @@ def get_config_loader() -> Any:
             default_dir = Path(__file__).parent.parent.parent.parent / "agents" / "configs"
             if default_dir.exists():
                 _config_loader.load_directory(default_dir)
-                logger.info(f"Loaded {len(_config_loader.list_configs())} agent configs")
+                logger.info("Loaded %s agent configs", len(_config_loader.list_configs()))
         except ImportError as e:
-            logger.warning(f"AgentConfigLoader not available: {e}")
+            logger.warning("AgentConfigLoader not available: %s", e)
     return _config_loader
 
 
@@ -112,7 +112,7 @@ class AgentConfigHandler(SecureHandler):
         except UnauthorizedError:
             return error_response("Authentication required", 401)
         except ForbiddenError as e:
-            logger.warning(f"Agent config access denied: {e}")
+            logger.warning("Agent config access denied: %s", e)
             return error_response("Permission denied", 403)
 
         # List all configs
@@ -253,7 +253,7 @@ class AgentConfigHandler(SecureHandler):
                 }
             )
         except (TypeError, ValueError, KeyError, AttributeError) as e:
-            logger.error(f"Failed to create agent from config {name}: {e}")
+            logger.error("Failed to create agent from config %s: %s", name, e)
             return error_response("Agent creation failed", 500)
 
     @rate_limit(requests_per_minute=5, limiter_name="config_reload")
@@ -278,7 +278,7 @@ class AgentConfigHandler(SecureHandler):
                 }
             )
         except (TypeError, ValueError, KeyError, AttributeError, OSError) as e:
-            logger.error(f"Failed to reload configs: {e}")
+            logger.error("Failed to reload configs: %s", e)
             return error_response("Reload operation failed", 500)
 
     @rate_limit(requests_per_minute=30, limiter_name="config_search")

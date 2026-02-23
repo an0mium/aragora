@@ -208,10 +208,10 @@ class UncertaintyHandler(BaseHandler):
             )
 
         except (ValueError, KeyError, TypeError) as e:
-            logger.warning(f"Invalid data for uncertainty estimation: {e}")
+            logger.warning("Invalid data for uncertainty estimation: %s", e)
             return error_response("Invalid request data", 400)
         except (ImportError, RuntimeError, AttributeError, OSError) as e:
-            logger.exception(f"Unexpected error estimating uncertainty: {e}")
+            logger.exception("Unexpected error estimating uncertainty: %s", e)
             return error_response("Uncertainty estimation failed", 500)
 
     async def _generate_followups(self, handler: Any) -> HandlerResult:
@@ -270,10 +270,10 @@ class UncertaintyHandler(BaseHandler):
             )
 
         except (ValueError, KeyError, TypeError) as e:
-            logger.warning(f"Invalid data for follow-up generation: {e}")
+            logger.warning("Invalid data for follow-up generation: %s", e)
             return error_response("Invalid request data", 400)
         except (ImportError, RuntimeError, AttributeError, OSError) as e:
-            logger.exception(f"Unexpected error generating follow-ups: {e}")
+            logger.exception("Unexpected error generating follow-ups: %s", e)
             return error_response("Follow-up generation failed", 500)
 
     async def _get_debate_uncertainty(self, debate_id: str) -> HandlerResult:
@@ -314,10 +314,10 @@ class UncertaintyHandler(BaseHandler):
             )
 
         except (KeyError, TypeError, AttributeError) as e:
-            logger.warning(f"Data error getting debate uncertainty: {e}")
+            logger.warning("Data error getting debate uncertainty: %s", e)
             return error_response("Invalid debate data", 400)
         except (RuntimeError, ValueError, OSError, ImportError) as e:
-            logger.exception(f"Unexpected error getting debate uncertainty: {e}")
+            logger.exception("Unexpected error getting debate uncertainty: %s", e)
             return error_response("Debate uncertainty retrieval failed", 500)
 
     def _get_agent_calibration(self, agent_id: str) -> HandlerResult:
@@ -358,8 +358,8 @@ class UncertaintyHandler(BaseHandler):
             )
 
         except (KeyError, TypeError, AttributeError) as e:
-            logger.warning(f"Data error getting agent calibration: {e}")
+            logger.warning("Data error getting agent calibration: %s", e)
             return error_response("Invalid agent data", 400)
         except (RuntimeError, ValueError, OSError, ImportError) as e:
-            logger.exception(f"Unexpected error getting agent calibration: {e}")
+            logger.exception("Unexpected error getting agent calibration: %s", e)
             return error_response("Agent calibration retrieval failed", 500)

@@ -275,13 +275,13 @@ class ThreeTierWatchdog:
             config: Configuration for the tier
         """
         self._configs[config.tier] = config
-        logger.info(f"Configured watchdog tier: {config.tier.value}")
+        logger.info("Configured watchdog tier: %s", config.tier.value)
 
     def register_agent(self, agent_name: str) -> None:
         """Register an agent for monitoring."""
         if agent_name not in self._agent_health:
             self._agent_health[agent_name] = AgentHealth(agent_name=agent_name)
-            logger.debug(f"Registered agent for watchdog monitoring: {agent_name}")
+            logger.debug("Registered agent for watchdog monitoring: %s", agent_name)
 
     def unregister_agent(self, agent_name: str) -> None:
         """Unregister an agent from monitoring."""
@@ -345,7 +345,7 @@ class ThreeTierWatchdog:
                     continue
             except (RuntimeError, AttributeError) as e:
                 logger.debug(
-                    f"Failed to get task loop during watchdog stop: {type(e).__name__}: {e}"
+                    "Failed to get task loop during watchdog stop: %s: %s", type(e).__name__, e
                 )
                 continue
 
@@ -377,7 +377,7 @@ class ThreeTierWatchdog:
             except asyncio.CancelledError:
                 break
             except (RuntimeError, ValueError, TypeError, OSError, ConnectionError) as e:
-                logger.error(f"Watchdog tier {tier.value} check failed: {e}")
+                logger.error("Watchdog tier %s check failed: %s", tier.value, e)
 
             await asyncio.sleep(config.check_interval_seconds)
 
@@ -594,7 +594,7 @@ class ThreeTierWatchdog:
                 if asyncio.iscoroutine(result):
                     await result
             except (RuntimeError, ValueError, TypeError, OSError, AttributeError) as e:
-                logger.warning(f"Issue handler failed: {e}")
+                logger.warning("Issue handler failed: %s", e)
 
         # Auto-escalate if configured
         config = self._configs[tier]
@@ -606,8 +606,7 @@ class ThreeTierWatchdog:
                 self._escalation_counts[tier] = 0
 
         logger.info(
-            f"Watchdog issue detected [{tier.value}]: "
-            f"{issue.severity.name} - {issue.category.value}: {issue.message}"
+            "Watchdog issue detected [%s]: %s - %s: %s", tier.value, issue.severity.name, issue.category.value, issue.message
         )
 
     async def escalate(
@@ -631,7 +630,7 @@ class ThreeTierWatchdog:
 
         if current_index >= len(tier_order) - 1:
             # Already at highest tier
-            logger.warning(f"Cannot escalate from {source_tier.value} - already at highest tier")
+            logger.warning("Cannot escalate from %s - already at highest tier", source_tier.value)
             return EscalationResult(
                 issue_id=issue.id,
                 escalated_to=source_tier,
@@ -642,7 +641,7 @@ class ThreeTierWatchdog:
         target_tier = tier_order[current_index + 1]
         self._stats["escalations"] += 1
 
-        logger.info(f"Escalating issue {issue.id} from {source_tier.value} to {target_tier.value}")
+        logger.info("Escalating issue %s from %s to %s", issue.id, source_tier.value, target_tier.value)
 
         # Call target tier handlers
         for handler in self._handlers[target_tier]:
@@ -651,7 +650,7 @@ class ThreeTierWatchdog:
                 if asyncio.iscoroutine(result):
                     await result
             except (RuntimeError, ValueError, TypeError, OSError, AttributeError) as e:
-                logger.warning(f"Escalation handler failed: {e}")
+                logger.warning("Escalation handler failed: %s", e)
 
         return EscalationResult(
             issue_id=issue.id,
@@ -690,7 +689,7 @@ class ThreeTierWatchdog:
             health = self._agent_health[issue.agent]
             health.active_issues = [i for i in health.active_issues if i.id != issue_id]
 
-        logger.info(f"Issue resolved: {issue_id}")
+        logger.info("Issue resolved: %s", issue_id)
         return True
 
     def record_heartbeat(self, agent_name: str) -> None:

@@ -312,7 +312,7 @@ class TelegramWebhooksMixin:
         )
 
         if not success and error:
-            logger.warning(f"Failed to answer callback query: {error}")
+            logger.warning("Failed to answer callback query: %s", error)
 
         return success
 

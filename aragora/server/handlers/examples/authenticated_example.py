@@ -162,7 +162,7 @@ class ExampleAuthenticatedHandler(AuthenticatedHandler):
         user = self.current_user
 
         # In a real handler, you would save to database
-        logger.info(f"Updating settings for user {user.user_id}: {body}")
+        logger.info("Updating settings for user %s: %s", user.user_id, body)
 
         return json_response(
             {

@@ -133,7 +133,7 @@ class ControlPlaneStreamServer:
             ping_interval=30,
             ping_timeout=10,
         )
-        logger.info(f"Control plane stream server started on ws://{self.host}:{self.port}")
+        logger.info("Control plane stream server started on ws://%s:%s", self.host, self.port)
 
     async def stop(self):
         """Stop the WebSocket server."""
@@ -175,7 +175,7 @@ class ControlPlaneStreamServer:
                 await self._handle_message(websocket, message)
 
         except (ConnectionError, OSError, RuntimeError) as e:
-            logger.warning(f"WebSocket error: {e}")
+            logger.warning("WebSocket error: %s", e)
         finally:
             await self._unregister_client(websocket)
 
@@ -183,13 +183,13 @@ class ControlPlaneStreamServer:
         """Register a new client connection."""
         async with self._lock:
             self._clients.add(websocket)
-            logger.debug(f"Client connected. Total clients: {len(self._clients)}")
+            logger.debug("Client connected. Total clients: %s", len(self._clients))
 
     async def _unregister_client(self, websocket):
         """Unregister a client connection."""
         async with self._lock:
             self._clients.discard(websocket)
-            logger.debug(f"Client disconnected. Total clients: {len(self._clients)}")
+            logger.debug("Client disconnected. Total clients: %s", len(self._clients))
 
     async def _handle_message(self, websocket, message: str):
         """Handle an incoming message from a client.
@@ -210,7 +210,7 @@ class ControlPlaneStreamServer:
                 pass
 
         except json.JSONDecodeError:
-            logger.warning(f"Invalid JSON message received: {message[:100]}")
+            logger.warning("Invalid JSON message received: %s", message[:100])
 
     async def broadcast(self, event: ControlPlaneEvent):
         """Broadcast an event to all connected clients.
@@ -242,7 +242,7 @@ class ControlPlaneStreamServer:
         try:
             await websocket.send(message)
         except (ConnectionError, OSError, RuntimeError) as e:
-            logger.debug(f"Failed to send to client: {e}")
+            logger.debug("Failed to send to client: %s", e)
             await self._unregister_client(websocket)
 
     # =========================================================================

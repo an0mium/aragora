@@ -144,7 +144,7 @@ class StateManager:
         with self._debates_lock:
             self._active_debates[debate_id] = state
             logger.debug(
-                f"Registered debate {debate_id}, total active: {len(self._active_debates)}"
+                "Registered debate %s, total active: %s", debate_id, len(self._active_debates)
             )
 
         return state
@@ -163,7 +163,7 @@ class StateManager:
             state = self._active_debates.pop(debate_id, None)
             if state:
                 logger.debug(
-                    f"Unregistered debate {debate_id}, remaining: {len(self._active_debates)}"
+                    "Unregistered debate %s, remaining: %s", debate_id, len(self._active_debates)
                 )
 
         # Trigger periodic cleanup
@@ -281,7 +281,7 @@ class StateManager:
                 self._executor = ThreadPoolExecutor(
                     max_workers=workers, thread_name_prefix="debate-"
                 )
-                logger.info(f"Created debate executor with {workers} workers")
+                logger.info("Created debate executor with %s workers", workers)
 
             return self._executor
 
@@ -329,7 +329,7 @@ class StateManager:
                     stale_ids.append(debate_id)
 
         for debate_id in stale_ids:
-            logger.warning(f"Cleaning up stale debate {debate_id}")
+            logger.warning("Cleaning up stale debate %s", debate_id)
             self.unregister_debate(debate_id)
 
         return len(stale_ids)
@@ -358,7 +358,7 @@ class StateManager:
                 callback()
             except Exception as e:  # noqa: BLE001 - Shutdown must continue despite individual callback failures
                 try:
-                    logger.error(f"Shutdown callback error: {e}")
+                    logger.error("Shutdown callback error: %s", e)
                 except (ValueError, OSError):
                     pass
 
@@ -455,5 +455,5 @@ def reset_state_manager() -> None:
             manager = registry.resolve(StateManager)
             manager.shutdown()
         except (RuntimeError, OSError, ValueError) as e:
-            logger.warning(f"Error during StateManager shutdown: {e}")
+            logger.warning("Error during StateManager shutdown: %s", e)
         registry.unregister(StateManager)

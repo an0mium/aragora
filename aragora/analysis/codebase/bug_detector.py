@@ -1091,7 +1091,7 @@ class BugDetector:
         duration_ms = (time.time() - start_time) * 1000
 
         logger.info(
-            f"[BugDetector] Scan {scan_id}: found {len(bugs)} bugs in {scanned_files} files"
+            "[BugDetector] Scan %s: found %s bugs in %s files", scan_id, len(bugs), scanned_files
         )
 
         return BugScanResult(
@@ -1157,7 +1157,7 @@ class BugDetector:
         try:
             content = file_path.read_text(encoding="utf-8", errors="ignore")
         except OSError as e:
-            logger.debug(f"Failed to read {file_path}: {e}")
+            logger.debug("Failed to read %s: %s", file_path, e)
             return [], 0, ""
 
         lines = len(content.split("\n"))
@@ -1182,7 +1182,7 @@ class BugDetector:
                 pattern_bugs = pattern.detect(content, str(file_path), ast_tree)
                 bugs.extend(pattern_bugs)
             except (re.error, ValueError, AttributeError) as e:
-                logger.debug(f"Pattern {pattern.name} failed on {file_path}: {e}")
+                logger.debug("Pattern %s failed on %s: %s", pattern.name, file_path, e)
 
         return bugs, lines, language
 
@@ -1248,14 +1248,13 @@ EXPLANATION: <brief explanation>"""
                         )
 
                     logger.debug(
-                        f"[BugDetector] Agent verified {bug.bug_id}: "
-                        f"{'real bug' if is_bug else 'false positive'}"
+                        "[BugDetector] Agent verified %s: %s", bug.bug_id, 'real bug' if is_bug else 'false positive'
                     )
 
         except ImportError:
             logger.warning("[BugDetector] Debate arena not available")
         except (RuntimeError, OSError, ValueError) as e:
-            logger.error(f"[BugDetector] Agent verification failed: {e}")
+            logger.error("[BugDetector] Agent verification failed: %s", e)
 
         return bugs
 

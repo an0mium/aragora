@@ -220,9 +220,9 @@ class VectorIndex:
         if HAS_FAISS and n >= self.config.faiss_threshold:
             try:
                 self._faiss_index = self._create_faiss_index(normalized)
-                logger.debug(f"Built FAISS index with {n} entries")
+                logger.debug("Built FAISS index with %s entries", n)
             except (RuntimeError, ValueError, TypeError, OSError) as e:
-                logger.warning(f"Failed to build FAISS index: {e}, using fallback")
+                logger.warning("Failed to build FAISS index: %s, using fallback", e)
                 self._faiss_index = None
         else:
             # Store normalized embeddings for brute-force search

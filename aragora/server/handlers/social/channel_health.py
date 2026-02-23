@@ -54,42 +54,42 @@ class ChannelHealthHandler:
 
             self._connectors["slack"] = SlackConnector()
         except (ImportError, TypeError, ValueError, OSError) as e:
-            logger.debug(f"Slack connector not available: {e}")
+            logger.debug("Slack connector not available: %s", e)
 
         try:
             from aragora.connectors.chat.teams import TeamsConnector
 
             self._connectors["teams"] = TeamsConnector()
         except (ImportError, TypeError, ValueError, OSError) as e:
-            logger.debug(f"Teams connector not available: {e}")
+            logger.debug("Teams connector not available: %s", e)
 
         try:
             from aragora.connectors.chat.discord import DiscordConnector
 
             self._connectors["discord"] = DiscordConnector()
         except (ImportError, TypeError, ValueError, OSError) as e:
-            logger.debug(f"Discord connector not available: {e}")
+            logger.debug("Discord connector not available: %s", e)
 
         try:
             from aragora.connectors.chat.telegram import TelegramConnector
 
             self._connectors["telegram"] = TelegramConnector()
         except (ImportError, TypeError, ValueError, OSError) as e:
-            logger.debug(f"Telegram connector not available: {e}")
+            logger.debug("Telegram connector not available: %s", e)
 
         try:
             from aragora.connectors.chat.whatsapp import WhatsAppConnector
 
             self._connectors["whatsapp"] = WhatsAppConnector()
         except (ImportError, TypeError, ValueError, OSError) as e:
-            logger.debug(f"WhatsApp connector not available: {e}")
+            logger.debug("WhatsApp connector not available: %s", e)
 
         try:
             from aragora.connectors.chat.google_chat import GoogleChatConnector
 
             self._connectors["google_chat"] = GoogleChatConnector()
         except (ImportError, TypeError, ValueError, OSError) as e:
-            logger.debug(f"Google Chat connector not available: {e}")
+            logger.debug("Google Chat connector not available: %s", e)
 
         # Check for email integration
         try:
@@ -97,7 +97,7 @@ class ChannelHealthHandler:
 
             self._connectors["email"] = EmailIntegration(EmailConfig())
         except (ImportError, TypeError, ValueError, OSError) as e:
-            logger.debug(f"Email integration not available: {e}")
+            logger.debug("Email integration not available: %s", e)
 
         self._initialized = True
 
@@ -137,7 +137,7 @@ class ChannelHealthHandler:
                     unconfigured_count += 1
 
             except (ConnectionError, TimeoutError, OSError, AttributeError, ValueError) as e:
-                logger.error(f"Error getting health for {name}: {e}")
+                logger.error("Error getting health for %s: %s", name, e)
                 channels[name] = {
                     "platform": name,
                     "status": "error",
@@ -213,7 +213,7 @@ class ChannelHealthHandler:
             return web.json_response(health)
 
         except (ConnectionError, TimeoutError, OSError, AttributeError, ValueError) as e:
-            logger.error(f"Error getting health for {channel}: {e}")
+            logger.error("Error getting health for %s: %s", channel, e)
             return web.json_response(
                 {
                     "platform": channel,
@@ -309,7 +309,7 @@ class ChannelHealthHandler:
 
         client_ip = get_client_ip(handler)
         if not _health_limiter.is_allowed(client_ip):
-            logger.warning(f"Rate limit exceeded for channel health: {client_ip}")
+            logger.warning("Rate limit exceeded for channel health: %s", client_ip)
             return error_response("Rate limit exceeded. Please try again later.", 429)
 
         if path == "/api/v1/social/channels/health":

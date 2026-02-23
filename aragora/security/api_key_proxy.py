@@ -464,7 +464,7 @@ class KeyVault:
             if key:
                 return key
         except Exception:
-            logger.debug(f"Could not load {service} key via secrets module")
+            logger.debug("Could not load %s key via secrets module", service)
 
         # Direct env fallback
         return os.environ.get(svc_config.secret_manager_key)
@@ -577,7 +577,7 @@ class FrequencyHoppingRotator:
                         if svc_config.rotation_strategy == RotationStrategy.MANUAL:
                             continue
 
-                        logger.info(f"Rotation due for {service}")
+                        logger.info("Rotation due for %s", service)
                         result = await self._rotate_service(service)
                         self._rotation_history.append(result)
 
@@ -650,11 +650,11 @@ class FrequencyHoppingRotator:
                     self._vault.invalidate(service)
             else:
                 result["error"] = f"No rotation handler registered for {service}"
-                logger.warning(f"No rotation handler for {service}")
+                logger.warning("No rotation handler for %s", service)
 
         except Exception as e:
             result["error"] = str(e)
-            logger.exception(f"Rotation failed for {service}")
+            logger.exception("Rotation failed for %s", service)
 
         return result
 
@@ -765,8 +765,7 @@ class APIKeyProxy:
             and any(a.severity == "critical" for a in anomalies)
         ):
             logger.warning(
-                f"Critical anomaly detected for {service}, "
-                f"triggering emergency rotation"
+                "Critical anomaly detected for %s, triggering emergency rotation", service
             )
             # Schedule async rotation
             try:

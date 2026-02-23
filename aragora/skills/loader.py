@@ -88,7 +88,7 @@ class SkillLoader:
             SkillLoadError: If module cannot be loaded
         """
         if module_path in self._loaded_modules:
-            logger.debug(f"Module already loaded: {module_path}")
+            logger.debug("Module already loaded: %s", module_path)
             return []
 
         try:
@@ -104,7 +104,7 @@ class SkillLoader:
             for skill in skills:
                 self._registry.register(skill, replace=True)
 
-        logger.info(f"Loaded {len(skills)} skills from {module_path}")
+        logger.info("Loaded %s skills from %s", len(skills), module_path)
         return skills
 
     def load_file(
@@ -152,7 +152,7 @@ class SkillLoader:
             for skill in skills:
                 self._registry.register(skill, replace=True)
 
-        logger.info(f"Loaded {len(skills)} skills from {path}")
+        logger.info("Loaded %s skills from %s", len(skills), path)
         return skills
 
     def load_directory(
@@ -190,9 +190,9 @@ class SkillLoader:
                 skills = self.load_file(file_path, register=register)
                 all_skills.extend(skills)
             except SkillLoadError as e:
-                logger.warning(f"Skipping file {file_path}: {e}")
+                logger.warning("Skipping file %s: %s", file_path, e)
 
-        logger.info(f"Loaded {len(all_skills)} skills from directory {path}")
+        logger.info("Loaded %s skills from directory %s", len(all_skills), path)
         return all_skills
 
     def load_builtin_skills(self, register: bool | None = None) -> list[Skill]:
@@ -218,7 +218,7 @@ class SkillLoader:
                 skills = self.load_module(module_path, register=register)
                 all_skills.extend(skills)
             except SkillLoadError as e:
-                logger.debug(f"Built-in skill module not available: {module_path}: {e}")
+                logger.debug("Built-in skill module not available: %s: %s", module_path, e)
 
         return all_skills
 
@@ -242,7 +242,7 @@ class SkillLoader:
                 elif isinstance(result, Skill):
                     skills.append(result)
             except (RuntimeError, ValueError, TypeError) as e:
-                logger.warning(f"register_skills() failed: {e}")
+                logger.warning("register_skills() failed: %s", e)
 
         # Check for SKILLS constant
         if hasattr(module, "SKILLS"):
@@ -270,7 +270,7 @@ class SkillLoader:
                     if instance not in skills:
                         skills.append(instance)
                 except (TypeError, RuntimeError, ValueError) as e:
-                    logger.debug(f"Could not instantiate {name}: {e}")
+                    logger.debug("Could not instantiate %s: %s", name, e)
 
             # Check if it's already a Skill instance
             elif isinstance(obj, Skill):
@@ -326,7 +326,7 @@ class SkillLoader:
             if should_register:
                 self._registry.register(skill, replace=True)
 
-            logger.info(f"Loaded declarative skill from {path}: {manifest.name}")
+            logger.info("Loaded declarative skill from %s: %s", path, manifest.name)
             return skill
 
         except (ValueError, KeyError, TypeError, OSError, ImportError) as e:

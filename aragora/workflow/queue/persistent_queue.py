@@ -145,7 +145,7 @@ class PersistentTaskQueue(TaskQueue):
         self._connections: list[sqlite3.Connection] = []
         self._init_schema()
 
-        logger.info(f"PersistentTaskQueue initialized: {self._db_path}")
+        logger.info("PersistentTaskQueue initialized: %s", self._db_path)
 
         # Auto-recovery configuration
         self._auto_recover = True
@@ -183,11 +183,11 @@ class PersistentTaskQueue(TaskQueue):
                 recovered_count = await self.recover_tasks(tenant_id)
                 if recovered_count > 0:
                     logger.info(
-                        f"Auto-recovered {recovered_count} tasks on queue start",
+                        "Auto-recovered %s tasks on queue start", recovered_count,
                         extra={"tenant_id": tenant_id, "recovered_count": recovered_count},
                     )
             except (sqlite3.Error, OSError, RuntimeError, ValueError, TypeError) as e:
-                logger.error(f"Failed to auto-recover tasks on start: {e}")
+                logger.error("Failed to auto-recover tasks on start: %s", e)
                 # Don't fail start if recovery fails - queue is still functional
 
     def _get_conn(self) -> sqlite3.Connection:
@@ -284,10 +284,10 @@ class PersistentTaskQueue(TaskQueue):
                 ),
             )
             conn.commit()
-            logger.debug(f"Persisted task {task.id}")
+            logger.debug("Persisted task %s", task.id)
 
         except (sqlite3.Error, OSError, ValueError, TypeError) as e:
-            logger.error(f"Failed to persist task {task.id}: {e}")
+            logger.error("Failed to persist task %s: %s", task.id, e)
 
     def _update_task_status(self, task: WorkflowTask) -> None:
         """Update task status in database."""
@@ -321,7 +321,7 @@ class PersistentTaskQueue(TaskQueue):
             conn.commit()
 
         except (sqlite3.Error, OSError, ValueError, TypeError) as e:
-            logger.error(f"Failed to update task status {task.id}: {e}")
+            logger.error("Failed to update task status %s: %s", task.id, e)
 
     async def _execute_task(self, task: WorkflowTask) -> None:
         """Execute task with status persistence."""
@@ -393,11 +393,11 @@ class PersistentTaskQueue(TaskQueue):
             for status, count in recovery_counts.items():
                 _record_recovery(status, count)
 
-            logger.info(f"Recovered {recovered} tasks from persistent storage")
+            logger.info("Recovered %s tasks from persistent storage", recovered)
             return recovered
 
         except (sqlite3.Error, OSError, RuntimeError, ValueError, TypeError) as e:
-            logger.error(f"Failed to recover tasks: {e}")
+            logger.error("Failed to recover tasks: %s", e)
             return 0
 
     def _row_to_task(self, row: sqlite3.Row) -> WorkflowTask:
@@ -445,7 +445,7 @@ class PersistentTaskQueue(TaskQueue):
                 return self._row_to_task(row)
             return None
         except (sqlite3.Error, OSError, ValueError, TypeError) as e:
-            logger.error(f"Failed to get task {task_id} from DB: {e}")
+            logger.error("Failed to get task %s from DB: %s", task_id, e)
             return None
 
     def list_tasks_from_db(
@@ -499,7 +499,7 @@ class PersistentTaskQueue(TaskQueue):
             return tasks, total
 
         except (sqlite3.Error, OSError, ValueError, TypeError) as e:
-            logger.error(f"Failed to list tasks from DB: {e}")
+            logger.error("Failed to list tasks from DB: %s", e)
             return [], 0
 
     def delete_completed_tasks(
@@ -537,13 +537,13 @@ class PersistentTaskQueue(TaskQueue):
             conn.commit()
 
             if deleted > 0:
-                logger.info(f"Cleaned up {deleted} completed tasks")
+                logger.info("Cleaned up %s completed tasks", deleted)
                 _record_cleanup(deleted)
 
             return deleted
 
         except (sqlite3.Error, OSError) as e:
-            logger.error(f"Failed to delete completed tasks: {e}")
+            logger.error("Failed to delete completed tasks: %s", e)
             return 0
 
     async def close(self) -> None:

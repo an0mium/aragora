@@ -290,7 +290,7 @@ class SharePointConnector(EnterpriseConnector):
             return sites
 
         except (httpx.HTTPError, OSError, ConnectionError, TimeoutError, KeyError, ValueError) as e:
-            logger.warning(f"[{self.name}] Failed to get subsites: {e}")
+            logger.warning("[%s] Failed to get subsites: %s", self.name, e)
             return []
 
     async def _get_drives(self, site_id: str) -> list[SharePointDrive]:
@@ -355,7 +355,7 @@ class SharePointConnector(EnterpriseConnector):
 
                     size = item.get("size", 0)
                     if size > MAX_FILE_SIZE:
-                        logger.debug(f"[{self.name}] Skipping large file: {path} ({size} bytes)")
+                        logger.debug("[%s] Skipping large file: %s (%s bytes)", self.name, path, size)
                         continue
 
                 yield (
@@ -426,11 +426,11 @@ class SharePointConnector(EnterpriseConnector):
                     return response.text
                 except UnicodeDecodeError as e:
                     # Binary content, try base64
-                    logger.debug(f"[{self.name}] Text decode failed, using base64: {e}")
+                    logger.debug("[%s] Text decode failed, using base64: %s", self.name, e)
                     return base64.b64encode(response.content).decode()[:1000] + "..."
 
         except (httpx.HTTPError, OSError, ConnectionError, TimeoutError, UnicodeDecodeError) as e:
-            logger.warning(f"[{self.name}] Failed to get file content: {e}")
+            logger.warning("[%s] Failed to get file content: %s", self.name, e)
             return ""
 
     async def sync_items(
@@ -470,7 +470,7 @@ class SharePointConnector(EnterpriseConnector):
                         cursor_data = json.loads(state.cursor)
                         delta_token = cursor_data.get(f"drive_{drive.id}")
                     except json.JSONDecodeError as e:
-                        logger.debug(f"Invalid cursor JSON, starting fresh sync: {e}")
+                        logger.debug("Invalid cursor JSON, starting fresh sync: %s", e)
 
                 async for item, new_delta in self._get_drive_items(
                     drive.id, delta_token=delta_token
@@ -516,7 +516,7 @@ class SharePointConnector(EnterpriseConnector):
                             try:
                                 cursor_data = json.loads(state.cursor)
                             except json.JSONDecodeError as e:
-                                logger.debug(f"Invalid cursor JSON during update: {e}")
+                                logger.debug("Invalid cursor JSON during update: %s", e)
                         cursor_data[f"drive_{drive.id}"] = new_delta
                         state.cursor = json.dumps(cursor_data)
 
@@ -572,7 +572,7 @@ class SharePointConnector(EnterpriseConnector):
             return results
 
         except (httpx.HTTPError, OSError, ConnectionError, TimeoutError, KeyError, ValueError) as e:
-            logger.error(f"[{self.name}] Search failed: {e}")
+            logger.error("[%s] Search failed: %s", self.name, e)
             return []
 
     async def fetch(self, evidence_id: str) -> Any | None:
@@ -616,20 +616,20 @@ class SharePointConnector(EnterpriseConnector):
                     KeyError,
                     ValueError,
                 ) as e:
-                    logger.debug(f"[{self.name}] Failed to create fetch result: {e}")
+                    logger.debug("[%s] Failed to create fetch result: %s", self.name, e)
                     continue
 
             return None
 
         except (httpx.HTTPError, OSError, ConnectionError, TimeoutError, KeyError, ValueError) as e:
-            logger.error(f"[{self.name}] Fetch failed: {e}")
+            logger.error("[%s] Fetch failed: %s", self.name, e)
             return None
 
     async def handle_webhook(self, payload: dict[str, Any]) -> bool:
         """Handle SharePoint webhook notification."""
         # SharePoint webhooks send subscription validation
         if "validationToken" in payload:
-            logger.info(f"[{self.name}] Webhook validation request")
+            logger.info("[%s] Webhook validation request", self.name)
             return True
 
         # Process change notifications
@@ -637,7 +637,7 @@ class SharePointConnector(EnterpriseConnector):
             resource = notification.get("resource", "")
             change_type = notification.get("changeType", "")
 
-            logger.info(f"[{self.name}] Webhook: {change_type} on {resource}")
+            logger.info("[%s] Webhook: %s on %s", self.name, change_type, resource)
 
             # Trigger incremental sync
             asyncio.create_task(self.sync(max_items=50))

@@ -90,7 +90,7 @@ class CalibrationHandler(SecureHandler):
         # Rate limit check
         client_ip = get_client_ip(handler)
         if not _calibration_limiter.is_allowed(client_ip):
-            logger.warning(f"Rate limit exceeded for calibration endpoint: {client_ip}")
+            logger.warning("Rate limit exceeded for calibration endpoint: %s", client_ip)
             return error_response("Rate limit exceeded. Please try again later.", 429)
 
         # RBAC: Require authentication and agent:read permission
@@ -100,7 +100,7 @@ class CalibrationHandler(SecureHandler):
         except UnauthorizedError:
             return error_response("Authentication required to access calibration data", 401)
         except ForbiddenError as e:
-            logger.warning(f"Calibration access denied: {e}")
+            logger.warning("Calibration access denied: %s", e)
             return error_response("Permission denied", 403)
 
         # Handle leaderboard endpoint
@@ -237,7 +237,7 @@ class CalibrationHandler(SecureHandler):
                     }
                 )
             except (KeyError, ValueError, AttributeError, TypeError) as e:
-                logger.debug(f"Skipping agent {agent_name}: {e}")
+                logger.debug("Skipping agent %s: %s", agent_name, e)
                 continue
 
         # Sort by the requested metric
@@ -323,7 +323,7 @@ class CalibrationHandler(SecureHandler):
                             }
                         )
                 except (KeyError, ValueError, AttributeError, TypeError) as e:
-                    logger.debug(f"Error getting summary for {agent}: {e}")
+                    logger.debug("Error getting summary for %s: %s", agent, e)
                     continue
 
             if not agent_summaries:
@@ -348,7 +348,7 @@ class CalibrationHandler(SecureHandler):
                             "perfect_line": [{"x": i / 10, "y": i / 10} for i in range(11)],
                         }
                 except (KeyError, ValueError, AttributeError, TypeError) as e:
-                    logger.debug(f"Error getting curve for {agent}: {e}")
+                    logger.debug("Error getting curve for %s: %s", agent, e)
 
             # 2. Scatter plot data (agent confidence vs accuracy)
             for entry in agent_summaries:
@@ -377,7 +377,7 @@ class CalibrationHandler(SecureHandler):
                             if i < 10:
                                 confidence_buckets[i] += b.total_predictions
                 except (KeyError, ValueError, AttributeError, TypeError) as e:
-                    logger.debug(f"Failed to get calibration curve for {agent}: {e}")
+                    logger.debug("Failed to get calibration curve for %s: %s", agent, e)
 
             result["confidence_histogram"] = [
                 {
@@ -402,7 +402,7 @@ class CalibrationHandler(SecureHandler):
                             for domain, s in domain_data.items()
                         }
                 except (KeyError, ValueError, AttributeError, TypeError) as e:
-                    logger.debug(f"Error getting domains for {agent}: {e}")
+                    logger.debug("Error getting domains for %s: %s", agent, e)
 
             # 5. Summary statistics
             brier_scores = [e["summary"].brier_score for e in agent_summaries]
@@ -419,6 +419,6 @@ class CalibrationHandler(SecureHandler):
                 result["summary"]["avg_ece"] = round(sum(ece_scores) / len(ece_scores), 4)
 
         except (ValueError, KeyError, TypeError, RuntimeError, OSError) as e:
-            logger.warning(f"Calibration visualization error: {e}")
+            logger.warning("Calibration visualization error: %s", e)
 
         return json_response(result)

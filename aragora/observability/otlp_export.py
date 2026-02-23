@@ -136,8 +136,7 @@ class OTLPConfig:
             exporter_type = OTLPExporterType(exporter_str)
         except ValueError:
             logger.warning(
-                f"Unknown OTLP exporter type: {exporter_str}, using 'none'. "
-                f"Valid options: {[e.value for e in OTLPExporterType]}"
+                "Unknown OTLP exporter type: %s, using 'none'. Valid options: %s", exporter_str, [e.value for e in OTLPExporterType]
             )
             exporter_type = OTLPExporterType.NONE
 
@@ -150,7 +149,7 @@ class OTLPConfig:
                 if not isinstance(headers, dict):
                     raise ValueError("Headers must be a JSON object")
             except (json.JSONDecodeError, ValueError) as e:
-                logger.warning(f"Failed to parse ARAGORA_OTLP_HEADERS: {e}")
+                logger.warning("Failed to parse ARAGORA_OTLP_HEADERS: %s", e)
 
         return cls(
             exporter_type=exporter_type,
@@ -367,7 +366,7 @@ def _get_exporter(config: OTLPConfig) -> Any:
     elif config.exporter_type == OTLPExporterType.DATADOG:
         return _get_datadog_exporter(config)
     else:
-        logger.warning(f"Unknown exporter type: {config.exporter_type}")
+        logger.warning("Unknown exporter type: %s", config.exporter_type)
         return None
 
 
@@ -447,28 +446,23 @@ def configure_otlp_exporter(config: OTLPConfig | None = None) -> Any:
             _tracer_provider = provider
 
             logger.info(
-                f"OTLP tracing configured: exporter={config.exporter_type.value}, "
-                f"endpoint={config.get_effective_endpoint()}, "
-                f"service={config.service_name}, "
-                f"environment={config.environment}, "
-                f"sample_rate={config.sample_rate}"
+                "OTLP tracing configured: exporter=%s, endpoint=%s, service=%s, environment=%s, sample_rate=%s", config.exporter_type.value, config.get_effective_endpoint(), config.service_name, config.environment, config.sample_rate
             )
 
             return provider
         else:
             logger.warning(
-                f"Failed to create {config.exporter_type.value} exporter, tracing disabled"
+                "Failed to create %s exporter, tracing disabled", config.exporter_type.value
             )
             return None
 
     except ImportError as e:
         logger.warning(
-            f"OpenTelemetry SDK not available: {e}. "
-            "Install with: pip install opentelemetry-api opentelemetry-sdk"
+            "OpenTelemetry SDK not available: %s. Install with: pip install opentelemetry-api opentelemetry-sdk", e
         )
         return None
     except (RuntimeError, OSError, ValueError, TypeError) as e:
-        logger.error(f"Failed to configure OTLP exporter: {e}")
+        logger.error("Failed to configure OTLP exporter: %s", e)
         return None
 
 
@@ -493,7 +487,7 @@ def shutdown_otlp() -> None:
             _tracer_provider.shutdown()
             logger.info("OTLP tracer provider shutdown complete")
         except (RuntimeError, OSError, TimeoutError) as e:
-            logger.error(f"Error shutting down OTLP tracer: {e}")
+            logger.error("Error shutting down OTLP tracer: %s", e)
         finally:
             _tracer_provider = None
 

@@ -80,7 +80,7 @@ async def emit_scan_events(
                 )
 
         if not findings:
-            logger.debug(f"[Security] No findings to emit for scan {scan_id}")
+            logger.debug("[Security] No findings to emit for scan %s", scan_id)
             return
 
         # Determine overall severity
@@ -111,12 +111,11 @@ async def emit_scan_events(
         await emitter.emit(event)
 
         logger.info(
-            f"[Security] Emitted {event_type.value} event for scan {scan_id}: "
-            f"{critical_count} critical, {high_count} high severity findings"
+            "[Security] Emitted %s event for scan %s: %s critical, %s high severity findings", event_type.value, scan_id, critical_count, high_count
         )
 
     except (KeyError, ValueError, TypeError, RuntimeError) as e:
-        logger.warning(f"[Security] Failed to emit scan events: {e}")
+        logger.warning("[Security] Failed to emit scan events: %s", e)
 
 
 async def emit_secrets_events(
@@ -172,7 +171,7 @@ async def emit_secrets_events(
             )
 
         if not findings:
-            logger.debug(f"[Security] No secrets findings to emit for scan {scan_id}")
+            logger.debug("[Security] No secrets findings to emit for scan %s", scan_id)
             return
 
         # Determine overall severity
@@ -202,12 +201,11 @@ async def emit_secrets_events(
         await emitter.emit(event)
 
         logger.info(
-            f"[Security] Emitted {event_type.value} event for secrets scan {scan_id}: "
-            f"{critical_count} critical, {high_count} high severity findings"
+            "[Security] Emitted %s event for secrets scan %s: %s critical, %s high severity findings", event_type.value, scan_id, critical_count, high_count
         )
 
     except (KeyError, ValueError, TypeError, RuntimeError) as e:
-        logger.warning(f"[Security] Failed to emit secrets scan events: {e}")
+        logger.warning("[Security] Failed to emit secrets scan events: %s", e)
 
 
 async def emit_sast_events(
@@ -264,4 +262,4 @@ async def emit_sast_events(
             await emitter.emit(event)
 
     except (KeyError, ValueError, TypeError, RuntimeError) as e:
-        logger.warning(f"Failed to emit SAST events: {e}")
+        logger.warning("Failed to emit SAST events: %s", e)

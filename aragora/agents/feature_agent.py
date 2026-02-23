@@ -307,7 +307,7 @@ class FeatureDevelopmentAgent:
         except (RuntimeError, OSError, ConnectionError, TimeoutError, ValueError) as e:
             implementation.status = FeatureStatus.FAILED
             implementation.error_message = str(e)
-            logger.error(f"Feature development failed: {e}")
+            logger.error("Feature development failed: %s", e)
 
         return implementation
 

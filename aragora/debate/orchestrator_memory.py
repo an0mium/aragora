@@ -51,14 +51,14 @@ def queue_for_supabase_sync(ctx: DebateContext, result: DebateResult) -> None:
         }
 
         sync.queue_debate(debate_data)
-        logger.debug(f"Queued debate {result.id} for Supabase sync")
+        logger.debug("Queued debate %s for Supabase sync", result.id)
 
     except ImportError:
         logger.debug("Supabase sync not available")
     except (ConnectionError, TimeoutError) as e:
-        logger.debug(f"Supabase sync queue failed (non-fatal): {e}")
+        logger.debug("Supabase sync queue failed (non-fatal): %s", e)
     except (RuntimeError, OSError, ValueError) as e:
-        logger.warning(f"Unexpected Supabase sync error (non-fatal): {e}")
+        logger.warning("Unexpected Supabase sync error (non-fatal): %s", e)
 
 
 def setup_belief_network(
@@ -99,7 +99,7 @@ def setup_belief_network(
         if seed_from_km and km_adapter and topic:
             seeded = network.seed_from_km(topic, min_confidence=0.7)
             if seeded > 0:
-                logger.info(f"[arena] Seeded belief network with {seeded} prior beliefs from KM")
+                logger.info("[arena] Seeded belief network with %s prior beliefs from KM", seeded)
 
         return network
 
@@ -107,7 +107,7 @@ def setup_belief_network(
         logger.debug("[arena] BeliefNetwork not available")
         return None
     except (ValueError, TypeError, AttributeError, KeyError) as e:
-        logger.debug(f"[arena] Failed to setup belief network: {e}")
+        logger.debug("[arena] Failed to setup belief network: %s", e)
         return None
 
 
@@ -149,8 +149,7 @@ def init_rlm_limiter_state(
             )
             state["rlm_limiter"] = RLMCognitiveLoadLimiter(budget=budget)
             logger.info(
-                f"[arena] RLM limiter enabled: threshold={rlm_compression_threshold}, "
-                f"recent={rlm_max_recent_messages}, level={rlm_summary_level}"
+                "[arena] RLM limiter enabled: threshold=%s, recent=%s, level=%s", rlm_compression_threshold, rlm_max_recent_messages, rlm_summary_level
             )
         except ImportError:
             logger.warning("[arena] RLM module not available, disabling limiter")
@@ -184,7 +183,7 @@ def init_checkpoint_bridge(
         except ImportError:
             logger.debug("[molecules] Molecule orchestrator not available")
         except (ValueError, TypeError, AttributeError, RuntimeError) as e:
-            logger.warning(f"[molecules] Failed to initialize orchestrator: {e}")
+            logger.warning("[molecules] Failed to initialize orchestrator: %s", e)
 
     if checkpoint_manager or molecule_orchestrator:
         try:
@@ -197,7 +196,7 @@ def init_checkpoint_bridge(
         except ImportError:
             logger.debug("[checkpoint_bridge] Checkpoint bridge not available")
         except (ValueError, TypeError, AttributeError, RuntimeError) as e:
-            logger.warning(f"[checkpoint_bridge] Initialization failed: {e}")
+            logger.warning("[checkpoint_bridge] Initialization failed: %s", e)
 
     return molecule_orchestrator, checkpoint_bridge
 
@@ -243,29 +242,24 @@ def auto_create_knowledge_mound(
             auto_initialize=True,
         )
         logger.info(
-            f"[knowledge_mound] Auto-created KM instance for debate "
-            f"(enable_retrieval={enable_retrieval}, enable_ingestion={enable_ingestion})"
+            "[knowledge_mound] Auto-created KM instance for debate (enable_retrieval=%s, enable_ingestion=%s)", enable_retrieval, enable_ingestion
         )
         return km
     except ImportError as e:
         logger.warning(
-            f"[knowledge_mound] Could not auto-create: {e}. "
-            "Debates will run without knowledge grounding."
+            "[knowledge_mound] Could not auto-create: %s. Debates will run without knowledge grounding.", e
         )
     except (RuntimeError, ConnectionError, OSError) as e:
         logger.warning(
-            f"[knowledge_mound] Initialization failed (infrastructure): {e}. "
-            "Debates will run without knowledge grounding."
+            "[knowledge_mound] Initialization failed (infrastructure): %s. Debates will run without knowledge grounding.", e
         )
     except (ValueError, TypeError, AttributeError) as e:
         logger.warning(
-            f"[knowledge_mound] Initialization failed (config): {e}. "
-            "Debates will run without knowledge grounding."
+            "[knowledge_mound] Initialization failed (config): %s. Debates will run without knowledge grounding.", e
         )
     except (KeyError, ImportError) as e:
         logger.exception(
-            f"[knowledge_mound] Unexpected initialization error: {e}. "
-            "Debates will run without knowledge grounding."
+            "[knowledge_mound] Unexpected initialization error: %s. Debates will run without knowledge grounding.", e
         )
     return None
 
@@ -296,7 +290,7 @@ def init_cross_subscriber_bridge(event_bus: Any) -> Any:
         logger.debug("[arena] Cross-subscriber bridge not available")
         return None
     except (AttributeError, ValueError, TypeError, RuntimeError) as e:
-        logger.warning(f"[arena] Failed to initialize cross-subscriber bridge: {e}")
+        logger.warning("[arena] Failed to initialize cross-subscriber bridge: %s", e)
         return None
 
 
@@ -338,8 +332,8 @@ async def compress_debate_messages(
 
         return result.messages, result.critiques
     except (ValueError, TypeError, AttributeError) as e:
-        logger.warning(f"[arena] RLM compression failed with data error, using original: {e}")
+        logger.warning("[arena] RLM compression failed with data error, using original: %s", e)
         return messages, critiques
     except (RuntimeError, OSError, ImportError) as e:
-        logger.exception(f"[arena] Unexpected RLM compression error, using original: {e}")
+        logger.exception("[arena] Unexpected RLM compression error, using original: %s", e)
         return messages, critiques

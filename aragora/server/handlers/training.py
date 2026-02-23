@@ -573,10 +573,10 @@ class TrainingHandler(BaseHandler):
                 sft_sample = sft_exporter.export(limit=1)
                 stats["sft_available"] = len(sft_sample) > 0
             except (ValueError, RuntimeError, AttributeError) as e:
-                logger.debug(f"SFT exporter availability check failed: {e}")
+                logger.debug("SFT exporter availability check failed: %s", e)
                 stats["sft_available"] = False
             except (ValueError, KeyError, TypeError, RuntimeError, OSError) as e:
-                logger.warning(f"Unexpected error checking SFT exporter availability: {e}")
+                logger.warning("Unexpected error checking SFT exporter availability: %s", e)
                 stats["sft_available"] = False
 
         return json_response(stats)
@@ -677,11 +677,11 @@ class TrainingHandler(BaseHandler):
                 self._exporters["pipeline"] = SpecialistTrainingPipeline(registry)
                 circuit_breaker.record_success()
             except ImportError as e:
-                logger.warning(f"Training pipeline not available: {e}")
+                logger.warning("Training pipeline not available: %s", e)
                 circuit_breaker.record_failure()
                 return None
             except (RuntimeError, AttributeError, TypeError) as e:
-                logger.exception(f"Training pipeline initialization failed: {e}")
+                logger.exception("Training pipeline initialization failed: %s", e)
                 circuit_breaker.record_failure()
                 return None
 
@@ -775,10 +775,10 @@ class TrainingHandler(BaseHandler):
             )
 
         except (ValueError, TypeError) as e:
-            logger.warning(f"Failed to list training jobs (invalid params): {e}")
+            logger.warning("Failed to list training jobs (invalid params): %s", e)
             return error_response(safe_error_message(e, "list training jobs"), 400)
         except (KeyError, AttributeError) as e:
-            logger.exception(f"Failed to list training jobs: {e}")
+            logger.exception("Failed to list training jobs: %s", e)
             return error_response(safe_error_message(e, "list training jobs"), 500)
 
     @require_permission("training:read")
@@ -800,10 +800,10 @@ class TrainingHandler(BaseHandler):
             logger.warning("Handler error: %s", e)
             return error_response("Resource not found", 404)
         except (KeyError, AttributeError) as e:
-            logger.exception(f"Failed to get job {job_id}: {e}")
+            logger.exception("Failed to get job %s: %s", job_id, e)
             return error_response(safe_error_message(e, "get training job"), 500)
         except RuntimeError as e:
-            logger.exception(f"Failed to get job {job_id} (runtime error): {e}")
+            logger.exception("Failed to get job %s (runtime error): %s", job_id, e)
             return error_response(safe_error_message(e, "get training job"), 500)
 
     @require_permission("training:create")
@@ -827,10 +827,10 @@ class TrainingHandler(BaseHandler):
             logger.warning("Handler error: %s", e)
             return error_response("Resource not found", 404)
         except (KeyError, AttributeError) as e:
-            logger.exception(f"Failed to cancel job {job_id}: {e}")
+            logger.exception("Failed to cancel job %s: %s", job_id, e)
             return error_response(safe_error_message(e, "cancel training job"), 500)
         except RuntimeError as e:
-            logger.exception(f"Failed to cancel job {job_id} (runtime error): {e}")
+            logger.exception("Failed to cancel job %s (runtime error): %s", job_id, e)
             return error_response(safe_error_message(e, "cancel training job"), 500)
 
     @require_permission("training:export")
@@ -859,10 +859,10 @@ class TrainingHandler(BaseHandler):
             logger.warning("Handler error: %s", e)
             return error_response("Resource not found", 404)
         except (KeyError, AttributeError) as e:
-            logger.exception(f"Failed to export data for job {job_id}: {e}")
+            logger.exception("Failed to export data for job %s: %s", job_id, e)
             return error_response(safe_error_message(e, "export training data"), 500)
         except OSError as e:
-            logger.exception(f"Failed to export data for job {job_id} (I/O error): {e}")
+            logger.exception("Failed to export data for job %s (I/O error): %s", job_id, e)
             return error_response(safe_error_message(e, "export training data"), 500)
 
     @require_permission("training:create")
@@ -892,10 +892,10 @@ class TrainingHandler(BaseHandler):
             logger.warning("Handler error: %s", e)
             return error_response("Invalid request", 400)
         except (KeyError, AttributeError) as e:
-            logger.exception(f"Failed to start training for job {job_id}: {e}")
+            logger.exception("Failed to start training for job %s: %s", job_id, e)
             return error_response(safe_error_message(e, "start training"), 500)
         except RuntimeError as e:
-            logger.exception(f"Failed to start training for job {job_id} (runtime error): {e}")
+            logger.exception("Failed to start training for job %s (runtime error): %s", job_id, e)
             return error_response(safe_error_message(e, "start training"), 500)
 
     @require_permission("training:create")
@@ -921,7 +921,7 @@ class TrainingHandler(BaseHandler):
                         raw_body = handler.rfile.read(content_length)
                         body = json.loads(raw_body.decode("utf-8"))
                 except (json.JSONDecodeError, ValueError) as e:
-                    logger.debug(f"Could not parse completion body: {e}, using defaults")
+                    logger.debug("Could not parse completion body: %s, using defaults", e)
 
             final_loss = safe_query_float(body, "final_loss", default=0.0, max_val=100.0)
             checkpoint_path = body.get("checkpoint_path", "")
@@ -940,10 +940,10 @@ class TrainingHandler(BaseHandler):
             logger.warning("Handler error: %s", e)
             return error_response("Resource not found", 404)
         except (KeyError, AttributeError) as e:
-            logger.exception(f"Failed to complete job {job_id}: {e}")
+            logger.exception("Failed to complete job %s: %s", job_id, e)
             return error_response(safe_error_message(e, "complete training job"), 500)
         except RuntimeError as e:
-            logger.exception(f"Failed to complete job {job_id} (runtime error): {e}")
+            logger.exception("Failed to complete job %s (runtime error): %s", job_id, e)
             return error_response(safe_error_message(e, "complete training job"), 500)
 
     @require_permission("training:read")
@@ -976,10 +976,10 @@ class TrainingHandler(BaseHandler):
 
             return json_response(metrics)
         except (KeyError, AttributeError) as e:
-            logger.exception(f"Failed to get metrics for job {job_id}: {e}")
+            logger.exception("Failed to get metrics for job %s: %s", job_id, e)
             return error_response(safe_error_message(e, "get training metrics"), 500)
         except ValueError as e:
-            logger.warning(f"Failed to get metrics for job {job_id} (invalid value): {e}")
+            logger.warning("Failed to get metrics for job %s (invalid value): %s", job_id, e)
             return error_response(safe_error_message(e, "get training metrics"), 400)
 
     @require_permission("training:read")
@@ -1025,8 +1025,8 @@ class TrainingHandler(BaseHandler):
 
             return json_response(artifacts)
         except (KeyError, AttributeError) as e:
-            logger.exception(f"Failed to get artifacts for job {job_id}: {e}")
+            logger.exception("Failed to get artifacts for job %s: %s", job_id, e)
             return error_response(safe_error_message(e, "get training artifacts"), 500)
         except OSError as e:
-            logger.exception(f"Failed to get artifacts for job {job_id} (I/O error): {e}")
+            logger.exception("Failed to get artifacts for job %s (I/O error): %s", job_id, e)
             return error_response(safe_error_message(e, "get training artifacts"), 500)

@@ -115,7 +115,7 @@ class ConditionEvaluator:
             return result
 
         except (ValueError, KeyError, TypeError, AttributeError) as e:
-            logger.warning(f"Condition evaluation error for {condition.field}: {e}")
+            logger.warning("Condition evaluation error for %s: %s", condition.field, e)
             return False
 
     def evaluate_all(
@@ -251,7 +251,7 @@ class ConditionEvaluator:
             return bool(field_value) is False
 
         else:
-            logger.warning(f"Unknown operator: {operator}")
+            logger.warning("Unknown operator: %s", operator)
             return False
 
     def _equals(self, a: Any, b: Any) -> bool:

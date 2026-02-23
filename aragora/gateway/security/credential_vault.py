@@ -260,7 +260,7 @@ class CredentialVault:
         )
 
         self._credentials[credential_id] = entry
-        logger.info(f"Stored credential: {name} (scope={scope.value})")
+        logger.info("Stored credential: %s (scope=%s)", name, scope.value)
 
         return credential_id
 
@@ -273,19 +273,19 @@ class CredentialVault:
         """Get decrypted credential value with access checks."""
         # Check expiration
         if entry.is_expired:
-            logger.warning(f"Credential {entry.name} has expired")
+            logger.warning("Credential %s has expired", entry.name)
             return None
 
         # Check tenant scope
         if entry.scope == CredentialScope.TENANT:
             if entry.tenant_id and entry.tenant_id != tenant_id:
-                logger.warning(f"Credential {entry.name} not accessible for tenant {tenant_id}")
+                logger.warning("Credential %s not accessible for tenant %s", entry.name, tenant_id)
                 return None
 
         # Check agent scope
         if entry.agent_names:
             if agent_name not in entry.agent_names:
-                logger.warning(f"Credential {entry.name} not accessible for agent {agent_name}")
+                logger.warning("Credential %s not accessible for agent %s", entry.name, agent_name)
                 return None
 
         # Update access tracking
@@ -352,7 +352,7 @@ class CredentialVault:
 
         entry.encrypted_value = self._encrypt(new_value)
         entry.access_count = 0  # Reset after rotation
-        logger.info(f"Rotated credential: {entry.name}")
+        logger.info("Rotated credential: %s", entry.name)
 
         return True
 
@@ -368,7 +368,7 @@ class CredentialVault:
         """
         if credential_id in self._credentials:
             entry = self._credentials.pop(credential_id)
-            logger.info(f"Revoked credential: {entry.name}")
+            logger.info("Revoked credential: %s", entry.name)
             return True
         return False
 
@@ -410,5 +410,5 @@ class CredentialVault:
         for cid in expired:
             self._credentials.pop(cid)
         if expired:
-            logger.info(f"Cleaned up {len(expired)} expired credentials")
+            logger.info("Cleaned up %s expired credentials", len(expired))
         return len(expired)

@@ -174,12 +174,12 @@ async def migrate_sync_store(
             try:
                 if _needs_migration(config, list(CREDENTIAL_KEYWORDS)):
                     if dry_run:
-                        logger.info(f"[DRY RUN] Would migrate connector: {connector_id}")
+                        logger.info("[DRY RUN] Would migrate connector: %s", connector_id)
                     else:
                         # Re-save triggers encryption
                         # call-arg: save_connector accepts dynamic kwargs for encryption
                         await store.save_connector(connector_id, connector)  # type: ignore[call-arg,arg-type]
-                        logger.info(f"Migrated connector: {connector_id}")
+                        logger.info("Migrated connector: %s", connector_id)
                     result.migrated += 1
                     record_migration_record("sync_store", "migrated")
                 else:
@@ -188,13 +188,13 @@ async def migrate_sync_store(
             except (OSError, RuntimeError, ValueError, TypeError) as e:
                 result.failed += 1
                 result.errors.append(f"Connector {connector_id}: migration failed")
-                logger.error(f"Failed to migrate connector {connector_id}: {e}")
+                logger.error("Failed to migrate connector %s: %s", connector_id, e)
                 record_migration_record("sync_store", "failed")
                 record_migration_error("sync_store", type(e).__name__)
 
     except (OSError, RuntimeError, ValueError, ImportError) as e:
         result.errors.append("SyncStore initialization failed")
-        logger.error(f"Failed to initialize SyncStore: {e}")
+        logger.error("Failed to initialize SyncStore: %s", e)
 
     return result
 
@@ -249,13 +249,13 @@ async def migrate_integration_store(
             try:
                 if _needs_migration(settings, list(SENSITIVE_KEYS)):
                     if dry_run:
-                        logger.info(f"[DRY RUN] Would migrate integration: {integration_name}")
+                        logger.info("[DRY RUN] Would migrate integration: %s", integration_name)
                     else:
                         # Re-save triggers encryption
                         save_method = getattr(store, "save", None)
                         if save_method:
                             save_method(integration)
-                        logger.info(f"Migrated integration: {integration_name}")
+                        logger.info("Migrated integration: %s", integration_name)
                     result.migrated += 1
                     record_migration_record("integration_store", "migrated")
                 else:
@@ -264,13 +264,13 @@ async def migrate_integration_store(
             except (OSError, RuntimeError, ValueError, TypeError) as e:
                 result.failed += 1
                 result.errors.append(f"Integration {integration_name}: migration failed")
-                logger.error(f"Failed to migrate integration {integration_name}: {e}")
+                logger.error("Failed to migrate integration %s: %s", integration_name, e)
                 record_migration_record("integration_store", "failed")
                 record_migration_error("integration_store", type(e).__name__)
 
     except (OSError, RuntimeError, ValueError, ImportError) as e:
         result.errors.append("IntegrationStore initialization failed")
-        logger.error(f"Failed to initialize IntegrationStore: {e}")
+        logger.error("Failed to initialize IntegrationStore: %s", e)
 
     return result
 
@@ -332,13 +332,13 @@ async def migrate_gmail_tokens(
 
                 if _needs_migration(token_dict, ENCRYPTED_FIELDS):
                     if dry_run:
-                        logger.info(f"[DRY RUN] Would migrate Gmail tokens for: {user_id}")
+                        logger.info("[DRY RUN] Would migrate Gmail tokens for: %s", user_id)
                     else:
                         # Re-save triggers encryption
                         save_user_state = getattr(store, "save_user_state", None)
                         if save_user_state:
                             await save_user_state(user_id, state)
-                        logger.info(f"Migrated Gmail tokens for: {user_id}")
+                        logger.info("Migrated Gmail tokens for: %s", user_id)
                     result.migrated += 1
                     record_migration_record("gmail_token_store", "migrated")
                 else:
@@ -347,7 +347,7 @@ async def migrate_gmail_tokens(
             except (OSError, RuntimeError, ValueError, TypeError) as e:
                 result.failed += 1
                 result.errors.append(f"User {user_id}: token migration failed")
-                logger.error(f"Failed to migrate Gmail tokens for {user_id}: {e}")
+                logger.error("Failed to migrate Gmail tokens for %s: %s", user_id, e)
                 record_migration_record("gmail_token_store", "failed")
                 record_migration_error("gmail_token_store", type(e).__name__)
 
@@ -355,7 +355,7 @@ async def migrate_gmail_tokens(
         result.errors.append("GmailTokenStore not available")
     except (OSError, RuntimeError, ValueError, TypeError) as e:
         result.errors.append("GmailTokenStore initialization failed")
-        logger.error(f"Failed to initialize GmailTokenStore: {e}")
+        logger.error("Failed to initialize GmailTokenStore: %s", e)
 
     return result
 
@@ -372,7 +372,7 @@ async def migrate_all(dry_run: bool = True) -> list[MigrationResult]:
     """
     results: list[MigrationResult] = []
 
-    logger.info(f"Starting data encryption migration (dry_run={dry_run})")
+    logger.info("Starting data encryption migration (dry_run=%s)", dry_run)
 
     # Check encryption key is set
     if not CRYPTO_AVAILABLE:
@@ -382,9 +382,9 @@ async def migrate_all(dry_run: bool = True) -> list[MigrationResult]:
     try:
         service = get_encryption_service()
         key_id = service.get_active_key_id()
-        logger.info(f"Using encryption key: {key_id}")
+        logger.info("Using encryption key: %s", key_id)
     except (RuntimeError, ValueError, OSError) as e:
-        logger.error(f"Failed to get encryption service: {e}")
+        logger.error("Failed to get encryption service: %s", e)
         logger.error("Set ARAGORA_ENCRYPTION_KEY environment variable")
         return results
 
@@ -398,9 +398,9 @@ async def migrate_all(dry_run: bool = True) -> list[MigrationResult]:
     total_failed = sum(r.failed for r in results)
 
     if dry_run:
-        logger.info(f"Migration preview complete: {total_migrated} records would be migrated")
+        logger.info("Migration preview complete: %s records would be migrated", total_migrated)
     else:
-        logger.info(f"Migration complete: {total_migrated} records migrated, {total_failed} failed")
+        logger.info("Migration complete: %s records migrated, %s failed", total_migrated, total_failed)
 
     return results
 

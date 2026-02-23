@@ -260,7 +260,7 @@ class FabricAdapter(KnowledgeMoundAdapter):
                 return item_id
 
             except (RuntimeError, ValueError, OSError) as e:
-                logger.error(f"Failed to store pool snapshot: {e}")
+                logger.error("Failed to store pool snapshot: %s", e)
                 return None
 
     async def store_task_outcome(
@@ -340,7 +340,7 @@ class FabricAdapter(KnowledgeMoundAdapter):
                 return item_id
 
             except (OSError, ConnectionError, RuntimeError) as e:
-                logger.error(f"Failed to store task outcome: {e}")
+                logger.error("Failed to store task outcome: %s", e)
                 return None
 
     async def store_budget_snapshot(
@@ -420,7 +420,7 @@ class FabricAdapter(KnowledgeMoundAdapter):
                 return item_id
 
             except (RuntimeError, ValueError, OSError, AttributeError) as e:
-                logger.error(f"Failed to store budget snapshot: {e}")
+                logger.error("Failed to store budget snapshot: %s", e)
                 return None
 
     async def store_policy_decision(
@@ -491,7 +491,7 @@ class FabricAdapter(KnowledgeMoundAdapter):
                 return item_id
 
             except (RuntimeError, ValueError, OSError, AttributeError) as e:
-                logger.error(f"Failed to store policy decision: {e}")
+                logger.error("Failed to store policy decision: %s", e)
                 return None
 
     # =========================================================================
@@ -568,7 +568,7 @@ class FabricAdapter(KnowledgeMoundAdapter):
                 return snapshots[:limit]
 
             except (RuntimeError, ValueError, OSError) as e:
-                logger.error(f"Failed to get pool performance history: {e}")
+                logger.error("Failed to get pool performance history: %s", e)
                 return []
 
     async def get_task_patterns(
@@ -647,7 +647,7 @@ class FabricAdapter(KnowledgeMoundAdapter):
                 return outcomes[:limit]
 
             except (OSError, ConnectionError, RuntimeError) as e:
-                logger.error(f"Failed to get task patterns: {e}")
+                logger.error("Failed to get task patterns: %s", e)
                 return []
 
     async def get_pool_recommendations(
@@ -952,9 +952,9 @@ class FabricAdapter(KnowledgeMoundAdapter):
                         if await self.store_budget_snapshot(budget_snapshot):
                             synced["budgets"] += 1
                     except (RuntimeError, ValueError, AttributeError, KeyError) as e:  # noqa: BLE001 - adapter isolation
-                        logger.debug(f"Failed to sync budget for {entity_id}: {e}")
+                        logger.debug("Failed to sync budget for %s: %s", entity_id, e)
 
-                logger.info(f"Synced from fabric: {synced}")
+                logger.info("Synced from fabric: %s", synced)
                 return synced
 
             except (RuntimeError, ValueError, OSError, AttributeError) as e:

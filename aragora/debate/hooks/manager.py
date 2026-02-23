@@ -259,12 +259,12 @@ class HookManager:
         # Sort by priority
         self._hooks[hook_key].sort(key=lambda h: h.priority)
 
-        logger.debug(f"Registered hook: {hook_name} for {hook_key} (priority={priority})")
+        logger.debug("Registered hook: %s for %s (priority=%s)", hook_name, hook_key, priority)
 
         def unregister() -> None:
             if registered in self._hooks[hook_key]:
                 self._hooks[hook_key].remove(registered)
-                logger.debug(f"Unregistered hook: {hook_name}")
+                logger.debug("Unregistered hook: %s", hook_name)
 
         return unregister
 
@@ -284,7 +284,7 @@ class HookManager:
         for hook in self._hooks[hook_key]:
             if hook.name == name:
                 self._hooks[hook_key].remove(hook)
-                logger.debug(f"Unregistered hook: {name}")
+                logger.debug("Unregistered hook: %s", name)
                 return True
         return False
 
@@ -301,7 +301,7 @@ class HookManager:
         else:
             hook_key = hook_type.value if isinstance(hook_type, HookType) else hook_type
             self._hooks[hook_key].clear()
-            logger.debug(f"Cleared hooks for {hook_key}")
+            logger.debug("Cleared hooks for %s", hook_key)
 
     async def trigger(
         self,
@@ -345,7 +345,7 @@ class HookManager:
 
             except (TypeError, ValueError, AttributeError) as e:
                 # Expected errors from hook callback signature mismatches or invalid data
-                logger.warning(f"Hook {hook.name} failed with expected error: {e}")
+                logger.warning("Hook %s failed with expected error: %s", hook.name, e)
                 results.append(None)
 
                 if self._error_handler:
@@ -353,10 +353,10 @@ class HookManager:
                         self._error_handler(hook.name, e)
                     except Exception as handler_error:  # noqa: BLE001 - error handler isolation: prevent handler failures from cascading
                         # Don't let error handler failures cascade
-                        logger.debug(f"Error handler failed for hook {hook.name}: {handler_error}")
+                        logger.debug("Error handler failed for hook %s: %s", hook.name, handler_error)
             except Exception as e:  # noqa: BLE001 - hook isolation boundary: user-provided callbacks can raise any exception
                 # Unexpected errors from hook callback
-                logger.exception(f"Hook {hook.name} failed with unexpected error: {e}")
+                logger.exception("Hook %s failed with unexpected error: %s", hook.name, e)
                 results.append(None)
 
                 if self._error_handler:
@@ -364,7 +364,7 @@ class HookManager:
                         self._error_handler(hook.name, e)
                     except Exception as handler_error:  # noqa: BLE001 - error handler isolation: prevent handler failures from cascading
                         # Don't let error handler failures cascade
-                        logger.debug(f"Error handler failed for hook {hook.name}: {handler_error}")
+                        logger.debug("Error handler failed for hook %s: %s", hook.name, handler_error)
 
         # Remove one-time hooks
         for hook in to_remove:
@@ -406,7 +406,7 @@ class HookManager:
 
                 if asyncio.iscoroutine(result):
                     logger.warning(
-                        f"Hook {hook.name} returned coroutine in sync trigger - skipping"
+                        "Hook %s returned coroutine in sync trigger - skipping", hook.name
                     )
                     results.append(None)
                     continue
@@ -418,7 +418,7 @@ class HookManager:
 
             except (TypeError, ValueError, AttributeError) as e:
                 # Expected errors from hook callback signature mismatches or invalid data
-                logger.warning(f"Hook {hook.name} failed with expected error: {e}")
+                logger.warning("Hook %s failed with expected error: %s", hook.name, e)
                 results.append(None)
 
                 if self._error_handler:
@@ -426,10 +426,10 @@ class HookManager:
                         self._error_handler(hook.name, e)
                     except Exception as handler_error:  # noqa: BLE001 - error handler isolation: prevent handler failures from cascading
                         # Don't let error handler failures cascade
-                        logger.debug(f"Error handler failed for hook {hook.name}: {handler_error}")
+                        logger.debug("Error handler failed for hook %s: %s", hook.name, handler_error)
             except Exception as e:  # noqa: BLE001 - hook isolation boundary: user-provided callbacks can raise any exception
                 # Unexpected errors from hook callback
-                logger.exception(f"Hook {hook.name} failed with unexpected error: {e}")
+                logger.exception("Hook %s failed with unexpected error: %s", hook.name, e)
                 results.append(None)
 
                 if self._error_handler:
@@ -437,7 +437,7 @@ class HookManager:
                         self._error_handler(hook.name, e)
                     except Exception as handler_error:  # noqa: BLE001 - error handler isolation: prevent handler failures from cascading
                         # Don't let error handler failures cascade
-                        logger.debug(f"Error handler failed for hook {hook.name}: {handler_error}")
+                        logger.debug("Error handler failed for hook %s: %s", hook.name, handler_error)
 
         # Remove one-time hooks
         for hook in to_remove:

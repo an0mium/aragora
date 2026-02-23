@@ -166,7 +166,7 @@ class ZapierIntegration(BaseIntegration):
         # SSRF protection: validate URL before making request
         is_valid, error = _validate_webhook_url(webhook_url)
         if not is_valid:
-            logger.warning(f"Zapier webhook URL blocked by SSRF protection: {error}")
+            logger.warning("Zapier webhook URL blocked by SSRF protection: %s", error)
             return False
 
         session = await self._get_session()
@@ -178,10 +178,10 @@ class ZapierIntegration(BaseIntegration):
             ) as response:
                 return response.status == 200
         except (aiohttp.ClientError, asyncio.TimeoutError, OSError) as e:
-            logger.error(f"Zapier webhook connection error: {type(e).__name__}: {e}")
+            logger.error("Zapier webhook connection error: %s: %s", type(e).__name__, e)
             return False
         except (ValueError, TypeError) as e:
-            logger.error(f"Zapier webhook payload error: {type(e).__name__}: {e}")
+            logger.error("Zapier webhook payload error: %s: %s", type(e).__name__, e)
             return False
 
     # =========================================================================
@@ -209,7 +209,7 @@ class ZapierIntegration(BaseIntegration):
         )
 
         self._apps[app_id] = app
-        logger.info(f"Created Zapier app {app_id} for workspace {workspace_id}")
+        logger.info("Created Zapier app %s for workspace %s", app_id, workspace_id)
         return app
 
     def get_app(self, app_id: str) -> ZapierApp | None:
@@ -234,7 +234,7 @@ class ZapierIntegration(BaseIntegration):
         """Delete a Zapier app."""
         if app_id in self._apps:
             del self._apps[app_id]
-            logger.info(f"Deleted Zapier app {app_id}")
+            logger.info("Deleted Zapier app %s", app_id)
             return True
         return False
 
@@ -266,17 +266,17 @@ class ZapierIntegration(BaseIntegration):
         """
         app = self._apps.get(app_id)
         if not app:
-            logger.warning(f"Zapier app not found: {app_id}")
+            logger.warning("Zapier app not found: %s", app_id)
             return None
 
         if trigger_type not in self.TRIGGER_TYPES:
-            logger.warning(f"Invalid trigger type: {trigger_type}")
+            logger.warning("Invalid trigger type: %s", trigger_type)
             return None
 
         # SSRF protection: validate URL before storing
         is_valid, error = _validate_webhook_url(webhook_url)
         if not is_valid:
-            logger.warning(f"Zapier webhook URL blocked by SSRF protection: {error}")
+            logger.warning("Zapier webhook URL blocked by SSRF protection: %s", error)
             return None
 
         trigger_id = f"trigger_{secrets.token_hex(8)}"
@@ -291,7 +291,7 @@ class ZapierIntegration(BaseIntegration):
         )
 
         app.triggers[trigger_id] = trigger
-        logger.info(f"Subscribed trigger {trigger_id} ({trigger_type}) for app {app_id}")
+        logger.info("Subscribed trigger %s (%s) for app %s", trigger_id, trigger_type, app_id)
         return trigger
 
     def unsubscribe_trigger(self, app_id: str, trigger_id: str) -> bool:
@@ -310,7 +310,7 @@ class ZapierIntegration(BaseIntegration):
 
         if trigger_id in app.triggers:
             del app.triggers[trigger_id]
-            logger.info(f"Unsubscribed trigger {trigger_id} from app {app_id}")
+            logger.info("Unsubscribed trigger %s from app %s", trigger_id, app_id)
             return True
         return False
 
@@ -361,7 +361,7 @@ class ZapierIntegration(BaseIntegration):
                     fired_count += 1
 
         if fired_count > 0:
-            logger.info(f"Fired {fired_count} Zapier triggers for {trigger_type}")
+            logger.info("Fired %s Zapier triggers for %s", fired_count, trigger_type)
 
         return fired_count
 
@@ -382,7 +382,7 @@ class ZapierIntegration(BaseIntegration):
         # SSRF protection: defense in depth - re-validate URL before request
         is_valid, error = _validate_webhook_url(trigger.webhook_url)
         if not is_valid:
-            logger.warning(f"Zapier trigger {trigger.id} URL blocked by SSRF protection: {error}")
+            logger.warning("Zapier trigger %s URL blocked by SSRF protection: %s", trigger.id, error)
             return False
 
         # Format payload for Zapier
@@ -403,13 +403,13 @@ class ZapierIntegration(BaseIntegration):
                 if response.status == 200:
                     return True
                 else:
-                    logger.warning(f"Zapier trigger {trigger.id} failed: {response.status}")
+                    logger.warning("Zapier trigger %s failed: %s", trigger.id, response.status)
                     return False
         except (aiohttp.ClientError, asyncio.TimeoutError, OSError) as e:
-            logger.error(f"Zapier trigger {trigger.id} connection error: {type(e).__name__}: {e}")
+            logger.error("Zapier trigger %s connection error: %s: %s", trigger.id, type(e).__name__, e)
             return False
         except (ValueError, TypeError) as e:
-            logger.error(f"Zapier trigger {trigger.id} payload error: {type(e).__name__}: {e}")
+            logger.error("Zapier trigger %s payload error: %s: %s", trigger.id, type(e).__name__, e)
             return False
 
     def _format_trigger_payload(

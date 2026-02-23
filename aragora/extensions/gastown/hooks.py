@@ -139,7 +139,7 @@ class HookRunner:
             if content:
                 await self._write_hook_script(path, content)
 
-            logger.info(f"Created {hook_type.value} hook ({hook_id})")
+            logger.info("Created %s hook (%s)", hook_type.value, hook_id)
             return hook
 
     async def get_hook(self, hook_id: str) -> Hook | None:
@@ -205,7 +205,7 @@ class HookRunner:
 
             del self._hooks[hook_id]
             self._save_state()
-            logger.info(f"Deleted hook {hook_id}")
+            logger.info("Deleted hook %s", hook_id)
             return True
 
     async def trigger_hook(
@@ -239,7 +239,7 @@ class HookRunner:
         # Execute hook script
         result = await self._execute_hook(hook, context or {})
 
-        logger.debug(f"Triggered hook {hook_id}: {result.get('success')}")
+        logger.debug("Triggered hook %s: %s", hook_id, result.get('success'))
         return result
 
     async def _write_hook_script(self, path: str, content: str) -> None:
@@ -332,7 +332,7 @@ class HookRunner:
             commit_result = await self._git_commit(state_path, message)
             result["committed"] = commit_result.get("success", False)
 
-        logger.debug(f"Persisted state for rig {rig_id}: {state_hash}")
+        logger.debug("Persisted state for rig %s: %s", rig_id, state_hash)
         return result
 
     async def restore_state(self, rig_id: str) -> dict[str, Any] | None:
@@ -355,7 +355,7 @@ class HookRunner:
         import json
 
         state = json.loads(state_path.read_text())
-        logger.debug(f"Restored state for rig {rig_id}")
+        logger.debug("Restored state for rig %s", rig_id)
         return state
 
     async def _git_commit(
@@ -443,7 +443,7 @@ class HookRunner:
                     "error": result.stderr or "Failed to create worktree",
                 }
 
-            logger.info(f"Created worktree at {worktree_path}")
+            logger.info("Created worktree at %s", worktree_path)
             return {
                 "success": True,
                 "worktree_path": str(worktree),
@@ -476,7 +476,7 @@ class HookRunner:
                     "error": result.stderr or "Failed to remove worktree",
                 }
 
-            logger.info(f"Removed worktree at {worktree_path}")
+            logger.info("Removed worktree at %s", worktree_path)
             return {"success": True}
 
         except (RuntimeError, OSError, subprocess.SubprocessError) as e:

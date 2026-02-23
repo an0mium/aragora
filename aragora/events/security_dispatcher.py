@@ -164,7 +164,7 @@ class SecurityDispatcher:
         # Subscribe to all security events
         self._emitter.subscribe_all(self._handle_event)
         self._running = True
-        logger.info(f"SecurityDispatcher started (min_severity={self.config.min_severity.value})")
+        logger.info("SecurityDispatcher started (min_severity=%s)", self.config.min_severity.value)
 
     async def stop(self) -> None:
         """
@@ -178,7 +178,7 @@ class SecurityDispatcher:
         for debate_id, task in list(self._pending_debates.items()):
             if not task.done():
                 task.cancel()
-                logger.debug(f"Cancelled pending debate {debate_id}")
+                logger.debug("Cancelled pending debate %s", debate_id)
 
         self._pending_debates.clear()
         logger.info("SecurityDispatcher stopped")
@@ -191,7 +191,7 @@ class SecurityDispatcher:
             severity: Minimum severity level
         """
         self.config.min_severity = severity
-        logger.info(f"Security dispatch threshold set to {severity.value}")
+        logger.info("Security dispatch threshold set to %s", severity.value)
 
     def set_custom_trigger(self, callback: DebateTriggerCallback) -> None:
         """
@@ -233,15 +233,14 @@ class SecurityDispatcher:
 
         # Check repository cooldown
         if not self._check_cooldown(event.repository):
-            logger.debug(f"Debate skipped for {event.repository}: cooldown active")
+            logger.debug("Debate skipped for %s: cooldown active", event.repository)
             self._stats.events_filtered += 1
             return
 
         # Check concurrent debate limit
         if len(self._pending_debates) >= self.config.max_concurrent_debates:
             logger.warning(
-                f"Max concurrent debates ({self.config.max_concurrent_debates}) reached, "
-                f"skipping event {event.id}"
+                "Max concurrent debates (%s) reached, skipping event %s", self.config.max_concurrent_debates, event.id
             )
             self._stats.events_filtered += 1
             return
@@ -336,9 +335,7 @@ class SecurityDispatcher:
         task.add_done_callback(lambda t: self._pending_debates.pop(event.id, None))
 
         logger.info(
-            f"[security_dispatcher] Triggered debate for event {event.id} "
-            f"(type={event.event_type.value}, severity={event.severity.value}, "
-            f"findings={len(event.findings)})"
+            "[security_dispatcher] Triggered debate for event %s (type=%s, severity=%s, findings=%s)", event.id, event.event_type.value, event.severity.value, len(event.findings)
         )
 
     async def _run_debate(self, event: SecurityEvent) -> str | None:
@@ -370,11 +367,11 @@ class SecurityDispatcher:
             return debate_id
 
         except asyncio.CancelledError:
-            logger.info(f"Debate for event {event.id} was cancelled")
+            logger.info("Debate for event %s was cancelled", event.id)
             return None
 
         except (ImportError, RuntimeError, ValueError, TypeError, OSError) as e:
-            logger.exception(f"Debate for event {event.id} failed: {e}")
+            logger.exception("Debate for event %s failed: %s", event.id, e)
             self._stats.debates_failed += 1
             return None
 

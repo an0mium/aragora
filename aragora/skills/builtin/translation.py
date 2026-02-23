@@ -198,7 +198,7 @@ class TranslationSkill(Skill):
             )
 
         except (RuntimeError, ValueError, OSError) as e:
-            logger.exception(f"Translation failed: {e}")
+            logger.exception("Translation failed: %s", e)
             return SkillResult.create_failure(f"Translation failed: {e}")
 
     def _normalize_language(self, lang: str) -> str:
@@ -238,7 +238,7 @@ Language code:"""
                 if code in SUPPORTED_LANGUAGES:
                     return code
             except (RuntimeError, ValueError, OSError) as e:
-                logger.warning(f"Language detection via LLM failed: {e}")
+                logger.warning("Language detection via LLM failed: %s", e)
 
         # Fallback: simple heuristic-based detection
         return self._heuristic_detect(text)
@@ -414,7 +414,7 @@ Language code:"""
                 response = await llm(prompt)
                 return str(response).strip()
         except (RuntimeError, ValueError, OSError) as e:
-            logger.warning(f"LLM call failed: {e}")
+            logger.warning("LLM call failed: %s", e)
             raise
 
 

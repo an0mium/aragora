@@ -338,9 +338,9 @@ class BranchCoordinator:
         self._worktree_dir.mkdir(parents=True, exist_ok=True)
 
         if self.branch_exists(branch_name):
-            logger.warning(f"Branch {branch_name} already exists")
+            logger.warning("Branch %s already exists", branch_name)
             if worktree_path.exists():
-                logger.info(f"Worktree already exists at {worktree_path}")
+                logger.info("Worktree already exists at %s", worktree_path)
             else:
                 # Add worktree for existing branch
                 self._run_git(
@@ -360,7 +360,7 @@ class BranchCoordinator:
                 str(worktree_path),
                 base,
             )
-            logger.info(f"Created worktree branch: {branch_name} at {worktree_path}")
+            logger.info("Created worktree branch: %s at %s", branch_name, worktree_path)
 
         self._active_branches.append(branch_name)
         self._worktree_paths[branch_name] = worktree_path
@@ -381,11 +381,11 @@ class BranchCoordinator:
 
         # Create and checkout new branch
         if self.branch_exists(branch_name):
-            logger.warning(f"Branch {branch_name} already exists, using it")
+            logger.warning("Branch %s already exists, using it", branch_name)
             self._run_git("checkout", branch_name)
         else:
             self._run_git("checkout", "-b", branch_name)
-            logger.info(f"Created branch: {branch_name}")
+            logger.info("Created branch: %s", branch_name)
 
         self._active_branches.append(branch_name)
         return branch_name
@@ -559,7 +559,7 @@ class BranchCoordinator:
         sha_result = self._run_git("rev-parse", "HEAD")
         commit_sha = sha_result.stdout.strip()
 
-        logger.info(f"Merged {source} into {target}: {commit_sha[:8]}")
+        logger.info("Merged %s into %s: %s", source, target, commit_sha[:8])
 
         return MergeResult(
             source_branch=source,
@@ -663,8 +663,7 @@ class BranchCoordinator:
 
         for conflict in conflicts:
             logger.warning(
-                f"potential_conflict source={conflict.source_branch} "
-                f"target={conflict.target_branch} files={conflict.conflicting_files}"
+                "potential_conflict source=%s target=%s files=%s", conflict.source_branch, conflict.target_branch, conflict.conflicting_files
             )
             if self.on_conflict:
                 self.on_conflict(conflict)
@@ -740,7 +739,7 @@ class BranchCoordinator:
                         merged_count += 1
                     else:
                         logger.warning(
-                            f"Could not auto-merge {assignment.branch_name}: {merge_result.error}"
+                            "Could not auto-merge %s: %s", assignment.branch_name, merge_result.error
                         )
 
         # Compute result
@@ -780,7 +779,7 @@ class BranchCoordinator:
                 # No checkout needed -- worktree is already on the branch
                 worktree_path = self.get_worktree_path(assignment.branch_name)
                 if worktree_path:
-                    logger.info(f"Running assignment in worktree: {worktree_path}")
+                    logger.info("Running assignment in worktree: %s", worktree_path)
             else:
                 # Legacy: checkout the branch in main repo
                 self._run_git("checkout", assignment.branch_name)
@@ -878,7 +877,7 @@ class BranchCoordinator:
                 self._remove_worktree(branch)
                 self._run_git("branch", "-d", branch, check=False)
                 deleted += 1
-                logger.info(f"Deleted merged branch: {branch}")
+                logger.info("Deleted merged branch: %s", branch)
 
         return deleted
 
@@ -1066,14 +1065,14 @@ class BranchCoordinator:
         self._active_worktrees.pop(branch_name, None)
         if worktree_path and worktree_path.exists():
             self._run_git("worktree", "remove", str(worktree_path), check=False)
-            logger.info(f"Removed worktree: {worktree_path}")
+            logger.info("Removed worktree: %s", worktree_path)
         elif branch_name in self._active_branches:
             # Try to remove by convention path
             dir_name = branch_name.replace("/", "-")
             fallback_path = self._worktree_dir / dir_name
             if fallback_path.exists():
                 self._run_git("worktree", "remove", str(fallback_path), check=False)
-                logger.info(f"Removed worktree (fallback): {fallback_path}")
+                logger.info("Removed worktree (fallback): %s", fallback_path)
 
 
 __all__ = [

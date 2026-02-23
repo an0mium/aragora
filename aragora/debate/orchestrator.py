@@ -1051,7 +1051,7 @@ class Arena(ArenaDelegatesMixin):
                     timeout=self.protocol.timeout_seconds,
                 )
             except asyncio.TimeoutError:
-                logger.warning(f"debate_timeout timeout_seconds={self.protocol.timeout_seconds}")
+                logger.warning("debate_timeout timeout_seconds=%s", self.protocol.timeout_seconds)
                 return DebateResult(
                     task=self.env.task,
                     messages=getattr(self, "_partial_messages", []),

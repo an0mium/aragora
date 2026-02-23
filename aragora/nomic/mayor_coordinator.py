@@ -156,20 +156,19 @@ class MayorCoordinator:
 
             self._started = True
             logger.info(
-                f"Mayor coordinator started for node {self.node_id} "
-                f"(region={self.region or 'global'})"
+                "Mayor coordinator started for node %s (region=%s)", self.node_id, self.region or 'global'
             )
             return True
 
         except ImportError as e:
-            logger.warning(f"Leader election not available: {e}")
+            logger.warning("Leader election not available: %s", e)
             # Fall back to single-node mode - this node is always mayor
             await self._promote_to_mayor()
             self._started = True
             return True
 
         except (RuntimeError, ValueError, OSError) as e:
-            logger.error(f"Failed to start mayor coordinator: {e}")
+            logger.error("Failed to start mayor coordinator: %s", e)
             return False
 
     async def stop(self) -> None:
@@ -184,7 +183,7 @@ class MayorCoordinator:
             await self._demote_from_mayor()
 
         self._started = False
-        logger.info(f"Mayor coordinator stopped for node {self.node_id}")
+        logger.info("Mayor coordinator stopped for node %s", self.node_id)
 
     async def _handle_become_leader(self) -> None:
         """Called when this node wins leader election."""
@@ -197,7 +196,7 @@ class MayorCoordinator:
     async def _handle_leader_change(self, new_leader: str | None) -> None:
         """Called when any leader change occurs."""
         self._current_mayor_node = new_leader
-        logger.info(f"Mayor changed to node: {new_leader or 'none'}")
+        logger.info("Mayor changed to node: %s", new_leader or 'none')
 
     async def _promote_to_mayor(self) -> None:
         """Promote this node to MAYOR role."""
@@ -226,7 +225,7 @@ class MayorCoordinator:
                     region=self.region,
                 )
 
-                logger.info(f"Node {self.node_id} promoted to MAYOR (agent={self._agent_id})")
+                logger.info("Node %s promoted to MAYOR (agent=%s)", self.node_id, self._agent_id)
 
                 # Call callback
                 if self._on_become_mayor:
@@ -235,10 +234,10 @@ class MayorCoordinator:
                         if asyncio.iscoroutine(result):
                             await result
                     except Exception as e:  # noqa: BLE001 - callback errors must not break coordinator
-                        logger.error(f"on_become_mayor callback error: {e}")
+                        logger.error("on_become_mayor callback error: %s", e)
 
             except Exception as e:  # noqa: BLE001 - callback errors must not break coordinator
-                logger.error(f"Failed to promote to MAYOR: {e}")
+                logger.error("Failed to promote to MAYOR: %s", e)
 
     async def _demote_from_mayor(self) -> None:
         """Demote this node from MAYOR to WITNESS role."""
@@ -267,7 +266,7 @@ class MayorCoordinator:
                 self._mayor_info = None
 
                 logger.info(
-                    f"Node {self.node_id} demoted from MAYOR to WITNESS (agent={witness_agent_id})"
+                    "Node %s demoted from MAYOR to WITNESS (agent=%s)", self.node_id, witness_agent_id
                 )
 
                 # Call callback
@@ -277,10 +276,10 @@ class MayorCoordinator:
                         if asyncio.iscoroutine(result):
                             await result
                     except Exception as e:  # noqa: BLE001 - callback errors must not break coordinator
-                        logger.error(f"on_lose_mayor callback error: {e}")
+                        logger.error("on_lose_mayor callback error: %s", e)
 
             except Exception as e:  # noqa: BLE001 - callback errors must not break coordinator
-                logger.error(f"Failed to demote from MAYOR: {e}")
+                logger.error("Failed to demote from MAYOR: %s", e)
 
 
 # Global coordinator instance

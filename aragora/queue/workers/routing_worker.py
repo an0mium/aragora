@@ -74,7 +74,7 @@ class RoutingWorker:
     async def start(self) -> None:
         """Start the worker processing loop."""
         self._running = True
-        logger.info(f"[{self.worker_id}] Starting routing worker")
+        logger.info("[%s] Starting routing worker", self.worker_id)
 
         job_types = [
             JOB_TYPE_ROUTING,
@@ -105,28 +105,28 @@ class RoutingWorker:
                         name=f"routing-{job.id}",
                     )
                     self._active_jobs[job.id] = task
-                    logger.info(f"[{self.worker_id}] Started routing job {job.id}")
+                    logger.info("[%s] Started routing job %s", self.worker_id, job.id)
                 else:
                     # No jobs available, wait before polling again
                     await asyncio.sleep(self.poll_interval)
 
             except asyncio.CancelledError:
-                logger.info(f"[{self.worker_id}] Worker cancelled")
+                logger.info("[%s] Worker cancelled", self.worker_id)
                 break
             except (RuntimeError, ValueError, OSError) as e:  # noqa: BLE001 - worker isolation
-                logger.error(f"[{self.worker_id}] Worker error: {e}", exc_info=True)
+                logger.error("[%s] Worker error: %s", self.worker_id, e, exc_info=True)
                 await asyncio.sleep(self.poll_interval)
 
         # Wait for active jobs to complete on shutdown
         if self._active_jobs:
-            logger.info(f"[{self.worker_id}] Waiting for {len(self._active_jobs)} active jobs")
+            logger.info("[%s] Waiting for %s active jobs", self.worker_id, len(self._active_jobs))
             await asyncio.gather(*self._active_jobs.values(), return_exceptions=True)
 
-        logger.info(f"[{self.worker_id}] Worker stopped")
+        logger.info("[%s] Worker stopped", self.worker_id)
 
     async def stop(self) -> None:
         """Stop the worker gracefully."""
-        logger.info(f"[{self.worker_id}] Stopping worker")
+        logger.info("[%s] Stopping worker", self.worker_id)
         self._running = False
 
     def _cleanup_completed_tasks(self) -> None:
@@ -135,7 +135,7 @@ class RoutingWorker:
         for job_id in completed:
             task = self._active_jobs.pop(job_id)
             if not task.cancelled() and task.exception():
-                logger.warning(f"[{self.worker_id}] Job {job_id} failed: {task.exception()}")
+                logger.warning("[%s] Job %s failed: %s", self.worker_id, job_id, task.exception())
 
     async def _process_job(self, job: QueuedJob) -> None:
         """Process a single routing job."""
@@ -143,7 +143,7 @@ class RoutingWorker:
 
         try:
             job_type = job.job_type
-            logger.info(f"[{self.worker_id}] Processing {job_type} job {job.id}")
+            logger.info("[%s] Processing %s job %s", self.worker_id, job_type, job.id)
 
             # Route to appropriate handler
             if job_type in (JOB_TYPE_ROUTING_DEBATE, JOB_TYPE_ROUTING):
@@ -174,13 +174,12 @@ class RoutingWorker:
                 )
                 if should_retry:
                     logger.info(
-                        f"[{self.worker_id}] Job {job.id} will retry "
-                        f"(attempt {job.attempts}/{job.max_attempts})"
+                        "[%s] Job %s will retry (attempt %s/%s)", self.worker_id, job.id, job.attempts, job.max_attempts
                     )
 
         except (RuntimeError, OSError, ConnectionError, TimeoutError, ValueError) as e:
             logger.error(
-                f"[{self.worker_id}] Job {job.id} failed: {e}",
+                "[%s] Job %s failed: %s", self.worker_id, job.id, e,
                 exc_info=True,
             )
 
@@ -194,8 +193,7 @@ class RoutingWorker:
 
             if should_retry:
                 logger.info(
-                    f"[{self.worker_id}] Job {job.id} will retry "
-                    f"(attempt {job.attempts}/{job.max_attempts})"
+                    "[%s] Job %s will retry (attempt %s/%s)", self.worker_id, job.id, job.attempts, job.max_attempts
                 )
 
     async def _route_debate_result(self, job: QueuedJob) -> bool:
@@ -285,7 +283,7 @@ async def enqueue_routing_job(
     store = get_job_store()
     await store.enqueue(job)
 
-    logger.info(f"Enqueued routing job: {job_id} ({job_type})")
+    logger.info("Enqueued routing job: %s (%s)", job_id, job_type)
     return job
 
 
@@ -307,14 +305,14 @@ async def recover_interrupted_routing() -> int:
             stale_threshold_seconds=300.0,
         )
         if stale_recovered:
-            logger.info(f"Recovered {stale_recovered} stale jobs")
+            logger.info("Recovered %s stale jobs", stale_recovered)
             recovered = stale_recovered
 
     except (RuntimeError, OSError, ConnectionError) as e:
-        logger.error(f"Error recovering routing jobs: {e}", exc_info=True)
+        logger.error("Error recovering routing jobs: %s", e, exc_info=True)
 
     if recovered:
-        logger.info(f"Recovered {recovered} interrupted routing jobs")
+        logger.info("Recovered %s interrupted routing jobs", recovered)
 
     return recovered
 

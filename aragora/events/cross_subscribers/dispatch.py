@@ -149,7 +149,7 @@ class DispatchMixin:
                             self._stats[name].events_skipped += 1
                         continue
                 except (TypeError, ValueError, AttributeError, KeyError) as e:
-                    logger.warning(f"Filter error for {name}: {e}")
+                    logger.warning("Filter error for %s: %s", name, e)
 
             # Apply sampling
             sample_rate = self._stats[name].sample_rate if name in self._stats else 1.0
@@ -185,11 +185,11 @@ class DispatchMixin:
                         )
                         time.sleep(delay_ms / 1000.0)
                         logger.debug(
-                            f"Retrying handler {name} (attempt {retries}/{retry_config.max_retries})"
+                            "Retrying handler %s (attempt %s/%s)", name, retries, retry_config.max_retries
                         )
                     else:
                         logger.warning(
-                            f"Handler {name} failed after {retry_config.max_retries} retries: {e}"
+                            "Handler %s failed after %s retries: %s", name, retry_config.max_retries, e
                         )
                         self._circuit_breaker.record_failure(name)
                         if METRICS_AVAILABLE:

@@ -117,8 +117,7 @@ async def run_security_debate(
     )
 
     logger.info(
-        f"[security_debate] Starting debate for event {event.id} "
-        f"with {len(event.findings)} findings"
+        "[security_debate] Starting debate for event %s with %s findings", event.id, len(event.findings)
     )
 
     result = await arena.run()
@@ -169,7 +168,7 @@ async def get_security_debate_agents() -> list[Agent]:
             )
         )
     except (ImportError, Exception) as e:
-        logger.debug(f"Could not create Anthropic agent: {e}")
+        logger.debug("Could not create Anthropic agent: %s", e)
 
     try:
         from aragora.agents.api_agents.openai import OpenAIAPIAgent
@@ -181,6 +180,6 @@ async def get_security_debate_agents() -> list[Agent]:
             )
         )
     except (ImportError, Exception) as e:
-        logger.debug(f"Could not create OpenAI agent: {e}")
+        logger.debug("Could not create OpenAI agent: %s", e)
 
     return agents

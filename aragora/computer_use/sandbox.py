@@ -153,7 +153,7 @@ class DockerSandboxProvider(SandboxProvider):
         )
 
         self._instances[instance_id] = instance
-        logger.info(f"Created Docker sandbox {instance_id}")
+        logger.info("Created Docker sandbox %s", instance_id)
         return instance
 
     async def start(self, instance: SandboxInstance) -> None:
@@ -211,12 +211,12 @@ class DockerSandboxProvider(SandboxProvider):
             instance.status = SandboxStatus.RUNNING
             instance.started_at = time.time()
 
-            logger.info(f"Started Docker sandbox {instance.id}: {instance.container_id[:12]}")
+            logger.info("Started Docker sandbox %s: %s", instance.id, instance.container_id[:12])
 
         except (RuntimeError, OSError, subprocess.SubprocessError) as e:
             instance.status = SandboxStatus.ERROR
             instance.error = str(e)
-            logger.error(f"Failed to start Docker sandbox: {e}")
+            logger.error("Failed to start Docker sandbox: %s", e)
             raise
 
     async def stop(self, instance: SandboxInstance) -> None:
@@ -238,10 +238,10 @@ class DockerSandboxProvider(SandboxProvider):
             )
             await proc.wait()
             instance.status = SandboxStatus.STOPPED
-            logger.info(f"Stopped Docker sandbox {instance.id}")
+            logger.info("Stopped Docker sandbox %s", instance.id)
         except (RuntimeError, OSError, subprocess.SubprocessError) as e:
             instance.error = str(e)
-            logger.error(f"Failed to stop Docker sandbox: {e}")
+            logger.error("Failed to stop Docker sandbox: %s", e)
 
     async def destroy(self, instance: SandboxInstance) -> None:
         """Destroy the Docker container and cleanup."""
@@ -259,7 +259,7 @@ class DockerSandboxProvider(SandboxProvider):
                 )
                 await proc.wait()
             except (RuntimeError, OSError, subprocess.SubprocessError) as e:
-                logger.warning(f"Failed to remove Docker container: {e}")
+                logger.warning("Failed to remove Docker container: %s", e)
 
         if instance.temp_dir and Path(instance.temp_dir).exists():
             import shutil
@@ -267,7 +267,7 @@ class DockerSandboxProvider(SandboxProvider):
             shutil.rmtree(instance.temp_dir, ignore_errors=True)
 
         self._instances.pop(instance.id, None)
-        logger.info(f"Destroyed Docker sandbox {instance.id}")
+        logger.info("Destroyed Docker sandbox %s", instance.id)
 
     async def execute(
         self,
@@ -325,7 +325,7 @@ class DockerSandboxProvider(SandboxProvider):
             stdout, _ = await proc.communicate()
             return stdout.decode().strip() == "true"
         except (RuntimeError, OSError, subprocess.SubprocessError) as e:
-            logger.debug(f"Docker container health check failed: {type(e).__name__}: {e}")
+            logger.debug("Docker container health check failed: %s: %s", type(e).__name__, e)
             return False
 
 
@@ -352,7 +352,7 @@ class ProcessSandboxProvider(SandboxProvider):
         )
 
         self._instances[instance_id] = instance
-        logger.info(f"Created process sandbox {instance_id}")
+        logger.info("Created process sandbox %s", instance_id)
         return instance
 
     async def start(self, instance: SandboxInstance) -> None:
@@ -361,7 +361,7 @@ class ProcessSandboxProvider(SandboxProvider):
 
         instance.status = SandboxStatus.RUNNING
         instance.started_at = time.time()
-        logger.info(f"Started process sandbox {instance.id}")
+        logger.info("Started process sandbox %s", instance.id)
 
     async def stop(self, instance: SandboxInstance) -> None:
         """Stop any running processes."""
@@ -371,11 +371,11 @@ class ProcessSandboxProvider(SandboxProvider):
                 proc.terminate()
                 await asyncio.wait_for(proc.wait(), timeout=5.0)
             except (RuntimeError, OSError, TimeoutError) as e:
-                logger.debug(f"Process terminate/wait failed, killing: {type(e).__name__}: {e}")
+                logger.debug("Process terminate/wait failed, killing: %s: %s", type(e).__name__, e)
                 proc.kill()
 
         instance.status = SandboxStatus.STOPPED
-        logger.info(f"Stopped process sandbox {instance.id}")
+        logger.info("Stopped process sandbox %s", instance.id)
 
     async def destroy(self, instance: SandboxInstance) -> None:
         """Destroy the sandbox and cleanup."""
@@ -387,7 +387,7 @@ class ProcessSandboxProvider(SandboxProvider):
             shutil.rmtree(instance.temp_dir, ignore_errors=True)
 
         self._instances.pop(instance.id, None)
-        logger.info(f"Destroyed process sandbox {instance.id}")
+        logger.info("Destroyed process sandbox %s", instance.id)
 
     async def execute(
         self,

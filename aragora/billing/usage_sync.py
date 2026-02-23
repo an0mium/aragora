@@ -133,15 +133,13 @@ class UsageSyncService:
         # Check for missed period transition on startup
         if self._last_billing_period and current_period > self._last_billing_period:
             logger.info(
-                f"Detected missed period transition during startup: "
-                f"{self._last_billing_period} -> {current_period}"
+                "Detected missed period transition during startup: %s -> %s", self._last_billing_period, current_period
             )
             # Flush remainders from the previous period
             flush_records = self._flush_previous_period(self._last_billing_period)
             if flush_records:
                 logger.info(
-                    f"Startup flush: billed {len(flush_records)} remainder records "
-                    f"from previous period"
+                    "Startup flush: billed %s remainder records from previous period", len(flush_records)
                 )
             # Reload watermarks for new period
             self._load_sync_state()
@@ -220,7 +218,7 @@ class UsageSyncService:
                         dt = dt.replace(tzinfo=timezone.utc)
                     return dt
         except sqlite3.Error as e:
-            logger.warning(f"Error loading last billing period: {e}")
+            logger.warning("Error loading last billing period: %s", e)
         return None
 
     def _save_last_billing_period(self, period: datetime) -> None:
@@ -236,7 +234,7 @@ class UsageSyncService:
                 )
                 conn.commit()
         except sqlite3.Error as e:
-            logger.error(f"Error saving last billing period: {e}")
+            logger.error("Error saving last billing period: %s", e)
 
     def _load_sync_state(self) -> None:
         """Load sync watermarks from database for the current billing period."""
@@ -260,14 +258,14 @@ class UsageSyncService:
 
                 if rows:
                     logger.info(
-                        f"Loaded sync watermarks for {len(rows)} orgs (period: {period_start})"
+                        "Loaded sync watermarks for %s orgs (period: %s)", len(rows), period_start
                     )
 
             # Reconcile any pending syncs from previous process (crash recovery)
             self._reconcile_pending_syncs()
 
         except sqlite3.Error as e:
-            logger.warning(f"Failed to load sync state from database: {e}")
+            logger.warning("Failed to load sync state from database: %s", e)
 
     def _get_idempotency_key(self, org_id: str, sync_type: str, cumulative_total: int) -> str:
         """Generate content-based idempotency key for Stripe.
@@ -380,7 +378,7 @@ class UsageSyncService:
                 )
                 conn.commit()
         except sqlite3.Error as e:
-            logger.error(f"Failed to mark sync record {record_id} as failed: {e}")
+            logger.error("Failed to mark sync record %s as failed: %s", record_id, e)
 
     def _reconcile_pending_syncs(self) -> None:
         """Reconcile pending syncs from a crashed process on startup.
@@ -408,7 +406,7 @@ class UsageSyncService:
             if not pending:
                 return
 
-            logger.info(f"Reconciling {len(pending)} pending sync records from previous run")
+            logger.info("Reconciling %s pending sync records from previous run", len(pending))
 
             for (
                 record_id,
@@ -423,8 +421,7 @@ class UsageSyncService:
                     config = self._get_billing_config(org_id)
                     if not config:
                         logger.warning(
-                            f"No billing config for org {org_id}, "
-                            f"marking sync {record_id} as failed"
+                            "No billing config for org %s, marking sync %s as failed", org_id, record_id
                         )
                         self._fail_sync(record_id, "No billing config found for organization")
                         continue
@@ -433,16 +430,14 @@ class UsageSyncService:
                     item_id = self._get_subscription_item_id(config, sync_type)
                     if not item_id:
                         logger.warning(
-                            f"No subscription item for {sync_type} in org {org_id}, "
-                            f"marking sync {record_id} as failed"
+                            "No subscription item for %s in org %s, marking sync %s as failed", sync_type, org_id, record_id
                         )
                         self._fail_sync(record_id, f"No subscription item for {sync_type}")
                         continue
 
                     # Re-attempt with same idempotency key (safe - Stripe returns same response)
                     logger.info(
-                        f"Verifying pending sync {record_id} for org {org_id} "
-                        f"({sync_type}) via Stripe idempotency re-attempt"
+                        "Verifying pending sync %s for org %s (%s) via Stripe idempotency re-attempt", record_id, org_id, sync_type
                     )
 
                     usage_record = self.stripe_client.report_usage(
@@ -461,20 +456,19 @@ class UsageSyncService:
                         cumulative_total=cumulative_total,
                     )
                     logger.info(
-                        f"Reconciled pending sync {record_id}: "
-                        f"stripe_id={usage_record.id}, org={org_id}, type={sync_type}"
+                        "Reconciled pending sync %s: stripe_id=%s, org=%s, type=%s", record_id, usage_record.id, org_id, sync_type
                     )
 
                 except StripeAPIError as e:
-                    logger.error(f"Failed to reconcile sync {record_id} for org {org_id}: {e}")
+                    logger.error("Failed to reconcile sync %s for org %s: %s", record_id, org_id, e)
                     self._fail_sync(record_id, f"Stripe verification failed: {e}")
 
                 except (RuntimeError, OSError, sqlite3.Error, ValueError, TypeError, AttributeError) as e:
-                    logger.error(f"Unexpected error reconciling sync {record_id}: {e}")
+                    logger.error("Unexpected error reconciling sync %s: %s", record_id, e)
                     self._fail_sync(record_id, "Reconciliation error")
 
         except sqlite3.Error as e:
-            logger.error(f"Failed to reconcile pending syncs: {e}")
+            logger.error("Failed to reconcile pending syncs: %s", e)
 
     def _get_billing_config(self, org_id: str) -> OrgBillingConfig | None:
         """Get billing configuration for an organization.
@@ -524,7 +518,7 @@ class UsageSyncService:
                 )
                 conn.commit()
         except sqlite3.Error as e:
-            logger.error(f"Failed to save sync state for org {org_id}: {e}")
+            logger.error("Failed to save sync state for org %s: %s", org_id, e)
 
     def register_org(self, config: OrgBillingConfig) -> None:
         """
@@ -534,7 +528,7 @@ class UsageSyncService:
             config: Organization billing configuration
         """
         self._org_configs[config.org_id] = config
-        logger.info(f"Registered org {config.org_id} for usage sync")
+        logger.info("Registered org %s for usage sync", config.org_id)
 
     def unregister_org(self, org_id: str) -> None:
         """Remove an organization from sync."""
@@ -558,11 +552,11 @@ class UsageSyncService:
         """
         config = self._org_configs.get(org_id)
         if not config:
-            logger.debug(f"Org {org_id} not registered for usage sync")
+            logger.debug("Org %s not registered for usage sync", org_id)
             return []
 
         if not config.metered_enabled:
-            logger.debug(f"Org {org_id} does not have metered billing enabled")
+            logger.debug("Org %s does not have metered billing enabled", org_id)
             return []
 
         return self.sync_org(config)
@@ -579,7 +573,7 @@ class UsageSyncService:
             daemon=True,
         )
         self._sync_thread.start()
-        logger.info(f"Usage sync service started (interval={self.sync_interval}s)")
+        logger.info("Usage sync service started (interval=%ss)", self.sync_interval)
 
     def stop(self) -> None:
         """Stop the background sync thread."""
@@ -597,7 +591,7 @@ class UsageSyncService:
             try:
                 self.sync_all()
             except (StripeAPIError, RuntimeError, OSError, sqlite3.Error, ValueError, TypeError) as e:
-                logger.error(f"Error in usage sync loop: {e}")
+                logger.error("Error in usage sync loop: %s", e)
 
     def sync_all(self) -> list[UsageSyncRecord]:
         """
@@ -615,7 +609,7 @@ class UsageSyncService:
         current_period = self._get_billing_period_start()
         if self._last_billing_period and current_period > self._last_billing_period:
             logger.info(
-                f"Billing period transition detected: {self._last_billing_period} -> {current_period}"
+                "Billing period transition detected: %s -> %s", self._last_billing_period, current_period
             )
             # Flush remainder tokens from previous period before transitioning
             flush_records = self._flush_previous_period(self._last_billing_period)
@@ -634,7 +628,7 @@ class UsageSyncService:
                 org_records = self.sync_org(config)
                 records.extend(org_records)
             except (StripeAPIError, RuntimeError, OSError, sqlite3.Error, ValueError, TypeError) as e:
-                logger.error(f"Error syncing org {org_id}: {e}")
+                logger.error("Error syncing org %s: %s", org_id, e)
                 records.append(
                     UsageSyncRecord(
                         org_id=org_id,
@@ -780,8 +774,7 @@ class UsageSyncService:
         except sqlite3.IntegrityError:
             # Idempotency key already exists - this was already synced
             logger.info(
-                f"Skipping duplicate sync for {sync_type} (org={config.org_id}, "
-                f"total={cumulative_total})"
+                "Skipping duplicate sync for %s (org=%s, total=%s)", sync_type, config.org_id, cumulative_total
             )
             record.success = True
             record.error = "Already synced (idempotency key exists)"
@@ -808,8 +801,7 @@ class UsageSyncService:
             record.success = True
 
             logger.info(
-                f"Reported {sync_type} usage for org {config.org_id}: "
-                f"quantity={quantity}, total={cumulative_total}"
+                "Reported %s usage for org %s: quantity=%s, total=%s", sync_type, config.org_id, quantity, cumulative_total
             )
 
         except StripeAPIError as e:
@@ -817,7 +809,7 @@ class UsageSyncService:
             self._fail_sync(pending_record_id, "Usage reporting failed")
             record.success = False
             record.error = "Usage reporting failed"
-            logger.error(f"Failed to report {sync_type} usage for org {config.org_id}: {e}")
+            logger.error("Failed to report %s usage for org %s: %s", sync_type, config.org_id, e)
 
         return record
 
@@ -937,7 +929,7 @@ class UsageSyncService:
                     if row:
                         prev_tokens_in, prev_tokens_out = row
             except sqlite3.Error as e:
-                logger.warning(f"Error loading previous period watermarks for {org}: {e}")
+                logger.warning("Error loading previous period watermarks for %s: %s", org, e)
 
             # Calculate remainder tokens
             remainder_in = summary.total_tokens_in - prev_tokens_in
@@ -955,9 +947,7 @@ class UsageSyncService:
                 )
                 records.append(record)
                 logger.info(
-                    f"Period transition flush: billed {billed_units} units for "
-                    f"{remainder_in} remainder input tokens for org {org} "
-                    f"(period: {previous_period.isoformat()})"
+                    "Period transition flush: billed %s units for %s remainder input tokens for org %s (period: %s)", billed_units, remainder_in, org, previous_period.isoformat()
                 )
 
             # Bill remainder output tokens
@@ -972,9 +962,7 @@ class UsageSyncService:
                 )
                 records.append(record)
                 logger.info(
-                    f"Period transition flush: billed {billed_units} units for "
-                    f"{remainder_out} remainder output tokens for org {org} "
-                    f"(period: {previous_period.isoformat()})"
+                    "Period transition flush: billed %s units for %s remainder output tokens for org %s (period: %s)", billed_units, remainder_out, org, previous_period.isoformat()
                 )
 
         return records
@@ -1033,8 +1021,7 @@ class UsageSyncService:
                 )
                 records.append(record)
                 logger.info(
-                    f"Period flush: billed {billed_units} units for {remainder_in} "
-                    f"remainder input tokens for org {org}"
+                    "Period flush: billed %s units for %s remainder input tokens for org %s", billed_units, remainder_in, org
                 )
 
             # Bill remainder output tokens
@@ -1049,8 +1036,7 @@ class UsageSyncService:
                 )
                 records.append(record)
                 logger.info(
-                    f"Period flush: billed {billed_units} units for {remainder_out} "
-                    f"remainder output tokens for org {org}"
+                    "Period flush: billed %s units for %s remainder output tokens for org %s", billed_units, remainder_out, org
                 )
 
         return records

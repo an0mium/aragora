@@ -261,7 +261,7 @@ def get_knowledge_mound(
             config = _knowledge_mound_config or MoundConfig(backend=MoundBackend.SQLITE)
 
         logger.info(
-            f"[knowledge_mound] Creating singleton instance (workspace={workspace_id}, backend={config.backend.value})"
+            "[knowledge_mound] Creating singleton instance (workspace=%s, backend=%s)", workspace_id, config.backend.value
         )
         # KnowledgeMound composed from multiple mixins satisfies abstract requirements
         # at runtime but mypy flags this due to complex MRO analysis.

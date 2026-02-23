@@ -147,10 +147,10 @@ class RedisStateManager:
             # Test connection
             await self._redis.ping()
             self._connected = True
-            logger.info(f"Connected to Redis at {self._redis_url}")
+            logger.info("Connected to Redis at %s", self._redis_url)
             return True
         except REDIS_CONNECTION_ERRORS as e:
-            logger.warning(f"Failed to connect to Redis: {e}")
+            logger.warning("Failed to connect to Redis: %s", e)
             self._connected = False
             return False
 
@@ -230,7 +230,7 @@ class RedisStateManager:
                 },
             )
 
-            logger.debug(f"Registered debate {debate_id} in Redis")
+            logger.debug("Registered debate %s in Redis", debate_id)
 
         return state
 
@@ -259,7 +259,7 @@ class RedisStateManager:
                 },
             )
 
-            logger.debug(f"Unregistered debate {debate_id} from Redis")
+            logger.debug("Unregistered debate %s from Redis", debate_id)
 
         return state
 
@@ -415,7 +415,7 @@ class RedisStateManager:
                         if pattern == "*" or event.get("type", "").startswith(pattern.rstrip("*")):
                             yield event
                     except json.JSONDecodeError:
-                        logger.warning(f"Invalid event JSON: {message['data']}")
+                        logger.warning("Invalid event JSON: %s", message['data'])
         finally:
             await self._pubsub.unsubscribe()
 

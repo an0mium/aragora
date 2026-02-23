@@ -124,18 +124,18 @@ class WooCommerceConnector(EnterpriseConnector):
                 if resp.status == 200:
                     data = await resp.json()
                     logger.info(
-                        f"Connected to WooCommerce store: {data.get('environment', {}).get('site_url', 'unknown')}"
+                        "Connected to WooCommerce store: %s", data.get('environment', {}).get('site_url', 'unknown')
                     )
                     return True
                 else:
-                    logger.error(f"Failed to connect: HTTP {resp.status}")
+                    logger.error("Failed to connect: HTTP %s", resp.status)
                     return False
 
         except ImportError:
             logger.error("aiohttp package not installed. Run: pip install aiohttp")
             return False
         except OSError as e:
-            logger.error(f"Failed to connect to WooCommerce: {e}")
+            logger.error("Failed to connect to WooCommerce: %s", e)
             return False
 
     async def disconnect(self) -> None:
@@ -344,7 +344,7 @@ class WooCommerceConnector(EnterpriseConnector):
             ValueError,
             KeyError,
         ) as e:
-            logger.error(f"Failed to get order {order_id}: {e}")
+            logger.error("Failed to get order %s: %s", order_id, e)
             return None
 
     async def update_order_status(
@@ -373,7 +373,7 @@ class WooCommerceConnector(EnterpriseConnector):
             )
             return True
         except (ConnectorAPIError, ConnectorCircuitOpenError, ConnectorTimeoutError, OSError) as e:
-            logger.error(f"Failed to update order {order_id}: {e}")
+            logger.error("Failed to update order %s: %s", order_id, e)
             return False
 
     async def create_order(
@@ -445,7 +445,7 @@ class WooCommerceConnector(EnterpriseConnector):
             data = await self._request("POST", "orders", json_data=order_data)
             return self._parse_order(data)
         except (ConnectorAPIError, OSError, ValueError, KeyError) as e:
-            logger.error(f"Failed to create order: {e}")
+            logger.error("Failed to create order: %s", e)
             return None
 
     async def get_order_stats(
@@ -588,7 +588,7 @@ class WooCommerceConnector(EnterpriseConnector):
             ValueError,
             KeyError,
         ) as e:
-            logger.error(f"Failed to get product {product_id}: {e}")
+            logger.error("Failed to get product %s: %s", product_id, e)
             return None
 
     async def update_product_stock(
@@ -626,7 +626,7 @@ class WooCommerceConnector(EnterpriseConnector):
             )
             return True
         except (ConnectorAPIError, ConnectorCircuitOpenError, ConnectorTimeoutError, OSError) as e:
-            logger.error(f"Failed to update product stock {product_id}: {e}")
+            logger.error("Failed to update product stock %s: %s", product_id, e)
             return False
 
     async def get_low_stock_products(
@@ -731,7 +731,7 @@ class WooCommerceConnector(EnterpriseConnector):
             )
             return True
         except (ConnectorAPIError, ConnectorCircuitOpenError, ConnectorTimeoutError, OSError) as e:
-            logger.error(f"Failed to update variation stock {variation_id}: {e}")
+            logger.error("Failed to update variation stock %s: %s", variation_id, e)
             return False
 
     # =========================================================================
@@ -836,7 +836,7 @@ class WooCommerceConnector(EnterpriseConnector):
             )
             return data
         except (ConnectorAPIError, ConnectorCircuitOpenError, ConnectorTimeoutError, OSError) as e:
-            logger.error(f"Failed to create refund for order {order_id}: {e}")
+            logger.error("Failed to create refund for order %s: %s", order_id, e)
             return None
 
     async def get_refunds(self, order_id: int) -> list[dict[str, Any]]:
@@ -856,7 +856,7 @@ class WooCommerceConnector(EnterpriseConnector):
             data = await self._request("GET", f"orders/{order_id}/refunds")
             return data if isinstance(data, list) else []
         except (ConnectorAPIError, ConnectorCircuitOpenError, ConnectorTimeoutError, OSError) as e:
-            logger.error(f"Failed to get refunds for order {order_id}: {e}")
+            logger.error("Failed to get refunds for order %s: %s", order_id, e)
             return []
 
     # =========================================================================
@@ -953,7 +953,7 @@ class WooCommerceConnector(EnterpriseConnector):
             data = await self._request("POST", "coupons", json_data=coupon_data)
             return data
         except (ConnectorAPIError, OSError) as e:
-            logger.error(f"Failed to create coupon {code}: {e}")
+            logger.error("Failed to create coupon %s: %s", code, e)
             return None
 
     async def delete_coupon(self, coupon_id: int, force: bool = True) -> bool:
@@ -978,7 +978,7 @@ class WooCommerceConnector(EnterpriseConnector):
             )
             return True
         except (ConnectorAPIError, ConnectorCircuitOpenError, ConnectorTimeoutError, OSError) as e:
-            logger.error(f"Failed to delete coupon {coupon_id}: {e}")
+            logger.error("Failed to delete coupon %s: %s", coupon_id, e)
             return False
 
     # =========================================================================
@@ -995,7 +995,7 @@ class WooCommerceConnector(EnterpriseConnector):
             data = await self._request("GET", "shipping/zones")
             return data if isinstance(data, list) else []
         except (ConnectorAPIError, OSError) as e:
-            logger.error(f"Failed to get shipping zones: {e}")
+            logger.error("Failed to get shipping zones: %s", e)
             return []
 
     async def get_shipping_methods(self, zone_id: int) -> list[dict[str, Any]]:
@@ -1015,7 +1015,7 @@ class WooCommerceConnector(EnterpriseConnector):
             data = await self._request("GET", f"shipping/zones/{zone_id}/methods")
             return data if isinstance(data, list) else []
         except (ConnectorAPIError, ConnectorCircuitOpenError, ConnectorTimeoutError, OSError) as e:
-            logger.error(f"Failed to get shipping methods for zone {zone_id}: {e}")
+            logger.error("Failed to get shipping methods for zone %s: %s", zone_id, e)
             return []
 
     # =========================================================================
@@ -1032,7 +1032,7 @@ class WooCommerceConnector(EnterpriseConnector):
             data = await self._request("GET", "taxes/classes")
             return data if isinstance(data, list) else []
         except (ConnectorAPIError, OSError) as e:
-            logger.error(f"Failed to get tax classes: {e}")
+            logger.error("Failed to get tax classes: %s", e)
             return []
 
     async def get_tax_rates(self, per_page: int = 100) -> AsyncIterator[dict[str, Any]]:
@@ -1092,7 +1092,7 @@ class WooCommerceConnector(EnterpriseConnector):
             data = await self._request("GET", "reports/sales", params=params)
             return data[0] if isinstance(data, list) and data else {}
         except (ConnectorAPIError, OSError) as e:
-            logger.error(f"Failed to get sales report: {e}")
+            logger.error("Failed to get sales report: %s", e)
             return {}
 
     async def get_top_sellers_report(
@@ -1115,7 +1115,7 @@ class WooCommerceConnector(EnterpriseConnector):
             )
             return data if isinstance(data, list) else []
         except (ConnectorAPIError, OSError) as e:
-            logger.error(f"Failed to get top sellers report: {e}")
+            logger.error("Failed to get top sellers report: %s", e)
             return []
 
     # =========================================================================
@@ -1178,7 +1178,7 @@ class WooCommerceConnector(EnterpriseConnector):
                     )
 
         except (ConnectorAPIError, OSError, KeyError) as e:
-            logger.error(f"Search failed: {e}")
+            logger.error("Search failed: %s", e)
 
         return results[:limit]
 
@@ -1236,7 +1236,7 @@ class WooCommerceConnector(EnterpriseConnector):
                 )
 
         except (ConnectorAPIError, OSError, ValueError, KeyError) as e:
-            logger.error(f"Failed to fetch {evidence_id}: {e}")
+            logger.error("Failed to fetch %s: %s", evidence_id, e)
 
         return None
 

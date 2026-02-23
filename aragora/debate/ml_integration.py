@@ -182,10 +182,10 @@ class MLDelegationStrategy(DelegationStrategy):
             return self._reorder_agents(agents, decision.selected_agents)
 
         except (ValueError, TypeError, KeyError) as e:
-            logger.warning(f"ML routing failed with data error: {e}, using fallback")
+            logger.warning("ML routing failed with data error: %s, using fallback", e)
             return list(agents)[:team_size]
         except (RuntimeError, AttributeError, ImportError, OSError, ConnectionError) as e:
-            logger.exception(f"Unexpected ML routing error: {e}, using fallback")
+            logger.exception("Unexpected ML routing error: %s, using fallback", e)
             return list(agents)[:team_size]
 
     def _reorder_agents(
@@ -247,10 +247,10 @@ class MLDelegationStrategy(DelegationStrategy):
             return score
 
         except (ValueError, TypeError, KeyError) as e:
-            logger.debug(f"ML scoring failed for {agent.name} with data error: {e}")
+            logger.debug("ML scoring failed for %s with data error: %s", agent.name, e)
             return 2.5
         except (RuntimeError, AttributeError, ImportError, OSError, ConnectionError) as e:
-            logger.warning(f"Unexpected ML scoring error for {agent.name}: {e}")
+            logger.warning("Unexpected ML scoring error for %s: %s", agent.name, e)
             return 2.5
 
 
@@ -313,10 +313,10 @@ class QualityGate:
             score = scorer.score(text, context=context)
             return (score.overall, score.confidence)
         except (ValueError, TypeError, AttributeError) as e:
-            logger.debug(f"Quality scoring failed with expected error: {e}")
+            logger.debug("Quality scoring failed with expected error: %s", e)
             return (0.5, 0.0)
         except (RuntimeError, AttributeError, ImportError, OSError, ConnectionError) as e:
-            logger.warning(f"Unexpected quality scoring error: {e}")
+            logger.warning("Unexpected quality scoring error: %s", e)
             return (0.5, 0.0)
 
     def passes_gate(
@@ -521,7 +521,7 @@ class ConsensusEstimator:
             }
 
         except (ValueError, TypeError, KeyError) as e:
-            logger.debug(f"Consensus estimation failed with data error: {e}")
+            logger.debug("Consensus estimation failed with data error: %s", e)
             return {
                 "probability": 0.5,
                 "confidence": 0.0,
@@ -529,7 +529,7 @@ class ConsensusEstimator:
                 "recommendation": "continue",
             }
         except (RuntimeError, AttributeError, ImportError, OSError, ConnectionError) as e:
-            logger.warning(f"Unexpected consensus estimation error: {e}")
+            logger.warning("Unexpected consensus estimation error: %s", e)
             return {
                 "probability": 0.5,
                 "confidence": 0.0,
@@ -618,9 +618,9 @@ class ConsensusEstimator:
             try:
                 predictor.record_outcome(debate_id, reached_consensus)
             except (ValueError, TypeError, KeyError) as e:
-                logger.debug(f"Failed to record outcome: {e}")
+                logger.debug("Failed to record outcome: %s", e)
             except (RuntimeError, AttributeError, ImportError, OSError, ConnectionError) as e:
-                logger.warning(f"Unexpected error recording outcome: {e}")
+                logger.warning("Unexpected error recording outcome: %s", e)
 
     def reset_history(self) -> None:
         """Reset similarity history for new debate."""

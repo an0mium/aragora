@@ -78,7 +78,7 @@ class CapabilityMapper:
             aragora_cap = _OPENCLAW_TO_ARAGORA.get(cap_lower)
 
             if aragora_cap is None:
-                logger.warning(f"Unknown OpenClaw capability: {cap}")
+                logger.warning("Unknown OpenClaw capability: %s", cap)
                 continue
 
             if aragora_cap not in seen:
@@ -106,7 +106,7 @@ class CapabilityMapper:
             openclaw_cap = _ARAGORA_TO_OPENCLAW.get(cap)
 
             if openclaw_cap is None:
-                logger.warning(f"No OpenClaw mapping for Aragora capability: {cap.value}")
+                logger.warning("No OpenClaw mapping for Aragora capability: %s", cap.value)
                 continue
 
             if openclaw_cap not in seen:

@@ -142,7 +142,7 @@ class AnalyticsDashboardCache:
                     ttl_seconds=config.ttl_seconds,
                 )
             self._initialized = True
-            logger.debug(f"AnalyticsDashboardCache initialized with {len(self._caches)} caches")
+            logger.debug("AnalyticsDashboardCache initialized with %s caches", len(self._caches))
 
     def _get_cache(self, cache_type: str) -> TTLCache[Any]:
         """Get or create a cache by type."""
@@ -176,7 +176,7 @@ class AnalyticsDashboardCache:
         cache = self._get_cache(cache_type)
         key = self._make_key(cache_type, workspace_id, *args)
         cache.set(key, value)
-        logger.debug(f"Cached {cache_type} for workspace {workspace_id}")
+        logger.debug("Cached %s for workspace %s", cache_type, workspace_id)
 
     def invalidate(self, cache_type: str, workspace_id: str, *args: Any) -> bool:
         """Invalidate a specific cache entry."""
@@ -195,7 +195,7 @@ class AnalyticsDashboardCache:
             cleared = cache.clear_prefix(workspace_prefix)
             total_cleared += cleared
         if total_cleared > 0:
-            logger.info(f"Invalidated {total_cleared} cache entries for workspace {workspace_id}")
+            logger.info("Invalidated %s cache entries for workspace %s", total_cleared, workspace_id)
         return total_cleared
 
     def invalidate_all(self) -> int:
@@ -205,7 +205,7 @@ class AnalyticsDashboardCache:
         for cache in self._caches.values():
             total_cleared += cache.clear()
         if total_cleared > 0:
-            logger.info(f"Invalidated all analytics dashboard caches: {total_cleared} entries")
+            logger.info("Invalidated all analytics dashboard caches: %s entries", total_cleared)
         return total_cleared
 
     def get_stats(self) -> dict[str, dict[str, Any]]:
@@ -300,7 +300,7 @@ def cached_analytics(
             # Try cache
             cached_result = cache.get(cache_type, workspace_id, time_range, *extra_values)
             if cached_result is not None:
-                logger.debug(f"Cache hit for {cache_type} workspace={workspace_id}")
+                logger.debug("Cache hit for %s workspace=%s", cache_type, workspace_id)
                 return cached_result
 
             # Cache miss - compute result
@@ -351,7 +351,7 @@ def cached_analytics_org(
 
             cached_result = cache.get(cache_type, org_id, days, *extra_values)
             if cached_result is not None:
-                logger.debug(f"Cache hit for {cache_type} org={org_id}")
+                logger.debug("Cache hit for %s org=%s", cache_type, org_id)
                 return cached_result
 
             result = func(self, query_params, *args, **kwargs)
@@ -384,14 +384,14 @@ def on_debate_completed(workspace_id: str) -> None:
         cache._get_cache(cache_type).clear_prefix(
             f"{CACHE_CONFIGS[cache_type].key_prefix}:{workspace_id}"
         )
-    logger.debug(f"Invalidated analytics caches for completed debate in {workspace_id}")
+    logger.debug("Invalidated analytics caches for completed debate in %s", workspace_id)
 
 
 def on_agent_performance_update(workspace_id: str) -> None:
     """Invalidate agent performance cache when ELO/rankings update."""
     cache = get_analytics_dashboard_cache()
     cache._get_cache("agents").clear_prefix(f"{CACHE_CONFIGS['agents'].key_prefix}:{workspace_id}")
-    logger.debug(f"Invalidated agent analytics cache for {workspace_id}")
+    logger.debug("Invalidated agent analytics cache for %s", workspace_id)
 
 
 def on_cost_event(org_id: str) -> None:
@@ -401,7 +401,7 @@ def on_cost_event(org_id: str) -> None:
         cache._get_cache(cache_type).clear_prefix(
             f"{CACHE_CONFIGS[cache_type].key_prefix}:{org_id}"
         )
-    logger.debug(f"Invalidated cost analytics caches for {org_id}")
+    logger.debug("Invalidated cost analytics caches for %s", org_id)
 
 
 __all__ = [

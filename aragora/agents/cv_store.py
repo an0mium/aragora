@@ -315,7 +315,7 @@ class CVStore(SQLiteStore):
                 return AgentCV.from_dict(data)
             return None
         except (json.JSONDecodeError, KeyError, TypeError, OSError) as e:
-            logger.warning(f"Failed to load CV from database for {agent_id}: {e}")
+            logger.warning("Failed to load CV from database for %s: %s", agent_id, e)
             return None
 
     def _save_to_db(self, cv: AgentCV) -> None:
@@ -332,7 +332,7 @@ class CVStore(SQLiteStore):
                 )
                 conn.commit()
         except (TypeError, ValueError, OSError) as e:
-            logger.warning(f"Failed to save CV to database for {cv.agent_id}: {e}")
+            logger.warning("Failed to save CV to database for %s: %s", cv.agent_id, e)
 
     async def get_all_cvs(self, limit: int = 100) -> list[AgentCV]:
         """
@@ -358,7 +358,7 @@ class CVStore(SQLiteStore):
                 cv = AgentCV.from_dict(data)
                 cvs.append(cv)
             except (json.JSONDecodeError, KeyError, TypeError) as e:
-                logger.warning(f"Failed to parse CV from database: {e}")
+                logger.warning("Failed to parse CV from database: %s", e)
 
         return cvs
 

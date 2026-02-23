@@ -330,7 +330,7 @@ class BotEventHandler(ABC):
 
     async def on_error(self, error: Exception, context: dict[str, Any] | None = None) -> None:
         """Handle errors during event processing."""
-        logger.error(f"Bot error: {error}", exc_info=True, extra={"context": context})
+        logger.error("Bot error: %s", error, exc_info=True, extra={"context": context})
 
 
 class DefaultBotEventHandler(BotEventHandler):
@@ -405,8 +405,7 @@ class DefaultBotEventHandler(BotEventHandler):
 
         # Log other reactions
         logger.debug(
-            f"Reaction added: emoji={emoji} channel={channel_id} "
-            f"message={message_id} user={user_id}"
+            "Reaction added: emoji=%s channel=%s message=%s user=%s", emoji, channel_id, message_id, user_id
         )
 
     async def on_command(self, ctx: CommandContext) -> None:
@@ -416,7 +415,7 @@ class DefaultBotEventHandler(BotEventHandler):
         otherwise logs a warning.
         """
         if not self._registry:
-            logger.warning(f"No command registry set, cannot execute: {ctx.args}")
+            logger.warning("No command registry set, cannot execute: %s", ctx.args)
             return
 
         try:
@@ -476,17 +475,17 @@ class DefaultBotEventHandler(BotEventHandler):
         debate_id = self._active_debates.get(message.channel.id)
 
         if debate_id:
-            logger.info(f"Routing message to debate {debate_id}: {message.text[:50]}...")
+            logger.info("Routing message to debate %s: %s...", debate_id, message.text[:50])
             # Subclasses should override to send to debate API
         else:
-            logger.debug(f"Debate keyword detected but no active debate: {message.text[:50]}...")
+            logger.debug("Debate keyword detected but no active debate: %s...", message.text[:50])
 
     async def _handle_general_message(self, message: BotMessage) -> None:
         """Handle messages that aren't commands or debate-related.
 
         Override this method for custom general message handling.
         """
-        logger.debug(f"General message from {message.user.username}: {message.text[:50]}...")
+        logger.debug("General message from %s: %s...", message.user.username, message.text[:50])
 
     async def _handle_debate_reaction(
         self,
@@ -519,21 +518,20 @@ class DefaultBotEventHandler(BotEventHandler):
         action = action_map.get(emoji.lower().strip(":"))
         if action:
             logger.info(
-                f"Debate reaction: debate={debate_id} action={action} "
-                f"user={user_id} message={message_id}"
+                "Debate reaction: debate=%s action=%s user=%s message=%s", debate_id, action, user_id, message_id
             )
             # Subclasses should override to send to debate API
 
     def start_debate(self, channel_id: str, debate_id: str) -> None:
         """Mark a channel as having an active debate."""
         self._active_debates[channel_id] = debate_id
-        logger.info(f"Started debate {debate_id} in channel {channel_id}")
+        logger.info("Started debate %s in channel %s", debate_id, channel_id)
 
     def end_debate(self, channel_id: str) -> str | None:
         """End a debate in a channel. Returns the debate ID if found."""
         debate_id = self._active_debates.pop(channel_id, None)
         if debate_id:
-            logger.info(f"Ended debate {debate_id} in channel {channel_id}")
+            logger.info("Ended debate %s in channel %s", debate_id, channel_id)
         return debate_id
 
     def get_active_debate(self, channel_id: str) -> str | None:

@@ -106,7 +106,7 @@ class CreditsAdminHandler(SecureHandler):
             reference_id=data.get("reference_id"),
         )
 
-        logger.info(f"Admin {user_id} issued {amount_cents} cents to org {org_id}: {description}")
+        logger.info("Admin %s issued %s cents to org %s: %s", user_id, amount_cents, org_id, description)
 
         return json_response(
             {"transaction": transaction.to_dict()},
@@ -226,7 +226,7 @@ class CreditsAdminHandler(SecureHandler):
 
         action = "increased" if amount_cents > 0 else "decreased"
         logger.info(
-            f"Admin {user_id} {action} org {org_id} balance by {abs(amount_cents)} cents: {description}"
+            "Admin %s %s org %s balance by %s cents: %s", user_id, action, org_id, abs(amount_cents), description
         )
 
         return json_response({"transaction": transaction.to_dict()})

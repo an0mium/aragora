@@ -121,19 +121,19 @@ def get_bundle(bundle_id: str) -> dict[str, Any] | None:
         Month-End Close Bundle
     """
     if bundle_id not in BUNDLE_INFO:
-        logger.warning(f"Unknown bundle: {bundle_id}")
+        logger.warning("Unknown bundle: %s", bundle_id)
         return None
 
     yaml_path = BUNDLE_DIR / f"{bundle_id}.yaml"
     if not yaml_path.exists():
-        logger.error(f"Bundle file not found: {yaml_path}")
+        logger.error("Bundle file not found: %s", yaml_path)
         return None
 
     try:
         with open(yaml_path) as f:
             return yaml.safe_load(f)
     except (yaml.YAMLError, OSError, ValueError, TypeError) as e:
-        logger.error(f"Failed to load bundle {bundle_id}: {e}")
+        logger.error("Failed to load bundle %s: %s", bundle_id, e)
         return None
 
 

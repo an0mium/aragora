@@ -241,7 +241,7 @@ async def run_sast_scan(
         logger.warning("SAST scanner not available, using mock data")
         findings = _get_mock_sast_findings(scan_id)
     except (OSError, ValueError, TypeError, KeyError, RuntimeError) as e:
-        logger.warning(f"SAST scan error, using mock data: {e}")
+        logger.warning("SAST scan error, using mock data: %s", e)
         findings = _get_mock_sast_findings(scan_id)
 
     return findings
@@ -284,7 +284,7 @@ async def run_bug_scan(
         logger.warning("Bug detector not available, using mock data")
         findings = _get_mock_bug_findings(scan_id)
     except (OSError, ValueError, TypeError, KeyError, RuntimeError) as e:
-        logger.warning(f"Bug scan error, using mock data: {e}")
+        logger.warning("Bug scan error, using mock data: %s", e)
         findings = _get_mock_bug_findings(scan_id)
 
     return findings
@@ -326,7 +326,7 @@ async def run_secrets_scan(
         logger.warning("Secrets scanner not available, using mock data")
         findings = _get_mock_secrets_findings(scan_id)
     except (OSError, ValueError, TypeError, KeyError, RuntimeError) as e:
-        logger.warning(f"Secrets scan error, using mock data: {e}")
+        logger.warning("Secrets scan error, using mock data: %s", e)
         findings = _get_mock_secrets_findings(scan_id)
 
     return findings
@@ -374,7 +374,7 @@ async def run_dependency_scan(
         logger.warning("Dependency scanner not available, using mock data")
         findings = _get_mock_dependency_findings(scan_id)
     except (OSError, ValueError, TypeError, KeyError, RuntimeError) as e:
-        logger.warning(f"Dependency scan error, using mock data: {e}")
+        logger.warning("Dependency scan error, using mock data: %s", e)
         findings = _get_mock_dependency_findings(scan_id)
 
     return findings
@@ -414,7 +414,7 @@ async def run_metrics_analysis(
         logger.warning("Metrics analyzer not available, using mock data")
         metrics = _get_mock_metrics()
     except (OSError, ValueError, TypeError, KeyError, RuntimeError) as e:
-        logger.warning(f"Metrics analysis error, using mock data: {e}")
+        logger.warning("Metrics analysis error, using mock data: %s", e)
         metrics = _get_mock_metrics()
 
     return metrics

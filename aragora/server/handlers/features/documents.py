@@ -186,14 +186,14 @@ class DocumentHandler(BaseHandler):
             # Delete the document
             success = store.delete(doc_id)
             if success:
-                logger.info(f"Document deleted: {doc_id}")
+                logger.info("Document deleted: %s", doc_id)
                 return json_response(
                     {"success": True, "message": f"Document {doc_id} deleted successfully"}
                 )
             else:
                 return error_response(f"Failed to delete document: {doc_id}", 500)
         except (KeyError, ValueError, OSError, TypeError) as e:
-            logger.error(f"Error deleting document {doc_id}: {e}")
+            logger.error("Error deleting document %s: %s", doc_id, e)
             return error_response(safe_error_message(e, "delete document"), 500)
 
     def get_document_store(self) -> Any:
@@ -449,7 +449,7 @@ class DocumentHandler(BaseHandler):
             doc = parse_document(file_content, filename)
             doc_id = store.add(doc)
 
-            logger.info(f"Document uploaded: {filename} ({len(file_content)} bytes) -> {doc_id}")
+            logger.info("Document uploaded: %s (%s bytes) -> %s", filename, len(file_content), doc_id)
 
             # Build response
             response_data: dict[str, Any] = {
@@ -488,13 +488,12 @@ class DocumentHandler(BaseHandler):
                     )
                     response_data.update(knowledge_result)
                     logger.info(
-                        f"Knowledge processing queued for {doc_id}: "
-                        f"{knowledge_result.get('knowledge_processing', {}).get('job_id', 'N/A')}"
+                        "Knowledge processing queued for %s: %s", doc_id, knowledge_result.get('knowledge_processing', {}).get('job_id', 'N/A')
                     )
                 except ImportError:
                     logger.warning("Knowledge pipeline not available, skipping")
                 except (KeyError, ValueError, TypeError, OSError, RuntimeError) as ke:
-                    logger.warning(f"Knowledge processing failed, document still uploaded: {ke}")
+                    logger.warning("Knowledge processing failed, document still uploaded: %s", ke)
                     response_data["knowledge_processing"] = {
                         "status": "failed",
                         "error": str(ke)[:200],
@@ -502,7 +501,7 @@ class DocumentHandler(BaseHandler):
 
             return json_response(response_data)
         except ImportError as e:
-            logger.error(f"Document import error: {e}")
+            logger.error("Document import error: %s", e)
             return UploadError(
                 UploadErrorCode.PARSING_FAILED,
                 safe_error_message(e, "document_import"),
@@ -510,14 +509,14 @@ class DocumentHandler(BaseHandler):
             ).to_response(400)
         except ValueError as e:
             # Common for malformed PDFs, etc
-            logger.warning(f"Document parse error for {filename}: {e}")
+            logger.warning("Document parse error for %s: %s", filename, e)
             return UploadError(
                 UploadErrorCode.PARSING_FAILED,
                 f"Could not parse document: {safe_error_message(e, 'document_parsing')}",
                 {"filename": filename, "error_type": "ValueError"},
             ).to_response(400)
         except (KeyError, TypeError, OSError, RuntimeError) as e:
-            logger.error(f"Document storage error: {e}")
+            logger.error("Document storage error: %s", e)
             return UploadError(
                 UploadErrorCode.STORAGE_FAILED,
                 safe_error_message(e, "document_storage"),
@@ -669,7 +668,7 @@ class DocumentHandler(BaseHandler):
 
                     return file_data, filename, None
             except (ValueError, IndexError) as e:
-                logger.debug(f"Multipart part parse error: {e}")
+                logger.debug("Multipart part parse error: %s", e)
                 continue
 
         return (

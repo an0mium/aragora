@@ -106,7 +106,7 @@ async def handle_prioritize_email(
         }
 
     except (TypeError, ValueError, KeyError, AttributeError) as e:
-        logger.exception(f"Failed to prioritize email: {e}")
+        logger.exception("Failed to prioritize email: %s", e)
         return {
             "success": False,
             "error": "Failed to prioritize email",
@@ -177,7 +177,7 @@ async def handle_rank_inbox(
         }
 
     except (TypeError, ValueError, KeyError, AttributeError) as e:
-        logger.exception(f"Failed to rank inbox: {e}")
+        logger.exception("Failed to rank inbox: %s", e)
         return {
             "success": False,
             "error": "Failed to rank inbox",
@@ -248,7 +248,7 @@ async def handle_email_feedback(
         }
 
     except (TypeError, ValueError, KeyError, AttributeError) as e:
-        logger.exception(f"Failed to record feedback: {e}")
+        logger.exception("Failed to record feedback: %s", e)
         return {
             "success": False,
             "error": "Failed to record feedback",

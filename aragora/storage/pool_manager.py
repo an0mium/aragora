@@ -165,7 +165,7 @@ async def initialize_shared_pool(
                 break
             except (OSError, RuntimeError, ConnectionError, TimeoutError) as e:
                 last_err = e
-                logger.warning(f"[pool_manager] Pool creation attempt {attempt + 1}/3 failed: {e}")
+                logger.warning("[pool_manager] Pool creation attempt %s/3 failed: %s", attempt + 1, e)
                 _ps_mod._pool = None
                 if attempt < 2:
                     await asyncio.sleep(2.0 * (attempt + 1))
@@ -204,7 +204,7 @@ async def initialize_shared_pool(
             async with _shared_pool.acquire() as conn:
                 await conn.fetchval("SELECT 1")
         except (OSError, RuntimeError, ConnectionError, TimeoutError) as e:
-            logger.error(f"[pool_manager] Pool health check failed after creation: {e}")
+            logger.error("[pool_manager] Pool health check failed after creation: %s", e)
             # Pool is broken, clean up and fall back
             try:
                 _shared_pool.terminate()
@@ -219,13 +219,12 @@ async def initialize_shared_pool(
         pool_size = _shared_pool.get_size() if hasattr(_shared_pool, "get_size") else "unknown"
         backend_name = "Supabase" if config.is_supabase else "PostgreSQL"
         logger.warning(
-            f"[pool_manager] Shared {backend_name} pool initialized "
-            f"(size: {pool_size}, event_loop: {id(_pool_event_loop)})"
+            "[pool_manager] Shared %s pool initialized (size: %s, event_loop: %s)", backend_name, pool_size, id(_pool_event_loop)
         )
         return _shared_pool
 
     except (OSError, RuntimeError, ConnectionError, TimeoutError, ImportError) as e:
-        logger.error(f"[pool_manager] Failed to initialize shared pool: {e}")
+        logger.error("[pool_manager] Failed to initialize shared pool: %s", e)
         # Don't raise - let caller handle fallback to SQLite
         return None
 
@@ -399,7 +398,7 @@ async def close_shared_pool() -> None:
         await _shared_pool.close()
         logger.info("[pool_manager] Shared pool closed")
     except (OSError, RuntimeError, ConnectionError) as e:
-        logger.warning(f"[pool_manager] Error closing shared pool: {e}")
+        logger.warning("[pool_manager] Error closing shared pool: %s", e)
     finally:
         old_loop = _pool_event_loop
         _shared_pool = None

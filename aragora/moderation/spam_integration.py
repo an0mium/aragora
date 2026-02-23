@@ -358,7 +358,7 @@ class SpamModerationIntegration:
                 logger.warning("SpamClassifier not available - spam moderation will be disabled")
                 self._config.enabled = False
             except (RuntimeError, ValueError, TypeError, OSError, ConnectionError) as e:
-                logger.error(f"Failed to initialize spam classifier: {e}")
+                logger.error("Failed to initialize spam classifier: %s", e)
                 if not self._config.fail_open:
                     raise
                 self._config.enabled = False
@@ -400,7 +400,7 @@ class SpamModerationIntegration:
             if cached:
                 self._stats["cache_hits"] += 1
                 if self._config.log_all_checks:
-                    logger.debug(f"Spam check cache hit for hash {content_hash[:8]}")
+                    logger.debug("Spam check cache hit for hash %s", content_hash[:8])
                 return cached
 
         self._stats["checks"] += 1
@@ -453,7 +453,7 @@ class SpamModerationIntegration:
 
         except (RuntimeError, ValueError, TypeError, KeyError, OSError, ConnectionError) as e:
             self._stats["errors"] += 1
-            logger.error(f"Spam check failed: {e}")
+            logger.error("Spam check failed: %s", e)
 
             if self._config.fail_open:
                 # Allow content through on error
@@ -625,7 +625,7 @@ class SpamModerationIntegration:
             try:
                 await self._classifier.close()
             except (RuntimeError, OSError) as e:
-                logger.warning(f"Error closing classifier: {e}")
+                logger.warning("Error closing classifier: %s", e)
         self._initialized = False
 
 

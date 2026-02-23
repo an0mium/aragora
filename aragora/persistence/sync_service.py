@@ -122,8 +122,7 @@ class SupabaseSyncService:
 
         if self.enabled:
             logger.info(
-                f"SupabaseSyncService enabled: batch_size={self.batch_size}, "
-                f"interval={self.interval_seconds}s, max_retries={self.max_retries}"
+                "SupabaseSyncService enabled: batch_size=%s, interval=%ss, max_retries=%s", self.batch_size, self.interval_seconds, self.max_retries
             )
         else:
             logger.debug("SupabaseSyncService disabled (SUPABASE_SYNC_ENABLED != true)")
@@ -201,7 +200,7 @@ class SupabaseSyncService:
 
         item = SyncItem(item_type=SyncItemType.DEBATE, data=debate_data)
         self._queue.put(item)
-        logger.debug(f"Queued debate for sync: {debate_data.get('id', 'unknown')}")
+        logger.debug("Queued debate for sync: %s", debate_data.get('id', 'unknown'))
         return True
 
     def queue_cycle(self, cycle_data: dict[str, Any]) -> bool:
@@ -304,7 +303,7 @@ class SupabaseSyncService:
                     self._last_sync_at = datetime.now()
 
             except Exception as e:  # noqa: BLE001 - worker isolation
-                logger.exception(f"Error in sync loop: {e}")
+                logger.exception("Error in sync loop: %s", e)
                 self._last_error = str(e)
 
             # Wait for next interval or stop signal
@@ -357,7 +356,7 @@ class SupabaseSyncService:
                     else:
                         failed_items.append(item)
                 except (OSError, ConnectionError, TimeoutError, RuntimeError, ValueError) as e:
-                    logger.warning(f"Failed to sync {item.item_type.value}: {e}")
+                    logger.warning("Failed to sync %s: %s", item.item_type.value, e)
                     item.last_error = str(e)
                     failed_items.append(item)
         finally:
@@ -369,19 +368,17 @@ class SupabaseSyncService:
             if item.retries < self.max_retries:
                 self._queue.put(item)
                 logger.debug(
-                    f"Re-queued {item.item_type.value} for retry "
-                    f"({item.retries}/{self.max_retries})"
+                    "Re-queued %s for retry (%s/%s)", item.item_type.value, item.retries, self.max_retries
                 )
             else:
                 self._failed_count += 1
                 self._last_error = item.last_error
                 logger.error(
-                    f"Dropped {item.item_type.value} after {self.max_retries} retries: "
-                    f"{item.last_error}"
+                    "Dropped %s after %s retries: %s", item.item_type.value, self.max_retries, item.last_error
                 )
 
         if synced > 0:
-            logger.debug(f"Synced {synced}/{len(batch)} items to Supabase")
+            logger.debug("Synced %s/%s items to Supabase", synced, len(batch))
 
         return synced
 
@@ -431,7 +428,7 @@ class SupabaseSyncService:
             return False
 
         except (OSError, ConnectionError, TimeoutError, RuntimeError, ValueError) as e:
-            logger.debug(f"Sync item error: {e}")
+            logger.debug("Sync item error: %s", e)
             raise
 
 
@@ -479,7 +476,7 @@ def shutdown_sync_service(timeout: float = 5.0) -> None:
                 try:
                     _sync_service.flush(timeout=timeout / 2)
                 except (OSError, ConnectionError, TimeoutError, RuntimeError) as e:
-                    logger.warning(f"Error flushing sync service: {e}")
+                    logger.warning("Error flushing sync service: %s", e)
 
                 _sync_service.stop(timeout=timeout / 2)
                 _sync_service = None

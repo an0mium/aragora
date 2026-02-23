@@ -111,10 +111,10 @@ async def _get_orchestrator() -> Any | None:
             )
             return _orchestrator_instance
         except ImportError as e:
-            logger.warning(f"Failed to import repository modules: {e}")
+            logger.warning("Failed to import repository modules: %s", e)
             return None
         except (RuntimeError, OSError, ValueError, TypeError) as e:
-            logger.warning(f"Failed to create orchestrator: {e}")
+            logger.warning("Failed to create orchestrator: %s", e)
             return None
 
 
@@ -125,7 +125,7 @@ async def _get_relationship_builder(repository_name: str) -> Any | None:
 
         return RelationshipBuilder(repository_name)
     except ImportError as e:
-        logger.warning(f"Failed to import RelationshipBuilder: {e}")
+        logger.warning("Failed to import RelationshipBuilder: %s", e)
         return None
 
 
@@ -206,7 +206,7 @@ class RepositoryHandler(BaseHandler, PaginatedHandlerMixin):
                     raw_body = handler.rfile.read(content_length)
                     body = json.loads(raw_body.decode("utf-8"))
             except (json.JSONDecodeError, ValueError, KeyError, UnicodeDecodeError) as e:
-                logger.debug(f"Failed to parse request body: {e}")
+                logger.debug("Failed to parse request body: %s", e)
 
         # POST /api/v1/repository/index - Start full index
         if path == "/api/v1/repository/index":
@@ -239,7 +239,7 @@ class RepositoryHandler(BaseHandler, PaginatedHandlerMixin):
                     raw_body = handler.rfile.read(content_length)
                     body = json.loads(raw_body.decode("utf-8"))
             except (json.JSONDecodeError, ValueError, KeyError, UnicodeDecodeError) as e:
-                logger.debug(f"Failed to parse request body: {e}")
+                logger.debug("Failed to parse request body: %s", e)
 
         # Handle repository-specific DELETE routes
         parts = path.split("/")
@@ -292,7 +292,7 @@ class RepositoryHandler(BaseHandler, PaginatedHandlerMixin):
                     extract_dependencies=config_data.get("extract_dependencies", True),
                 )
             except (ImportError, TypeError, ValueError, KeyError) as e:
-                logger.warning(f"Invalid crawl_config: {e}")
+                logger.warning("Invalid crawl_config: %s", e)
 
         try:
             result = await orchestrator.index_repository(
@@ -310,7 +310,7 @@ class RepositoryHandler(BaseHandler, PaginatedHandlerMixin):
             )
 
         except (OSError, RuntimeError, ValueError, TypeError, AttributeError) as e:
-            logger.error(f"Repository indexing failed: {e}")
+            logger.error("Repository indexing failed: %s", e)
             return error_response(safe_error_message(e, "indexing"), 500)
 
     @require_permission("repository.update")
@@ -346,7 +346,7 @@ class RepositoryHandler(BaseHandler, PaginatedHandlerMixin):
             )
 
         except (OSError, RuntimeError, ValueError, TypeError, AttributeError) as e:
-            logger.error(f"Incremental update failed: {e}")
+            logger.error("Incremental update failed: %s", e)
             return error_response(safe_error_message(e, "incremental update"), 500)
 
     @require_permission("repository.create")
@@ -391,7 +391,7 @@ class RepositoryHandler(BaseHandler, PaginatedHandlerMixin):
             )
 
         except (ImportError, OSError, RuntimeError, ValueError, TypeError, AttributeError) as e:
-            logger.error(f"Batch indexing failed: {e}")
+            logger.error("Batch indexing failed: %s", e)
             return error_response(safe_error_message(e, "batch indexing"), 500)
 
     @require_permission("repository.read")
@@ -480,7 +480,7 @@ class RepositoryHandler(BaseHandler, PaginatedHandlerMixin):
             )
 
         except (OSError, RuntimeError, ValueError, TypeError, KeyError, AttributeError) as e:
-            logger.error(f"Failed to get entities: {e}")
+            logger.error("Failed to get entities: %s", e)
             return error_response(safe_error_message(e, "get entities"), 500)
 
     @require_permission("repository.read")
@@ -536,7 +536,7 @@ class RepositoryHandler(BaseHandler, PaginatedHandlerMixin):
                 )
 
         except (OSError, RuntimeError, ValueError, TypeError, KeyError, AttributeError) as e:
-            logger.error(f"Failed to get graph: {e}")
+            logger.error("Failed to get graph: %s", e)
             return error_response(safe_error_message(e, "get graph"), 500)
 
     @require_permission("repository.read")
@@ -555,7 +555,7 @@ class RepositoryHandler(BaseHandler, PaginatedHandlerMixin):
             return json_response(stats)
 
         except (OSError, RuntimeError, ValueError, TypeError, KeyError, AttributeError) as e:
-            logger.error(f"Failed to get repository: {e}")
+            logger.error("Failed to get repository: %s", e)
             return error_response(safe_error_message(e, "get repository"), 500)
 
     @require_permission("repository.delete")
@@ -582,5 +582,5 @@ class RepositoryHandler(BaseHandler, PaginatedHandlerMixin):
             )
 
         except (OSError, RuntimeError, ValueError, TypeError, KeyError, AttributeError) as e:
-            logger.error(f"Failed to remove repository: {e}")
+            logger.error("Failed to remove repository: %s", e)
             return error_response(safe_error_message(e, "remove repository"), 500)

@@ -39,9 +39,9 @@ async def init_tts_integration() -> bool:
             return False
 
     except ImportError as e:
-        logger.debug(f"TTS integration not available: {e}")
+        logger.debug("TTS integration not available: %s", e)
     except (ValueError, TypeError, RuntimeError, OSError, AttributeError) as e:
-        logger.warning(f"Failed to initialize TTS integration: {e}")
+        logger.warning("Failed to initialize TTS integration: %s", e)
 
     return False
 
@@ -87,7 +87,7 @@ def get_km_config_from_env() -> "MoundConfig":
         else:
             backend = MoundBackend.SQLITE
     else:
-        logger.warning(f"Unknown KM_BACKEND: {backend_str}, defaulting to SQLite")
+        logger.warning("Unknown KM_BACKEND: %s, defaulting to SQLite", backend_str)
         backend = MoundBackend.SQLITE
 
     # Helper for bool env vars
@@ -158,10 +158,7 @@ def get_km_config_from_env() -> "MoundConfig":
     )
 
     logger.info(
-        f"KM config: backend={backend.value}, "
-        f"postgres={'configured' if config.postgres_url else 'none'}, "
-        f"redis={'configured' if config.redis_url else 'none'}, "
-        f"weaviate={'configured' if config.weaviate_url else 'none'}"
+        "KM config: backend=%s, postgres=%s, redis=%s, weaviate=%s", backend.value, 'configured' if config.postgres_url else 'none', 'configured' if config.redis_url else 'none', 'configured' if config.weaviate_url else 'none'
     )
 
     return config
@@ -186,13 +183,13 @@ async def init_knowledge_mound_from_env() -> bool:
         mound = get_knowledge_mound()
         await mound.initialize()
 
-        logger.info(f"Knowledge Mound initialized with {config.backend.value} backend")
+        logger.info("Knowledge Mound initialized with %s backend", config.backend.value)
         return True
 
     except ImportError as e:
-        logger.debug(f"Knowledge Mound not available: {e}")
+        logger.debug("Knowledge Mound not available: %s", e)
     except (ValueError, TypeError, RuntimeError, OSError, ConnectionError) as e:
-        logger.warning(f"Failed to initialize Knowledge Mound from env: {e}")
+        logger.warning("Failed to initialize Knowledge Mound from env: %s", e)
 
     return False
 
@@ -252,8 +249,8 @@ async def init_km_adapters() -> bool:
         return True
 
     except ImportError as e:
-        logger.debug(f"KM adapters not available: {e}")
+        logger.debug("KM adapters not available: %s", e)
     except (ValueError, TypeError, RuntimeError, AttributeError, KeyError) as e:
-        logger.warning(f"Failed to initialize KM adapters: {e}")
+        logger.warning("Failed to initialize KM adapters: %s", e)
 
     return False

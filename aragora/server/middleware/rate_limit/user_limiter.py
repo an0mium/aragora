@@ -251,7 +251,7 @@ def check_user_rate_limit(
             if auth_ctx.is_authenticated and auth_ctx.user_id:
                 client_key = auth_ctx.user_id
         except (ImportError, ValueError, TypeError, KeyError, RuntimeError) as e:
-            logger.debug(f"Could not extract user for rate limiting: {e}")
+            logger.debug("Could not extract user for rate limiting: %s", e)
 
     return limiter.allow(client_key, action)
 

@@ -209,7 +209,7 @@ def _parse_ready_signal(content: str) -> ReadySignal:
             data = json.loads(html_match.group(1))
             return ReadySignal(**data)
         except (json.JSONDecodeError, ValueError, TypeError) as e:
-            logger.debug(f"Failed to parse HTML ready signal: {e}")
+            logger.debug("Failed to parse HTML ready signal: %s", e)
 
     # Try JSON block format
     json_pattern = r"```ready_signal\s*(\{[^}]+\})\s*```"
@@ -219,7 +219,7 @@ def _parse_ready_signal(content: str) -> ReadySignal:
             data = json.loads(json_match.group(1))
             return ReadySignal(**data)
         except (json.JSONDecodeError, ValueError, TypeError) as e:
-            logger.debug(f"Failed to parse JSON ready signal: {e}")
+            logger.debug("Failed to parse JSON ready signal: %s", e)
 
     # Try inline format
     inline_pattern = (
@@ -234,7 +234,7 @@ def _parse_ready_signal(content: str) -> ReadySignal:
                 reasoning=inline_match.group(3) or "",
             )
         except (ValueError, TypeError) as e:
-            logger.debug(f"Failed to parse inline ready signal: {e}")
+            logger.debug("Failed to parse inline ready signal: %s", e)
 
     # Natural language markers
     final_markers = [
@@ -323,7 +323,7 @@ def validate_agent_response(
             warnings=warnings if warnings else None,
         )
     except (RuntimeError, ValueError, TypeError, AttributeError, KeyError) as e:
-        logger.warning(f"Response validation failed for {agent_name}: {e}")
+        logger.warning("Response validation failed for %s: %s", agent_name, e)
         return ValidationResult(
             is_valid=False,
             errors=[f"Validation failed: {type(e).__name__}"],

@@ -109,7 +109,7 @@ class SupabaseClient:
 
         # create_client is guaranteed non-None here since SUPABASE_AVAILABLE is True
         self.client = create_client(self.url, self.key)
-        logger.info(f"Supabase client initialized for {self.url}")
+        logger.info("Supabase client initialized for %s", self.url)
 
     @property
     def is_configured(self) -> bool:
@@ -145,7 +145,7 @@ class SupabaseClient:
                 return row.get("id")
             return None
         except (OSError, ConnectionError, TimeoutError, RuntimeError) as e:
-            logger.error(f"Failed to save cycle: {e}")
+            logger.error("Failed to save cycle: %s", e)
             return None
 
     async def get_cycle(self, loop_id: str, cycle_number: int) -> NomicCycle | None:
@@ -167,7 +167,7 @@ class SupabaseClient:
                 return self._dict_to_cycle(cast(dict[str, Any], result.data))
             return None
         except (OSError, ConnectionError, TimeoutError, RuntimeError) as e:
-            logger.error(f"Failed to get cycle: {e}")
+            logger.error("Failed to get cycle: %s", e)
             return None
 
     async def list_cycles(
@@ -199,7 +199,7 @@ class SupabaseClient:
 
             return [self._dict_to_cycle(cast(dict[str, Any], d)) for d in result.data]
         except (OSError, ConnectionError, TimeoutError, RuntimeError) as e:
-            logger.error(f"Failed to list cycles: {e}")
+            logger.error("Failed to list cycles: %s", e)
             return []
 
     def _dict_to_cycle(self, data: dict) -> NomicCycle:
@@ -255,7 +255,7 @@ class SupabaseClient:
                 return row.get("id")
             return None
         except (OSError, ConnectionError, TimeoutError, RuntimeError) as e:
-            logger.error(f"Failed to save debate: {e}")
+            logger.error("Failed to save debate: %s", e)
             return None
 
     async def get_debate(self, debate_id: str) -> DebateArtifact | None:
@@ -276,7 +276,7 @@ class SupabaseClient:
                 return self._dict_to_debate(cast(dict[str, Any], result.data))
             return None
         except (OSError, ConnectionError, TimeoutError, RuntimeError) as e:
-            logger.error(f"Failed to get debate: {e}")
+            logger.error("Failed to get debate: %s", e)
             return None
 
     async def list_debates(
@@ -309,7 +309,7 @@ class SupabaseClient:
 
             return [self._dict_to_debate(cast(dict[str, Any], d)) for d in result.data]
         except (OSError, ConnectionError, TimeoutError, RuntimeError) as e:
-            logger.error(f"Failed to list debates: {e}")
+            logger.error("Failed to list debates: %s", e)
             return []
 
     def _dict_to_debate(self, data: dict) -> DebateArtifact:
@@ -349,7 +349,7 @@ class SupabaseClient:
                 return row.get("id")
             return None
         except (OSError, ConnectionError, TimeoutError, RuntimeError) as e:
-            logger.error(f"Failed to save event: {e}")
+            logger.error("Failed to save event: %s", e)
             return None
 
     async def save_events_batch(self, events: list[StreamEvent]) -> int:
@@ -362,7 +362,7 @@ class SupabaseClient:
             result = self.client.table("stream_events").insert(data).execute()
             return len(result.data) if result.data else 0
         except (OSError, ConnectionError, TimeoutError, RuntimeError) as e:
-            logger.error(f"Failed to save events batch: {e}")
+            logger.error("Failed to save events batch: %s", e)
             return 0
 
     async def get_events(
@@ -396,7 +396,7 @@ class SupabaseClient:
             result = query.execute()
             return [self._dict_to_event(cast(dict[str, Any], d)) for d in result.data]
         except (OSError, ConnectionError, TimeoutError, RuntimeError) as e:
-            logger.error(f"Failed to get events: {e}")
+            logger.error("Failed to get events: %s", e)
             return []
 
     def _dict_to_event(self, data: dict) -> StreamEvent:
@@ -431,7 +431,7 @@ class SupabaseClient:
                 return row.get("id")
             return None
         except (OSError, ConnectionError, TimeoutError, RuntimeError) as e:
-            logger.error(f"Failed to save metrics: {e}")
+            logger.error("Failed to save metrics: %s", e)
             return None
 
     async def get_agent_stats(
@@ -455,7 +455,7 @@ class SupabaseClient:
 
             return [self._dict_to_metrics(cast(dict[str, Any], d)) for d in result.data]
         except (OSError, ConnectionError, TimeoutError, RuntimeError) as e:
-            logger.error(f"Failed to get agent stats: {e}")
+            logger.error("Failed to get agent stats: %s", e)
             return []
 
     def _dict_to_metrics(self, data: dict) -> AgentMetrics:
@@ -512,10 +512,10 @@ class SupabaseClient:
                 callback=handle_insert,
             ).subscribe()
 
-            logger.info(f"Subscribed to events for loop {loop_id}")
+            logger.info("Subscribed to events for loop %s", loop_id)
             return channel
         except (OSError, ConnectionError, TimeoutError, RuntimeError) as e:
-            logger.error(f"Failed to subscribe to events: {e}")
+            logger.error("Failed to subscribe to events: %s", e)
             return None
 
     # -------------------------------------------------------------------------
@@ -556,7 +556,7 @@ class SupabaseClient:
                 },
             }
         except (OSError, ConnectionError, TimeoutError, RuntimeError) as e:
-            logger.error(f"Failed to get loop summary: {e}")
+            logger.error("Failed to get loop summary: %s", e)
             return {}
 
 

@@ -45,14 +45,14 @@ async def _send_whatsapp_result(origin: DebateOrigin, result: dict[str, Any]) ->
         async with httpx.AsyncClient(timeout=30.0) as client:
             response = await client.post(url, json=data, headers=headers)
             if response.is_success:
-                logger.info(f"WhatsApp result sent to {to_number}")
+                logger.info("WhatsApp result sent to %s", to_number)
                 return True
             else:
-                logger.warning(f"WhatsApp send failed: {response.status_code}")
+                logger.warning("WhatsApp send failed: %s", response.status_code)
                 return False
 
     except (OSError, ConnectionError, TimeoutError, ValueError) as e:
-        logger.error(f"WhatsApp result send error: {e}")
+        logger.error("WhatsApp result send error: %s", e)
         return False
 
 
@@ -84,7 +84,7 @@ async def _send_whatsapp_voice(origin: DebateOrigin, result: dict[str, Any]) -> 
                 )
 
                 if not upload_response.is_success:
-                    logger.warning(f"WhatsApp media upload failed: {upload_response.status_code}")
+                    logger.warning("WhatsApp media upload failed: %s", upload_response.status_code)
                     return False
 
                 media_id = upload_response.json().get("id")
@@ -107,17 +107,17 @@ async def _send_whatsapp_voice(origin: DebateOrigin, result: dict[str, Any]) -> 
             )
 
             if send_response.is_success:
-                logger.info(f"WhatsApp voice sent to {origin.channel_id}")
+                logger.info("WhatsApp voice sent to %s", origin.channel_id)
                 return True
             else:
-                logger.warning(f"WhatsApp voice send failed: {send_response.status_code}")
+                logger.warning("WhatsApp voice send failed: %s", send_response.status_code)
                 return False
 
     except (OSError, ConnectionError, TimeoutError, ValueError) as e:
-        logger.error(f"WhatsApp voice send error: {e}")
+        logger.error("WhatsApp voice send error: %s", e)
         return False
     finally:
         try:
             Path(audio_path).unlink(missing_ok=True)
         except OSError as e:
-            logger.debug(f"Failed to cleanup temp file: {e}")
+            logger.debug("Failed to cleanup temp file: %s", e)

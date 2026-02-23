@@ -78,7 +78,7 @@ class ELOWeightedScorer(ScorerProtocol):
                         if trait not in traits:
                             traits.append(trait)
             except (AttributeError, KeyError, ValueError, LookupError) as e:
-                logger.debug(f"Failed to get persona for {agent.name}: {e}")
+                logger.debug("Failed to get persona for %s: %s", agent.name, e)
 
         # Domain expertise (30%)
         primary_exp = expertise.get(requirements.primary_domain, 0.5)
@@ -132,7 +132,7 @@ class ELOWeightedScorer(ScorerProtocol):
                     probe_score = probe_profile.probe_score
                     has_critical = probe_profile.has_critical_issues()
             except (AttributeError, KeyError, ValueError, LookupError) as e:
-                logger.debug(f"Probe filter lookup failed for {agent.name}: {type(e).__name__}")
+                logger.debug("Probe filter lookup failed for %s: %s", agent.name, type(e).__name__)
 
         adjustment = 0.5 + (probe_score * 0.5)
         if has_critical:
@@ -157,7 +157,7 @@ class ELOWeightedScorer(ScorerProtocol):
                     calibration_score = max(0.0, 1.0 - summary.ece)
                     is_overconfident = summary.is_overconfident
             except (AttributeError, KeyError, ValueError, LookupError) as e:
-                logger.debug(f"Calibration lookup failed for {agent.name}: {type(e).__name__}")
+                logger.debug("Calibration lookup failed for %s: %s", agent.name, type(e).__name__)
 
         adjustment = 0.7 + (calibration_score * 0.3)
         if is_overconfident:

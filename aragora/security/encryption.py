@@ -349,7 +349,7 @@ class EncryptionService:
         self._keys[key_id] = key
         self._active_key_id = key_id
 
-        logger.info(f"Generated encryption key: {key_id} (version {version})")
+        logger.info("Generated encryption key: %s (version %s)", key_id, version)
 
         return key
 
@@ -464,7 +464,7 @@ class EncryptionService:
         if key.version != encrypted.key_version:
             # This should not happen after the fix, but log if it does
             logger.warning(
-                f"Key version mismatch: expected {encrypted.key_version}, have {key.version}"
+                "Key version mismatch: expected %s, have %s", encrypted.key_version, key.version
             )
 
         if isinstance(associated_data, str):

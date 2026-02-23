@@ -286,7 +286,7 @@ class WorkflowCoverageTracker:
             )
             self._step_coverage[step_type].append(entry)
             self._test_names.add(test_name)
-            logger.debug(f"Tracked step '{step_type}' in test '{test_name}'")
+            logger.debug("Tracked step '%s' in test '%s'", step_type, test_name)
 
     def track_pattern(
         self, pattern: str, test_name: str, metadata: dict[str, Any] | None = None
@@ -300,7 +300,7 @@ class WorkflowCoverageTracker:
             )
             self._pattern_coverage[pattern].append(entry)
             self._test_names.add(test_name)
-            logger.debug(f"Tracked pattern '{pattern}' in test '{test_name}'")
+            logger.debug("Tracked pattern '%s' in test '%s'", pattern, test_name)
 
     def track_template(
         self, template: str, test_name: str, metadata: dict[str, Any] | None = None
@@ -314,7 +314,7 @@ class WorkflowCoverageTracker:
             )
             self._template_coverage[template].append(entry)
             self._test_names.add(test_name)
-            logger.debug(f"Tracked template '{template}' in test '{test_name}'")
+            logger.debug("Tracked template '%s' in test '%s'", template, test_name)
 
     def track_config(
         self, config_dimension: str, test_name: str, metadata: dict[str, Any] | None = None
@@ -328,7 +328,7 @@ class WorkflowCoverageTracker:
             )
             self._config_coverage[config_dimension].append(entry)
             self._test_names.add(test_name)
-            logger.debug(f"Tracked config '{config_dimension}' in test '{test_name}'")
+            logger.debug("Tracked config '%s' in test '%s'", config_dimension, test_name)
 
     def get_report(self) -> CoverageReport:
         """Generate a comprehensive coverage report."""
@@ -383,7 +383,7 @@ class WorkflowCoverageTracker:
         with open(path, "w") as f:
             json.dump(report.to_dict(), f, indent=2)
 
-        logger.info(f"Saved workflow coverage report to {path}")
+        logger.info("Saved workflow coverage report to %s", path)
         return path
 
     def print_summary(self) -> None:

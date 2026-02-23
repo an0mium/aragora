@@ -77,7 +77,7 @@ class SecurityHandler(SecureHandler):
         # Rate limit check for security admin endpoints
         client_ip = get_client_ip(handler)
         if not _security_limiter.is_allowed(client_ip):
-            logger.warning(f"Rate limit exceeded for security endpoint: {client_ip}")
+            logger.warning("Rate limit exceeded for security endpoint: %s", client_ip)
             return error_response("Rate limit exceeded. Please try again later.", 429)
 
         # RBAC inline check via rbac.checker if available
@@ -87,7 +87,7 @@ class SecurityHandler(SecureHandler):
         elif hasattr(handler, "auth_context"):
             decision = check_permission(handler.auth_context, ADMIN_SECURITY_PERMISSION)
             if not decision.allowed:
-                logger.warning(f"RBAC denied admin security access: {decision.reason}")
+                logger.warning("RBAC denied admin security access: %s", decision.reason)
                 return error_response(
                     "Permission denied",
                     403,
@@ -121,7 +121,7 @@ class SecurityHandler(SecureHandler):
         elif hasattr(handler, "auth_context"):
             decision = check_permission(handler.auth_context, ADMIN_SECURITY_PERMISSION)
             if not decision.allowed:
-                logger.warning(f"RBAC denied admin security POST access: {decision.reason}")
+                logger.warning("RBAC denied admin security POST access: %s", decision.reason)
                 return error_response(
                     "Permission denied",
                     403,
@@ -185,10 +185,10 @@ class SecurityHandler(SecureHandler):
             return json_response(result)
 
         except ImportError as e:
-            logger.error(f"Security status import error: {e}")
+            logger.error("Security status import error: %s", e)
             return error_response("Internal server error", 500)
         except (RuntimeError, ValueError, TypeError, AttributeError, OSError) as e:
-            logger.error(f"Security status error: {e}")
+            logger.error("Security status error: %s", e)
             return error_response("Internal server error", 500)
 
     @admin_secure_endpoint(
@@ -254,10 +254,10 @@ class SecurityHandler(SecureHandler):
             )
 
         except ImportError as e:
-            logger.error(f"Key rotation import error: {e}")
+            logger.error("Key rotation import error: %s", e)
             return error_response("Internal server error", 500)
         except (RuntimeError, ValueError, TypeError, OSError) as e:
-            logger.error(f"Key rotation error: {e}")
+            logger.error("Key rotation error: %s", e)
             return error_response("Internal server error", 500)
 
     @admin_secure_endpoint(
@@ -353,7 +353,7 @@ class SecurityHandler(SecureHandler):
             )
 
         except (RuntimeError, ValueError, TypeError, AttributeError, OSError) as e:
-            logger.error(f"Security health check error: {e}")
+            logger.error("Security health check error: %s", e)
             return error_response("Internal server error", 500)
 
     @admin_secure_endpoint(
@@ -405,8 +405,8 @@ class SecurityHandler(SecureHandler):
             )
 
         except ImportError as e:
-            logger.error(f"List keys import error: {e}")
+            logger.error("List keys import error: %s", e)
             return error_response("Internal server error", 500)
         except (RuntimeError, ValueError, TypeError, KeyError, AttributeError, OSError) as e:
-            logger.error(f"List keys error: {e}")
+            logger.error("List keys error: %s", e)
             return error_response("Internal server error", 500)

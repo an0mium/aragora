@@ -132,11 +132,11 @@ class ApprovalHandler:
                 decision = checker.check_permission(auth_ctx, AUTONOMOUS_READ_PERMISSION)
                 if not decision.allowed:
                     logger.warning(
-                        f"User {auth_ctx.user_id} denied read permission: {decision.reason}"
+                        "User %s denied read permission: %s", auth_ctx.user_id, decision.reason
                     )
                     raise ForbiddenError("Permission denied")
 
-            logger.debug(f"list_pending called by user {auth_ctx.user_id}")
+            logger.debug("list_pending called by user %s", auth_ctx.user_id)
 
             flow = get_approval_flow()
             pending = flow.list_pending()
@@ -216,11 +216,11 @@ class ApprovalHandler:
                 decision = checker.check_permission(auth_ctx, AUTONOMOUS_READ_PERMISSION)
                 if not decision.allowed:
                     logger.warning(
-                        f"User {auth_ctx.user_id} denied read permission: {decision.reason}"
+                        "User %s denied read permission: %s", auth_ctx.user_id, decision.reason
                     )
                     raise ForbiddenError("Permission denied")
 
-            logger.debug(f"get_request {request_id} called by user {auth_ctx.user_id}")
+            logger.debug("get_request %s called by user %s", request_id, auth_ctx.user_id)
 
             flow = get_approval_flow()
             req = flow._load_request(request_id)
@@ -309,7 +309,7 @@ class ApprovalHandler:
                 decision = checker.check_permission(auth_ctx, AUTONOMOUS_APPROVE_PERMISSION)
                 if not decision.allowed:
                     logger.warning(
-                        f"User {auth_ctx.user_id} denied approval permission: {decision.reason}"
+                        "User %s denied approval permission: %s", auth_ctx.user_id, decision.reason
                     )
                     raise ForbiddenError("Permission denied")
 
@@ -319,7 +319,7 @@ class ApprovalHandler:
             # Use authenticated user as approver, or override if specified
             approved_by = data.get("approved_by") or auth_ctx.user_id
 
-            logger.info(f"User {auth_ctx.user_id} approving request {request_id}")
+            logger.info("User %s approving request %s", auth_ctx.user_id, request_id)
 
             flow = get_approval_flow()
             req = flow.approve(request_id, approved_by)
@@ -400,7 +400,7 @@ class ApprovalHandler:
                 decision = checker.check_permission(auth_ctx, AUTONOMOUS_APPROVE_PERMISSION)
                 if not decision.allowed:
                     logger.warning(
-                        f"User {auth_ctx.user_id} denied rejection permission: {decision.reason}"
+                        "User %s denied rejection permission: %s", auth_ctx.user_id, decision.reason
                     )
                     raise ForbiddenError("Permission denied")
 
@@ -411,7 +411,7 @@ class ApprovalHandler:
             rejected_by = data.get("rejected_by") or auth_ctx.user_id
             reason = data.get("reason", "No reason provided")
 
-            logger.info(f"User {auth_ctx.user_id} rejecting request {request_id}: {reason}")
+            logger.info("User %s rejecting request %s: %s", auth_ctx.user_id, request_id, reason)
 
             flow = get_approval_flow()
             req = flow.reject(request_id, rejected_by, reason)

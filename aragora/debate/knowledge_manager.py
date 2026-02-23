@@ -200,7 +200,7 @@ class ArenaKnowledgeManager:
                     self.revalidation_staleness_threshold,
                 )
             except ImportError as e:
-                logger.debug(f"[knowledge_mound] RevalidationScheduler unavailable: {e}")
+                logger.debug("[knowledge_mound] RevalidationScheduler unavailable: %s", e)
 
         # Initialize KM adapter factory and coordinator for bidirectional sync
         self._km_coordinator = None
@@ -249,9 +249,9 @@ class ArenaKnowledgeManager:
                         registered,
                     )
             except ImportError as e:
-                logger.debug(f"[knowledge_mound] AdapterFactory unavailable: {e}")
+                logger.debug("[knowledge_mound] AdapterFactory unavailable: %s", e)
             except (RuntimeError, TypeError, ValueError, AttributeError) as e:
-                logger.warning(f"[knowledge_mound] Failed to initialize adapters: {e}")
+                logger.warning("[knowledge_mound] Failed to initialize adapters: %s", e)
 
         # Initialize Supermemory adapter (external memory persistence)
         self._init_supermemory_adapter()
@@ -287,10 +287,10 @@ class ArenaKnowledgeManager:
                 )
                 logger.info("[supermemory] Adapter initialized")
             except ImportError as e:
-                logger.debug(f"[supermemory] Integration unavailable: {e}")
+                logger.debug("[supermemory] Integration unavailable: %s", e)
                 self.enable_supermemory = False
             except (RuntimeError, TypeError, ValueError, OSError, ConnectionError) as e:
-                logger.warning(f"[supermemory] Failed to initialize adapter: {e}")
+                logger.warning("[supermemory] Failed to initialize adapter: %s", e)
                 self.enable_supermemory = False
         else:
             # If adapter is provided externally, wire event callback if supported.
@@ -298,7 +298,7 @@ class ArenaKnowledgeManager:
                 try:
                     self.supermemory_adapter.set_event_callback(self._notify_callback)
                 except (AttributeError, TypeError, RuntimeError) as e:
-                    logger.debug(f"[supermemory] Failed to set event callback: {e}")
+                    logger.debug("[supermemory] Failed to set event callback: %s", e)
 
     async def init_context(
         self,
@@ -349,12 +349,12 @@ class ArenaKnowledgeManager:
                 },
             )
             manager.dispatch(event)
-            logger.debug(f"[arena] KM context initialized for debate {debate_id}")
+            logger.debug("[arena] KM context initialized for debate %s", debate_id)
 
         except ImportError:
             logger.debug("[arena] KM context initialization skipped (events not available)")
         except (RuntimeError, TypeError, ValueError, AttributeError) as e:
-            logger.warning(f"[arena] Failed to initialize KM context: {e}")
+            logger.warning("[arena] Failed to initialize KM context: %s", e)
 
     def get_culture_hints(self, debate_id: str) -> dict[str, Any]:
         """Retrieve culture hints from cross-subscriber manager.
@@ -376,13 +376,13 @@ class ArenaKnowledgeManager:
             manager = get_cross_subscriber_manager()
             hints = manager.get_debate_culture_hints(debate_id)
             if hints:
-                logger.debug(f"[arena] Retrieved {len(hints)} culture hints for debate {debate_id}")
+                logger.debug("[arena] Retrieved %s culture hints for debate %s", len(hints), debate_id)
             return hints
 
         except ImportError:
             return {}
         except (RuntimeError, TypeError, ValueError, AttributeError) as e:
-            logger.debug(f"[arena] Failed to get culture hints: {e}")
+            logger.debug("[arena] Failed to get culture hints: %s", e)
             return {}
 
     def apply_culture_hints(self, hints: dict[str, Any]) -> None:
@@ -399,13 +399,13 @@ class ArenaKnowledgeManager:
             if "recommended_consensus" in hints:
                 recommended = hints["recommended_consensus"]
                 if recommended in ("unanimous", "majority", "consensus"):
-                    logger.info(f"[arena] Culture recommends {recommended} consensus")
+                    logger.info("[arena] Culture recommends %s consensus", recommended)
                     self._culture_consensus_hint = recommended
 
             # Apply extra critique rounds for conservative cultures
             if hints.get("extra_critique_rounds", 0) > 0:
                 extra = hints["extra_critique_rounds"]
-                logger.info(f"[arena] Culture suggests {extra} extra critique rounds")
+                logger.info("[arena] Culture suggests %s extra critique rounds", extra)
                 self._culture_extra_critiques = extra
 
             # Apply early consensus threshold for aggressive cultures
@@ -417,13 +417,13 @@ class ArenaKnowledgeManager:
             # Store domain-specific patterns
             if "domain_patterns" in hints:
                 patterns = hints["domain_patterns"]
-                logger.debug(f"[arena] Loaded {len(patterns)} domain-specific culture patterns")
+                logger.debug("[arena] Loaded %s domain-specific culture patterns", len(patterns))
                 self._culture_domain_patterns = patterns
 
         except (KeyError, TypeError, AttributeError) as e:
-            logger.debug(f"[arena] Failed to apply culture hints (data error): {e}")
+            logger.debug("[arena] Failed to apply culture hints (data error): %s", e)
         except (RuntimeError, ValueError) as e:
-            logger.warning(f"[arena] Unexpected error applying culture hints: {e}")
+            logger.warning("[arena] Unexpected error applying culture hints: %s", e)
 
     async def fetch_context(
         self,
@@ -496,7 +496,7 @@ class ArenaKnowledgeManager:
 
             return results
         except (AttributeError, TypeError) as e:
-            logger.debug(f"Pulse context fetch error: {e}")
+            logger.debug("Pulse context fetch error: %s", e)
             return []
 
     async def ingest_outcome(self, result: DebateResult, env: Environment) -> None:
@@ -533,7 +533,7 @@ class ArenaKnowledgeManager:
                     sync_result.error,
                 )
         except (RuntimeError, ConnectionError, OSError, TypeError, AttributeError) as e:
-            logger.debug(f"[supermemory] Outcome sync error: {e}")
+            logger.debug("[supermemory] Outcome sync error: %s", e)
 
     @property
     def culture_consensus_hint(self) -> str | None:

@@ -225,7 +225,7 @@ class YouTubeFetcher:
         # Check cache
         cache_path = self._get_cache_path(video_id)
         if use_cache and self._is_cached(video_id):
-            logger.info(f"Using cached audio for {video_id}")
+            logger.info("Using cached audio for %s", video_id)
             return cache_path
 
         # Get video info to check duration
@@ -262,7 +262,7 @@ class YouTubeFetcher:
                 ydl.download([url])
 
         try:
-            logger.info(f"Downloading audio for {video_id}: {info.title}")
+            logger.info("Downloading audio for %s: %s", video_id, info.title)
             await loop.run_in_executor(None, _download)
         except (OSError, ValueError, RuntimeError) as e:
             raise RuntimeError(f"Failed to download audio: {e}")

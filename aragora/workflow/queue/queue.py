@@ -135,7 +135,7 @@ class TaskQueue:
         if drain:
             # Wait for running tasks
             if self._running:
-                logger.info(f"Draining {len(self._running)} running tasks...")
+                logger.info("Draining %s running tasks...", len(self._running))
                 try:
                     await asyncio.wait_for(
                         self._wait_for_drain(),
@@ -189,7 +189,7 @@ class TaskQueue:
             task.mark_ready()
             self._add_to_ready_queue(task.id)
 
-        logger.debug(f"Enqueued task {task.id} for workflow {task.workflow_id}")
+        logger.debug("Enqueued task %s for workflow %s", task.id, task.workflow_id)
         return task.id
 
     async def enqueue_many(self, tasks: list[WorkflowTask]) -> list[str]:
@@ -217,7 +217,7 @@ class TaskQueue:
             except asyncio.CancelledError:
                 break
             except (RuntimeError, ValueError, TypeError, OSError, ConnectionError) as e:
-                logger.error(f"Error in process loop: {e}")
+                logger.error("Error in process loop: %s", e)
                 await asyncio.sleep(0.1)
 
     async def _process_ready_tasks(self) -> None:
@@ -243,7 +243,7 @@ class TaskQueue:
             async with self._semaphore:
                 task.mark_running(executor_id="queue")
 
-                logger.debug(f"Executing task {task.id}")
+                logger.debug("Executing task %s", task.id)
 
                 # Execute via executor if available
                 if self._executor:
@@ -257,7 +257,7 @@ class TaskQueue:
                     )
 
                 task.mark_completed(result)
-                logger.debug(f"Task {task.id} completed")
+                logger.debug("Task %s completed", task.id)
 
                 if self._on_task_complete:
                     self._on_task_complete(task)
@@ -266,11 +266,11 @@ class TaskQueue:
             task.mark_timeout()
             if task.schedule_retry():
                 self._add_to_ready_queue(task.id)
-            logger.warning(f"Task {task.id} timed out")
+            logger.warning("Task %s timed out", task.id)
 
         except (RuntimeError, ValueError, TypeError, OSError, ConnectionError) as e:
             task.mark_failed("Task execution failed")
-            logger.error(f"Task {task.id} failed: {e}")
+            logger.error("Task %s failed: %s", task.id, e)
 
             if self._on_task_error:
                 self._on_task_error(task, e)
@@ -312,7 +312,7 @@ class TaskQueue:
                     if dep_task and dep_task.status == TaskStatus.PENDING:
                         dep_task.mark_ready()
                         self._add_to_ready_queue(dep_id)
-                        logger.debug(f"Task {dep_id} dependencies resolved, now ready")
+                        logger.debug("Task %s dependencies resolved, now ready", dep_id)
 
     async def _check_workflow_complete(self, workflow_id: str) -> None:
         """Check if all tasks in a workflow are complete."""

@@ -137,7 +137,7 @@ def _encrypt_token(token: str, context: str = "") -> str:
                 str(e),
                 "email_credential_store",
             ) from e
-        logger.warning(f"Token encryption failed, storing unencrypted: {e}")
+        logger.warning("Token encryption failed, storing unencrypted: %s", e)
         return token
 
 
@@ -160,7 +160,7 @@ def _decrypt_token(encrypted_token: str, context: str = "") -> str:
         return service.decrypt_string(encrypted_token, associated_data=context if context else None)
     except (RuntimeError, ValueError, TypeError, OSError) as e:
         # Could be a legacy plain token that happens to start with "A"
-        logger.debug(f"Token decryption failed for context {context}, returning as-is: {e}")
+        logger.debug("Token decryption failed for context %s, returning as-is: %s", context, e)
         return encrypted_token
 
 
@@ -485,7 +485,7 @@ class SQLiteEmailCredentialStore(EmailCredentialStoreBackend):
         self._conn: sqlite3.Connection | None = None
         self._lock = threading.Lock()
         self._init_schema()
-        logger.info(f"SQLiteEmailCredentialStore initialized: {self.db_path}")
+        logger.info("SQLiteEmailCredentialStore initialized: %s", self.db_path)
 
     def _get_conn(self) -> sqlite3.Connection:
         """Get database connection (thread-safe)."""
@@ -577,7 +577,7 @@ class SQLiteEmailCredentialStore(EmailCredentialStoreBackend):
                 ),
             )
             conn.commit()
-        logger.debug(f"Saved email credential for {credential.credential_id}")
+        logger.debug("Saved email credential for %s", credential.credential_id)
 
     async def delete(self, tenant_id: str, provider: str, email_address: str) -> bool:
         with self._lock:
@@ -589,7 +589,7 @@ class SQLiteEmailCredentialStore(EmailCredentialStoreBackend):
             conn.commit()
             deleted = cursor.rowcount > 0
             if deleted:
-                logger.debug(f"Deleted email credential for {tenant_id}:{provider}:{email_address}")
+                logger.debug("Deleted email credential for %s:%s:%s", tenant_id, provider, email_address)
             return deleted
 
     async def list_for_tenant(self, tenant_id: str) -> list[EmailCredential]:
@@ -691,11 +691,11 @@ class RedisEmailCredentialStore(EmailCredentialStoreBackend):
             self._redis_checked = True
             logger.info("Redis connected for email credential store")
         except (ConnectionError, TimeoutError, OSError) as e:
-            logger.debug(f"Redis connection failed, using SQLite only: {type(e).__name__}: {e}")
+            logger.debug("Redis connection failed, using SQLite only: %s: %s", type(e).__name__, e)
             self._redis = None
             self._redis_checked = True
         except Exception as e:  # noqa: BLE001 - redis library custom exceptions may not be importable
-            logger.debug(f"Redis not available, using SQLite only: {type(e).__name__}: {e}")
+            logger.debug("Redis not available, using SQLite only: %s: %s", type(e).__name__, e)
             self._redis = None
             self._redis_checked = True
 
@@ -716,11 +716,11 @@ class RedisEmailCredentialStore(EmailCredentialStoreBackend):
                     return EmailCredential.from_json(data)
             except (ConnectionError, TimeoutError, OSError) as e:
                 logger.debug(
-                    f"Redis get connection error, falling back to SQLite: {type(e).__name__}: {e}"
+                    "Redis get connection error, falling back to SQLite: %s: %s", type(e).__name__, e
                 )
             except (ValueError, TypeError) as e:
                 logger.debug(
-                    f"Redis get deserialization error, falling back to SQLite: {type(e).__name__}: {e}"
+                    "Redis get deserialization error, falling back to SQLite: %s: %s", type(e).__name__, e
                 )
 
         credential = await self._sqlite.get(tenant_id, provider, email_address)
@@ -734,7 +734,7 @@ class RedisEmailCredentialStore(EmailCredentialStoreBackend):
                     credential.to_json(),
                 )
             except (ConnectionError, TimeoutError, OSError) as e:
-                logger.debug(f"Redis cache population failed: {e}")
+                logger.debug("Redis cache population failed: %s", e)
 
         return credential
 
@@ -754,7 +754,7 @@ class RedisEmailCredentialStore(EmailCredentialStoreBackend):
                     credential.to_json(),
                 )
             except (ConnectionError, TimeoutError, OSError) as e:
-                logger.debug(f"Redis cache update connection error: {type(e).__name__}: {e}")
+                logger.debug("Redis cache update connection error: %s: %s", type(e).__name__, e)
 
     async def delete(self, tenant_id: str, provider: str, email_address: str) -> bool:
         redis = self._get_redis()
@@ -762,7 +762,7 @@ class RedisEmailCredentialStore(EmailCredentialStoreBackend):
             try:
                 redis.delete(self._cache_key(tenant_id, provider, email_address))
             except (ConnectionError, TimeoutError, OSError) as e:
-                logger.debug(f"Redis cache deletion failed: {e}")
+                logger.debug("Redis cache deletion failed: %s", e)
 
         return await self._sqlite.delete(tenant_id, provider, email_address)
 
@@ -860,7 +860,7 @@ class PostgresEmailCredentialStore(EmailCredentialStoreBackend):
             await conn.execute(self.INITIAL_SCHEMA)
 
         self._initialized = True
-        logger.debug(f"[{self.SCHEMA_NAME}] Schema initialized")
+        logger.debug("[%s] Schema initialized", self.SCHEMA_NAME)
 
     def _row_to_credential(self, row: Any) -> EmailCredential:
         """Convert database row to EmailCredential."""
@@ -945,7 +945,7 @@ class PostgresEmailCredentialStore(EmailCredentialStoreBackend):
                 credential.created_at,
                 credential.updated_at,
             )
-        logger.debug(f"Saved email credential for {credential.credential_id}")
+        logger.debug("Saved email credential for %s", credential.credential_id)
 
     async def delete(self, tenant_id: str, provider: str, email_address: str) -> bool:
         async with self._pool.acquire() as conn:
@@ -958,7 +958,7 @@ class PostgresEmailCredentialStore(EmailCredentialStoreBackend):
             )
             deleted = result != "DELETE 0"
             if deleted:
-                logger.debug(f"Deleted email credential for {tenant_id}:{provider}:{email_address}")
+                logger.debug("Deleted email credential for %s:%s:%s", tenant_id, provider, email_address)
             return deleted
 
     async def list_for_tenant(self, tenant_id: str) -> list[EmailCredential]:
@@ -1106,7 +1106,7 @@ def set_email_credential_store(store: EmailCredentialStoreBackend) -> None:
     """Set custom email credential store (for testing)."""
     global _email_credential_store
     _email_credential_store = store
-    logger.debug(f"Email credential store backend set: {type(store).__name__}")
+    logger.debug("Email credential store backend set: %s", type(store).__name__)
 
 
 def reset_email_credential_store() -> None:

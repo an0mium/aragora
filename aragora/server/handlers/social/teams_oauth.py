@@ -222,7 +222,7 @@ class TeamsOAuthHandler(SecureHandler):
         try:
             auth_context = await self.get_auth_context(handler, require_auth=True)
         except (UnauthorizedError, PermissionError, ValueError, RuntimeError) as e:
-            logger.debug(f"Teams OAuth auth failed: {e}")
+            logger.debug("Teams OAuth auth failed: %s", e)
             return error_response("Authentication required", 401)
 
         # Install endpoint - initiate OAuth flow
@@ -338,7 +338,7 @@ class TeamsOAuthHandler(SecureHandler):
         try:
             state = state_store.generate(metadata={"org_id": org_id, "provider": "teams"})
         except (RuntimeError, ValueError, OSError, TypeError) as e:
-            logger.error(f"Failed to generate OAuth state: {e}")
+            logger.error("Failed to generate OAuth state: %s", e)
             return error_response("Failed to initialize OAuth flow", 503)
 
         # Build OAuth URL
@@ -362,7 +362,7 @@ class TeamsOAuthHandler(SecureHandler):
 
         oauth_url = f"{MS_OAUTH_AUTHORIZE_URL}?{urlencode(oauth_params)}"
 
-        logger.info(f"Initiating Teams OAuth flow (state: {state[:8]}...)")
+        logger.info("Initiating Teams OAuth flow (state: %s...)", state[:8])
 
         # Return redirect response
         return HandlerResult(
@@ -389,7 +389,7 @@ class TeamsOAuthHandler(SecureHandler):
         if "error" in query_params:
             error_code = query_params.get("error")
             error_desc = query_params.get("error_description", "")
-            logger.warning(f"Teams OAuth error: {error_code} - {error_desc}")
+            logger.warning("Teams OAuth error: %s - %s", error_code, error_desc)
             return error_response(f"Microsoft authorization denied: {error_code}", 400)
 
         code = query_params.get("code")
@@ -434,10 +434,10 @@ class TeamsOAuthHandler(SecureHandler):
         except ImportError:
             return error_response("httpx not available", 503)
         except httpx.HTTPStatusError as e:
-            logger.error(f"Teams token exchange failed: status={e.response.status_code}")
+            logger.error("Teams token exchange failed: status=%s", e.response.status_code)
             return error_response("Token exchange failed", 500)
         except (ConnectionError, TimeoutError, OSError, ValueError) as e:
-            logger.error(f"Teams token exchange failed: {e}")
+            logger.error("Teams token exchange failed: %s", e)
             return error_response("Token exchange failed", 500)
 
         # Extract token info
@@ -480,7 +480,7 @@ class TeamsOAuthHandler(SecureHandler):
                     bot_id = me_data.get("id", TEAMS_CLIENT_ID)
 
         except (ConnectionError, TimeoutError, OSError, ValueError, KeyError) as e:
-            logger.warning(f"Failed to fetch tenant info: {e}")
+            logger.warning("Failed to fetch tenant info: %s", e)
             tenant_id = tenant_id or "unknown"
             bot_id = bot_id or TEAMS_CLIENT_ID
 
@@ -515,10 +515,10 @@ class TeamsOAuthHandler(SecureHandler):
             if not store.save(tenant):
                 return error_response("Failed to save tenant", 500)
 
-            logger.info(f"Teams tenant installed: {tenant_name} ({tenant_id})")
+            logger.info("Teams tenant installed: %s (%s)", tenant_name, tenant_id)
 
         except ImportError as e:
-            logger.error(f"Tenant store not available: {e}")
+            logger.error("Tenant store not available: %s", e)
             return error_response("Tenant storage not available", 503)
 
         # Return success page
@@ -628,10 +628,10 @@ class TeamsOAuthHandler(SecureHandler):
         except ImportError:
             return error_response("httpx not available", 503)
         except httpx.HTTPStatusError as e:
-            logger.error(f"Teams token refresh failed: status={e.response.status_code}")
+            logger.error("Teams token refresh failed: status=%s", e.response.status_code)
             return error_response("Token refresh failed", 500)
         except (ConnectionError, TimeoutError, OSError, ValueError) as e:
-            logger.error(f"Teams token refresh failed: {e}")
+            logger.error("Teams token refresh failed: %s", e)
             return error_response("Token refresh failed", 500)
 
         # Extract new token info
@@ -649,7 +649,7 @@ class TeamsOAuthHandler(SecureHandler):
         if not store.update_tokens(tenant_id, access_token, refresh_token, expires_at):
             return error_response("Failed to update tokens", 500)
 
-        logger.info(f"Teams tokens refreshed for tenant: {tenant_id}")
+        logger.info("Teams tokens refreshed for tenant: %s", tenant_id)
 
         return json_response(
             {
@@ -686,7 +686,7 @@ class TeamsOAuthHandler(SecureHandler):
             if not store.save(tenant):
                 return error_response("Failed to disconnect tenant", 500)
 
-            logger.info(f"Teams tenant disconnected: {tenant.tenant_name} ({tenant_id})")
+            logger.info("Teams tenant disconnected: %s (%s)", tenant.tenant_name, tenant_id)
 
             return json_response(
                 {
@@ -698,10 +698,10 @@ class TeamsOAuthHandler(SecureHandler):
             )
 
         except ImportError as e:
-            logger.error(f"Tenant store not available: {e}")
+            logger.error("Tenant store not available: %s", e)
             return error_response("Tenant storage not available", 503)
         except (KeyError, ValueError, OSError, TypeError, RuntimeError) as e:
-            logger.error(f"Failed to disconnect tenant: {e}")
+            logger.error("Failed to disconnect tenant: %s", e)
             return error_response("Failed to disconnect tenant", 500)
 
     async def _handle_list_tenants(self) -> HandlerResult:
@@ -745,7 +745,7 @@ class TeamsOAuthHandler(SecureHandler):
                     }
                 )
 
-            logger.info(f"Listed {len(tenant_list)} Teams tenants")
+            logger.info("Listed %s Teams tenants", len(tenant_list))
             return json_response(
                 {
                     "tenants": tenant_list,
@@ -754,10 +754,10 @@ class TeamsOAuthHandler(SecureHandler):
             )
 
         except ImportError as e:
-            logger.error(f"Tenant store not available: {e}")
+            logger.error("Tenant store not available: %s", e)
             return error_response("Tenant storage not available", 503)
         except (KeyError, ValueError, OSError, TypeError, RuntimeError) as e:
-            logger.error(f"Failed to list tenants: {e}")
+            logger.error("Failed to list tenants: %s", e)
             return error_response("Failed to list tenants", 500)
 
     async def _handle_get_tenant(self, tenant_id: str) -> HandlerResult:
@@ -813,14 +813,14 @@ class TeamsOAuthHandler(SecureHandler):
                 "aragora_org_id": tenant.aragora_org_id,
             }
 
-            logger.debug(f"Retrieved tenant {tenant_id}: {token_status}")
+            logger.debug("Retrieved tenant %s: %s", tenant_id, token_status)
             return json_response(tenant_data)
 
         except ImportError as e:
-            logger.error(f"Tenant store not available: {e}")
+            logger.error("Tenant store not available: %s", e)
             return error_response("Tenant storage not available", 503)
         except (KeyError, ValueError, OSError, TypeError, RuntimeError) as e:
-            logger.error(f"Failed to get tenant: {e}")
+            logger.error("Failed to get tenant: %s", e)
             return error_response("Failed to get tenant", 500)
 
     async def _handle_tenant_status(self, tenant_id: str) -> HandlerResult:
@@ -880,14 +880,14 @@ class TeamsOAuthHandler(SecureHandler):
                 "scopes": tenant.scopes,
             }
 
-            logger.debug(f"Token status for tenant {tenant_id}: {token_status}")
+            logger.debug("Token status for tenant %s: %s", tenant_id, token_status)
             return json_response(status_data)
 
         except ImportError as e:
-            logger.error(f"Tenant store not available: {e}")
+            logger.error("Tenant store not available: %s", e)
             return error_response("Tenant storage not available", 503)
         except (KeyError, ValueError, OSError, TypeError, RuntimeError) as e:
-            logger.error(f"Failed to get tenant status: {e}")
+            logger.error("Failed to get tenant status: %s", e)
             return error_response("Failed to get tenant status", 500)
 
 

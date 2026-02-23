@@ -40,14 +40,14 @@ def get_demo_records() -> list[dict]:
     demo_file = fixtures_dir / "demo_consensus.json"
 
     if not demo_file.exists():
-        logger.warning(f"Demo consensus file not found: {demo_file}")
+        logger.warning("Demo consensus file not found: %s", demo_file)
         return []
 
     try:
         with open(demo_file) as f:
             return json.load(f)
     except (json.JSONDecodeError, OSError) as e:
-        logger.error(f"Failed to load demo consensus: {e}")
+        logger.error("Failed to load demo consensus: %s", e)
         return []
 
 
@@ -95,14 +95,14 @@ def load_demo_consensus(consensus_memory: ConsensusMemory | None = None) -> int:
     demo_file = fixtures_dir / "demo_consensus.json"
 
     if not demo_file.exists():
-        logger.warning(f"Demo consensus file not found: {demo_file}")
+        logger.warning("Demo consensus file not found: %s", demo_file)
         return 0
 
     try:
         with open(demo_file) as f:
             demos = json.load(f)
     except (json.JSONDecodeError, OSError) as e:
-        logger.error(f"Failed to load demo consensus: {e}")
+        logger.error("Failed to load demo consensus: %s", e)
         return 0
 
     # Import ConsensusMemory if not provided
@@ -118,18 +118,18 @@ def load_demo_consensus(consensus_memory: ConsensusMemory | None = None) -> int:
     # Check if already seeded
     try:
         stats = consensus_memory.get_statistics()
-        logger.info(f"Current consensus stats: {stats}")
+        logger.info("Current consensus stats: %s", stats)
         total = stats.get("total_consensus", 0)
         if total > 0:
-            logger.info(f"Consensus memory already has {total} topics, skipping seed")
+            logger.info("Consensus memory already has %s topics, skipping seed", total)
             return 0
         logger.info("Database is empty, proceeding with seeding")
     except (OSError, KeyError, TypeError, AttributeError) as e:
-        logger.warning(f"Could not check existing data: {e}, proceeding with seeding")
+        logger.warning("Could not check existing data: %s, proceeding with seeding", e)
 
     # Seed the demos
     seeded = 0
-    logger.info(f"Attempting to seed {len(demos)} demo records")
+    logger.info("Attempting to seed %s demo records", len(demos))
 
     try:
         from aragora.memory.consensus import ConsensusStrength
@@ -147,7 +147,7 @@ def load_demo_consensus(consensus_memory: ConsensusMemory | None = None) -> int:
                     demo.get("strength", "medium"), ConsensusStrength.MODERATE
                 )
 
-                logger.debug(f"Seeding demo {i + 1}: {demo['topic'][:50]}...")
+                logger.debug("Seeding demo %s: %s...", i + 1, demo['topic'][:50])
                 consensus_memory.store_consensus(
                     topic=demo["topic"],
                     conclusion=demo["conclusion"],
@@ -158,16 +158,16 @@ def load_demo_consensus(consensus_memory: ConsensusMemory | None = None) -> int:
                     domain=demo.get("domain", "general"),
                 )
                 seeded += 1
-                logger.debug(f"Successfully seeded demo {i + 1}")
+                logger.debug("Successfully seeded demo %s", i + 1)
             except (KeyError, TypeError, ValueError, OSError) as e:
                 logger.warning(
-                    f"Failed to seed demo {i + 1} '{demo.get('topic', 'unknown')[:30]}': {e}"
+                    "Failed to seed demo %s '%s': %s", i + 1, demo.get('topic', 'unknown')[:30], e
                 )
 
-        logger.info(f"Seeded {seeded}/{len(demos)} demo consensus records")
+        logger.info("Seeded %s/%s demo consensus records", seeded, len(demos))
 
     except ImportError as e:
-        logger.warning(f"ConsensusStrength not available: {e}")
+        logger.warning("ConsensusStrength not available: %s", e)
 
     return seeded
 
@@ -198,7 +198,7 @@ def ensure_demo_agents() -> int:
         try:
             existing = elo.get_leaderboard(limit=5)
             if existing:
-                logger.debug(f"ELO system already has {len(existing)} agents, skipping seed")
+                logger.debug("ELO system already has %s agents, skipping seed", len(existing))
                 return 0
         except (OSError, KeyError, TypeError, AttributeError) as e:
             logger.debug("Failed to check existing ELO leaderboard, proceeding with seeding: %s", e)
@@ -214,15 +214,15 @@ def ensure_demo_agents() -> int:
                     domain="general",
                 )
             except (OSError, TypeError, ValueError) as e:
-                logger.debug(f"Failed to record demo match for {agent}: {e}")
+                logger.debug("Failed to record demo match for %s: %s", agent, e)
 
-        logger.info(f"Demo agents initialized: {len(demo_agents)} agents")
+        logger.info("Demo agents initialized: %s agents", len(demo_agents))
         return len(demo_agents)
     except ImportError:
         logger.debug("EloSystem not available, skipping demo agents")
         return 0
     except (OSError, TypeError, ValueError) as e:
-        logger.warning(f"Failed to initialize demo agents: {e}")
+        logger.warning("Failed to initialize demo agents: %s", e)
         return 0
 
 
@@ -236,10 +236,10 @@ def ensure_demo_data():
     try:
         seeded = load_demo_consensus()
         if seeded > 0:
-            logger.info(f"Demo data initialized: {seeded} consensus records")
+            logger.info("Demo data initialized: %s consensus records", seeded)
 
         agents = ensure_demo_agents()
         if agents > 0:
-            logger.info(f"Demo agents initialized: {agents} agents")
+            logger.info("Demo agents initialized: %s agents", agents)
     except (OSError, TypeError, ValueError, KeyError) as e:
-        logger.warning(f"Failed to ensure demo data: {e}")
+        logger.warning("Failed to ensure demo data: %s", e)

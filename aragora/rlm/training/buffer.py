@@ -227,7 +227,7 @@ class ExperienceBuffer:
             priority: Initial priority (for prioritized sampling)
         """
         if not trajectory.is_terminal:
-            logger.warning(f"Adding non-terminal trajectory {trajectory.trajectory_id}")
+            logger.warning("Adding non-terminal trajectory %s", trajectory.trajectory_id)
 
         self._buffer.append(trajectory)
         self._priorities.append(priority)
@@ -372,7 +372,7 @@ class ExperienceBuffer:
         with open(filepath, "w") as f:
             json.dump(data, f, indent=2)
 
-        logger.info(f"Saved {len(self._buffer)} trajectories to {filepath}")
+        logger.info("Saved %s trajectories to %s", len(self._buffer), filepath)
 
     @classmethod
     def load(cls, filepath: str) -> ExperienceBuffer:
@@ -402,7 +402,7 @@ class ExperienceBuffer:
             trajectory = Trajectory.from_dict(t_data)
             buffer.add(trajectory, priority)
 
-        logger.info(f"Loaded {len(buffer)} trajectories from {filepath}")
+        logger.info("Loaded %s trajectories from %s", len(buffer), filepath)
         return buffer
 
 

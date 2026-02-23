@@ -142,7 +142,7 @@ class SyncManager:
                 state.status = SyncStatus.COMPLETED
 
             except (OSError, RuntimeError, ConnectionError, ValueError, TypeError) as e:
-                logger.error(f"Sync failed for {path_str}: {e}")
+                logger.error("Sync failed for %s: %s", path_str, e)
                 result.success = False
                 result.errors.append(str(e))
                 state.status = SyncStatus.FAILED
@@ -235,12 +235,12 @@ class SyncManager:
                         await self._process_changes(pending, state, result)
 
                         if result.errors:
-                            logger.warning(f"Auto-sync errors for {path_str}: {result.errors}")
+                            logger.warning("Auto-sync errors for %s: %s", path_str, result.errors)
 
             except asyncio.CancelledError:
                 break
             except (OSError, RuntimeError, ConnectionError, ValueError) as e:
-                logger.error(f"Auto-sync error for {path_str}: {e}")
+                logger.error("Auto-sync error for %s: %s", path_str, e)
 
     def _handle_change(self, change: FileChange) -> None:
         """Handle a file change from the watcher."""
@@ -286,7 +286,7 @@ class SyncManager:
                 change.processed = True
 
             except (OSError, RuntimeError, ConnectionError, ValueError, TypeError) as e:
-                logger.error(f"Error processing {change.path}: {e}")
+                logger.error("Error processing %s: %s", change.path, e)
                 change.error = str(e)
                 result.files_failed += 1
                 result.errors.append(f"{change.path}: {e}")
@@ -301,7 +301,7 @@ class SyncManager:
     async def _handle_add(self, change: FileChange, state: SyncState) -> None:
         """Handle a newly added file."""
         if not self.document_store:
-            logger.debug(f"No document store, skipping add: {change.path}")
+            logger.debug("No document store, skipping add: %s", change.path)
             return
 
         try:
@@ -324,16 +324,16 @@ class SyncManager:
             state.document_map[change.path] = doc_id
             change.document_id = doc_id
 
-            logger.debug(f"Added document: {change.path} -> {doc_id}")
+            logger.debug("Added document: %s -> %s", change.path, doc_id)
 
         except (OSError, RuntimeError, ConnectionError, ValueError) as e:
-            logger.error(f"Failed to ingest {change.path}: {e}")
+            logger.error("Failed to ingest %s: %s", change.path, e)
             raise
 
     async def _handle_modify(self, change: FileChange, state: SyncState) -> None:
         """Handle a modified file."""
         if not self.document_store:
-            logger.debug(f"No document store, skipping modify: {change.path}")
+            logger.debug("No document store, skipping modify: %s", change.path)
             return
 
         # Get existing document ID
@@ -355,10 +355,10 @@ class SyncManager:
                 )
 
                 change.document_id = doc_id
-                logger.debug(f"Updated document: {change.path} ({doc_id})")
+                logger.debug("Updated document: %s (%s)", change.path, doc_id)
 
             except (OSError, RuntimeError, ConnectionError, ValueError) as e:
-                logger.error(f"Failed to update {change.path}: {e}")
+                logger.error("Failed to update %s: %s", change.path, e)
                 raise
         else:
             # No existing document, treat as add
@@ -367,7 +367,7 @@ class SyncManager:
     async def _handle_delete(self, change: FileChange, state: SyncState) -> None:
         """Handle a deleted file."""
         if not self.document_store:
-            logger.debug(f"No document store, skipping delete: {change.path}")
+            logger.debug("No document store, skipping delete: %s", change.path)
             return
 
         doc_id = state.document_map.get(change.path)
@@ -377,10 +377,10 @@ class SyncManager:
                 await self.document_store.delete_document(doc_id)
                 del state.document_map[change.path]
                 change.document_id = doc_id
-                logger.debug(f"Deleted document: {change.path} ({doc_id})")
+                logger.debug("Deleted document: %s (%s)", change.path, doc_id)
 
             except (OSError, RuntimeError, ConnectionError, ValueError) as e:
-                logger.error(f"Failed to delete {change.path}: {e}")
+                logger.error("Failed to delete %s: %s", change.path, e)
                 raise
 
 

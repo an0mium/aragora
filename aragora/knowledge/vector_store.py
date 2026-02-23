@@ -184,12 +184,12 @@ class KnowledgeVectorStore:
             await self._ensure_collection()
             self._connected = True
             logger.info(
-                f"Connected to Weaviate at {self.config.url} for workspace {self.workspace_id}"
+                "Connected to Weaviate at %s for workspace %s", self.config.url, self.workspace_id
             )
             return True
 
         except (OSError, ConnectionError, TimeoutError, RuntimeError) as e:
-            logger.error(f"Failed to connect to Weaviate: {e}")
+            logger.error("Failed to connect to Weaviate: %s", e)
             self._connected = False
             raise
 
@@ -201,7 +201,7 @@ class KnowledgeVectorStore:
         collections = self._client.collections
 
         if not collections.exists(self.config.collection_name):
-            logger.info(f"Creating knowledge collection: {self.config.collection_name}")
+            logger.info("Creating knowledge collection: %s", self.config.collection_name)
 
             collections.create(
                 name=self.config.collection_name,
@@ -372,7 +372,7 @@ class KnowledgeVectorStore:
             # Small delay between batches
             await asyncio.sleep(0.01)
 
-        logger.info(f"Indexed {len(uuids)} knowledge nodes to Weaviate")
+        logger.info("Indexed %s knowledge nodes to Weaviate", len(uuids))
         return uuids
 
     async def search_semantic(
@@ -715,7 +715,7 @@ class KnowledgeVectorStore:
         )
 
         deleted = result.successful if hasattr(result, "successful") else 0
-        logger.info(f"Deleted {deleted} nodes from workspace {ws}")
+        logger.info("Deleted %s nodes from workspace %s", deleted, ws)
         return deleted
 
     async def count_nodes(

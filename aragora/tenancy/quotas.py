@@ -645,5 +645,5 @@ class QuotaManager:
                     del self._usage[tenant_id][key]
                     cleaned += 1
 
-        logger.debug(f"Cleaned up {cleaned} old usage records")
+        logger.debug("Cleaned up %s old usage records", cleaned)
         return cleaned

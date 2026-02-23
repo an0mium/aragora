@@ -303,7 +303,7 @@ async def run_sandboxed(
     # Validate command
     allowed, reason = SandboxedCommand.validate(cmd)
     if not allowed:
-        logger.warning(f"Blocked command: {shlex.join(cmd)} - {reason}")
+        logger.warning("Blocked command: %s - %s", shlex.join(cmd), reason)
         raise SandboxError(reason)
 
     # Clamp timeout
@@ -315,7 +315,7 @@ async def run_sandboxed(
         exec_env.update(env)
 
     # Log command execution
-    logger.debug(f"Running sandboxed: {shlex.join(cmd)}")
+    logger.debug("Running sandboxed: %s", shlex.join(cmd))
 
     # Run the command
     loop = asyncio.get_running_loop()
@@ -352,7 +352,7 @@ async def run_sandboxed(
         return sandboxed_result
 
     except subprocess.TimeoutExpired as e:
-        logger.warning(f"Command timed out after {timeout}s: {shlex.join(cmd)}")
+        logger.warning("Command timed out after %ss: %s", timeout, shlex.join(cmd))
         stdout_val = e.stdout if hasattr(e, "stdout") else None
         stderr_val = e.stderr if hasattr(e, "stderr") else None
         return SandboxedResult(
@@ -363,7 +363,7 @@ async def run_sandboxed(
             timed_out=True,
         )
     except asyncio.TimeoutError:
-        logger.warning(f"Async timeout for command: {shlex.join(cmd)}")
+        logger.warning("Async timeout for command: %s", shlex.join(cmd))
         return SandboxedResult(
             returncode=-1,
             stdout="",
@@ -405,7 +405,7 @@ def run_sandboxed_sync(
     # Validate command
     allowed, reason = SandboxedCommand.validate(cmd)
     if not allowed:
-        logger.warning(f"Blocked command: {shlex.join(cmd)} - {reason}")
+        logger.warning("Blocked command: %s - %s", shlex.join(cmd), reason)
         raise SandboxError(reason)
 
     # Clamp timeout
@@ -417,7 +417,7 @@ def run_sandboxed_sync(
         exec_env.update(env)
 
     # Log command execution
-    logger.debug(f"Running sandboxed (sync): {shlex.join(cmd)}")
+    logger.debug("Running sandboxed (sync): %s", shlex.join(cmd))
 
     try:
         result = subprocess.run(
@@ -446,7 +446,7 @@ def run_sandboxed_sync(
         return sandboxed_result
 
     except subprocess.TimeoutExpired as e:
-        logger.warning(f"Command timed out after {timeout}s: {shlex.join(cmd)}")
+        logger.warning("Command timed out after %ss: %s", timeout, shlex.join(cmd))
         stdout_val = e.stdout if hasattr(e, "stdout") else None
         stderr_val = e.stderr if hasattr(e, "stderr") else None
         return SandboxedResult(

@@ -106,7 +106,7 @@ class OnboardingOrchestrator:
             )
 
             self._flows[flow_id] = flow
-            logger.info(f"Created onboarding flow: {name}")
+            logger.info("Created onboarding flow: %s", name)
 
             return flow
 
@@ -196,7 +196,7 @@ class OnboardingOrchestrator:
             flow.status = "active"
             flow.updated_at = datetime.now(timezone.utc)
 
-            logger.info(f"Activated onboarding flow: {flow.name}")
+            logger.info("Activated onboarding flow: %s", flow.name)
             return flow
 
     async def archive_flow(self, flow_id: str) -> OnboardingFlow | None:
@@ -261,7 +261,7 @@ class OnboardingOrchestrator:
             self._sessions[session_id] = session
             flow.started_count += 1
 
-            logger.info(f"Started onboarding session {session_id} for user {user_id}")
+            logger.info("Started onboarding session %s for user %s", session_id, user_id)
 
             return session
 
@@ -389,7 +389,7 @@ class OnboardingOrchestrator:
                 try:
                     await handler(session, current_step, data)
                 except (RuntimeError, ValueError, AttributeError) as e:  # step handler callback
-                    logger.error(f"Step handler error: {e}")
+                    logger.error("Step handler error: %s", e)
 
             # Determine next step
             next_step_id = self._determine_next_step(current_step, data, flow)
@@ -485,7 +485,7 @@ class OnboardingOrchestrator:
 
         flow.completed_count += 1
 
-        logger.info(f"Completed onboarding session {session.id}")
+        logger.info("Completed onboarding session %s", session.id)
 
         return {
             "success": True,
@@ -513,7 +513,7 @@ class OnboardingOrchestrator:
             if flow:
                 flow.abandoned_count += 1
 
-            logger.info(f"Abandoned onboarding session {session_id}: {reason}")
+            logger.info("Abandoned onboarding session %s: %s", session_id, reason)
             return session
 
     async def pause_session(self, session_id: str) -> OnboardingSession | None:
@@ -552,7 +552,7 @@ class OnboardingOrchestrator:
     ) -> None:
         """Register a custom field validator."""
         self._validators[name] = validator
-        logger.info(f"Registered validator: {name}")
+        logger.info("Registered validator: %s", name)
 
     def register_step_handler(
         self,
@@ -561,7 +561,7 @@ class OnboardingOrchestrator:
     ) -> None:
         """Register a handler for a step type."""
         self._step_handlers[step_type] = handler
-        logger.info(f"Registered step handler: {step_type}")
+        logger.info("Registered step handler: %s", step_type)
 
     # ========== Analytics ==========
 

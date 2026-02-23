@@ -108,7 +108,7 @@ class SimpleObserver:
             "start_time": time.time(),
             "status": "in_progress",
         }
-        self._logger.info(f"Agent attempt started: {agent} (timeout={timeout}s)")
+        self._logger.info("Agent attempt started: %s (timeout=%ss)", agent, timeout)
         return attempt_id
 
     def record_agent_completion(
@@ -129,7 +129,7 @@ class SimpleObserver:
             Any exception that occurred during execution.
         """
         if attempt_id not in self._metrics:
-            self._logger.warning(f"Unknown attempt ID: {attempt_id}")
+            self._logger.warning("Unknown attempt ID: %s", attempt_id)
             return
 
         record = self._metrics[attempt_id]
@@ -139,12 +139,12 @@ class SimpleObserver:
         record["has_null_bytes"] = "\x00" in output if output else False
 
         if record["has_null_bytes"]:
-            self._logger.warning(f"Null bytes detected in output for agent {record['agent']}")
+            self._logger.warning("Null bytes detected in output for agent %s", record['agent'])
 
         if error:
             record["status"] = "failed"
             record["error"] = str(error)
-            self._logger.error(f"Agent {record['agent']} failed: {error}")
+            self._logger.error("Agent %s failed: %s", record['agent'], error)
         else:
             record["status"] = "success"
             self._logger.info(f"Agent {record['agent']} completed in {record['duration']:.2f}s")
@@ -162,7 +162,7 @@ class SimpleObserver:
             Source of the issue (e.g., "client", "server").
         """
         status = "present" if present else "missing"
-        self._logger.info(f"Loop ID {status} for {ws_id} from {source}")
+        self._logger.info("Loop ID %s for %s from %s", status, ws_id, source)
 
     def get_failure_rate(self) -> float:
         """Calculate the current failure rate.

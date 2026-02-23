@@ -247,7 +247,7 @@ class AgentSelector:
                 profile.has_critical_probes = probe_profile.has_critical_issues()
             except (AttributeError, ValueError, KeyError, TypeError, RuntimeError) as e:
                 # Agent not in probe system - use defaults
-                logger.debug(f"Failed to sync probe profile for {agent_name}: {e}. Using defaults.")
+                logger.debug("Failed to sync probe profile for %s: %s. Using defaults.", agent_name, e)
                 profile.probe_score = 1.0
                 profile.has_critical_probes = False
 
@@ -299,7 +299,7 @@ class AgentSelector:
                     probe_score = probe_profile.probe_score
                     has_critical = probe_profile.has_critical_issues()
             except (AttributeError, ValueError, KeyError, TypeError, RuntimeError) as e:
-                logger.debug(f"Probe lookup failed for {agent_name}: {e}")
+                logger.debug("Probe lookup failed for %s: %s", agent_name, e)
 
         # Fall back to agent profile's probe_score if no filter data
         if probe_score == 1.0 and agent_name in self.agent_pool:
@@ -347,7 +347,7 @@ class AgentSelector:
                     profile.is_overconfident = False
             except (AttributeError, ValueError, KeyError, TypeError, RuntimeError) as e:
                 # Agent not in calibration system - use defaults
-                logger.debug(f"Failed to sync calibration for {agent_name}: {e}. Using defaults.")
+                logger.debug("Failed to sync calibration for %s: %s. Using defaults.", agent_name, e)
                 profile.calibration_score = 1.0
                 profile.brier_score = 0.0
                 profile.is_overconfident = False
@@ -374,7 +374,7 @@ class AgentSelector:
                     calibration_score = max(0.0, 1.0 - summary.ece)
                     is_overconfident = summary.is_overconfident
             except (AttributeError, ValueError, KeyError, TypeError, RuntimeError) as e:
-                logger.debug(f"Calibration lookup failed for {agent_name}: {e}")
+                logger.debug("Calibration lookup failed for %s: %s", agent_name, e)
 
         # Fall back to agent profile if no tracker data
         if calibration_score == 1.0 and agent_name in self.agent_pool:
@@ -410,10 +410,10 @@ class AgentSelector:
         try:
             self._performance_insights = self.performance_monitor.get_performance_insights()
             logger.debug(
-                f"Refreshed performance insights for {len(self._performance_insights.get('agent_stats', {}))} agents"
+                "Refreshed performance insights for %s agents", len(self._performance_insights.get('agent_stats', {}))
             )
         except (AttributeError, ValueError, KeyError, TypeError, RuntimeError) as e:
-            logger.warning(f"Failed to refresh performance insights: {e}")
+            logger.warning("Failed to refresh performance insights: %s", e)
             self._performance_insights = {}
 
     def get_performance_adjusted_score(self, agent_name: str, base_score: float) -> float:
@@ -569,7 +569,7 @@ class AgentSelector:
                             traits.append(trait)
             except (AttributeError, ValueError, KeyError, TypeError, RuntimeError) as e:
                 logger.debug(
-                    f"Failed to get persona for {agent.name}: {e}. Using static expertise."
+                    "Failed to get persona for %s: %s. Using static expertise.", agent.name, e
                 )
 
         # Domain expertise (using dynamic expertise)
@@ -843,17 +843,14 @@ class AgentSelector:
 
         # Detailed routing decision log
         logger.info(
-            f"[ROUTING] Task '{task_id or 'unnamed'}': "
-            f"primary_domain={requirements.primary_domain}, "
-            f"secondary={requirements.secondary_domains}, "
-            f"traits={requirements.required_traits}"
+            "[ROUTING] Task '%s': primary_domain=%s, secondary=%s, traits=%s", task_id or 'unnamed', requirements.primary_domain, requirements.secondary_domains, requirements.required_traits
         )
 
         # Log detected domains with confidence
         domain_scores = detector.detect(task_text, top_n=5)
         if domain_scores:
             domain_breakdown = ", ".join(f"{d}:{c:.2f}" for d, c in domain_scores)
-            logger.debug(f"[ROUTING] Domain scores: {domain_breakdown}")
+            logger.debug("[ROUTING] Domain scores: %s", domain_breakdown)
 
         team = self.select_team(requirements, exclude=exclude)
 
@@ -863,7 +860,7 @@ class AgentSelector:
             exp = agent.expertise.get(requirements.primary_domain, 0)
             agent_details.append(f"{agent.name}(exp={exp:.0%},elo={agent.elo_rating:.0f})")
         logger.info(
-            f"[ROUTING] Selected team for {requirements.primary_domain}: {', '.join(agent_details)}"
+            "[ROUTING] Selected team for %s: %s", requirements.primary_domain, ', '.join(agent_details)
         )
 
         return team

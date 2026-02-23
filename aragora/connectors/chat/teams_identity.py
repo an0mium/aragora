@@ -120,7 +120,7 @@ class TeamsUserIdentityBridge:
         )
 
         if not identity:
-            logger.debug(f"No identity mapping for AAD user: {aad_object_id} in tenant {tenant_id}")
+            logger.debug("No identity mapping for AAD user: %s in tenant %s", aad_object_id, tenant_id)
             return None
 
         # Update last seen
@@ -148,7 +148,7 @@ class TeamsUserIdentityBridge:
                     user.name = stored_user.name or user.name
                     user.roles = getattr(stored_user, "roles", [])
             except (AttributeError, KeyError, LookupError) as e:
-                logger.debug(f"Could not enrich user from repo: {e}")
+                logger.debug("Could not enrich user from repo: %s", e)
 
         return user
 
@@ -198,7 +198,7 @@ class TeamsUserIdentityBridge:
 
             if not aragora_user_id:
                 logger.warning(
-                    f"Could not find or create user for Teams user: {teams_user.aad_object_id}"
+                    "Could not find or create user for Teams user: %s", teams_user.aad_object_id
                 )
                 return None
 
@@ -250,7 +250,7 @@ class TeamsUserIdentityBridge:
                 if existing:
                     return existing.id
             except (AttributeError, KeyError, LookupError) as e:
-                logger.debug(f"Could not search by email: {e}")
+                logger.debug("Could not search by email: %s", e)
 
         if create_if_missing:
             # Generate a user ID
@@ -281,9 +281,9 @@ class TeamsUserIdentityBridge:
                         password_salt=password_salt,
                         name=full_name or "Teams User",
                     )
-                    logger.info(f"Created Aragora user for Teams user: {user_id}")
+                    logger.info("Created Aragora user for Teams user: %s", user_id)
                 except (ValueError, TypeError, RuntimeError) as e:
-                    logger.warning(f"Could not create user in repository: {e}")
+                    logger.warning("Could not create user in repository: %s", e)
 
             return user_id
 
@@ -347,10 +347,10 @@ class TeamsUserIdentityBridge:
                 email=email,
                 display_name=display_name,
             )
-            logger.info(f"Linked Teams user {aad_object_id} to Aragora user {aragora_user_id}")
+            logger.info("Linked Teams user %s to Aragora user %s", aad_object_id, aragora_user_id)
             return True
         except (ValueError, TypeError, RuntimeError) as e:
-            logger.error(f"Failed to link Teams user: {e}")
+            logger.error("Failed to link Teams user: %s", e)
             return False
 
     async def unlink_teams_user(

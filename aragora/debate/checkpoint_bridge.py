@@ -193,7 +193,7 @@ class CheckpointBridge:
             )
             state.checkpoint_id = checkpoint_id
 
-        logger.info(f"Saved unified checkpoint for debate {debate_id} at round {current_round}")
+        logger.info("Saved unified checkpoint for debate %s at round %s", debate_id, current_round)
 
         return state
 
@@ -271,7 +271,7 @@ class CheckpointBridge:
                     completed_molecules=progress.get("completed", 0),
                     failed_molecules=progress.get("failed", 0),
                 )
-                logger.info(f"Restored molecule state for debate {debate_id}")
+                logger.info("Restored molecule state for debate %s", debate_id)
 
         # Try checkpoints
         if self._checkpoints:
@@ -308,7 +308,7 @@ class CheckpointBridge:
                         state.channel_history = embedded["channel_history"]
 
                 logger.info(
-                    f"Restored checkpoint {checkpoint.checkpoint_id} for debate {debate_id}"
+                    "Restored checkpoint %s for debate %s", checkpoint.checkpoint_id, debate_id
                 )
 
         return state
@@ -337,7 +337,7 @@ class CheckpointBridge:
         if checkpoint.claims_kernel_state and "molecule_state" in checkpoint.claims_kernel_state:
             mol_state = checkpoint.claims_kernel_state["molecule_state"]
             self._molecules.restore_from_checkpoint(mol_state)
-            logger.info(f"Restored molecules from checkpoint {checkpoint_id}")
+            logger.info("Restored molecules from checkpoint %s", checkpoint_id)
             return True
 
         return False

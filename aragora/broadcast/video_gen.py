@@ -101,7 +101,7 @@ def _validate_resolution(width: int, height: int) -> tuple[int, int]:
     clamped_height = max(MIN_RESOLUTION[1], min(height, MAX_RESOLUTION[1]))
 
     if clamped_width != width or clamped_height != height:
-        logger.warning(f"Resolution {width}x{height} clamped to {clamped_width}x{clamped_height}")
+        logger.warning("Resolution %sx%s clamped to %sx%s", width, height, clamped_width, clamped_height)
 
     return clamped_width, clamped_height
 
@@ -116,12 +116,12 @@ def _validate_bitrate(bitrate: int) -> int:
         Clamped bitrate value
     """
     if not isinstance(bitrate, int):
-        logger.warning(f"Invalid bitrate type {type(bitrate)}, using default")
+        logger.warning("Invalid bitrate type %s, using default", type(bitrate))
         return DEFAULT_AUDIO_BITRATE
 
     clamped = max(MIN_AUDIO_BITRATE, min(bitrate, MAX_AUDIO_BITRATE))
     if clamped != bitrate:
-        logger.warning(f"Bitrate {bitrate}kbps clamped to {clamped}kbps")
+        logger.warning("Bitrate %skbps clamped to %skbps", bitrate, clamped)
 
     return clamped
 
@@ -136,7 +136,7 @@ def _validate_audio_file(audio_path: Path) -> bool:
         True if valid, False otherwise
     """
     if not audio_path.exists():
-        logger.error(f"Audio file not found: {audio_path}")
+        logger.error("Audio file not found: %s", audio_path)
         return False
 
     file_size = audio_path.stat().st_size
@@ -147,7 +147,7 @@ def _validate_audio_file(audio_path: Path) -> bool:
         return False
 
     if file_size == 0:
-        logger.error(f"Audio file is empty: {audio_path}")
+        logger.error("Audio file is empty: %s", audio_path)
         return False
 
     return True
@@ -166,13 +166,12 @@ def _validate_duration(duration: int | None) -> bool:
         return True
 
     if duration < MIN_DURATION_SECONDS:
-        logger.warning(f"Audio duration {duration}s is below minimum {MIN_DURATION_SECONDS}s")
+        logger.warning("Audio duration %ss is below minimum %ss", duration, MIN_DURATION_SECONDS)
         return False
 
     if duration > MAX_DURATION_SECONDS:
         logger.error(
-            f"Audio duration {duration}s exceeds maximum {MAX_DURATION_SECONDS}s "
-            f"({MAX_DURATION_SECONDS // 3600} hours)"
+            "Audio duration %ss exceeds maximum %ss (%s hours)", duration, MAX_DURATION_SECONDS, MAX_DURATION_SECONDS // 3600
         )
         return False
 
@@ -216,12 +215,12 @@ async def get_audio_duration(audio_path: Path) -> int | None:
             duration_str = stdout.decode("utf-8", errors="replace").strip()
             return int(float(duration_str))
     except asyncio.TimeoutError:
-        logger.error(f"ffprobe timed out after {FFPROBE_TIMEOUT}s for {audio_path}")
+        logger.error("ffprobe timed out after %ss for %s", FFPROBE_TIMEOUT, audio_path)
         if process:
             process.kill()
             await process.wait()
     except (RuntimeError, OSError, ValueError) as e:
-        logger.error(f"Failed to get audio duration: {e}")
+        logger.error("Failed to get audio duration: %s", e)
 
     return None
 
@@ -252,7 +251,7 @@ async def generate_thumbnail(
     try:
         width, height = _validate_resolution(width, height)
     except ValueError as e:
-        logger.error(f"Invalid thumbnail resolution: {e}")
+        logger.error("Invalid thumbnail resolution: %s", e)
         return False
     # Check for ImageMagick
     if not shutil.which("convert"):
@@ -302,7 +301,7 @@ async def generate_thumbnail(
             return True
 
         except (RuntimeError, OSError, ValueError, OverflowError) as e:
-            logger.error(f"Failed to create thumbnail: {e}")
+            logger.error("Failed to create thumbnail: %s", e)
             return False
 
     # Use ImageMagick for nicer thumbnail
@@ -353,13 +352,13 @@ async def generate_thumbnail(
         return process.returncode == 0 and output_path.exists()
 
     except asyncio.TimeoutError:
-        logger.error(f"ImageMagick timed out after {IMAGEMAGICK_TIMEOUT}s")
+        logger.error("ImageMagick timed out after %ss", IMAGEMAGICK_TIMEOUT)
         if process:
             process.kill()
             await process.wait()
         return False
     except (RuntimeError, OSError, ValueError) as e:
-        logger.error(f"Failed to generate thumbnail with ImageMagick: {e}")
+        logger.error("Failed to generate thumbnail with ImageMagick: %s", e)
         return False
 
 
@@ -482,21 +481,21 @@ class VideoGenerator:
             _, stderr = await asyncio.wait_for(process.communicate(), timeout=FFMPEG_TIMEOUT)
 
             if process.returncode != 0:
-                logger.error(f"ffmpeg failed: {stderr.decode('utf-8', errors='replace')[:500]}")
+                logger.error("ffmpeg failed: %s", stderr.decode('utf-8', errors='replace')[:500])
                 return None
 
             if output_path.exists():
-                logger.info(f"Generated video: {output_path}")
+                logger.info("Generated video: %s", output_path)
                 return output_path
 
         except asyncio.TimeoutError:
-            logger.error(f"ffmpeg timed out after {FFMPEG_TIMEOUT}s for {audio_path}")
+            logger.error("ffmpeg timed out after %ss for %s", FFMPEG_TIMEOUT, audio_path)
             if process:
                 process.kill()
                 await process.wait()
 
         except (RuntimeError, OSError, ValueError) as e:
-            logger.error(f"Video generation failed: {e}")
+            logger.error("Video generation failed: %s", e)
 
         finally:
             # Cleanup thumbnail
@@ -531,7 +530,7 @@ class VideoGenerator:
         import re
 
         if not re.match(r"^(0x[0-9a-fA-F]{6}|#[0-9a-fA-F]{6}|[a-zA-Z]+)$", color):
-            logger.warning(f"Invalid color format '{color}', using default")
+            logger.warning("Invalid color format '%s', using default", color)
             color = "0x4488ff"
 
         if not self.ffmpeg_available:
@@ -589,22 +588,22 @@ class VideoGenerator:
 
             if process.returncode != 0:
                 logger.error(
-                    f"ffmpeg waveform failed: {stderr.decode('utf-8', errors='replace')[:500]}"
+                    "ffmpeg waveform failed: %s", stderr.decode('utf-8', errors='replace')[:500]
                 )
                 return None
 
             if output_path.exists():
-                logger.info(f"Generated waveform video: {output_path}")
+                logger.info("Generated waveform video: %s", output_path)
                 return output_path
 
         except asyncio.TimeoutError:
-            logger.error(f"ffmpeg waveform timed out after {FFMPEG_TIMEOUT}s for {audio_path}")
+            logger.error("ffmpeg waveform timed out after %ss for %s", FFMPEG_TIMEOUT, audio_path)
             if process:
                 process.kill()
                 await process.wait()
 
         except (RuntimeError, OSError, ValueError) as e:
-            logger.error(f"Waveform video generation failed: {e}")
+            logger.error("Waveform video generation failed: %s", e)
 
         return None
 
@@ -645,13 +644,13 @@ class VideoGenerator:
             )
 
             if result.returncode != 0:
-                logger.warning(f"ffprobe failed for {video_path}: {result.stderr}")
+                logger.warning("ffprobe failed for %s: %s", video_path, result.stderr)
                 duration = 0
             else:
                 try:
                     duration = int(float(result.stdout.strip()))
                 except ValueError:
-                    logger.warning(f"ffprobe returned invalid duration: {result.stdout!r}")
+                    logger.warning("ffprobe returned invalid duration: %r", result.stdout)
                     duration = 0
 
             return VideoMetadata(
@@ -662,10 +661,10 @@ class VideoGenerator:
             )
 
         except subprocess.TimeoutExpired:
-            logger.error(f"ffprobe timed out after {FFPROBE_TIMEOUT}s for {video_path}")
+            logger.error("ffprobe timed out after %ss for %s", FFPROBE_TIMEOUT, video_path)
             return None
         except (RuntimeError, OSError, ValueError) as e:
-            logger.error(f"Failed to get video metadata: {e}")
+            logger.error("Failed to get video metadata: %s", e)
             return None
 
     def cleanup(self, video_path: Path) -> None:
@@ -704,7 +703,7 @@ async def generate_video(
     try:
         width, height = resolution
     except (ValueError, TypeError):
-        logger.warning(f"Invalid resolution format '{resolution}', using default 1920x1080")
+        logger.warning("Invalid resolution format '%s', using default 1920x1080", resolution)
         width, height = 1920, 1080
 
     # Convert thumbnail_path string to Path if provided
@@ -761,19 +760,19 @@ async def generate_video(
             _, stderr = await asyncio.wait_for(process.communicate(), timeout=FFMPEG_TIMEOUT)
 
             if process.returncode != 0:
-                logger.error(f"ffmpeg failed: {stderr.decode('utf-8', errors='replace')[:500]}")
+                logger.error("ffmpeg failed: %s", stderr.decode('utf-8', errors='replace')[:500])
                 return False
 
             return output_path.exists()
 
         except asyncio.TimeoutError:
-            logger.error(f"ffmpeg timed out after {FFMPEG_TIMEOUT}s")
+            logger.error("ffmpeg timed out after %ss", FFMPEG_TIMEOUT)
             if process:
                 process.kill()
                 await process.wait()
             return False
         except (RuntimeError, OSError, ValueError) as e:
-            logger.error(f"Video generation failed: {e}")
+            logger.error("Video generation failed: %s", e)
             return False
 
     # Generate video with auto-generated thumbnail

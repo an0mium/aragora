@@ -152,7 +152,7 @@ def _get_sso_provider(provider_type: str = "oidc"):
             return None
 
         except (ImportError, ConnectionError, ValueError, TypeError) as e:
-            logger.warning(f"Failed to initialize SSO provider {provider_type}: {e}")
+            logger.warning("Failed to initialize SSO provider %s: %s", provider_type, e)
             return None
 
 
@@ -248,7 +248,7 @@ async def handle_sso_callback(
         # Check for IdP error
         if data.get("error"):
             error_msg = data.get("error_description", data["error"])
-            logger.warning(f"SSO callback error from IdP: {error_msg}")
+            logger.warning("SSO callback error from IdP: %s", error_msg)
             return error_response(f"SSO error: {error_msg}", status=401)
 
         code = data.get("code")

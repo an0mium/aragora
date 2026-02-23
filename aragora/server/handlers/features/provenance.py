@@ -66,9 +66,9 @@ def get_provenance_manager(debate_id: str) -> ProvenanceManager:
     if manager is None:
         # Create new manager
         manager = ProvenanceManager(debate_id=debate_id)
-        logger.debug(f"Created new ProvenanceManager for debate {debate_id}")
+        logger.debug("Created new ProvenanceManager for debate %s", debate_id)
     else:
-        logger.debug(f"Loaded ProvenanceManager for debate {debate_id} from storage")
+        logger.debug("Loaded ProvenanceManager for debate %s from storage", debate_id)
 
     # Cache in memory
     _provenance_managers[debate_id] = manager
@@ -82,7 +82,7 @@ def register_provenance_manager(debate_id: str, manager: ProvenanceManager) -> N
     # Persist to storage
     store = get_provenance_store()
     store.save_manager(manager)
-    logger.debug(f"Registered and persisted ProvenanceManager for debate {debate_id}")
+    logger.debug("Registered and persisted ProvenanceManager for debate %s", debate_id)
 
 
 def _build_graph_nodes(manager: ProvenanceManager) -> list[dict[str, Any]]:

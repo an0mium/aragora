@@ -104,8 +104,7 @@ def _has_valid_mfa_bypass(full_user: Any) -> bool:
     max_expiry = mfa_bypass_approved_at + timedelta(days=MAX_MFA_BYPASS_DAYS)
     if now >= max_expiry:
         logger.warning(
-            f"MFA bypass exceeded maximum duration of {MAX_MFA_BYPASS_DAYS} days "
-            f"for service account {getattr(full_user, 'id', 'unknown')}"
+            "MFA bypass exceeded maximum duration of %s days for service account %s", MAX_MFA_BYPASS_DAYS, getattr(full_user, 'id', 'unknown')
         )
         return False
 
@@ -113,8 +112,7 @@ def _has_valid_mfa_bypass(full_user: Any) -> bool:
     mfa_bypass_expires_at = getattr(full_user, "mfa_bypass_expires_at", None)
     if not mfa_bypass_expires_at:
         logger.warning(
-            f"MFA bypass without expiration denied for service account "
-            f"{getattr(full_user, 'id', 'unknown')} - expiration is mandatory"
+            "MFA bypass without expiration denied for service account %s - expiration is mandatory", getattr(full_user, 'id', 'unknown')
         )
         return False
 
@@ -167,12 +165,12 @@ def require_mfa(func: Callable) -> Callable:
             if full_user:
                 # Check for service account with valid MFA bypass
                 if _has_valid_mfa_bypass(full_user):
-                    logger.warning(f"Service account {user.id} bypassing MFA requirement")
+                    logger.warning("Service account %s bypassing MFA requirement", user.id)
                     _audit_mfa_bypass(user.id, "require_mfa decorator bypass")
                     kwargs["user"] = user
                     return func(*args, **kwargs)
                 if not getattr(full_user, "mfa_enabled", False):
-                    logger.warning(f"MFA required but not enabled for user: {user.id}")
+                    logger.warning("MFA required but not enabled for user: %s", user.id)
                     return error_response(
                         "MFA required. Please enable MFA at /api/auth/mfa/setup",
                         403,
@@ -182,7 +180,7 @@ def require_mfa(func: Callable) -> Callable:
             # If no user store, check metadata (fallback)
             mfa_enabled = user.metadata.get("mfa_enabled", False)
             if not mfa_enabled:
-                logger.warning(f"MFA required but status unknown for user: {user.id}")
+                logger.warning("MFA required but status unknown for user: %s", user.id)
                 return error_response(
                     "MFA required. Please enable MFA at /api/auth/mfa/setup",
                     403,
@@ -245,7 +243,7 @@ def require_admin_mfa(func: Callable) -> Callable:
                     # Check for service account bypass first
                     if _has_valid_mfa_bypass(full_user):
                         has_bypass = True
-                        logger.warning(f"Admin service account {user.id} bypassing MFA requirement")
+                        logger.warning("Admin service account %s bypassing MFA requirement", user.id)
                         _audit_mfa_bypass(user.id, "require_admin_mfa decorator bypass")
                     else:
                         mfa_enabled = getattr(full_user, "mfa_enabled", False)
@@ -255,8 +253,7 @@ def require_admin_mfa(func: Callable) -> Callable:
 
             if not mfa_enabled and not has_bypass:
                 logger.warning(
-                    f"Admin MFA enforcement: user {user.id} ({user.role}) "
-                    f"attempted admin access without MFA"
+                    "Admin MFA enforcement: user %s (%s) attempted admin access without MFA", user.id, user.role
                 )
                 return error_response(
                     "Administrative access requires MFA. Please enable MFA at /api/auth/mfa/setup",
@@ -318,7 +315,7 @@ def require_admin_with_mfa(func: Callable) -> Callable:
                 if _has_valid_mfa_bypass(full_user):
                     has_bypass = True
                     logger.warning(
-                        f"Admin service account {user.id} bypassing MFA for sensitive operation"
+                        "Admin service account %s bypassing MFA for sensitive operation", user.id
                     )
                     _audit_mfa_bypass(
                         user.id, "require_admin_with_mfa decorator bypass for sensitive operation"
@@ -330,7 +327,7 @@ def require_admin_with_mfa(func: Callable) -> Callable:
 
         if not mfa_enabled and not has_bypass:
             logger.warning(
-                f"Admin+MFA enforcement: admin {user.id} attempted sensitive operation without MFA"
+                "Admin+MFA enforcement: admin %s attempted sensitive operation without MFA", user.id
             )
             return error_response(
                 "This operation requires MFA. Please enable MFA at /api/auth/mfa/setup",
@@ -376,7 +373,7 @@ def check_mfa_status(user_id: str, user_store: Any) -> dict:
             backup_hashes = json.loads(user.mfa_backup_codes)
             backup_count = len(backup_hashes)
         except (json.JSONDecodeError, TypeError) as e:
-            logger.warning(f"Failed to parse MFA backup codes for user: {e}")
+            logger.warning("Failed to parse MFA backup codes for user: %s", e)
 
     return {
         "mfa_enabled": getattr(user, "mfa_enabled", False),
@@ -561,7 +558,7 @@ def require_mfa_fresh(max_age_minutes: int = 15) -> Callable:
                     if _has_valid_mfa_bypass(full_user):
                         has_bypass = True
                         logger.warning(
-                            f"Service account {user.id} bypassing MFA freshness requirement"
+                            "Service account %s bypassing MFA freshness requirement", user.id
                         )
                         _audit_mfa_bypass(user.id, "require_mfa_fresh decorator bypass")
                     else:
@@ -590,8 +587,7 @@ def require_mfa_fresh(max_age_minutes: int = 15) -> Callable:
                 max_age_seconds = max_age_minutes * 60
                 if not session_manager.is_session_mfa_fresh(user.id, token_jti, max_age_seconds):
                     logger.warning(
-                        f"MFA step-up required for user {user.id}: "
-                        f"MFA not fresh (max age: {max_age_minutes} min)"
+                        "MFA step-up required for user %s: MFA not fresh (max age: %s min)", user.id, max_age_minutes
                     )
                     return error_response(
                         "This operation requires recent MFA verification. "
@@ -602,7 +598,7 @@ def require_mfa_fresh(max_age_minutes: int = 15) -> Callable:
             else:
                 # No session tracking available - require MFA verification
                 logger.warning(
-                    f"MFA step-up required but session tracking unavailable for user {user.id}"
+                    "MFA step-up required but session tracking unavailable for user %s", user.id
                 )
                 return error_response(
                     "This operation requires MFA verification. "
@@ -651,10 +647,10 @@ def _get_session_manager_from_handler(handler: Any) -> Any:
 
         return get_session_manager()
     except ImportError as e:
-        logger.error(f"MFA session manager import failed: {e}")
+        logger.error("MFA session manager import failed: %s", e)
         raise  # Don't silently bypass MFA
     except (RuntimeError, AttributeError) as e:
-        logger.error(f"MFA session manager initialization failed: {e}")
+        logger.error("MFA session manager initialization failed: %s", e)
         raise  # Don't silently bypass MFA
 
 

@@ -414,7 +414,7 @@ class PluginRegistry:
                     if valid:
                         self.manifests[manifest.name] = manifest
                 except (OSError, ValueError, KeyError, TypeError) as e:
-                    logger.debug(f"Failed to load plugin manifest {manifest_path}: {e}")
+                    logger.debug("Failed to load plugin manifest %s: %s", manifest_path, e)
 
     def get(self, name: str) -> PluginManifest | None:
         """Get plugin manifest by name."""

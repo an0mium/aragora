@@ -340,7 +340,7 @@ class ReceiptsHandler(BaseHandler):
             return error_response("Not found", 404)
 
         except (ValueError, KeyError, TypeError, RuntimeError, OSError, AttributeError) as e:
-            logger.exception(f"Error handling receipt request: {e}")
+            logger.exception("Error handling receipt request: %s", e)
             return error_response(safe_error_message(e, "receipt request"), 500)
 
     @api_endpoint(
@@ -716,7 +716,7 @@ class ReceiptsHandler(BaseHandler):
                 )
 
         except (ImportError, KeyError, ValueError, TypeError, OSError) as e:
-            logger.exception(f"Export failed: {e}")
+            logger.exception("Export failed: %s", e)
             return error_response(safe_error_message(e, "receipt export"), 500)
 
     @api_endpoint(
@@ -927,10 +927,10 @@ class ReceiptsHandler(BaseHandler):
             )
 
         except ImportError as e:
-            logger.exception(f"Missing dependency for channel {channel_type}: {e}")
+            logger.exception("Missing dependency for channel %s: %s", channel_type, e)
             return error_response(safe_error_message(e, f"channel {channel_type}"), 501)
         except (ConnectionError, TimeoutError, OSError, ValueError) as e:
-            logger.exception(f"Failed to send receipt to channel: {e}")
+            logger.exception("Failed to send receipt to channel: %s", e)
             return error_response(safe_error_message(e, "receipt send"), 500)
 
     async def _send_to_slack(
@@ -1110,7 +1110,7 @@ class ReceiptsHandler(BaseHandler):
             logger.warning("Handler error: %s", e)
             return error_response("Invalid request", 400)
         except (ImportError, KeyError, TypeError, OSError) as e:
-            logger.exception(f"Failed to format receipt: {e}")
+            logger.exception("Failed to format receipt: %s", e)
             return error_response(safe_error_message(e, "receipt formatting"), 500)
 
     @require_permission("receipts:read")
@@ -1470,7 +1470,7 @@ class ReceiptsHandler(BaseHandler):
                     exported_count += 1
 
                 except (ImportError, KeyError, ValueError, TypeError, OSError) as e:
-                    logger.warning(f"Failed to export receipt {receipt_id}: {e}")
+                    logger.warning("Failed to export receipt %s: %s", receipt_id, e)
                     failed_ids.append(receipt_id)
 
             # Add manifest

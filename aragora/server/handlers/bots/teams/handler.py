@@ -486,7 +486,7 @@ class TeamsBot:
                 roles={"teams_user"},
             )
         except (TypeError, ValueError, KeyError, AttributeError) as e:
-            logger.debug(f"Could not build auth context from activity: {e}")
+            logger.debug("Could not build auth context from activity: %s", e)
             return None
 
     def _check_permission(
@@ -513,8 +513,7 @@ class TeamsBot:
             decision = check_permission(context, permission_key, resource_id)
             if not decision.allowed:
                 logger.warning(
-                    f"Permission denied: {permission_key} for user {context.user_id}, "
-                    f"reason: {decision.reason}"
+                    "Permission denied: %s for user %s, reason: %s", permission_key, context.user_id, decision.reason
                 )
                 return {
                     "error": "permission_denied",
@@ -522,7 +521,7 @@ class TeamsBot:
                     "permission": permission_key,
                 }
         except (TypeError, ValueError, KeyError, AttributeError) as e:
-            logger.warning(f"RBAC check failed: {e}")
+            logger.warning("RBAC check failed: %s", e)
             return None
 
         return None
@@ -543,8 +542,7 @@ class TeamsBot:
 
         if activity_tenant_id != required_tenant:
             logger.warning(
-                f"Tenant validation failed: activity from {activity_tenant_id}, "
-                f"expected {required_tenant}"
+                "Tenant validation failed: activity from %s, expected %s", activity_tenant_id, required_tenant
             )
             return {
                 "error": "tenant_denied",
@@ -578,7 +576,7 @@ class TeamsBot:
         activity_type = activity.get("type", "")
         activity_id = activity.get("id", "")
 
-        logger.debug(f"Processing Teams activity: type={activity_type}, id={activity_id}")
+        logger.debug("Processing Teams activity: type=%s, id=%s", activity_type, activity_id)
 
         # Verify token (look up via package module so tests can patch
         # aragora.server.handlers.bots.teams._verify_teams_token)
@@ -615,7 +613,7 @@ class TeamsBot:
         elif activity_type == "installationUpdate":
             return await self._handle_installation_update(activity)
         else:
-            logger.debug(f"Unhandled activity type: {activity_type}")
+            logger.debug("Unhandled activity type: %s", activity_type)
             return {}
 
     # =========================================================================
@@ -637,7 +635,7 @@ class TeamsBot:
                 service_url=service_url,
             )
         except (RuntimeError, OSError, ValueError, AttributeError) as e:
-            logger.debug(f"Typing indicator failed (non-critical): {e}")
+            logger.debug("Typing indicator failed (non-critical): %s", e)
 
     async def send_reply(self, activity: dict[str, Any], text: str) -> None:
         """Send a text reply to an activity."""
@@ -657,7 +655,7 @@ class TeamsBot:
                 thread_id=activity.get("replyToId"),
             )
         except (RuntimeError, OSError, ValueError) as e:
-            logger.error(f"Failed to send Teams reply: {e}")
+            logger.error("Failed to send Teams reply: %s", e)
 
     async def send_card(
         self, activity: dict[str, Any], card: dict[str, Any], fallback_text: str
@@ -702,7 +700,7 @@ class TeamsBot:
             )
 
         except (RuntimeError, OSError, ValueError, AttributeError, KeyError) as e:
-            logger.error(f"Failed to send Teams card: {e}")
+            logger.error("Failed to send Teams card: %s", e)
 
     async def send_proactive_message(
         self,
@@ -714,7 +712,7 @@ class TeamsBot:
         """Send a proactive message to a conversation."""
         ref = get_conversation_reference(conversation_id)
         if not ref:
-            logger.warning(f"No conversation reference for {conversation_id}")
+            logger.warning("No conversation reference for %s", conversation_id)
             return False
 
         connector = await self._get_connector()
@@ -763,7 +761,7 @@ class TeamsBot:
                 return False
 
         except (RuntimeError, OSError, ValueError, AttributeError, KeyError) as e:
-            logger.error(f"Failed to send proactive message: {e}")
+            logger.error("Failed to send proactive message: %s", e)
             return False
 
 
@@ -905,11 +903,11 @@ class TeamsHandler(SecureEndpointMixin, BotHandlerMixin, SecureHandler):  # type
                 return json_response({}, status=200)
 
             except ValueError as auth_error:
-                logger.warning(f"Teams auth failed: {auth_error}")
+                logger.warning("Teams auth failed: %s", auth_error)
                 self._audit_webhook_auth_failure("auth_token", str(auth_error))
                 return error_response("Unauthorized", 401)
             except (RuntimeError, OSError, AttributeError) as process_error:
-                logger.exception(f"Teams activity processing error: {process_error}")
+                logger.exception("Teams activity processing error: %s", process_error)
                 return error_response("Internal processing error", 500)
 
         except (json.JSONDecodeError, ValueError, KeyError, TypeError, RuntimeError, OSError) as e:

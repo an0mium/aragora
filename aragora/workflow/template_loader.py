@@ -75,7 +75,7 @@ class TemplateLoader:
             return self._templates
 
         if not self._templates_dir.exists():
-            logger.warning(f"Templates directory not found: {self._templates_dir}")
+            logger.warning("Templates directory not found: %s", self._templates_dir)
             return {}
 
         # Load templates from each category subdirectory
@@ -95,7 +95,7 @@ class TemplateLoader:
             self._load_template_file(yaml_file)
 
         self._loaded = True
-        logger.info(f"Loaded {len(self._templates)} workflow templates")
+        logger.info("Loaded %s workflow templates", len(self._templates))
         return self._templates
 
     def _load_category(self, category_dir: Path, category: WorkflowCategory) -> None:
@@ -115,7 +115,7 @@ class TemplateLoader:
                 data = yaml.safe_load(f)
 
             if not data:
-                logger.warning(f"Empty template file: {yaml_file}")
+                logger.warning("Empty template file: %s", yaml_file)
                 return None
 
             # Generate ID from filename if not present
@@ -128,14 +128,14 @@ class TemplateLoader:
             template = WorkflowDefinition.from_dict(data)
             self._templates[template.id] = template
 
-            logger.debug(f"Loaded template: {template.id} from {yaml_file}")
+            logger.debug("Loaded template: %s from %s", template.id, yaml_file)
             return template
 
         except yaml.YAMLError as e:
-            logger.error(f"YAML error in {yaml_file}: {e}")
+            logger.error("YAML error in %s: %s", yaml_file, e)
             return None
         except (KeyError, ValueError, TypeError, OSError) as e:
-            logger.error(f"Failed to load template {yaml_file}: {e}")
+            logger.error("Failed to load template %s: %s", yaml_file, e)
             return None
 
     def get_template(self, template_id: str) -> WorkflowDefinition | None:

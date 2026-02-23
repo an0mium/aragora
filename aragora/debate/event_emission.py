@@ -118,7 +118,7 @@ class EventEmitter:
             data = self._extract_health_event_data(event)
             self._emit_health_event(data)
         except (KeyError, TypeError, AttributeError, RuntimeError) as e:
-            logger.debug(f"health_broadcast_failed error={e}")
+            logger.debug("health_broadcast_failed error=%s", e)
 
     def _emit_health_event(self, data: dict) -> None:
         """Emit health event via EventBus or fallback to event_bridge."""
@@ -208,7 +208,7 @@ class EventEmitter:
             previews = [self.build_agent_preview(a, role_assignments) for a in agents]
             self.hooks["on_agent_preview"](previews)
         except (RuntimeError, AttributeError, TypeError, KeyError, ValueError) as e:
-            logger.debug(f"Agent preview emission failed: {e}")
+            logger.debug("Agent preview emission failed: %s", e)
 
     # === Feature Integration Events ===
     # These events connect backend subsystems to frontend panels

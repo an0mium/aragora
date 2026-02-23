@@ -233,7 +233,7 @@ class WorkspaceManager:
                 workspace_id=workspace_id,
             )
             self._save_state()
-            logger.info(f"Created workspace {config.name} ({workspace_id})")
+            logger.info("Created workspace %s (%s)", config.name, workspace_id)
 
             return workspace
 
@@ -310,7 +310,7 @@ class WorkspaceManager:
 
             del self._workspaces[workspace_id]
             self._save_state()
-            logger.info(f"Deleted workspace {workspace_id}")
+            logger.info("Deleted workspace %s", workspace_id)
             return True
 
     async def create_rig(
@@ -367,7 +367,7 @@ class WorkspaceManager:
             workspace.updated_at = datetime.now(timezone.utc)
             self._save_state()
 
-            logger.info(f"Created rig {config.name} ({rig_id}) in workspace {workspace_id}")
+            logger.info("Created rig %s (%s) in workspace %s", config.name, rig_id, workspace_id)
             return rig
 
     async def get_rig(self, rig_id: str) -> Rig | None:
@@ -487,7 +487,7 @@ class WorkspaceManager:
                 core_manager = self._ensure_core_manager(workspace)
                 await core_manager.delete_rig(rig_id)
             self._save_state()
-            logger.info(f"Deleted rig {rig_id}")
+            logger.info("Deleted rig %s", rig_id)
             return True
 
     async def assign_agent(
@@ -570,7 +570,7 @@ class WorkspaceManager:
                         core_rig.updated_at = now.timestamp()
 
             self._save_state()
-            logger.debug(f"Synced rig {rig_id}")
+            logger.debug("Synced rig %s", rig_id)
             return True
 
     async def get_stats(self) -> dict[str, Any]:

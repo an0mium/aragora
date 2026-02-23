@@ -71,13 +71,11 @@ class WebhookMixin:
             is_production = env not in ("development", "dev", "local", "test")
             if is_production:
                 logger.error(
-                    f"SECURITY: {self.platform_name} signing_secret not configured "
-                    f"in production. Rejecting webhook to prevent signature bypass."
+                    "SECURITY: %s signing_secret not configured in production. Rejecting webhook to prevent signature bypass.", self.platform_name
                 )
                 return False
             logger.warning(
-                f"{self.platform_name} signing_secret not set - skipping verification. "
-                f"This is only acceptable in development!"
+                "%s signing_secret not set - skipping verification. This is only acceptable in development!", self.platform_name
             )
             return True
 
@@ -94,7 +92,7 @@ class WebhookMixin:
                 break
 
         if not signature:
-            logger.warning(f"{self.platform_name} webhook missing signature header")
+            logger.warning("%s webhook missing signature header", self.platform_name)
             return False
 
         # Strip sha256= prefix if present
@@ -111,7 +109,7 @@ class WebhookMixin:
         if _hmac.compare_digest(computed, sig_value):
             return True
 
-        logger.warning(f"{self.platform_name} webhook signature mismatch")
+        logger.warning("%s webhook signature mismatch", self.platform_name)
         return False
 
     def parse_webhook_event(
@@ -140,7 +138,7 @@ class WebhookMixin:
         try:
             payload = json.loads(body.decode("utf-8")) if body else {}
         except (json.JSONDecodeError, UnicodeDecodeError):
-            logger.warning(f"{self.platform_name} webhook body is not valid JSON")
+            logger.warning("%s webhook body is not valid JSON", self.platform_name)
             return WebhookEvent(
                 platform=self.platform_name,
                 event_type="error",

@@ -141,14 +141,14 @@ async def _run_task(task: InitTask) -> InitTask:
         )
     except asyncio.TimeoutError:
         task.error = TimeoutError(f"Task '{task.name}' timed out after {task.timeout}s")
-        logger.error(f"[parallel_init] {task.name} timed out after {task.timeout}s")
+        logger.error("[parallel_init] %s timed out after %ss", task.name, task.timeout)
     except Exception as e:
         # Catch all exceptions — this wrapper MUST capture errors into task.error
         # so they don't propagate through asyncio.gather() and crash startup.
         # Notable: redis.exceptions.ConnectionError does NOT inherit from
         # builtins.ConnectionError, so a fixed exception list misses it.
         task.error = e
-        logger.error(f"[parallel_init] {task.name} failed: {type(e).__name__}: {e}")
+        logger.error("[parallel_init] %s failed: %s: %s", task.name, type(e).__name__, e)
     finally:
         task.completed_at = time.perf_counter()
         task.duration_ms = (task.completed_at - task.started_at) * 1000
@@ -170,7 +170,7 @@ async def run_phase(name: str, tasks: list[InitTask]) -> PhaseResult:
         return PhaseResult(name=name, tasks=[], duration_ms=0.0, success=True)
 
     phase_start = time.perf_counter()
-    logger.info(f"[parallel_init] Phase '{name}' starting ({len(tasks)} tasks)")
+    logger.info("[parallel_init] Phase '%s' starting (%s tasks)", name, len(tasks))
 
     # Run all tasks concurrently
     completed_tasks = await asyncio.gather(
@@ -340,7 +340,7 @@ class ParallelInitializer:
 
         if failed:
             msg = "; ".join(failed)
-            logger.error(f"[parallel_init] Required backend(s) failed connectivity gate: {msg}")
+            logger.error("[parallel_init] Required backend(s) failed connectivity gate: %s", msg)
             if self.graceful_degradation:
                 try:
                     from aragora.server.degraded_mode import DegradedErrorCode, set_degraded
@@ -566,10 +566,10 @@ class ParallelInitializer:
         except ImportError:
             logger.debug("[parallel_init] AgentRegistry not available")
         except REDIS_CONNECTION_ERRORS as e:
-            logger.warning(f"[parallel_init] AgentRegistry Redis connection failed: {e}")
+            logger.warning("[parallel_init] AgentRegistry Redis connection failed: %s", e)
             result["error"] = str(e)
         except (RuntimeError, OSError, ValueError, TypeError) as e:
-            logger.warning(f"[parallel_init] AgentRegistry init failed: {e}")
+            logger.warning("[parallel_init] AgentRegistry init failed: %s", e)
             result["error"] = str(e)
 
         return result
@@ -706,10 +706,10 @@ class ParallelInitializer:
         except ImportError:
             logger.debug("[parallel_init] DR drilling not available")
         except REDIS_CONNECTION_ERRORS as e:
-            logger.warning(f"[parallel_init] DR drilling Redis connection failed: {e}")
+            logger.warning("[parallel_init] DR drilling Redis connection failed: %s", e)
             result["error"] = str(e)
         except (RuntimeError, OSError, ValueError, TypeError) as e:
-            logger.warning(f"[parallel_init] DR drilling init failed: {e}")
+            logger.warning("[parallel_init] DR drilling init failed: %s", e)
             result["error"] = str(e)
 
         return result
@@ -731,10 +731,10 @@ class ParallelInitializer:
         except ImportError:
             logger.debug("[parallel_init] Cache pre-warming not available")
         except REDIS_CONNECTION_ERRORS as e:
-            logger.warning(f"[parallel_init] Cache pre-warming Redis connection failed: {e}")
+            logger.warning("[parallel_init] Cache pre-warming Redis connection failed: %s", e)
             result["error"] = str(e)
         except (RuntimeError, OSError, ValueError, TypeError) as e:
-            logger.warning(f"[parallel_init] Cache pre-warming failed: {e}")
+            logger.warning("[parallel_init] Cache pre-warming failed: %s", e)
             result["error"] = str(e)
 
         self._results["cache_prewarm"] = result
@@ -755,7 +755,7 @@ class ParallelInitializer:
                     await conn.fetchval("SELECT 1")
                 result["database"] = True
             except (OSError, RuntimeError, TimeoutError) as e:
-                logger.warning(f"[parallel_init] Database health check failed: {e}")
+                logger.warning("[parallel_init] Database health check failed: %s", e)
 
         # Check Redis connectivity
         if self._redis_client:
@@ -763,9 +763,9 @@ class ParallelInitializer:
                 self._redis_client.ping()
                 result["redis"] = True
             except REDIS_CONNECTION_ERRORS as e:
-                logger.warning(f"[parallel_init] Redis health check failed: {e}")
+                logger.warning("[parallel_init] Redis health check failed: %s", e)
             except (RuntimeError, TimeoutError) as e:
-                logger.warning(f"[parallel_init] Redis health check failed: {e}")
+                logger.warning("[parallel_init] Redis health check failed: %s", e)
 
         result["overall"] = result["database"] or result["redis"] or True
 
@@ -847,7 +847,7 @@ async def cleanup_on_failure(results: dict[str, Any]) -> None:
 
         await close_postgres_pool()
     except (ImportError, OSError, RuntimeError) as e:
-        logger.debug(f"[parallel_init] Database pool cleanup error: {e}")
+        logger.debug("[parallel_init] Database pool cleanup error: %s", e)
 
     # Close Redis connection
     try:
@@ -855,7 +855,7 @@ async def cleanup_on_failure(results: dict[str, Any]) -> None:
 
         reset_cached_clients()
     except (ImportError, OSError, RuntimeError) as e:
-        logger.debug(f"[parallel_init] Redis cleanup error: {e}")
+        logger.debug("[parallel_init] Redis cleanup error: %s", e)
 
 
 __all__ = [

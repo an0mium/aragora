@@ -131,7 +131,7 @@ class PerformanceRouterBridge:
                     agents_updated.append(agent_name)
                     self._last_sync_counts[agent_name] = stats.total_calls
             except (RuntimeError, ValueError, TypeError, KeyError) as e:
-                logger.warning(f"Failed to sync agent {agent_name}: {e}")
+                logger.warning("Failed to sync agent %s: %s", agent_name, e)
 
         result = SyncResult(
             agents_synced=agents_synced,
@@ -142,7 +142,7 @@ class PerformanceRouterBridge:
         self._sync_history.append(result)
         self._call_count_since_sync = 0
 
-        logger.info(f"performance_router_sync agents={agents_synced} records={records_added}")
+        logger.info("performance_router_sync agents=%s records=%s", agents_synced, records_added)
 
         return result
 
@@ -244,7 +244,7 @@ class PerformanceRouterBridge:
             else:  # >= 10s = slow
                 caps.speed_tier = 3
 
-        logger.debug(f"Updated capabilities for {agent_name}: speed_tier={caps.speed_tier}")
+        logger.debug("Updated capabilities for %s: speed_tier=%s", agent_name, caps.speed_tier)
 
     def compute_agent_score(self, agent_name: str) -> float:
         """Compute a composite performance score for an agent.
@@ -308,7 +308,7 @@ class PerformanceRouterBridge:
     def enable_auto_sync(self) -> None:
         """Enable automatic syncing after N calls."""
         self._auto_sync_enabled = True
-        logger.info(f"Auto-sync enabled (interval={self.config.auto_sync_interval})")
+        logger.info("Auto-sync enabled (interval=%s)", self.config.auto_sync_interval)
 
     def disable_auto_sync(self) -> None:
         """Disable automatic syncing."""

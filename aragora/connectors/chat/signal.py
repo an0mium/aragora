@@ -232,14 +232,14 @@ class SignalConnector(ChatPlatformConnector):
         # Check circuit breaker
         can_proceed, cb_error = self._check_circuit_breaker()
         if not can_proceed:
-            logger.warning(f"Circuit breaker open: {cb_error}")
+            logger.warning("Circuit breaker open: %s", cb_error)
             return False
 
         # Signal delete requires target timestamp
         try:
             timestamp = int(message_id)
         except ValueError:
-            logger.warning(f"Invalid message_id for Signal delete: {message_id}")
+            logger.warning("Invalid message_id for Signal delete: %s", message_id)
             return False
 
         is_group = channel_id.startswith("group.")
@@ -405,7 +405,7 @@ class SignalConnector(ChatPlatformConnector):
                 channel_id=channel_id,
             )
         except (httpx.HTTPError, httpx.TimeoutException, OSError, RuntimeError) as e:
-            logger.error(f"Failed to send voice message: {e}")
+            logger.error("Failed to send voice message: %s", e)
             return SendMessageResponse(
                 success=False,
                 error="Voice message send failed",
@@ -450,7 +450,7 @@ class SignalConnector(ChatPlatformConnector):
                     return True
                 return False
         except (httpx.HTTPError, httpx.TimeoutException, OSError) as e:
-            logger.debug(f"Typing indicator error: {e}")
+            logger.debug("Typing indicator error: %s", e)
             return False
 
     async def send_reaction(
@@ -478,7 +478,7 @@ class SignalConnector(ChatPlatformConnector):
 
         can_proceed, cb_error = self._check_circuit_breaker()
         if not can_proceed:
-            logger.warning(f"Circuit breaker open: {cb_error}")
+            logger.warning("Circuit breaker open: %s", cb_error)
             return False
 
         try:
@@ -854,14 +854,14 @@ class SignalConnector(ChatPlatformConnector):
                     metadata=profile,
                 )
         except (httpx.HTTPError, httpx.TimeoutException) as e:
-            logger.debug(f"Signal profile lookup failed for {user_id}: {e}")
+            logger.debug("Signal profile lookup failed for %s: %s", user_id, e)
             return ChatUser(
                 id=user_id,
                 platform="signal",
                 username=user_id,
             )
         except (OSError, json.JSONDecodeError, KeyError, ValueError) as e:
-            logger.warning(f"Unexpected error looking up Signal user {user_id}: {e}")
+            logger.warning("Unexpected error looking up Signal user %s: %s", user_id, e)
             return ChatUser(
                 id=user_id,
                 platform="signal",
@@ -913,7 +913,7 @@ class SignalConnector(ChatPlatformConnector):
                     metadata={"waveform": kwargs.get("waveform")},
                 )
         except (httpx.HTTPError, httpx.TimeoutException, OSError, RuntimeError, KeyError) as e:
-            logger.error(f"Failed to get voice message: {e}")
+            logger.error("Failed to get voice message: %s", e)
         return None
 
     async def test_connection(self) -> dict[str, Any]:

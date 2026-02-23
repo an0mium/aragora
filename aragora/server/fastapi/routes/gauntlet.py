@@ -133,7 +133,7 @@ async def get_gauntlet_storage(request: Request):
 
         return GauntletStorage()
     except (ImportError, RuntimeError, OSError, ValueError) as e:
-        logger.warning(f"Gauntlet storage not available: {e}")
+        logger.warning("Gauntlet storage not available: %s", e)
         raise HTTPException(status_code=503, detail="Gauntlet storage not available")
 
 
@@ -180,7 +180,7 @@ async def start_gauntlet(
                 "result": None,
             }
         except (ImportError, RuntimeError) as e:
-            logger.debug(f"Could not store gauntlet run in memory: {e}")
+            logger.debug("Could not store gauntlet run in memory: %s", e)
 
         # Persist to storage if available
         ctx = getattr(request.app.state, "context", None)
@@ -199,7 +199,7 @@ async def start_gauntlet(
                         agents=body.agents,
                     )
                 except (OSError, RuntimeError, ValueError) as e:
-                    logger.warning(f"Failed to persist gauntlet run: {e}")
+                    logger.warning("Failed to persist gauntlet run: %s", e)
 
         return StartGauntletResponse(
             gauntlet_id=gauntlet_id,
@@ -208,7 +208,7 @@ async def start_gauntlet(
         )
 
     except (RuntimeError, ValueError, TypeError, OSError) as e:
-        logger.exception(f"Failed to start gauntlet: {e}")
+        logger.exception("Failed to start gauntlet: %s", e)
         raise HTTPException(status_code=500, detail="Failed to start gauntlet")
 
 
@@ -285,7 +285,7 @@ async def get_gauntlet_status(
     except NotFoundError:
         raise
     except (RuntimeError, ValueError, TypeError, OSError, KeyError, AttributeError) as e:
-        logger.exception(f"Error getting gauntlet status {run_id}: {e}")
+        logger.exception("Error getting gauntlet status %s: %s", run_id, e)
         raise HTTPException(status_code=500, detail="Failed to get gauntlet status")
 
 
@@ -399,5 +399,5 @@ async def get_gauntlet_findings(
     except NotFoundError:
         raise
     except (RuntimeError, ValueError, TypeError, OSError, KeyError, AttributeError) as e:
-        logger.exception(f"Error getting gauntlet findings {run_id}: {e}")
+        logger.exception("Error getting gauntlet findings %s: %s", run_id, e)
         raise HTTPException(status_code=500, detail="Failed to get gauntlet findings")

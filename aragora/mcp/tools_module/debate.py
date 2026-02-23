@@ -68,7 +68,7 @@ async def run_debate_tool(
             )
             agent_list.append(agent)
         except Exception as e:  # noqa: BLE001 - graceful degradation, skip agent on creation failure
-            logger.warning(f"Could not create agent {agent_name}: {e}")
+            logger.warning("Could not create agent %s: %s", agent_name, e)
 
     if not agent_list:
         return {"error": "No valid agents could be created. Check API keys."}
@@ -139,7 +139,7 @@ async def get_debate_tool(debate_id: str) -> dict[str, Any]:
             if debate:
                 return debate
     except Exception as e:  # noqa: BLE001 - graceful degradation, return not found on error
-        logger.warning(f"Could not fetch debate from storage: {e}")
+        logger.warning("Could not fetch debate from storage: %s", e)
 
     return {"error": f"Debate {debate_id} not found"}
 
@@ -199,7 +199,7 @@ async def search_debates_tool(
                     continue
                 results.append(debate_dict)
     except (RuntimeError, ValueError, OSError, ImportError) as e:
-        logger.warning(f"Could not search debates: {e}")
+        logger.warning("Could not search debates: %s", e)
 
     results = results[:limit]
 

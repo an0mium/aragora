@@ -95,9 +95,9 @@ class HealthHandlerMixin:
     def _handle_coordinator_error(self, error: Exception, operation: str) -> HandlerResult:
         """Unified error handler for coordinator operations."""
         if isinstance(error, (ValueError, KeyError, AttributeError)):
-            logger.warning(f"Data error in {operation}: {type(error).__name__}: {error}")
+            logger.warning("Data error in %s: %s: %s", operation, type(error).__name__, error)
             return error_response(safe_error_message(error, "control plane"), 400)
-        logger.error(f"Error in {operation}: {error}")
+        logger.error("Error in %s: %s", operation, error)
         return error_response(safe_error_message(error, "control plane"), 500)
 
     def require_auth_or_error(self, handler: Any) -> tuple[Any, HandlerResult | None]:
@@ -216,7 +216,7 @@ class HealthHandlerMixin:
                         }
                     )
             except (ImportError, ConnectionError, TimeoutError, OSError, RuntimeError) as e:
-                logger.debug(f"Redis health check failed: {e}")
+                logger.debug("Redis health check failed: %s", e)
                 components.append(
                     {
                         "name": "Redis",
@@ -239,7 +239,7 @@ class HealthHandlerMixin:
                         }
                     )
             except (ImportError, ConnectionError, OSError, RuntimeError) as e:
-                logger.debug(f"Database health check skipped: {e}")
+                logger.debug("Database health check skipped: %s", e)
 
             # Overall status
             unhealthy = any(c["status"] == "unhealthy" for c in components)
@@ -255,7 +255,7 @@ class HealthHandlerMixin:
                 }
             )
         except (ValueError, KeyError, TypeError, RuntimeError, OSError) as e:
-            logger.error(f"Error getting detailed health: {e}")
+            logger.error("Error getting detailed health: %s", e)
             return error_response(safe_error_message(e, "control plane"), 500)
 
     @api_endpoint(
@@ -295,7 +295,7 @@ class HealthHandlerMixin:
 
             return json_response({"breakers": breakers})
         except (ValueError, KeyError, AttributeError, TypeError, RuntimeError) as e:
-            logger.error(f"Error getting circuit breakers: {e}")
+            logger.error("Error getting circuit breakers: %s", e)
             return error_response(safe_error_message(e, "control plane"), 500)
 
     @api_endpoint(
@@ -415,7 +415,7 @@ class HealthHandlerMixin:
                 }
             )
         except (ValueError, KeyError, AttributeError, TypeError) as e:
-            logger.error(f"Error getting notifications: {e}")
+            logger.error("Error getting notifications: %s", e)
             return error_response(safe_error_message(e, "notifications"), 500)
 
     @api_endpoint(
@@ -444,7 +444,7 @@ class HealthHandlerMixin:
             stats_fn = getattr(manager, "get_stats", None)
             return json_response(stats_fn() if stats_fn else {})
         except (ValueError, KeyError, AttributeError, TypeError) as e:
-            logger.error(f"Error getting notification stats: {e}")
+            logger.error("Error getting notification stats: %s", e)
             return error_response(safe_error_message(e, "notifications"), 500)
 
     # =========================================================================
@@ -557,7 +557,7 @@ class HealthHandlerMixin:
                 }
             )
         except (ValueError, KeyError, AttributeError, TypeError, OSError, RuntimeError) as e:
-            logger.error(f"Error querying audit logs: {e}")
+            logger.error("Error querying audit logs: %s", e)
             return error_response(safe_error_message(e, "audit"), 500)
 
     @api_endpoint(
@@ -583,7 +583,7 @@ class HealthHandlerMixin:
             stats_fn = getattr(audit_log, "get_stats", None)
             return json_response(stats_fn() if stats_fn else {})
         except (ValueError, KeyError, AttributeError, TypeError) as e:
-            logger.error(f"Error getting audit stats: {e}")
+            logger.error("Error getting audit stats: %s", e)
             return error_response(safe_error_message(e, "audit"), 500)
 
     @api_endpoint(
@@ -643,5 +643,5 @@ class HealthHandlerMixin:
                 }
             )
         except (ValueError, KeyError, AttributeError, TypeError, OSError, RuntimeError) as e:
-            logger.error(f"Error verifying audit integrity: {e}")
+            logger.error("Error verifying audit integrity: %s", e)
             return error_response(safe_error_message(e, "audit"), 500)

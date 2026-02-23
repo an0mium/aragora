@@ -276,7 +276,7 @@ def _resolve_hostname(hostname: str, timeout: float = 2.0) -> list[str]:
         finally:
             socket.setdefaulttimeout(old_timeout)
     except (TimeoutError, socket.gaierror, OSError) as e:
-        logger.debug(f"DNS resolution failed for {hostname}: {e}")
+        logger.debug("DNS resolution failed for %s: %s", hostname, e)
         return []
 
 
@@ -377,7 +377,7 @@ def validate_url(
         if not resolved_ips:
             # DNS resolution failed - this could be intentional DNS rebinding
             # In strict mode, we might want to block this
-            logger.warning(f"DNS resolution failed for {hostname}")
+            logger.warning("DNS resolution failed for %s", hostname)
         else:
             for resolved_addr in resolved_ips:
                 if not allow_private_ips and _is_ip_private(resolved_addr):
@@ -435,7 +435,7 @@ def validate_webhook_url(
     )
 
     if not result.is_safe:
-        logger.warning(f"SSRF blocked for {service_name} webhook: url={url}, error={result.error}")
+        logger.warning("SSRF blocked for %s webhook: url=%s, error=%s", service_name, url, result.error)
 
     return result
 
@@ -563,7 +563,7 @@ except SecurityConfigurationError:
 except (OSError, KeyError, TypeError, ValueError) as e:
     # Log other unexpected errors but don't crash the application
     # This provides graceful degradation for edge cases like missing env access
-    logger.error(f"SSRF security validation failed unexpectedly: {e}")
+    logger.error("SSRF security validation failed unexpectedly: %s", e)
 
 
 __all__ = [

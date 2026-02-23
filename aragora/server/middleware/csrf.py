@@ -540,7 +540,7 @@ class CSRFMiddleware:
 
         # Validate presence of both tokens
         if not cookie_token:
-            logger.warning(f"CSRF validation failed: Missing cookie token for {method} {path}")
+            logger.warning("CSRF validation failed: Missing cookie token for %s %s", method, path)
             return CSRFValidationResult(
                 valid=False,
                 reason="Missing CSRF cookie",
@@ -548,7 +548,7 @@ class CSRFMiddleware:
             )
 
         if not header_token:
-            logger.warning(f"CSRF validation failed: Missing header token for {method} {path}")
+            logger.warning("CSRF validation failed: Missing header token for %s %s", method, path)
             return CSRFValidationResult(
                 valid=False,
                 reason="Missing CSRF header",
@@ -559,7 +559,7 @@ class CSRFMiddleware:
         is_valid, error = validate_csrf_token(cookie_token, self.config)
         if not is_valid:
             logger.warning(
-                f"CSRF validation failed: Invalid cookie token for {method} {path}: {error}"
+                "CSRF validation failed: Invalid cookie token for %s %s: %s", method, path, error
             )
             return CSRFValidationResult(
                 valid=False,
@@ -569,7 +569,7 @@ class CSRFMiddleware:
 
         # Compare tokens (double-submit validation)
         if not hmac.compare_digest(cookie_token, header_token):
-            logger.warning(f"CSRF validation failed: Token mismatch for {method} {path}")
+            logger.warning("CSRF validation failed: Token mismatch for %s %s", method, path)
             return CSRFValidationResult(
                 valid=False,
                 reason="Token mismatch",

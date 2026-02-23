@@ -558,7 +558,7 @@ def cmd_witness_status(args: argparse.Namespace) -> int:
                 for rec in report.recommendations[:5]:
                     print(f"  - {rec}")
         except (OSError, RuntimeError, TypeError, ValueError, KeyError) as e:
-            logger.debug(f"Could not generate health report: {e}")
+            logger.debug("Could not generate health report: %s", e)
 
         return 0
 

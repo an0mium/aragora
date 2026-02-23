@@ -302,7 +302,7 @@ Text to translate:
                 translation_time_ms=translation_time,
             )
         except (RuntimeError, ValueError, TypeError, OSError, ConnectionError, TimeoutError) as e:
-            logger.error(f"LLM translation failed: {e}")
+            logger.error("LLM translation failed: %s", e)
             return TranslationResult(
                 original_text=text,
                 translated_text=text,  # Return original on failure
@@ -349,7 +349,7 @@ Text:
                     confidence=0.9,
                 )
         except (RuntimeError, ValueError, TypeError, OSError, ConnectionError, TimeoutError, ImportError) as e:
-            logger.warning(f"LLM language detection failed: {e}")
+            logger.warning("LLM language detection failed: %s", e)
 
         # Default to English
         return LanguageDetectionResult(

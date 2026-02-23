@@ -42,7 +42,7 @@ async def route_result(debate_id: str, result: dict[str, Any]) -> bool:
         logger.debug("debate_origin module not available")
         return False
     except (OSError, RuntimeError, ValueError) as e:
-        logger.error(f"Failed to route result: {e}")
+        logger.error("Failed to route result: %s", e)
         return False
 
 
@@ -68,7 +68,7 @@ async def route_plan_outcome(
         # Look up the origin by debate_id (plans originate from debates)
         origin = get_debate_origin(debate_id)
         if not origin:
-            logger.debug(f"No origin found for debate {debate_id}, skipping plan delivery")
+            logger.debug("No origin found for debate %s, skipping plan delivery", debate_id)
             return False
 
         # Format the outcome as a user-friendly message
@@ -85,10 +85,10 @@ async def route_plan_outcome(
         return await route_plan_result(debate_id, outcome_with_message)
 
     except ImportError as e:
-        logger.debug(f"debate_origin module not available for plan routing: {e}")
+        logger.debug("debate_origin module not available for plan routing: %s", e)
         return False
     except (OSError, RuntimeError, ValueError) as e:
-        logger.error(f"Failed to route plan outcome: {e}")
+        logger.error("Failed to route plan outcome: %s", e)
         return False
 
 
@@ -194,11 +194,11 @@ async def _route_async(debate_id: str, result: dict[str, Any]) -> None:
     try:
         success = await route_result(debate_id, result)
         if success:
-            logger.info(f"Result routed for debate {debate_id}")
+            logger.info("Result routed for debate %s", debate_id)
         else:
-            logger.debug(f"No origin found or routing failed for debate {debate_id}")
+            logger.debug("No origin found or routing failed for debate %s", debate_id)
     except (OSError, RuntimeError, ValueError) as e:
-        logger.error(f"Async result routing failed: {e}")
+        logger.error("Async result routing failed: %s", e)
 
 
 def register_result_router_hooks(manager: Any) -> None:
@@ -221,9 +221,9 @@ def register_result_router_hooks(manager: Any) -> None:
         logger.info("Result router hooks registered")
 
     except ImportError as e:
-        logger.warning(f"Could not register result router hooks: {e}")
+        logger.warning("Could not register result router hooks: %s", e)
     except (ValueError, TypeError, RuntimeError) as e:
-        logger.error(f"Failed to register result router hooks: {e}")
+        logger.error("Failed to register result router hooks: %s", e)
 
 
 def setup_result_routing() -> None:
@@ -239,9 +239,9 @@ def setup_result_routing() -> None:
         logger.info("Result routing enabled globally")
 
     except ImportError as e:
-        logger.warning(f"Could not set up result routing: {e}")
+        logger.warning("Could not set up result routing: %s", e)
     except (ValueError, TypeError, RuntimeError) as e:
-        logger.error(f"Failed to set up result routing: {e}")
+        logger.error("Failed to set up result routing: %s", e)
 
 
 __all__ = [

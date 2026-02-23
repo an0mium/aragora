@@ -151,7 +151,7 @@ class OpenClawSkillParser:
                 skill = OpenClawSkillParser.parse_file(skill_file)
                 skills.append(skill)
             except (OSError, ValueError, KeyError, TypeError) as e:
-                logger.warning(f"Failed to parse {skill_file}: {e}")
+                logger.warning("Failed to parse %s: %s", skill_file, e)
 
         return skills
 

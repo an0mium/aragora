@@ -41,14 +41,14 @@ async def _send_telegram_result(origin: DebateOrigin, result: dict[str, Any]) ->
         async with httpx.AsyncClient(timeout=30.0) as client:
             response = await client.post(url, json=data)
             if response.is_success:
-                logger.info(f"Telegram result sent to {chat_id}")
+                logger.info("Telegram result sent to %s", chat_id)
                 return True
             else:
-                logger.warning(f"Telegram send failed: {response.status_code}")
+                logger.warning("Telegram send failed: %s", response.status_code)
                 return False
 
     except (OSError, TimeoutError, httpx.HTTPError) as e:
-        logger.error(f"Telegram result send error: {e}")
+        logger.error("Telegram result send error: %s", e)
         return False
 
 
@@ -72,12 +72,12 @@ async def _send_telegram_receipt(origin: DebateOrigin, summary: str) -> bool:
         async with httpx.AsyncClient(timeout=30.0) as client:
             response = await client.post(url, json=data)
             if response.is_success:
-                logger.info(f"Telegram receipt posted to {origin.channel_id}")
+                logger.info("Telegram receipt posted to %s", origin.channel_id)
                 return True
             return False
 
     except (OSError, TimeoutError, httpx.HTTPError) as e:
-        logger.error(f"Telegram receipt post error: {e}")
+        logger.error("Telegram receipt post error: %s", e)
         return False
 
 
@@ -103,7 +103,7 @@ async def _send_telegram_error(origin: DebateOrigin, message: str) -> bool:
             return response.is_success
 
     except (OSError, TimeoutError, httpx.HTTPError) as e:
-        logger.error(f"Telegram error send failed: {e}")
+        logger.error("Telegram error send failed: %s", e)
         return False
 
 
@@ -131,18 +131,18 @@ async def _send_telegram_voice(origin: DebateOrigin, result: dict[str, Any]) -> 
                 response = await client.post(url, data=data, files=files)
 
                 if response.is_success:
-                    logger.info(f"Telegram voice sent to {chat_id}")
+                    logger.info("Telegram voice sent to %s", chat_id)
                     return True
                 else:
-                    logger.warning(f"Telegram voice send failed: {response.status_code}")
+                    logger.warning("Telegram voice send failed: %s", response.status_code)
                     return False
 
     except (OSError, TimeoutError, httpx.HTTPError) as e:
-        logger.error(f"Telegram voice send error: {e}")
+        logger.error("Telegram voice send error: %s", e)
         return False
     finally:
         # Cleanup temp file
         try:
             Path(audio_path).unlink(missing_ok=True)
         except OSError as e:
-            logger.debug(f"Failed to cleanup temp file: {e}")
+            logger.debug("Failed to cleanup temp file: %s", e)

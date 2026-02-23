@@ -224,7 +224,7 @@ class ExternalFrameworkAgent(APIAgent):
                 if cred and not cred.is_expired:
                     return cred.api_key
             except (KeyError, ValueError, AttributeError, OSError) as e:
-                logger.warning(f"[{self.name}] Failed to resolve credential via proxy: {e}")
+                logger.warning("[%s] Failed to resolve credential via proxy: %s", self.name, e)
         return self.api_key
 
     def _build_headers(self) -> dict[str, str]:
@@ -457,7 +457,7 @@ class ExternalFrameworkAgent(APIAgent):
 
         # Fallback: stringify the entire response
         logger.warning(
-            f"[{self.name}] Unknown response format, returning raw JSON: {list(data.keys())}"
+            "[%s] Unknown response format, returning raw JSON: %s", self.name, list(data.keys())
         )
         return json.dumps(data)
 

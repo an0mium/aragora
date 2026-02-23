@@ -97,17 +97,17 @@ class CommandRegistry:
     def register(self, command: BotCommand) -> None:
         """Register a command."""
         if command.name in self._commands:
-            logger.warning(f"Overwriting existing command: {command.name}")
+            logger.warning("Overwriting existing command: %s", command.name)
 
         self._commands[command.name] = command
 
         # Register aliases
         for alias in command.aliases:
             if alias in self._aliases:
-                logger.warning(f"Alias '{alias}' already registered for '{self._aliases[alias]}'")
+                logger.warning("Alias '%s' already registered for '%s'", alias, self._aliases[alias])
             self._aliases[alias] = command.name
 
-        logger.debug(f"Registered command: {command.name}")
+        logger.debug("Registered command: %s", command.name)
 
     def unregister(self, name: str) -> bool:
         """Unregister a command by name."""
@@ -224,7 +224,7 @@ class CommandRegistry:
             self._update_cooldown(command, ctx.user_id)
             return result
         except (ValueError, TypeError, KeyError, RuntimeError, OSError) as e:
-            logger.error(f"Command '{command_name}' failed: {e}", exc_info=True)
+            logger.error("Command '%s' failed: %s", command_name, e, exc_info=True)
             return CommandResult.fail("Command failed. Please try again.")
 
     def command(
@@ -471,7 +471,7 @@ async def _run_debate(
         if require_integrity:
             return CommandResult.fail("Decision integrity is unavailable without DecisionRouter.")
     except (ValueError, RuntimeError, OSError) as e:
-        logger.warning(f"DecisionRouter failed, falling back to HTTP: {e}")
+        logger.warning("DecisionRouter failed, falling back to HTTP: %s", e)
         if require_integrity:
             return CommandResult.fail("Decision integrity failed to start.")
 

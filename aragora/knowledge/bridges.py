@@ -171,7 +171,7 @@ class MetaLearnerBridge:
 
         # add_node returns node_id string
         node_id = await self.mound.add_node(node)
-        logger.info(f"Captured meta-learning adjustment as pattern node: {node_id}")
+        logger.info("Captured meta-learning adjustment as pattern node: %s", node_id)
         return node_id
 
     async def capture_learning_summary(
@@ -224,7 +224,7 @@ class MetaLearnerBridge:
         )
 
         node_id = await self.mound.add_node(node)
-        logger.info(f"Captured meta-learning summary as pattern node: {node_id}")
+        logger.info("Captured meta-learning summary as pattern node: %s", node_id)
         return str(node_id)
 
 
@@ -304,7 +304,7 @@ class EvidenceBridge:
         )
 
         node_id: str = await self.mound.add_node(node)
-        logger.info(f"Stored evidence as node: {node_id} (source: {source})")
+        logger.info("Stored evidence as node: %s (source: %s)", node_id, source)
         return node_id
 
     async def store_from_collector_evidence(
@@ -367,7 +367,7 @@ class EvidenceBridge:
         )
 
         node_id: str = await self.mound.add_node(node)
-        logger.info(f"Stored collector evidence as node: {node_id}")
+        logger.info("Stored collector evidence as node: %s", node_id)
         return node_id
 
 
@@ -575,7 +575,7 @@ class PatternBridge:
         )
 
         node_id: str = await self.mound.add_node(node)
-        logger.info(f"Stored pattern as node: {node_id} (type: {pattern_type})")
+        logger.info("Stored pattern as node: %s (type: %s)", node_id, pattern_type)
         return node_id
 
     async def store_critique_pattern(

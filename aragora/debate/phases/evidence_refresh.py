@@ -35,7 +35,7 @@ async def _with_callback_timeout(
     try:
         return await asyncio.wait_for(coro, timeout=timeout)
     except asyncio.TimeoutError:
-        logger.warning(f"Callback timed out after {timeout}s, using default: {default}")
+        logger.warning("Callback timed out after %ss, using default: %s", timeout, default)
         return default
 
 
@@ -146,13 +146,13 @@ class EvidenceRefresher:
                 skill_snippets = await self._refresh_with_skills(combined_text, ctx)
                 if skill_snippets:
                     logger.info(
-                        f"skill_evidence_refreshed round={round_num} new_snippets={skill_snippets}"
+                        "skill_evidence_refreshed round=%s new_snippets=%s", round_num, skill_snippets
                     )
 
             total_refreshed = (refreshed or 0) + skill_snippets
 
             if total_refreshed:
-                logger.info(f"evidence_refreshed round={round_num} new_snippets={total_refreshed}")
+                logger.info("evidence_refreshed round=%s new_snippets=%s", round_num, total_refreshed)
 
                 # Notify spectator
                 if self._notify_spectator:
@@ -173,7 +173,7 @@ class EvidenceRefresher:
             return total_refreshed
 
         except (RuntimeError, AttributeError, TypeError) as e:  # noqa: BLE001
-            logger.warning(f"Evidence refresh failed for round {round_num}: {e}")
+            logger.warning("Evidence refresh failed for round %s: %s", round_num, e)
             return 0
 
     async def _refresh_with_skills(
@@ -249,15 +249,15 @@ class EvidenceRefresher:
                             snippets_added += 1
 
                 except asyncio.TimeoutError:
-                    logger.debug(f"[skills] Refresh timeout for {skill_manifest.name}")
+                    logger.debug("[skills] Refresh timeout for %s", skill_manifest.name)
                 except Exception as e:  # noqa: BLE001 - phase isolation
-                    logger.debug(f"[skills] Refresh error for {skill_manifest.name}: {e}")
+                    logger.debug("[skills] Refresh error for %s: %s", skill_manifest.name, e)
 
             return snippets_added
 
         except ImportError as e:
-            logger.debug(f"[skills] Refresh skipped (missing imports): {e}")
+            logger.debug("[skills] Refresh skipped (missing imports): %s", e)
             return 0
         except Exception as e:  # noqa: BLE001 - phase isolation
-            logger.warning(f"[skills] Refresh error: {e}")
+            logger.warning("[skills] Refresh error: %s", e)
             return 0

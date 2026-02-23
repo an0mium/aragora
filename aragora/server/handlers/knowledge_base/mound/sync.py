@@ -117,7 +117,7 @@ class SyncOperationsMixin:
                     )
                 )
             except (ImportError, AttributeError, RuntimeError) as inner_e:
-                logger.debug(f"ContinuumMemory fallback failed: {inner_e}")
+                logger.debug("ContinuumMemory fallback failed: %s", inner_e)
                 return json_response(
                     {
                         "synced": 0,
@@ -126,7 +126,7 @@ class SyncOperationsMixin:
                     }
                 )
         except (AttributeError, RuntimeError, OSError) as e:
-            logger.error(f"Failed to sync from continuum: {e}")
+            logger.error("Failed to sync from continuum: %s", e)
             return error_response("Failed to sync from continuum", 500)
 
         return json_response(
@@ -181,7 +181,7 @@ class SyncOperationsMixin:
                     )
                 )
             except (ImportError, AttributeError, RuntimeError) as inner_e:
-                logger.debug(f"ConsensusMemory fallback failed: {inner_e}")
+                logger.debug("ConsensusMemory fallback failed: %s", inner_e)
                 return json_response(
                     {
                         "synced": 0,
@@ -190,7 +190,7 @@ class SyncOperationsMixin:
                     }
                 )
         except (AttributeError, RuntimeError, OSError) as e:
-            logger.error(f"Failed to sync from consensus: {e}")
+            logger.error("Failed to sync from consensus: %s", e)
             return error_response("Failed to sync from consensus", 500)
 
         return json_response(
@@ -243,7 +243,7 @@ class SyncOperationsMixin:
                     )
                 )
             except (ImportError, AttributeError, RuntimeError) as inner_e:
-                logger.debug(f"FactStore fallback failed: {inner_e}")
+                logger.debug("FactStore fallback failed: %s", inner_e)
                 return json_response(
                     {
                         "synced": 0,
@@ -252,7 +252,7 @@ class SyncOperationsMixin:
                     }
                 )
         except (AttributeError, RuntimeError, OSError) as e:
-            logger.error(f"Failed to sync from facts: {e}")
+            logger.error("Failed to sync from facts: %s", e)
             return error_response("Failed to sync from facts", 500)
 
         return json_response(

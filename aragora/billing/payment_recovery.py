@@ -464,7 +464,7 @@ def process_expired_grace_periods(user_store) -> dict[str, Any]:
         try:
             org = user_store.get_organization_by_id(failure.org_id)
             if not org:
-                logger.warning(f"Org {failure.org_id} not found for grace period expiry")
+                logger.warning("Org %s not found for grace period expiry", failure.org_id)
                 continue
 
             # Skip if already on FREE tier
@@ -482,8 +482,7 @@ def process_expired_grace_periods(user_store) -> dict[str, Any]:
             results["downgraded"] += 1
 
             logger.warning(
-                f"Auto-downgraded org {failure.org_id} from {old_tier} to FREE "
-                f"due to payment failure (grace period expired after {failure.days_failing} days)"
+                "Auto-downgraded org %s from %s to FREE due to payment failure (grace period expired after %s days)", failure.org_id, old_tier, failure.days_failing
             )
 
             # Send downgrade notification
@@ -499,7 +498,7 @@ def process_expired_grace_periods(user_store) -> dict[str, Any]:
                 results["notification_sent"] += 1
 
         except (RuntimeError, OSError, ConnectionError, ValueError, TypeError, KeyError) as e:
-            logger.error(f"Error processing grace period expiry for {failure.org_id}: {e}")
+            logger.error("Error processing grace period expiry for %s: %s", failure.org_id, e)
             results["errors"] += 1
 
     return results

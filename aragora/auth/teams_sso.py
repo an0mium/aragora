@@ -156,12 +156,12 @@ class TeamsSSO:
         user = await bridge.resolve_user(aad_object_id, tenant_id)
 
         if user:
-            logger.debug(f"Resolved Teams user: {user.id}")
+            logger.debug("Resolved Teams user: %s", user.id)
             return user
 
         # User not found - optionally create
         if not create_user_if_missing:
-            logger.debug(f"Teams user not found and creation disabled: {aad_object_id}")
+            logger.debug("Teams user not found and creation disabled: %s", aad_object_id)
             return None
 
         # Extract more info and sync user
@@ -175,7 +175,7 @@ class TeamsSSO:
 
         user = await bridge.sync_user_from_teams(teams_user, create_if_missing=True)
         if user:
-            logger.info(f"Created and linked Teams user: {user.id}")
+            logger.info("Created and linked Teams user: %s", user.id)
         return user
 
     async def validate_token(
@@ -216,7 +216,7 @@ class TeamsSSO:
             # Fetch JWKS (with caching)
             signing_key = await self._get_signing_key(kid)
             if not signing_key:
-                logger.warning(f"Could not find signing key: {kid}")
+                logger.warning("Could not find signing key: %s", kid)
                 return None
 
             # Verify token
@@ -251,10 +251,10 @@ class TeamsSSO:
             logger.warning("Token has expired")
             return None
         except jwt.InvalidTokenError as e:
-            logger.warning(f"Invalid token: {e}")
+            logger.warning("Invalid token: %s", e)
             return None
         except (OSError, ValueError, TypeError, KeyError) as e:
-            logger.error(f"Token validation failed: {e}")
+            logger.error("Token validation failed: %s", e)
             return None
 
     async def _get_signing_key(self, kid: str) -> Any | None:
@@ -275,7 +275,7 @@ class TeamsSSO:
                     key = self._jwks_cache.get_signing_key(kid)
                     return key.key
                 except (KeyError, ValueError, AttributeError) as e:
-                    logger.debug(f"Key {kid} not in JWKS cache, will refetch: {e}")
+                    logger.debug("Key %s not in JWKS cache, will refetch: %s", kid, e)
 
             # Fetch fresh JWKS
             jwks_url = f"https://login.microsoftonline.com/{self.tenant_id}/discovery/v2.0/keys"
@@ -289,7 +289,7 @@ class TeamsSSO:
             logger.warning("PyJWT with cryptography not installed")
             return None
         except (OSError, ValueError, TypeError, KeyError) as e:
-            logger.error(f"Failed to get signing key: {e}")
+            logger.error("Failed to get signing key: %s", e)
             return None
 
     async def exchange_token(
@@ -338,7 +338,7 @@ class TeamsSSO:
                     return response.json()
                 else:
                     logger.warning(
-                        f"OBO token exchange failed: {response.status_code} - {response.text}"
+                        "OBO token exchange failed: %s - %s", response.status_code, response.text
                     )
                     return None
 
@@ -347,7 +347,7 @@ class TeamsSSO:
             return None
         except (OSError, RuntimeError, ValueError, TypeError, TimeoutError) as e:
             # Catch network and parsing errors for graceful degradation
-            logger.error(f"OBO token exchange error: {type(e).__name__}: {e}")
+            logger.error("OBO token exchange error: %s: %s", type(e).__name__, e)
             return None
 
     async def get_user_from_graph(
@@ -375,7 +375,7 @@ class TeamsSSO:
                 if response.status_code == 200:
                     return response.json()
                 else:
-                    logger.warning(f"Graph API call failed: {response.status_code}")
+                    logger.warning("Graph API call failed: %s", response.status_code)
                     return None
 
         except ImportError:
@@ -383,7 +383,7 @@ class TeamsSSO:
             return None
         except (OSError, RuntimeError, ValueError, TypeError, TimeoutError) as e:
             # Catch network and parsing errors for graceful degradation
-            logger.error(f"Graph API error: {type(e).__name__}: {e}")
+            logger.error("Graph API error: %s: %s", type(e).__name__, e)
             return None
 
 

@@ -463,7 +463,7 @@ class RegionRouter:
 
         if not candidates:
             logger.warning(
-                f"No failover region available for task {task_id} (failed: {failed_region})"
+                "No failover region available for task %s (failed: %s)", task_id, failed_region
             )
             return None
 
@@ -476,7 +476,7 @@ class RegionRouter:
         scored.sort(key=lambda x: x[1], reverse=True)
         failover = scored[0][0]
 
-        logger.info(f"Failover routing: task={task_id} {failed_region} -> {failover}")
+        logger.info("Failover routing: task=%s %s -> %s", task_id, failed_region, failover)
 
         return failover
 

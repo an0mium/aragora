@@ -352,7 +352,7 @@ class TopicQualityFilter:
     def add_to_blocklist(self, terms: list[str]) -> None:
         """Add terms to the blocklist."""
         self.blocklist.update(terms)
-        logger.info(f"Added {len(terms)} terms to quality blocklist")
+        logger.info("Added %s terms to quality blocklist", len(terms))
 
     def get_stats(self) -> dict[str, Any]:
         """Get filter configuration stats."""

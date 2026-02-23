@@ -270,7 +270,7 @@ class SQLiteJobStore(JobStoreBackend):
         self._connections: set[sqlite3.Connection] = set()
         self._connections_lock = threading.Lock()
         self._init_schema()
-        logger.info(f"SQLiteJobStore initialized: {self.db_path}")
+        logger.info("SQLiteJobStore initialized: %s", self.db_path)
 
     def _get_conn(self) -> sqlite3.Connection:
         """Get per-context database connection."""
@@ -346,7 +346,7 @@ class SQLiteJobStore(JobStoreBackend):
             ),
         )
         conn.commit()
-        logger.debug(f"Enqueued job {job.id} ({job.job_type})")
+        logger.debug("Enqueued job %s (%s)", job.id, job.job_type)
 
     async def dequeue(
         self,
@@ -407,7 +407,7 @@ class SQLiteJobStore(JobStoreBackend):
         job.updated_at = now
         job.attempts += 1
 
-        logger.debug(f"Worker {worker_id} claimed job {job.id}")
+        logger.debug("Worker %s claimed job %s", worker_id, job.id)
         return job
 
     async def get(self, job_id: str) -> QueuedJob | None:
@@ -465,7 +465,7 @@ class SQLiteJobStore(JobStoreBackend):
             (now, now, json.dumps(result) if result else None, job_id),
         )
         conn.commit()
-        logger.debug(f"Job {job_id} completed")
+        logger.debug("Job %s completed", job_id)
 
     async def fail(
         self,
@@ -489,7 +489,7 @@ class SQLiteJobStore(JobStoreBackend):
                 (error, now, job_id),
             )
             conn.commit()
-            logger.info(f"Job {job_id} scheduled for retry ({job.attempts}/{job.max_attempts})")
+            logger.info("Job %s scheduled for retry (%s/%s)", job_id, job.attempts, job.max_attempts)
         else:
             # Final failure
             conn = self._get_conn()
@@ -500,7 +500,7 @@ class SQLiteJobStore(JobStoreBackend):
                 (error, now, now, job_id),
             )
             conn.commit()
-            logger.warning(f"Job {job_id} failed permanently: {error}")
+            logger.warning("Job %s failed permanently: %s", job_id, error)
 
     async def cancel(self, job_id: str) -> bool:
         """Cancel a pending job."""
@@ -515,7 +515,7 @@ class SQLiteJobStore(JobStoreBackend):
         conn.commit()
         cancelled = result.rowcount > 0
         if cancelled:
-            logger.info(f"Job {job_id} cancelled")
+            logger.info("Job %s cancelled", job_id)
         return cancelled
 
     async def recover_stale_jobs(
@@ -534,7 +534,7 @@ class SQLiteJobStore(JobStoreBackend):
         conn.commit()
         recovered = result.rowcount
         if recovered > 0:
-            logger.info(f"Recovered {recovered} stale jobs")
+            logger.info("Recovered %s stale jobs", recovered)
         return recovered
 
     async def list_jobs(
@@ -639,7 +639,7 @@ class PostgresJobQueueStore(JobStoreBackend):
             await conn.execute(self.INITIAL_SCHEMA)
 
         self._initialized = True
-        logger.debug(f"[{self.SCHEMA_NAME}] Schema initialized")
+        logger.debug("[%s] Schema initialized", self.SCHEMA_NAME)
 
     def _run_sync(self, coro: Any) -> Any:
         """Run async coroutine synchronously."""
@@ -678,7 +678,7 @@ class PostgresJobQueueStore(JobStoreBackend):
                 job.user_id,
                 job.workspace_id,
             )
-        logger.debug(f"Enqueued job {job.id} ({job.job_type})")
+        logger.debug("Enqueued job %s (%s)", job.id, job.job_type)
 
     async def dequeue(
         self,
@@ -739,7 +739,7 @@ class PostgresJobQueueStore(JobStoreBackend):
                 return None
 
             job = self._row_to_job(row)
-            logger.debug(f"Worker {worker_id} claimed job {job.id}")
+            logger.debug("Worker %s claimed job %s", worker_id, job.id)
             return job
 
     def _row_to_job(self, row: Any) -> QueuedJob:
@@ -819,7 +819,7 @@ class PostgresJobQueueStore(JobStoreBackend):
                 json.dumps(result) if result else None,
                 job_id,
             )
-        logger.debug(f"Job {job_id} completed")
+        logger.debug("Job %s completed", job_id)
 
     async def fail(
         self,
@@ -842,7 +842,7 @@ class PostgresJobQueueStore(JobStoreBackend):
                     error,
                     job_id,
                 )
-                logger.info(f"Job {job_id} scheduled for retry ({job.attempts}/{job.max_attempts})")
+                logger.info("Job %s scheduled for retry (%s/%s)", job_id, job.attempts, job.max_attempts)
             else:
                 # Final failure
                 await conn.execute(
@@ -852,7 +852,7 @@ class PostgresJobQueueStore(JobStoreBackend):
                     error,
                     job_id,
                 )
-                logger.warning(f"Job {job_id} failed permanently: {error}")
+                logger.warning("Job %s failed permanently: %s", job_id, error)
 
     async def cancel(self, job_id: str) -> bool:
         """Cancel a pending job."""
@@ -865,7 +865,7 @@ class PostgresJobQueueStore(JobStoreBackend):
             )
             cancelled = result != "UPDATE 0"
             if cancelled:
-                logger.info(f"Job {job_id} cancelled")
+                logger.info("Job %s cancelled", job_id)
             return cancelled
 
     async def recover_stale_jobs(
@@ -887,7 +887,7 @@ class PostgresJobQueueStore(JobStoreBackend):
             except (ValueError, IndexError):
                 recovered = 0
             if recovered > 0:
-                logger.info(f"Recovered {recovered} stale jobs")
+                logger.info("Recovered %s stale jobs", recovered)
             return recovered
 
     async def list_jobs(

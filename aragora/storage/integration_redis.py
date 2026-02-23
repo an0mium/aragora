@@ -58,12 +58,12 @@ class RedisIntegrationStore(IntegrationStoreBackend):
             self._redis_checked = True
             logger.info("Redis connected for integration store")
         except ImportError as e:
-            logger.debug(f"Redis package not installed: {e}")
+            logger.debug("Redis package not installed: %s", e)
             self._redis = None
             self._redis_checked = True
         except (ConnectionError, OSError, RuntimeError, ValueError) as e:
             # Catch Redis connection errors (redis.exceptions.ConnectionError subclasses ConnectionError)
-            logger.debug(f"Redis not available, using SQLite only: {e}")
+            logger.debug("Redis not available, using SQLite only: %s", e)
             self._redis = None
             self._redis_checked = True
 
@@ -85,9 +85,9 @@ class RedisIntegrationStore(IntegrationStoreBackend):
                 if data:
                     return IntegrationConfig.from_json(data)
             except (ConnectionError, TimeoutError, OSError) as e:
-                logger.debug(f"Redis get failed (connection error), falling back to SQLite: {e}")
+                logger.debug("Redis get failed (connection error), falling back to SQLite: %s", e)
             except (json.JSONDecodeError, KeyError, TypeError) as e:
-                logger.debug(f"Redis get failed (data error), falling back to SQLite: {e}")
+                logger.debug("Redis get failed (data error), falling back to SQLite: %s", e)
 
         # Fall back to SQLite
         config = await self._sqlite.get(integration_type, user_id)
@@ -98,9 +98,9 @@ class RedisIntegrationStore(IntegrationStoreBackend):
                 key = self._redis_key(integration_type, user_id)
                 redis.setex(key, self.REDIS_TTL, config.to_json())
             except (ConnectionError, TimeoutError, OSError) as e:
-                logger.debug(f"Redis cache population failed (connection issue): {e}")
+                logger.debug("Redis cache population failed (connection issue): %s", e)
             except (TypeError, ValueError) as e:
-                logger.debug(f"Redis cache population failed (serialization): {e}")
+                logger.debug("Redis cache population failed (serialization): %s", e)
 
         return config
 
@@ -117,9 +117,9 @@ class RedisIntegrationStore(IntegrationStoreBackend):
                 key = self._redis_key(config.type, user_id)
                 redis.setex(key, self.REDIS_TTL, config.to_json())
             except (ConnectionError, TimeoutError, OSError) as e:
-                logger.debug(f"Redis cache update failed (connection issue): {e}")
+                logger.debug("Redis cache update failed (connection issue): %s", e)
             except (TypeError, ValueError) as e:
-                logger.debug(f"Redis cache update failed (serialization): {e}")
+                logger.debug("Redis cache update failed (serialization): %s", e)
 
     async def delete(self, integration_type: str, user_id: str = "default") -> bool:
         # Delete from both stores
@@ -129,9 +129,9 @@ class RedisIntegrationStore(IntegrationStoreBackend):
                 key = self._redis_key(integration_type, user_id)
                 redis.delete(key)
             except (ConnectionError, TimeoutError, OSError) as e:
-                logger.debug(f"Redis cache delete failed (connection issue): {e}")
+                logger.debug("Redis cache delete failed (connection issue): %s", e)
             except (TypeError, ValueError) as e:
-                logger.debug(f"Redis cache delete failed (key error): {e}")
+                logger.debug("Redis cache delete failed (key error): %s", e)
 
         return await self._sqlite.delete(integration_type, user_id)
 
@@ -160,9 +160,9 @@ class RedisIntegrationStore(IntegrationStoreBackend):
                     _record_user_mapping_operation("get", platform, True)
                     return UserIdMapping.from_json(data)
             except (ConnectionError, TimeoutError, OSError) as e:
-                logger.debug(f"Redis mapping get failed (connection error): {e}")
+                logger.debug("Redis mapping get failed (connection error): %s", e)
             except (json.JSONDecodeError, KeyError, TypeError) as e:
-                logger.debug(f"Redis mapping get failed (data error): {e}")
+                logger.debug("Redis mapping get failed (data error): %s", e)
 
         # Fall back to SQLite (cache miss)
         _record_user_mapping_cache_miss(platform)
@@ -175,9 +175,9 @@ class RedisIntegrationStore(IntegrationStoreBackend):
                 key = self._mapping_redis_key(email, platform, user_id)
                 redis.setex(key, self.REDIS_TTL, mapping.to_json())
             except (ConnectionError, TimeoutError, OSError) as e:
-                logger.debug(f"Redis mapping cache population failed (connection issue): {e}")
+                logger.debug("Redis mapping cache population failed (connection issue): %s", e)
             except (TypeError, ValueError) as e:
-                logger.debug(f"Redis mapping cache population failed (serialization): {e}")
+                logger.debug("Redis mapping cache population failed (serialization): %s", e)
 
         return mapping
 
@@ -192,9 +192,9 @@ class RedisIntegrationStore(IntegrationStoreBackend):
                 key = self._mapping_redis_key(mapping.email, mapping.platform, mapping.user_id)
                 redis.setex(key, self.REDIS_TTL, mapping.to_json())
             except (ConnectionError, TimeoutError, OSError) as e:
-                logger.debug(f"Redis mapping cache update failed (connection issue): {e}")
+                logger.debug("Redis mapping cache update failed (connection issue): %s", e)
             except (TypeError, ValueError) as e:
-                logger.debug(f"Redis mapping cache update failed (serialization): {e}")
+                logger.debug("Redis mapping cache update failed (serialization): %s", e)
 
     async def delete_user_mapping(
         self, email: str, platform: str, user_id: str = "default"
@@ -205,9 +205,9 @@ class RedisIntegrationStore(IntegrationStoreBackend):
                 key = self._mapping_redis_key(email, platform, user_id)
                 redis.delete(key)
             except (ConnectionError, TimeoutError, OSError) as e:
-                logger.debug(f"Redis mapping delete failed (connection issue): {e}")
+                logger.debug("Redis mapping delete failed (connection issue): %s", e)
             except (TypeError, ValueError) as e:
-                logger.debug(f"Redis mapping delete failed (key error): {e}")
+                logger.debug("Redis mapping delete failed (key error): %s", e)
 
         return await self._sqlite.delete_user_mapping(email, platform, user_id)
 

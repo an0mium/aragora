@@ -156,8 +156,7 @@ class TenantDataIsolation:
         invalid_shared = self.config.shared_resources - ALLOWED_SHARED_RESOURCES
         if invalid_shared:
             logger.error(
-                f"SECURITY: Invalid shared resources configured: {invalid_shared}. "
-                f"Only these resources can be shared: {ALLOWED_SHARED_RESOURCES}"
+                "SECURITY: Invalid shared resources configured: %s. Only these resources can be shared: %s", invalid_shared, ALLOWED_SHARED_RESOURCES
             )
             raise ValueError(
                 f"Invalid shared resources: {invalid_shared}. "
@@ -216,8 +215,7 @@ class TenantDataIsolation:
             if self.config.audit_access:
                 tid = tenant_id or get_current_tenant_id() or "unknown"
                 logger.info(
-                    f"Shared resource access: tenant={tid} resource={resource_type} "
-                    "(bypass isolation allowed)"
+                    "Shared resource access: tenant=%s resource=%s (bypass isolation allowed)", tid, resource_type
                 )
                 self._audit_log.append(
                     IsolationAuditEntry(
@@ -457,8 +455,7 @@ class TenantDataIsolation:
                 # key recovery without external state (KMS). Configure a
                 # KMS provider for production use.
                 logger.warning(
-                    f"Using salt-based key derivation for tenant {tid}. "
-                    "Configure a KMS provider for production use."
+                    "Using salt-based key derivation for tenant %s. Configure a KMS provider for production use.", tid
                 )
                 salt = hashlib.sha256(f"aragora_tenant_salt_{tid}".encode()).digest()
                 self._encryption_keys[tid] = hmac.new(
@@ -517,7 +514,7 @@ class TenantDataIsolation:
                     loop.close()
 
         except (OSError, RuntimeError, ValueError, TypeError, TimeoutError, KeyError) as e:
-            logger.warning(f"KMS key retrieval failed for tenant {tenant_id}: {e}")
+            logger.warning("KMS key retrieval failed for tenant %s: %s", tenant_id, e)
             return None
 
     def _evict_oldest_keys(self) -> None:
@@ -537,7 +534,7 @@ class TenantDataIsolation:
                 continue
             evicted += 1
         if evicted > 0:
-            logger.debug(f"Evicted {evicted} encryption keys (LRU)")
+            logger.debug("Evicted %s encryption keys (LRU)", evicted)
 
     def set_encryption_key(self, tenant_id: str, key: bytes) -> None:
         """
@@ -587,8 +584,7 @@ class TenantDataIsolation:
             else:
                 # Fallback: Derive key using HKDF with a per-tenant random salt.
                 logger.warning(
-                    f"Using salt-based key derivation for tenant {tid}. "
-                    "Configure a KMS provider for production use."
+                    "Using salt-based key derivation for tenant %s. Configure a KMS provider for production use.", tid
                 )
                 if tid not in self._tenant_salts:
                     self._tenant_salts[tid] = os.urandom(32)
@@ -632,7 +628,7 @@ class TenantDataIsolation:
             return await provider.get_encryption_key(key_id)
 
         except (OSError, RuntimeError, ValueError, TypeError, TimeoutError, KeyError) as e:
-            logger.warning(f"KMS key retrieval failed for tenant {tenant_id}: {e}")
+            logger.warning("KMS key retrieval failed for tenant %s: %s", tenant_id, e)
             return None
 
     def _audit_access(
@@ -659,8 +655,7 @@ class TenantDataIsolation:
 
         if not allowed:
             logger.warning(
-                f"Isolation violation: tenant={tenant_id} "
-                f"resource={resource_type} action={action} reason={reason}"
+                "Isolation violation: tenant=%s resource=%s action=%s reason=%s", tenant_id, resource_type, action, reason
             )
 
     def get_audit_log(
@@ -811,8 +806,7 @@ class TenantIsolationEnforcer:
 
         if requesting_tenant != resource_tenant:
             logger.warning(
-                f"Cross-tenant access denied: {requesting_tenant} -> "
-                f"{resource_tenant}/{resource_id}"
+                "Cross-tenant access denied: %s -> %s/%s", requesting_tenant, resource_tenant, resource_id
             )
             raise PermissionError(
                 f"Cross-tenant access denied: tenant {requesting_tenant} "

@@ -91,7 +91,7 @@ class StaticFileHandler:
             # Security: Reject symlinks to prevent escape attacks
             original_path = self.static_dir / filename
             if original_path.is_symlink():
-                logger.warning(f"Symlink access denied: {filename}")
+                logger.warning("Symlink access denied: %s", filename)
                 return False, None, "Symlinks not allowed"
 
             return True, filepath, ""
@@ -153,10 +153,10 @@ class StaticFileHandler:
         except FileNotFoundError:
             return None
         except PermissionError:
-            logger.warning(f"Permission denied: {filename}")
+            logger.warning("Permission denied: %s", filename)
             return None
         except OSError as e:
-            logger.error(f"File read error: {e}")
+            logger.error("File read error: %s", e)
             return None
 
 
@@ -201,5 +201,5 @@ def serve_static_file(
         return True
 
     except (BrokenPipeError, ConnectionResetError) as e:
-        logger.debug(f"Client disconnected during file serve: {type(e).__name__}")
+        logger.debug("Client disconnected during file serve: %s", type(e).__name__)
         return False

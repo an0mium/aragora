@@ -83,7 +83,7 @@ def init_workflow_metrics() -> None:
         _init_noop_metrics()
         _initialized = True
     except (RuntimeError, TypeError, ValueError) as e:
-        logger.warning(f"Failed to initialize workflow metrics: {e}")
+        logger.warning("Failed to initialize workflow metrics: %s", e)
         _init_noop_metrics()
         _initialized = True
 

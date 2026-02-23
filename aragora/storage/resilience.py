@@ -145,10 +145,10 @@ class ResilientConnection:
                     try:
                         conn.rollback()
                     except sqlite3.Error as rollback_err:
-                        logger.debug(f"Rollback failed during error recovery: {rollback_err}")
+                        logger.debug("Rollback failed during error recovery: %s", rollback_err)
 
                 if not is_transient_error(e) or attempt >= self.max_retries:
-                    logger.error(f"Database error after {attempt + 1} attempts: {e}")
+                    logger.error("Database error after %s attempts: %s", attempt + 1, e)
                     raise
 
                 delay = self._calculate_delay(attempt)
@@ -162,7 +162,7 @@ class ResilientConnection:
                     try:
                         conn.close()
                     except sqlite3.Error as close_err:
-                        logger.debug(f"Connection close failed: {close_err}")
+                        logger.debug("Connection close failed: %s", close_err)
 
         # Should not reach here, but just in case
         if last_error:
@@ -247,7 +247,7 @@ def with_retry(
 
                     if not is_transient_error(e) or attempt >= max_retries:
                         logger.error(
-                            f"Database error in {func.__name__} after {attempt + 1} attempts: {e}"
+                            "Database error in %s after %s attempts: %s", func.__name__, attempt + 1, e
                         )
                         raise
 
@@ -323,10 +323,10 @@ def atomic_transaction(
                 try:
                     conn.rollback()
                 except sqlite3.Error as rollback_err:
-                    logger.debug(f"Rollback failed in atomic_transaction: {rollback_err}")
+                    logger.debug("Rollback failed in atomic_transaction: %s", rollback_err)
 
             if not is_transient_error(e) or attempt >= max_retries:
-                logger.error(f"Atomic transaction failed after {attempt + 1} attempts: {e}")
+                logger.error("Atomic transaction failed after %s attempts: %s", attempt + 1, e)
                 raise
 
             delay = min(base_delay * (2**attempt), max_delay)
@@ -340,7 +340,7 @@ def atomic_transaction(
                 try:
                     conn.close()
                 except sqlite3.Error as close_err:
-                    logger.debug(f"Connection close failed in atomic_transaction: {close_err}")
+                    logger.debug("Connection close failed in atomic_transaction: %s", close_err)
 
     # Should not reach here, but just in case
     if last_error:
@@ -442,7 +442,7 @@ class ConnectionPool:
                         candidate.close()
                         self._connections_closed += 1
                     except sqlite3.Error as close_err:
-                        logger.debug(f"Failed to close unhealthy connection: {close_err}")
+                        logger.debug("Failed to close unhealthy connection: %s", close_err)
 
             # Create new connection if needed
             if conn is None:
@@ -463,7 +463,7 @@ class ConnectionPool:
                         conn.close()
                         self._connections_closed += 1
                     except sqlite3.Error as close_err:
-                        logger.debug(f"Failed to close excess connection: {close_err}")
+                        logger.debug("Failed to close excess connection: %s", close_err)
 
     def close_all(self) -> None:
         """Close all connections in the pool (thread-safe)."""
@@ -473,7 +473,7 @@ class ConnectionPool:
                     conn.close()
                     self._connections_closed += 1
                 except sqlite3.Error as close_err:
-                    logger.debug(f"Failed to close pooled connection: {close_err}")
+                    logger.debug("Failed to close pooled connection: %s", close_err)
             self._pool.clear()
 
             for conn in list(self._in_use):
@@ -481,7 +481,7 @@ class ConnectionPool:
                     conn.close()
                     self._connections_closed += 1
                 except sqlite3.Error as close_err:
-                    logger.debug(f"Failed to close in-use connection: {close_err}")
+                    logger.debug("Failed to close in-use connection: %s", close_err)
             self._in_use.clear()
 
     def get_stats(self) -> dict[str, Any]:
@@ -691,12 +691,12 @@ class PostgresCircuitBreaker:
                 # Any failure in half-open reopens the circuit
                 self._state = self.OPEN
                 self._half_open_calls = 0
-                logger.warning(f"Circuit breaker OPEN after half-open failure: {error}")
+                logger.warning("Circuit breaker OPEN after half-open failure: %s", error)
             elif self._state == self.CLOSED:
                 if self._failure_count >= self.failure_threshold:
                     self._state = self.OPEN
                     logger.warning(
-                        f"Circuit breaker OPEN after {self._failure_count} failures: {error}"
+                        "Circuit breaker OPEN after %s failures: %s", self._failure_count, error
                     )
 
     def reset(self) -> None:
@@ -862,10 +862,10 @@ class ResilientPostgresConnection:
                     try:
                         conn.rollback()
                     except (OSError, RuntimeError, ConnectionError) as rollback_err:
-                        logger.debug(f"Rollback failed: {rollback_err}")
+                        logger.debug("Rollback failed: %s", rollback_err)
 
                 if not is_postgres_transient_error(e) or attempt >= self.max_retries:
-                    logger.error(f"PostgreSQL error after {attempt + 1} attempts: {e}")
+                    logger.error("PostgreSQL error after %s attempts: %s", attempt + 1, e)
                     self.circuit_breaker.record_failure(e)
                     raise
 
@@ -880,7 +880,7 @@ class ResilientPostgresConnection:
                     try:
                         conn.close()
                     except (OSError, RuntimeError, ConnectionError) as close_err:
-                        logger.debug(f"Connection close failed: {close_err}")
+                        logger.debug("Connection close failed: %s", close_err)
 
         if last_error:
             self.circuit_breaker.record_failure(last_error)
@@ -970,7 +970,7 @@ def with_postgres_retry(
 
                     if not is_postgres_transient_error(e) or attempt >= max_retries:
                         logger.error(
-                            f"PostgreSQL error in {func.__name__} after {attempt + 1} attempts: {e}"
+                            "PostgreSQL error in %s after %s attempts: %s", func.__name__, attempt + 1, e
                         )
                         if circuit_breaker:
                             circuit_breaker.record_failure(e)
@@ -1049,8 +1049,7 @@ def validate_postgres_pool_config(
         errors.append(f"Pool size must be at least 1, got: {pool_size}")
     elif pool_size < 5:
         logger.warning(
-            f"Pool size {pool_size} is low for production. "
-            "Consider increasing ARAGORA_DB_POOL_SIZE to at least 10."
+            "Pool size %s is low for production. Consider increasing ARAGORA_DB_POOL_SIZE to at least 10.", pool_size
         )
     elif pool_size > 100:
         errors.append(
@@ -1064,16 +1063,14 @@ def validate_postgres_pool_config(
         errors.append(f"Max overflow must be non-negative, got: {max_overflow}")
     elif max_overflow > pool_size:
         logger.warning(
-            f"Max overflow ({max_overflow}) exceeds pool size ({pool_size}). "
-            "This may cause connection issues under load."
+            "Max overflow (%s) exceeds pool size (%s). This may cause connection issues under load.", max_overflow, pool_size
         )
 
     # Check total connections vs typical PostgreSQL limits
     total_possible = pool_size + max_overflow
     if total_possible > 80:
         logger.warning(
-            f"Total possible connections ({total_possible}) is high. "
-            "Ensure PostgreSQL max_connections is configured appropriately."
+            "Total possible connections (%s) is high. Ensure PostgreSQL max_connections is configured appropriately.", total_possible
         )
 
     return len(errors) == 0, errors

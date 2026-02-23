@@ -114,8 +114,7 @@ class RevalidationScheduler:
         self._running = True
         self._task = asyncio.create_task(self._run_loop())
         logger.info(
-            f"RevalidationScheduler started: threshold={self._staleness_threshold}, "
-            f"interval={self._check_interval}s, method={self._revalidation_method}"
+            "RevalidationScheduler started: threshold=%s, interval=%ss, method=%s", self._staleness_threshold, self._check_interval, self._revalidation_method
         )
 
     async def stop(self) -> None:
@@ -136,9 +135,9 @@ class RevalidationScheduler:
             try:
                 await self.check_and_schedule_revalidations()
             except (RuntimeError, ConnectionError, TimeoutError) as e:
-                logger.warning(f"Revalidation check failed: {e}")
+                logger.warning("Revalidation check failed: %s", e)
             except (OSError, ConnectionError, TimeoutError, RuntimeError) as e:
-                logger.exception(f"Unexpected revalidation check error: {e}")
+                logger.exception("Unexpected revalidation check error: %s", e)
 
             # Wait for next check interval
             await asyncio.sleep(self._check_interval)
@@ -185,17 +184,16 @@ class RevalidationScheduler:
                         self._on_task_created(task_id, item.node_id)
 
             logger.info(
-                f"Scheduled {len(task_ids)} revalidation tasks "
-                f"(threshold={self._staleness_threshold})"
+                "Scheduled %s revalidation tasks (threshold=%s)", len(task_ids), self._staleness_threshold
             )
 
             return task_ids
 
         except (RuntimeError, ValueError, KeyError) as e:
-            logger.warning(f"Failed to check/schedule revalidations: {e}")
+            logger.warning("Failed to check/schedule revalidations: %s", e)
             return []
         except (RuntimeError, ValueError, OSError, AttributeError) as e:
-            logger.exception(f"Unexpected revalidation scheduling error: {e}")
+            logger.exception("Unexpected revalidation scheduling error: %s", e)
             return []
 
     async def _create_revalidation_task(self, stale_item: Any) -> str | None:
@@ -262,9 +260,9 @@ class RevalidationScheduler:
                 return task_id
 
             except (RuntimeError, ConnectionError, TimeoutError) as e:
-                logger.warning(f"Failed to submit revalidation task: {e}")
+                logger.warning("Failed to submit revalidation task: %s", e)
             except (OSError, ConnectionError, TimeoutError, RuntimeError) as e:
-                logger.exception(f"Unexpected task submission error: {e}")
+                logger.exception("Unexpected task submission error: %s", e)
 
         # Fallback: use knowledge mound's schedule_revalidation
         try:
@@ -275,10 +273,10 @@ class RevalidationScheduler:
             return task_ids[0] if task_ids else None
 
         except (RuntimeError, ValueError, AttributeError) as e:
-            logger.warning(f"Failed to schedule revalidation via mound: {e}")
+            logger.warning("Failed to schedule revalidation via mound: %s", e)
             return None
         except (RuntimeError, ValueError, OSError, AttributeError) as e:
-            logger.exception(f"Unexpected mound revalidation error: {e}")
+            logger.exception("Unexpected mound revalidation error: %s", e)
             return None
 
     def mark_revalidation_complete(self, node_id: str) -> None:
@@ -336,7 +334,7 @@ async def handle_revalidation_task(
     if not node_id:
         return {"success": False, "error": "Missing node_id in payload"}
 
-    logger.info(f"Processing revalidation for node {node_id} via {method}")
+    logger.info("Processing revalidation for node %s via %s", node_id, method)
 
     try:
         if method == "debate":
@@ -417,7 +415,7 @@ async def _revalidate_via_debate(
         try:
             agents = create_default_agents(num_agents=3)
         except (RuntimeError, ValueError, OSError, AttributeError) as e:
-            logger.warning(f"Could not create agents for revalidation: {e}")
+            logger.warning("Could not create agents for revalidation: %s", e)
             # Fall back to placeholder response
             return {
                 "success": True,
@@ -461,7 +459,7 @@ async def _revalidate_via_debate(
                     confidence=result.confidence if result else 0.7,
                 )
             except (RuntimeError, ValueError, OSError, AttributeError) as e:
-                logger.warning(f"Failed to update mound validation status: {e}")
+                logger.warning("Failed to update mound validation status: %s", e)
 
         return {
             "success": True,

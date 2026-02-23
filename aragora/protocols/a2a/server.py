@@ -116,7 +116,7 @@ class A2AServer:
             agent: Agent card to register
         """
         self._agents[agent.name] = agent
-        logger.info(f"Registered agent: {agent.name}")
+        logger.info("Registered agent: %s", agent.name)
 
     def register_handler(
         self,
@@ -137,7 +137,7 @@ class A2AServer:
             handler=handler,
             stream_handler=stream_handler,
         )
-        logger.info(f"Registered handler for capability: {capability.value}")
+        logger.info("Registered handler for capability: %s", capability.value)
 
     def list_agents(self) -> list[AgentCard]:
         """List all registered agents."""
@@ -201,7 +201,7 @@ class A2AServer:
             return result
 
         except (RuntimeError, ValueError, TypeError, ConnectionError, TimeoutError, OSError) as e:
-            logger.error(f"Task {request.task_id} failed: {e}", exc_info=True)
+            logger.error("Task %s failed: %s", request.task_id, e, exc_info=True)
 
             result = TaskResult(
                 task_id=request.task_id,
@@ -274,7 +274,7 @@ class A2AServer:
             }
 
         except (RuntimeError, ValueError, TypeError, ConnectionError, TimeoutError, OSError) as e:
-            logger.error(f"Stream task {request.task_id} failed: {e}", exc_info=True)
+            logger.error("Stream task %s failed: %s", request.task_id, e, exc_info=True)
             yield {
                 "type": "error",
                 "task_id": request.task_id,
@@ -338,7 +338,7 @@ class A2AServer:
                 )
                 agents.append(agent)
             except (ImportError, ValueError, TypeError, RuntimeError) as e:
-                logger.warning(f"Could not create agent {agent_name}: {e}")
+                logger.warning("Could not create agent %s: %s", agent_name, e)
 
         if not agents:
             return TaskResult(

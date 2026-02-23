@@ -183,7 +183,7 @@ async def start_decision(
         )
 
     except (RuntimeError, ValueError, TypeError, OSError) as e:
-        logger.exception(f"Failed to start debate: {e}")
+        logger.exception("Failed to start debate: %s", e)
         raise HTTPException(status_code=500, detail="Failed to start debate")
 
 
@@ -222,7 +222,7 @@ async def get_decision(
     except HTTPException:
         raise
     except (RuntimeError, ValueError, TypeError, OSError, KeyError, AttributeError) as e:
-        logger.exception(f"Failed to get debate {debate_id}: {e}")
+        logger.exception("Failed to get debate %s: %s", debate_id, e)
         raise HTTPException(status_code=500, detail="Failed to get debate")
 
 
@@ -254,7 +254,7 @@ async def cancel_decision(
             )
 
     except (RuntimeError, ValueError, TypeError, OSError) as e:
-        logger.exception(f"Failed to cancel debate {debate_id}: {e}")
+        logger.exception("Failed to cancel debate %s: %s", debate_id, e)
         raise HTTPException(status_code=500, detail="Failed to cancel debate")
 
 
@@ -292,7 +292,7 @@ async def stream_events(
             # Client disconnected
             pass
         except (RuntimeError, ValueError, TypeError, OSError, StopAsyncIteration) as e:
-            logger.exception(f"Error streaming events for debate {debate_id}: {e}")
+            logger.exception("Error streaming events for debate %s: %s", debate_id, e)
             error_data = json.dumps({"error": "Event streaming error"})
             yield f"event: error\ndata: {error_data}\n\n"
 
@@ -356,5 +356,5 @@ async def list_decisions(
     except HTTPException:
         raise
     except (RuntimeError, ValueError, TypeError, OSError, KeyError, AttributeError) as e:
-        logger.exception(f"Failed to list debates: {e}")
+        logger.exception("Failed to list debates: %s", e)
         raise HTTPException(status_code=500, detail="Failed to list debates")

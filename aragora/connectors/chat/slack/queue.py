@@ -174,7 +174,7 @@ class SlackMessageQueueStore:
             conn.commit()
             return True
         except (OSError, ValueError, RuntimeError) as e:
-            logger.error(f"Failed to insert message: {e}")
+            logger.error("Failed to insert message: %s", e)
             return False
 
     def get_pending(self, limit: int = 100) -> list[QueuedMessage]:
@@ -215,7 +215,7 @@ class SlackMessageQueueStore:
             (time.time(), message_id),
         )
         conn.commit()
-        logger.info(f"Message {message_id} delivered successfully")
+        logger.info("Message %s delivered successfully", message_id)
         return True
 
     def mark_failed(
@@ -250,7 +250,7 @@ class SlackMessageQueueStore:
             (error, message_id),
         )
         conn.commit()
-        logger.warning(f"Message {message_id} moved to dead letter queue: {error}")
+        logger.warning("Message %s moved to dead letter queue: %s", message_id, error)
         return True
 
     def get(self, message_id: str) -> QueuedMessage | None:
@@ -428,7 +428,7 @@ class SlackMessageQueue:
         )
 
         self._store.insert(message)
-        logger.info(f"Enqueued message {message_id} for {workspace_id}/{channel_id}")
+        logger.info("Enqueued message %s for %s/%s", message_id, workspace_id, channel_id)
 
         return message_id
 
@@ -471,7 +471,7 @@ class SlackMessageQueue:
             return True
 
         except (OSError, ConnectionError, TimeoutError, ValueError, RuntimeError) as e:
-            logger.error(f"Failed to send message {message.id}: {e}")
+            logger.error("Failed to send message %s: %s", message.id, e)
             raise
 
     async def process_pending(self) -> dict[str, int]:
@@ -524,11 +524,10 @@ class SlackMessageQueue:
                 stats = await self.process_pending()
                 if stats["processed"] > 0:
                     logger.info(
-                        f"Queue processed: {stats['delivered']} delivered, "
-                        f"{stats['failed']} retry, {stats['dead']} dead"
+                        "Queue processed: %s delivered, %s retry, %s dead", stats['delivered'], stats['failed'], stats['dead']
                     )
             except (OSError, ConnectionError, TimeoutError, ValueError, RuntimeError) as e:
-                logger.exception(f"Queue processor error: {e}")
+                logger.exception("Queue processor error: %s", e)
 
             await asyncio.sleep(self._process_interval)
 

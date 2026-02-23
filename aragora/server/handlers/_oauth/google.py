@@ -106,7 +106,7 @@ class GoogleOAuthMixin:
         error = _get_param(query_params, "error")
         if error:
             error_desc = _get_param(query_params, "error_description", error)
-            logger.warning(f"Google OAuth error: {error} - {error_desc}")
+            logger.warning("Google OAuth error: %s - %s", error, error_desc)
             # Audit failed OAuth attempt
             audit_security(
                 event_type="oauth_failed",
@@ -123,13 +123,13 @@ class GoogleOAuthMixin:
         if not state:
             return self._redirect_with_error("Missing state parameter")
 
-        logger.info(f"OAuth callback: validating state (len={len(state)}, prefix={state[:20]}...)")
+        logger.info("OAuth callback: validating state (len=%s, prefix=%s...)", len(state), state[:20])
         state_data = impl._validate_state(state)
         if state_data is None:
-            logger.warning(f"OAuth callback: state validation failed for {state[:20]}...")
+            logger.warning("OAuth callback: state validation failed for %s...", state[:20])
             return self._redirect_with_error("Invalid or expired state")
         logger.info(
-            f"OAuth callback: state valid, redirect_url={state_data.get('redirect_url', 'NOT_SET')}"
+            "OAuth callback: state valid, redirect_url=%s", state_data.get('redirect_url', 'NOT_SET')
         )
 
         # Get authorization code
@@ -145,7 +145,7 @@ class GoogleOAuthMixin:
                 token_data = await token_data
             logger.info("OAuth callback: token exchange successful")
         except (httpx.HTTPError, ConnectionError, TimeoutError, OSError, ValueError) as e:
-            logger.error(f"Token exchange failed: {e}", exc_info=True)
+            logger.error("Token exchange failed: %s", e, exc_info=True)
             return self._redirect_with_error("Failed to exchange authorization code")
 
         access_token = token_data.get("access_token")
@@ -158,9 +158,9 @@ class GoogleOAuthMixin:
             user_info = self._get_google_user_info(access_token)
             if inspect.isawaitable(user_info):
                 user_info = await user_info
-            logger.info(f"OAuth callback: got user info for {user_info.email}")
+            logger.info("OAuth callback: got user info for %s", user_info.email)
         except (httpx.HTTPError, ConnectionError, TimeoutError, OSError, ValueError, KeyError) as e:
-            logger.error(f"Failed to get user info: {e}", exc_info=True)
+            logger.error("Failed to get user info: %s", e, exc_info=True)
             return self._redirect_with_error("Failed to get user info from Google")
 
         # Handle user creation/login
@@ -180,7 +180,7 @@ class GoogleOAuthMixin:
         try:
             logger.info("OAuth callback: looking up user by OAuth ID...")
             user = await _maybe_await(self._find_user_by_oauth(user_store, user_info))
-            logger.info(f"OAuth callback: find_user_by_oauth returned {'user' if user else 'None'}")
+            logger.info("OAuth callback: find_user_by_oauth returned %s", 'user' if user else 'None')
         except Exception as e:  # noqa: BLE001 - DB driver exceptions (asyncpg.InterfaceError, psycopg2.Error) lack common importable base
             logger.error("OAuth callback: _find_user_by_oauth failed: %s", e, exc_info=True)
             error_name = type(e).__name__
@@ -193,7 +193,7 @@ class GoogleOAuthMixin:
         if not user:
             # Check if email already registered (without OAuth)
             try:
-                logger.info(f"OAuth callback: looking up user by email {user_info.email}...")
+                logger.info("OAuth callback: looking up user by email %s...", user_info.email)
                 # Use async version to avoid nested event loop issues
                 get_by_email = getattr(user_store, "get_user_by_email_async", None)
                 if get_by_email and inspect.iscoroutinefunction(get_by_email):
@@ -201,7 +201,7 @@ class GoogleOAuthMixin:
                 else:
                     user = user_store.get_user_by_email(user_info.email)
                 logger.info(
-                    f"OAuth callback: get_user_by_email returned {'user' if user else 'None'}"
+                    "OAuth callback: get_user_by_email returned %s", 'user' if user else 'None'
                 )
             except Exception as e:  # noqa: BLE001 - DB driver exceptions (asyncpg.InterfaceError, psycopg2.Error) lack common importable base
                 logger.error("OAuth callback: get_user_by_email failed: %s", e, exc_info=True)
@@ -220,14 +220,14 @@ class GoogleOAuthMixin:
                         "Email verification required to link your account."
                     )
                 # Link OAuth to existing account
-                logger.info(f"OAuth callback: linking OAuth to existing user {user.id}")
+                logger.info("OAuth callback: linking OAuth to existing user %s", user.id)
                 await _maybe_await(self._link_oauth_to_user(user_store, user.id, user_info))
             else:
                 # Create new user with OAuth
                 try:
-                    logger.info(f"OAuth callback: creating new OAuth user for {user_info.email}...")
+                    logger.info("OAuth callback: creating new OAuth user for %s...", user_info.email)
                     user = await _maybe_await(self._create_oauth_user(user_store, user_info))
-                    logger.info(f"OAuth callback: created user {user.id if user else 'FAILED'}")
+                    logger.info("OAuth callback: created user %s", user.id if user else 'FAILED')
                 except Exception as e:  # noqa: BLE001 - DB driver exceptions (asyncpg.InterfaceError, psycopg2.Error) lack common importable base
                     logger.error("OAuth callback: _create_oauth_user failed: %s", e, exc_info=True)
                     return self._redirect_with_error(
@@ -239,7 +239,7 @@ class GoogleOAuthMixin:
 
         # Update last login
         try:
-            logger.info(f"OAuth callback: updating last login for user {user.id}...")
+            logger.info("OAuth callback: updating last login for user %s...", user.id)
             # Use async version to avoid nested event loop issues
             update_async = getattr(user_store, "update_user_async", None)
             if update_async and inspect.iscoroutinefunction(update_async):
@@ -247,12 +247,12 @@ class GoogleOAuthMixin:
             else:
                 user_store.update_user(user.id, last_login_at=datetime.now(timezone.utc))
         except Exception as e:  # noqa: BLE001 - DB driver exceptions (asyncpg.InterfaceError, psycopg2.Error) lack common importable base
-            logger.error(f"OAuth callback: update_user failed: {e}", exc_info=True)
+            logger.error("OAuth callback: update_user failed: %s", e, exc_info=True)
             # Non-fatal, continue
 
         # Create tokens
         try:
-            logger.info(f"OAuth callback: creating token pair for user {user.id}...")
+            logger.info("OAuth callback: creating token pair for user %s...", user.id)
             from aragora.billing.jwt_auth import create_token_pair
             from aragora.exceptions import ConfigurationError
 
@@ -267,23 +267,21 @@ class GoogleOAuthMixin:
 
             token_fingerprint = hashlib.sha256(tokens.access_token.encode()).hexdigest()[:8]
             logger.info(
-                f"OAuth callback: token pair created successfully "
-                f"(access_token fingerprint={token_fingerprint}, "
-                f"user_id={user.id}, org_id={user.org_id})"
+                "OAuth callback: token pair created successfully (access_token fingerprint=%s, user_id=%s, org_id=%s)", token_fingerprint, user.id, user.org_id
             )
         except ConfigurationError as e:
-            logger.error(f"OAuth callback: JWT configuration error: {e}", exc_info=True)
+            logger.error("OAuth callback: JWT configuration error: %s", e, exc_info=True)
             return self._redirect_with_error(
                 "Server configuration error: JWT secret not configured. "
                 "Please contact the administrator."
             )
         except (ValueError, TypeError, KeyError) as e:
-            logger.error(f"OAuth callback: create_token_pair failed: {e}", exc_info=True)
+            logger.error("OAuth callback: create_token_pair failed: %s", e, exc_info=True)
             return self._redirect_with_error(
                 f"Failed to create authentication tokens: {type(e).__name__}"
             )
 
-        logger.info(f"OAuth login successful: {user.email} via Google")
+        logger.info("OAuth login successful: %s via Google", user.email)
 
         # Audit successful OAuth login
         audit_action(
@@ -298,7 +296,7 @@ class GoogleOAuthMixin:
 
         # Redirect to frontend with tokens
         redirect_url = state_data.get("redirect_url", impl._get_oauth_success_url())
-        logger.info(f"OAuth callback: redirecting to {redirect_url}")
+        logger.info("OAuth callback: redirecting to %s", redirect_url)
         return self._redirect_with_tokens(redirect_url, tokens)
 
     def _exchange_code_for_tokens(self, code: str) -> dict | Coroutine[Any, Any, dict]:
@@ -328,7 +326,7 @@ class GoogleOAuthMixin:
             try:
                 return json.loads(body.decode("utf-8"))
             except json.JSONDecodeError as e:
-                logger.error(f"Invalid JSON from Google token endpoint: {e}")
+                logger.error("Invalid JSON from Google token endpoint: %s", e)
                 raise ValueError(f"Invalid JSON response from Google: {e}") from e
 
         async def _exchange_async() -> dict[str, Any]:
@@ -343,7 +341,7 @@ class GoogleOAuthMixin:
                 try:
                     return response.json()
                 except json.JSONDecodeError as e:
-                    logger.error(f"Invalid JSON from Google token endpoint: {e}")
+                    logger.error("Invalid JSON from Google token endpoint: %s", e)
                     raise ValueError(f"Invalid JSON response from Google: {e}") from e
 
         return _exchange_async()
@@ -365,7 +363,7 @@ class GoogleOAuthMixin:
             try:
                 data = json.loads(body.decode("utf-8")) if body else {}
             except json.JSONDecodeError as e:
-                logger.error(f"Invalid JSON from Google userinfo endpoint: {e}")
+                logger.error("Invalid JSON from Google userinfo endpoint: %s", e)
                 raise ValueError(f"Invalid JSON response from Google: {e}") from e
 
             return OAuthUserInfo(
@@ -386,7 +384,7 @@ class GoogleOAuthMixin:
                 try:
                     data = response.json()
                 except json.JSONDecodeError as e:
-                    logger.error(f"Invalid JSON from Google userinfo endpoint: {e}")
+                    logger.error("Invalid JSON from Google userinfo endpoint: %s", e)
                     raise ValueError(f"Invalid JSON response from Google: {e}") from e
 
             return OAuthUserInfo(

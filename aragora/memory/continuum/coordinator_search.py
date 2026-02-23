@@ -85,13 +85,13 @@ class CoordinatorSearchMixin:
             _km_similarity_cache.set(cache_key, results)
             return results
         except (ConnectionError, TimeoutError, OSError) as e:
-            logger.warning(f"Failed to query KM for similar memories (network): {e}")
+            logger.warning("Failed to query KM for similar memories (network): %s", e)
             return []
         except (ValueError, KeyError, TypeError) as e:
-            logger.warning(f"Failed to query KM for similar memories (data): {e}")
+            logger.warning("Failed to query KM for similar memories (data): %s", e)
             return []
         except (RuntimeError, AttributeError) as e:
-            logger.warning(f"Unexpected error querying KM for similar memories: {e}")
+            logger.warning("Unexpected error querying KM for similar memories: %s", e)
             return []
 
     def retrieve(
@@ -321,7 +321,7 @@ class CoordinatorSearchMixin:
             )
 
         count: int = self._hybrid_search.rebuild_keyword_index()
-        logger.info(f"Rebuilt keyword index: {count} entries")
+        logger.info("Rebuilt keyword index: %s entries", count)
         return count
 
     def prewarm_for_query(
@@ -385,17 +385,17 @@ class CoordinatorSearchMixin:
                 conn.commit()
 
             count: int = len(entries)
-            logger.debug(f"Pre-warmed {count} memories for query: '{query[:50]}...'")
+            logger.debug("Pre-warmed %s memories for query: '%s...'", count, query[:50])
             return count
 
         except sqlite3.Error as e:
-            logger.warning(f"Memory pre-warm failed (database): {e}")
+            logger.warning("Memory pre-warm failed (database): %s", e)
             return 0
         except (ConnectionError, TimeoutError, OSError) as e:
-            logger.warning(f"Memory pre-warm failed (network): {e}")
+            logger.warning("Memory pre-warm failed (network): %s", e)
             return 0
         except (RuntimeError, AttributeError, ValueError, TypeError) as e:
-            logger.warning(f"Unexpected error during memory pre-warm: {e}")
+            logger.warning("Unexpected error during memory pre-warm: %s", e)
             return 0
 
     def invalidate_reference(self, node_id: str) -> bool:
@@ -466,16 +466,16 @@ class CoordinatorSearchMixin:
                     conn.commit()
 
             if updated_count > 0:
-                logger.debug(f"Invalidated {updated_count} references to KM node {node_id}")
+                logger.debug("Invalidated %s references to KM node %s", updated_count, node_id)
 
             return updated_count > 0
 
         except sqlite3.Error as e:
-            logger.warning(f"Failed to invalidate KM reference {node_id} (database): {e}")
+            logger.warning("Failed to invalidate KM reference %s (database): %s", node_id, e)
             return False
         except (ValueError, KeyError, TypeError) as e:
-            logger.warning(f"Failed to invalidate KM reference {node_id} (data): {e}")
+            logger.warning("Failed to invalidate KM reference %s (data): %s", node_id, e)
             return False
         except (RuntimeError, AttributeError) as e:
-            logger.warning(f"Unexpected error invalidating KM reference {node_id}: {e}")
+            logger.warning("Unexpected error invalidating KM reference %s: %s", node_id, e)
             return False

@@ -177,7 +177,7 @@ class TwitterPosterConnector:
             if not self.access_secret:
                 missing.append("TWITTER_ACCESS_SECRET")
             logger.warning(
-                f"Twitter credentials incomplete. Missing: {', '.join(missing)}. Posts will fail."
+                "Twitter credentials incomplete. Missing: %s. Posts will fail.", ', '.join(missing)
             )
 
     @property
@@ -323,7 +323,7 @@ class TwitterPosterConnector:
                     # Note: v2 doesn't return username, would need separate lookup
                     tweet_url = f"https://twitter.com/i/status/{tweet_id}"
 
-                    logger.info(f"Posted tweet: {tweet_id}")
+                    logger.info("Posted tweet: %s", tweet_id)
                     return TweetResult(
                         tweet_id=tweet_id,
                         text=text,
@@ -333,7 +333,7 @@ class TwitterPosterConnector:
                     )
                 else:
                     error = response.text
-                    logger.error(f"Twitter API error: {response.status_code} - {error}")
+                    logger.error("Twitter API error: %s - %s", response.status_code, error)
                     self.circuit_breaker.record_failure()
                     return TweetResult(
                         tweet_id="",
@@ -345,7 +345,7 @@ class TwitterPosterConnector:
                     )
 
         except httpx.TimeoutException as e:
-            logger.error(f"Timeout posting tweet: {e}")
+            logger.error("Timeout posting tweet: %s", e)
             self.circuit_breaker.record_failure()
             return TweetResult(
                 tweet_id="",
@@ -356,7 +356,7 @@ class TwitterPosterConnector:
                 error=f"Request timeout: {e}",
             )
         except httpx.RequestError as e:
-            logger.error(f"Network error posting tweet: {e}")
+            logger.error("Network error posting tweet: %s", e)
             self.circuit_breaker.record_failure()
             return TweetResult(
                 tweet_id="",
@@ -367,7 +367,7 @@ class TwitterPosterConnector:
                 error=f"Network error: {e}",
             )
         except (json.JSONDecodeError, KeyError) as e:
-            logger.error(f"Failed to parse Twitter response: {e}")
+            logger.error("Failed to parse Twitter response: %s", e)
             self.circuit_breaker.record_failure()
             return TweetResult(
                 tweet_id="",
@@ -481,7 +481,7 @@ class TwitterPosterConnector:
                     media_id = data.get("media_id_string")
                     if not media_id:
                         raise TwitterMediaError("No media_id in response")
-                    logger.info(f"Uploaded media: {media_id}")
+                    logger.info("Uploaded media: %s", media_id)
                     return media_id
                 elif response.status_code == 429:
                     raise TwitterRateLimitError("Rate limit exceeded for media upload")
@@ -491,7 +491,7 @@ class TwitterPosterConnector:
         except (TwitterAuthError, TwitterMediaError, TwitterAPIError, TwitterRateLimitError):
             raise
         except (OSError, ValueError, RuntimeError, TypeError) as e:
-            logger.error(f"Failed to upload media: {e}")
+            logger.error("Failed to upload media: %s", e)
             raise TwitterMediaError(f"Failed to upload media: {e}") from e
 
 

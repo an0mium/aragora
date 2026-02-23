@@ -674,7 +674,7 @@ class SalesforceConnector(EnterpriseConnector):
 
             try:
                 soql = self._build_soql_query(object_name, cast(list[str], fields), last_sync)
-                logger.debug(f"[{self.name}] Querying: {soql[:200]}...")
+                logger.debug("[%s] Querying: %s...", self.name, soql[:200])
 
                 async for record in self._query(soql):
                     record_id = record.get("Id", "")
@@ -717,7 +717,7 @@ class SalesforceConnector(EnterpriseConnector):
                         await asyncio.sleep(0)
 
             except (OSError, ValueError, KeyError, TypeError, RuntimeError) as e:
-                logger.error(f"[{self.name}] Failed to sync {object_name}: {e}")
+                logger.error("[%s] Failed to sync %s: %s", self.name, object_name, e)
 
         # Update cursor for next sync
         state.cursor = datetime.now(timezone.utc).isoformat()
@@ -783,7 +783,7 @@ class SalesforceConnector(EnterpriseConnector):
             ConnectionError,
             TimeoutError,
         ) as e:
-            logger.error(f"[{self.name}] Search failed: {e}")
+            logger.error("[%s] Search failed: %s", self.name, e)
             return []
 
     async def fetch(self, evidence_id: str) -> Any | None:
@@ -830,7 +830,7 @@ class SalesforceConnector(EnterpriseConnector):
             ConnectionError,
             TimeoutError,
         ) as e:
-            logger.error(f"[{self.name}] Fetch failed: {e}")
+            logger.error("[%s] Fetch failed: %s", self.name, e)
             return None
 
     async def get_account_contacts(

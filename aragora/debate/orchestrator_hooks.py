@@ -118,14 +118,14 @@ async def create_debate_bead(
         )
 
         bead_id = await bead_store.create(bead)
-        logger.info(f"Created debate bead: {bead_id[:8]} for debate {result.debate_id[:8]}")
+        logger.info("Created debate bead: %s for debate %s", bead_id[:8], result.debate_id[:8])
         return bead_id
 
     except ImportError:
         logger.debug("Bead tracking unavailable: aragora.nomic.beads not found")
         return None
     except (OSError, ValueError, TypeError, AttributeError, KeyError, RuntimeError) as e:
-        logger.warning(f"Failed to create debate bead: {e}")
+        logger.warning("Failed to create debate bead: %s", e)
         return None
 
 
@@ -181,14 +181,14 @@ async def create_pending_debate_bead(
         )
 
         bead_id = await bead_store.create(bead)
-        logger.debug(f"Created pending debate bead: {bead_id[:8]} for debate {debate_id[:8]}")
+        logger.debug("Created pending debate bead: %s for debate %s", bead_id[:8], debate_id[:8])
         return bead_id
 
     except ImportError:
         logger.debug("Bead tracking unavailable")
         return None
     except (OSError, ValueError, TypeError, AttributeError, KeyError, RuntimeError) as e:
-        logger.warning(f"Failed to create pending debate bead: {e}")
+        logger.warning("Failed to create pending debate bead: %s", e)
         return None
 
 
@@ -253,13 +253,13 @@ async def update_debate_bead(
             await bead_store.update_status(bead_id, BeadStatus.FAILED)
 
         logger.debug(
-            f"Updated debate bead: {bead_id[:8]} status={'completed' if success else 'failed'}"
+            "Updated debate bead: %s status=%s", bead_id[:8], 'completed' if success else 'failed'
         )
 
     except ImportError:
         logger.debug("Bead tracking unavailable: aragora.nomic.beads not installed")
     except (OSError, ValueError, TypeError, AttributeError, KeyError, RuntimeError) as e:
-        logger.warning(f"Failed to update debate bead: {e}")
+        logger.warning("Failed to update debate bead: %s", e)
 
 
 async def init_hook_tracking(
@@ -311,12 +311,12 @@ async def init_hook_tracking(
                     max_attempts=3,
                 )
                 hook_entries[agent_id] = entry.id
-                logger.debug(f"Pushed debate {debate_id[:8]} to hook for {agent_id}")
+                logger.debug("Pushed debate %s to hook for %s", debate_id[:8], agent_id)
             except (OSError, ConnectionError, ValueError, TypeError, asyncio.TimeoutError) as e:
-                logger.warning(f"Failed to push hook for {agent_id}: {e}")
+                logger.warning("Failed to push hook for %s: %s", agent_id, e)
 
         if hook_entries:
-            logger.info(f"GUPP: Tracked debate {debate_id[:8]} on {len(hook_entries)} agent hooks")
+            logger.info("GUPP: Tracked debate %s on %s agent hooks", debate_id[:8], len(hook_entries))
 
         return hook_entries
 
@@ -324,7 +324,7 @@ async def init_hook_tracking(
         logger.debug("Hook tracking unavailable: aragora.nomic.hook_queue not found")
         return {}
     except (OSError, ValueError, TypeError, AttributeError) as e:
-        logger.warning(f"Failed to initialize hook tracking: {e}")
+        logger.warning("Failed to initialize hook tracking: %s", e)
         return {}
 
 
@@ -357,17 +357,17 @@ async def complete_hook_tracking(
                 hook_queue = await hook_registry.get_queue(agent_id)
                 if success:
                     await hook_queue.complete(bead_id)
-                    logger.debug(f"Completed hook {entry_id[:8]} for {agent_id}")
+                    logger.debug("Completed hook %s for %s", entry_id[:8], agent_id)
                 else:
                     await hook_queue.fail(bead_id, error_msg or "Debate failed")
-                    logger.debug(f"Failed hook {entry_id[:8]} for {agent_id}")
+                    logger.debug("Failed hook %s for %s", entry_id[:8], agent_id)
             except (OSError, ConnectionError, ValueError, TypeError, asyncio.TimeoutError) as e:
-                logger.warning(f"Failed to complete hook for {agent_id}: {e}")
+                logger.warning("Failed to complete hook for %s: %s", agent_id, e)
 
     except ImportError:
         logger.debug("Hook tracking unavailable: aragora.nomic.hook_queue not installed")
     except (OSError, ValueError, TypeError, AttributeError) as e:
-        logger.warning(f"Failed to complete hook tracking: {e}")
+        logger.warning("Failed to complete hook tracking: %s", e)
 
 
 async def recover_pending_debates(
@@ -417,7 +417,7 @@ async def recover_pending_debates(
                 if bead.bead_type != BeadType.DEBATE_DECISION:
                     continue
                 if bead.created_at < cutoff_time:
-                    logger.debug(f"Skipping stale bead {bead.id[:8]} (too old)")
+                    logger.debug("Skipping stale bead %s (too old)", bead.id[:8])
                     continue
                 if bead.status in (BeadStatus.COMPLETED, BeadStatus.FAILED):
                     continue
@@ -435,15 +435,14 @@ async def recover_pending_debates(
         result = list(debates_to_resume.values())
         if result:
             logger.info(
-                f"GUPP recovery: Found {len(result)} debates to resume "
-                f"across {sum(len(d['agents']) for d in result)} agent hooks"
+                "GUPP recovery: Found %s debates to resume across %s agent hooks", len(result), sum(len(d['agents']) for d in result)
             )
 
         return result
 
     except ImportError as e:
-        logger.debug(f"GUPP recovery unavailable: {e}")
+        logger.debug("GUPP recovery unavailable: %s", e)
         return []
     except (OSError, ValueError, TypeError, KeyError, RuntimeError) as e:
-        logger.warning(f"GUPP recovery failed: {e}")
+        logger.warning("GUPP recovery failed: %s", e)
         return []

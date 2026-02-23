@@ -119,7 +119,7 @@ class IntegratedControlPlane:
             except asyncio.CancelledError:
                 break
             except (RuntimeError, ValueError, OSError, ConnectionError, TimeoutError) as e:
-                logger.error(f"Sync loop error: {e}")
+                logger.error("Sync loop error: %s", e)
                 await asyncio.sleep(self._sync_interval)
 
     async def _sync_agents(self) -> None:
@@ -129,7 +129,7 @@ class IntegratedControlPlane:
             for agent in agents:
                 await self._sync_agent_to_shared_state(agent)
         except (RuntimeError, ValueError, OSError, ConnectionError, TimeoutError) as e:
-            logger.debug(f"Agent sync failed: {e}")
+            logger.debug("Agent sync failed: %s", e)
 
     async def _sync_agent_to_shared_state(self, agent: AgentInfo) -> None:
         """Sync a single agent to shared state."""
@@ -158,7 +158,7 @@ class IntegratedControlPlane:
             }
             await self._shared_state.register_agent(agent_data)
         except (RuntimeError, ValueError, OSError, ConnectionError, TimeoutError) as e:
-            logger.debug(f"Failed to sync agent {agent.agent_id}: {e}")
+            logger.debug("Failed to sync agent %s: %s", agent.agent_id, e)
 
     def _map_agent_status(self, status: AgentStatus) -> str:
         """Map AgentStatus enum to shared state status string."""
@@ -621,12 +621,12 @@ class IntegratedControlPlane:
                     confidence_weight=confidence_weight,
                 )
 
-                logger.debug(f"Updated ELO for deliberation {outcome.task_id}: {scores}")
+                logger.debug("Updated ELO for deliberation %s: %s", outcome.task_id, scores)
 
             except ImportError:
                 logger.debug("ELO system not available")
             except (RuntimeError, ValueError, KeyError) as e:
-                logger.error(f"Failed to update ELO: {e}")
+                logger.error("Failed to update ELO: %s", e)
 
         return elo_callback
 
@@ -715,7 +715,7 @@ class IntegratedControlPlane:
             except ImportError:
                 logger.debug("Notification dispatcher not available")
             except (RuntimeError, ValueError, OSError, ConnectionError, TimeoutError) as e:
-                logger.error(f"Failed to send notification: {e}")
+                logger.error("Failed to send notification: %s", e)
 
         return notification_callback
 

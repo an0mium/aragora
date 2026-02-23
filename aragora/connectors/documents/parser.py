@@ -309,7 +309,7 @@ class DocumentParser:
                 # Default to plain text
                 return self._parse_text(content_bytes, format)
         except (ValueError, KeyError, IndexError, TypeError, UnicodeDecodeError, OSError) as e:
-            logger.error(f"Failed to parse document: {e}")
+            logger.error("Failed to parse document: %s", e)
             return ParsedDocument(
                 content="",
                 format=format,
@@ -908,7 +908,7 @@ class DocumentParser:
             )
 
         except (json.JSONDecodeError, KeyError, TypeError, UnicodeDecodeError) as e:
-            logger.error(f"Failed to parse Jupyter notebook: {e}")
+            logger.error("Failed to parse Jupyter notebook: %s", e)
             return ParsedDocument(
                 content="",
                 format=DocumentFormat.IPYNB,
@@ -984,7 +984,7 @@ class DocumentParser:
                 errors=errors,
             )
         except (ValueError, KeyError, OSError, TypeError, UnicodeDecodeError) as e:
-            logger.error(f"Failed to parse EPUB: {e}")
+            logger.error("Failed to parse EPUB: %s", e)
             return ParsedDocument(
                 content="",
                 format=DocumentFormat.EPUB,
@@ -1039,7 +1039,7 @@ class DocumentParser:
                 errors=errors,
             )
         except (ValueError, KeyError, OSError, TypeError, UnicodeDecodeError) as e:
-            logger.error(f"Failed to parse MOBI: {e}")
+            logger.error("Failed to parse MOBI: %s", e)
             return ParsedDocument(
                 content="",
                 format=DocumentFormat.MOBI,
@@ -1137,7 +1137,7 @@ class DocumentParser:
             )
 
         except (OSError, ValueError, KeyError, zipfile.BadZipFile, tarfile.TarError) as e:
-            logger.error(f"Failed to parse archive: {e}")
+            logger.error("Failed to parse archive: %s", e)
             return ParsedDocument(
                 content="",
                 format=format,

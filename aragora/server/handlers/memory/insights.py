@@ -86,7 +86,7 @@ class InsightsHandler(SecureHandler):
         # Rate limit check
         client_ip = get_client_ip(handler)
         if not _insights_limiter.is_allowed(client_ip):
-            logger.warning(f"Rate limit exceeded for insights endpoint: {client_ip}")
+            logger.warning("Rate limit exceeded for insights endpoint: %s", client_ip)
             return error_response("Rate limit exceeded. Please try again later.", 429)
 
         # RBAC: Require authentication and insights:read permission
@@ -96,7 +96,7 @@ class InsightsHandler(SecureHandler):
         except UnauthorizedError:
             return error_response("Authentication required to access insights", 401)
         except ForbiddenError as e:
-            logger.warning(f"Insights access denied: {e}")
+            logger.warning("Insights access denied: %s", e)
             return error_response("Permission denied", 403)
 
         if normalized == "/api/insights/recent":
@@ -121,7 +121,7 @@ class InsightsHandler(SecureHandler):
         # Rate limit check (shared with GET)
         client_ip = get_client_ip(handler)
         if not _insights_limiter.is_allowed(client_ip):
-            logger.warning(f"Rate limit exceeded for insights POST endpoint: {client_ip}")
+            logger.warning("Rate limit exceeded for insights POST endpoint: %s", client_ip)
             return error_response("Rate limit exceeded. Please try again later.", 429)
 
         # RBAC: Require authentication and insights:read permission for POST
@@ -131,7 +131,7 @@ class InsightsHandler(SecureHandler):
         except UnauthorizedError:
             return error_response("Authentication required", 401)
         except ForbiddenError as e:
-            logger.warning(f"Insights POST access denied: {e}")
+            logger.warning("Insights POST access denied: %s", e)
             return error_response("Permission denied", 403)
 
         if normalized == "/api/insights/extract-detailed":
@@ -221,7 +221,7 @@ class InsightsHandler(SecureHandler):
                 if len(flips) >= limit:
                     break
         except (KeyError, ValueError, TypeError, AttributeError, OSError, RuntimeError) as e:
-            logger.warning(f"Error fetching position flips: {e}")
+            logger.warning("Error fetching position flips: %s", e)
 
         return json_response(
             {
@@ -260,7 +260,7 @@ class InsightsHandler(SecureHandler):
                 if i.type.value == "position_reversal":
                     total_flips += 1
         except (KeyError, ValueError, TypeError, AttributeError, OSError, RuntimeError) as e:
-            logger.warning(f"Error fetching flips summary: {e}")
+            logger.warning("Error fetching flips summary: %s", e)
 
         response: dict[str, Any] = {"summary": {"total": total_flips}}
         if period:

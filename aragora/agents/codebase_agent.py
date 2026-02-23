@@ -392,7 +392,7 @@ class CodebaseUnderstandingAgent:
         if self._index is not None and not force:
             return self._index
 
-        logger.info(f"Indexing codebase at {self.root_path}")
+        logger.info("Indexing codebase at %s", self.root_path)
         start_time = datetime.now(timezone.utc)
 
         index = CodebaseIndex(root_path=str(self.root_path))
@@ -479,7 +479,7 @@ class CodebaseUnderstandingAgent:
         Returns:
             CodeUnderstanding with answer and citations
         """
-        logger.info(f"Understanding question: {question[:100]}...")
+        logger.info("Understanding question: %s...", question[:100])
 
         # Ensure codebase is indexed
         index = await self.index_codebase()
@@ -547,7 +547,7 @@ class CodebaseUnderstandingAgent:
         start_time = datetime.now(timezone.utc)
         scan_id = f"codebase_audit_{start_time.strftime('%Y%m%d_%H%M%S')}"
 
-        logger.info(f"[{scan_id}] Starting comprehensive codebase audit")
+        logger.info("[%s] Starting comprehensive codebase audit", scan_id)
 
         result = CodeAuditResult(
             scan_id=scan_id,
@@ -565,7 +565,7 @@ class CodebaseUnderstandingAgent:
                 result.files_analyzed = security_report.files_scanned
                 result.lines_analyzed = security_report.lines_scanned
             except (OSError, ValueError, RuntimeError, AttributeError) as e:
-                logger.error(f"Security scan failed: {e}")
+                logger.error("Security scan failed: %s", e)
                 result.error = "Security scan failed"
 
         # Run bug detection
@@ -579,7 +579,7 @@ class CodebaseUnderstandingAgent:
                     result.files_analyzed = bug_report.files_scanned
                     result.lines_analyzed = bug_report.lines_scanned
             except (OSError, ValueError, RuntimeError, AttributeError) as e:
-                logger.error(f"Bug detection failed: {e}")
+                logger.error("Bug detection failed: %s", e)
                 if result.error:
                     result.error += "; Bug detection failed"
                 else:
@@ -605,14 +605,14 @@ class CodebaseUnderstandingAgent:
                     for n in dead_code.unreachable_functions[:50]
                 ]
             except (OSError, ValueError, RuntimeError, AttributeError) as e:
-                logger.warning(f"Dead code analysis failed: {e}")
+                logger.warning("Dead code analysis failed: %s", e)
 
         # Code quality assessment
         if include_quality and self.code_intel:
             try:
                 await self._analyze_quality(result)
             except (OSError, ValueError, RuntimeError, AttributeError) as e:
-                logger.warning(f"Quality analysis failed: {e}")
+                logger.warning("Quality analysis failed: %s", e)
 
         # Calculate overall risk score
         result.risk_score = self._calculate_risk_score(result)

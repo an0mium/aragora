@@ -162,7 +162,7 @@ class DocumentExplorer:
             try:
                 await self.event_emitter.emit(event, data)
             except (ValueError, RuntimeError, OSError) as e:
-                logger.warning(f"Failed to emit event {event}: {e}")
+                logger.warning("Failed to emit event %s: %s", event, e)
 
     async def explore(
         self,
@@ -222,10 +222,10 @@ class DocumentExplorer:
             session.completed_at = datetime.now(timezone.utc)
 
         except asyncio.TimeoutError:
-            logger.warning(f"Exploration timed out after {self.config.total_timeout}s")
+            logger.warning("Exploration timed out after %ss", self.config.total_timeout)
             session.completed_at = datetime.now(timezone.utc)
         except (ValueError, RuntimeError, OSError) as e:
-            logger.error(f"Exploration failed: {e}")
+            logger.error("Exploration failed: %s", e)
             session.completed_at = datetime.now(timezone.utc)
             raise
 
@@ -271,10 +271,10 @@ class DocumentExplorer:
                         self._session_chunks[session.id] = {}
                     self._session_chunks[session.id][chunk_id] = chunk
 
-                logger.info(f"Loaded {len(chunks)} chunks from {doc_id}")
+                logger.info("Loaded %s chunks from %s", len(chunks), doc_id)
 
             except (ValueError, OSError, RuntimeError) as e:
-                logger.warning(f"Failed to load document {doc_id}: {e}")
+                logger.warning("Failed to load document %s: %s", doc_id, e)
 
         await self._emit(
             "phase_complete",
@@ -317,7 +317,7 @@ class DocumentExplorer:
 
             # Check convergence
             if self._check_convergence(session):
-                logger.info(f"Exploration converged at iteration {session.iteration}")
+                logger.info("Exploration converged at iteration %s", session.iteration)
                 break
 
             await self._emit(

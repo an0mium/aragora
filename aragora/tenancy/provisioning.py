@@ -76,7 +76,7 @@ class TenantProvisioner:
         # Store tenant
         self._tenants[tenant.id] = tenant
 
-        logger.info(f"Created tenant: {tenant.id} ({name}) tier={tier.value}")
+        logger.info("Created tenant: %s (%s) tier=%s", tenant.id, name, tier.value)
         return tenant
 
     async def get_tenant(self, tenant_id: str) -> Tenant | None:
@@ -116,7 +116,7 @@ class TenantProvisioner:
         tenant.config = TenantConfig.for_tier(new_tier)
         tenant.updated_at = datetime.now()
 
-        logger.info(f"Upgraded tenant {tenant_id}: {old_tier.value} -> {new_tier.value}")
+        logger.info("Upgraded tenant %s: %s -> %s", tenant_id, old_tier.value, new_tier.value)
         return tenant
 
     async def suspend_tenant(
@@ -143,7 +143,7 @@ class TenantProvisioner:
         tenant.status = TenantStatus.SUSPENDED
         tenant.updated_at = datetime.now()
 
-        logger.warning(f"Suspended tenant {tenant_id}: {reason}")
+        logger.warning("Suspended tenant %s: %s", tenant_id, reason)
         return tenant
 
     async def activate_tenant(self, tenant_id: str) -> Tenant:
@@ -165,7 +165,7 @@ class TenantProvisioner:
         tenant.status = TenantStatus.ACTIVE
         tenant.updated_at = datetime.now()
 
-        logger.info(f"Activated tenant {tenant_id}")
+        logger.info("Activated tenant %s", tenant_id)
         return tenant
 
     async def delete_tenant(self, tenant_id: str) -> bool:
@@ -179,7 +179,7 @@ class TenantProvisioner:
         """
         if tenant_id in self._tenants:
             del self._tenants[tenant_id]
-            logger.info(f"Deleted tenant {tenant_id}")
+            logger.info("Deleted tenant %s", tenant_id)
             return True
         return False
 

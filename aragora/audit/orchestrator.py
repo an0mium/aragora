@@ -307,7 +307,7 @@ class AuditOrchestrator:
                 try:
                     self._auditors[vertical] = auditor_class()
                 except (ValueError, RuntimeError, OSError) as e:
-                    logger.warning(f"Failed to initialize {vertical.value} auditor: {e}")
+                    logger.warning("Failed to initialize %s auditor: %s", vertical.value, e)
 
     async def run(
         self,
@@ -427,7 +427,7 @@ class AuditOrchestrator:
                 "source": "compliance_monitor",
             }
         except (ImportError, AttributeError, TypeError) as e:
-            logger.debug(f"Compliance cross-pollination skipped: {e}")
+            logger.debug("Compliance cross-pollination skipped: %s", e)
             return None
 
     async def _run_parallel(
@@ -441,7 +441,7 @@ class AuditOrchestrator:
         async def run_auditor(vertical: AuditVertical, auditor: BaseAuditor) -> None:
             async with semaphore:
                 try:
-                    logger.debug(f"Starting {vertical.value} auditor")
+                    logger.debug("Starting %s auditor", vertical.value)
 
                     # Pre-audit hook
                     await auditor.pre_audit_hook(context)
@@ -455,7 +455,7 @@ class AuditOrchestrator:
                                 if auditor.validate_finding(finding, context):
                                     auditor_findings.append(finding)
                         except (ValueError, RuntimeError, OSError) as e:
-                            logger.warning(f"Error in {vertical.value} on chunk {chunk.id}: {e}")
+                            logger.warning("Error in %s on chunk %s: %s", vertical.value, chunk.id, e)
 
                     # Cross-document analysis
                     if auditor.capabilities.supports_cross_document:
@@ -465,14 +465,14 @@ class AuditOrchestrator:
                                 if auditor.validate_finding(finding, context):
                                     auditor_findings.append(finding)
                         except (ValueError, RuntimeError, OSError) as e:
-                            logger.warning(f"Cross-doc analysis error in {vertical.value}: {e}")
+                            logger.warning("Cross-doc analysis error in %s: %s", vertical.value, e)
 
                     # Post-audit hook
                     auditor_findings = await auditor.post_audit_hook(auditor_findings, context)
 
                     self._findings.extend(auditor_findings)
                     logger.debug(
-                        f"Completed {vertical.value} with {len(auditor_findings)} findings"
+                        "Completed %s with %s findings", vertical.value, len(auditor_findings)
                     )
 
                 except (ValueError, RuntimeError, OSError) as e:
@@ -496,7 +496,7 @@ class AuditOrchestrator:
                 continue
 
             try:
-                logger.debug(f"Running {vertical.value} auditor")
+                logger.debug("Running %s auditor", vertical.value)
 
                 await auditor.pre_audit_hook(context)
 

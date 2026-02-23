@@ -180,7 +180,7 @@ class AlexaConnector(DeviceConnector):
             logger.info("Alexa connector initialized successfully")
             return True
         except (OSError, ValueError, RuntimeError) as e:
-            logger.warning(f"Alexa connector initialization failed: {e}")
+            logger.warning("Alexa connector initialization failed: %s", e)
             return False
 
     async def shutdown(self) -> None:
@@ -235,7 +235,7 @@ class AlexaConnector(DeviceConnector):
         expires_in = response.get("expires_in", 3600)
         self._token_expires_at = time.time() + expires_in
 
-        logger.debug(f"Alexa access token refreshed, expires in {expires_in}s")
+        logger.debug("Alexa access token refreshed, expires in %ss", expires_in)
         return self._access_token
 
     # ==========================================================================
@@ -317,14 +317,14 @@ class AlexaConnector(DeviceConnector):
 
             if request_skill_id != self._skill_id:
                 logger.warning(
-                    f"Skill ID mismatch: expected {self._skill_id}, got {request_skill_id}"
+                    "Skill ID mismatch: expected %s, got %s", self._skill_id, request_skill_id
                 )
                 return False
 
             return True
 
         except (KeyError, TypeError) as e:
-            logger.warning(f"Error verifying skill ID: {e}")
+            logger.warning("Error verifying skill ID: %s", e)
             return False
 
     # ==========================================================================
@@ -367,7 +367,7 @@ class AlexaConnector(DeviceConnector):
             return await handler(request)
 
         # Default response for unknown intents
-        logger.warning(f"No handler for intent: {intent}")
+        logger.warning("No handler for intent: %s", intent)
         return VoiceDeviceResponse(
             text="I'm not sure how to help with that. "
             "You can ask me to start a debate, get a decision, or list your debates.",
@@ -550,7 +550,7 @@ class AlexaConnector(DeviceConnector):
         # Start debate via Arena
         try:
             # This would integrate with the debate system
-            logger.info(f"Starting voice debate on topic: {topic}")
+            logger.info("Starting voice debate on topic: %s", topic)
 
             return VoiceDeviceResponse(
                 text=f"Starting a debate on: {topic}. "
@@ -562,7 +562,7 @@ class AlexaConnector(DeviceConnector):
             )
 
         except (RuntimeError, ValueError, OSError) as e:
-            logger.error(f"Failed to start debate: {e}")
+            logger.error("Failed to start debate: %s", e)
             return VoiceDeviceResponse(
                 text="I'm sorry, I couldn't start the debate right now. Please try again later.",
                 should_end_session=True,
@@ -572,7 +572,7 @@ class AlexaConnector(DeviceConnector):
         """Handle get decision intent."""
         try:
             # This would fetch the latest decision for the user
-            logger.info(f"Getting decision for user: {request.user_id}")
+            logger.info("Getting decision for user: %s", request.user_id)
 
             # Placeholder response
             return VoiceDeviceResponse(
@@ -585,7 +585,7 @@ class AlexaConnector(DeviceConnector):
             )
 
         except (RuntimeError, LookupError, OSError) as e:
-            logger.error(f"Failed to get decision: {e}")
+            logger.error("Failed to get decision: %s", e)
             return VoiceDeviceResponse(
                 text="I couldn't retrieve your decision right now. Please try again later.",
                 should_end_session=True,
@@ -595,7 +595,7 @@ class AlexaConnector(DeviceConnector):
         """Handle list debates intent."""
         try:
             # This would fetch debates for the user
-            logger.info(f"Listing debates for user: {request.user_id}")
+            logger.info("Listing debates for user: %s", request.user_id)
 
             # Placeholder response
             return VoiceDeviceResponse(
@@ -609,7 +609,7 @@ class AlexaConnector(DeviceConnector):
             )
 
         except (RuntimeError, LookupError, OSError) as e:
-            logger.error(f"Failed to list debates: {e}")
+            logger.error("Failed to list debates: %s", e)
             return VoiceDeviceResponse(
                 text="I couldn't retrieve your debates right now. Please try again later.",
                 should_end_session=True,
@@ -620,7 +620,7 @@ class AlexaConnector(DeviceConnector):
         debate_name = request.slots.get("debate_name", "")
 
         try:
-            logger.info(f"Getting status for debate: {debate_name}")
+            logger.info("Getting status for debate: %s", debate_name)
 
             # Placeholder response
             return VoiceDeviceResponse(
@@ -633,7 +633,7 @@ class AlexaConnector(DeviceConnector):
             )
 
         except (RuntimeError, LookupError, OSError) as e:
-            logger.error(f"Failed to get status: {e}")
+            logger.error("Failed to get status: %s", e)
             return VoiceDeviceResponse(
                 text="I couldn't get the debate status right now. Please try again later.",
                 should_end_session=True,
@@ -711,14 +711,14 @@ class AlexaConnector(DeviceConnector):
             )
 
             if success:
-                logger.info(f"Sent proactive notification to user {user_id[:20]}...")
+                logger.info("Sent proactive notification to user %s...", user_id[:20])
                 return True
             else:
-                logger.warning(f"Failed to send proactive notification: {error}")
+                logger.warning("Failed to send proactive notification: %s", error)
                 return False
 
         except (OSError, ValueError, RuntimeError) as e:
-            logger.error(f"Error sending proactive notification: {e}")
+            logger.error("Error sending proactive notification: %s", e)
             return False
 
     # ==========================================================================
@@ -797,11 +797,11 @@ class AlexaConnector(DeviceConnector):
             )
 
             store.set_device_session(device_session)
-            logger.info(f"Linked Alexa user to Aragora user {aragora_user_id}")
+            logger.info("Linked Alexa user to Aragora user %s", aragora_user_id)
             return True
 
         except (ImportError, RuntimeError, ValueError) as e:
-            logger.error(f"Failed to link account: {e}")
+            logger.error("Failed to link account: %s", e)
             return False
 
     async def unlink_account(self, alexa_user_id: str) -> bool:
@@ -821,7 +821,7 @@ class AlexaConnector(DeviceConnector):
             return store.delete_device_session(device_id)
 
         except (ImportError, RuntimeError) as e:
-            logger.error(f"Failed to unlink account: {e}")
+            logger.error("Failed to unlink account: %s", e)
             return False
 
     # ==========================================================================

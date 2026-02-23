@@ -319,10 +319,10 @@ class PostgresStore:
                 "asyncpg required for PostgreSQL backend. Install with: pip install asyncpg"
             )
         except (ConnectionError, TimeoutError, OSError) as e:
-            logger.error(f"PostgreSQL connection failed: {e}")
+            logger.error("PostgreSQL connection failed: %s", e)
             raise
         except (OSError, ConnectionError, TimeoutError, RuntimeError) as e:
-            logger.exception(f"Unexpected PostgreSQL initialization error: {e}")
+            logger.exception("Unexpected PostgreSQL initialization error: %s", e)
             raise
 
     @asynccontextmanager

@@ -220,7 +220,7 @@ class FactExtractor:
                 )
 
         except (OSError, ConnectionError, RuntimeError, ValueError, KeyError) as e:  # noqa: BLE001 - adapter isolation
-            logger.exception(f"Fact extraction failed for chunk {chunk_id}")
+            logger.exception("Fact extraction failed for chunk %s", chunk_id)
             result.errors.append("Fact extraction failed")
 
         end_time = datetime.now()
@@ -283,7 +283,7 @@ class FactExtractor:
             response = await agent.generate(prompt)
             return self._parse_extraction_response(response, chunk_id, filename)
         except (RuntimeError, ValueError, OSError) as e:
-            logger.warning(f"Agent extraction failed: {e}")
+            logger.warning("Agent extraction failed: %s", e)
             return []
 
     async def _verify_with_agent(
@@ -315,7 +315,7 @@ class FactExtractor:
             verified = self._parse_verification_response(response, facts)
             return verified
         except (RuntimeError, ValueError, OSError) as e:
-            logger.warning(f"Verification failed: {e}")
+            logger.warning("Verification failed: %s", e)
             # Return original facts if verification fails
             return facts
 
@@ -355,7 +355,7 @@ class FactExtractor:
                 facts.append(fact)
 
         except json.JSONDecodeError as e:
-            logger.warning(f"Failed to parse extraction JSON: {e}")
+            logger.warning("Failed to parse extraction JSON: %s", e)
 
         return facts[: self.config.max_facts_per_chunk]
 

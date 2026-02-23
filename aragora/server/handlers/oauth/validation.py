@@ -33,7 +33,7 @@ def _validate_redirect_url(redirect_url: str) -> bool:
 
         # Security: Only allow http/https schemes to prevent javascript:/data:/etc attacks
         if parsed.scheme not in ("http", "https"):
-            logger.warning(f"oauth_redirect_blocked: scheme={parsed.scheme} not allowed")
+            logger.warning("oauth_redirect_blocked: scheme=%s not allowed", parsed.scheme)
             return False
 
         host = parsed.hostname
@@ -55,8 +55,8 @@ def _validate_redirect_url(redirect_url: str) -> bool:
             if host.endswith(f".{allowed}"):
                 return True
 
-        logger.warning(f"oauth_redirect_blocked: host={host} not in allowlist")
+        logger.warning("oauth_redirect_blocked: host=%s not in allowlist", host)
         return False
     except (ValueError, TypeError, AttributeError) as e:
-        logger.warning(f"oauth_redirect_validation_error: {e}")
+        logger.warning("oauth_redirect_validation_error: %s", e)
         return False

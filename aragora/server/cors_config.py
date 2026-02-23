@@ -138,12 +138,11 @@ class CORSConfig:
             # Warn about non-HTTPS origins in production
             if is_production and parsed.scheme != "https":
                 logger.warning(
-                    f"[CORS] Non-HTTPS origin '{origin}' configured in production. "
-                    "HTTPS is strongly recommended for all production origins."
+                    "[CORS] Non-HTTPS origin '%s' configured in production. HTTPS is strongly recommended for all production origins.", origin
                 )
 
         # Log configured origins at debug level
-        logger.debug(f"[CORS] Allowed origins: {self.allowed_origins}")
+        logger.debug("[CORS] Allowed origins: %s", self.allowed_origins)
 
     def is_origin_allowed(self, origin: str) -> bool:
         """Check if an origin is in the allowlist."""

@@ -694,7 +694,7 @@ class RoutingMixin:
             return handler_method(entity_id, query_params, handler)
 
         # Fallback: try common arg patterns
-        logger.warning(f"Unknown handler method signature: {method_name}")
+        logger.warning("Unknown handler method signature: %s", method_name)
         try:
             return handler_method(path, query_params, handler)
         except TypeError:

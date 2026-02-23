@@ -104,8 +104,7 @@ class MessagingMixin:
             return SendMessageResponse(success=False, error=error or "Send failed")
 
         logger.warning(
-            f"{self.platform_name} send_message: no webhook_url configured "
-            f"and no platform-specific override provided"
+            "%s send_message: no webhook_url configured and no platform-specific override provided", self.platform_name
         )
         return SendMessageResponse(
             success=False,
@@ -140,8 +139,7 @@ class MessagingMixin:
         from ..models import SendMessageResponse
 
         logger.warning(
-            f"{self.platform_name} does not implement update_message; "
-            f"message {message_id} in channel {channel_id} was not updated"
+            "%s does not implement update_message; message %s in channel %s was not updated", self.platform_name, message_id, channel_id
         )
         return SendMessageResponse(
             success=False,
@@ -170,8 +168,7 @@ class MessagingMixin:
             True if deleted successfully, False otherwise
         """
         logger.warning(
-            f"{self.platform_name} does not implement delete_message; "
-            f"message {message_id} in channel {channel_id} was not deleted"
+            "%s does not implement delete_message; message %s in channel %s was not deleted", self.platform_name, message_id, channel_id
         )
         return False
 
@@ -198,7 +195,7 @@ class MessagingMixin:
         Returns:
             SendMessageResponse with status
         """
-        logger.warning(f"{self.platform_name} does not support ephemeral messages")
+        logger.warning("%s does not support ephemeral messages", self.platform_name)
         return await self.send_message(channel_id, text, blocks, **kwargs)
 
     async def send_typing_indicator(
@@ -219,7 +216,7 @@ class MessagingMixin:
         Returns:
             True if typing indicator was sent, False if not supported
         """
-        logger.debug(f"{self.platform_name} does not support typing indicators")
+        logger.debug("%s does not support typing indicators", self.platform_name)
         return False
 
     # ==========================================================================

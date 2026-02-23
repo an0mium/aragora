@@ -261,7 +261,7 @@ class EvolutionFeedback:
                 # Fire-and-forget evolution
                 _evolve_task = asyncio.create_task(self._evolve_async(population))
                 _evolve_task.add_done_callback(
-                    lambda t: logger.warning(f"[genesis] Evolution failed: {t.exception()}")
+                    lambda t: logger.warning("[genesis] Evolution failed: %s", t.exception())
                     if not t.cancelled() and t.exception()
                     else None
                 )

@@ -127,7 +127,7 @@ def batch_select(
             cursor = conn.execute(query, chunk)
             results.extend(cursor.fetchall())
         except sqlite3.Error as e:
-            logger.error(f"Batch select failed: {e}")
+            logger.error("Batch select failed: %s", e)
             raise
 
     return results
@@ -172,7 +172,7 @@ def batch_exists(
             for row in cursor.fetchall():
                 existing.add(row[0])
         except sqlite3.Error as e:
-            logger.error(f"Batch exists check failed: {e}")
+            logger.error("Batch exists check failed: %s", e)
             raise
 
     return existing

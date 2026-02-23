@@ -123,7 +123,7 @@ class LocalFileBackend(AuditLogBackend):
                 self._index = data.get("entries", {})
                 self._sequence_index = {int(k): v for k, v in data.get("sequences", {}).items()}
             except (json.JSONDecodeError, OSError, KeyError, ValueError) as e:
-                logger.warning(f"Failed to load audit index: {e}")
+                logger.warning("Failed to load audit index: %s", e)
                 self._rebuild_index()
         elif self.log_file.exists():
             self._rebuild_index()
@@ -148,7 +148,7 @@ class LocalFileBackend(AuditLogBackend):
 
             self._save_index()
         except (json.JSONDecodeError, OSError, KeyError) as e:
-            logger.error(f"Failed to rebuild audit index: {e}")
+            logger.error("Failed to rebuild audit index: %s", e)
 
     def _save_index(self) -> None:
         """Save index to file."""
@@ -159,7 +159,7 @@ class LocalFileBackend(AuditLogBackend):
             }
             self.index_file.write_text(json.dumps(data))
         except OSError as e:
-            logger.error(f"Failed to save audit index: {e}")
+            logger.error("Failed to save audit index: %s", e)
 
     def _append_sync(self, entry: AuditEntry) -> None:
         """Synchronous helper to append entry to log file."""
@@ -192,7 +192,7 @@ class LocalFileBackend(AuditLogBackend):
                 if line:
                     return AuditEntry.from_dict(json.loads(line))
         except (OSError, json.JSONDecodeError, KeyError, ValueError) as e:
-            logger.error(f"Failed to read audit entry {entry_id}: {e}")
+            logger.error("Failed to read audit entry %s: %s", entry_id, e)
 
         return None
 
@@ -214,7 +214,7 @@ class LocalFileBackend(AuditLogBackend):
                 if line:
                     return AuditEntry.from_dict(json.loads(line))
         except (OSError, json.JSONDecodeError, KeyError, ValueError) as e:
-            logger.error(f"Failed to read audit entry seq={sequence_number}: {e}")
+            logger.error("Failed to read audit entry seq=%s: %s", sequence_number, e)
 
         return None
 
@@ -299,7 +299,7 @@ class LocalFileBackend(AuditLogBackend):
                         break
 
                 except (json.JSONDecodeError, KeyError, ValueError) as e:
-                    logger.warning(f"Failed to parse audit entry: {e}")
+                    logger.warning("Failed to parse audit entry: %s", e)
                     continue
 
         return results
@@ -393,7 +393,7 @@ class LocalFileBackend(AuditLogBackend):
             try:
                 anchors = json.loads(self.anchors_file.read_text())
             except (json.JSONDecodeError, OSError) as e:
-                logger.warning(f"Could not load anchors file, starting fresh: {e}")
+                logger.warning("Could not load anchors file, starting fresh: %s", e)
 
         anchors[anchor.date] = anchor.to_dict()
         self.anchors_file.write_text(json.dumps(anchors, indent=2))
@@ -422,7 +422,7 @@ class LocalFileBackend(AuditLogBackend):
                     created_at=datetime.fromisoformat(data["created_at"]),
                 )
         except (OSError, json.JSONDecodeError, KeyError, ValueError) as e:
-            logger.error(f"Failed to get anchor for {date}: {e}")
+            logger.error("Failed to get anchor for %s: %s", date, e)
 
         return None
 
@@ -489,7 +489,7 @@ class S3ObjectLockBackend(AuditLogBackend):
             )
             self._sequence_cache[entry.sequence_number] = key
         except (OSError, ConnectionError) as e:
-            logger.error(f"Failed to write audit entry to S3: {e}")
+            logger.error("Failed to write audit entry to S3: %s", e)
             raise
 
     async def get_entry(self, entry_id: str) -> AuditEntry | None:
@@ -506,7 +506,7 @@ class S3ObjectLockBackend(AuditLogBackend):
                         data = json.loads(response["Body"].read())
                         return AuditEntry.from_dict(data)
         except (OSError, ConnectionError, json.JSONDecodeError, KeyError) as e:
-            logger.error(f"Failed to get audit entry {entry_id} from S3: {e}")
+            logger.error("Failed to get audit entry %s from S3: %s", entry_id, e)
 
         return None
 
@@ -524,7 +524,7 @@ class S3ObjectLockBackend(AuditLogBackend):
                 data = json.loads(response["Body"].read())
                 return AuditEntry.from_dict(data)
             except (KeyError, json.JSONDecodeError, ConnectionError) as e:
-                logger.debug(f"Cache miss for sequence {sequence_number}: {e}")
+                logger.debug("Cache miss for sequence %s: %s", sequence_number, e)
                 del self._sequence_cache[sequence_number]
 
         # Search by prefix pattern
@@ -539,7 +539,7 @@ class S3ObjectLockBackend(AuditLogBackend):
                         self._sequence_cache[sequence_number] = obj["Key"]
                         return AuditEntry.from_dict(data)
         except (OSError, ConnectionError, json.JSONDecodeError, KeyError) as e:
-            logger.error(f"Failed to get audit entry seq={sequence_number} from S3: {e}")
+            logger.error("Failed to get audit entry seq=%s from S3: %s", sequence_number, e)
 
         return None
 
@@ -561,7 +561,7 @@ class S3ObjectLockBackend(AuditLogBackend):
                 data = json.loads(response["Body"].read())
                 return AuditEntry.from_dict(data)
         except (OSError, ConnectionError, json.JSONDecodeError, KeyError) as e:
-            logger.error(f"Failed to get last audit entry from S3: {e}")
+            logger.error("Failed to get last audit entry from S3: %s", e)
 
         return None
 
@@ -643,7 +643,7 @@ class S3ObjectLockBackend(AuditLogBackend):
                             return results
 
         except (OSError, ConnectionError, json.JSONDecodeError, KeyError) as e:
-            logger.error(f"Failed to query audit entries from S3: {e}")
+            logger.error("Failed to query audit entries from S3: %s", e)
 
         return results
 
@@ -678,7 +678,7 @@ class S3ObjectLockBackend(AuditLogBackend):
                     count += 1
 
         except (OSError, ConnectionError, json.JSONDecodeError, KeyError) as e:
-            logger.error(f"Failed to count audit entries from S3: {e}")
+            logger.error("Failed to count audit entries from S3: %s", e)
 
         return count
 
@@ -695,7 +695,7 @@ class S3ObjectLockBackend(AuditLogBackend):
                 ContentType="application/json",
             )
         except (OSError, ConnectionError) as e:
-            logger.error(f"Failed to save anchor to S3: {e}")
+            logger.error("Failed to save anchor to S3: %s", e)
             raise
 
     async def get_anchor(self, date: str) -> DailyAnchor | None:
@@ -718,7 +718,7 @@ class S3ObjectLockBackend(AuditLogBackend):
         except client.exceptions.NoSuchKey:
             return None
         except (OSError, ConnectionError, json.JSONDecodeError, KeyError) as e:
-            logger.error(f"Failed to get anchor from S3: {e}")
+            logger.error("Failed to get anchor from S3: %s", e)
             return None
 
 
@@ -852,10 +852,10 @@ class PostgreSQLAuditBackend(AuditLogBackend):
                 """)
 
                 conn.commit()
-                logger.info(f"PostgreSQL audit tables initialized: {self.entries_table}")
+                logger.info("PostgreSQL audit tables initialized: %s", self.entries_table)
         except (OSError, RuntimeError) as e:
             conn.rollback()
-            logger.error(f"Failed to initialize PostgreSQL audit tables: {e}")
+            logger.error("Failed to initialize PostgreSQL audit tables: %s", e)
             raise
         finally:
             pool.putconn(conn)
@@ -898,7 +898,7 @@ class PostgreSQLAuditBackend(AuditLogBackend):
                 conn.commit()
         except (OSError, RuntimeError) as e:
             conn.rollback()
-            logger.error(f"Failed to append audit entry to PostgreSQL: {e}")
+            logger.error("Failed to append audit entry to PostgreSQL: %s", e)
             raise
         finally:
             pool.putconn(conn)
@@ -1151,7 +1151,7 @@ class PostgreSQLAuditBackend(AuditLogBackend):
                 conn.commit()
         except (OSError, RuntimeError) as e:
             conn.rollback()
-            logger.error(f"Failed to save anchor to PostgreSQL: {e}")
+            logger.error("Failed to save anchor to PostgreSQL: %s", e)
             raise
         finally:
             pool.putconn(conn)

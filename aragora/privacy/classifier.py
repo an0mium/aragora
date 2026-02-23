@@ -214,7 +214,7 @@ class SensitivityClassifier:
                     indicator.pattern, re.IGNORECASE | re.MULTILINE
                 )
             except re.error as e:
-                logger.warning(f"Invalid pattern for {indicator.name}: {e}")
+                logger.warning("Invalid pattern for %s: %s", indicator.name, e)
 
     async def classify(
         self,
@@ -362,7 +362,7 @@ Example: confidential:0.85"""
             return None
 
         except (RuntimeError, ValueError, TypeError, OSError) as e:
-            logger.warning(f"LLM classification failed: {e}")
+            logger.warning("LLM classification failed: %s", e)
             return None
 
     def add_indicator(self, indicator: SensitivityIndicator) -> None:
@@ -373,7 +373,7 @@ Example: confidential:0.85"""
                 indicator.pattern, re.IGNORECASE | re.MULTILINE
             )
         except re.error as e:
-            logger.warning(f"Invalid pattern for {indicator.name}: {e}")
+            logger.warning("Invalid pattern for %s: %s", indicator.name, e)
 
     def remove_indicator(self, name: str) -> None:
         """Remove an indicator by name."""

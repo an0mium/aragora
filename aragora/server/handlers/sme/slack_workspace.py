@@ -108,7 +108,7 @@ class SlackWorkspaceHandler(SecureHandler):
         # Rate limit check
         client_ip = get_client_ip(handler)
         if not _workspace_limiter.is_allowed(client_ip):
-            logger.warning(f"Rate limit exceeded for Slack workspace: {client_ip}")
+            logger.warning("Rate limit exceeded for Slack workspace: %s", client_ip)
             return error_response("Rate limit exceeded. Please try again later.", 429)
 
         # Determine HTTP method from handler if not provided
@@ -474,7 +474,7 @@ class SlackWorkspaceHandler(SecureHandler):
                 connection_status = "invalid_token"
                 token_valid = False
         except (TypeError, AttributeError) as e:
-            logger.warning(f"Slack connection test failed for {workspace_id}: {e}")
+            logger.warning("Slack connection test failed for %s: %s", workspace_id, e)
             connection_status = "error"
             error_message = "Connection test failed"
 
@@ -544,7 +544,7 @@ class SlackWorkspaceHandler(SecureHandler):
             if sub.workspace_id == workspace_id:
                 sub_store.deactivate(sub.id)
 
-        logger.info(f"Disconnected Slack workspace {workspace_id} for org {org.id}")
+        logger.info("Disconnected Slack workspace %s for org %s", workspace_id, org.id)
 
         return json_response(
             {
@@ -627,7 +627,7 @@ class SlackWorkspaceHandler(SecureHandler):
         except ImportError:
             logger.warning("Slack connector not available")
         except (RuntimeError, ValueError, OSError) as e:
-            logger.warning(f"Failed to list Slack channels: {e}")
+            logger.warning("Failed to list Slack channels: %s", e)
 
         return json_response(
             {
@@ -728,7 +728,7 @@ class SlackWorkspaceHandler(SecureHandler):
         try:
             created = sub_store.create(subscription)
             logger.info(
-                f"Created Slack subscription {created.id} for channel {channel_id} in org {org.id}"
+                "Created Slack subscription %s for channel %s in org %s", created.id, channel_id, org.id
             )
             return json_response({"subscription": created.to_dict()}, status=201)
         except ValueError as e:
@@ -829,7 +829,7 @@ class SlackWorkspaceHandler(SecureHandler):
         if not success:
             return error_response("Failed to delete subscription", 500)
 
-        logger.info(f"Deleted Slack subscription {subscription_id} for org {org.id}")
+        logger.info("Deleted Slack subscription %s for org %s", subscription_id, org.id)
 
         return json_response(
             {

@@ -73,7 +73,7 @@ async def list_trending_topics_tool(
     except ImportError:
         logger.warning("Pulse module not available")
     except (RuntimeError, ValueError, OSError) as e:
-        logger.warning(f"Could not fetch trending topics: {e}")
+        logger.warning("Could not fetch trending topics: %s", e)
 
     return {
         "topics": topics,

@@ -161,8 +161,7 @@ class ByzantineConsensus:
         """Validate configuration."""
         if len(self.agents) < self.config.min_agents:
             logger.warning(
-                f"Byzantine consensus requires at least {self.config.min_agents} agents, "
-                f"got {len(self.agents)}. Consensus may be unreliable."
+                "Byzantine consensus requires at least %s agents, got %s. Consensus may be unreliable.", self.config.min_agents, len(self.agents)
             )
 
     @property
@@ -209,8 +208,7 @@ class ByzantineConsensus:
         leader = proposer or self.leader
 
         logger.info(
-            f"byzantine_consensus_start view={self._current_view} "
-            f"sequence={self._sequence} leader={leader.name} n={self.n} f={self.f}"
+            "byzantine_consensus_start view=%s sequence=%s leader=%s n=%s f=%s", self._current_view, self._sequence, leader.name, self.n, self.f
         )
 
         view_changes = 0
@@ -230,13 +228,13 @@ class ByzantineConsensus:
                 # Phase 2: PREPARE
                 prepare_votes = await self._collect_prepare_votes(pre_prepare, task)
                 if len(prepare_votes) < self.quorum_size:
-                    logger.warning(f"Prepare phase failed: {len(prepare_votes)}/{self.quorum_size}")
+                    logger.warning("Prepare phase failed: %s/%s", len(prepare_votes), self.quorum_size)
                     raise ConsensusFailure("Prepare phase did not reach quorum")
 
                 # Phase 3: COMMIT
                 commit_votes = await self._collect_commit_votes(pre_prepare, prepare_votes, task)
                 if len(commit_votes) < self.quorum_size:
-                    logger.warning(f"Commit phase failed: {len(commit_votes)}/{self.quorum_size}")
+                    logger.warning("Commit phase failed: %s/%s", len(commit_votes), self.quorum_size)
                     raise ConsensusFailure("Commit phase did not reach quorum")
 
                 # Success!
@@ -261,7 +259,7 @@ class ByzantineConsensus:
                 )
 
             except ConsensusFailure as e:
-                logger.warning(f"Consensus failed: {e}, initiating view change")
+                logger.warning("Consensus failed: %s, initiating view change", e)
                 view_changes += 1
                 self._current_view += 1
 
@@ -307,10 +305,10 @@ class ByzantineConsensus:
                 return None
 
             except asyncio.TimeoutError:
-                logger.warning(f"Prepare timeout for {agent.name}")
+                logger.warning("Prepare timeout for %s", agent.name)
                 return None
             except (RuntimeError, ValueError, TypeError, OSError, ConnectionError) as e:
-                logger.warning(f"Prepare error for {agent.name}: {e}")
+                logger.warning("Prepare error for %s: %s", agent.name, e)
                 return None
 
         # Collect votes in parallel
@@ -350,10 +348,10 @@ class ByzantineConsensus:
                 return None
 
             except asyncio.TimeoutError:
-                logger.warning(f"Commit timeout for {agent.name}")
+                logger.warning("Commit timeout for %s", agent.name)
                 return None
             except (RuntimeError, ValueError, TypeError, OSError, ConnectionError) as e:
-                logger.warning(f"Commit error for {agent.name}: {e}")
+                logger.warning("Commit error for %s: %s", agent.name, e)
                 return None
 
         # Only agents who prepared should commit

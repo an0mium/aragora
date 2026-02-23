@@ -319,7 +319,7 @@ class PluginManifest:
             try:
                 requirements.append(PluginRequirement(r))
             except ValueError as e:
-                logger.debug(f"Skipping invalid plugin requirement '{r}': {e}")
+                logger.debug("Skipping invalid plugin requirement '%s': %s", r, e)
 
         # Parse pricing
         pricing_data = data.get("pricing", {})

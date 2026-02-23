@@ -99,7 +99,7 @@ class TransactionManager:
             except Exception as e:  # noqa: BLE001 - Intentional: rollback transaction before re-raising any error
                 # Rollback on any exception
                 await conn.execute("ROLLBACK")
-                logger.warning(f"Transaction rolled back due to: {e}")
+                logger.warning("Transaction rolled back due to: %s", e)
                 raise
 
             finally:

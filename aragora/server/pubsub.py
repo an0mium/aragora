@@ -87,7 +87,7 @@ class RedisPubSub:
             True if published successfully, False otherwise
         """
         if not self.is_available:
-            logger.debug(f"Redis unavailable, skipping publish to {channel}")
+            logger.debug("Redis unavailable, skipping publish to %s", channel)
             return False
 
         try:
@@ -102,11 +102,11 @@ class RedisPubSub:
             loop = asyncio.get_running_loop()
             await loop.run_in_executor(None, lambda: client.publish(full_channel, message))
 
-            logger.debug(f"Published to {full_channel}")
+            logger.debug("Published to %s", full_channel)
             return True
 
         except (ConnectionError, OSError, json.JSONDecodeError) as e:
-            logger.warning(f"Pub/sub publish failed: {e}")
+            logger.warning("Pub/sub publish failed: %s", e)
             return False
 
     async def subscribe(
@@ -131,7 +131,7 @@ class RedisPubSub:
         self._handlers[full_pattern].append(handler)
 
         if not self.is_available:
-            logger.debug(f"Redis unavailable, handler registered locally for {pattern}")
+            logger.debug("Redis unavailable, handler registered locally for %s", pattern)
             return False
 
         try:
@@ -143,11 +143,11 @@ class RedisPubSub:
             loop = asyncio.get_running_loop()
             await loop.run_in_executor(None, lambda: self._pubsub.psubscribe(full_pattern))
 
-            logger.info(f"Subscribed to pattern: {full_pattern}")
+            logger.info("Subscribed to pattern: %s", full_pattern)
             return True
 
         except (ConnectionError, OSError) as e:
-            logger.warning(f"Pub/sub subscribe failed: {e}")
+            logger.warning("Pub/sub subscribe failed: %s", e)
             return False
 
     async def unsubscribe(self, pattern: str) -> None:
@@ -167,7 +167,7 @@ class RedisPubSub:
                 loop = asyncio.get_running_loop()
                 await loop.run_in_executor(None, lambda: self._pubsub.punsubscribe(full_pattern))
             except (ConnectionError, OSError) as e:
-                logger.debug(f"Unsubscribe failed: {e}")
+                logger.debug("Unsubscribe failed: %s", e)
 
     async def start_listener(self) -> None:
         """Start background listener for pub/sub messages.
@@ -204,7 +204,7 @@ class RedisPubSub:
             try:
                 self._pubsub.close()
             except (ConnectionError, OSError) as e:
-                logger.debug(f"Error closing pubsub connection: {type(e).__name__}")
+                logger.debug("Error closing pubsub connection: %s", type(e).__name__)
             self._pubsub = None
 
         logger.info("Pub/sub listener stopped")
@@ -221,7 +221,7 @@ class RedisPubSub:
         try:
             self._pubsub = client.pubsub()
         except (ConnectionError, OSError) as e:
-            logger.warning(f"Failed to create pub/sub: {e}")
+            logger.warning("Failed to create pub/sub: %s", e)
 
     async def _listen_loop(self) -> None:
         """Background loop listening for pub/sub messages."""
@@ -245,7 +245,7 @@ class RedisPubSub:
             except asyncio.CancelledError:
                 break
             except (ConnectionError, OSError) as e:
-                logger.warning(f"Pub/sub listen error: {e}")
+                logger.warning("Pub/sub listen error: %s", e)
                 await asyncio.sleep(1.0)
 
     async def _handle_message(self, message: dict) -> None:
@@ -277,12 +277,12 @@ class RedisPubSub:
                     try:
                         await handler(event)
                     except Exception as e:  # noqa: BLE001 - Isolate individual handler failures from listener loop
-                        logger.warning(f"Handler error: {e}")
+                        logger.warning("Handler error: %s", e)
 
         except json.JSONDecodeError as e:
-            logger.warning(f"Invalid JSON in pub/sub message: {e}")
+            logger.warning("Invalid JSON in pub/sub message: %s", e)
         except (KeyError, TypeError, UnicodeDecodeError) as e:
-            logger.warning(f"Error handling pub/sub message: {e}")
+            logger.warning("Error handling pub/sub message: %s", e)
 
     async def publish_debate_event(
         self,

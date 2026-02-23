@@ -108,7 +108,7 @@ class VoiceProcessor:
             )
 
             self._sessions[session_id] = session
-            logger.info(f"Created voice session {session_id}")
+            logger.info("Created voice session %s", session_id)
 
             return session
 
@@ -166,7 +166,7 @@ class VoiceProcessor:
 
             session.metadata["end_reason"] = reason
 
-            logger.info(f"Ended voice session {session_id}: {reason}")
+            logger.info("Ended voice session %s: %s", session_id, reason)
 
             # Persist transcript if storage configured
             if self._storage_path:
@@ -184,7 +184,7 @@ class VoiceProcessor:
             session.status = "paused"
             session.updated_at = datetime.now(timezone.utc)
 
-            logger.debug(f"Paused voice session {session_id}")
+            logger.debug("Paused voice session %s", session_id)
             return session
 
     async def resume_session(self, session_id: str) -> VoiceSession | None:
@@ -200,7 +200,7 @@ class VoiceProcessor:
             session.status = "active"
             session.updated_at = datetime.now(timezone.utc)
 
-            logger.debug(f"Resumed voice session {session_id}")
+            logger.debug("Resumed voice session %s", session_id)
             return session
 
     # ========== Speech-to-Text ==========
@@ -266,7 +266,7 @@ class VoiceProcessor:
             }
 
         except (RuntimeError, OSError, ValueError) as e:
-            logger.error(f"STT error: {e}")
+            logger.error("STT error: %s", e)
             return {"success": False, "error": "Speech-to-text processing failed"}
 
     def _detect_intent(self, text: str) -> str | None:
@@ -337,7 +337,7 @@ class VoiceProcessor:
             }
 
         except (RuntimeError, OSError, ValueError) as e:
-            logger.error(f"TTS error: {e}")
+            logger.error("TTS error: %s", e)
             return {"success": False, "error": "Text-to-speech synthesis failed"}
 
     # ========== Provider Management ==========
@@ -349,7 +349,7 @@ class VoiceProcessor:
     ) -> None:
         """Register a speech-to-text provider."""
         self._stt_handlers[name] = handler
-        logger.info(f"Registered STT provider: {name}")
+        logger.info("Registered STT provider: %s", name)
 
     def register_tts_provider(
         self,
@@ -358,7 +358,7 @@ class VoiceProcessor:
     ) -> None:
         """Register a text-to-speech provider."""
         self._tts_handlers[name] = handler
-        logger.info(f"Registered TTS provider: {name}")
+        logger.info("Registered TTS provider: %s", name)
 
     def set_stt_provider(self, name: str) -> bool:
         """Set the active STT provider."""
@@ -404,7 +404,7 @@ class VoiceProcessor:
         }
 
         transcript_path.write_text(json.dumps(transcript_data, indent=2))
-        logger.debug(f"Persisted transcript for session {session.id}")
+        logger.debug("Persisted transcript for session %s", session.id)
 
     # ========== Statistics ==========
 

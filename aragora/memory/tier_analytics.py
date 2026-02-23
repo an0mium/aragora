@@ -233,7 +233,7 @@ class TierAnalyticsTracker:
                 )
                 conn.commit()
             except sqlite3.IntegrityError:
-                logger.debug(f"Memory {memory_id} already recorded for debate {debate_id}")
+                logger.debug("Memory %s already recorded for debate %s", memory_id, debate_id)
 
     def record_tier_movement(
         self,

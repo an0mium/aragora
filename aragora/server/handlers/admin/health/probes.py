@@ -154,7 +154,7 @@ class ProbesMixin:
                 # Storage not configured is OK for readiness
                 checks["storage"] = True
         except (OSError, RuntimeError, ValueError) as e:
-            logger.warning(f"Storage readiness check failed: {type(e).__name__}: {e}")
+            logger.warning("Storage readiness check failed: %s: %s", type(e).__name__, e)
             checks["storage"] = False
             ready = False
 
@@ -166,7 +166,7 @@ class ProbesMixin:
                 # ELO not configured is OK for readiness
                 checks["elo_system"] = True
         except (OSError, RuntimeError, ValueError) as e:
-            logger.warning(f"ELO system readiness check failed: {type(e).__name__}: {e}")
+            logger.warning("ELO system readiness check failed: %s: %s", type(e).__name__, e)
             checks["elo_system"] = False
             ready = False
 
@@ -229,7 +229,7 @@ class ProbesMixin:
         except ImportError:
             checks["redis"] = {"status": "check_skipped"}
         except (ConnectionError, TimeoutError, OSError) as e:
-            logger.warning(f"Redis connectivity failed: {type(e).__name__}: {e}")
+            logger.warning("Redis connectivity failed: %s: %s", type(e).__name__, e)
             checks["redis"] = {"error": "Redis connectivity failed", "error_type": "connectivity"}
             try:
                 from aragora.control_plane.leader import is_distributed_state_required
@@ -239,7 +239,7 @@ class ProbesMixin:
             except (ImportError, RuntimeError):
                 pass
         except (asyncio.TimeoutError, concurrent.futures.TimeoutError) as e:
-            logger.warning(f"Redis check timed out: {type(e).__name__}: {e}")
+            logger.warning("Redis check timed out: %s: %s", type(e).__name__, e)
             checks["redis"] = {"error": "timeout", "error_type": "timeout"}
             try:
                 from aragora.control_plane.leader import is_distributed_state_required
@@ -249,7 +249,7 @@ class ProbesMixin:
             except (ImportError, RuntimeError):
                 pass
         except (RuntimeError, ValueError, TypeError, AttributeError) as e:  # broad catch: last-resort handler
-            logger.warning(f"Redis readiness check failed: {type(e).__name__}: {e}")
+            logger.warning("Redis readiness check failed: %s: %s", type(e).__name__, e)
             checks["redis"] = {"error": "Redis check failed"}
             try:
                 from aragora.control_plane.leader import is_distributed_state_required
@@ -257,7 +257,7 @@ class ProbesMixin:
                 if is_distributed_state_required():
                     ready = False
             except (ImportError, RuntimeError, AttributeError) as err:
-                logger.debug(f"Error checking distributed state requirement: {err}")
+                logger.debug("Error checking distributed state requirement: %s", err)
 
         return ready, checks
 
@@ -302,17 +302,17 @@ class ProbesMixin:
         except ImportError:
             checks["postgresql"] = {"status": "check_skipped"}
         except (ConnectionError, TimeoutError, OSError) as e:
-            logger.warning(f"PostgreSQL connectivity failed: {type(e).__name__}: {e}")
+            logger.warning("PostgreSQL connectivity failed: %s: %s", type(e).__name__, e)
             checks["postgresql"] = {"error": "PostgreSQL connectivity failed", "error_type": "connectivity"}
             if require_database:
                 ready = False
         except (asyncio.TimeoutError, concurrent.futures.TimeoutError) as e:
-            logger.warning(f"PostgreSQL check timed out: {type(e).__name__}: {e}")
+            logger.warning("PostgreSQL check timed out: %s: %s", type(e).__name__, e)
             checks["postgresql"] = {"error": "timeout", "error_type": "timeout"}
             if require_database:
                 ready = False
         except (RuntimeError, ValueError, TypeError, AttributeError) as e:  # broad catch: last-resort handler
-            logger.warning(f"PostgreSQL readiness check failed: {type(e).__name__}: {e}")
+            logger.warning("PostgreSQL readiness check failed: %s: %s", type(e).__name__, e)
             checks["postgresql"] = {"error": "PostgreSQL check failed"}
 
         return ready, checks

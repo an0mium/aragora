@@ -181,7 +181,7 @@ def _encrypt_settings(
         # AAD binds ciphertext to this specific user + integration
         aad = f"{user_id}:{integration_type}"
         encrypted = service.encrypt_fields(settings, keys_to_encrypt, aad)
-        logger.debug(f"Encrypted {len(keys_to_encrypt)} sensitive fields for {integration_type}")
+        logger.debug("Encrypted %s sensitive fields for %s", len(keys_to_encrypt), integration_type)
         return encrypted
     except (ValueError, TypeError, KeyError, AttributeError) as e:
         if is_encryption_required():
@@ -190,7 +190,7 @@ def _encrypt_settings(
                 str(e),
                 "integration_store",
             ) from e
-        logger.warning(f"Encryption unavailable, storing unencrypted: {e}")
+        logger.warning("Encryption unavailable, storing unencrypted: %s", e)
         return settings
     except RuntimeError as e:
         if is_encryption_required():
@@ -199,7 +199,7 @@ def _encrypt_settings(
                 str(e),
                 "integration_store",
             ) from e
-        logger.warning(f"Encryption service error, storing unencrypted: {e}")
+        logger.warning("Encryption service error, storing unencrypted: %s", e)
         return settings
 
 
@@ -229,15 +229,15 @@ def _decrypt_settings(
         service = get_encryption_service()
         aad = f"{user_id}:{integration_type}"
         decrypted = service.decrypt_fields(settings, encrypted_keys, aad)
-        logger.debug(f"Decrypted {len(encrypted_keys)} fields for {integration_type}")
+        logger.debug("Decrypted %s fields for %s", len(encrypted_keys), integration_type)
         return decrypted
     except (ValueError, TypeError, KeyError, AttributeError, RuntimeError) as e:
-        logger.warning(f"Decryption failed for {integration_type}: {e}")
+        logger.warning("Decryption failed for %s: %s", integration_type, e)
         return settings
     except Exception as e:  # noqa: BLE001 - cryptography errors don't subclass standard types
         # Catch cryptography-specific errors (e.g. InvalidTag from AAD mismatch)
         if type(e).__name__ in ("InvalidTag", "InvalidSignature"):
-            logger.warning(f"Decryption AAD mismatch for {integration_type}: {e}")
+            logger.warning("Decryption AAD mismatch for %s: %s", integration_type, e)
             return settings
         raise
 

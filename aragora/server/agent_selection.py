@@ -67,11 +67,10 @@ def auto_select_agents(
             return agent_string
         else:
             logger.info(
-                f"[auto_select] Classifier returned insufficient personas for "
-                f"'{classification.category}', falling back to AgentSelector"
+                "[auto_select] Classifier returned insufficient personas for '%s', falling back to AgentSelector", classification.category
             )
     except (ValueError, TypeError, KeyError, RuntimeError) as e:
-        logger.warning(f"[auto_select] Question classification failed: {e}, using AgentSelector")
+        logger.warning("[auto_select] Question classification failed: %s, using AgentSelector", e)
 
     # Fall back to AgentSelector
     if not ROUTING_AVAILABLE:
@@ -128,12 +127,12 @@ def auto_select_agents(
             agent_specs.append(f"{agent.agent_type}|||{role}")
 
         logger.info(
-            f"[auto_select] Selected team: {agent_specs} (rationale: {team.rationale[:100]})"
+            "[auto_select] Selected team: %s (rationale: %s)", agent_specs, team.rationale[:100]
         )
         return ",".join(agent_specs)
 
     except (TypeError, ValueError, AttributeError, KeyError, RuntimeError) as e:
-        logger.warning(f"[auto_select] Failed: {e}, using fallback")
+        logger.warning("[auto_select] Failed: %s, using fallback", e)
         # Fallback with explicit roles for productive debate
         return "gemini|||proposer,anthropic-api|||critic"
 

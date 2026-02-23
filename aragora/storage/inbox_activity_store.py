@@ -189,7 +189,7 @@ class InboxActivityStore:
         else:
             self.db_path.parent.mkdir(parents=True, exist_ok=True)
             self._backend = SQLiteBackend(str(self.db_path))
-            logger.info(f"InboxActivityStore using SQLite backend: {self.db_path}")
+            logger.info("InboxActivityStore using SQLite backend: %s", self.db_path)
 
         self._init_schema()
 
@@ -202,7 +202,7 @@ class InboxActivityStore:
             try:
                 self._backend.execute_write(statement)
             except (OSError, RuntimeError, ValueError) as e:
-                logger.debug(f"Schema statement skipped: {e}")
+                logger.debug("Schema statement skipped: %s", e)
 
     # =========================================================================
     # Activity Methods
@@ -237,7 +237,7 @@ class InboxActivityStore:
                 created_at_ts,
             ),
         )
-        logger.debug(f"Logged inbox activity: {activity.action} for {activity.inbox_id}")
+        logger.debug("Logged inbox activity: %s for %s", activity.action, activity.inbox_id)
 
     def get_activity(self, activity_id: str) -> InboxActivity | None:
         """
@@ -508,7 +508,7 @@ class InboxActivityStore:
                 (cutoff,),
             )
             logger.info(
-                f"Cleaned up {count} inbox activity entries older than {self.retention_days} days"
+                "Cleaned up %s inbox activity entries older than %s days", count, self.retention_days
             )
 
         return count

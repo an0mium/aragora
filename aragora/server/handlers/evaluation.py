@@ -81,7 +81,7 @@ class EvaluationHandler(BaseHandler):
         # Rate limit check
         client_ip = get_client_ip(handler)
         if not _evaluation_limiter.is_allowed(client_ip):
-            logger.warning(f"Rate limit exceeded for evaluation endpoint: {client_ip}")
+            logger.warning("Rate limit exceeded for evaluation endpoint: %s", client_ip)
             return error_response("Rate limit exceeded. Please try again later.", 429)
 
         if path == "/api/v1/evaluate/dimensions":
@@ -99,7 +99,7 @@ class EvaluationHandler(BaseHandler):
         # Rate limit check
         client_ip = get_client_ip(handler)
         if not _evaluation_limiter.is_allowed(client_ip):
-            logger.warning(f"Rate limit exceeded for evaluation endpoint: {client_ip}")
+            logger.warning("Rate limit exceeded for evaluation endpoint: %s", client_ip)
             return error_response("Rate limit exceeded. Please try again later.", 429)
 
         if path == "/api/v1/evaluate":

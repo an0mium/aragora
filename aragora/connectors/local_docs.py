@@ -132,7 +132,7 @@ class LocalDocsConnector(BaseConnector):
                     )
 
         except (OSError, UnicodeDecodeError, PermissionError) as e:
-            logger.debug(f"Failed to search in {path}: {e}")
+            logger.debug("Failed to search in %s: %s", path, e)
 
         return matches
 
@@ -183,7 +183,7 @@ class LocalDocsConnector(BaseConnector):
             ]
             for danger in dangerous_patterns:
                 if re.search(danger, query, re.IGNORECASE):
-                    logger.warning(f"Rejecting potentially dangerous regex pattern: {query}")
+                    logger.warning("Rejecting potentially dangerous regex pattern: %s", query)
                     # Fall back to literal search
                     pattern = re.compile(re.escape(query), re.IGNORECASE)
                     break
@@ -191,7 +191,7 @@ class LocalDocsConnector(BaseConnector):
                 try:
                     pattern = re.compile(query, re.IGNORECASE)
                 except re.error as e:
-                    logger.warning(f"Invalid regex pattern '{query}': {e}")
+                    logger.warning("Invalid regex pattern '%s': %s", query, e)
                     pattern = re.compile(re.escape(query), re.IGNORECASE)
         else:
             # Escape special chars for literal search
@@ -264,12 +264,12 @@ class LocalDocsConnector(BaseConnector):
         try:
             path.resolve().relative_to(self.root_path.resolve())
         except ValueError:
-            logger.warning(f"[local_docs] Path traversal attempt blocked: {evidence_id}")
+            logger.warning("[local_docs] Path traversal attempt blocked: %s", evidence_id)
             return None
 
         # SECURITY: Reject symlinks that could escape root_path
         if path.is_symlink():
-            logger.warning(f"[local_docs] Symlink access blocked: {evidence_id}")
+            logger.warning("[local_docs] Symlink access blocked: %s", evidence_id)
             return None
 
         if not path.exists():
@@ -300,7 +300,7 @@ class LocalDocsConnector(BaseConnector):
             return evidence
 
         except (OSError, UnicodeDecodeError, PermissionError) as e:
-            logger.debug(f"[local_docs] Failed to read {path}: {e}")
+            logger.debug("[local_docs] Failed to read %s: %s", path, e)
             return None
 
     async def list_files(

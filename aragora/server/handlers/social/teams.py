@@ -34,10 +34,10 @@ logger = logging.getLogger(__name__)
 def _handle_task_exception(task: asyncio.Task[Any], task_name: str) -> None:
     """Handle exceptions from fire-and-forget async tasks."""
     if task.cancelled():
-        logger.debug(f"Task {task_name} was cancelled")
+        logger.debug("Task %s was cancelled", task_name)
     elif task.exception():
         exc = task.exception()
-        logger.error(f"Task {task_name} failed with exception: {exc}", exc_info=exc)
+        logger.error("Task %s failed with exception: %s", task_name, exc, exc_info=exc)
 
 
 def create_tracked_task(coro: Coroutine[Any, Any, Any], name: str) -> asyncio.Task[Any]:
@@ -121,10 +121,10 @@ def get_teams_connector() -> Any | None:
             )
             logger.info("Teams connector initialized")
         except ImportError as e:
-            logger.warning(f"Teams connector module not available: {e}")
+            logger.warning("Teams connector module not available: %s", e)
             return None
         except (TypeError, ValueError, OSError) as e:
-            logger.exception(f"Error initializing Teams connector: {e}")
+            logger.exception("Error initializing Teams connector: %s", e)
             return None
     return _teams_connector
 
@@ -168,7 +168,7 @@ class TeamsIntegrationHandler(BaseHandler):
                 org_id=user_info.org_id,
             )
         except (TypeError, ValueError, AttributeError) as e:
-            logger.debug(f"Could not extract auth context: {e}")
+            logger.debug("Could not extract auth context: %s", e)
             return None
 
     def _check_permission(self, handler: Any, permission_key: str) -> HandlerResult | None:
@@ -185,17 +185,17 @@ class TeamsIntegrationHandler(BaseHandler):
         try:
             decision = check_permission(context, permission_key)
             if not decision.allowed:
-                logger.warning(f"Permission denied: {permission_key} for user {context.user_id}")
+                logger.warning("Permission denied: %s for user %s", permission_key, context.user_id)
                 return error_response("Permission denied", 403)
         except (TypeError, ValueError, AttributeError) as e:
-            logger.warning(f"RBAC check failed: {e}")
+            logger.warning("RBAC check failed: %s", e)
             return None
 
         return None
 
     def handle(self, path: str, query_params: dict[str, Any], handler: Any) -> HandlerResult | None:
         """Route Teams requests to appropriate methods."""
-        logger.debug(f"Teams integration request: {path}")
+        logger.debug("Teams integration request: %s", path)
 
         if path == "/api/v1/integrations/teams/status":
             # Status endpoint is safe to expose without RBAC
@@ -334,7 +334,7 @@ class TeamsIntegrationHandler(BaseHandler):
         except json.JSONDecodeError:
             return error_response("Invalid JSON", 400)
         except (ValueError, KeyError, TypeError, RuntimeError, OSError, ConnectionError) as e:
-            logger.exception(f"Teams command error: {e}")
+            logger.exception("Teams command error: %s", e)
             return error_response("Internal server error", 500)
 
     def _handle_interactive(self, handler: Any) -> HandlerResult:
@@ -358,11 +358,11 @@ class TeamsIntegrationHandler(BaseHandler):
             elif action == "view_receipt":
                 return self._handle_view_receipt(value, conversation, service_url)
             else:
-                logger.warning(f"Unknown Teams action: {action}")
+                logger.warning("Unknown Teams action: %s", action)
                 return json_response({"status": "unknown_action"})
 
         except (ValueError, KeyError, TypeError, RuntimeError, OSError, ConnectionError) as e:
-            logger.exception(f"Teams interactive error: {e}")
+            logger.exception("Teams interactive error: %s", e)
             return error_response("Internal server error", 500)
 
     async def _handle_notify(self, handler: Any) -> HandlerResult:
@@ -400,7 +400,7 @@ class TeamsIntegrationHandler(BaseHandler):
             )
 
         except (ConnectionError, TimeoutError, OSError, ValueError, TypeError) as e:
-            logger.exception(f"Teams notify error: {e}")
+            logger.exception("Teams notify error: %s", e)
             return error_response("Internal server error", 500)
 
     async def _start_debate(
@@ -510,7 +510,7 @@ class TeamsIntegrationHandler(BaseHandler):
         except ImportError:
             logger.debug("Debate origin tracking not available")
         except (TypeError, ValueError, AttributeError) as e:
-            logger.warning(f"Failed to register debate origin: {e}")
+            logger.warning("Failed to register debate origin: %s", e)
 
         try:
             # Import debate components
@@ -575,7 +575,7 @@ class TeamsIntegrationHandler(BaseHandler):
                 if conv_id in self._active_debates:
                     self._active_debates[conv_id]["receipt_id"] = receipt_id
             except (TypeError, ValueError, AttributeError) as e:
-                logger.warning(f"Failed to generate receipt: {e}")
+                logger.warning("Failed to generate receipt: %s", e)
 
             # Update status
             if conv_id in self._active_debates:
@@ -609,7 +609,7 @@ class TeamsIntegrationHandler(BaseHandler):
             )
 
         except (ValueError, KeyError, TypeError, RuntimeError, OSError, ConnectionError) as e:
-            logger.exception(f"Teams debate error: {e}")
+            logger.exception("Teams debate error: %s", e)
             await connector.send_message(
                 channel_id=conv_id,
                 text="Sorry, an error occurred while processing your debate.",
@@ -711,7 +711,7 @@ class TeamsIntegrationHandler(BaseHandler):
             return json_response({"success": True, "rankings": rankings})
 
         except (ImportError, KeyError, ValueError, TypeError, AttributeError, OSError) as e:
-            logger.exception(f"Leaderboard error: {e}")
+            logger.exception("Leaderboard error: %s", e)
             return error_response("Internal server error", 500)
 
     async def _list_agents(
@@ -755,7 +755,7 @@ class TeamsIntegrationHandler(BaseHandler):
             return json_response({"success": True, "agents": agent_list})
 
         except (ImportError, KeyError, ValueError, TypeError, AttributeError, OSError) as e:
-            logger.exception(f"List agents error: {e}")
+            logger.exception("List agents error: %s", e)
             return error_response("Internal server error", 500)
 
     async def _get_recent_debates(
@@ -797,7 +797,7 @@ class TeamsIntegrationHandler(BaseHandler):
             return json_response({"success": True, "debates": debates})
 
         except (ImportError, KeyError, ValueError, TypeError, AttributeError, OSError) as e:
-            logger.exception(f"Recent debates error: {e}")
+            logger.exception("Recent debates error: %s", e)
             return error_response("Internal server error", 500)
 
     async def _search_debates(
@@ -850,7 +850,7 @@ class TeamsIntegrationHandler(BaseHandler):
             return json_response({"success": True, "query": query, "results": results})
 
         except (ImportError, KeyError, ValueError, TypeError, AttributeError, OSError) as e:
-            logger.exception(f"Search error: {e}")
+            logger.exception("Search error: %s", e)
             return error_response("Internal server error", 500)
 
     def _build_leaderboard_blocks(self, rankings: list[dict[str, Any]]) -> list[dict[str, Any]]:
@@ -981,7 +981,7 @@ class TeamsIntegrationHandler(BaseHandler):
         debate_id = value.get("debate_id")
         user_id = from_user.get("id", "unknown") if from_user else "unknown"
 
-        logger.info(f"Vote received: {vote_value} for debate {debate_id} from {user_id}")
+        logger.info("Vote received: %s for debate %s from %s", vote_value, debate_id, user_id)
 
         # Record vote in debates database
         try:
@@ -995,9 +995,9 @@ class TeamsIntegrationHandler(BaseHandler):
                     vote=vote_value,
                     source="teams",
                 )
-                logger.info(f"Vote recorded in DB: {debate_id} -> {vote_value}")
+                logger.info("Vote recorded in DB: %s -> %s", debate_id, vote_value)
         except (TypeError, ValueError, OSError, KeyError, RuntimeError) as e:
-            logger.warning(f"Failed to record vote in storage: {e}")
+            logger.warning("Failed to record vote in storage: %s", e)
 
         # Record in vote aggregator if available
         try:
@@ -1008,7 +1008,7 @@ class TeamsIntegrationHandler(BaseHandler):
                 position = "for" if vote_value == "agree" else "against"
                 aggregator.record_vote(debate_id, f"teams:{user_id}", position)
         except (ImportError, AttributeError) as e:
-            logger.debug(f"Vote aggregator not available: {e}")
+            logger.debug("Vote aggregator not available: %s", e)
 
         return json_response(
             {

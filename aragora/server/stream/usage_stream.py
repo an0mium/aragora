@@ -141,7 +141,7 @@ class UsageStreamEmitter:
             if tenant_id not in self._subscribers:
                 self._subscribers[tenant_id] = set()
             self._subscribers[tenant_id].add(callback)
-            logger.debug(f"[UsageStream] Subscribed to tenant {tenant_id}")
+            logger.debug("[UsageStream] Subscribed to tenant %s", tenant_id)
 
     async def unsubscribe_tenant(
         self,
@@ -203,13 +203,13 @@ class UsageStreamEmitter:
                 else:
                     callback(event)
             except (ValueError, TypeError, RuntimeError, OSError) as e:
-                logger.warning(f"[UsageStream] Callback error: {e}")
+                logger.warning("[UsageStream] Callback error: %s", e)
 
         # Update aggregation state
         self._update_aggregation(event)
 
         logger.debug(
-            f"[UsageStream] Emitted {event.event_type.value} to {len(callbacks)} subscribers"
+            "[UsageStream] Emitted %s to %s subscribers", event.event_type.value, len(callbacks)
         )
 
     def _update_aggregation(self, event: UsageStreamEvent) -> None:

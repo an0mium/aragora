@@ -349,7 +349,7 @@ class OneDriveConnector(EnterpriseConnector):
                 return True
             else:
                 error = await resp.text()
-                logger.error(f"Token exchange failed: {error}")
+                logger.error("Token exchange failed: %s", error)
                 return False
 
     async def _refresh_access_token(self) -> bool:
@@ -379,7 +379,7 @@ class OneDriveConnector(EnterpriseConnector):
                 return True
             else:
                 error = await resp.text()
-                logger.error(f"Token refresh failed: {error}")
+                logger.error("Token refresh failed: %s", error)
                 return False
 
     async def _ensure_valid_token(self) -> None:
@@ -416,7 +416,7 @@ class OneDriveConnector(EnterpriseConnector):
                 return {}
             if resp.status >= 400:
                 error = await resp.text()
-                logger.error(f"API request failed: {resp.status} {error}")
+                logger.error("API request failed: %s %s", resp.status, error)
                 # Map HTTP status to appropriate exception type
                 if resp.status in (401, 403):
                     raise ConnectorAuthError(
@@ -596,8 +596,7 @@ class OneDriveConnector(EnterpriseConnector):
                     redirect_count += 1
                     if redirect_count > MAX_REDIRECTS:
                         logger.warning(
-                            f"SSRF protection: Too many redirects ({redirect_count}) "
-                            f"for file {file_id}"
+                            "SSRF protection: Too many redirects (%s) for file %s", redirect_count, file_id
                         )
                         raise ConnectorAPIError(
                             "Too many redirects during download",
@@ -617,8 +616,7 @@ class OneDriveConnector(EnterpriseConnector):
                     is_safe, reason = _is_safe_redirect_url(redirect_url)
                     if not is_safe:
                         logger.warning(
-                            f"SSRF protection: Blocked redirect to {redirect_url} "
-                            f"for file {file_id}: {reason}"
+                            "SSRF protection: Blocked redirect to %s for file %s: %s", redirect_url, file_id, reason
                         )
                         raise ConnectorAPIError(
                             f"Blocked unsafe redirect: {reason}",

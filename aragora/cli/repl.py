@@ -56,7 +56,7 @@ class AragoraREPL:
                 readline.read_history_file(HISTORY_FILE)
             readline.set_history_length(1000)
         except (OSError, PermissionError) as e:
-            logger.debug(f"Failed to load readline history: {e}")
+            logger.debug("Failed to load readline history: %s", e)
 
         # Tab completion for commands
         def completer(text: str, state: int) -> str | None:
@@ -73,7 +73,7 @@ class AragoraREPL:
         try:
             readline.write_history_file(HISTORY_FILE)
         except (OSError, PermissionError) as e:
-            logger.debug(f"Failed to save readline history: {e}")
+            logger.debug("Failed to save readline history: %s", e)
 
     def print_banner(self) -> None:
         """Print welcome banner."""

@@ -102,7 +102,7 @@ async def _retry_with_backoff(coro_fn: Any, max_retries: int = 3, base_delay: fl
             if attempt == max_retries - 1:
                 raise
             delay = base_delay * (2**attempt)
-            logger.warning(f"API call failed (attempt {attempt + 1}), retrying in {delay}s: {e}")
+            logger.warning("API call failed (attempt %s), retrying in %ss: %s", attempt + 1, delay, e)
             await asyncio.sleep(delay)
 
 
@@ -154,7 +154,7 @@ class EmbeddingProvider:
         embeddings = []
         for i, result in enumerate(results):
             if isinstance(result, BaseException):
-                logger.warning(f"embed_batch: failed to embed text {i}: {result}")
+                logger.warning("embed_batch: failed to embed text %s: %s", i, result)
                 # Return zero vector to maintain alignment
                 embeddings.append([0.0] * self.dimension)
             else:
@@ -353,7 +353,7 @@ class SemanticRetriever:
                         try:
                             port = int(parts[1])
                         except ValueError:
-                            logger.debug(f"Invalid port in Ollama URL: {parts[1]}, using default")
+                            logger.debug("Invalid port in Ollama URL: %s, using default", parts[1])
                             port = 11434
                 # Use context manager to guarantee socket cleanup in all code paths
                 with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as sock:
@@ -362,7 +362,7 @@ class SemanticRetriever:
                     if result == 0:
                         return ollama
             except REDIS_CONNECTION_ERRORS as e:
-                logger.debug(f"Failed to connect to Ollama: {e}")
+                logger.debug("Failed to connect to Ollama: %s", e)
             # Fall back to hash-based embeddings (always works, no API needed)
             return EmbeddingProvider(dimension=256)
 

@@ -216,7 +216,7 @@ class NudgeRouter:
             True if queued successfully, False if queue is full or expired.
         """
         if message.is_expired():
-            logger.warning(f"Message {message.message_id} already expired")
+            logger.warning("Message %s already expired", message.message_id)
             return False
 
         # Set default expiration if not set
@@ -232,7 +232,7 @@ class NudgeRouter:
 
             # Check queue size
             if len(queue) >= self._config.max_queue_size:
-                logger.warning(f"Queue full for agent {message.to_agent}")
+                logger.warning("Queue full for agent %s", message.to_agent)
                 return False
 
             # Insert in priority order (higher priority first)
@@ -249,7 +249,7 @@ class NudgeRouter:
             self._all_messages[message.message_id] = message
             self._messages_sent += 1
 
-        logger.debug(f"Nudge sent: {message.from_agent} -> {message.to_agent}")
+        logger.debug("Nudge sent: %s -> %s", message.from_agent, message.to_agent)
 
         # Trigger callbacks
         await self._trigger_callbacks(message.to_agent, message)
@@ -382,7 +382,7 @@ class NudgeRouter:
                 count += 1
 
         self._broadcasts_sent += 1
-        logger.debug(f"Broadcast from {from_agent} sent to {count} agents")
+        logger.debug("Broadcast from %s sent to %s agents", from_agent, count)
         return count
 
     async def register_agent(self, agent_id: str) -> None:
@@ -390,7 +390,7 @@ class NudgeRouter:
         async with self._lock:
             if agent_id not in self._queues:
                 self._queues[agent_id] = []
-                logger.debug(f"Agent {agent_id} registered for nudges")
+                logger.debug("Agent %s registered for nudges", agent_id)
 
     async def unregister_agent(self, agent_id: str) -> int:
         """
@@ -405,7 +405,7 @@ class NudgeRouter:
 
             count = len(self._queues[agent_id])
             del self._queues[agent_id]
-            logger.debug(f"Agent {agent_id} unregistered, {count} messages cleared")
+            logger.debug("Agent %s unregistered, %s messages cleared", agent_id, count)
             return count
 
     def on_message(
@@ -435,7 +435,7 @@ class NudgeRouter:
                 if asyncio.iscoroutine(result):
                     await result
             except (RuntimeError, ValueError, AttributeError) as e:  # user-supplied callback
-                logger.error(f"Callback error for agent {agent_id}: {e}")
+                logger.error("Callback error for agent %s: %s", agent_id, e)
 
     async def get_pending_count(self, agent_id: str) -> int:
         """Get count of pending messages for an agent."""
@@ -466,7 +466,7 @@ class NudgeRouter:
             except asyncio.CancelledError:
                 break
             except (RuntimeError, OSError, ValueError) as e:
-                logger.error(f"Cleanup error: {e}")
+                logger.error("Cleanup error: %s", e)
 
     async def _cleanup_expired(self) -> int:
         """Remove expired messages from all queues."""
@@ -485,6 +485,6 @@ class NudgeRouter:
 
         if expired_count > 0:
             self._messages_expired += expired_count
-            logger.debug(f"Cleaned up {expired_count} expired messages")
+            logger.debug("Cleaned up %s expired messages", expired_count)
 
         return expired_count

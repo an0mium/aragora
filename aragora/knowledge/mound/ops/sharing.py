@@ -136,8 +136,7 @@ class KnowledgeSharingMixin(_SharingMixinBase):
             )
 
         logger.info(
-            f"Shared item {item_id} from {from_workspace_id} "
-            f"to workspace {to_workspace_id} by {shared_by}"
+            "Shared item %s from %s to workspace %s by %s", item_id, from_workspace_id, to_workspace_id, shared_by
         )
 
         # Send notification asynchronously (best effort)
@@ -205,7 +204,7 @@ class KnowledgeSharingMixin(_SharingMixinBase):
             logger.warning("Store does not support access grants, grant not persisted")
 
         logger.info(
-            f"Shared item {item_id} from {from_workspace_id} to user {user_id} by {shared_by}"
+            "Shared item %s from %s to user %s by %s", item_id, from_workspace_id, user_id, shared_by
         )
 
         # Send notification asynchronously (best effort)
@@ -298,7 +297,7 @@ class KnowledgeSharingMixin(_SharingMixinBase):
         if hasattr(self._meta_store, "delete_access_grant_async"):
             result = await self._meta_store.delete_access_grant_async(item_id, grantee_id)
             if result:
-                logger.info(f"Revoked share for item {item_id} from {grantee_id} by {revoked_by}")
+                logger.info("Revoked share for item %s from %s by %s", item_id, grantee_id, revoked_by)
             return result
 
         logger.warning("Store does not support access grants")
@@ -398,7 +397,7 @@ class KnowledgeSharingMixin(_SharingMixinBase):
             await self._meta_store.save_access_grant_async(updated_grant)
 
         logger.info(
-            f"Updated permissions for item {item_id} grantee {grantee_id}: {perms or existing.permissions}"
+            "Updated permissions for item %s grantee %s: %s", item_id, grantee_id, perms or existing.permissions
         )
 
         return updated_grant
@@ -438,7 +437,7 @@ class KnowledgeSharingMixin(_SharingMixinBase):
             # CrossWorkspaceCoordinator not available
             pass
         except (RuntimeError, ValueError, OSError, AttributeError) as e:
-            logger.warning(f"Failed to record sharing consent: {e}")
+            logger.warning("Failed to record sharing consent: %s", e)
 
     async def _send_share_notification(
         self,
@@ -459,11 +458,11 @@ class KnowledgeSharingMixin(_SharingMixinBase):
 
             # Note: In production, we would look up workspace members
             # and notify each one. For now, log the notification.
-            logger.debug(f"Would notify workspace {to_workspace_id} about shared item {item_id}")
+            logger.debug("Would notify workspace %s about shared item %s", to_workspace_id, item_id)
         except ImportError:
             logger.debug("Notifications module not available")
         except (RuntimeError, ValueError, OSError, AttributeError) as e:
-            logger.warning(f"Failed to send share notification: {e}")
+            logger.warning("Failed to send share notification: %s", e)
 
     async def _send_user_share_notification(
         self,
@@ -490,7 +489,7 @@ class KnowledgeSharingMixin(_SharingMixinBase):
         except ImportError:
             logger.debug("Notifications module not available")
         except (RuntimeError, ValueError, OSError, AttributeError) as e:
-            logger.warning(f"Failed to send share notification: {e}")
+            logger.warning("Failed to send share notification: %s", e)
 
     # =========================================================================
     # Visibility Control Methods
@@ -531,7 +530,7 @@ class KnowledgeSharingMixin(_SharingMixinBase):
         # Update visibility in store
         if hasattr(self._meta_store, "update_visibility_async"):
             await self._meta_store.update_visibility_async(item_id, vis_level, set_by)
-            logger.info(f"Set visibility of item {item_id} to {visibility} by {set_by}")
+            logger.info("Set visibility of item %s to %s by %s", item_id, visibility, set_by)
             return True
         elif hasattr(self._meta_store, "update_node_async"):
             await self._meta_store.update_node_async(
@@ -542,7 +541,7 @@ class KnowledgeSharingMixin(_SharingMixinBase):
                     "is_discoverable": is_discoverable,
                 },
             )
-            logger.info(f"Set visibility of item {item_id} to {visibility} by {set_by}")
+            logger.info("Set visibility of item %s to %s by %s", item_id, visibility, set_by)
             return True
 
         logger.warning("Store does not support visibility updates")
@@ -602,8 +601,7 @@ class KnowledgeSharingMixin(_SharingMixinBase):
         if hasattr(self._meta_store, "save_access_grant_async"):
             await self._meta_store.save_access_grant_async(grant)
             logger.info(
-                f"Granted {permissions or ['read']} access on item {item_id} "
-                f"to {grantee_type}:{grantee_id} by {granted_by}"
+                "Granted %s access on item %s to %s:%s by %s", permissions or ['read'], item_id, grantee_type, grantee_id, granted_by
             )
         else:
             logger.warning("Store does not support access grants, grant not persisted")
@@ -632,7 +630,7 @@ class KnowledgeSharingMixin(_SharingMixinBase):
         if hasattr(self._meta_store, "delete_access_grant_async"):
             result = await self._meta_store.delete_access_grant_async(item_id, grantee_id)
             if result:
-                logger.info(f"Revoked access on item {item_id} from {grantee_id} by {revoked_by}")
+                logger.info("Revoked access on item %s from %s by %s", item_id, grantee_id, revoked_by)
             return result
 
         logger.warning("Store does not support access grants")

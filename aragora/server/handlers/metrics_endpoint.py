@@ -337,11 +337,11 @@ class MetricsRegistry:
             return True
 
         except ImportError as e:
-            logger.warning(f"Failed to initialize some metrics modules: {e}")
+            logger.warning("Failed to initialize some metrics modules: %s", e)
             cls._initialized = True
             return False
         except (ValueError, KeyError, TypeError, RuntimeError, OSError) as e:
-            logger.error(f"Error initializing metrics: {e}", exc_info=True)
+            logger.error("Error initializing metrics: %s", e, exc_info=True)
             cls._initialized = True
             return False
 

@@ -404,7 +404,7 @@ class SpecialistModelRegistry:
         if self._base_registry:
             self._base_registry.register(model.to_model_metadata())
 
-        logger.info(f"Registered specialist model: {model.id} ({model.vertical.value})")
+        logger.info("Registered specialist model: %s (%s)", model.id, model.vertical.value)
 
     def get(self, model_id: str) -> SpecialistModel | None:
         """Get a specialist model by ID."""
@@ -554,7 +554,7 @@ class SpecialistModelRegistry:
         if self._base_registry and status == TrainingStatus.READY:
             self._base_registry.register(model.to_model_metadata())
 
-        logger.info(f"Updated specialist model {model_id} status to {status.value}")
+        logger.info("Updated specialist model %s status to %s", model_id, status.value)
 
         return True
 
@@ -652,7 +652,7 @@ class SpecialistTrainingPipeline:
 
         self._registry.register(model)
 
-        logger.info(f"Created training job for specialist model: {model_id}")
+        logger.info("Created training job for specialist model: %s", model_id)
 
         return model
 
@@ -758,8 +758,7 @@ class SpecialistTrainingPipeline:
         )
 
         logger.info(
-            f"Exported {total_examples} training examples from {total_debates} debates "
-            f"for model {model_id} (vertical: {config.vertical.value})"
+            "Exported %s training examples from %s debates for model %s (vertical: %s)", total_examples, total_debates, model_id, config.vertical.value
         )
 
         return total_examples
@@ -826,7 +825,7 @@ class SpecialistTrainingPipeline:
             training_job_id=training_job_id,
         )
 
-        logger.info(f"Started training job {training_job_id} for model {model_id}")
+        logger.info("Started training job %s for model %s", training_job_id, model_id)
 
         # If training completed synchronously (Tinker waits for completion)
         if result.state.value == "completed" and result.model_id:
@@ -931,14 +930,14 @@ class SpecialistTrainingPipeline:
                 )
 
             except (RuntimeError, ValueError, OSError, TypeError) as e:
-                logger.warning(f"Gauntlet evaluation failed for {model_id}: {e}")
+                logger.warning("Gauntlet evaluation failed for %s: %s", model_id, e)
                 # Still mark as ready, just without evaluation metrics
                 self._registry.update_status(model_id, TrainingStatus.READY)
         else:
             # No gauntlet configured, just mark as ready
             self._registry.update_status(model_id, TrainingStatus.READY)
 
-        logger.info(f"Specialist model {model_id} is ready")
+        logger.info("Specialist model %s is ready", model_id)
 
     async def get_training_status(
         self,

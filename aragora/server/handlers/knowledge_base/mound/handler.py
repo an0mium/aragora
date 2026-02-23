@@ -361,7 +361,7 @@ class KnowledgeMoundHandler(  # type: ignore[misc]
         """Check rate limit and return error response if exceeded."""
         if not _knowledge_limiter.is_allowed(rate_key):
             remaining = _knowledge_limiter.get_remaining(rate_key)
-            logger.warning(f"Rate limit exceeded for mound endpoint: {rate_key}")
+            logger.warning("Rate limit exceeded for mound endpoint: %s", rate_key)
             headers = {
                 "X-RateLimit-Limit": "100",
                 "X-RateLimit-Remaining": str(remaining),
@@ -379,6 +379,6 @@ class KnowledgeMoundHandler(  # type: ignore[misc]
             if err:
                 return err
         except (ValueError, TypeError, AttributeError, KeyError, RuntimeError) as e:
-            logger.warning(f"Authentication failed for knowledge mound: {e}")
+            logger.warning("Authentication failed for knowledge mound: %s", e)
             return error_response("Authentication required", 401)
         return None

@@ -103,7 +103,7 @@ class ChromaVectorStore(BaseVectorStore):
             if not await self.collection_exists(self.config.collection_name):
                 await self.create_collection(self.config.collection_name)
 
-            logger.info(f"Connected to Chroma at {persist_path}")
+            logger.info("Connected to Chroma at %s", persist_path)
 
         except (OSError, ConnectionError, TimeoutError, RuntimeError) as e:
             self._connected = False
@@ -142,7 +142,7 @@ class ChromaVectorStore(BaseVectorStore):
             metadata={"hnsw:space": distance},
         )
 
-        logger.info(f"Created Chroma collection: {name}")
+        logger.info("Created Chroma collection: %s", name)
 
     async def delete_collection(self, name: str) -> bool:
         """Delete a collection."""
@@ -154,7 +154,7 @@ class ChromaVectorStore(BaseVectorStore):
             self._collections.pop(name, None)
             return True
         except (ValueError, KeyError, RuntimeError) as e:
-            logger.debug(f"Failed to delete collection {name}: {e}")
+            logger.debug("Failed to delete collection %s: %s", name, e)
             return False
 
     async def collection_exists(self, name: str) -> bool:
@@ -166,7 +166,7 @@ class ChromaVectorStore(BaseVectorStore):
             self._client.get_collection(name)
             return True
         except (ValueError, KeyError) as e:
-            logger.debug(f"Collection {name} does not exist: {e}")
+            logger.debug("Collection %s does not exist: %s", name, e)
             return False
 
     async def list_collections(self) -> list[str]:
@@ -410,7 +410,7 @@ class ChromaVectorStore(BaseVectorStore):
                     embedding=results["embeddings"][0] if results.get("embeddings") else None,
                 )
         except (OSError, ConnectionError, RuntimeError, ValueError) as e:
-            logger.debug(f"Error retrieving vector by ID: {e}")
+            logger.debug("Error retrieving vector by ID: %s", e)
 
         return None
 

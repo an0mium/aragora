@@ -98,7 +98,7 @@ class RequestTracker:
             True if all requests completed, False if timeout was reached
         """
         self._draining = True
-        logger.info(f"Starting request drain (active: {self._active_count})")
+        logger.info("Starting request drain (active: %s)", self._active_count)
 
         if self._active_count == 0:
             logger.info("No active requests, drain complete immediately")
@@ -110,8 +110,7 @@ class RequestTracker:
             return True
         except asyncio.TimeoutError:
             logger.warning(
-                f"Request drain timeout after {timeout}s "
-                f"({self._active_count} requests still active)"
+                "Request drain timeout after %ss (%s requests still active)", timeout, self._active_count
             )
             return False
 

@@ -171,9 +171,7 @@ class ReceiptRetentionScheduler:
         self._running = True
         self._task = asyncio.create_task(self._cleanup_loop())
         logger.info(
-            f"Started receipt retention scheduler "
-            f"(interval={self.interval_hours}h, "
-            f"retention={self.retention_days or 'store default'} days)"
+            "Started receipt retention scheduler (interval=%sh, retention=%s days)", self.interval_hours, self.retention_days or 'store default'
         )
 
     async def stop(self) -> None:
@@ -203,10 +201,10 @@ class ReceiptRetentionScheduler:
                 self._stats.add_result(result)
 
                 if result.error:
-                    logger.warning(f"Receipt cleanup completed with error: {result.error}")
+                    logger.warning("Receipt cleanup completed with error: %s", result.error)
                 elif result.receipts_deleted > 0:
                     logger.info(
-                        f"Receipt cleanup completed: {result.receipts_deleted} receipts deleted"
+                        "Receipt cleanup completed: %s receipts deleted", result.receipts_deleted
                     )
                 else:
                     logger.debug("Receipt cleanup completed: no expired receipts")
@@ -215,10 +213,10 @@ class ReceiptRetentionScheduler:
                     try:
                         self.on_cleanup_complete(result)
                     except (TypeError, ValueError, RuntimeError) as e:
-                        logger.error(f"Error in cleanup complete callback: {e}")
+                        logger.error("Error in cleanup complete callback: %s", e)
 
             except (ConnectionError, TimeoutError, OSError, RuntimeError, ValueError) as e:
-                logger.error(f"Error in receipt cleanup cycle: {e}", exc_info=True)
+                logger.error("Error in receipt cleanup cycle: %s", e, exc_info=True)
                 error_result = CleanupResult(
                     receipts_deleted=0,
                     started_at=datetime.now(timezone.utc),
@@ -233,7 +231,7 @@ class ReceiptRetentionScheduler:
                     try:
                         self.on_error(e)
                     except (TypeError, ValueError, RuntimeError) as callback_error:
-                        logger.error(f"Error in error callback: {callback_error}")
+                        logger.error("Error in error callback: %s", callback_error)
 
             # Wait for next cycle
             await asyncio.sleep(self.interval_hours * 3600)
@@ -261,7 +259,7 @@ class ReceiptRetentionScheduler:
                 ),
             )
         except (ConnectionError, TimeoutError, OSError, RuntimeError, ValueError) as e:
-            logger.error(f"Exception during receipt cleanup: {e}")
+            logger.error("Exception during receipt cleanup: %s", e)
             error = "Receipt cleanup failed"
 
         completed_at = datetime.now(timezone.utc)

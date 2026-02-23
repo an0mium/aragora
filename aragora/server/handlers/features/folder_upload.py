@@ -87,7 +87,7 @@ def _validate_upload_path(folder_path: str) -> tuple[bool, str, Path | None]:
                 continue
 
         if not path_allowed:
-            logger.warning(f"Path traversal blocked: {folder_path} not in allowed dirs")
+            logger.warning("Path traversal blocked: %s not in allowed dirs", folder_path)
             return False, "Access denied: path not in allowed directories", None
 
     return True, "", path
@@ -303,12 +303,12 @@ class FolderUploadHandler(BaseHandler):
             return json_response(result.to_dict())
 
         except ImportError as e:
-            logger.error(f"Folder scanner not available: {e}")
+            logger.error("Folder scanner not available: %s", e)
             return error_response("Folder scanning not available", 503)
         except ValueError as e:
             return error_response("Invalid request", 400)
         except (RuntimeError, OSError, TypeError, KeyError) as e:
-            logger.error(f"Folder scan error: {e}")
+            logger.error("Folder scan error: %s", e)
             return error_response(safe_error_message(e, "Scan"), 500)
 
     @require_user_auth
@@ -481,10 +481,10 @@ class FolderUploadHandler(BaseHandler):
                             job.document_ids.append(doc_id)
                             job.updated_at = datetime.now(timezone.utc)
 
-                    logger.debug(f"Uploaded {file_path.name} -> {doc_id}")
+                    logger.debug("Uploaded %s -> %s", file_path.name, doc_id)
 
                 except (OSError, ValueError, RuntimeError, TypeError, KeyError) as e:
-                    logger.warning(f"Failed to upload {file_info.path}: {e}")
+                    logger.warning("Failed to upload %s: %s", file_info.path, e)
                     with FolderUploadHandler._jobs_lock:
                         if folder_id in FolderUploadHandler._jobs:
                             job = FolderUploadHandler._jobs[folder_id]
@@ -500,7 +500,7 @@ class FolderUploadHandler(BaseHandler):
             self._update_job_status(folder_id, FolderUploadStatus.COMPLETED)
 
         except (ValueError, KeyError, TypeError, RuntimeError, OSError) as e:
-            logger.error(f"Folder upload job {folder_id} failed: {e}")
+            logger.error("Folder upload job %s failed: %s", folder_id, e)
             self._update_job_error(folder_id, "Folder upload failed")
             self._update_job_status(folder_id, FolderUploadStatus.FAILED)
 
@@ -580,7 +580,7 @@ class FolderUploadHandler(BaseHandler):
             # Remove job
             del FolderUploadHandler._jobs[folder_id]
 
-        logger.info(f"Deleted folder upload: {folder_id}")
+        logger.info("Deleted folder upload: %s", folder_id)
         return json_response(
             {
                 "success": True,

@@ -115,7 +115,7 @@ class GastownConvoyExecutor:
                 await self.hierarchy.register_agent(agent.name, AgentRole.CREW)
             except (RuntimeError, OSError, ValueError) as e:
                 logger.debug(
-                    f"Failed to register implementer agent {agent.name}: {type(e).__name__}: {e}"
+                    "Failed to register implementer agent %s: %s: %s", agent.name, type(e).__name__, e
                 )
                 continue
         for agent in self.reviewers:
@@ -125,7 +125,7 @@ class GastownConvoyExecutor:
                 await self.hierarchy.register_agent(agent.name, AgentRole.WITNESS)
             except (RuntimeError, OSError, ValueError) as e:
                 logger.debug(
-                    f"Failed to register reviewer agent {agent.name}: {type(e).__name__}: {e}"
+                    "Failed to register reviewer agent %s: %s: %s", agent.name, type(e).__name__, e
                 )
                 continue
 

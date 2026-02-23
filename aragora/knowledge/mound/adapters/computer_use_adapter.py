@@ -248,7 +248,7 @@ class ComputerUseAdapter(KnowledgeMoundAdapter):
                 return item_id
 
             except (RuntimeError, ValueError, OSError, AttributeError) as e:
-                logger.error(f"Failed to store task result: {e}")
+                logger.error("Failed to store task result: %s", e)
                 return None
 
     async def store_task_execution_record(
@@ -328,7 +328,7 @@ class ComputerUseAdapter(KnowledgeMoundAdapter):
                 return item_id
 
             except (RuntimeError, ValueError, OSError, AttributeError) as e:
-                logger.error(f"Failed to store task execution record: {e}")
+                logger.error("Failed to store task execution record: %s", e)
                 return None
 
     async def store_action_performance(
@@ -402,7 +402,7 @@ class ComputerUseAdapter(KnowledgeMoundAdapter):
                 return item_id
 
             except (RuntimeError, ValueError, OSError, AttributeError) as e:
-                logger.error(f"Failed to store action performance: {e}")
+                logger.error("Failed to store action performance: %s", e)
                 return None
 
     async def store_policy_block(
@@ -474,7 +474,7 @@ class ComputerUseAdapter(KnowledgeMoundAdapter):
                 return item_id
 
             except (RuntimeError, ValueError, OSError, AttributeError) as e:
-                logger.error(f"Failed to store policy block: {e}")
+                logger.error("Failed to store policy block: %s", e)
                 return None
 
     # =========================================================================
@@ -547,7 +547,7 @@ class ComputerUseAdapter(KnowledgeMoundAdapter):
                 return records[:limit]
 
             except (RuntimeError, ValueError, OSError, AttributeError) as e:
-                logger.error(f"Failed to get similar tasks: {e}")
+                logger.error("Failed to get similar tasks: %s", e)
                 return []
 
     async def get_action_statistics(
@@ -614,7 +614,7 @@ class ComputerUseAdapter(KnowledgeMoundAdapter):
                 return stats
 
             except (RuntimeError, ValueError, OSError, AttributeError) as e:
-                logger.error(f"Failed to get action statistics: {e}")
+                logger.error("Failed to get action statistics: %s", e)
                 return {}
 
     async def get_task_recommendations(
@@ -835,7 +835,7 @@ class ComputerUseAdapter(KnowledgeMoundAdapter):
                     if await self.store_action_performance(record):
                         synced["action_records"] += 1
 
-                logger.info(f"Synced from orchestrator: {synced}")
+                logger.info("Synced from orchestrator: %s", synced)
                 return synced
 
             except (RuntimeError, ValueError, OSError, AttributeError) as e:

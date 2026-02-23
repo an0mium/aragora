@@ -37,14 +37,14 @@ def _parse_cleanup_interval() -> int:
     try:
         value = int(raw)
         if value < 10:
-            _logger.warning(f"ARAGORA_AUTH_CLEANUP_INTERVAL={value} too low, using 10")
+            _logger.warning("ARAGORA_AUTH_CLEANUP_INTERVAL=%s too low, using 10", value)
             return 10
         if value > 86400:
-            _logger.warning(f"ARAGORA_AUTH_CLEANUP_INTERVAL={value} too high, using 86400")
+            _logger.warning("ARAGORA_AUTH_CLEANUP_INTERVAL=%s too high, using 86400", value)
             return 86400
         return value
     except ValueError:
-        _logger.warning(f"Invalid ARAGORA_AUTH_CLEANUP_INTERVAL='{raw}', using default 300")
+        _logger.warning("Invalid ARAGORA_AUTH_CLEANUP_INTERVAL='%s', using default 300", raw)
         return 300
 
 
@@ -124,14 +124,10 @@ class AuthConfig:
                 )
                 if total_removed > 0:
                     _logger.debug(
-                        f"auth_cleanup removed={total_removed} "
-                        f"tokens={stats['token_entries_removed']} "
-                        f"ips={stats['ip_entries_removed']} "
-                        f"revoked={stats['revoked_tokens_removed']} "
-                        f"sessions={stats.get('sessions_removed', 0)}"
+                        "auth_cleanup removed=%s tokens=%s ips=%s revoked=%s sessions=%s", total_removed, stats['token_entries_removed'], stats['ip_entries_removed'], stats['revoked_tokens_removed'], stats.get('sessions_removed', 0)
                     )
             except (RuntimeError, OSError, ValueError, KeyError) as e:
-                _logger.warning(f"auth_cleanup_error error={e}")
+                _logger.warning("auth_cleanup_error error=%s", e)
 
     def stop_cleanup_thread(self) -> None:
         """Stop the background cleanup thread.
@@ -181,7 +177,7 @@ class AuthConfig:
         try:
             self.token_ttl = int(ttl_str)
         except ValueError as e:
-            _logger.warning(f"Invalid ARAGORA_TOKEN_TTL '{ttl_str}', using default: {e}")
+            _logger.warning("Invalid ARAGORA_TOKEN_TTL '%s', using default: %s", ttl_str, e)
 
         # Re-read validated origins from centralized CORS config.
         # Uses module-level cors_config for test compatibility.
@@ -706,8 +702,7 @@ def check_auth(
 
                     token_fingerprint = hashlib.sha256(token.encode()).hexdigest()[:8]
                     _logger.warning(
-                        f"[JWT_AUTH] Token validation failed for fingerprint={token_fingerprint}. "
-                        "Check JWT_DEBUG logs for details."
+                        "[JWT_AUTH] Token validation failed for fingerprint=%s. Check JWT_DEBUG logs for details.", token_fingerprint
                     )
                     return False, -1
             except Exception as e:  # noqa: BLE001 - Must catch ConfigurationError, SecretNotFoundError from AWS Secrets Manager
@@ -716,7 +711,7 @@ def check_auth(
                 # failures from the billing/secrets stack can occur in production
                 # environments where secrets are managed via AWS Secrets Manager.
                 _logger.warning(
-                    f"[JWT_AUTH] Token validation raised exception: {type(e).__name__}: {e}"
+                    "[JWT_AUTH] Token validation raised exception: %s: %s", type(e).__name__, e
                 )
                 return False, -1
 

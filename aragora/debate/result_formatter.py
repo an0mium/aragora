@@ -208,7 +208,7 @@ class ResultFormatter:
                 # Get frameworks for vertical
                 applicable = manager.get_frameworks_for_vertical(vertical)
                 frameworks = [f.id for f in applicable]
-                logger.debug(f"Using {len(frameworks)} frameworks for vertical {vertical}")
+                logger.debug("Using %s frameworks for vertical %s", len(frameworks), vertical)
 
             return manager.check(
                 content=content,
@@ -217,7 +217,7 @@ class ResultFormatter:
             )
 
         except ImportError as e:
-            logger.warning(f"Compliance framework not available: {e}")
+            logger.warning("Compliance framework not available: %s", e)
             # Return empty result
             from aragora.compliance.framework import ComplianceCheckResult
 
@@ -228,7 +228,7 @@ class ResultFormatter:
                 score=1.0,
             )
         except (RuntimeError, ValueError, TypeError, AttributeError, KeyError, OSError) as e:
-            logger.warning(f"Compliance validation failed: {e}")
+            logger.warning("Compliance validation failed: %s", e)
             from aragora.compliance.framework import ComplianceCheckResult
 
             return ComplianceCheckResult(

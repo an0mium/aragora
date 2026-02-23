@@ -95,7 +95,7 @@ class OpenClawBridgeSkill(Skill):
             return result
 
         except (ImportError, RuntimeError, ValueError, TypeError, OSError) as e:
-            logger.exception(f"Bridge skill execution failed: {e}")
+            logger.exception("Bridge skill execution failed: %s", e)
             return SkillResult.create_failure(
                 f"OpenClaw bridge execution failed: {e}",
                 error_code="bridge_error",

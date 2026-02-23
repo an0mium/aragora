@@ -168,7 +168,7 @@ class GauntletStorage:
             resolved_path = resolve_db_path(db_path)
             self.db_path = Path(resolved_path)
             self._backend = SQLiteBackend(resolved_path)
-            logger.info(f"GauntletStorage using SQLite backend: {resolved_path}")
+            logger.info("GauntletStorage using SQLite backend: %s", resolved_path)
 
         self._init_db()
 
@@ -210,7 +210,7 @@ class GauntletStorage:
                 self._backend.execute_write(idx_sql)
             except Exception as e:  # noqa: BLE001 - DB driver exceptions (sqlite3.OperationalError, psycopg2.Error) lack common importable base
                 # Index may already exist with different definition
-                logger.debug(f"Index creation skipped: {e}")
+                logger.debug("Index creation skipped: %s", e)
 
         # Create inflight runs table for durability
         create_inflight_sql = """
@@ -244,7 +244,7 @@ class GauntletStorage:
             try:
                 self._backend.execute_write(idx_sql)
             except Exception as e:  # noqa: BLE001 - DB driver exceptions (sqlite3.OperationalError, psycopg2.Error) lack common importable base
-                logger.debug(f"Inflight index creation skipped: {e}")
+                logger.debug("Inflight index creation skipped: %s", e)
 
     def save(self, result: Any, org_id: str | None = None) -> str:
         """
@@ -430,7 +430,7 @@ class GauntletStorage:
             ),
         )
 
-        logger.info(f"Saved gauntlet result: {gauntlet_id}")
+        logger.info("Saved gauntlet result: %s", gauntlet_id)
         return gauntlet_id
 
     def get(self, gauntlet_id: str, org_id: str | None = None) -> dict | None:
@@ -696,7 +696,7 @@ class GauntletStorage:
                 "DELETE FROM gauntlet_results WHERE gauntlet_id = ?", (gauntlet_id,)
             )
 
-        logger.info(f"Deleted gauntlet result: {gauntlet_id}")
+        logger.info("Deleted gauntlet result: %s", gauntlet_id)
         return True
 
     def count(self, org_id: str | None = None, verdict: str | None = None) -> int:
@@ -806,7 +806,7 @@ class GauntletStorage:
             ),
         )
 
-        logger.debug(f"Saved inflight gauntlet run: {gauntlet_id} (status={status})")
+        logger.debug("Saved inflight gauntlet run: %s (status=%s)", gauntlet_id, status)
         return gauntlet_id
 
     def update_inflight_status(
@@ -853,7 +853,7 @@ class GauntletStorage:
         sql = f"UPDATE gauntlet_inflight SET {', '.join(updates)} WHERE gauntlet_id = ?"
         self._backend.execute_write(sql, tuple(params))
 
-        logger.debug(f"Updated inflight gauntlet: {gauntlet_id} -> {status}")
+        logger.debug("Updated inflight gauntlet: %s -> %s", gauntlet_id, status)
         return True
 
     def get_inflight(self, gauntlet_id: str) -> GauntletInflightRun | None:
@@ -978,7 +978,7 @@ class GauntletStorage:
             "DELETE FROM gauntlet_inflight WHERE gauntlet_id = ?",
             (gauntlet_id,),
         )
-        logger.debug(f"Deleted inflight gauntlet: {gauntlet_id}")
+        logger.debug("Deleted inflight gauntlet: %s", gauntlet_id)
         return True
 
     def cleanup_completed_inflight(self, max_age_seconds: int = 3600) -> int:
@@ -1007,7 +1007,7 @@ class GauntletStorage:
                 WHERE status IN ('completed', 'failed')
                 """,
             )
-            logger.info(f"Cleaned up {count} completed/failed inflight runs")
+            logger.info("Cleaned up %s completed/failed inflight runs", count)
 
         return count
 

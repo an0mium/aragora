@@ -64,7 +64,7 @@ class CommandRouter:
         # Get handler
         handler = self.registry.get_handler(command_name)
         if not handler:
-            logger.error(f"Handler not found for registered command: {command_name}")
+            logger.error("Handler not found for registered command: %s", command_name)
             return CommandResult.error("Command handler not found.", ephemeral=True)
 
         # Execute handler
@@ -82,11 +82,11 @@ class CommandRouter:
             return result
 
         except CommandError as e:
-            logger.warning(f"Command error in /{command_name}: {e.message}")
+            logger.warning("Command error in /%s: %s", command_name, e.message)
             return e.to_result()
 
         except Exception as e:  # noqa: BLE001 - Top-level command handler: must catch all errors to return error result
-            logger.exception(f"Unexpected error in command /{command_name}")
+            logger.exception("Unexpected error in command /%s", command_name)
             return CommandResult.error(
                 f"An error occurred while executing the command: {e!s}",
                 ephemeral=True,

@@ -42,7 +42,7 @@ async def run_triage(
             )
 
         except (RuntimeError, ValueError, TypeError, KeyError, AttributeError, OSError) as e:
-            logger.warning(f"Triage failed for message {message.id}: {e}")
+            logger.warning("Triage failed for message %s: %s", message.id, e)
 
     return results
 

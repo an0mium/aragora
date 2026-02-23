@@ -79,7 +79,7 @@ async def handle_fetch_and_rank_inbox(
                 msg = await connector.get_message(msg_id)
                 emails.append(msg)
             except (ConnectionError, TimeoutError, OSError, ValueError, KeyError) as e:
-                logger.warning(f"Failed to fetch message {msg_id}: {e}")
+                logger.warning("Failed to fetch message %s: %s", msg_id, e)
 
         # Rank emails
         prioritizer = get_prioritizer(user_id)
@@ -119,7 +119,7 @@ async def handle_fetch_and_rank_inbox(
         }
 
     except (ConnectionError, TimeoutError, OSError, ValueError, KeyError, AttributeError, RuntimeError) as e:
-        logger.exception(f"Failed to fetch inbox: {e}")
+        logger.exception("Failed to fetch inbox: %s", e)
         return {
             "success": False,
             "error": "Failed to fetch inbox",

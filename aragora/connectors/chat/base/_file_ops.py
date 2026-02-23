@@ -99,8 +99,7 @@ class FileOperationsMixin:
             raise RuntimeError(error or "File upload failed")
 
         logger.warning(
-            f"{self.platform_name} upload_file: no webhook_url configured "
-            f"and no platform-specific override provided"
+            "%s upload_file: no webhook_url configured and no platform-specific override provided", self.platform_name
         )
         raise RuntimeError(
             f"{self.platform_name} file upload not available: "
@@ -156,8 +155,7 @@ class FileOperationsMixin:
             raise RuntimeError(error or "File download failed")
 
         logger.warning(
-            f"{self.platform_name} download_file: no url provided "
-            f"and no platform-specific override available"
+            "%s download_file: no url provided and no platform-specific override available", self.platform_name
         )
         raise RuntimeError(
             f"{self.platform_name} file download not available: "

@@ -89,7 +89,7 @@ class ConfidenceDecayOperationsMixin:
 
             return json_response(report.to_dict())
         except (KeyError, ValueError, OSError, TypeError) as e:
-            logger.error(f"Error applying confidence decay: {e}")
+            logger.error("Error applying confidence decay: %s", e)
             return error_response(safe_error_message(e), status=500)
 
     @require_permission("knowledge:read")
@@ -163,7 +163,7 @@ class ConfidenceDecayOperationsMixin:
                 }
             )
         except (KeyError, ValueError, OSError, TypeError) as e:
-            logger.error(f"Error recording confidence event: {e}")
+            logger.error("Error recording confidence event: %s", e)
             return error_response(safe_error_message(e), status=500)
 
     @require_permission("knowledge:read")
@@ -225,7 +225,7 @@ class ConfidenceDecayOperationsMixin:
                 }
             )
         except (KeyError, ValueError, OSError, TypeError) as e:
-            logger.error(f"Error getting confidence history: {e}")
+            logger.error("Error getting confidence history: %s", e)
             return error_response(safe_error_message(e), status=500)
 
     @require_permission("knowledge:read")
@@ -250,5 +250,5 @@ class ConfidenceDecayOperationsMixin:
             stats = _stats_fn()
             return json_response(stats)
         except (KeyError, ValueError, OSError, TypeError) as e:
-            logger.error(f"Error getting decay stats: {e}")
+            logger.error("Error getting decay stats: %s", e)
             return error_response(safe_error_message(e), status=500)

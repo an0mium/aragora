@@ -59,7 +59,7 @@ class DockRegistry:
         self._dock_classes[platform] = dock_class
         if config:
             self._default_configs[platform] = config
-        logger.debug(f"Registered dock for platform: {platform}")
+        logger.debug("Registered dock for platform: %s", platform)
 
     def get_dock(
         self,
@@ -90,7 +90,7 @@ class DockRegistry:
         # Get dock class
         dock_class = self._dock_classes.get(platform)
         if dock_class is None:
-            logger.warning(f"No dock registered for platform: {platform}")
+            logger.warning("No dock registered for platform: %s", platform)
             return None
 
         # Create instance with merged config

@@ -317,7 +317,7 @@ class QueryPlanAnalyzer:
                     )
 
         except (OSError, RuntimeError, AttributeError, ValueError) as e:
-            logger.debug(f"EXPLAIN analysis failed: {e}")
+            logger.debug("EXPLAIN analysis failed: %s", e)
 
         return None
 

@@ -98,7 +98,7 @@ def get_storage_backend() -> StorageBackend:
             return StorageBackend.SQLITE
         else:
             logger.warning(
-                f"Unknown ARAGORA_DB_BACKEND value: {backend}, falling back to auto-detect"
+                "Unknown ARAGORA_DB_BACKEND value: %s, falling back to auto-detect", backend
             )
 
     # Auto-detect: prefer Supabase, then self-hosted PostgreSQL
@@ -181,7 +181,7 @@ def register_store(name: str, store_class: type) -> None:
         store_class: Store class to register
     """
     _store_registry[name] = store_class
-    logger.debug(f"Registered store: {name} -> {store_class.__name__}")
+    logger.debug("Registered store: %s -> %s", name, store_class.__name__)
 
 
 def get_registered_stores() -> dict[str, type]:
@@ -305,7 +305,7 @@ def validate_storage_config(strict: bool = False) -> dict:
     # Handle errors based on strict mode
     if errors:
         for error in errors:
-            logger.error(f"Storage configuration error: {error}")
+            logger.error("Storage configuration error: %s", error)
         if strict:
             raise RuntimeError(f"Storage configuration failed: {'; '.join(errors)}")
 

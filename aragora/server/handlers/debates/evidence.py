@@ -499,7 +499,7 @@ class EvidenceOperationsMixin:
                                 }
                             )
             except (KeyError, ValueError, OSError, TypeError, RuntimeError, AttributeError) as e:
-                logger.debug(f"Could not fetch ContinuumMemory evidence: {e}")
+                logger.debug("Could not fetch ContinuumMemory evidence: %s", e)
 
             # Build response
             response: dict[str, Any] = {

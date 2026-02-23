@@ -123,10 +123,10 @@ class JudgmentPhase:
                     top_elo = entry.elo
                     judge = next((a for a in self.agents if a.name == top_agent_name), None)
                     if judge:
-                        logger.debug(f"Selected {top_agent_name} (ELO: {top_elo}) as judge")
+                        logger.debug("Selected %s (ELO: %s) as judge", top_agent_name, top_elo)
                         return judge
         except (RuntimeError, AttributeError, TypeError) as e:  # noqa: BLE001
-            logger.warning(f"ELO query failed: {e}; falling back to random")
+            logger.warning("ELO query failed: %s; falling back to random", e)
 
         return random.choice(self._require_agents())
 
@@ -148,7 +148,7 @@ class JudgmentPhase:
                 score = self._compute_composite_score(agent.name)
                 agent_scores.append((agent, score))
             except (ValueError, KeyError, TypeError) as e:  # noqa: BLE001
-                logger.debug(f"Score computation failed for {agent.name}: {e}")
+                logger.debug("Score computation failed for %s: %s", agent.name, e)
 
         if agent_scores:
             agent_scores.sort(key=lambda x: x[1], reverse=True)
@@ -219,12 +219,12 @@ class JudgmentPhase:
                 rating = self.elo_system.get_rating(judge.name)
                 stats["elo"] = rating.elo
             except (KeyError, AttributeError) as e:
-                logger.debug(f"Could not get ELO rating for {judge.name}: {e}")
+                logger.debug("Could not get ELO rating for %s: %s", judge.name, e)
 
         if self._get_calibration_weight:
             try:
                 stats["calibration_weight"] = self._get_calibration_weight(judge.name)
             except (KeyError, AttributeError, TypeError) as e:
-                logger.debug(f"Could not get calibration weight for {judge.name}: {e}")
+                logger.debug("Could not get calibration weight for %s: %s", judge.name, e)
 
         return stats

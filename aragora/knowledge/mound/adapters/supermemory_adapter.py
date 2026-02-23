@@ -164,7 +164,7 @@ class SupermemoryAdapter(SemanticSearchMixin, KnowledgeMoundAdapter):
             logger.warning("supermemory package not available")
             return None
         except (RuntimeError, ValueError, OSError, AttributeError) as e:
-            logger.error(f"Failed to initialize Supermemory client: {e}")
+            logger.error("Failed to initialize Supermemory client: %s", e)
             return None
 
     def _ensure_privacy_filter(self) -> Any:
@@ -265,7 +265,7 @@ class SupermemoryAdapter(SemanticSearchMixin, KnowledgeMoundAdapter):
             )
 
         except (RuntimeError, ValueError, OSError, AttributeError) as e:
-            logger.error(f"Failed to inject context from Supermemory: {e}")
+            logger.error("Failed to inject context from Supermemory: %s", e)
             return ContextInjectionResult()
 
     async def sync_debate_outcome(
@@ -290,8 +290,7 @@ class SupermemoryAdapter(SemanticSearchMixin, KnowledgeMoundAdapter):
         confidence = getattr(debate_result, "confidence", 0.5)
         if confidence < self._min_importance:
             logger.debug(
-                f"Skipping sync for debate with confidence {confidence} "
-                f"(threshold: {self._min_importance})"
+                "Skipping sync for debate with confidence %s (threshold: %s)", confidence, self._min_importance
             )
             return SyncOutcomeResult(
                 success=True,
@@ -430,7 +429,7 @@ class SupermemoryAdapter(SemanticSearchMixin, KnowledgeMoundAdapter):
             return results
 
         except (RuntimeError, ValueError, OSError, AttributeError) as e:
-            logger.error(f"Search failed: {e}")
+            logger.error("Search failed: %s", e)
             return []
 
     async def get_cross_session_insights(

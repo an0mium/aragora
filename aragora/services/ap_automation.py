@@ -261,7 +261,7 @@ class APAutomation:
             return True
         cb = self._circuit_breakers[service]
         if not cb.can_proceed():
-            logger.warning(f"Circuit breaker open for {service}")
+            logger.warning("Circuit breaker open for %s", service)
             return False
         return True
 

@@ -232,12 +232,11 @@ class GmailMessagesMixin(GmailBaseMethods):
 
                     if is_retryable:
                         logger.warning(
-                            f"[Gmail] Retryable error fetching message {msg_id}: "
-                            f"{error_type}: {error_msg}"
+                            "[Gmail] Retryable error fetching message %s: %s: %s", msg_id, error_type, error_msg
                         )
                     else:
                         logger.error(
-                            f"[Gmail] Failed to fetch message {msg_id}: {error_type}: {error_msg}"
+                            "[Gmail] Failed to fetch message %s: %s: %s", msg_id, error_type, error_msg
                         )
 
                     failure = MessageFetchFailure(
@@ -265,9 +264,7 @@ class GmailMessagesMixin(GmailBaseMethods):
         if failures:
             retryable_count = sum(1 for f in failures if f.is_retryable)
             logger.warning(
-                f"[Gmail] Batch fetch completed with {len(failures)} failures "
-                f"out of {len(message_ids)} requests "
-                f"({retryable_count} retryable, {len(failures) - retryable_count} permanent)"
+                "[Gmail] Batch fetch completed with %s failures out of %s requests (%s retryable, %s permanent)", len(failures), len(message_ids), retryable_count, len(failures) - retryable_count
             )
 
         return BatchFetchResult(
@@ -300,7 +297,7 @@ class GmailMessagesMixin(GmailBaseMethods):
 
             date = parsedate_to_datetime(date_str)
         except (ValueError, TypeError) as e:
-            logger.debug(f"Failed to parse date string '{date_str}': {e}")
+            logger.debug("Failed to parse date string '%s': %s", date_str, e)
             date = datetime.now(timezone.utc)
 
         # Extract body
@@ -529,7 +526,7 @@ class GmailMessagesMixin(GmailBaseMethods):
             )
 
         except (OSError, ValueError, KeyError, RuntimeError) as e:
-            logger.error(f"[Gmail] Fetch failed: {e}")
+            logger.error("[Gmail] Fetch failed: %s", e)
             return None
 
     async def sync_items(
@@ -546,7 +543,7 @@ class GmailMessagesMixin(GmailBaseMethods):
 
         # Check for incremental sync
         if state.cursor:
-            logger.info(f"[Gmail] Starting incremental sync from history {state.cursor[:20]}...")
+            logger.info("[Gmail] Starting incremental sync from history %s...", state.cursor[:20])
 
             # Get changes since last sync
             history_id = state.cursor
@@ -595,7 +592,7 @@ class GmailMessagesMixin(GmailBaseMethods):
                         await asyncio.sleep(0)
 
                 except (OSError, ValueError, KeyError, RuntimeError) as e:
-                    logger.warning(f"[Gmail] Failed to fetch message {msg_id}: {e}")
+                    logger.warning("[Gmail] Failed to fetch message %s: %s", msg_id, e)
 
             return
 
@@ -643,7 +640,7 @@ class GmailMessagesMixin(GmailBaseMethods):
                         return
 
                 except (OSError, ValueError, KeyError, RuntimeError) as e:
-                    logger.warning(f"[Gmail] Failed to fetch message {msg_id}: {e}")
+                    logger.warning("[Gmail] Failed to fetch message %s: %s", msg_id, e)
 
             if not page_token:
                 break
@@ -730,7 +727,7 @@ class GmailMessagesMixin(GmailBaseMethods):
 
                 self.record_success()
                 result = response.json()
-                logger.info(f"[Gmail] Sent message: {result.get('id')}")
+                logger.info("[Gmail] Sent message: %s", result.get('id'))
 
                 return {
                     "message_id": result.get("id"),
@@ -840,7 +837,7 @@ class GmailMessagesMixin(GmailBaseMethods):
                 self.record_success()
                 result = response.json()
                 logger.info(
-                    f"[Gmail] Sent reply: {result.get('id')} in thread {result.get('threadId')}"
+                    "[Gmail] Sent reply: %s in thread %s", result.get('id'), result.get('threadId')
                 )
 
                 return {
@@ -936,7 +933,7 @@ class GmailMessagesMixin(GmailBaseMethods):
                 msg.importance_reason = priority_result.rationale
 
             except asyncio.TimeoutError:
-                logger.warning(f"[Gmail] Prioritization timeout for message {msg.id}")
+                logger.warning("[Gmail] Prioritization timeout for message %s", msg.id)
                 results.append(
                     {
                         "message": msg,
@@ -948,7 +945,7 @@ class GmailMessagesMixin(GmailBaseMethods):
                 )
 
             except (OSError, ValueError, KeyError, RuntimeError) as e:
-                logger.warning(f"[Gmail] Prioritization failed for message {msg.id}: {e}")
+                logger.warning("[Gmail] Prioritization failed for message %s: %s", msg.id, e)
                 results.append(
                     {
                         "message": msg,
@@ -967,7 +964,7 @@ class GmailMessagesMixin(GmailBaseMethods):
             )
         )
 
-        logger.info(f"[Gmail] Prioritized {len(results)} messages")
+        logger.info("[Gmail] Prioritized %s messages", len(results))
         return results
 
     async def rank_inbox(

@@ -55,7 +55,7 @@ def _get_evidence_linker_class():
 
         return EvidenceClaimLinker
     except ImportError as e:
-        logger.debug(f"EvidenceClaimLinker not available: {e}")
+        logger.debug("EvidenceClaimLinker not available: %s", e)
         return None
 
 
@@ -269,7 +269,7 @@ class EvidencePoweredTrickster:
 
         # Decide on intervention based on traditional hollow consensus check
         if not alert.detected:
-            logger.debug(f"trickster_pass round={round_num} reason=quality_acceptable")
+            logger.debug("trickster_pass round=%s reason=quality_acceptable", round_num)
             return None
 
         if alert.severity < self.config.hollow_detection_threshold:
@@ -282,13 +282,13 @@ class EvidencePoweredTrickster:
         # Check cooldown
         rounds_since = round_num - self._state.last_intervention_round
         if rounds_since < self.config.intervention_cooldown_rounds:
-            logger.debug(f"trickster_cooldown round={round_num} rounds_since={rounds_since}")
+            logger.debug("trickster_cooldown round=%s rounds_since=%s", round_num, rounds_since)
             return None
 
         # Check max interventions
         if self._state.total_interventions >= self.config.max_interventions_total:
             logger.debug(
-                f"trickster_limit round={round_num} total={self._state.total_interventions}"
+                "trickster_limit round=%s total=%s", round_num, self._state.total_interventions
             )
             return None
 
@@ -306,12 +306,12 @@ class EvidencePoweredTrickster:
         # Check cooldown
         rounds_since = round_num - self._state.last_intervention_round
         if rounds_since < self.config.intervention_cooldown_rounds:
-            logger.debug(f"trickster_cooldown round={round_num}")
+            logger.debug("trickster_cooldown round=%s", round_num)
             return intervention  # Still return for caller, but skip recording
 
         # Check max interventions
         if self._state.total_interventions >= self.config.max_interventions_total:
-            logger.debug(f"trickster_limit round={round_num}")
+            logger.debug("trickster_limit round=%s", round_num)
             return intervention
 
         # Track state
@@ -320,9 +320,7 @@ class EvidencePoweredTrickster:
         self._state.total_interventions += 1
 
         logger.info(
-            f"trickster_intervene round={round_num} "
-            f"type={intervention.intervention_type.value} "
-            f"targets={intervention.target_agents}"
+            "trickster_intervene round=%s type=%s targets=%s", round_num, intervention.intervention_type.value, intervention.target_agents
         )
 
         if self.on_intervention:
@@ -618,14 +616,14 @@ class EvidencePoweredTrickster:
         rounds_since = round_num - self._state.last_intervention_round
         if rounds_since < self.config.intervention_cooldown_rounds:
             logger.debug(
-                f"novelty_challenge_cooldown round={round_num} rounds_since={rounds_since}"
+                "novelty_challenge_cooldown round=%s rounds_since=%s", round_num, rounds_since
             )
             return None
 
         # Check max interventions
         if self._state.total_interventions >= self.config.max_interventions_total:
             logger.debug(
-                f"novelty_challenge_limit round={round_num} total={self._state.total_interventions}"
+                "novelty_challenge_limit round=%s total=%s", round_num, self._state.total_interventions
             )
             return None
 

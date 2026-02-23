@@ -151,7 +151,7 @@ class AgentScheduler:
                 }
                 if pending_deps:
                     # Wait for dependencies
-                    logger.debug(f"Task {task.id} waiting on dependencies: {pending_deps}")
+                    logger.debug("Task %s waiting on dependencies: %s", task.id, pending_deps)
                     return handle
 
             # Add to priority queue
@@ -172,7 +172,7 @@ class AgentScheduler:
 
             self._tasks_scheduled += 1
             logger.debug(
-                f"Scheduled task {task.id} for agent {agent_id} (priority={priority.name})"
+                "Scheduled task %s for agent %s (priority=%s)", task.id, agent_id, priority.name
             )
 
             return handle
@@ -206,7 +206,7 @@ class AgentScheduler:
             # Notify dependents
             await self._handle_task_complete(task_id, success=False)
 
-            logger.info(f"Cancelled task {task_id}")
+            logger.info("Cancelled task %s", task_id)
             return True
 
     async def get_status(self, task_id: str) -> TaskStatus | None:
@@ -253,7 +253,7 @@ class AgentScheduler:
             handle.started_at = datetime.now(timezone.utc)
             self._agent_running[agent_id].add(task.id)
 
-            logger.debug(f"Agent {agent_id} starting task {task.id}")
+            logger.debug("Agent %s starting task %s", agent_id, task.id)
             return task
 
     async def complete_task(
@@ -302,9 +302,9 @@ class AgentScheduler:
                 try:
                     await callback(handle)
                 except (RuntimeError, ValueError, AttributeError) as e:  # user-supplied callback
-                    logger.warning(f"Callback error for task {task_id}: {e}")
+                    logger.warning("Callback error for task %s: %s", task_id, e)
 
-            logger.debug(f"Task {task_id} completed (status={handle.status.value})")
+            logger.debug("Task %s completed (status=%s)", task_id, handle.status.value)
 
     async def _handle_task_complete(self, task_id: str, success: bool) -> None:
         """Handle task completion and unblock dependents."""
@@ -335,7 +335,7 @@ class AgentScheduler:
                         )
                         heappush(self._agent_queues[handle.agent_id], priority_task)
                         handle.status = TaskStatus.SCHEDULED
-                        logger.debug(f"Dependency resolved, scheduled task {dep_task_id}")
+                        logger.debug("Dependency resolved, scheduled task %s", dep_task_id)
                 else:
                     # Dependency failed, fail this task too
                     handle = self._tasks.get(dep_task_id)
@@ -343,7 +343,7 @@ class AgentScheduler:
                         handle.status = TaskStatus.FAILED
                         handle.error = f"Dependency {task_id} failed"
                         handle.completed_at = datetime.now(timezone.utc)
-                        logger.debug(f"Task {dep_task_id} failed due to dependency failure")
+                        logger.debug("Task %s failed due to dependency failure", dep_task_id)
 
     def on_complete(
         self,

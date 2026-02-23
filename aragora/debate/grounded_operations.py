@@ -88,10 +88,10 @@ class GroundedOperations:
             )
         except (AttributeError, TypeError, ValueError) as e:
             # Expected parameter or state errors
-            logger.warning(f"Position ledger error: {e}")
+            logger.warning("Position ledger error: %s", e)
         except (KeyError, RuntimeError, OSError) as e:
             # Unexpected error - log type for debugging
-            logger.warning(f"Position ledger error (type={type(e).__name__}): {e}")
+            logger.warning("Position ledger error (type=%s): %s", type(e).__name__, e)
 
     def update_relationships(
         self,
@@ -142,10 +142,10 @@ class GroundedOperations:
             self.elo_system.update_relationships_batch(updates)
         except (AttributeError, TypeError, KeyError) as e:
             # Expected data access errors
-            logger.warning(f"Relationship update error: {e}")
+            logger.warning("Relationship update error: %s", e)
         except (ValueError, RuntimeError, OSError) as e:
             # Unexpected error - log type for debugging
-            logger.warning(f"Relationship update error (type={type(e).__name__}): {e}")
+            logger.warning("Relationship update error (type=%s): %s", type(e).__name__, e)
 
     def create_grounded_verdict(self, result: DebateResult) -> Any:
         """Create a GroundedVerdict for the final answer.

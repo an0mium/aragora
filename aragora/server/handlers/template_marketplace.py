@@ -418,9 +418,7 @@ def _init_persistent_store() -> bool:
             )
 
         logger.warning(
-            f"TEMPLATE MARKETPLACE: Persistent storage unavailable ({e}). "
-            "Using in-memory fallback - TEMPLATES AND REVIEWS WILL BE LOST ON RESTART! "
-            "Set ARAGORA_MULTI_INSTANCE=true to enforce persistent storage."
+            "TEMPLATE MARKETPLACE: Persistent storage unavailable (%s). Using in-memory fallback - TEMPLATES AND REVIEWS WILL BE LOST ON RESTART! Set ARAGORA_MULTI_INSTANCE=true to enforce persistent storage.", e
         )
         _use_persistent_store = False
         return False

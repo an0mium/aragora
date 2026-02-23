@@ -310,7 +310,7 @@ class KeyRotationScheduler:
             try:
                 self._event_callback(event_type, data)
             except (TypeError, ValueError, AttributeError, RuntimeError, OSError) as e:
-                logger.warning(f"Failed to emit event {event_type}: {e}")
+                logger.warning("Failed to emit event %s: %s", event_type, e)
 
     def _record_metric(
         self,
@@ -329,7 +329,7 @@ class KeyRotationScheduler:
         except (ImportError, AttributeError):
             pass
         except (TypeError, ValueError, RuntimeError, OSError) as e:
-            logger.debug(f"Failed to record metric: {e}")
+            logger.debug("Failed to record metric: %s", e)
 
     async def start(self) -> None:
         """Start the key rotation scheduler."""
@@ -342,9 +342,7 @@ class KeyRotationScheduler:
         self._stats.status = SchedulerStatus.RUNNING
 
         logger.info(
-            f"Starting key rotation scheduler "
-            f"(interval={self._config.rotation_interval_days}d, "
-            f"check_every={self._config.check_interval_hours}h)"
+            "Starting key rotation scheduler (interval=%sd, check_every=%sh)", self._config.rotation_interval_days, self._config.check_interval_hours
         )
 
         # Start the rotation check loop
@@ -472,7 +470,7 @@ class KeyRotationScheduler:
 
             return detect_cloud_provider()
         except (ImportError, AttributeError, ValueError, RuntimeError) as e:
-            logger.debug(f"Could not detect cloud provider, defaulting to local: {e}")
+            logger.debug("Could not detect cloud provider, defaulting to local: %s", e)
             return "local"
 
     async def _run_rotation_checks(self) -> None:
@@ -504,7 +502,7 @@ class KeyRotationScheduler:
                 ConnectionError,
                 TimeoutError,
             ) as e:
-                logger.error(f"Key rotation check error: {e}")
+                logger.error("Key rotation check error: %s", e)
                 self._status = SchedulerStatus.ERROR
                 self._stats.status = SchedulerStatus.ERROR
                 await asyncio.sleep(60)
@@ -552,8 +550,7 @@ class KeyRotationScheduler:
 
             try:
                 logger.info(
-                    f"Starting key rotation job {job.id} "
-                    f"(key={job.key_id}, provider={job.provider})"
+                    "Starting key rotation job %s (key=%s, provider=%s)", job.id, job.key_id, job.provider
                 )
 
                 # Perform rotation based on provider
@@ -613,7 +610,7 @@ class KeyRotationScheduler:
                 self._stats.last_rotation_at = job.completed_at
                 self._stats.last_rotation_status = "failed"
 
-                logger.error(f"Key rotation job {job.id} failed: {e}")
+                logger.error("Key rotation job %s failed: %s", job.id, e)
 
                 if self._config.notify_on_failure:
                     self._emit_event(
@@ -629,7 +626,7 @@ class KeyRotationScheduler:
                 # Retry if configured
                 if job.retries < self._config.max_retries:
                     job.retries += 1
-                    logger.info(f"Retrying rotation job {job.id} (attempt {job.retries})")
+                    logger.info("Retrying rotation job %s (attempt %s)", job.id, job.retries)
                     await asyncio.sleep(self._config.retry_delay_seconds)
                     await self._execute_rotation(job)
 
@@ -654,7 +651,7 @@ class KeyRotationScheduler:
         new_meta = await provider.rotate_key(job.key_id)
         job.new_version = int(new_meta.version) if new_meta.version else job.old_version + 1
 
-        logger.info(f"Vault key {job.key_id} rotated: v{job.old_version} -> v{job.new_version}")
+        logger.info("Vault key %s rotated: v%s -> v%s", job.key_id, job.old_version, job.new_version)
 
     async def _rotate_cloud_key(self, job: KeyRotationJob) -> None:
         """Rotate a key in cloud KMS (AWS/Azure/GCP)."""
@@ -674,7 +671,7 @@ class KeyRotationScheduler:
         job.metadata["key_generated"] = True
         job.metadata["key_length"] = len(new_key)
 
-        logger.info(f"Cloud key {job.key_id} rotated via new data key generation")
+        logger.info("Cloud key %s rotated via new data key generation", job.key_id)
 
     async def _rotate_local_key(self, job: KeyRotationJob) -> None:
         """Rotate a local encryption key."""
@@ -691,7 +688,7 @@ class KeyRotationScheduler:
         new_key = service.rotate_key(job.key_id if job.key_id != "all" else None)
         job.new_version = new_key.version
 
-        logger.info(f"Local key {new_key.key_id} rotated: v{job.old_version} -> v{job.new_version}")
+        logger.info("Local key %s rotated: v%s -> v%s", new_key.key_id, job.old_version, job.new_version)
 
     def get_stats(self) -> SchedulerStats:
         """Get scheduler statistics."""

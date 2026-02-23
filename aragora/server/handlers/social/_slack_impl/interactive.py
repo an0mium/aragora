@@ -48,7 +48,7 @@ class InteractiveMixin(MessagingMixin):
             try:
                 payload = json.loads(payload_str)
             except json.JSONDecodeError as e:
-                logger.error(f"Invalid JSON in Slack interactive payload: {e}")
+                logger.error("Invalid JSON in Slack interactive payload: %s", e)
                 return error_response("Invalid JSON payload", 400)
 
             action_type = payload.get("type")
@@ -57,7 +57,7 @@ class InteractiveMixin(MessagingMixin):
             team = payload.get("team", {})
             team_id = team.get("id", _team_id or "")
 
-            logger.info(f"Interactive action from {user_id}: {action_type}")
+            logger.info("Interactive action from %s: %s", user_id, action_type)
 
             # Audit log the interactive action
             audit = _get_audit_logger()
@@ -85,10 +85,10 @@ class InteractiveMixin(MessagingMixin):
             return json_response({"text": "Action received"})
 
         except (ValueError, KeyError, TypeError) as e:
-            logger.warning(f"Invalid interactive payload data: {e}")
+            logger.warning("Invalid interactive payload data: %s", e)
             return json_response({"text": "Sorry, an error occurred while processing your request."})
         except (ValueError, KeyError, TypeError, RuntimeError, OSError, ConnectionError) as e:
-            logger.exception(f"Unexpected interactive handler error: {e}")
+            logger.exception("Unexpected interactive handler error: %s", e)
             return json_response({"text": "Sorry, an error occurred while processing your request."})
 
     def _handle_vote_action(self, payload: dict[str, Any], action: dict[str, Any]) -> HandlerResult:
@@ -104,7 +104,7 @@ class InteractiveMixin(MessagingMixin):
             debate_id = parts[1]
             vote_option = parts[2]  # 'agree' or 'disagree'
 
-            logger.info(f"Vote received: {debate_id} -> {vote_option} from {user_id}")
+            logger.info("Vote received: %s -> %s from %s", debate_id, vote_option, user_id)
 
             # Record vote in debate system
             try:
@@ -118,9 +118,9 @@ class InteractiveMixin(MessagingMixin):
                         vote=vote_option,
                         source="slack",
                     )
-                    logger.info(f"Vote recorded: {debate_id} -> {vote_option}")
+                    logger.info("Vote recorded: %s -> %s", debate_id, vote_option)
             except (ImportError, KeyError, OSError, RuntimeError) as e:
-                logger.warning(f"Failed to record vote in storage: {e}")
+                logger.warning("Failed to record vote in storage: %s", e)
 
             # Try to record in vote aggregator if available
             try:
@@ -131,7 +131,7 @@ class InteractiveMixin(MessagingMixin):
                     position = "for" if vote_option == "agree" else "against"
                     aggregator.record_vote(debate_id, f"slack:{user_id}", position)
             except (ImportError, AttributeError) as e:
-                logger.debug(f"Vote aggregator not available: {e}")
+                logger.debug("Vote aggregator not available: %s", e)
 
             emoji = "\U0001f44d" if vote_option == "agree" else "\U0001f44e"
             return json_response(
@@ -166,7 +166,7 @@ class InteractiveMixin(MessagingMixin):
             if db:
                 debate_data = db.get(debate_id)
         except (ImportError, KeyError, OSError, RuntimeError) as e:
-            logger.warning(f"Failed to fetch debate details: {e}")
+            logger.warning("Failed to fetch debate details: %s", e)
 
         if not debate_data:
             return json_response(

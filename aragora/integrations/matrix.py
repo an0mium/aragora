@@ -208,11 +208,11 @@ class MatrixIntegration:
                     return True
                 else:
                     text_response = await response.text()
-                    logger.error(f"Matrix API error: {response.status} - {text_response}")
+                    logger.error("Matrix API error: %s - %s", response.status, text_response)
                     return False
 
         except aiohttp.ClientError as e:
-            logger.error(f"Matrix connection error: {e}")
+            logger.error("Matrix connection error: %s", e)
             return False
         except asyncio.TimeoutError:
             logger.error("Matrix request timed out")
@@ -431,14 +431,14 @@ class MatrixIntegration:
             ) as response:
                 if response.status == 200:
                     data = await response.json()
-                    logger.info(f"Matrix connected as: {data.get('user_id')}")
+                    logger.info("Matrix connected as: %s", data.get('user_id'))
                     return True
                 else:
-                    logger.error(f"Matrix auth failed: {response.status}")
+                    logger.error("Matrix auth failed: %s", response.status)
                     return False
 
         except aiohttp.ClientError as e:
-            logger.error(f"Matrix connection failed: {e}")
+            logger.error("Matrix connection failed: %s", e)
             return False
         except asyncio.TimeoutError:
             logger.error("Matrix connection verification timed out")
@@ -467,15 +467,15 @@ class MatrixIntegration:
                 timeout=aiohttp.ClientTimeout(total=10),
             ) as response:
                 if response.status == 200:
-                    logger.info(f"Joined Matrix room: {room_id}")
+                    logger.info("Joined Matrix room: %s", room_id)
                     return True
                 else:
                     text = await response.text()
-                    logger.error(f"Failed to join room: {response.status} - {text}")
+                    logger.error("Failed to join room: %s - %s", response.status, text)
                     return False
 
         except aiohttp.ClientError as e:
-            logger.error(f"Matrix join room failed: {e}")
+            logger.error("Matrix join room failed: %s", e)
             return False
         except asyncio.TimeoutError:
             logger.error("Matrix join room request timed out")

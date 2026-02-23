@@ -57,7 +57,7 @@ def database_schema_health(handler: _HealthHandlerProtocol) -> HandlerResult:
             status=503,
         )
     except (KeyError, ValueError, OSError, TypeError, AttributeError, RuntimeError) as e:
-        logger.exception(f"Database schema health check failed: {e}")
+        logger.exception("Database schema health check failed: %s", e)
         return json_response(
             {
                 "status": "error",

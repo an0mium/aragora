@@ -243,8 +243,7 @@ class ImmutableAuditLog:
             self._last_entry = entry
 
             logger.debug(
-                f"Audit entry appended: seq={sequence} type={event_type} "
-                f"resource={resource_type}/{resource_id}"
+                "Audit entry appended: seq=%s type=%s resource=%s/%s", sequence, event_type, resource_type, resource_id
             )
 
             return entry
@@ -398,7 +397,7 @@ class ImmutableAuditLog:
         )
 
         await self.backend.save_anchor(anchor)
-        logger.info(f"Created daily anchor for {date}: {len(entries)} entries")
+        logger.info("Created daily anchor for %s: %s entries", date, len(entries))
 
         return anchor
 

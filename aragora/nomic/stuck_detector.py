@@ -236,7 +236,7 @@ class StuckDetector:
             except asyncio.CancelledError:
                 break
             except (RuntimeError, ValueError, OSError) as e:
-                logger.error(f"Monitoring loop error: {e}")
+                logger.error("Monitoring loop error: %s", e)
                 await asyncio.sleep(5)
 
     def _classify_age(self, time_since_update: timedelta) -> WorkAge:
@@ -385,7 +385,7 @@ class StuckDetector:
                     else:
                         callback(item, action)
                 except Exception as e:  # noqa: BLE001 - callback errors must not break detector
-                    logger.error(f"Callback error: {e}")
+                    logger.error("Callback error: %s", e)
 
             # Take action
             if action == RecoveryAction.NOTIFY:
@@ -423,8 +423,7 @@ class StuckDetector:
                     )
                     if new_assignment:
                         logger.info(
-                            f"Reassigned stuck bead {bead_id} from {item.agent_id} "
-                            f"to {new_assignment.agent_id}"
+                            "Reassigned stuck bead %s from %s to %s", bead_id, item.agent_id, new_assignment.agent_id
                         )
                         return True
 
@@ -437,7 +436,7 @@ class StuckDetector:
                 bead.status = BeadStatus.PENDING
                 bead.claimed_by = None
                 await self.bead_store.update(bead)
-                logger.info(f"Reset stuck bead {item.id} to pending")
+                logger.info("Reset stuck bead %s to pending", item.id)
                 return True
 
         return False
@@ -455,10 +454,10 @@ class StuckDetector:
                     "title": item.title,
                 },
             )
-            logger.info(f"Escalated stuck work {item.id}")
+            logger.info("Escalated stuck work %s", item.id)
             return True
 
-        logger.warning(f"Would escalate {item.id} but no escalation store configured")
+        logger.warning("Would escalate %s but no escalation store configured", item.id)
         return False
 
     async def _do_cancel(self, item: StuckWorkItem) -> bool:
@@ -473,7 +472,7 @@ class StuckDetector:
                     f"Cancelled after {item.previous_recoveries} failed recovery attempts"
                 )
                 await self.bead_store.update(bead)
-                logger.warning(f"Cancelled stuck bead {item.id}")
+                logger.warning("Cancelled stuck bead %s", item.id)
                 return True
 
         elif item.work_type == "assignment" and self.coordinator:
@@ -486,7 +485,7 @@ class StuckDetector:
                     AssignmentStatus.FAILED,
                     f"Failed after {item.previous_recoveries} recovery attempts",
                 )
-                logger.warning(f"Cancelled stuck assignment {item.id}")
+                logger.warning("Cancelled stuck assignment %s", item.id)
                 return True
 
         return False
@@ -502,7 +501,7 @@ class StuckDetector:
             if bead and hasattr(bead, "status"):
                 bead.status = "pending"
                 await self.bead_store.update(bead)
-                logger.info(f"Reset stuck bead {item.id} to pending for retry")
+                logger.info("Reset stuck bead %s to pending for retry", item.id)
                 return True
 
         elif item.work_type == "assignment" and self.coordinator:
@@ -515,10 +514,10 @@ class StuckDetector:
                     AssignmentStatus.PENDING,
                     "Retrying after stuck detection",
                 )
-                logger.info(f"Reset stuck assignment {item.id} to pending for retry")
+                logger.info("Reset stuck assignment %s to pending for retry", item.id)
                 return True
 
-        logger.info(f"Cannot retry {item.id} ({item.work_type}): no store available")
+        logger.info("Cannot retry %s (%s): no store available", item.id, item.work_type)
         return False
 
     async def check_item(self, item_id: str, work_type: str) -> StuckWorkItem | None:

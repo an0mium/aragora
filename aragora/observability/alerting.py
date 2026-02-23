@@ -267,11 +267,11 @@ class SlackNotificationChannel(NotificationChannel):
 
             # Send via HTTP
             await self._post_webhook(payload)
-            logger.info(f"Slack notification sent for alert {alert.rule_name}")
+            logger.info("Slack notification sent for alert %s", alert.rule_name)
             return True
 
         except (OSError, ConnectionError, ValueError) as e:
-            logger.error(f"Failed to send Slack notification: {e}")
+            logger.error("Failed to send Slack notification: %s", e)
             return False
 
     def _get_severity_color(self, severity: AlertSeverity) -> str:
@@ -385,12 +385,11 @@ class EmailNotificationChannel(NotificationChannel):
             loop = asyncio.get_running_loop()
             await loop.run_in_executor(None, self._send_email_sync, alert, rule)
             logger.info(
-                f"Email notification sent for alert {alert.rule_name} "
-                f"to {len(self.recipients)} recipients"
+                "Email notification sent for alert %s to %s recipients", alert.rule_name, len(self.recipients)
             )
             return True
         except (OSError, smtplib.SMTPException, ConnectionError) as e:
-            logger.error(f"Failed to send email notification: {e}")
+            logger.error("Failed to send email notification: %s", e)
             return False
 
     def _send_email_sync(self, alert: Alert, rule: AlertRule) -> None:
@@ -480,10 +479,10 @@ class PrometheusAlertManagerChannel(NotificationChannel):
         try:
             payload = self._build_alertmanager_payload(alert, rule)
             await self._post_alert(payload)
-            logger.info(f"Prometheus AlertManager notification sent for {alert.rule_name}")
+            logger.info("Prometheus AlertManager notification sent for %s", alert.rule_name)
             return True
         except (OSError, ConnectionError, ValueError) as e:
-            logger.error(f"Failed to send AlertManager notification: {e}")
+            logger.error("Failed to send AlertManager notification: %s", e)
             return False
 
     def _build_alertmanager_payload(self, alert: Alert, rule: AlertRule) -> list[dict[str, Any]]:
@@ -559,27 +558,27 @@ class MetricsCollector:
         try:
             await self._collect_agent_metrics(snapshot)
         except Exception as e:  # noqa: BLE001 - observability must not crash app
-            logger.debug(f"Error collecting agent metrics: {e}")
+            logger.debug("Error collecting agent metrics: %s", e)
 
         try:
             await self._collect_debate_metrics(snapshot)
         except Exception as e:  # noqa: BLE001 - observability must not crash app
-            logger.debug(f"Error collecting debate metrics: {e}")
+            logger.debug("Error collecting debate metrics: %s", e)
 
         try:
             await self._collect_queue_metrics(snapshot)
         except Exception as e:  # noqa: BLE001 - observability must not crash app
-            logger.debug(f"Error collecting queue metrics: {e}")
+            logger.debug("Error collecting queue metrics: %s", e)
 
         try:
             await self._collect_memory_metrics(snapshot)
         except Exception as e:  # noqa: BLE001 - observability must not crash app
-            logger.debug(f"Error collecting memory metrics: {e}")
+            logger.debug("Error collecting memory metrics: %s", e)
 
         try:
             await self._collect_api_metrics(snapshot)
         except Exception as e:  # noqa: BLE001 - observability must not crash app
-            logger.debug(f"Error collecting API metrics: {e}")
+            logger.debug("Error collecting API metrics: %s", e)
 
         return snapshot
 
@@ -722,13 +721,13 @@ class AlertManager:
     def add_rule(self, rule: AlertRule) -> None:
         """Add an alert rule."""
         self._rules[rule.name] = rule
-        logger.info(f"Added alert rule: {rule.name}")
+        logger.info("Added alert rule: %s", rule.name)
 
     def remove_rule(self, rule_name: str) -> bool:
         """Remove an alert rule. Returns True if rule existed."""
         if rule_name in self._rules:
             del self._rules[rule_name]
-            logger.info(f"Removed alert rule: {rule_name}")
+            logger.info("Removed alert rule: %s", rule_name)
             return True
         return False
 
@@ -743,7 +742,7 @@ class AlertManager:
     def add_channel(self, channel: NotificationChannel) -> None:
         """Add a notification channel."""
         self._channels[channel.get_name()] = channel
-        logger.info(f"Added notification channel: {channel.get_name()}")
+        logger.info("Added notification channel: %s", channel.get_name())
 
     def remove_channel(self, channel_name: str) -> bool:
         """Remove a notification channel."""
@@ -770,7 +769,7 @@ class AlertManager:
             if alert.id == alert_id:
                 # Set a high notification count to effectively silence
                 alert.notification_count = 999999
-                logger.info(f"Alert {alert_id} acknowledged")
+                logger.info("Alert %s acknowledged", alert_id)
                 return True
         return False
 
@@ -781,7 +780,7 @@ class AlertManager:
             alert.state = AlertState.RESOLVED
             alert.resolved_at = datetime.now(timezone.utc)
             del self._active_alerts[rule_name]
-            logger.info(f"Alert {rule_name} manually resolved")
+            logger.info("Alert %s manually resolved", rule_name)
             return True
         return False
 
@@ -806,8 +805,7 @@ class AlertManager:
         self._running = True
         self._task = asyncio.create_task(self._monitor_loop())
         logger.info(
-            f"Alert monitoring started (interval: {self.check_interval}s, "
-            f"rules: {len(self._rules)}, channels: {len(self._channels)})"
+            "Alert monitoring started (interval: %ss, rules: %s, channels: %s)", self.check_interval, len(self._rules), len(self._channels)
         )
 
     async def stop_monitoring(self) -> None:
@@ -828,7 +826,7 @@ class AlertManager:
             try:
                 await self.evaluate_rules()
             except Exception as e:  # noqa: BLE001 - observability must not crash app
-                logger.error(f"Error in alert monitoring loop: {e}")
+                logger.error("Error in alert monitoring loop: %s", e)
 
             await asyncio.sleep(self.check_interval)
 
@@ -846,7 +844,7 @@ class AlertManager:
                 try:
                     condition_met = rule.condition(metrics_dict)
                 except Exception as e:  # noqa: BLE001 - observability must not crash app
-                    logger.error(f"Error evaluating rule {rule_name}: {e}")
+                    logger.error("Error evaluating rule %s: %s", rule_name, e)
                     continue
 
                 if condition_met:
@@ -997,7 +995,7 @@ class AlertManager:
             channel = self._channels.get(channel_name)
             if not channel:
                 logger.warning(
-                    f"Notification channel '{channel_name}' not configured for alert {rule.name}"
+                    "Notification channel '%s' not configured for alert %s", channel_name, rule.name
                 )
                 continue
 
@@ -1015,7 +1013,7 @@ class AlertManager:
 
             except (OSError, ConnectionError, RuntimeError, ValueError) as e:
                 logger.error(
-                    f"Failed to send notification via {channel_name} for alert {rule.name}: {e}"
+                    "Failed to send notification via %s for alert %s: %s", channel_name, rule.name, e
                 )
 
 
@@ -1278,9 +1276,7 @@ def init_alerting(
             _global_manager.add_rule(rule)
 
     logger.info(
-        f"Alerting initialized: "
-        f"rules={len(_global_manager.get_rules())}, "
-        f"channels={list(_global_manager._channels.keys())}"
+        "Alerting initialized: rules=%s, channels=%s", len(_global_manager.get_rules()), list(_global_manager._channels.keys())
     )
 
     return _global_manager

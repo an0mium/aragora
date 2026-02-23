@@ -112,7 +112,7 @@ class SemanticSearchMixin:
                 if result is not None:
                     return result
             except (RuntimeError, ValueError, OSError, AttributeError) as e:
-                logger.debug(f"get() method failed for {record_id}: {e}")
+                logger.debug("get() method failed for %s: %s", record_id, e)
 
         # Strategy 2: Try _source.get() if _source exists
         source = getattr(self, "_source", None)
@@ -124,7 +124,7 @@ class SemanticSearchMixin:
                     if result is not None:
                         return result
                 except (RuntimeError, ValueError, AttributeError, KeyError) as e:  # noqa: BLE001 - adapter isolation
-                    logger.debug(f"_source.get() failed for {record_id}: {e}")
+                    logger.debug("_source.get() failed for %s: %s", record_id, e)
 
         # Strategy 3: Look up in common storage attributes
         for attr_name in ("_records", "_items", "_data", "_beliefs", "_cruxes"):
@@ -138,8 +138,7 @@ class SemanticSearchMixin:
                     return storage[stripped_id]
 
         logger.debug(
-            f"[{self.adapter_name}] Record not found: {record_id}. "
-            f"Override _get_record_by_id() for custom lookup logic."
+            "[%s] Record not found: %s. Override _get_record_by_id() for custom lookup logic.", self.adapter_name, record_id
         )
         return None
 
@@ -176,7 +175,7 @@ class SemanticSearchMixin:
                 result["similarity"] = similarity
                 return result
             except (RuntimeError, ValueError, OSError, AttributeError) as e:
-                logger.debug(f"to_dict() failed: {e}")
+                logger.debug("to_dict() failed: %s", e)
 
         # Is a dataclass
         try:
@@ -187,7 +186,7 @@ class SemanticSearchMixin:
                 result["similarity"] = similarity
                 return result
         except (RuntimeError, ValueError, OSError, AttributeError) as e:
-            logger.debug(f"dataclasses.asdict() failed: {e}")
+            logger.debug("dataclasses.asdict() failed: %s", e)
 
         # Extract common attributes manually
         result = {"similarity": similarity}
@@ -303,8 +302,7 @@ class SemanticSearchMixin:
 
                 success = True
                 logger.debug(
-                    f"[{self.adapter_name}] Semantic search returned "
-                    f"{len(enriched)} results for '{query[:50]}'"
+                    "[%s] Semantic search returned %s results for '%s'", self.adapter_name, len(enriched), query[:50]
                 )
 
                 # Emit event - _emit_event provided by KnowledgeMoundAdapter via inheritance
@@ -323,11 +321,10 @@ class SemanticSearchMixin:
 
             except ImportError:
                 logger.debug(
-                    f"[{self.adapter_name}] SemanticStore not available, "
-                    "falling back to keyword search"
+                    "[%s] SemanticStore not available, falling back to keyword search", self.adapter_name
                 )
             except (RuntimeError, ValueError, OSError, AttributeError) as e:
-                logger.debug(f"[{self.adapter_name}] Semantic search failed, falling back: {e}")
+                logger.debug("[%s] Semantic search failed, falling back: %s", self.adapter_name, e)
 
             # Fallback to keyword search
             fallback_results: list[dict[str, Any]]

@@ -208,7 +208,7 @@ class ArenaEventAdapter:
                 )
                 await self.stream_server.broadcast(event)
             except (ImportError, RuntimeError, ValueError, TypeError, OSError, ConnectionError, AttributeError) as e:
-                logger.warning(f"Failed to emit event {event_type}: {e}")
+                logger.warning("Failed to emit event %s: %s", event_type, e)
 
         # Also update shared state if available
         if self.shared_state:
@@ -222,7 +222,7 @@ class ArenaEventAdapter:
                     },
                 )
             except (RuntimeError, ValueError, TypeError, OSError, ConnectionError, AttributeError) as e:
-                logger.debug(f"Failed to update shared state: {e}")
+                logger.debug("Failed to update shared state: %s", e)
 
     def _ensure_agent_metrics(self, agent_id: str) -> AgentMetrics:
         """Get or create agent metrics."""
@@ -589,7 +589,7 @@ class ArenaControlPlaneBridge:
                         workspace_id=workspace_id,
                     )
                 except (RuntimeError, ValueError, TypeError, OSError, AttributeError) as e:
-                    logger.debug(f"Failed to log deliberation start: {e}")
+                    logger.debug("Failed to log deliberation start: %s", e)
 
             try:
                 # Run the debate
@@ -625,7 +625,7 @@ class ArenaControlPlaneBridge:
                         )
                         record_deliberation_sla(sla_level)
                     except (RuntimeError, ValueError, TypeError, OSError, AttributeError) as e:
-                        logger.debug(f"Failed to record SLA compliance metric: {e}")
+                        logger.debug("Failed to record SLA compliance metric: %s", e)
 
                 # Build outcome
                 outcome = DeliberationOutcome(
@@ -654,7 +654,7 @@ class ArenaControlPlaneBridge:
                             winner=result.winner,
                         )
                     except (RuntimeError, ValueError, TypeError, OSError, AttributeError) as e:
-                        logger.debug(f"Failed to log deliberation completion: {e}")
+                        logger.debug("Failed to log deliberation completion: %s", e)
 
                 # Record Prometheus metrics
                 if HAS_PROMETHEUS and record_deliberation_complete:
@@ -668,7 +668,7 @@ class ArenaControlPlaneBridge:
                             agent_count=len(agents),
                         )
                     except (RuntimeError, ValueError, TypeError, OSError, AttributeError) as e:
-                        logger.debug(f"Failed to record deliberation metrics: {e}")
+                        logger.debug("Failed to record deliberation metrics: %s", e)
 
                 # Record agent utilization metrics
                 if HAS_PROMETHEUS and record_agent_utilization and agent_performances:
@@ -681,14 +681,14 @@ class ArenaControlPlaneBridge:
                             )
                             record_agent_utilization(agent_id, utilization)
                     except (RuntimeError, ValueError, TypeError, OSError, AttributeError) as e:
-                        logger.debug(f"Failed to record agent utilization: {e}")
+                        logger.debug("Failed to record agent utilization: %s", e)
 
                 # Fire ELO callback if provided
                 if self.elo_callback and agent_performances:
                     try:
                         self.elo_callback(agent_performances)
                     except (RuntimeError, ValueError, TypeError, OSError, AttributeError) as e:
-                        logger.error(f"ELO callback failed: {e}")
+                        logger.error("ELO callback failed: %s", e)
 
                 # Emit completion event
                 await adapter.on_debate_complete(result, success=True)
@@ -719,13 +719,13 @@ class ArenaControlPlaneBridge:
                         agent_count=len(agents),
                     )
                 except (RuntimeError, ValueError, TypeError, OSError, AttributeError) as e:
-                    logger.debug(f"Failed to record timeout metrics: {e}")
+                    logger.debug("Failed to record timeout metrics: %s", e)
 
             if HAS_PROMETHEUS and record_deliberation_sla:
                 try:
                     record_deliberation_sla("violated")
                 except (RuntimeError, ValueError, TypeError, OSError, AttributeError) as e:
-                    logger.debug(f"Failed to record SLA violation: {e}")
+                    logger.debug("Failed to record SLA violation: %s", e)
 
             await adapter.on_debate_complete(
                 None,
@@ -760,7 +760,7 @@ class ArenaControlPlaneBridge:
                         agent_count=len(agents),
                     )
                 except (RuntimeError, ValueError, TypeError, OSError, AttributeError) as exc:
-                    logger.debug(f"Failed to record failure metrics: {exc}")
+                    logger.debug("Failed to record failure metrics: %s", exc)
 
             await adapter.on_debate_complete(
                 None,
@@ -871,13 +871,13 @@ class ArenaControlPlaneBridge:
                             timeout_seconds=task.sla.timeout_seconds,
                         )
                     except (RuntimeError, ValueError, TypeError, OSError, AttributeError) as e:
-                        logger.debug(f"Failed to log SLA warning: {e}")
+                        logger.debug("Failed to log SLA warning: %s", e)
                 # Record Prometheus metric
                 if HAS_PROMETHEUS and record_deliberation_sla:
                     try:
                         record_deliberation_sla("warning")
                     except (RuntimeError, ValueError, TypeError, OSError, AttributeError) as e:
-                        logger.debug(f"Failed to record SLA warning metric: {e}")
+                        logger.debug("Failed to record SLA warning metric: %s", e)
                 warning_sent = True
 
             elif compliance == SLAComplianceLevel.CRITICAL and not critical_sent:
@@ -892,13 +892,13 @@ class ArenaControlPlaneBridge:
                             timeout_seconds=task.sla.timeout_seconds,
                         )
                     except (RuntimeError, ValueError, TypeError, OSError, AttributeError) as e:
-                        logger.debug(f"Failed to log SLA critical: {e}")
+                        logger.debug("Failed to log SLA critical: %s", e)
                 # Record Prometheus metric
                 if HAS_PROMETHEUS and record_deliberation_sla:
                     try:
                         record_deliberation_sla("critical")
                     except (RuntimeError, ValueError, TypeError, OSError, AttributeError) as e:
-                        logger.debug(f"Failed to record SLA critical metric: {e}")
+                        logger.debug("Failed to record SLA critical metric: %s", e)
                 critical_sent = True
 
             elif compliance == SLAComplianceLevel.VIOLATED:
@@ -919,13 +919,13 @@ class ArenaControlPlaneBridge:
                             timeout_seconds=task.sla.timeout_seconds,
                         )
                     except (RuntimeError, ValueError, TypeError, OSError, AttributeError) as e:
-                        logger.debug(f"Failed to log SLA violation: {e}")
+                        logger.debug("Failed to log SLA violation: %s", e)
                 # Record Prometheus metric
                 if HAS_PROMETHEUS and record_deliberation_sla:
                     try:
                         record_deliberation_sla("violated")
                     except (RuntimeError, ValueError, TypeError, OSError, AttributeError) as e:
-                        logger.debug(f"Failed to record SLA violation metric: {e}")
+                        logger.debug("Failed to record SLA violation metric: %s", e)
                 break
 
     def _extract_agent_performance(

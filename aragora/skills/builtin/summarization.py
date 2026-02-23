@@ -147,7 +147,7 @@ class SummarizationSkill(Skill):
             )
 
         except (RuntimeError, ValueError, OSError) as e:
-            logger.exception(f"Summarization failed: {e}")
+            logger.exception("Summarization failed: %s", e)
             return SkillResult.create_failure(f"Summarization failed: {e}")
 
     async def _abstractive_summarize(
@@ -344,7 +344,7 @@ TL;DR:"""
                 response = await llm(prompt)
                 return str(response)
         except (ConnectionError, TimeoutError, OSError, RuntimeError, ValueError) as e:
-            logger.warning(f"LLM call failed: {e}")
+            logger.warning("LLM call failed: %s", e)
             raise
 
 

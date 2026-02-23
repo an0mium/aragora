@@ -44,7 +44,7 @@ async def get_pagerduty_connector(tenant_id: str):
         except ImportError:
             return None
         except (ConnectionError, TimeoutError, OSError, ValueError, RuntimeError) as e:
-            logger.error(f"Failed to initialize PagerDuty connector: {e}")
+            logger.error("Failed to initialize PagerDuty connector: %s", e)
             return None
 
     return _connector_instances.get(tenant_id)

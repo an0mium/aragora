@@ -772,9 +772,9 @@ class CodeReviewOrchestrator:
                     comments=comments,
                 )
                 if success:
-                    logger.info(f"Posted review to {pr_url} with {len(comments)} comments")
+                    logger.info("Posted review to %s with %s comments", pr_url, len(comments))
                 else:
-                    logger.warning(f"Failed to post review to {pr_url}")
+                    logger.warning("Failed to post review to %s", pr_url)
 
         return result
 
@@ -958,7 +958,7 @@ class CodeReviewOrchestrator:
         except ImportError:
             return ["Arena not available for debate review"]
         except (ConnectionError, TimeoutError, OSError, ValueError, RuntimeError) as e:
-            logger.warning(f"Code review debate failed: {e}")
+            logger.warning("Code review debate failed: %s", e)
             return [f"Debate on {topic} encountered an error"]
 
     def generate_github_comments(

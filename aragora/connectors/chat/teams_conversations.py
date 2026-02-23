@@ -312,11 +312,11 @@ class TeamsConversationStore:
                 ),
             )
             conn.commit()
-            logger.debug(f"Saved conversation reference for debate: {debate_id}")
+            logger.debug("Saved conversation reference for debate: %s", debate_id)
             return True
 
         except (sqlite3.Error, Exception) as e:
-            logger.error(f"Failed to save conversation reference: {e}")
+            logger.error("Failed to save conversation reference: %s", e)
             return False
 
     async def get_reference(
@@ -346,7 +346,7 @@ class TeamsConversationStore:
             return None
 
         except (sqlite3.Error, Exception) as e:
-            logger.error(f"Failed to get conversation reference: {e}")
+            logger.error("Failed to get conversation reference: %s", e)
             return None
 
     async def delete_reference(self, debate_id: str) -> bool:
@@ -370,7 +370,7 @@ class TeamsConversationStore:
             return result.rowcount > 0
 
         except (sqlite3.Error, Exception) as e:
-            logger.error(f"Failed to delete conversation reference: {e}")
+            logger.error("Failed to delete conversation reference: %s", e)
             return False
 
     async def get_by_tenant(
@@ -415,7 +415,7 @@ class TeamsConversationStore:
             return results
 
         except (sqlite3.Error, Exception) as e:
-            logger.error(f"Failed to get conversations by tenant: {e}")
+            logger.error("Failed to get conversations by tenant: %s", e)
             return []
 
     async def cleanup_old(self, max_age_days: int = 30) -> int:
@@ -439,11 +439,11 @@ class TeamsConversationStore:
             conn.commit()
             count = result.rowcount
             if count > 0:
-                logger.info(f"Cleaned up {count} old conversation references")
+                logger.info("Cleaned up %s old conversation references", count)
             return count
 
         except (sqlite3.Error, Exception) as e:
-            logger.error(f"Failed to cleanup old references: {e}")
+            logger.error("Failed to cleanup old references: %s", e)
             return 0
 
     def _row_to_reference(self, row: sqlite3.Row) -> TeamsConversationReference:

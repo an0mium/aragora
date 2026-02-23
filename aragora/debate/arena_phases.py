@@ -147,8 +147,7 @@ def _create_verify_claims_callback(arena: Arena):
                         disproven_count += 1
                         _track_verification("z3_disproved", verification_time)
                         logger.debug(
-                            f"claim_z3_disproved type={claim_type} "
-                            f"counterexample={result.error_message}"
+                            "claim_z3_disproved type=%s counterexample=%s", claim_type, result.error_message
                         )
                         continue  # Don't also count via confidence fallback
                     elif result.status == FormalProofStatus.TIMEOUT:
@@ -158,7 +157,7 @@ def _create_verify_claims_callback(arena: Arena):
                         _track_verification("z3_translation_failed", verification_time)
                     # Fall through to confidence check
                 except (RuntimeError, ValueError, TypeError, AttributeError, OSError, ImportError) as e:
-                    logger.debug(f"Z3 verification failed for claim: {e}")
+                    logger.debug("Z3 verification failed for claim: %s", e)
 
             # Fallback: Count high-confidence claims as "verified"
             # Threshold: 0.5+ confidence from pattern matching
@@ -258,7 +257,7 @@ def init_phases(arena: Arena) -> None:
             arena.population_manager = _PopulationManager()
             logger.info("population_manager auto-initialized for genome evolution")
         except (RuntimeError, ValueError, TypeError, AttributeError, OSError) as e:
-            logger.warning(f"Failed to initialize _PopulationManager: {e}")
+            logger.warning("Failed to initialize _PopulationManager: %s", e)
             arena.population_manager = None
 
     # Phase 0: Context Initialization
@@ -327,7 +326,7 @@ def init_phases(arena: Arena) -> None:
             rhetorical_observer = get_rhetorical_observer()
             logger.info("rhetorical_observer enabled for debate pattern detection")
         except ImportError as e:
-            logger.debug(f"Rhetorical observer unavailable: {e}")
+            logger.debug("Rhetorical observer unavailable: %s", e)
 
     # Trickster for hollow consensus detection and echo chamber prevention
     if getattr(arena.protocol, "enable_trickster", False):
@@ -340,7 +339,7 @@ def init_phases(arena: Arena) -> None:
             trickster = EvidencePoweredTrickster(config=trickster_config)
             logger.info("trickster enabled for hollow consensus detection")
         except ImportError as e:
-            logger.debug(f"Trickster unavailable: {e}")
+            logger.debug("Trickster unavailable: %s", e)
 
     # NoveltyTracker for semantic novelty detection (triggers trickster on staleness)
     # Enabled when trickster is enabled since they work together
@@ -354,7 +353,7 @@ def init_phases(arena: Arena) -> None:
             )
             logger.info("novelty_tracker enabled for proposal staleness detection")
         except ImportError as e:
-            logger.debug(f"NoveltyTracker unavailable: {e}")
+            logger.debug("NoveltyTracker unavailable: %s", e)
 
     # Phase 2: Debate Rounds (critique/revision loop)
     arena.debate_rounds_phase = DebateRoundsPhase(
@@ -523,10 +522,10 @@ def _create_checkpoint_callbacks(arena: Arena) -> tuple:
                     current_round=current_round,
                 )
                 logger.debug(
-                    f"[checkpoint] Created pre-consensus checkpoint for debate {debate_id}"
+                    "[checkpoint] Created pre-consensus checkpoint for debate %s", debate_id
                 )
             except (RuntimeError, ValueError, TypeError, AttributeError, OSError) as e:
-                logger.debug(f"[checkpoint] Pre-consensus checkpoint failed: {e}")
+                logger.debug("[checkpoint] Pre-consensus checkpoint failed: %s", e)
 
     return pre_phase_callback, None
 

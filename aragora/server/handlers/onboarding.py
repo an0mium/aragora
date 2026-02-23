@@ -150,7 +150,7 @@ def _sync_flow_to_repo(flow: OnboardingState) -> None:
             },
         )
     except (KeyError, ValueError, OSError, TypeError, AttributeError) as e:
-        logger.warning(f"Failed to sync flow to repository: {e}")
+        logger.warning("Failed to sync flow to repository: %s", e)
 
 
 # =============================================================================

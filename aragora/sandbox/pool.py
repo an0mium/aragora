@@ -293,10 +293,10 @@ class ContainerPool:
         Warms up initial containers and starts background tasks.
         """
         if self._state != PoolState.STOPPED:
-            logger.warning(f"Pool already in state {self._state.value}")
+            logger.warning("Pool already in state %s", self._state.value)
             return
 
-        logger.info(f"Starting container pool with config: {self.config.to_dict()}")
+        logger.info("Starting container pool with config: %s", self.config.to_dict())
         self._state = PoolState.STARTING
 
         try:
@@ -312,10 +312,10 @@ class ContainerPool:
             ]
 
             self._state = PoolState.RUNNING
-            logger.info(f"Container pool started with {len(self._containers)} containers")
+            logger.info("Container pool started with %s containers", len(self._containers))
 
         except (RuntimeError, OSError, subprocess.SubprocessError) as e:
-            logger.error(f"Failed to start container pool: {e}")
+            logger.error("Failed to start container pool: %s", e)
             self._state = PoolState.STOPPED
             raise
 
@@ -329,7 +329,7 @@ class ContainerPool:
         if self._state == PoolState.STOPPED:
             return
 
-        logger.info(f"Stopping container pool (graceful={graceful})")
+        logger.info("Stopping container pool (graceful=%s)", graceful)
         self._state = PoolState.DRAINING if graceful else PoolState.STOPPING
 
         # Cancel background tasks
@@ -367,7 +367,7 @@ class ContainerPool:
 
     async def _warmup(self, count: int) -> None:
         """Warm up initial containers."""
-        logger.info(f"Warming up {count} containers")
+        logger.info("Warming up %s containers", count)
         start = time.time()
 
         tasks = []
@@ -440,7 +440,7 @@ class ContainerPool:
                         self._record_acquire_time(duration_ms)
                         return container
                     except (RuntimeError, OSError, subprocess.SubprocessError) as e:
-                        logger.warning(f"Failed to create container: {e}")
+                        logger.warning("Failed to create container: %s", e)
 
             # Wait briefly before retrying
             await asyncio.sleep(0.1)
@@ -486,12 +486,12 @@ class ContainerPool:
         async with self._lock:
             container_id = self._session_containers.pop(session_id, None)
             if not container_id:
-                logger.warning(f"No container found for session {session_id}")
+                logger.warning("No container found for session %s", session_id)
                 return
 
             container = self._containers.get(container_id)
             if not container:
-                logger.warning(f"Container {container_id} not in pool")
+                logger.warning("Container %s not in pool", container_id)
                 return
 
             container.state = ContainerState.READY
@@ -500,7 +500,7 @@ class ContainerPool:
             container.execution_count += 1
             self._stats.total_releases += 1
 
-        logger.debug(f"Released container {container_id} from session {session_id}")
+        logger.debug("Released container %s from session %s", container_id, session_id)
 
     async def destroy(self, session_id: str) -> None:
         """
@@ -653,10 +653,10 @@ class ContainerPool:
                 stderr=asyncio.subprocess.DEVNULL,
             )
             await asyncio.wait_for(proc.wait(), timeout=10.0)
-            logger.debug(f"Destroyed container {container_id}")
+            logger.debug("Destroyed container %s", container_id)
 
         except (RuntimeError, OSError, subprocess.SubprocessError) as e:
-            logger.warning(f"Failed to destroy container {container_id}: {e}")
+            logger.warning("Failed to destroy container %s: %s", container_id, e)
 
     # ==========================================================================
     # Background Tasks
@@ -671,7 +671,7 @@ class ContainerPool:
             except asyncio.CancelledError:
                 break
             except (RuntimeError, OSError, subprocess.SubprocessError) as e:
-                logger.error(f"Health check error: {e}")
+                logger.error("Health check error: %s", e)
 
     async def _run_health_checks(self) -> None:
         """Run health checks on all containers."""
@@ -715,7 +715,7 @@ class ContainerPool:
             return stdout.decode().strip().lower() == "true"
 
         except (RuntimeError, OSError, subprocess.SubprocessError) as e:
-            logger.debug(f"Container health check failed: {type(e).__name__}: {e}")
+            logger.debug("Container health check failed: %s: %s", type(e).__name__, e)
             return False
 
     async def _cleanup_loop(self) -> None:
@@ -727,7 +727,7 @@ class ContainerPool:
             except asyncio.CancelledError:
                 break
             except (RuntimeError, OSError, subprocess.SubprocessError) as e:
-                logger.error(f"Cleanup error: {e}")
+                logger.error("Cleanup error: %s", e)
 
     async def _cleanup_expired_containers(self) -> None:
         """Cleanup expired or unhealthy containers."""
@@ -755,7 +755,7 @@ class ContainerPool:
             await self._destroy_container(container_id)
 
         if to_destroy:
-            logger.debug(f"Cleaned up {len(to_destroy)} expired containers")
+            logger.debug("Cleaned up %s expired containers", len(to_destroy))
 
     async def _scaling_loop(self) -> None:
         """Background scaling loop."""
@@ -766,7 +766,7 @@ class ContainerPool:
             except asyncio.CancelledError:
                 break
             except (RuntimeError, OSError, subprocess.SubprocessError) as e:
-                logger.error(f"Scaling error: {e}")
+                logger.error("Scaling error: %s", e)
 
     async def _scale_pool(self) -> None:
         """Scale pool based on demand."""
@@ -783,7 +783,7 @@ class ContainerPool:
             to_create = min(needed, available_slots)
 
             if to_create > 0:
-                logger.debug(f"Scaling up: creating {to_create} containers")
+                logger.debug("Scaling up: creating %s containers", to_create)
                 tasks = [self._create_container() for _ in range(to_create)]
                 await asyncio.gather(*tasks, return_exceptions=True)
 
@@ -812,7 +812,7 @@ class ContainerPool:
         results = await asyncio.gather(*tasks, return_exceptions=True)
         created = sum(1 for r in results if not isinstance(r, Exception))
 
-        logger.info(f"Scaled up pool by {created} containers")
+        logger.info("Scaled up pool by %s containers", created)
         return created
 
     async def scale_down(self, count: int) -> int:
@@ -845,7 +845,7 @@ class ContainerPool:
         for container_id in to_destroy:
             await self._destroy_container(container_id)
 
-        logger.info(f"Scaled down pool by {len(to_destroy)} containers")
+        logger.info("Scaled down pool by %s containers", len(to_destroy))
         return len(to_destroy)
 
     # ==========================================================================

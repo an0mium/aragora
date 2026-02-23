@@ -75,7 +75,7 @@ class WorkspacePoliciesMixin:
         cache_key = f"retention:list:{workspace_id or 'all'}"
         cached_result = m._retention_policy_cache.get(cache_key)
         if cached_result is not None:
-            logger.debug(f"Cache hit for retention policies list: {cache_key}")
+            logger.debug("Cache hit for retention policies list: %s", cache_key)
             return m.json_response(cached_result)
 
         manager = self._get_retention_manager()
@@ -100,7 +100,7 @@ class WorkspacePoliciesMixin:
 
         # Cache the result
         m._retention_policy_cache.set(cache_key, result)
-        logger.debug(f"Cached retention policies list: {cache_key}")
+        logger.debug("Cached retention policies list: %s", cache_key)
 
         return m.json_response(result)
 
@@ -212,7 +212,7 @@ class WorkspacePoliciesMixin:
         cache_key = f"retention:{policy_id}"
         cached_result = m._retention_policy_cache.get(cache_key)
         if cached_result is not None:
-            logger.debug(f"Cache hit for retention policy: {cache_key}")
+            logger.debug("Cache hit for retention policy: %s", cache_key)
             return m.json_response(cached_result)
 
         manager = self._get_retention_manager()
@@ -242,7 +242,7 @@ class WorkspacePoliciesMixin:
 
         # Cache the result
         m._retention_policy_cache.set(cache_key, result)
-        logger.debug(f"Cached retention policy: {cache_key}")
+        logger.debug("Cached retention policy: %s", cache_key)
 
         return m.json_response(result)
 
@@ -289,7 +289,7 @@ class WorkspacePoliciesMixin:
 
         # Invalidate cache after updating policy
         m._invalidate_retention_cache(policy_id)
-        logger.debug(f"Invalidated retention policy cache after update: {policy_id}")
+        logger.debug("Invalidated retention policy cache after update: %s", policy_id)
 
         # Log to audit
         audit_log = self._get_audit_log()
@@ -341,7 +341,7 @@ class WorkspacePoliciesMixin:
 
         # Invalidate cache after deleting policy
         m._invalidate_retention_cache(policy_id)
-        logger.debug(f"Invalidated retention policy cache after delete: {policy_id}")
+        logger.debug("Invalidated retention policy cache after delete: %s", policy_id)
 
         # Log to audit
         audit_log = self._get_audit_log()

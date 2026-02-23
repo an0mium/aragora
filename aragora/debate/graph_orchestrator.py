@@ -566,6 +566,6 @@ class GraphDebateOrchestrator:
             try:
                 self.event_callback(event_type, data)
             except (TypeError, ValueError, AttributeError, RuntimeError, OSError) as e:
-                logger.warning(f"Event callback failed: {e}")
+                logger.warning("Event callback failed: %s", e)
 
-        logger.debug(f"graph_debate_event type={event_type} data={data}")
+        logger.debug("graph_debate_event type=%s data=%s", event_type, data)

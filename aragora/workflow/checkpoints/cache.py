@@ -48,7 +48,7 @@ class LRUCheckpointCache:
             if len(self._cache) >= self._max_size:
                 # Evict oldest (first item)
                 evicted_key, _ = self._cache.popitem(last=False)
-                logger.debug(f"LRU eviction: {evicted_key}")
+                logger.debug("LRU eviction: %s", evicted_key)
             self._cache[key] = checkpoint
 
     def remove(self, key: str) -> bool:

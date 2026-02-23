@@ -111,11 +111,11 @@ class SharingNotificationsHandler(BaseHandler):
                 decision = checker.check_permission(auth_ctx, KNOWLEDGE_WRITE_PERMISSION)
                 if not decision.allowed:
                     logger.warning(
-                        f"Knowledge write access denied for {user_id}: {decision.reason}"
+                        "Knowledge write access denied for %s: %s", user_id, decision.reason
                     )
                     return error_response(f"Permission denied: {decision.reason}", 403)
             except (RuntimeError, ValueError, TypeError, AttributeError, KeyError) as e:
-                logger.warning(f"RBAC check failed for knowledge notifications: {e}")
+                logger.warning("RBAC check failed for knowledge notifications: %s", e)
                 # Continue without RBAC if it fails (graceful degradation)
 
         if path == "/api/v1/knowledge/notifications":
@@ -168,11 +168,11 @@ class SharingNotificationsHandler(BaseHandler):
                 decision = checker.check_permission(auth_ctx, KNOWLEDGE_WRITE_PERMISSION)
                 if not decision.allowed:
                     logger.warning(
-                        f"Knowledge write access denied for {user_id}: {decision.reason}"
+                        "Knowledge write access denied for %s: %s", user_id, decision.reason
                     )
                     return error_response(f"Permission denied: {decision.reason}", 403)
             except (RuntimeError, ValueError, TypeError, AttributeError, KeyError) as e:
-                logger.warning(f"RBAC check failed for knowledge notifications write: {e}")
+                logger.warning("RBAC check failed for knowledge notifications write: %s", e)
                 # Continue without RBAC if it fails (graceful degradation)
 
         if path == "/api/v1/knowledge/notifications/read-all":
@@ -233,11 +233,11 @@ class SharingNotificationsHandler(BaseHandler):
                 decision = checker.check_permission(auth_ctx, KNOWLEDGE_WRITE_PERMISSION)
                 if not decision.allowed:
                     logger.warning(
-                        f"Knowledge write access denied for {user_id}: {decision.reason}"
+                        "Knowledge write access denied for %s: %s", user_id, decision.reason
                     )
                     return error_response(f"Permission denied: {decision.reason}", 403)
             except (RuntimeError, ValueError, TypeError, AttributeError, KeyError) as e:
-                logger.warning(f"RBAC check failed for knowledge notifications write: {e}")
+                logger.warning("RBAC check failed for knowledge notifications write: %s", e)
                 # Continue without RBAC if it fails (graceful degradation)
 
         if path == "/api/v1/knowledge/notifications/preferences":
@@ -287,7 +287,7 @@ class SharingNotificationsHandler(BaseHandler):
             )
 
         except (ImportError, RuntimeError, ValueError, TypeError, KeyError, AttributeError) as e:
-            logger.error(f"Failed to get notifications: {e}")
+            logger.error("Failed to get notifications: %s", e)
             return error_response("Failed to get notifications", 500)
 
     @rate_limit(requests_per_minute=60, limiter_name="notifications_read")
@@ -300,7 +300,7 @@ class SharingNotificationsHandler(BaseHandler):
             return json_response({"unread_count": count})
 
         except (ImportError, RuntimeError, ValueError, KeyError, AttributeError) as e:
-            logger.error(f"Failed to get unread count: {e}")
+            logger.error("Failed to get unread count: %s", e)
             return error_response("Failed to get unread count", 500)
 
     @rate_limit(requests_per_minute=20, limiter_name="notifications_write")
@@ -316,7 +316,7 @@ class SharingNotificationsHandler(BaseHandler):
                 return error_response("Notification not found", 404)
 
         except (ImportError, RuntimeError, ValueError, KeyError, AttributeError) as e:
-            logger.error(f"Failed to mark notification read: {e}")
+            logger.error("Failed to mark notification read: %s", e)
             return error_response("Failed to mark notification read", 500)
 
     @rate_limit(requests_per_minute=20, limiter_name="notifications_write")
@@ -329,7 +329,7 @@ class SharingNotificationsHandler(BaseHandler):
             return json_response({"success": True, "count": count})
 
         except (ImportError, RuntimeError, ValueError, KeyError, AttributeError) as e:
-            logger.error(f"Failed to mark all notifications read: {e}")
+            logger.error("Failed to mark all notifications read: %s", e)
             return error_response("Failed to mark all notifications read", 500)
 
     @rate_limit(requests_per_minute=10, limiter_name="notifications_delete")
@@ -346,7 +346,7 @@ class SharingNotificationsHandler(BaseHandler):
                 return error_response("Notification not found", 404)
 
         except (ImportError, RuntimeError, AttributeError, KeyError, ValueError) as e:
-            logger.error(f"Failed to dismiss notification: {e}")
+            logger.error("Failed to dismiss notification: %s", e)
             return error_response("Failed to dismiss notification", 500)
 
     @rate_limit(requests_per_minute=60, limiter_name="notifications_read")
@@ -371,7 +371,7 @@ class SharingNotificationsHandler(BaseHandler):
             )
 
         except (ImportError, RuntimeError, AttributeError, KeyError, ValueError) as e:
-            logger.error(f"Failed to get preferences: {e}")
+            logger.error("Failed to get preferences: %s", e)
             return error_response("Failed to get preferences", 500)
 
     @rate_limit(requests_per_minute=20, limiter_name="notifications_write")
@@ -418,7 +418,7 @@ class SharingNotificationsHandler(BaseHandler):
             )
 
         except (ImportError, RuntimeError, ValueError, TypeError, KeyError, AttributeError) as e:
-            logger.error(f"Failed to update preferences: {e}")
+            logger.error("Failed to update preferences: %s", e)
             return error_response("Failed to update preferences", 500)
 
 

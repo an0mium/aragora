@@ -181,7 +181,7 @@ class GauntletRunner:
             report_progress("verdict", 1.0)
 
         except (RuntimeError, ValueError, TimeoutError, OSError) as e:
-            logger.error(f"[gauntlet] Error during run: {e}")
+            logger.error("[gauntlet] Error during run: %s", e)
             result.verdict_reasoning = f"Error during validation: {str(e)}"
 
         # Finalize timing
@@ -266,7 +266,7 @@ class GauntletRunner:
                     agent = self.agent_factory(agent_name)
                     agents.append(agent)
                 except (ValueError, RuntimeError, ImportError, OSError) as e:
-                    logger.warning(f"[gauntlet] Could not create agent {agent_name}: {e}")
+                    logger.warning("[gauntlet] Could not create agent %s: %s", agent_name, e)
 
         if not agents:
             logger.warning("[gauntlet] No agents available for red team")
@@ -278,9 +278,9 @@ class GauntletRunner:
             try:
                 # Use 4th agent as proposer/defender
                 proposer_agent = self.agent_factory(self.config.agents[3])
-                logger.info(f"[gauntlet] Using {self.config.agents[3]} as defender")
+                logger.info("[gauntlet] Using %s as defender", self.config.agents[3])
             except (ValueError, RuntimeError, ImportError, OSError) as e:
-                logger.debug(f"[gauntlet] Could not create proposer agent: {e}")
+                logger.debug("[gauntlet] Could not create proposer agent: %s", e)
 
         # Run red team
         try:
@@ -312,7 +312,7 @@ class GauntletRunner:
                 summary.by_category[cat] = summary.by_category.get(cat, 0) + 1
 
         except (RuntimeError, ValueError, TimeoutError, OSError) as e:
-            logger.error(f"[gauntlet] Red team error: {e}")
+            logger.error("[gauntlet] Red team error: %s", e)
 
         return summary
 
@@ -384,7 +384,7 @@ class GauntletRunner:
                             summary.by_category[cat] = summary.by_category.get(cat, 0) + 1
 
             except (RuntimeError, ValueError, TimeoutError, OSError) as e:
-                logger.error(f"[gauntlet] Probe error for {agent_name}: {e}")
+                logger.error("[gauntlet] Probe error for %s: %s", agent_name, e)
 
         summary.probes_run = total_probes
         summary.vulnerabilities_found = total_vulns
@@ -440,7 +440,7 @@ class GauntletRunner:
                             if agent:
                                 agents.append(agent)
                         except (ValueError, RuntimeError, ImportError, OSError) as e:
-                            logger.debug(f"Failed to create agent {agent_name}: {e}")
+                            logger.debug("Failed to create agent %s: %s", agent_name, e)
 
                 # Fallback to creating agents from names
                 if not agents:
@@ -486,7 +486,7 @@ class GauntletRunner:
                 return result
 
             except ImportError as e:
-                logger.warning(f"[gauntlet] Arena not available: {e}")
+                logger.warning("[gauntlet] Arena not available: %s", e)
                 return type(
                     "Result",
                     (),
@@ -500,7 +500,7 @@ class GauntletRunner:
                     },
                 )()
             except (RuntimeError, ValueError, TimeoutError, OSError) as e:
-                logger.error(f"[gauntlet] Arena debate error: {e}")
+                logger.error("[gauntlet] Arena debate error: %s", e)
                 return type(
                     "Result",
                     (),
@@ -541,7 +541,7 @@ class GauntletRunner:
             summary.conditional_patterns = analysis.get("conditional_patterns", {})
 
         except (RuntimeError, ValueError, TimeoutError, OSError) as e:
-            logger.error(f"[gauntlet] Scenario matrix error: {e}")
+            logger.error("[gauntlet] Scenario matrix error: %s", e)
 
         return summary
 
@@ -646,7 +646,7 @@ class GauntletRunner:
         if not code:
             return None
 
-        logger.debug(f"[gauntlet] Executing {language} code from attack evidence")
+        logger.debug("[gauntlet] Executing %s code from attack evidence", language)
         return await self.execute_code_sandboxed(code, language, timeout=30.0)
 
     def _extract_code_from_evidence(self, evidence: str) -> tuple[str | None, str]:
@@ -757,7 +757,7 @@ class GauntletRunner:
                 "executed": True,
             }
         except (RuntimeError, ValueError, TimeoutError, OSError) as e:
-            logger.error(f"[gauntlet] Sandbox execution error: {e}")
+            logger.error("[gauntlet] Sandbox execution error: %s", e)
             return {
                 "status": "error",
                 "stdout": "",

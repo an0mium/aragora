@@ -350,7 +350,7 @@ class GoogleDriveConnector(EnterpriseConnector):
                 break
         else:
             logger.warning(
-                f"[{self.name}] Pagination limit reached ({_MAX_PAGES} pages) for shared drives"
+                "[%s] Pagination limit reached (%s pages) for shared drives", self.name, _MAX_PAGES
             )
 
         return drives
@@ -492,7 +492,7 @@ class GoogleDriveConnector(EnterpriseConnector):
             ValueError,
             KeyError,
         ) as e:
-            logger.warning(f"[{self.name}] Failed to extract text from {file.name}: {e}")
+            logger.warning("[%s] Failed to extract text from %s: %s", self.name, file.name, e)
             return ""
 
     async def sync_items(
@@ -511,7 +511,7 @@ class GoogleDriveConnector(EnterpriseConnector):
         if state.cursor:
             # Use Changes API for incremental sync
             logger.info(
-                f"[{self.name}] Starting incremental sync from token {state.cursor[:20]}..."
+                "[%s] Starting incremental sync from token %s...", self.name, state.cursor[:20]
             )
             files, new_token = await self._get_changes(state.cursor)
             state.cursor = new_token
@@ -554,7 +554,7 @@ class GoogleDriveConnector(EnterpriseConnector):
             return
 
         # Full sync
-        logger.info(f"[{self.name}] Starting full sync...")
+        logger.info("[%s] Starting full sync...", self.name)
 
         # Get start token for future incremental syncs
         state.cursor = await self._get_start_page_token()
@@ -678,7 +678,7 @@ class GoogleDriveConnector(EnterpriseConnector):
             return results
 
         except (httpx.HTTPError, ConnectionError, TimeoutError, OSError, ValueError, KeyError) as e:
-            logger.error(f"[{self.name}] Search failed: {e}")
+            logger.error("[%s] Search failed: %s", self.name, e)
             return []
 
     async def fetch(self, evidence_id: str) -> Any | None:
@@ -729,7 +729,7 @@ class GoogleDriveConnector(EnterpriseConnector):
             )
 
         except (httpx.HTTPError, ConnectionError, TimeoutError, OSError, ValueError, KeyError) as e:
-            logger.error(f"[{self.name}] Fetch failed: {e}")
+            logger.error("[%s] Fetch failed: %s", self.name, e)
             return None
 
     async def handle_webhook(self, payload: dict[str, Any]) -> bool:
@@ -737,7 +737,7 @@ class GoogleDriveConnector(EnterpriseConnector):
         resource_state = payload.get("resourceState", "")
         resource_id = payload.get("resourceId", "")
 
-        logger.info(f"[{self.name}] Webhook: {resource_state} on resource {resource_id}")
+        logger.info("[%s] Webhook: %s on resource %s", self.name, resource_state, resource_id)
 
         if resource_state in ["change", "add", "update"]:
             # Trigger incremental sync

@@ -69,13 +69,13 @@ def safe_path(
     if decoded_path != raw_path:
         raw_path = decoded_path
         user_path = decoded_path
-        logger.debug(f"URL-decoded path for validation: {decoded_path}")
+        logger.debug("URL-decoded path for validation: %s", decoded_path)
 
     if raw_path.startswith(("\\\\", "//")):
-        logger.warning(f"Path traversal blocked: {user_path}")
+        logger.warning("Path traversal blocked: %s", user_path)
         raise PathTraversalError(f"Path traversal blocked: {user_path}")
     if len(raw_path) >= 2 and raw_path[1] == ":" and raw_path[0].isalpha():
-        logger.warning(f"Path traversal blocked: {user_path}")
+        logger.warning("Path traversal blocked: %s", user_path)
         raise PathTraversalError(f"Path traversal blocked: {user_path}")
 
     if isinstance(user_path, str):
@@ -88,7 +88,7 @@ def safe_path(
     try:
         combined.relative_to(base)
     except ValueError:
-        logger.warning(f"Path traversal blocked: {user_path}")
+        logger.warning("Path traversal blocked: %s", user_path)
         raise PathTraversalError(f"Path traversal blocked: {user_path}")
 
     # Check for symlinks if not allowed
@@ -104,7 +104,7 @@ def safe_path(
                 try:
                     target.relative_to(base)
                 except ValueError:
-                    logger.warning(f"Symlink escapes base directory: {user_path}")
+                    logger.warning("Symlink escapes base directory: %s", user_path)
                     raise PathTraversalError(f"Symlink escapes base directory: {user_path}")
 
     if must_exist and not combined.exists():

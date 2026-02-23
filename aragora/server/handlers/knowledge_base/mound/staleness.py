@@ -68,7 +68,7 @@ class StalenessOperationsMixin:
                 )
             )
         except (KeyError, ValueError, OSError, TypeError, RuntimeError) as e:
-            logger.error(f"Failed to get stale knowledge: {e}")
+            logger.error("Failed to get stale knowledge: %s", e)
             return error_response("Failed to get stale knowledge", 500)
 
         stale_items_typed: list[StalenessCheck] = stale_items
@@ -122,7 +122,7 @@ class StalenessOperationsMixin:
         try:
             _run_async(mound.mark_validated(node_id, validator, new_confidence))
         except (KeyError, ValueError, OSError, TypeError, RuntimeError) as e:
-            logger.error(f"Failed to revalidate node: {e}")
+            logger.error("Failed to revalidate node: %s", e)
             return error_response("Failed to revalidate node", 500)
 
         return json_response(
@@ -168,7 +168,7 @@ class StalenessOperationsMixin:
         try:
             scheduled = _run_async(mound.schedule_revalidation(node_ids, priority))
         except (KeyError, ValueError, OSError, TypeError, RuntimeError) as e:
-            logger.error(f"Failed to schedule revalidation: {e}")
+            logger.error("Failed to schedule revalidation: %s", e)
             return error_response("Failed to schedule revalidation", 500)
 
         return json_response(

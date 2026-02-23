@@ -314,7 +314,7 @@ async def llm_batch_detailed(
                     f"Item {index} timed out after {cfg.timeout_per_item}s"
                 )
                 item_result.duration_seconds = time.time() - item_start
-                logger.warning(f"Batch item {index} timed out")
+                logger.warning("Batch item %s timed out", index)
 
                 if cfg.fail_fast:
                     early_stop_triggered.set()
@@ -324,7 +324,7 @@ async def llm_batch_detailed(
                 item_result.error = e
                 item_result.status = BatchItemStatus.FAILED
                 item_result.duration_seconds = time.time() - item_start
-                logger.warning(f"Batch item {index} failed (attempt {attempt + 1}): {e}")
+                logger.warning("Batch item %s failed (attempt %s): %s", index, attempt + 1, e)
 
                 if cfg.fail_fast:
                     early_stop_triggered.set()

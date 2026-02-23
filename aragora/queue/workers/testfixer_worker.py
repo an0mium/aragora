@@ -28,7 +28,7 @@ class TestFixerWorker:
 
     async def start(self) -> None:
         self._running = True
-        logger.info(f"[{self.worker_id}] Starting testfixer worker")
+        logger.info("[%s] Starting testfixer worker", self.worker_id)
 
         cancelled_exc: asyncio.CancelledError | None = None
         while self._running:
@@ -45,7 +45,7 @@ class TestFixerWorker:
                 if job:
                     task = asyncio.create_task(self._process_job(job), name=f"testfixer-{job.id}")
                     self._active_jobs[job.id] = task
-                    logger.info(f"[{self.worker_id}] Started job {job.id}")
+                    logger.info("[%s] Started job %s", self.worker_id, job.id)
                 else:
                     await asyncio.sleep(self.poll_interval)
 
@@ -54,13 +54,13 @@ class TestFixerWorker:
                 self._running = False
                 break
             except (RuntimeError, ValueError, OSError, ConnectionError) as exc:  # noqa: BLE001 - worker isolation
-                logger.error(f"[{self.worker_id}] Worker error: {exc}", exc_info=True)
+                logger.error("[%s] Worker error: %s", self.worker_id, exc, exc_info=True)
                 await asyncio.sleep(self.poll_interval)
 
         if self._active_jobs:
             await asyncio.gather(*self._active_jobs.values(), return_exceptions=True)
 
-        logger.info(f"[{self.worker_id}] Worker stopped")
+        logger.info("[%s] Worker stopped", self.worker_id)
         if cancelled_exc is not None:
             raise cancelled_exc
 
@@ -72,7 +72,7 @@ class TestFixerWorker:
         for job_id in completed:
             task = self._active_jobs.pop(job_id)
             if not task.cancelled() and task.exception():
-                logger.warning(f"[{self.worker_id}] Job {job_id} failed: {task.exception()}")
+                logger.warning("[%s] Job %s failed: %s", self.worker_id, job_id, task.exception())
 
     async def _process_job(self, job: QueuedJob) -> None:
         start_time = time.time()
@@ -96,7 +96,7 @@ class TestFixerWorker:
             )
             logger.info(f"[{self.worker_id}] Completed job {job.id} in {duration:.1f}s")
         except (RuntimeError, OSError, ConnectionError, TimeoutError, ValueError) as exc:
-            logger.error(f"[{self.worker_id}] Job {job.id} failed: {exc}", exc_info=True)
+            logger.error("[%s] Job %s failed: %s", self.worker_id, job.id, exc, exc_info=True)
             should_retry = job.attempts < job.max_attempts
             await self._store.fail(job.id, error=str(exc), should_retry=should_retry)
 
@@ -105,5 +105,5 @@ async def recover_interrupted_testfixer_jobs(max_age_seconds: float = 3600) -> i
     store = get_job_store()
     recovered = await store.recover_stale_jobs(stale_threshold_seconds=max_age_seconds)
     if recovered:
-        logger.info(f"Recovered {recovered} interrupted testfixer jobs")
+        logger.info("Recovered %s interrupted testfixer jobs", recovered)
     return recovered

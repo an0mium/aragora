@@ -49,7 +49,7 @@ def _prune_stale_circuit_breakers() -> int:
         del _circuit_breakers[name]
 
     if stale_names:
-        logger.info(f"Pruned {len(stale_names)} stale circuit breakers: {stale_names[:5]}...")
+        logger.info("Pruned %s stale circuit breakers: %s...", len(stale_names), stale_names[:5])
     return len(stale_names)
 
 
@@ -105,8 +105,7 @@ def get_circuit_breaker(
             # If still too large after pruning, log warning
             if len(_circuit_breakers) >= MAX_CIRCUIT_BREAKERS:
                 logger.warning(
-                    f"Circuit breaker registry still large after pruning {pruned}: "
-                    f"{len(_circuit_breakers)} entries"
+                    "Circuit breaker registry still large after pruning %s: %s entries", pruned, len(_circuit_breakers)
                 )
 
         if name not in _circuit_breakers:
@@ -131,7 +130,7 @@ def get_circuit_breaker(
                 config=resolved_config,
                 name=name,
             )
-            logger.debug(f"Created circuit breaker: {name} with config: {resolved_config}")
+            logger.debug("Created circuit breaker: %s with config: %s", name, resolved_config)
 
         cb = _circuit_breakers[name]
         cb._last_accessed = time.time()  # Update access timestamp
@@ -144,7 +143,7 @@ def reset_all_circuit_breakers() -> None:
         for cb in _circuit_breakers.values():
             cb.reset()
         count = len(_circuit_breakers)
-    logger.info(f"Reset {count} circuit breakers")
+    logger.info("Reset %s circuit breakers", count)
 
 
 def get_circuit_breakers() -> dict[str, CircuitBreaker]:

@@ -124,13 +124,12 @@ class BudgetAlertNotifier:
                 results = loop.run_until_complete(self.deliver_alert(alert))
                 for result in results:
                     logger.info(
-                        f"Budget alert delivery to {result.channel_type}:{result.channel_id}: "
-                        f"{result.status.value}"
+                        "Budget alert delivery to %s:%s: %s", result.channel_type, result.channel_id, result.status.value
                     )
             finally:
                 loop.close()
         except (RuntimeError, OSError, ConnectionError, ValueError, TypeError) as e:
-            logger.error(f"Failed to deliver budget alert: {e}", exc_info=True)
+            logger.error("Failed to deliver budget alert: %s", e, exc_info=True)
 
     async def deliver_alert(self, alert: BudgetAlert) -> list[DeliveryResult]:
         """Deliver a budget alert to all subscribed channels.
@@ -147,7 +146,7 @@ class BudgetAlertNotifier:
         subscriptions = self.subscription_store.get_for_event(alert.org_id, EventType.BUDGET_ALERT)
 
         if not subscriptions:
-            logger.debug(f"No budget alert subscriptions for org {alert.org_id}")
+            logger.debug("No budget alert subscriptions for org %s", alert.org_id)
             return [
                 DeliveryResult(
                     channel_type="none",
@@ -224,7 +223,7 @@ class BudgetAlertNotifier:
 
         except (OSError, ConnectionError, TimeoutError, RuntimeError, ValueError, ImportError) as e:
             logger.error(
-                f"Failed to deliver to {channel_type}:{subscription.channel_id}: {e}",
+                "Failed to deliver to %s:%s: %s", channel_type, subscription.channel_id, e,
                 exc_info=True,
             )
             return DeliveryResult(

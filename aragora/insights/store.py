@@ -248,7 +248,7 @@ class InsightStore(SQLiteStore):
                     )
                     stored_count = len(all_insights)
                 except (sqlite3.Error, TypeError, ValueError) as e:
-                    logger.error(f"Error batch storing insights: {e}")
+                    logger.error("Error batch storing insights: %s", e)
 
             # Store agent performances in batch
             if insights.agent_performances:
@@ -313,9 +313,9 @@ class InsightStore(SQLiteStore):
                 if insight.confidence >= self._km_min_confidence:
                     try:
                         self._km_adapter.store_insight(insight)
-                        logger.debug(f"Insight synced to Knowledge Mound: {insight.id}")
+                        logger.debug("Insight synced to Knowledge Mound: %s", insight.id)
                     except (RuntimeError, ValueError, TypeError) as e:
-                        logger.warning(f"Failed to sync insight to KM: {e}")
+                        logger.warning("Failed to sync insight to KM: %s", e)
 
         return stored_count
 
@@ -582,7 +582,7 @@ class InsightStore(SQLiteStore):
         try:
             insight_type = InsightType(row[1])
         except ValueError:
-            logger.warning(f"Invalid insight type '{row[1]}', defaulting to PATTERN")
+            logger.warning("Invalid insight type '%s', defaulting to PATTERN", row[1])
             insight_type = InsightType.PATTERN
         return Insight(
             id=row[0],
@@ -661,7 +661,7 @@ class InsightStore(SQLiteStore):
                 }
             )
 
-            logger.info(f"[wisdom] Added submission {wisdom_id} for loop {loop_id}")
+            logger.info("[wisdom] Added submission %s for loop %s", wisdom_id, loop_id)
             return wisdom_id
 
     def get_relevant_wisdom(self, loop_id: str, limit: int = 3) -> list[dict]:
@@ -725,7 +725,7 @@ class InsightStore(SQLiteStore):
                 f.write(json.dumps(event_data) + "\n")
         except OSError as e:
             # Never crash main loop due to logging, but note the failure
-            logger.warning(f"Failed to log wisdom event: {e}")
+            logger.warning("Failed to log wisdom event: %s", e)
 
     # =========================================================================
     # Insight Application Cycle (B2)
@@ -861,8 +861,7 @@ class InsightStore(SQLiteStore):
             self._sync_record_insight_usage, insight_id, debate_id, was_successful
         )
         logger.debug(
-            f"[insight] Recorded usage: insight={insight_id} "
-            f"debate={debate_id} success={was_successful}"
+            "[insight] Recorded usage: insight=%s debate=%s success=%s", insight_id, debate_id, was_successful
         )
 
     def _sync_get_insight_usage_stats(self, insight_id: str) -> dict:

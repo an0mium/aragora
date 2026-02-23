@@ -232,7 +232,7 @@ class ReceiptDeletionLog:
             return deletion_id
 
         except sqlite3.Error as e:
-            logger.error(f"Failed to log deletion for {receipt_id}: {e}")
+            logger.error("Failed to log deletion for %s: %s", receipt_id, e)
             raise
 
     def log_batch_deletion(
@@ -299,7 +299,7 @@ class ReceiptDeletionLog:
 
         except sqlite3.Error as e:
             conn.rollback()
-            logger.error(f"Failed to log batch deletion: {e}")
+            logger.error("Failed to log batch deletion: %s", e)
             raise
 
     def get_deletion(self, deletion_id: str) -> ReceiptDeletionRecord | None:
@@ -315,7 +315,7 @@ class ReceiptDeletionLog:
                 return self._row_to_record(row)
             return None
         except sqlite3.Error as e:
-            logger.error(f"Failed to get deletion {deletion_id}: {e}")
+            logger.error("Failed to get deletion %s: %s", deletion_id, e)
             return None
 
     def find_by_receipt_id(self, receipt_id: str) -> list[ReceiptDeletionRecord]:
@@ -328,7 +328,7 @@ class ReceiptDeletionLog:
             )
             return [self._row_to_record(row) for row in cursor.fetchall()]
         except sqlite3.Error as e:
-            logger.error(f"Failed to find deletions for {receipt_id}: {e}")
+            logger.error("Failed to find deletions for %s: %s", receipt_id, e)
             return []
 
     def list_deletions(
@@ -386,7 +386,7 @@ class ReceiptDeletionLog:
             )
             return [self._row_to_record(row) for row in cursor.fetchall()]
         except sqlite3.Error as e:
-            logger.error(f"Failed to list deletions: {e}")
+            logger.error("Failed to list deletions: %s", e)
             return []
 
     def count_deletions(
@@ -421,7 +421,7 @@ class ReceiptDeletionLog:
             result = cursor.fetchone()
             return result[0] if result else 0
         except sqlite3.Error as e:
-            logger.error(f"Failed to count deletions: {e}")
+            logger.error("Failed to count deletions: %s", e)
             return 0
 
     def get_stats(self) -> dict[str, Any]:
@@ -440,7 +440,7 @@ class ReceiptDeletionLog:
                 "by_reason": by_reason,
             }
         except sqlite3.Error as e:
-            logger.error(f"Failed to get stats: {e}")
+            logger.error("Failed to get stats: %s", e)
             return {"total_deletions": 0, "by_reason": {}}
 
     def _row_to_record(self, row: sqlite3.Row) -> ReceiptDeletionRecord:

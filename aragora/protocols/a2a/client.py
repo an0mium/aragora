@@ -123,12 +123,12 @@ class A2AClient:
                 agents.append(agent)
                 self._agents[agent.name] = agent
 
-            logger.info(f"Discovered {len(agents)} agents from {registry_url}")
+            logger.info("Discovered %s agents from %s", len(agents), registry_url)
 
             return agents
 
         except httpx.HTTPError as e:
-            logger.error(f"Failed to discover agents from {registry_url}: {e}")
+            logger.error("Failed to discover agents from %s: %s", registry_url, e)
             raise A2AClientError(f"Discovery failed: {e}")
 
     def register_agent(self, agent: AgentCard) -> None:
@@ -139,7 +139,7 @@ class A2AClient:
             agent: Agent card to register
         """
         self._agents[agent.name] = agent
-        logger.debug(f"Registered agent: {agent.name}")
+        logger.debug("Registered agent: %s", agent.name)
 
     def get_agent(self, name: str) -> AgentCard | None:
         """Get a registered agent by name."""
@@ -204,7 +204,7 @@ class A2AClient:
             return TaskResult.from_dict(result_data)
 
         except httpx.HTTPError as e:
-            logger.error(f"Task invocation failed for {agent_name}: {e}")
+            logger.error("Task invocation failed for %s: %s", agent_name, e)
             return TaskResult(
                 task_id=task_id,
                 agent_name=agent_name,
@@ -266,7 +266,7 @@ class A2AClient:
                         yield data
 
         except httpx.HTTPError as e:
-            logger.error(f"Stream invocation failed for {agent_name}: {e}")
+            logger.error("Stream invocation failed for %s: %s", agent_name, e)
             yield {
                 "type": "error",
                 "task_id": task_id,
@@ -304,7 +304,7 @@ class A2AClient:
             return TaskResult.from_dict(response.json())
 
         except httpx.HTTPError as e:
-            logger.error(f"Failed to get task status: {e}")
+            logger.error("Failed to get task status: %s", e)
             raise A2AClientError(
                 f"Status check failed: {e}",
                 agent_name=agent_name,
@@ -337,7 +337,7 @@ class A2AClient:
             return response.status_code in (200, 202, 204)
 
         except httpx.HTTPError as e:
-            logger.error(f"Failed to cancel task: {e}")
+            logger.error("Failed to cancel task: %s", e)
             return False
 
     def list_agents(

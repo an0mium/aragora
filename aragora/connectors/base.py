@@ -764,7 +764,7 @@ class BaseConnector(ABC):
                     connector_name=self.name,
                 )
                 logger.warning(
-                    f"[{self.name}] {operation} timeout (attempt {attempt + 1}/{self._max_retries + 1})"
+                    "[%s] %s timeout (attempt %s/%s)", self.name, operation, attempt + 1, self._max_retries + 1
                 )
                 if metrics_available:
                     record_sync_error(connector_type, "timeout")
@@ -775,7 +775,7 @@ class BaseConnector(ABC):
                     connector_name=self.name,
                 )
                 logger.warning(
-                    f"[{self.name}] {operation} network error (attempt {attempt + 1}/{self._max_retries + 1}): {e}"
+                    "[%s] %s network error (attempt %s/%s): %s", self.name, operation, attempt + 1, self._max_retries + 1, e
                 )
                 if metrics_available:
                     record_sync_error(connector_type, "network")
@@ -791,8 +791,7 @@ class BaseConnector(ABC):
                             retry_after = float(e.response.headers["Retry-After"])
                         except (ValueError, TypeError) as parse_err:
                             logger.warning(
-                                f"[{self.name}] Failed to parse Retry-After header "
-                                f"'{e.response.headers['Retry-After']}': {parse_err}"
+                                "[%s] Failed to parse Retry-After header '%s': %s", self.name, e.response.headers['Retry-After'], parse_err
                             )
                             # Continue with retry_after=None, will use exponential backoff
 
@@ -802,7 +801,7 @@ class BaseConnector(ABC):
                         retry_after=retry_after,
                     )
                     logger.warning(
-                        f"[{self.name}] {operation} rate limited (attempt {attempt + 1}/{self._max_retries + 1})"
+                        "[%s] %s rate limited (attempt %s/%s)", self.name, operation, attempt + 1, self._max_retries + 1
                     )
                     if metrics_available:
                         record_rate_limit(connector_type)
@@ -824,7 +823,7 @@ class BaseConnector(ABC):
                         status_code=status,
                     )
                     logger.warning(
-                        f"[{self.name}] {operation} server error {status} (attempt {attempt + 1}/{self._max_retries + 1})"
+                        "[%s] %s server error %s (attempt %s/%s)", self.name, operation, status, attempt + 1, self._max_retries + 1
                     )
                     if metrics_available:
                         record_sync_error(connector_type, f"http_{status}")
@@ -851,7 +850,7 @@ class BaseConnector(ABC):
                         connector_name=self.name,
                     ) from e
 
-                logger.error(f"[{self.name}] {operation} unexpected error: {e}")
+                logger.error("[%s] %s unexpected error: %s", self.name, operation, e)
                 if metrics_available:
                     record_sync_error(connector_type, "unexpected")
                 raise ConnectorAPIError(
@@ -871,7 +870,7 @@ class BaseConnector(ABC):
                         connector_name=self.name,
                     ) from e
 
-                logger.error(f"[{self.name}] {operation} unexpected error: {e}")
+                logger.error("[%s] %s unexpected error: %s", self.name, operation, e)
                 if metrics_available:
                     record_sync_error(connector_type, "unexpected")
                 raise ConnectorAPIError(

@@ -103,7 +103,7 @@ class BeliefHandler(BaseHandler):
             event = StreamEvent(type=stream_type, data=data)
             event_emitter.emit(event)
         except (ImportError, AttributeError, TypeError, KeyError) as e:
-            logger.debug(f"Failed to emit KM event {event_type}: {e}")
+            logger.debug("Failed to emit KM event %s: %s", event_type, e)
 
     def _get_km_adapter(self) -> BeliefAdapter | None:
         """Get or create Knowledge Mound adapter for belief networks.
@@ -144,7 +144,7 @@ class BeliefHandler(BaseHandler):
             logger.debug("Knowledge Mound BeliefAdapter not available")
             return None
         except (RuntimeError, AttributeError, TypeError) as e:
-            logger.warning(f"Failed to initialize Belief KM adapter: {e}")
+            logger.warning("Failed to initialize Belief KM adapter: %s", e)
             return None
 
     def _create_belief_network(
@@ -176,7 +176,7 @@ class BeliefHandler(BaseHandler):
         if seed_from_km and topic and km_adapter:
             seeded = network.seed_from_km(topic, min_confidence=0.7)
             if seeded > 0:
-                logger.info(f"Seeded belief network with {seeded} prior beliefs from KM")
+                logger.info("Seeded belief network with %s prior beliefs from KM", seeded)
 
         return network
 
@@ -234,7 +234,7 @@ class BeliefHandler(BaseHandler):
         decision = checker.check_permission(context, permission)
 
         if not decision.allowed:
-            logger.warning(f"Permission denied for {permission}: {decision.reason}")
+            logger.warning("Permission denied for %s: %s", permission, decision.reason)
             return error_response("Permission denied", 403)
 
         return None
@@ -245,7 +245,7 @@ class BeliefHandler(BaseHandler):
         # Rate limit check
         client_ip = get_client_ip(handler)
         if not _belief_limiter.is_allowed(client_ip):
-            logger.warning(f"Rate limit exceeded for belief endpoint: {client_ip}")
+            logger.warning("Rate limit exceeded for belief endpoint: %s", client_ip)
             return error_response("Rate limit exceeded. Please try again later.", 429)
 
         # Require authentication for belief network endpoints
@@ -254,7 +254,7 @@ class BeliefHandler(BaseHandler):
             if err:
                 return err
         except (AttributeError, RuntimeError, TypeError) as e:
-            logger.warning(f"Authentication failed for belief endpoint: {e}")
+            logger.warning("Authentication failed for belief endpoint: %s", e)
             return error_response("Authentication required", 401)
 
         # Check RBAC permission for belief:read access

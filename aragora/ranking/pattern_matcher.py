@@ -199,7 +199,7 @@ class TaskPatternMatcher:
         # Cache result
         self._pattern_cache[cache_key] = result
         logger.debug(
-            f"pattern_classification task_snippet={task_description[:50]!r} pattern={result}"
+            "pattern_classification task_snippet=%r pattern=%s", task_description[:50], result
         )
 
         return result
@@ -231,12 +231,11 @@ class TaskPatternMatcher:
             affinities = self._query_agent_pattern_stats(critique_store, issue_type)
             if affinities:
                 logger.debug(
-                    f"agent_affinities pattern={pattern} issue_type={issue_type} "
-                    f"agents={list(affinities.keys())}"
+                    "agent_affinities pattern=%s issue_type=%s agents=%s", pattern, issue_type, list(affinities.keys())
                 )
             return affinities
         except (OSError, RuntimeError, ValueError) as e:
-            logger.debug(f"Failed to get agent affinities for {pattern}: {e}")
+            logger.debug("Failed to get agent affinities for %s: %s", pattern, e)
             return {}
 
     def _query_agent_pattern_stats(
@@ -370,7 +369,7 @@ class TaskPatternMatcher:
                 return affinities
 
         except (OSError, RuntimeError, ValueError) as e:
-            logger.debug(f"Failed to get pattern affinities for {pattern}: {e}")
+            logger.debug("Failed to get pattern affinities for %s: %s", pattern, e)
             return []
 
 

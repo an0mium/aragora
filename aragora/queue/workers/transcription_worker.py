@@ -80,7 +80,7 @@ class TranscriptionWorker:
     async def start(self) -> None:
         """Start the worker processing loop."""
         self._running = True
-        logger.info(f"[{self.worker_id}] Starting transcription worker")
+        logger.info("[%s] Starting transcription worker", self.worker_id)
 
         job_types = [
             JOB_TYPE_TRANSCRIPTION,
@@ -112,28 +112,28 @@ class TranscriptionWorker:
                         name=f"transcription-{job.id}",
                     )
                     self._active_jobs[job.id] = task
-                    logger.info(f"[{self.worker_id}] Started processing job {job.id}")
+                    logger.info("[%s] Started processing job %s", self.worker_id, job.id)
                 else:
                     # No jobs available, wait before polling again
                     await asyncio.sleep(self.poll_interval)
 
             except asyncio.CancelledError:
-                logger.info(f"[{self.worker_id}] Worker cancelled")
+                logger.info("[%s] Worker cancelled", self.worker_id)
                 break
             except (RuntimeError, ValueError, OSError, ConnectionError) as e:  # noqa: BLE001 - worker isolation
-                logger.error(f"[{self.worker_id}] Worker error: {e}", exc_info=True)
+                logger.error("[%s] Worker error: %s", self.worker_id, e, exc_info=True)
                 await asyncio.sleep(self.poll_interval)
 
         # Wait for active jobs to complete on shutdown
         if self._active_jobs:
-            logger.info(f"[{self.worker_id}] Waiting for {len(self._active_jobs)} active jobs")
+            logger.info("[%s] Waiting for %s active jobs", self.worker_id, len(self._active_jobs))
             await asyncio.gather(*self._active_jobs.values(), return_exceptions=True)
 
-        logger.info(f"[{self.worker_id}] Worker stopped")
+        logger.info("[%s] Worker stopped", self.worker_id)
 
     async def stop(self) -> None:
         """Stop the worker gracefully."""
-        logger.info(f"[{self.worker_id}] Stopping worker")
+        logger.info("[%s] Stopping worker", self.worker_id)
         self._running = False
 
     def _cleanup_completed_tasks(self) -> None:
@@ -142,7 +142,7 @@ class TranscriptionWorker:
         for job_id in completed:
             task = self._active_jobs.pop(job_id)
             if not task.cancelled() and task.exception():
-                logger.warning(f"[{self.worker_id}] Job {job_id} failed: {task.exception()}")
+                logger.warning("[%s] Job %s failed: %s", self.worker_id, job_id, task.exception())
 
     def _emit_transcription_event(self, event_name: str, data: dict) -> None:
         """Emit TRANSCRIPTION_* events for real-time monitoring."""
@@ -168,7 +168,7 @@ class TranscriptionWorker:
 
         try:
             job_type = job.job_type
-            logger.info(f"[{self.worker_id}] Processing {job_type} job {job.id}")
+            logger.info("[%s] Processing %s job %s", self.worker_id, job_type, job.id)
 
             # Route to appropriate handler
             if job_type in (JOB_TYPE_TRANSCRIPTION_AUDIO, JOB_TYPE_TRANSCRIPTION):
@@ -199,7 +199,7 @@ class TranscriptionWorker:
 
         except (RuntimeError, OSError, ConnectionError, TimeoutError, ValueError) as e:
             logger.error(
-                f"[{self.worker_id}] Job {job.id} failed: {e}",
+                "[%s] Job %s failed: %s", self.worker_id, job.id, e,
                 exc_info=True,
             )
             self._emit_transcription_event("TRANSCRIPTION_FAILED", {
@@ -218,8 +218,7 @@ class TranscriptionWorker:
 
             if should_retry:
                 logger.info(
-                    f"[{self.worker_id}] Job {job.id} will retry "
-                    f"(attempt {job.attempts}/{job.max_attempts})"
+                    "[%s] Job %s will retry (attempt %s/%s)", self.worker_id, job.id, job.attempts, job.max_attempts
                 )
 
     async def _process_audio_job(self, job: QueuedJob) -> dict:
@@ -386,7 +385,7 @@ async def enqueue_transcription_job(
     store = get_job_store()
     await store.enqueue(job)
 
-    logger.info(f"Enqueued transcription job: {job_id} ({job_type})")
+    logger.info("Enqueued transcription job: %s (%s)", job_id, job_type)
     return job
 
 
@@ -415,14 +414,14 @@ async def recover_interrupted_transcriptions() -> int:
                 job_types=[job_type],
             )
             if stale_recovered:
-                logger.info(f"Recovered {stale_recovered} stale {job_type} jobs")
+                logger.info("Recovered %s stale %s jobs", stale_recovered, job_type)
                 recovered += stale_recovered
 
     except (RuntimeError, OSError, ConnectionError, TypeError) as e:
-        logger.error(f"Error recovering transcription jobs: {e}", exc_info=True)
+        logger.error("Error recovering transcription jobs: %s", e, exc_info=True)
 
     if recovered:
-        logger.info(f"Recovered {recovered} interrupted transcription jobs")
+        logger.info("Recovered %s interrupted transcription jobs", recovered)
 
     return recovered
 

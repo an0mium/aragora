@@ -201,7 +201,7 @@ class CultureAccumulator:
             patterns_updated.extend(await self._update_domain_expertise(observation, workspace_id))
 
             logger.debug(
-                f"Extracted {len(patterns_updated)} patterns from debate {observation.debate_id}"
+                "Extracted %s patterns from debate %s", len(patterns_updated), observation.debate_id
             )
 
             # Emit MOUND_UPDATED event when culture patterns change
@@ -214,7 +214,7 @@ class CultureAccumulator:
                 )
 
         except (RuntimeError, ValueError, OSError, AttributeError) as e:
-            logger.warning(f"Failed to observe debate: {e}")
+            logger.warning("Failed to observe debate: %s", e)
 
         return patterns_updated
 
@@ -297,7 +297,7 @@ class CultureAccumulator:
             )
 
         except (RuntimeError, ValueError, OSError, AttributeError) as e:
-            logger.warning(f"Failed to extract observation: {e}")
+            logger.warning("Failed to extract observation: %s", e)
             return None
 
     def _infer_domain(self, topic: str) -> str | None:
@@ -787,7 +787,7 @@ class OrganizationCultureManager:
             try:
                 embeddings = await self._mound._vector_store.embed_text(content)
             except (RuntimeError, ValueError, OSError, AttributeError) as e:
-                logger.debug(f"Could not generate embeddings: {e}")
+                logger.debug("Could not generate embeddings: %s", e)
 
         doc = CultureDocument(
             id=doc_id,
@@ -802,7 +802,7 @@ class OrganizationCultureManager:
 
         self._documents[org_id][doc_id] = doc
 
-        logger.info(f"Added culture document {doc_id} to org {org_id}")
+        logger.info("Added culture document %s to org %s", doc_id, org_id)
 
         return doc
 
@@ -840,7 +840,7 @@ class OrganizationCultureManager:
             try:
                 embeddings = await self._mound._vector_store.embed_text(content)
             except (RuntimeError, ValueError, OSError, AttributeError) as e:
-                logger.debug(f"Could not generate embeddings: {e}")
+                logger.debug("Could not generate embeddings: %s", e)
 
         new_doc = CultureDocument(
             id=new_doc_id,
@@ -859,7 +859,7 @@ class OrganizationCultureManager:
 
         self._documents[org_id][new_doc_id] = new_doc
 
-        logger.info(f"Updated culture document {doc_id} -> {new_doc_id}")
+        logger.info("Updated culture document %s -> %s", doc_id, new_doc_id)
 
         return new_doc
 
@@ -927,7 +927,7 @@ class OrganizationCultureManager:
                 scored.sort(key=lambda x: x[1], reverse=True)
                 return [doc for doc, _ in scored[:limit]]
             except (RuntimeError, ValueError, OSError, AttributeError) as e:
-                logger.debug(f"Semantic search failed: {e}")
+                logger.debug("Semantic search failed: %s", e)
 
         # Fallback to keyword matching
         query_lower = query.lower()
@@ -1021,7 +1021,7 @@ class OrganizationCultureManager:
         doc.source_workspace_id = workspace_id
         doc.source_pattern_id = pattern_id
 
-        logger.info(f"Promoted pattern {pattern_id} to culture document {doc.id}")
+        logger.info("Promoted pattern %s to culture document %s", pattern_id, doc.id)
 
         return doc
 
@@ -1088,7 +1088,7 @@ class OrganizationCultureManager:
                     for pattern_type, patterns in profile.patterns.items():
                         aggregated_patterns[pattern_type].extend(patterns)
                 except (OSError, ConnectionError, RuntimeError) as e:  # noqa: BLE001 - adapter isolation
-                    logger.debug(f"Could not get profile for workspace {ws_id}: {e}")
+                    logger.debug("Could not get profile for workspace %s: %s", ws_id, e)
 
         # Extract dominant traits from aggregated data
         dominant_traits = self._extract_dominant_traits(aggregated_patterns)

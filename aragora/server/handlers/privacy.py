@@ -143,7 +143,7 @@ class PrivacyHandler(SecureHandler):
         if export_format == "csv":
             return self._format_csv_export(export_data)
 
-        logger.info(f"Data export completed for user: {user.email}")
+        logger.info("Data export completed for user: %s", user.email)
 
         return json_response(export_data)
 
@@ -415,7 +415,7 @@ class PrivacyHandler(SecureHandler):
         if not deletion_result["success"]:
             return error_response(deletion_result["error"], 500)
 
-        logger.info(f"Account deleted: {self._hash_for_audit(user.email)}")
+        logger.info("Account deleted: %s", self._hash_for_audit(user.email))
 
         return json_response(
             {
@@ -502,7 +502,7 @@ class PrivacyHandler(SecureHandler):
             }
 
         except (KeyError, ValueError, OSError, TypeError, RuntimeError) as e:
-            logger.error(f"Account deletion failed: {e}")
+            logger.error("Account deletion failed: %s", e)
             return {
                 "success": False,
                 "error": "Account deletion failed",
@@ -588,7 +588,7 @@ class PrivacyHandler(SecureHandler):
             new_value=privacy_prefs,
         )
 
-        logger.info(f"Privacy preferences updated for user: {auth_ctx.user_id}")
+        logger.info("Privacy preferences updated for user: %s", auth_ctx.user_id)
 
         return json_response(
             {

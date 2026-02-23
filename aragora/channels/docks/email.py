@@ -103,14 +103,14 @@ class EmailDock(ChannelDock):
                 body=body,
             )
 
-            logger.info(f"Email sent to {email}")
+            logger.info("Email sent to %s", email)
             return SendResult.ok(
                 platform=self.PLATFORM,
                 channel_id=channel_id,
             )
 
         except (ConnectionError, TimeoutError, OSError, ValueError, RuntimeError) as e:
-            logger.error(f"Email send error: {e}")
+            logger.error("Email send error: %s", e)
             return SendResult.fail(
                 error=str(e),
                 platform=self.PLATFORM,

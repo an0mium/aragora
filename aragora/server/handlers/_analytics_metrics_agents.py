@@ -319,7 +319,7 @@ class AgentAnalyticsMixin:
                         "total_matches": h2h.get("total", 0),
                     }
                 except (ValueError, KeyError, TypeError, AttributeError, RuntimeError) as e:
-                    logger.debug(f"Error computing head-to-head for {agent_a} vs {agent_b}: {e}")
+                    logger.debug("Error computing head-to-head for %s vs %s: %s", agent_a, agent_b, e)
 
         return json_response(
             {
@@ -428,7 +428,7 @@ class AgentAnalyticsMixin:
                     key=lambda x: x["period"],
                 )
             except (ValueError, KeyError, TypeError, AttributeError, RuntimeError) as e:
-                logger.warning(f"Failed to get trends for agent {agent_name}: {e}")
+                logger.warning("Failed to get trends for agent %s: %s", agent_name, e)
                 trends[agent_name] = []
 
         return json_response(

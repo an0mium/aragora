@@ -219,7 +219,7 @@ class PersistentOriginStore:
             return True
 
         except (ConnectionError, TimeoutError, OSError, ValueError, RuntimeError) as e:
-            logger.warning(f"PostgreSQL initialization failed: {e}")
+            logger.warning("PostgreSQL initialization failed: %s", e)
             if self._pool:
                 await self._pool.close()
                 self._pool = None
@@ -333,7 +333,7 @@ class PersistentOriginStore:
         # Update cache
         self._cache_put(origin)
 
-        logger.debug(f"Registered origin {origin_id} ({origin_type}) from {platform}")
+        logger.debug("Registered origin %s (%s) from %s", origin_id, origin_type, platform)
         return origin
 
     async def get_origin(self, origin_id: str) -> OriginRecord | None:
@@ -452,7 +452,7 @@ class PersistentOriginStore:
             count = await self._cleanup_sqlite()
 
         if count > 0:
-            logger.info(f"Cleaned up {count} expired routing origins")
+            logger.info("Cleaned up %s expired routing origins", count)
 
         return count
 

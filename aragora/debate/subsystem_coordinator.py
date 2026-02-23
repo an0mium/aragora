@@ -573,7 +573,7 @@ class SubsystemCoordinator:
                 subsystems=subsystems,
             )
             count = self.hook_handler_registry.register_all()
-            logger.debug(f"Auto-initialized HookHandlerRegistry with {count} handlers")
+            logger.debug("Auto-initialized HookHandlerRegistry with %s handlers", count)
         except ImportError:
             logger.debug("HookHandlerRegistry not available")
         except (TypeError, ValueError, RuntimeError) as e:
@@ -1320,7 +1320,7 @@ class SubsystemCoordinator:
                 return 0.5 + calibration_quality  # Range: 0.5 to 1.5
             return 1.0
         except Exception as e:  # noqa: BLE001 - graceful degradation, return default weight on error
-            logger.debug(f"Could not get calibration weight for {agent_name}: {e}")
+            logger.debug("Could not get calibration weight for %s: %s", agent_name, e)
             return 1.0
 
     def get_continuum_context(self, task: str, limit: int = 5) -> str:

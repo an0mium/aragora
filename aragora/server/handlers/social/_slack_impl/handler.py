@@ -63,7 +63,7 @@ class SlackHandler(CommandsMixin, EventsMixin, InteractiveMixin, SecureHandler):
         self, path: str, query_params: dict[str, Any], handler: Any
     ) -> HandlerResult | None:
         """Route Slack requests to appropriate methods."""
-        logger.debug(f"Slack request: {path}")
+        logger.debug("Slack request: %s", path)
 
         if path == "/api/v1/integrations/slack/status":
             # RBAC: Require authentication and bots.read permission
@@ -73,7 +73,7 @@ class SlackHandler(CommandsMixin, EventsMixin, InteractiveMixin, SecureHandler):
             except UnauthorizedError:
                 return error_response("Authentication required", 401)
             except ForbiddenError as e:
-                logger.warning(f"Slack status access denied: {e}")
+                logger.warning("Slack status access denied: %s", e)
                 return error_response("Permission denied", 403)
             return self._get_status()
 
@@ -109,7 +109,7 @@ class SlackHandler(CommandsMixin, EventsMixin, InteractiveMixin, SecureHandler):
                 return error_response("Webhook verification not configured", 503)
             logger.warning("Slack signing secret not configured - skipping in dev mode")
         elif not self._verify_signature(handler, body, signing_secret):
-            logger.warning(f"Slack signature verification failed for team_id={team_id}")
+            logger.warning("Slack signature verification failed for team_id=%s", team_id)
             # Audit log signature failure (potential attack)
             audit = _cfg._get_audit_logger()
             if audit:
@@ -165,7 +165,7 @@ class SlackHandler(CommandsMixin, EventsMixin, InteractiveMixin, SecureHandler):
                 # Team ID in event or root
                 return data.get("team_id") or data.get("event", {}).get("team")
         except (json.JSONDecodeError, ValueError, KeyError, TypeError) as e:
-            logger.debug(f"Failed to extract team_id: {e}")
+            logger.debug("Failed to extract team_id: %s", e)
         return None
 
     @handle_errors("slack creation")
@@ -199,10 +199,10 @@ class SlackHandler(CommandsMixin, EventsMixin, InteractiveMixin, SecureHandler):
                 signing_secret=signing_secret or "",
             )
             if not result.verified and result.error:
-                logger.warning(f"Slack signature verification failed: {result.error}")
+                logger.warning("Slack signature verification failed: %s", result.error)
             return result.verified
         except (ValueError, TypeError, AttributeError, RuntimeError) as e:
-            logger.exception(f"Unexpected signature verification error: {e}")
+            logger.exception("Unexpected signature verification error: %s", e)
             return False
 
     def _get_status(self) -> HandlerResult:

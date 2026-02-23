@@ -138,7 +138,7 @@ class ThreatIntelHandler(BaseHandler):
             return self.success_response(result.to_dict())
 
         except (ConnectionError, TimeoutError, OSError, ValueError) as e:
-            logger.exception(f"URL check failed: {e}")
+            logger.exception("URL check failed: %s", e)
             return self.error_response("Internal server error", status=500)
 
     @api_endpoint(
@@ -212,7 +212,7 @@ class ThreatIntelHandler(BaseHandler):
             )
 
         except (ConnectionError, TimeoutError, OSError, ValueError) as e:
-            logger.exception(f"Batch URL check failed: {e}")
+            logger.exception("Batch URL check failed: %s", e)
             return self.error_response("Internal server error", status=500)
 
     # =========================================================================
@@ -257,7 +257,7 @@ class ThreatIntelHandler(BaseHandler):
             return self.success_response(result.to_dict())
 
         except (ConnectionError, TimeoutError, OSError, ValueError) as e:
-            logger.exception(f"IP check failed: {e}")
+            logger.exception("IP check failed: %s", e)
             return self.error_response("Internal server error", status=500)
 
     @api_endpoint(
@@ -309,7 +309,7 @@ class ThreatIntelHandler(BaseHandler):
             )
 
         except (ConnectionError, TimeoutError, OSError, ValueError) as e:
-            logger.exception(f"Batch IP check failed: {e}")
+            logger.exception("Batch IP check failed: %s", e)
             return self.error_response("Internal server error", status=500)
 
     # =========================================================================
@@ -354,7 +354,7 @@ class ThreatIntelHandler(BaseHandler):
             return self.success_response(result.to_dict())
 
         except (ConnectionError, TimeoutError, OSError, ValueError) as e:
-            logger.exception(f"Hash check failed: {e}")
+            logger.exception("Hash check failed: %s", e)
             return self.error_response("Internal server error", status=500)
 
     @api_endpoint(
@@ -406,7 +406,7 @@ class ThreatIntelHandler(BaseHandler):
             )
 
         except (ConnectionError, TimeoutError, OSError, ValueError) as e:
-            logger.exception(f"Batch hash check failed: {e}")
+            logger.exception("Batch hash check failed: %s", e)
             return self.error_response("Internal server error", status=500)
 
     # =========================================================================
@@ -464,7 +464,7 @@ class ThreatIntelHandler(BaseHandler):
             return self.success_response(result)
 
         except (ConnectionError, TimeoutError, OSError, ValueError) as e:
-            logger.exception(f"Email scan failed: {e}")
+            logger.exception("Email scan failed: %s", e)
             return self.error_response("Internal server error", status=500)
 
     # =========================================================================
@@ -519,7 +519,7 @@ class ThreatIntelHandler(BaseHandler):
             )
 
         except (TypeError, ValueError, KeyError, AttributeError) as e:
-            logger.exception(f"Status check failed: {e}")
+            logger.exception("Status check failed: %s", e)
             return self.error_response("Internal server error", status=500)
 
 
@@ -549,7 +549,7 @@ def register_threat_intel_routes(app: web.Application) -> None:
     ]
 
     app.router.add_routes(routes)
-    logger.info(f"Registered {len(routes)} threat intelligence routes")
+    logger.info("Registered %s threat intelligence routes", len(routes))
 
 
 # Export handler class

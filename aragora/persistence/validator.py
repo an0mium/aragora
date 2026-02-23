@@ -108,7 +108,7 @@ def _check_table_exists(db_path: Path, table_name: str) -> bool:
         conn.close()
         return result
     except (OSError, RuntimeError, ValueError) as e:
-        logger.warning(f"Error checking table {table_name} in {db_path}: {e}")
+        logger.warning("Error checking table %s in %s: %s", table_name, db_path, e)
         return False
 
 
@@ -121,7 +121,7 @@ def _get_table_count(db_path: Path) -> int:
         conn.close()
         return count
     except (OSError, RuntimeError, ValueError) as e:
-        logger.debug(f"Failed to get table count for {db_path}: {type(e).__name__}: {e}")
+        logger.debug("Failed to get table count for %s: %s: %s", db_path, type(e).__name__, e)
         return 0
 
 
@@ -168,13 +168,13 @@ def validate_consolidated_schema() -> ValidationResult:
 
         # Log table count for diagnostics
         table_count = _get_table_count(db_path)
-        logger.debug(f"Database {db_name}: {table_count} tables")
+        logger.debug("Database %s: %s tables", db_name, table_count)
 
     success = len(errors) == 0
     if success:
         logger.info("Database schema validation passed")
     else:
-        logger.error(f"Database schema validation failed: {len(errors)} errors")
+        logger.error("Database schema validation failed: %s errors", len(errors))
 
     return ValidationResult(success, errors, warnings)
 
@@ -207,7 +207,7 @@ def validate_schema_versions() -> ValidationResult:
             if cursor.fetchone():
                 cursor = conn.execute("SELECT module, version FROM _schema_versions")
                 versions = cursor.fetchall()
-                logger.debug(f"{db_name} schema versions: {dict(versions)}")
+                logger.debug("%s schema versions: %s", db_name, dict(versions))
             else:
                 warnings.append(f"{db_name}: No _schema_versions table")
             conn.close()

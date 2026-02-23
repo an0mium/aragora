@@ -63,7 +63,7 @@ def _import_bug_detector():
         _BugSeverity = BugSeverity
         return True
     except ImportError as e:
-        logger.debug(f"BugDetector not available: {e}")
+        logger.debug("BugDetector not available: %s", e)
         return False
 
 
@@ -225,7 +225,7 @@ class GitHubClient:
                 registry.register(GitHubConnector, self._connector)
                 logger.info("Created and registered GitHubConnector")
         except (ImportError, AttributeError, TypeError, ValueError) as e:
-            logger.debug(f"GitHubConnector not available, using direct API: {e}")
+            logger.debug("GitHubConnector not available, using direct API: %s", e)
 
     async def get_pr(self, owner: str, repo: str, pr_number: int) -> PRDetails | None:
         """Get PR details from GitHub API."""
@@ -236,7 +236,7 @@ class GitHubClient:
             try:
                 return await self._get_pr_via_connector(owner, repo, pr_number)
             except (ConnectionError, TimeoutError, OSError, ValueError, KeyError, AttributeError) as e:
-                logger.warning(f"Connector failed, falling back to direct API: {e}")
+                logger.warning("Connector failed, falling back to direct API: %s", e)
 
         if not self.token:
             # Return demo data
@@ -286,7 +286,7 @@ class GitHubClient:
                 )
 
         except (ConnectionError, TimeoutError, OSError, ValueError, KeyError) as e:
-            logger.exception(f"Failed to fetch PR: {e}")
+            logger.exception("Failed to fetch PR: %s", e)
             return self._demo_pr(pr_number)
 
     async def _get_pr_via_connector(
@@ -363,7 +363,7 @@ class GitHubClient:
                     return {"success": False, "error": error}
 
         except (ConnectionError, TimeoutError, OSError, ValueError, KeyError) as e:
-            logger.exception(f"Failed to submit review: {e}")
+            logger.exception("Failed to submit review: %s", e)
             return {"success": False, "error": "Internal server error"}
 
     def _demo_pr(self, pr_number: int) -> PRDetails:
@@ -487,11 +487,11 @@ async def handle_trigger_pr_review(
                     }
 
                 logger.info(
-                    f"[PRReview] Completed review {review_id} for {repository}#{pr_number}: {verdict.value}"
+                    "[PRReview] Completed review %s for %s#%s: %s", review_id, repository, pr_number, verdict.value
                 )
 
             except (ValueError, KeyError, TypeError, RuntimeError, OSError, ConnectionError) as e:  # for async review task
-                logger.exception(f"Review {review_id} failed: {e}")
+                logger.exception("Review %s failed: %s", review_id, e)
                 with _storage_lock:
                     result.status = ReviewStatus.FAILED
                     result.error = "Internal server error"
@@ -505,7 +505,7 @@ async def handle_trigger_pr_review(
         task = asyncio.create_task(run_review())
         _running_reviews[pr_key] = task
 
-        logger.info(f"[PRReview] Started review {review_id} for {repository}#{pr_number}")
+        logger.info("[PRReview] Started review %s for %s#%s", review_id, repository, pr_number)
 
         return {
             "success": True,
@@ -516,7 +516,7 @@ async def handle_trigger_pr_review(
         }
 
     except (ValueError, KeyError, TypeError, RuntimeError, OSError, ConnectionError) as e:
-        logger.exception(f"Failed to trigger PR review: {e}")
+        logger.exception("Failed to trigger PR review: %s", e)
         return {
             "success": False,
             "error": "Internal server error",
@@ -639,15 +639,15 @@ async def _run_bug_detector_analysis(
                             )
                         )
                 except (TypeError, ValueError, KeyError, AttributeError) as pe:
-                    logger.debug(f"Pattern {pattern.__class__.__name__} failed: {pe}")
+                    logger.debug("Pattern %s failed: %s", pattern.__class__.__name__, pe)
                     continue
 
         logger.info(
-            f"[PRReview] Bug detector found {len(comments)} issues across {len(pr_details.changed_files)} files"
+            "[PRReview] Bug detector found %s issues across %s files", len(comments), len(pr_details.changed_files)
         )
 
     except (TypeError, ValueError, KeyError, AttributeError, OSError) as e:
-        logger.warning(f"Bug detector analysis failed: {e}")
+        logger.warning("Bug detector analysis failed: %s", e)
 
     return comments, critical_issues
 
@@ -691,7 +691,7 @@ async def _perform_review(
                     return combined_comments, debate_verdict, debate_summary
                 return debate_result
         except (ConnectionError, TimeoutError, OSError, ValueError, RuntimeError) as e:
-            logger.warning(f"Debate review failed, falling back to heuristic: {e}")
+            logger.warning("Debate review failed, falling back to heuristic: %s", e)
 
     # Run bug detector analysis first
     bug_comments, bug_issues = await _run_bug_detector_analysis(pr_details)
@@ -894,7 +894,7 @@ Format your response as:
         logger.debug("Arena not available for debate review")
         return None
     except (ConnectionError, TimeoutError, OSError, ValueError, RuntimeError) as e:
-        logger.warning(f"Debate review error: {e}")
+        logger.warning("Debate review error: %s", e)
         return None
 
 
@@ -983,7 +983,7 @@ async def handle_get_pr_details(
         }
 
     except (ConnectionError, TimeoutError, OSError, ValueError, KeyError) as e:
-        logger.exception(f"Failed to get PR details: {e}")
+        logger.exception("Failed to get PR details: %s", e)
         return {
             "success": False,
             "error": "Internal server error",
@@ -1012,7 +1012,7 @@ async def handle_get_review_status(
         }
 
     except (KeyError, ValueError, TypeError, AttributeError) as e:
-        logger.exception(f"Failed to get review status: {e}")
+        logger.exception("Failed to get review status: %s", e)
         return {
             "success": False,
             "error": "Internal server error",
@@ -1045,7 +1045,7 @@ async def handle_list_pr_reviews(
         }
 
     except (KeyError, ValueError, TypeError, AttributeError) as e:
-        logger.exception(f"Failed to list PR reviews: {e}")
+        logger.exception("Failed to list PR reviews: %s", e)
         return {
             "success": False,
             "error": "Internal server error",
@@ -1095,7 +1095,7 @@ async def handle_submit_review(
         return result
 
     except (ConnectionError, TimeoutError, OSError, ValueError, KeyError) as e:
-        logger.exception(f"Failed to submit review: {e}")
+        logger.exception("Failed to submit review: %s", e)
         return {
             "success": False,
             "error": "Internal server error",

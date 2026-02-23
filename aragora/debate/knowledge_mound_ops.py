@@ -187,13 +187,13 @@ class KnowledgeMoundOperations:
                 lines.append(f"{content}")
                 lines.append("")
 
-            logger.info(f"  [knowledge_mound] Retrieved {len(items)} items for context")
+            logger.info("  [knowledge_mound] Retrieved %s items for context", len(items))
             return "\n".join(lines)
 
         except (RuntimeError, ValueError, TypeError, AttributeError, KeyError, OSError, ConnectionError) as e:
             success = False
             error_msg = f"query_error:{type(e).__name__}"
-            logger.warning(f"  [knowledge_mound] Failed to fetch context: {e}")
+            logger.warning("  [knowledge_mound] Failed to fetch context: %s", e)
             return None
 
         finally:
@@ -275,7 +275,7 @@ class KnowledgeMoundOperations:
             success = bool(ingestion_result and getattr(ingestion_result, "node_id", None))
             if success:
                 logger.info(
-                    f"  [knowledge_mound] Ingested debate outcome (node_id={ingestion_result.node_id})"
+                    "  [knowledge_mound] Ingested debate outcome (node_id=%s)", ingestion_result.node_id
                 )
 
                 # Emit event for dashboard if callback provided
@@ -290,7 +290,7 @@ class KnowledgeMoundOperations:
 
         except (RuntimeError, ValueError, OSError, KeyError) as e:
             error_msg = f"ingest_error:{type(e).__name__}"
-            logger.warning(f"  [knowledge_mound] Failed to ingest outcome: {e}")
+            logger.warning("  [knowledge_mound] Failed to ingest outcome: %s", e)
 
         finally:
             # Record metrics if available

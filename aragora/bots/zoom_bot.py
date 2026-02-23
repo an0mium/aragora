@@ -99,13 +99,13 @@ class ZoomOAuthManager:
                     )
                     return self._access_token
                 else:
-                    logger.error(f"Failed to get Zoom token: {resp.status_code}")
+                    logger.error("Failed to get Zoom token: %s", resp.status_code)
                     return None
         except ImportError:
             logger.warning("httpx not installed for Zoom OAuth")
             return None
         except OSError as e:
-            logger.error(f"Zoom OAuth error: {e}")
+            logger.error("Zoom OAuth error: %s", e)
             return None
 
 
@@ -167,7 +167,7 @@ class AragoraZoomBot:
 
             return hmac.compare_digest(expected, signature)
         except (ValueError, UnicodeDecodeError) as e:
-            logger.error(f"Zoom signature verification error: {e}")
+            logger.error("Zoom signature verification error: %s", e)
             return False
 
     async def handle_event(self, event: dict[str, Any]) -> dict[str, Any]:
@@ -195,7 +195,7 @@ class AragoraZoomBot:
 
         # Bot installed
         if event_type == "bot_installed":
-            logger.info(f"Zoom bot installed: {payload}")
+            logger.info("Zoom bot installed: %s", payload)
             return {"status": "ok"}
 
         # Chat message
@@ -206,7 +206,7 @@ class AragoraZoomBot:
         if event_type == "meeting.ended":
             return await self._handle_meeting_ended(payload)
 
-        logger.debug(f"Unhandled Zoom event: {event_type}")
+        logger.debug("Unhandled Zoom event: %s", event_type)
         return {"status": "ok"}
 
     async def _handle_chat_message(self, payload: dict[str, Any]) -> dict[str, Any]:
@@ -250,7 +250,7 @@ class AragoraZoomBot:
 
         # Log without exposing full email address
         host_masked = host_email[:2] + "***" if host_email else "unknown"
-        logger.info(f"Meeting ended: {meeting_id} (host: {host_masked})")
+        logger.info("Meeting ended: %s (host: %s)", meeting_id, host_masked)
 
         # Trigger post-meeting summary generation if configured
         if getattr(self.config, "enable_post_meeting_summary", False):
@@ -289,15 +289,15 @@ class AragoraZoomBot:
                     headers={"Content-Type": "application/json"},
                 )
                 if resp.status_code == 200:
-                    logger.info(f"Post-meeting summary generated for {meeting_id}")
+                    logger.info("Post-meeting summary generated for %s", meeting_id)
                 else:
                     logger.warning(
-                        f"Failed to generate summary for {meeting_id}: {resp.status_code}"
+                        "Failed to generate summary for %s: %s", meeting_id, resp.status_code
                     )
         except ImportError:
             logger.warning("httpx not available for post-meeting summary")
         except OSError as e:
-            logger.error(f"Error generating post-meeting summary: {e}")
+            logger.error("Error generating post-meeting summary: %s", e)
 
     async def _send_chat_message(
         self,
@@ -345,14 +345,14 @@ class AragoraZoomBot:
                     return {"status": "ok"}
                 else:
                     text = resp.text
-                    logger.error(f"Zoom send failed: {resp.status_code} - {text}")
+                    logger.error("Zoom send failed: %s - %s", resp.status_code, text)
                     return {"status": "error", "message": text[:100]}
 
         except ImportError:
             logger.warning("httpx not installed for Zoom API calls")
             return {"status": "error", "message": "httpx not installed"}
         except OSError as e:
-            logger.error(f"Zoom send error: {e}")
+            logger.error("Zoom send error: %s", e)
             return {"status": "error", "message": "Failed to send message"}
 
     def _create_context(

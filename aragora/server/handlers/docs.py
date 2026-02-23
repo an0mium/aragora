@@ -97,7 +97,7 @@ class DocsHandler(BaseHandler):
         except ImportError:
             return error_response("OpenAPI module not available", 503)
         except (ValueError, TypeError, KeyError, RuntimeError, OSError) as e:
-            logger.exception(f"OpenAPI generation failed: {e}")
+            logger.exception("OpenAPI generation failed: %s", e)
             return error_response(safe_error_message(e, "OpenAPI generation"), 500)
 
     def _get_swagger_ui(self) -> HandlerResult:
@@ -184,7 +184,7 @@ class DocsHandler(BaseHandler):
                 },
             )
         except (ImportError, ValueError, TypeError, KeyError, RuntimeError, OSError) as e:
-            logger.error(f"Error generating Postman collection: {e}")
+            logger.error("Error generating Postman collection: %s", e)
             return error_response(safe_error_message(e, "Postman export"), 500)
 
     def _get_redoc(self) -> HandlerResult:

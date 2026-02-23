@@ -145,7 +145,7 @@ class DeliberationTemplate:
             try:
                 category = TemplateCategory(data["category"])
             except ValueError as e:
-                logger.warning(f"Failed to parse category '{data['category']}': {e}")
+                logger.warning("Failed to parse category '%s': %s", data['category'], e)
                 # Keep default category
 
         team_strategy = TeamStrategy.BEST_FOR_DOMAIN
@@ -153,7 +153,7 @@ class DeliberationTemplate:
             try:
                 team_strategy = TeamStrategy(data["team_strategy"])
             except ValueError as e:
-                logger.warning(f"Failed to parse team_strategy '{data['team_strategy']}': {e}")
+                logger.warning("Failed to parse team_strategy '%s': %s", data['team_strategy'], e)
                 # Keep default team_strategy
 
         output_format = OutputFormat.STANDARD
@@ -161,7 +161,7 @@ class DeliberationTemplate:
             try:
                 output_format = OutputFormat(data["output_format"])
             except ValueError as e:
-                logger.warning(f"Failed to parse output_format '{data['output_format']}': {e}")
+                logger.warning("Failed to parse output_format '%s': %s", data['output_format'], e)
                 # Keep default output_format
 
         return cls(

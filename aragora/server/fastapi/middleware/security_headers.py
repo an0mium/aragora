@@ -62,7 +62,7 @@ class SecurityHeadersMiddleware(BaseHTTPMiddleware):
         self._headers = get_security_response_headers(self.config)
 
         if self._headers:
-            logger.debug(f"SecurityHeadersMiddleware initialized with {len(self._headers)} headers")
+            logger.debug("SecurityHeadersMiddleware initialized with %s headers", len(self._headers))
         else:
             logger.debug("SecurityHeadersMiddleware disabled (no headers configured)")
 

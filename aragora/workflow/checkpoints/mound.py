@@ -121,13 +121,12 @@ class KnowledgeMoundCheckpointStore:
             add_node_method: Any = getattr(self.mound, "add_node")
             node_id: str = await add_node_method(node)
             logger.info(
-                f"Saved workflow checkpoint: workflow={checkpoint.workflow_id}, "
-                f"step={checkpoint.current_step}, node_id={node_id}"
+                "Saved workflow checkpoint: workflow=%s, step=%s, node_id=%s", checkpoint.workflow_id, checkpoint.current_step, node_id
             )
             return node_id
 
         except (ImportError, AttributeError, RuntimeError, ValueError, TypeError, OSError) as e:
-            logger.error(f"Failed to save checkpoint to KnowledgeMound: {e}")
+            logger.error("Failed to save checkpoint to KnowledgeMound: %s", e)
             raise
 
     async def load(self, checkpoint_id: str) -> WorkflowCheckpoint | None:
@@ -148,14 +147,14 @@ class KnowledgeMoundCheckpointStore:
                 return None
 
             if getattr(node, "node_type", None) != "workflow_checkpoint":
-                logger.warning(f"Node {checkpoint_id} is not a checkpoint")
+                logger.warning("Node %s is not a checkpoint", checkpoint_id)
                 return None
 
             checkpoint_dict = json.loads(node.content)
             return self._dict_to_checkpoint(checkpoint_dict)
 
         except (AttributeError, RuntimeError, ValueError, TypeError, OSError, KeyError) as e:
-            logger.error(f"Failed to load checkpoint {checkpoint_id}: {e}")
+            logger.error("Failed to load checkpoint %s: %s", checkpoint_id, e)
             return None
 
     async def load_latest(self, workflow_id: str) -> WorkflowCheckpoint | None:
@@ -188,7 +187,7 @@ class KnowledgeMoundCheckpointStore:
             return self._dict_to_checkpoint(checkpoint_dict)
 
         except (AttributeError, RuntimeError, ValueError, TypeError, OSError, KeyError) as e:
-            logger.error(f"Failed to load latest checkpoint for {workflow_id}: {e}")
+            logger.error("Failed to load latest checkpoint for %s: %s", workflow_id, e)
             return None
 
     async def list_checkpoints(self, workflow_id: str) -> list[str]:
@@ -213,7 +212,7 @@ class KnowledgeMoundCheckpointStore:
             return [getattr(node, "id", "") for node in nodes]
 
         except (AttributeError, RuntimeError, ValueError, TypeError, OSError) as e:
-            logger.error(f"Failed to list checkpoints for {workflow_id}: {e}")
+            logger.error("Failed to list checkpoints for %s: %s", workflow_id, e)
             return []
 
     async def delete(self, checkpoint_id: str) -> bool:
@@ -232,7 +231,7 @@ class KnowledgeMoundCheckpointStore:
             result: bool = await delete_method(checkpoint_id)
             return result
         except (AttributeError, RuntimeError, ValueError, TypeError, OSError) as e:
-            logger.error(f"Failed to delete checkpoint {checkpoint_id}: {e}")
+            logger.error("Failed to delete checkpoint %s: %s", checkpoint_id, e)
             return False
 
     def _checkpoint_to_dict(self, checkpoint: WorkflowCheckpoint) -> dict[str, Any]:

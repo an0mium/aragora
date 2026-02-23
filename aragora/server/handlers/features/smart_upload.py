@@ -507,7 +507,7 @@ async def process_file(
                 result["knowledge_processing"] = knowledge_result.get("knowledge_processing")
 
     except (ValueError, KeyError, TypeError, RuntimeError, OSError) as e:
-        logger.error(f"Error processing {filename}: {e}")
+        logger.error("Error processing %s: %s", filename, e)
         result["error"] = "Internal server error"
 
     return result

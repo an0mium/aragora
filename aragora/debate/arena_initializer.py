@@ -233,7 +233,7 @@ class ArenaInitializer:
             airlock_cfg = airlock_config or AirlockConfig()
             # AirlockProxy delegates to Agent via __getattr__, making it duck-type compatible
             agents = cast(list["Agent"], wrap_agents(agents, airlock_cfg))
-            logger.debug(f"[airlock] Wrapped {len(agents)} agents with resilience layer")
+            logger.debug("[airlock] Wrapped %s agents with resilience layer", len(agents))
 
         hooks = event_hooks or {}
         spectator = spectator or SpectatorStream(enabled=False)
@@ -514,9 +514,9 @@ class ArenaInitializer:
                 if vertical_persona_manager is None:
                     vertical_persona_manager = VerticalPersonaManager()
                 detected_vertical = vertical_persona_manager.detect_vertical_from_task(task)
-                logger.debug(f"Auto-detected vertical: {detected_vertical.value}")
+                logger.debug("Auto-detected vertical: %s", detected_vertical.value)
             except (ImportError, AttributeError) as e:
-                logger.debug(f"Vertical auto-detection unavailable: {e}")
+                logger.debug("Vertical auto-detection unavailable: %s", e)
 
         return TrackerComponents(
             position_tracker=position_tracker,
@@ -642,7 +642,7 @@ class ArenaInitializer:
             if enable_quality_gates:
                 quality_gate = QualityGate(threshold=quality_gate_threshold)
                 logger.debug(
-                    f"[ml] Initialized QualityGate with threshold={quality_gate_threshold}"
+                    "[ml] Initialized QualityGate with threshold=%s", quality_gate_threshold
                 )
 
             if enable_consensus_estimation:
@@ -655,11 +655,10 @@ class ArenaInitializer:
                     stability_conflict_confidence=stability_conflict_confidence,
                 )
                 logger.debug(
-                    f"[ml] Initialized ConsensusEstimator with threshold="
-                    f"{consensus_early_termination_threshold}"
+                    "[ml] Initialized ConsensusEstimator with threshold=%s", consensus_early_termination_threshold
                 )
 
         except ImportError as e:
-            logger.warning(f"[ml] ML integration not available: {e}")
+            logger.warning("[ml] ML integration not available: %s", e)
 
         return strategy, quality_gate, consensus_estimator

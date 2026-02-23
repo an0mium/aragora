@@ -177,13 +177,13 @@ class EventListener:
         else:
             self._last_block = int(from_block)
 
-        logger.info(f"Event listener started from block {self._last_block}")
+        logger.info("Event listener started from block %s", self._last_block)
 
         while self._running:
             try:
                 await self._poll_events()
             except (RuntimeError, ConnectionError, ValueError, OSError) as e:
-                logger.error(f"Error polling events: {e}")
+                logger.error("Error polling events: %s", e)
                 self._provider.record_failure(self._chain_id)
 
             await asyncio.sleep(self._poll_interval)
@@ -299,7 +299,7 @@ class EventListener:
                         )
                     )
             except (RuntimeError, ConnectionError, ValueError, OSError) as e:
-                logger.debug(f"Could not get {event_type.value} events: {e}")
+                logger.debug("Could not get %s events: %s", event_type.value, e)
 
         return events
 
@@ -312,7 +312,7 @@ class EventListener:
                 if asyncio.iscoroutine(result):
                     await result
             except (RuntimeError, ConnectionError, ValueError, OSError) as e:
-                logger.error(f"Error in event handler for {event.event_type}: {e}")
+                logger.error("Error in event handler for %s: %s", event.event_type, e)
 
     def parse_identity_event(self, event: BlockchainEvent) -> OnChainAgentIdentity | None:
         """Parse an identity event into an OnChainAgentIdentity."""

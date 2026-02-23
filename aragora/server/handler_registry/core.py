@@ -255,7 +255,7 @@ def filter_registry_by_tier(
         if tier in active_tiers:
             filtered.append((attr_name, handler_class))
         else:
-            logger.debug(f"[handlers] Skipping {attr_name} (tier={tier})")
+            logger.debug("[handlers] Skipping %s (tier=%s)", attr_name, tier)
 
     return filtered
 
@@ -270,7 +270,7 @@ def _safe_import(module_path: str, class_name: str) -> HandlerType:
         mod = importlib.import_module(module_path)
         return getattr(mod, class_name)
     except (ImportError, AttributeError, TypeError) as e:
-        logger.warning(f"Failed to import {class_name} from {module_path}: {e}")
+        logger.warning("Failed to import %s from %s: %s", class_name, module_path, e)
         return None
 
 
@@ -637,8 +637,7 @@ class RouteIndex:
         self._get_handler_cached.cache_clear()
 
         logger.debug(
-            f"[route-index] Built index: {len(self._exact_routes)} exact, "
-            f"{len(self._prefix_routes)} prefix patterns"
+            "[route-index] Built index: %s exact, %s prefix patterns", len(self._exact_routes), len(self._prefix_routes)
         )
 
     def get_handler(self, path: str) -> tuple[str, Any] | None:
@@ -751,7 +750,7 @@ def validate_handler_class(handler_class: Any, handler_name: str) -> list[str]:
 
     # Optional but recommended: ROUTES attribute for exact path matching
     if not hasattr(handler_class, "ROUTES"):
-        logger.debug(f"{handler_name}: No ROUTES attribute (will use prefix matching only)")
+        logger.debug("%s: No ROUTES attribute (will use prefix matching only)", handler_name)
 
     return errors
 
@@ -842,15 +841,14 @@ def validate_all_handlers(
 
     if invalid_count > 0 or missing_count > 0:
         logger.warning(
-            f"[handler-validation] {valid_count}/{total} handlers valid, "
-            f"{invalid_count} invalid, {missing_count} missing"
+            "[handler-validation] %s/%s handlers valid, %s invalid, %s missing", valid_count, total, invalid_count, missing_count
         )
         for name, errors in results["invalid"].items():
             for error in errors:
-                logger.warning(f"[handler-validation] {error}")
+                logger.warning("[handler-validation] %s", error)
         results["status"] = "validation_errors"
     else:
-        logger.info(f"[handler-validation] All {valid_count} handlers validated successfully")
+        logger.info("[handler-validation] All %s handlers validated successfully", valid_count)
 
     if raise_on_error and (invalid_count > 0 or missing_count > 0):
         raise HandlerValidationError(
@@ -944,10 +942,10 @@ def check_handler_coverage(handler_registry: list[tuple[str, Any]]) -> None:
 
     if unregistered:
         logger.warning(
-            f"[handlers] {len(unregistered)} handler class(es) found but not registered:"
+            "[handlers] %s handler class(es) found but not registered:", len(unregistered)
         )
         for name, path in sorted(unregistered):
-            logger.warning(f"[handlers]   - {name} ({path})")
+            logger.warning("[handlers]   - %s (%s)", name, path)
     else:
         logger.info("[handlers] All handler classes are registered or skip-listed")
 
@@ -991,7 +989,7 @@ def validate_handlers_on_init(
     if results["invalid"]:
         for name, errors in results["invalid"].items():
             for error in errors:
-                logger.warning(f"[handler-instance-validation] {error}")
+                logger.warning("[handler-instance-validation] %s", error)
 
     return results
 

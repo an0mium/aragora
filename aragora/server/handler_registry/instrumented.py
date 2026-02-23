@@ -162,6 +162,6 @@ def auto_instrument_handler(handler_instance: Any) -> Any:
                 setattr(handler_instance, method_name, decorated)
             except (AttributeError, TypeError):
                 # Some objects disallow setattr -- skip silently.
-                logger.debug(f"[instrumented] Could not instrument {handler_name}.{method_name}")
+                logger.debug("[instrumented] Could not instrument %s.%s", handler_name, method_name)
 
     return handler_instance

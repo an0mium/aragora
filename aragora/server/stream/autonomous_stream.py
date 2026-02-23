@@ -60,14 +60,14 @@ class AutonomousStreamEmitter:
             client_id=client_id,
             subscriptions=subscriptions or set(),
         )
-        logger.info(f"Autonomous stream client connected: {client_id}")
+        logger.info("Autonomous stream client connected: %s", client_id)
         return client_id
 
     def remove_client(self, client_id: str) -> None:
         """Remove a WebSocket client."""
         if client_id in self._clients:
             del self._clients[client_id]
-            logger.info(f"Autonomous stream client disconnected: {client_id}")
+            logger.info("Autonomous stream client disconnected: %s", client_id)
 
     async def emit(self, event: StreamEvent) -> None:
         """
@@ -96,7 +96,7 @@ class AutonomousStreamEmitter:
             try:
                 await client.ws.send_str(event_json)
             except (ConnectionError, OSError, RuntimeError) as e:
-                logger.warning(f"Failed to send to client {client_id}: {e}")
+                logger.warning("Failed to send to client %s: %s", client_id, e)
                 disconnected.append(client_id)
 
         # Clean up disconnected clients
@@ -384,7 +384,7 @@ async def autonomous_websocket_handler(request: web.Request) -> web.WebSocketRes
                     )
 
             elif msg.type == WSMsgType.ERROR:
-                logger.error(f"WebSocket error: {ws.exception()}")
+                logger.error("WebSocket error: %s", ws.exception())
                 break
 
     finally:

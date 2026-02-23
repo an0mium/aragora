@@ -92,7 +92,7 @@ def _log_activity(
             store.log_activity(activity)
         except (OSError, RuntimeError, ValueError) as e:
             # Non-critical: activity logging failures shouldn't break the main operation
-            logger.debug(f"[TeamInbox] Failed to log activity: {e}")
+            logger.debug("[TeamInbox] Failed to log activity: %s", e)
 
 
 # =============================================================================
@@ -583,7 +583,7 @@ async def handle_add_note(
                         context=content[:100],  # First 100 chars as context
                     )
                 except (KeyError, ValueError, TypeError, AttributeError, RuntimeError) as mention_error:
-                    logger.warning(f"Failed to create mention for {username}: {mention_error}")
+                    logger.warning("Failed to create mention for %s: %s", username, mention_error)
 
         # Persist activity log
         org_id = data.get("org_id")

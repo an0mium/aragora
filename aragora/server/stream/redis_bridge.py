@@ -109,11 +109,11 @@ class RedisBroadcastBridge:
             self._running = True
             self._listener_task = asyncio.create_task(self._listen_loop())
 
-            logger.info(f"Redis broadcast bridge connected (instance={self._instance_id})")
+            logger.info("Redis broadcast bridge connected (instance=%s)", self._instance_id)
             return True
 
         except REDIS_CONNECTION_ERRORS as e:
-            logger.warning(f"Failed to connect Redis bridge: {e}")
+            logger.warning("Failed to connect Redis bridge: %s", e)
             self._connected = False
             return False
 
@@ -171,12 +171,12 @@ class RedisBroadcastBridge:
                 try:
                     await self._handle_message(message)
                 except (json.JSONDecodeError, KeyError, ValueError) as e:
-                    logger.warning(f"Error handling Redis message: {e}")
+                    logger.warning("Error handling Redis message: %s", e)
 
         except asyncio.CancelledError:
             logger.debug("Redis bridge listener cancelled")
         except REDIS_CONNECTION_ERRORS as e:
-            logger.error(f"Redis bridge listener error: {e}")
+            logger.error("Redis bridge listener error: %s", e)
 
     async def _handle_message(self, message: dict) -> None:
         """Handle an incoming Redis message.
@@ -187,7 +187,7 @@ class RedisBroadcastBridge:
         try:
             data = json.loads(message["data"])
         except json.JSONDecodeError:
-            logger.warning(f"Invalid JSON in Redis message: {message['data']}")
+            logger.warning("Invalid JSON in Redis message: %s", message['data'])
             return
 
         # Ignore messages from this instance
@@ -198,7 +198,7 @@ class RedisBroadcastBridge:
         payload = data.get("payload", {})
         channel = message["channel"]
 
-        logger.debug(f"Received cross-instance event: {event_type} from {data.get('instance_id')}")
+        logger.debug("Received cross-instance event: %s from %s", event_type, data.get('instance_id'))
 
         # Relay to local broadcaster
         await self._relay_to_local(channel, event_type, payload)
@@ -292,9 +292,9 @@ class RedisBroadcastBridge:
 
         try:
             await self._redis.publish(channel, json.dumps(message))
-            logger.debug(f"Published event to {channel}: {event_type}")
+            logger.debug("Published event to %s: %s", channel, event_type)
         except REDIS_CONNECTION_ERRORS as e:
-            logger.warning(f"Failed to publish Redis event: {e}")
+            logger.warning("Failed to publish Redis event: %s", e)
 
     async def health_check(self) -> dict:
         """Perform health check.

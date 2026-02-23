@@ -99,7 +99,7 @@ class ExpertiseMixin:
         """
         # Skip minor changes
         if abs(delta) < self.MIN_ELO_CHANGE:
-            logger.debug(f"ELO change too small for {agent_name}: {delta}")
+            logger.debug("ELO change too small for %s: %s", agent_name, delta)
             return None
 
         expertise_key = f"{agent_name}:{domain}"
@@ -222,7 +222,7 @@ class ExpertiseMixin:
             timestamp, cached_results = self._domain_experts_cache[cache_key]
             if time.time() - timestamp < self._cache_ttl_seconds:
                 self._cache_hits += 1
-                logger.debug(f"Cache hit for domain experts: {domain}")
+                logger.debug("Cache hit for domain experts: %s", domain)
                 return cast(list[AgentExpertise], cached_results)
             else:
                 # Cache expired, remove it
@@ -257,7 +257,7 @@ class ExpertiseMixin:
         # Cache results
         if use_cache:
             self._domain_experts_cache[cache_key] = (time.time(), results)
-            logger.debug(f"Cached domain experts for {domain}: {len(results)} results")
+            logger.debug("Cached domain experts for %s: %s results", domain, len(results))
 
         return results
 
@@ -308,7 +308,7 @@ class ExpertiseMixin:
         for domain, keywords in self.DOMAIN_KEYWORDS.items():
             for keyword in keywords:
                 if keyword in question_lower:
-                    logger.debug(f"Detected domain '{domain}' from keyword '{keyword}'")
+                    logger.debug("Detected domain '%s' from keyword '%s'", domain, keyword)
                     return domain
 
         return "general"

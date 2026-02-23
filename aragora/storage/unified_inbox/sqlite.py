@@ -50,7 +50,7 @@ class SQLiteUnifiedInboxStore(UnifiedInboxStoreBackend):
         self._connections: set[sqlite3.Connection] = set()
         self._connections_lock = threading.Lock()
         self._init_schema()
-        logger.info(f"SQLiteUnifiedInboxStore initialized: {self.db_path}")
+        logger.info("SQLiteUnifiedInboxStore initialized: %s", self.db_path)
 
     def _get_conn(self) -> sqlite3.Connection:
         conn = self._conn_var.get()

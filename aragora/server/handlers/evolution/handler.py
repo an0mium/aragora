@@ -101,7 +101,7 @@ class EvolutionHandler(BaseHandler):
         # Rate limit check
         client_ip = get_client_ip(handler)
         if not _evolution_limiter.is_allowed(client_ip):
-            logger.warning(f"Rate limit exceeded for evolution endpoint: {client_ip}")
+            logger.warning("Rate limit exceeded for evolution endpoint: %s", client_ip)
             return error_response("Rate limit exceeded. Please try again later.", 429)
 
         # Root endpoint - return summary
@@ -161,7 +161,7 @@ class EvolutionHandler(BaseHandler):
                 }
             )
         except (KeyError, ValueError, OSError, TypeError, AttributeError) as e:
-            logger.error(f"Error getting evolution history for {agent}: {e}", exc_info=True)
+            logger.error("Error getting evolution history for %s: %s", agent, e, exc_info=True)
             return error_response("Failed to get evolution history", 500)
 
     def _get_patterns(self, pattern_type: str | None, limit: int) -> HandlerResult:
@@ -187,7 +187,7 @@ class EvolutionHandler(BaseHandler):
                 }
             )
         except (KeyError, ValueError, OSError, TypeError, AttributeError) as e:
-            logger.error(f"Error getting evolution patterns: {e}", exc_info=True)
+            logger.error("Error getting evolution patterns: %s", e, exc_info=True)
             return error_response("Failed to get evolution patterns", 500)
 
     def _get_prompt_version(self, agent: str, version: int | None) -> HandlerResult:
@@ -221,7 +221,7 @@ class EvolutionHandler(BaseHandler):
                 }
             )
         except (KeyError, ValueError, OSError, TypeError, AttributeError) as e:
-            logger.error(f"Error getting prompt version for {agent}: {e}", exc_info=True)
+            logger.error("Error getting prompt version for %s: %s", agent, e, exc_info=True)
             return error_response("Failed to get prompt version", 500)
 
     def _get_summary(self) -> HandlerResult:
@@ -308,5 +308,5 @@ class EvolutionHandler(BaseHandler):
                 }
             )
         except (KeyError, ValueError, OSError, TypeError, AttributeError) as e:
-            logger.error(f"Error getting evolution summary: {e}", exc_info=True)
+            logger.error("Error getting evolution summary: %s", e, exc_info=True)
             return error_response("Failed to get evolution summary", 500)

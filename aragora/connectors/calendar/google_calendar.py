@@ -293,7 +293,7 @@ class GoogleCalendarConnector(EnterpriseConnector):
             )
             if resp.status_code != 200:
                 error = resp.text
-                logger.error(f"Token refresh failed: {error}")
+                logger.error("Token refresh failed: %s", error)
                 raise ValueError(f"Token refresh failed: {resp.status_code}")
 
             data = resp.json()
@@ -349,7 +349,7 @@ class GoogleCalendarConnector(EnterpriseConnector):
             )
             if resp.status_code != 200:
                 error = resp.text
-                logger.error(f"Token exchange failed: {error}")
+                logger.error("Token exchange failed: %s", error)
                 return False
 
             data = resp.json()
@@ -552,7 +552,7 @@ class GoogleCalendarConnector(EnterpriseConnector):
                 etag=item.get("etag"),
             )
         except (KeyError, TypeError, ValueError, AttributeError) as e:
-            logger.warning(f"Failed to parse event: {e}")
+            logger.warning("Failed to parse event: %s", e)
             return None
 
     async def get_free_busy(
@@ -650,7 +650,7 @@ class GoogleCalendarConnector(EnterpriseConnector):
                 )
                 all_events.extend(events)
             except (OSError, ValueError, KeyError, RuntimeError) as e:
-                logger.warning(f"Failed to get events from {cal_id}: {e}")
+                logger.warning("Failed to get events from %s: %s", cal_id, e)
 
         # Sort by start time
         all_events.sort(key=lambda e: e.start or datetime.max.replace(tzinfo=timezone.utc))
@@ -772,4 +772,4 @@ class GoogleCalendarConnector(EnterpriseConnector):
                         },
                     )
             except (OSError, ValueError, KeyError, RuntimeError) as e:
-                logger.warning(f"Failed to sync events from calendar {cal_id}: {e}")
+                logger.warning("Failed to sync events from calendar %s: %s", cal_id, e)

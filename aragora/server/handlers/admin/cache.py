@@ -140,7 +140,7 @@ class BoundedTTLCache:
                 self._cache.popitem(last=False)
                 evicted += 1
         if evicted > 0:
-            logger.debug(f"Cache evicted {evicted} entries (size: {len(self._cache)})")
+            logger.debug("Cache evicted %s entries (size: %s)", evicted, len(self._cache))
         return evicted
 
     def clear(self, key_prefix: str | None = None) -> int:
@@ -252,14 +252,14 @@ def ttl_cache(ttl_seconds: float = 60.0, key_prefix: str = "", skip_first: bool 
             hit, cached_value = _cache.get(cache_key, ttl_seconds)
             if hit:
                 record_hit(key_prefix or func.__name__)
-                logger.debug(f"Cache hit for {cache_key}")
+                logger.debug("Cache hit for %s", cache_key)
                 return cached_value
 
             # Cache miss or expired
             record_miss(key_prefix or func.__name__)
             result = func(*args, **kwargs)
             _cache.set(cache_key, result)
-            logger.debug(f"Cache miss, stored {cache_key}")
+            logger.debug("Cache miss, stored %s", cache_key)
             return result
 
         return wrapper
@@ -297,14 +297,14 @@ def async_ttl_cache(ttl_seconds: float = 60.0, key_prefix: str = "", skip_first:
             hit, cached_value = _cache.get(cache_key, ttl_seconds)
             if hit:
                 record_hit(key_prefix or func.__name__)
-                logger.debug(f"Cache hit for {cache_key}")
+                logger.debug("Cache hit for %s", cache_key)
                 return cached_value
 
             # Cache miss or expired
             record_miss(key_prefix or func.__name__)
             result = await func(*args, **kwargs)
             _cache.set(cache_key, result)
-            logger.debug(f"Cache miss, stored {cache_key}")
+            logger.debug("Cache miss, stored %s", cache_key)
             return result
 
         return wrapper
@@ -383,7 +383,7 @@ def _invalidate_events(events: tuple[str, ...], func_name: str) -> int:
         cleared = invalidate_on_event(event)
         total_cleared += cleared
     if total_cleared > 0:
-        logger.debug(f"@invalidates_cache({events}): {func_name} cleared {total_cleared} entries")
+        logger.debug("@invalidates_cache(%s): %s cleared %s entries", events, func_name, total_cleared)
     return total_cleared
 
 
@@ -471,10 +471,10 @@ def invalidate_on_event(event_name: str) -> int:
         total_cleared += cleared
         if cleared > 0:
             logger.debug(
-                f"Cache invalidation: {event_name} cleared {cleared} entries with prefix '{prefix}'"
+                "Cache invalidation: %s cleared %s entries with prefix '%s'", event_name, cleared, prefix
             )
     if total_cleared > 0:
-        logger.info(f"Cache invalidated: event={event_name}, entries_cleared={total_cleared}")
+        logger.info("Cache invalidated: event=%s, entries_cleared=%s", event_name, total_cleared)
     return total_cleared
 
 
@@ -506,7 +506,7 @@ def invalidate_cache(data_source: str) -> int:
     # Fallback: try to clear by prefix directly
     cleared = _cache.clear(data_source)
     if cleared > 0:
-        logger.debug(f"Cache invalidation: cleared {cleared} entries with prefix '{data_source}'")
+        logger.debug("Cache invalidation: cleared %s entries with prefix '%s'", cleared, data_source)
     return cleared
 
 

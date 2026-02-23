@@ -170,7 +170,7 @@ class VoteAggregator:
         try:
             vote_groups = self._group_similar_votes(votes)
         except (ValueError, KeyError, TypeError) as e:  # noqa: BLE001
-            logger.warning(f"Vote grouping failed: {e}")
+            logger.warning("Vote grouping failed: %s", e)
             choices = set(
                 v.choice for v in votes if not isinstance(v, Exception) and hasattr(v, "choice")
             )
@@ -183,7 +183,7 @@ class VoteAggregator:
                 choice_mapping[variant] = canonical
 
         if vote_groups:
-            logger.debug(f"vote_grouping_merged groups={vote_groups}")
+            logger.debug("vote_grouping_merged groups=%s", vote_groups)
 
         return vote_groups, choice_mapping
 

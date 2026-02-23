@@ -141,7 +141,7 @@ class KnowledgeQuerySkill(Skill):
             return SkillResult.create_success(results)
 
         except (RuntimeError, ValueError, OSError) as e:
-            logger.exception(f"Knowledge query failed: {e}")
+            logger.exception("Knowledge query failed: %s", e)
             return SkillResult.create_failure(f"Query failed: {e}")
 
     async def _get_knowledge_mound(self) -> Any | None:
@@ -154,7 +154,7 @@ class KnowledgeQuerySkill(Skill):
             logger.debug("Knowledge Mound not available")
             return None
         except (RuntimeError, OSError) as e:
-            logger.warning(f"Failed to get Knowledge Mound: {e}")
+            logger.warning("Failed to get Knowledge Mound: %s", e)
             return None
 
     async def _query_consensus(
@@ -184,7 +184,7 @@ class KnowledgeQuerySkill(Skill):
                     for r in results
                 ]
         except (RuntimeError, ValueError, OSError, AttributeError) as e:
-            logger.warning(f"Consensus query error: {e}")
+            logger.warning("Consensus query error: %s", e)
         return []
 
     async def _query_evidence(
@@ -214,7 +214,7 @@ class KnowledgeQuerySkill(Skill):
                     for r in results
                 ]
         except (RuntimeError, ValueError, OSError, AttributeError) as e:
-            logger.warning(f"Evidence query error: {e}")
+            logger.warning("Evidence query error: %s", e)
         return []
 
     async def _query_patterns(
@@ -241,7 +241,7 @@ class KnowledgeQuerySkill(Skill):
                     for r in results
                 ]
         except (RuntimeError, ValueError, OSError, AttributeError) as e:
-            logger.warning(f"Pattern query error: {e}")
+            logger.warning("Pattern query error: %s", e)
         return []
 
     async def _query_insights(
@@ -268,7 +268,7 @@ class KnowledgeQuerySkill(Skill):
                     for r in results
                 ]
         except (RuntimeError, ValueError, OSError, AttributeError) as e:
-            logger.warning(f"Insight query error: {e}")
+            logger.warning("Insight query error: %s", e)
         return []
 
 

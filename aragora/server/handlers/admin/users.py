@@ -289,12 +289,12 @@ class UserManagementMixin:
                         auth_ctx.user_id, token_jti, MFA_IMPERSONATION_MAX_AGE_SECONDS
                     )
         except (TypeError, ValueError, KeyError, AttributeError, RuntimeError, OSError) as e:
-            logger.warning(f"MFA freshness check failed for impersonation: {e}")
+            logger.warning("MFA freshness check failed for impersonation: %s", e)
             mfa_fresh = False
 
         if not mfa_fresh:
             logger.warning(
-                f"Admin {auth_ctx.user_id} attempted impersonation without recent MFA verification"
+                "Admin %s attempted impersonation without recent MFA verification", auth_ctx.user_id
             )
             return error_response(
                 "MFA verification required for impersonation",
@@ -322,7 +322,7 @@ class UserManagementMixin:
         )
 
         # Log the impersonation for audit
-        logger.info(f"Admin {auth_ctx.user_id} impersonating user {target_user_id}")
+        logger.info("Admin %s impersonating user %s", auth_ctx.user_id, target_user_id)
 
         # Record in audit log if available
         try:
@@ -337,7 +337,7 @@ class UserManagementMixin:
                 details={"target_email": target_user.email},
             )
         except (KeyError, ValueError, OSError, TypeError, AttributeError, RuntimeError) as e:
-            logger.warning(f"Failed to record audit event: {e}")
+            logger.warning("Failed to record audit event: %s", e)
 
         return json_response(
             {
@@ -403,7 +403,7 @@ class UserManagementMixin:
         # Deactivate the user
         user_store.update_user(target_user_id, is_active=False)
 
-        logger.info(f"Admin {auth_ctx.user_id} deactivated user {target_user_id}")
+        logger.info("Admin %s deactivated user %s", auth_ctx.user_id, target_user_id)
         audit_admin(
             admin_id=auth_ctx.user_id,
             action="deactivate_user",
@@ -468,7 +468,7 @@ class UserManagementMixin:
         # Activate the user
         user_store.update_user(target_user_id, is_active=True)
 
-        logger.info(f"Admin {auth_ctx.user_id} activated user {target_user_id}")
+        logger.info("Admin %s activated user %s", auth_ctx.user_id, target_user_id)
         audit_admin(
             admin_id=auth_ctx.user_id,
             action="activate_user",
@@ -551,8 +551,7 @@ class UserManagementMixin:
             db_cleared = user_store.reset_failed_login_attempts(email)
 
         logger.info(
-            f"Admin {auth_ctx.user_id} unlocked user {target_user_id} "
-            f"(email={email}, tracker_cleared={lockout_cleared}, db_cleared={db_cleared})"
+            "Admin %s unlocked user %s (email=%s, tracker_cleared=%s, db_cleared=%s)", auth_ctx.user_id, target_user_id, email, lockout_cleared, db_cleared
         )
 
         # Log audit event
@@ -570,7 +569,7 @@ class UserManagementMixin:
                     ip_address=getattr(handler, "client_address", ("unknown",))[0],
                 )
         except (KeyError, ValueError, OSError, TypeError, AttributeError, RuntimeError) as e:
-            logger.warning(f"Failed to record audit event: {e}")
+            logger.warning("Failed to record audit event: %s", e)
 
         return json_response(
             {

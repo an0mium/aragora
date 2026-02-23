@@ -147,7 +147,7 @@ class EmailCircuitBreaker:
                     if elapsed >= self.config.recovery_timeout_seconds:
                         self._state = CircuitState.HALF_OPEN
                         self._half_open_calls = 1  # Count this call
-                        logger.info(f"[CircuitBreaker:{self.name}] Transitioning to HALF_OPEN")
+                        logger.info("[CircuitBreaker:%s] Transitioning to HALF_OPEN", self.name)
                         return True
                 return False
 
@@ -169,7 +169,7 @@ class EmailCircuitBreaker:
                     self._state = CircuitState.CLOSED
                     self._failure_count = 0
                     self._success_count = 0
-                    logger.info(f"[CircuitBreaker:{self.name}] Circuit CLOSED after recovery")
+                    logger.info("[CircuitBreaker:%s] Circuit CLOSED after recovery", self.name)
             elif self._state == CircuitState.CLOSED:
                 # Reset failure count on success
                 self._failure_count = 0
@@ -185,15 +185,14 @@ class EmailCircuitBreaker:
                 self._state = CircuitState.OPEN
                 self._success_count = 0
                 logger.warning(
-                    f"[CircuitBreaker:{self.name}] Circuit OPEN after half-open failure: {error}"
+                    "[CircuitBreaker:%s] Circuit OPEN after half-open failure: %s", self.name, error
                 )
 
             elif self._state == CircuitState.CLOSED:
                 if self._failure_count >= self.config.failure_threshold:
                     self._state = CircuitState.OPEN
                     logger.warning(
-                        f"[CircuitBreaker:{self.name}] Circuit OPEN after "
-                        f"{self._failure_count} failures: {error}"
+                        "[CircuitBreaker:%s] Circuit OPEN after %s failures: %s", self.name, self._failure_count, error
                     )
 
     def get_stats(self) -> dict[str, Any]:
@@ -285,13 +284,12 @@ class RetryExecutor:
                 last_error = e
 
                 if not self._is_retryable(e):
-                    logger.warning(f"[Retry] Non-retryable error in {operation_name}: {e}")
+                    logger.warning("[Retry] Non-retryable error in %s: %s", operation_name, e)
                     raise
 
                 if attempt >= self.config.max_retries:
                     logger.error(
-                        f"[Retry] All {self.config.max_retries} retries exhausted "
-                        f"for {operation_name}: {e}"
+                        "[Retry] All %s retries exhausted for %s: %s", self.config.max_retries, operation_name, e
                     )
                     raise
 
@@ -518,7 +516,7 @@ class OAuthTokenStore:
         )
         conn.commit()
         logger.debug(
-            f"[TokenStore] Stored token for {token.provider}/{token.tenant_id}/{token.user_id}"
+            "[TokenStore] Stored token for %s/%s/%s", token.provider, token.tenant_id, token.user_id
         )
 
     async def get_token(
@@ -565,7 +563,7 @@ class OAuthTokenStore:
 
         deleted = cursor.rowcount > 0
         if deleted:
-            logger.debug(f"[TokenStore] Deleted token for {provider}/{tenant_id}/{user_id}")
+            logger.debug("[TokenStore] Deleted token for %s/%s/%s", provider, tenant_id, user_id)
         return deleted
 
     async def get_expiring_tokens(

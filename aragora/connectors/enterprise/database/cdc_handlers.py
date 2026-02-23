@@ -79,7 +79,7 @@ class KnowledgeMoundHandler(ChangeEventHandler):
         """Process change event and update Knowledge Mound."""
         try:
             if not event.is_data_change:
-                logger.debug(f"Skipping non-data event: {event.operation}")
+                logger.debug("Skipping non-data event: %s", event.operation)
                 return True
 
             mound = await self._get_mound()
@@ -95,7 +95,7 @@ class KnowledgeMoundHandler(ChangeEventHandler):
             return True
 
         except (ValueError, KeyError, TypeError, RuntimeError) as e:
-            logger.error(f"Failed to handle change event: {e}")
+            logger.error("Failed to handle change event: %s", e)
             return False
 
     async def _handle_upsert(self, mound: KnowledgeMound, event: ChangeEvent) -> None:
@@ -103,7 +103,7 @@ class KnowledgeMoundHandler(ChangeEventHandler):
         from aragora.knowledge.mound.types import IngestionRequest, KnowledgeSource
 
         if not event.data:
-            logger.debug(f"No data in event {event.id}, skipping ingestion")
+            logger.debug("No data in event %s, skipping ingestion", event.id)
             return
 
         # Convert data to text content
@@ -129,13 +129,13 @@ class KnowledgeMoundHandler(ChangeEventHandler):
 
         store = cast(Any, mound).store
         await store(request)
-        logger.debug(f"Ingested change event {event.id} to Knowledge Mound")
+        logger.debug("Ingested change event %s to Knowledge Mound", event.id)
 
     async def _handle_delete(self, mound: KnowledgeMound, event: ChangeEvent) -> None:
         """Handle delete events."""
         # Mark the knowledge as outdated by searching and updating
         doc_id = event.document_id or str(event.primary_key)
-        logger.info(f"Document deleted: {event.table}/{doc_id}")
+        logger.info("Document deleted: %s/%s", event.table, doc_id)
         # Note: Full deletion support would require Knowledge Mound delete API
 
     def _data_to_content(self, data: dict[str, Any]) -> str:
@@ -195,7 +195,7 @@ class CompositeHandler(ChangeEventHandler):
                 result = await handler.handle(event)
                 results.append(result)
             except (ValueError, KeyError, TypeError, RuntimeError) as e:
-                logger.error(f"Handler {handler.__class__.__name__} failed: {e}")
+                logger.error("Handler %s failed: %s", handler.__class__.__name__, e)
                 results.append(False)
 
         return all(results)
@@ -277,18 +277,18 @@ class CDCStreamManager:
             return success
 
         except (ValueError, KeyError, TypeError, OSError, RuntimeError) as e:
-            logger.error(f"Failed to process event {event.id}: {e}")
+            logger.error("Failed to process event %s: %s", event.id, e)
             return False
 
     def start(self) -> None:
         """Mark stream as running."""
         self._running = True
-        logger.info(f"CDC stream started for {self.connector_id}")
+        logger.info("CDC stream started for %s", self.connector_id)
 
     def stop(self) -> None:
         """Mark stream as stopped."""
         self._running = False
-        logger.info(f"CDC stream stopped for {self.connector_id}")
+        logger.info("CDC stream stopped for %s", self.connector_id)
 
     def reset(self) -> None:
         """Reset stream state."""

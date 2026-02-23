@@ -154,7 +154,7 @@ class EmailPriorityAnalyzer:
                         "(will use compression fallback since official RLM not installed)"
                     )
             except (ImportError, RuntimeError, OSError) as e:
-                logger.debug(f"[EmailPriority] Failed to initialize AragoraRLM: {e}")
+                logger.debug("[EmailPriority] Failed to initialize AragoraRLM: %s", e)
                 return None
         return self._rlm
 
@@ -195,7 +195,7 @@ class EmailPriorityAnalyzer:
                             self._preferences.important_keywords.append(kw)
 
         except (OSError, ValueError, KeyError) as e:
-            logger.warning(f"[EmailPriority] Failed to load preferences: {e}")
+            logger.warning("[EmailPriority] Failed to load preferences: %s", e)
 
         return self._preferences
 
@@ -513,7 +513,7 @@ class EmailPriorityAnalyzer:
                         logger.debug("email_priority operation failed: %s", e)
 
             except (RuntimeError, OSError, ValueError, AttributeError) as e:
-                logger.debug(f"[EmailPriority] AragoraRLM analysis failed: {e}")
+                logger.debug("[EmailPriority] AragoraRLM analysis failed: %s", e)
 
         return score
 
@@ -636,7 +636,7 @@ class EmailPriorityAnalyzer:
         for i, result in enumerate(results):
             if isinstance(result, BaseException):
                 logger.warning(
-                    f"[EmailPriority] Failed to score email {emails[i].get('id', 'unknown')}: {result}"
+                    "[EmailPriority] Failed to score email %s: %s", emails[i].get('id', 'unknown'), result
                 )
                 final_results.append(
                     EmailPriorityScore(
@@ -811,7 +811,7 @@ class EmailFeedbackLearner:
             tier = "fast"
 
         else:
-            logger.warning(f"[EmailFeedback] Unknown action: {action}")
+            logger.warning("[EmailFeedback] Unknown action: %s", action)
             return False
 
         try:
@@ -830,11 +830,11 @@ class EmailFeedbackLearner:
                 },
             )
 
-            logger.debug(f"[EmailFeedback] Recorded {action} for {email_id}")
+            logger.debug("[EmailFeedback] Recorded %s for %s", action, email_id)
             return True
 
         except (OSError, ValueError, RuntimeError) as e:
-            logger.error(f"[EmailFeedback] Failed to record interaction: {e}")
+            logger.error("[EmailFeedback] Failed to record interaction: %s", e)
             return False
 
     async def consolidate_preferences(self) -> bool:
@@ -852,12 +852,12 @@ class EmailFeedbackLearner:
             # Trigger memory consolidation
             if hasattr(memory, "consolidate"):
                 await memory.consolidate(self.user_id)
-                logger.info(f"[EmailFeedback] Consolidated preferences for {self.user_id}")
+                logger.info("[EmailFeedback] Consolidated preferences for %s", self.user_id)
                 return True
             return False
 
         except (OSError, ValueError, RuntimeError) as e:
-            logger.error(f"[EmailFeedback] Consolidation failed: {e}")
+            logger.error("[EmailFeedback] Consolidation failed: %s", e)
             return False
 
 

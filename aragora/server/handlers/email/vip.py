@@ -81,7 +81,7 @@ async def handle_add_vip(
                     try:
                         store.add_vip_sender(user_id, workspace_id, email)
                     except (KeyError, ValueError, OSError, TypeError) as e:
-                        logger.debug(f"Failed to add VIP sender to store: {e}")
+                        logger.debug("Failed to add VIP sender to store: %s", e)
 
             if domain:
                 if "vip_domains" not in config:
@@ -107,7 +107,7 @@ async def handle_add_vip(
         }
 
     except (KeyError, ValueError, OSError, TypeError) as e:
-        logger.exception(f"Failed to add VIP: {e}")
+        logger.exception("Failed to add VIP: %s", e)
         return {
             "success": False,
             "error": "Failed to add VIP",
@@ -157,7 +157,7 @@ async def handle_remove_vip(
                         try:
                             store.remove_vip_sender(user_id, workspace_id, email)
                         except (KeyError, ValueError, OSError, TypeError) as e:
-                            logger.debug(f"Failed to remove VIP sender from store: {e}")
+                            logger.debug("Failed to remove VIP sender from store: %s", e)
 
             if domain and "vip_domains" in config:
                 if domain in config["vip_domains"]:
@@ -182,7 +182,7 @@ async def handle_remove_vip(
         }
 
     except (KeyError, ValueError, OSError, TypeError) as e:
-        logger.exception(f"Failed to remove VIP: {e}")
+        logger.exception("Failed to remove VIP: %s", e)
         return {
             "success": False,
             "error": "Failed to remove VIP",

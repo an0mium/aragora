@@ -231,7 +231,7 @@ class EndpointAnalyticsHandler(SecureHandler):
         # Rate limit check
         client_ip = get_client_ip(handler)
         if not _endpoint_analytics_limiter.is_allowed(client_ip):
-            logger.warning(f"Rate limit exceeded for endpoint analytics: {client_ip}")
+            logger.warning("Rate limit exceeded for endpoint analytics: %s", client_ip)
             return error_response(
                 "Rate limit exceeded. Please try again later.",
                 429,
@@ -245,7 +245,7 @@ class EndpointAnalyticsHandler(SecureHandler):
         except UnauthorizedError:
             return error_response("Authentication required", 401, code="AUTH_REQUIRED")
         except ForbiddenError as e:
-            logger.warning(f"Endpoint analytics access denied: {e}")
+            logger.warning("Endpoint analytics access denied: %s", e)
             return error_response("Permission denied", 403, code="PERMISSION_DENIED")
 
         # Route to specific handlers
@@ -304,7 +304,7 @@ class EndpointAnalyticsHandler(SecureHandler):
             )
 
         except (TypeError, ValueError, KeyError, AttributeError) as e:
-            logger.exception(f"Error getting endpoint metrics: {e}")
+            logger.exception("Error getting endpoint metrics: %s", e)
             return error_response(
                 safe_error_message(e, "endpoint metrics"),
                 500,
@@ -345,7 +345,7 @@ class EndpointAnalyticsHandler(SecureHandler):
             )
 
         except (TypeError, ValueError, KeyError, AttributeError) as e:
-            logger.exception(f"Error getting slowest endpoints: {e}")
+            logger.exception("Error getting slowest endpoints: %s", e)
             return error_response(
                 safe_error_message(e, "slowest endpoints"),
                 500,
@@ -378,7 +378,7 @@ class EndpointAnalyticsHandler(SecureHandler):
             )
 
         except (TypeError, ValueError, KeyError, AttributeError) as e:
-            logger.exception(f"Error getting error endpoints: {e}")
+            logger.exception("Error getting error endpoints: %s", e)
             return error_response(
                 safe_error_message(e, "error endpoints"),
                 500,
@@ -413,7 +413,7 @@ class EndpointAnalyticsHandler(SecureHandler):
             )
 
         except (TypeError, ValueError, KeyError, AttributeError) as e:
-            logger.exception(f"Error getting endpoint performance: {e}")
+            logger.exception("Error getting endpoint performance: %s", e)
             return error_response(
                 safe_error_message(e, "endpoint performance"),
                 500,
@@ -487,7 +487,7 @@ class EndpointAnalyticsHandler(SecureHandler):
             )
 
         except (TypeError, ValueError, KeyError, AttributeError) as e:
-            logger.exception(f"Error getting health summary: {e}")
+            logger.exception("Error getting health summary: %s", e)
             return error_response(
                 safe_error_message(e, "health summary"),
                 500,

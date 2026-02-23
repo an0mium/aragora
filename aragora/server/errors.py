@@ -654,7 +654,7 @@ def safe_error_message(e: Exception, context: str = "") -> str:
         User-friendly error message safe to return to clients
     """
     # Log full details server-side for debugging
-    logger.error(f"Error in {context}: {type(e).__name__}: {e}", exc_info=True)
+    logger.error("Error in %s: %s: %s", context, type(e).__name__, e, exc_info=True)
 
     # Map common exceptions to user-friendly messages
     error_type = type(e).__name__
@@ -792,8 +792,7 @@ class ErrorFormatter:
         # Log full details server-side
         if log_full:
             logger.exception(
-                f"[{trace_id or 'no-trace'}] Error in {context}: "
-                f"{type(exception).__name__}: {exception}"
+                "[%s] Error in %s: %s: %s", trace_id or 'no-trace', context, type(exception).__name__, exception
             )
 
         # Get classification
@@ -828,7 +827,7 @@ class ErrorFormatter:
         status, code, message = cls._classify_exception_type(exception)
 
         # Log for debugging
-        logger.debug(f"Classified {type(exception).__name__} as {code.value} ({status})")
+        logger.debug("Classified %s as %s (%s)", type(exception).__name__, code.value, status)
 
         return AragoraAPIError(
             code=code,

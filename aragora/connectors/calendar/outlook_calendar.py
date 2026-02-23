@@ -344,7 +344,7 @@ class OutlookCalendarConnector(EnterpriseConnector):
             )
             if response.status_code != 200:
                 error = response.text
-                logger.error(f"Token refresh failed: {error}")
+                logger.error("Token refresh failed: %s", error)
                 raise ValueError(f"Token refresh failed: {response.status_code}")
 
             data = response.json()
@@ -415,7 +415,7 @@ class OutlookCalendarConnector(EnterpriseConnector):
             )
             if response.status_code != 200:
                 error = response.text
-                logger.error(f"Token exchange failed: {error}")
+                logger.error("Token exchange failed: %s", error)
                 return False
 
             data = response.json()
@@ -488,7 +488,7 @@ class OutlookCalendarConnector(EnterpriseConnector):
             self._circuit_breaker.record_success()
             return result
         except (httpx.RequestError, asyncio.TimeoutError, ValueError, OSError) as e:
-            logger.warning(f"API request failed, recording circuit breaker failure: {e}")
+            logger.warning("API request failed, recording circuit breaker failure: %s", e)
             self._circuit_breaker.record_failure()
             raise
 
@@ -710,7 +710,7 @@ class OutlookCalendarConnector(EnterpriseConnector):
                 last_modified=last_modified,
             )
         except (KeyError, ValueError, TypeError) as e:
-            logger.warning(f"Failed to parse event: {e}")
+            logger.warning("Failed to parse event: %s", e)
             return None
 
     async def get_schedule(
@@ -825,7 +825,7 @@ class OutlookCalendarConnector(EnterpriseConnector):
                 result[cal_id or "default"] = busy_slots
 
             except (asyncio.TimeoutError, ValueError, OSError) as e:
-                logger.warning(f"Failed to get events for calendar {cal_id}: {e}")
+                logger.warning("Failed to get events for calendar %s: %s", cal_id, e)
                 result[cal_id or "default"] = []
 
         return result
@@ -889,7 +889,7 @@ class OutlookCalendarConnector(EnterpriseConnector):
                 )
                 all_events.extend(events)
             except (asyncio.TimeoutError, ValueError, OSError) as e:
-                logger.warning(f"Failed to get events from {cal_id}: {e}")
+                logger.warning("Failed to get events from %s: %s", cal_id, e)
 
         # Sort by start time
         all_events.sort(key=lambda e: e.start or datetime.max.replace(tzinfo=timezone.utc))
@@ -960,7 +960,7 @@ class OutlookCalendarConnector(EnterpriseConnector):
             data = await self._api_request("GET", endpoint)
             return self._parse_event(data, calendar_id or "default")
         except (asyncio.TimeoutError, ValueError, OSError) as e:
-            logger.warning(f"Failed to get event {event_id}: {e}")
+            logger.warning("Failed to get event %s: %s", event_id, e)
             return None
 
     async def close(self) -> None:
@@ -1043,7 +1043,7 @@ class OutlookCalendarConnector(EnterpriseConnector):
                         },
                     )
             except (asyncio.TimeoutError, ValueError, OSError) as e:
-                logger.warning(f"Failed to sync events from calendar {cal_id}: {e}")
+                logger.warning("Failed to sync events from calendar %s: %s", cal_id, e)
 
 
 __all__ = [

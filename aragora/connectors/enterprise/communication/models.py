@@ -216,7 +216,7 @@ class GmailWebhookPayload:
             data_json = base64.urlsafe_b64decode(data_b64).decode("utf-8")
             data = json.loads(data_json)
         except (ValueError, UnicodeDecodeError) as e:
-            logger.warning(f"Failed to decode Pub/Sub message data: {e}")
+            logger.warning("Failed to decode Pub/Sub message data: %s", e)
             data = {}
 
         return cls(

@@ -68,16 +68,14 @@ def _check_email_permission(auth_context: Any | None, permission_key: str) -> di
         decision = check_permission(auth_context, permission_key)
         if not decision.allowed:
             logger.warning(
-                f"RBAC denied: permission={permission_key} "
-                f"user={getattr(auth_context, 'user_id', 'unknown')} "
-                f"reason={decision.reason}"
+                "RBAC denied: permission=%s user=%s reason=%s", permission_key, getattr(auth_context, 'user_id', 'unknown'), decision.reason
             )
             return {
                 "success": False,
                 "error": "Permission denied",
             }
     except (TypeError, ValueError, KeyError, AttributeError) as e:
-        logger.warning(f"RBAC check failed for {permission_key}: {e}")
+        logger.warning("RBAC check failed for %s: %s", permission_key, e)
         return None  # Fail open
 
     return None
@@ -109,7 +107,7 @@ def _load_config_from_store(user_id: str, workspace_id: str = "default") -> dict
             if config:
                 return config
         except (KeyError, ValueError, OSError, TypeError) as e:
-            logger.warning(f"[EmailHandler] Failed to load config from store: {e}")
+            logger.warning("[EmailHandler] Failed to load config from store: %s", e)
     return {}
 
 
@@ -124,7 +122,7 @@ def _save_config_to_store(
         try:
             store.save_user_config(user_id, workspace_id, config)
         except (KeyError, ValueError, OSError, TypeError) as e:
-            logger.warning(f"[EmailHandler] Failed to save config to store: {e}")
+            logger.warning("[EmailHandler] Failed to save config to store: %s", e)
 
 
 # Global instances (initialized lazily) with thread-safe access

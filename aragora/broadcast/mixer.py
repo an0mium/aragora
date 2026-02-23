@@ -66,7 +66,7 @@ def _detect_audio_codec(audio_file: Path) -> str | None:
         if result.returncode == 0:
             return result.stdout.strip() or None
     except (subprocess.TimeoutExpired, FileNotFoundError, OSError) as e:
-        logger.debug(f"ffprobe codec detection failed for {audio_file}: {e}")
+        logger.debug("ffprobe codec detection failed for %s: %s", audio_file, e)
     return None
 
 
@@ -120,7 +120,7 @@ def mix_audio(audio_files: list[Path], output_path: Path, format: str = "mp3") -
 
         for audio_file in audio_files:
             if not audio_file.exists():
-                logger.warning(f"Audio file not found: {audio_file}")
+                logger.warning("Audio file not found: %s", audio_file)
                 continue
 
             segment = AudioSegment.from_file(str(audio_file))
@@ -129,7 +129,7 @@ def mix_audio(audio_files: list[Path], output_path: Path, format: str = "mp3") -
 
         # Fail if no files were actually mixed
         if mixed_count == 0:
-            logger.error(f"No valid audio files to mix from {len(audio_files)} provided")
+            logger.error("No valid audio files to mix from %s provided", len(audio_files))
             return False
 
         # Export the combined audio
@@ -137,14 +137,14 @@ def mix_audio(audio_files: list[Path], output_path: Path, format: str = "mp3") -
         return True
 
     except OSError as e:
-        logger.error(f"File I/O error mixing audio: {e}")
+        logger.error("File I/O error mixing audio: %s", e)
         return False
     except PermissionError as e:
-        logger.error(f"Permission denied mixing audio: {e}")
+        logger.error("Permission denied mixing audio: %s", e)
         return False
     except (RuntimeError, ValueError, TypeError) as e:
         # Catch pydub errors and other unexpected issues
-        logger.error(f"Unexpected error mixing audio: {type(e).__name__}: {e}")
+        logger.error("Unexpected error mixing audio: %s: %s", type(e).__name__, e)
         return False
 
 
@@ -165,8 +165,7 @@ def mix_audio_with_ffmpeg(audio_files: list[Path], output_path: Path) -> bool:
     # Enforce max file limit to prevent FFmpeg command overflow
     if len(audio_files) > MAX_AUDIO_FILES:
         logger.error(
-            f"Too many audio files ({len(audio_files)} > {MAX_AUDIO_FILES}). "
-            "Split into smaller batches."
+            "Too many audio files (%s > %s). Split into smaller batches.", len(audio_files), MAX_AUDIO_FILES
         )
         return False
 
@@ -234,7 +233,7 @@ def mix_audio_with_ffmpeg(audio_files: list[Path], output_path: Path) -> bool:
 
             result = subprocess.run(cmd, capture_output=True, text=True, timeout=300, shell=False)
             if result.returncode != 0:
-                logger.error(f"FFmpeg mixing failed (exit {result.returncode}): {result.stderr}")
+                logger.error("FFmpeg mixing failed (exit %s): %s", result.returncode, result.stderr)
                 return False
             return True
 
@@ -245,8 +244,8 @@ def mix_audio_with_ffmpeg(audio_files: list[Path], output_path: Path) -> bool:
         logger.error("FFmpeg not found. Install ffmpeg to use audio mixing.")
         return False
     except OSError as e:
-        logger.error(f"File I/O error in FFmpeg mixing: {e}")
+        logger.error("File I/O error in FFmpeg mixing: %s", e)
         return False
     except (RuntimeError, ValueError, TypeError) as e:
-        logger.error(f"Unexpected error in FFmpeg mixing: {type(e).__name__}: {e}")
+        logger.error("Unexpected error in FFmpeg mixing: %s: %s", type(e).__name__, e)
         return False

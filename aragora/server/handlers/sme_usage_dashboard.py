@@ -70,7 +70,7 @@ def _get_real_consensus_rate(
         # No data available, use default
         return default
     except (ValueError, KeyError, TypeError, AttributeError, RuntimeError) as e:
-        logger.warning(f"Failed to get consensus rate: {e}")
+        logger.warning("Failed to get consensus rate: %s", e)
         return default
 
 
@@ -118,7 +118,7 @@ class SMEUsageDashboardHandler(SecureHandler):
         # Rate limit check
         client_ip = get_client_ip(handler)
         if not _dashboard_limiter.is_allowed(client_ip):
-            logger.warning(f"Rate limit exceeded for usage dashboard: {client_ip}")
+            logger.warning("Rate limit exceeded for usage dashboard: %s", client_ip)
             return error_response("Rate limit exceeded. Please try again later.", 429)
 
         # Determine HTTP method from handler if not provided
@@ -172,7 +172,7 @@ class SMEUsageDashboardHandler(SecureHandler):
         try:
             return UsageTracker()
         except (ValueError, KeyError, TypeError, AttributeError, RuntimeError) as e:
-            logger.warning(f"Failed to get usage tracker: {e}")
+            logger.warning("Failed to get usage tracker: %s", e)
             return None
 
     def _get_roi_calculator(self, benchmark: str = "sme") -> Any:
@@ -292,7 +292,7 @@ class SMEUsageDashboardHandler(SecureHandler):
                     period_end=end_date,
                 )
             except (ValueError, KeyError, TypeError, AttributeError, RuntimeError) as e:
-                logger.warning(f"Failed to get usage summary: {e}")
+                logger.warning("Failed to get usage summary: %s", e)
 
         # Build summary response
         total_cost = Decimal(workspace_stats.get("total_cost_usd", "0"))

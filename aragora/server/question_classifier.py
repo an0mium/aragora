@@ -337,7 +337,7 @@ Guidelines:
             )
 
         except (ConnectionError, TimeoutError, OSError, ValueError, RuntimeError, KeyError) as e:
-            logger.warning(f"Classification failed, using simple fallback: {e}")
+            logger.warning("Classification failed, using simple fallback: %s", e)
             return self.classify_simple(question)
 
     def _select_personas_for_domains(self, domains: list[str], complexity: str) -> list[str]:
@@ -425,9 +425,7 @@ def classify_and_assign_agents_sync(
     agent_string = classifier.get_agent_string(classification)
 
     logger.info(
-        f"Question classified: category={classification.category}, "
-        f"complexity={classification.complexity}, "
-        f"personas={classification.recommended_personas}"
+        "Question classified: category=%s, complexity=%s, personas=%s", classification.category, classification.complexity, classification.recommended_personas
     )
 
     return agent_string, classification
@@ -454,9 +452,7 @@ async def classify_and_assign_agents(
     agent_string = classifier.get_agent_string(classification)
 
     logger.info(
-        f"Question classified: category={classification.category}, "
-        f"complexity={classification.complexity}, "
-        f"personas={classification.recommended_personas}"
+        "Question classified: category=%s, complexity=%s, personas=%s", classification.category, classification.complexity, classification.recommended_personas
     )
 
     return agent_string, classification

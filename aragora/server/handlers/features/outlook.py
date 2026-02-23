@@ -186,7 +186,7 @@ async def handle_oauth_callback(
                 profile = await connector.get_user_info()
                 email = profile.get("mail") or profile.get("userPrincipalName", "")
             except (ConnectionError, TimeoutError, OSError, ValueError) as e:
-                logger.warning(f"Could not get user profile: {e}")
+                logger.warning("Could not get user profile: %s", e)
                 email = ""
 
             return {
@@ -292,7 +292,7 @@ async def handle_list_messages(
                         }
                     )
                 except (ConnectionError, TimeoutError, OSError, ValueError, AttributeError) as e:
-                    logger.warning(f"Failed to fetch message {msg_id}: {e}")
+                    logger.warning("Failed to fetch message %s: %s", msg_id, e)
                     return None
 
         results = await asyncio.gather(*[fetch_message(mid) for mid in message_ids])

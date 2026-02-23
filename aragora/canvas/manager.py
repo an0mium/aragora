@@ -83,7 +83,7 @@ class CanvasStateManager:
             self._canvases[canvas_id] = canvas
             self._subscribers[canvas_id] = set()
             self._history[canvas_id] = []
-            logger.info(f"Created canvas: {canvas_id} ({name})")
+            logger.info("Created canvas: %s (%s)", canvas_id, name)
             return canvas
 
     async def get_canvas(self, canvas_id: str) -> Canvas | None:
@@ -110,7 +110,7 @@ class CanvasStateManager:
                 self._subscribers.pop(canvas_id, None)
                 self._history.pop(canvas_id, None)
                 self._user_selections.pop(canvas_id, None)
-                logger.info(f"Deleted canvas: {canvas_id}")
+                logger.info("Deleted canvas: %s", canvas_id)
                 return True
             return False
 
@@ -188,7 +188,7 @@ class CanvasStateManager:
             await self._broadcast(canvas_id, event)
             self._add_to_history(canvas_id, event)
 
-            logger.info(f"Updated canvas: {canvas_id} (updates: {list(updates.keys())})")
+            logger.info("Updated canvas: %s (updates: %s)", canvas_id, list(updates.keys()))
             return canvas
 
     # =========================================================================
@@ -663,7 +663,7 @@ class CanvasStateManager:
             }
 
         except ImportError as e:
-            logger.warning(f"Debate modules not available: {e}")
+            logger.warning("Debate modules not available: %s", e)
             debate_node.data["status"] = "error"
             debate_node.data["error"] = "Debate modules not available"
             return {
@@ -673,7 +673,7 @@ class CanvasStateManager:
                 "error": "Debate modules not available",
             }
         except (RuntimeError, ValueError, TypeError, ConnectionError, TimeoutError, OSError) as e:
-            logger.error(f"Debate execution failed: {e}")
+            logger.error("Debate execution failed: %s", e)
             debate_node.data["status"] = "error"
             debate_node.data["error"] = "Debate execution failed"
             await self._broadcast(
@@ -810,7 +810,7 @@ class CanvasStateManager:
             }
 
         except ImportError as e:
-            logger.warning(f"Workflow modules not available: {e}")
+            logger.warning("Workflow modules not available: %s", e)
             workflow_node.data["status"] = "pending"
             workflow_node.data["execution_note"] = "Workflow modules not available"
             # Return success for node creation, but indicate execution wasn't possible
@@ -822,7 +822,7 @@ class CanvasStateManager:
                 "note": "Workflow modules not available - node created but not executed",
             }
         except (RuntimeError, ValueError, TypeError, ConnectionError, TimeoutError, OSError) as e:
-            logger.error(f"Workflow execution failed: {e}")
+            logger.error("Workflow execution failed: %s", e)
             workflow_node.data["status"] = "error"
             workflow_node.data["error"] = "Workflow execution failed"
             return {
@@ -906,7 +906,7 @@ class CanvasStateManager:
             }
 
         except ImportError as e:
-            logger.warning(f"Knowledge modules not available: {e}")
+            logger.warning("Knowledge modules not available: %s", e)
             knowledge_node.data["status"] = "pending"
             knowledge_node.data["execution_note"] = "Knowledge modules not available"
             # Return success for node creation, but indicate query wasn't executed
@@ -920,7 +920,7 @@ class CanvasStateManager:
                 "note": "Knowledge modules not available - node created but not queried",
             }
         except (RuntimeError, ValueError, TypeError, ConnectionError, TimeoutError, OSError) as e:
-            logger.error(f"Knowledge query failed: {e}")
+            logger.error("Knowledge query failed: %s", e)
             knowledge_node.data["status"] = "error"
             knowledge_node.data["error"] = "Knowledge query failed"
             return {
@@ -964,7 +964,7 @@ class CanvasStateManager:
             return []
         except (RuntimeError, ValueError, TypeError, AttributeError, OSError) as e:
             # If primary knowledge mound fails, return empty results
-            logger.debug(f"Knowledge mound query failed: {type(e).__name__}: {e}")
+            logger.debug("Knowledge mound query failed: %s: %s", type(e).__name__, e)
             return []
 
     # =========================================================================
@@ -981,7 +981,7 @@ class CanvasStateManager:
             self._subscribers[canvas_id] = set()
 
         self._subscribers[canvas_id].add(callback)
-        logger.debug(f"Subscriber added to canvas {canvas_id}")
+        logger.debug("Subscriber added to canvas %s", canvas_id)
         return True
 
     async def unsubscribe(
@@ -992,7 +992,7 @@ class CanvasStateManager:
         """Unsubscribe from canvas events."""
         if canvas_id in self._subscribers:
             self._subscribers[canvas_id].discard(callback)
-            logger.debug(f"Subscriber removed from canvas {canvas_id}")
+            logger.debug("Subscriber removed from canvas %s", canvas_id)
             return True
         return False
 
@@ -1008,7 +1008,7 @@ class CanvasStateManager:
             results = await asyncio.gather(*tasks, return_exceptions=True)
             for result in results:
                 if isinstance(result, Exception):
-                    logger.warning(f"Error broadcasting event: {result}")
+                    logger.warning("Error broadcasting event: %s", result)
 
     # =========================================================================
     # History Management

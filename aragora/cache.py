@@ -182,7 +182,7 @@ def register_cache(name: str, cache: CacheBackend) -> None:
     """
     with _registry_lock:
         _cache_registry[name] = cache
-        logger.debug(f"Registered cache: {name}")
+        logger.debug("Registered cache: %s", name)
 
 
 def get_cache(name: str) -> CacheBackend | None:
@@ -211,7 +211,7 @@ def get_all_cache_stats() -> dict[str, CacheStats]:
                 stats_dict = cache.stats
                 result[name] = CacheStats.from_dict(stats_dict)
             except (AttributeError, KeyError, TypeError, ValueError) as e:
-                logger.warning(f"Failed to get stats for cache {name}: {e}")
+                logger.warning("Failed to get stats for cache %s: %s", name, e)
         return result
 
 
@@ -261,7 +261,7 @@ def _auto_register_global_caches() -> None:
         register_cache("method", get_method_cache())
         register_cache("query", get_query_cache())
     except (ImportError, AttributeError, RuntimeError) as e:
-        logger.debug(f"Failed to auto-register global caches: {e}")
+        logger.debug("Failed to auto-register global caches: %s", e)
 
 
 # Register on import

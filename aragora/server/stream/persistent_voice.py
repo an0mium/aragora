@@ -248,8 +248,7 @@ class PersistentVoiceManager:
         await self._persist_session(session)
 
         logger.info(
-            f"Created voice session {session_id} for user {user_id} "
-            f"(persistent={persistent}, ttl={ttl_hours}h)"
+            "Created voice session %s for user %s (persistent=%s, ttl=%sh)", session_id, user_id, persistent, ttl_hours
         )
         return session
 
@@ -288,7 +287,7 @@ class PersistentVoiceManager:
             if session.reconnect_token:
                 self._reconnect_tokens.pop(session.reconnect_token, None)
 
-            logger.info(f"Terminated voice session {session_id}")
+            logger.info("Terminated voice session %s", session_id)
             return True
 
         return False
@@ -336,7 +335,7 @@ class PersistentVoiceManager:
                     session = self._sessions.get(session_id)
                     if session:
                         logger.warning(
-                            f"Heartbeat timeout for session {session_id}, initiating disconnect"
+                            "Heartbeat timeout for session %s, initiating disconnect", session_id
                         )
                         await self.handle_disconnect(session)
 
@@ -346,7 +345,7 @@ class PersistentVoiceManager:
             except asyncio.CancelledError:
                 break
             except (KeyError, RuntimeError) as e:
-                logger.error(f"Error in heartbeat monitor: {e}")
+                logger.error("Error in heartbeat monitor: %s", e)
 
     # ==========================================================================
     # Disconnect and Reconnect
@@ -383,8 +382,7 @@ class PersistentVoiceManager:
         await self._persist_session(session)
 
         logger.info(
-            f"Session {session.session_id} disconnected, "
-            f"reconnect window: {VOICE_RECONNECT_WINDOW_SECONDS}s"
+            "Session %s disconnected, reconnect window: %ss", session.session_id, VOICE_RECONNECT_WINDOW_SECONDS
         )
         return reconnect_token
 
@@ -405,11 +403,11 @@ class PersistentVoiceManager:
 
         session = await self.get_session(session_id)
         if not session:
-            logger.warning(f"Session {session_id} not found for reconnect")
+            logger.warning("Session %s not found for reconnect", session_id)
             return None
 
         if not session.can_reconnect:
-            logger.warning(f"Session {session_id} reconnect window expired")
+            logger.warning("Session %s reconnect window expired", session_id)
             return None
 
         # Restore session
@@ -424,7 +422,7 @@ class PersistentVoiceManager:
         # Persist state
         await self._persist_session(session)
 
-        logger.info(f"Session {session_id} reconnected successfully")
+        logger.info("Session %s reconnected successfully", session_id)
         return session
 
     # ==========================================================================
@@ -457,7 +455,7 @@ class PersistentVoiceManager:
                     session = self._sessions.pop(session_id, None)
                     if session:
                         session.state = "expired"
-                        logger.info(f"Session {session_id} expired")
+                        logger.info("Session %s expired", session_id)
 
                         if self._on_session_expired:
                             self._on_session_expired(session)
@@ -467,7 +465,7 @@ class PersistentVoiceManager:
                     session = self._sessions.pop(session_id, None)
                     if session:
                         session.state = "expired"
-                        logger.info(f"Session {session_id} reconnect window expired")
+                        logger.info("Session %s reconnect window expired", session_id)
 
                         if session.reconnect_token:
                             self._reconnect_tokens.pop(session.reconnect_token, None)
@@ -484,7 +482,7 @@ class PersistentVoiceManager:
             except asyncio.CancelledError:
                 break
             except (KeyError, RuntimeError) as e:
-                logger.error(f"Error in cleanup task: {e}")
+                logger.error("Error in cleanup task: %s", e)
 
     # ==========================================================================
     # Persistence
@@ -516,7 +514,7 @@ class PersistentVoiceManager:
         except ImportError:
             logger.debug("Session store not available for persistence")
         except (ValueError, KeyError, OSError) as e:
-            logger.warning(f"Failed to persist session: {e}")
+            logger.warning("Failed to persist session: %s", e)
 
     async def _load_session(self, session_id: str) -> PersistentVoiceSession | None:
         """Load session from session store."""
@@ -547,7 +545,7 @@ class PersistentVoiceManager:
         except ImportError:
             return None
         except (ValueError, KeyError, OSError) as e:
-            logger.warning(f"Failed to load session: {e}")
+            logger.warning("Failed to load session: %s", e)
             return None
 
     async def _remove_session(self, session_id: str) -> None:
@@ -561,7 +559,7 @@ class PersistentVoiceManager:
         except ImportError:
             pass
         except (ValueError, KeyError, OSError) as e:
-            logger.warning(f"Failed to remove session: {e}")
+            logger.warning("Failed to remove session: %s", e)
 
     # ==========================================================================
     # Callbacks

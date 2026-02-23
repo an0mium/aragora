@@ -188,7 +188,7 @@ class SQLitePasswordResetStore(PasswordResetBackend):
         self._connections: set[sqlite3.Connection] = set()
         self._connections_lock = threading.Lock()
         self._init_schema()
-        logger.info(f"SQLitePasswordResetStore initialized: {self.db_path}")
+        logger.info("SQLitePasswordResetStore initialized: %s", self.db_path)
 
     def _get_conn(self) -> sqlite3.Connection:
         conn = self._conn_var.get()
@@ -451,7 +451,7 @@ class PasswordResetStore:
         # Check rate limit
         recent = self._backend.count_recent_requests(email, self._attempt_window)
         if recent >= self._max_attempts:
-            logger.warning(f"Password reset rate limit exceeded for: {email}")
+            logger.warning("Password reset rate limit exceeded for: %s", email)
             return None, "Too many reset requests. Please try again later."
 
         # Generate secure token
@@ -464,7 +464,7 @@ class PasswordResetStore:
         # Store token hash (never store plaintext token)
         self._backend.store_token(email, token_hash, expires_at)
 
-        logger.info(f"Password reset token created for: {email}")
+        logger.info("Password reset token created for: %s", email)
         return token, None
 
     def validate_token(self, token: str) -> tuple[str | None, str | None]:
@@ -519,7 +519,7 @@ class PasswordResetStore:
         """
         count = self._backend.delete_tokens_for_email(email)
         if count > 0:
-            logger.info(f"Invalidated {count} reset token(s) for: {email}")
+            logger.info("Invalidated %s reset token(s) for: %s", count, email)
         return count
 
     def cleanup(self) -> int:

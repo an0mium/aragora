@@ -129,9 +129,7 @@ def _verify_discord_signature(
     # --- Check: Required headers present ---
     if not signature or not timestamp:
         logger.warning(
-            "Missing required Discord signature headers: "
-            f"signature={'present' if signature else 'missing'}, "
-            f"timestamp={'present' if timestamp else 'missing'}"
+            "Missing required Discord signature headers: signature=%s, timestamp=%s", 'present' if signature else 'missing', 'present' if timestamp else 'missing'
         )
         return False
 
@@ -141,13 +139,11 @@ def _verify_discord_signature(
         current_time = int(time.time())
         if abs(current_time - request_time) > _MAX_TIMESTAMP_AGE:
             logger.warning(
-                f"Discord request timestamp too old: "
-                f"request_time={request_time}, current_time={current_time}, "
-                f"delta={abs(current_time - request_time)}s > {_MAX_TIMESTAMP_AGE}s"
+                "Discord request timestamp too old: request_time=%s, current_time=%s, delta=%ss > %ss", request_time, current_time, abs(current_time - request_time), _MAX_TIMESTAMP_AGE
             )
             return False
     except (ValueError, OverflowError):
-        logger.warning(f"Invalid Discord timestamp format: {timestamp!r}")
+        logger.warning("Invalid Discord timestamp format: %r", timestamp)
         return False
 
     # --- Check: PyNaCl available ---
@@ -181,10 +177,10 @@ def _verify_discord_signature(
     except (ValueError, TypeError) as e:
         # ValueError: invalid hex in signature or public key
         # TypeError: unexpected argument types
-        logger.warning(f"Discord signature verification error (invalid format): {e}")
+        logger.warning("Discord signature verification error (invalid format): %s", e)
         return False
     except (RuntimeError, OSError, AttributeError) as e:
-        logger.exception(f"Unexpected Discord signature verification error: {e}")
+        logger.exception("Unexpected Discord signature verification error: %s", e)
         return False
 
 
@@ -324,7 +320,7 @@ class DiscordHandler(BotHandlerMixin, SecureHandler):
                 return self._handle_modal_submit(interaction)
 
             # Unknown interaction type
-            logger.warning(f"Unknown Discord interaction type: {interaction_type}")
+            logger.warning("Unknown Discord interaction type: %s", interaction_type)
             return json_response(
                 {
                     "type": 4,  # CHANNEL_MESSAGE_WITH_SOURCE
@@ -336,7 +332,7 @@ class DiscordHandler(BotHandlerMixin, SecureHandler):
             )
 
         except json.JSONDecodeError as e:
-            logger.error(f"Invalid JSON in Discord interaction: {e}")
+            logger.error("Invalid JSON in Discord interaction: %s", e)
             return error_response("Invalid JSON payload", 400)
         except (ValueError, KeyError, TypeError) as e:
             logger.warning("Data error in Discord interaction: %s", e)
@@ -350,7 +346,7 @@ class DiscordHandler(BotHandlerMixin, SecureHandler):
                 }
             )
         except (RuntimeError, OSError, AttributeError) as e:
-            logger.exception(f"Unexpected Discord interaction error: {e}")
+            logger.exception("Unexpected Discord interaction error: %s", e)
             return json_response(
                 {
                     "type": 4,
@@ -371,7 +367,7 @@ class DiscordHandler(BotHandlerMixin, SecureHandler):
         user_id = user.get("id", "unknown")
         username = user.get("username", "unknown")
 
-        logger.info(f"Discord command from {username}: {command_name}")
+        logger.info("Discord command from %s: %s", username, command_name)
 
         # Parse options into args
         args = {}
@@ -531,7 +527,7 @@ class DiscordHandler(BotHandlerMixin, SecureHandler):
         user = interaction.get("user") or interaction.get("member", {}).get("user", {})
         user_id = user.get("id", "unknown")
 
-        logger.info(f"Discord component interaction from {user_id}: {custom_id}")
+        logger.info("Discord component interaction from %s: %s", user_id, custom_id)
 
         # Parse custom_id (e.g., "vote_debateid_agree")
         if custom_id.startswith("vote_"):
@@ -568,9 +564,9 @@ class DiscordHandler(BotHandlerMixin, SecureHandler):
                             source="discord",
                         )
                 except (ValueError, KeyError, TypeError) as e:
-                    logger.warning(f"Failed to record vote due to data error: {e}")
+                    logger.warning("Failed to record vote due to data error: %s", e)
                 except (RuntimeError, OSError, AttributeError) as e:
-                    logger.exception(f"Unexpected error recording vote: {e}")
+                    logger.exception("Unexpected error recording vote: %s", e)
 
                 emoji = "thumbsup" if vote == "agree" else "thumbsdown"
                 return json_response(
@@ -599,7 +595,7 @@ class DiscordHandler(BotHandlerMixin, SecureHandler):
         data = interaction.get("data", {})
         custom_id = data.get("custom_id", "")
 
-        logger.info(f"Discord modal submit: {custom_id}")
+        logger.info("Discord modal submit: %s", custom_id)
 
         return json_response(
             {

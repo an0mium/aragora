@@ -128,7 +128,7 @@ def _encrypt_token(token: str, user_id: str = "") -> str:
                 str(e),
                 "gmail_token_store",
             ) from e
-        logger.warning(f"Token encryption failed, storing unencrypted: {e}")
+        logger.warning("Token encryption failed, storing unencrypted: %s", e)
         return token
 
 
@@ -151,11 +151,11 @@ def _decrypt_token(encrypted_token: str, user_id: str = "") -> str:
         return service.decrypt_string(encrypted_token, associated_data=user_id if user_id else None)
     except (ValueError, RuntimeError, OSError) as e:
         # Could be a legacy plain token that happens to start with "A"
-        logger.debug(f"Token decryption failed for user {user_id}, returning as-is: {e}")
+        logger.debug("Token decryption failed for user %s, returning as-is: %s", user_id, e)
         return encrypted_token
     except Exception as e:  # noqa: BLE001 - cryptography.exceptions.InvalidTag inherits directly from Exception
         # AAD mismatch or tampered ciphertext - return encrypted form
-        logger.debug(f"Token decryption crypto error for user {user_id}, returning as-is: {e}")
+        logger.debug("Token decryption crypto error for user %s, returning as-is: %s", user_id, e)
         return encrypted_token
 
 
@@ -416,7 +416,7 @@ class SQLiteGmailTokenStore(GmailTokenStoreBackend):
         self._connections: set[sqlite3.Connection] = set()
         self._connections_lock = threading.Lock()
         self._init_schema()
-        logger.info(f"SQLiteGmailTokenStore initialized: {self.db_path}")
+        logger.info("SQLiteGmailTokenStore initialized: %s", self.db_path)
 
     def _get_conn(self) -> sqlite3.Connection:
         """Get per-context database connection (async-safe)."""
@@ -506,7 +506,7 @@ class SQLiteGmailTokenStore(GmailTokenStoreBackend):
             ),
         )
         conn.commit()
-        logger.debug(f"Saved Gmail state for user {state.user_id}")
+        logger.debug("Saved Gmail state for user %s", state.user_id)
 
     async def delete(self, user_id: str) -> bool:
         conn = self._get_conn()
@@ -517,7 +517,7 @@ class SQLiteGmailTokenStore(GmailTokenStoreBackend):
         conn.commit()
         deleted = cursor.rowcount > 0
         if deleted:
-            logger.debug(f"Deleted Gmail state for user {user_id}")
+            logger.debug("Deleted Gmail state for user %s", user_id)
         return deleted
 
     async def list_all(self) -> list[GmailUserState]:
@@ -621,7 +621,7 @@ class RedisGmailTokenStore(GmailTokenStoreBackend):
             self._redis_checked = True
             logger.info("Redis connected for Gmail token store")
         except (ConnectionError, TimeoutError, OSError, ImportError) as e:
-            logger.debug(f"Redis not available, using SQLite only: {e}")
+            logger.debug("Redis not available, using SQLite only: %s", e)
             self._redis = None
             self._redis_checked = True
 
@@ -642,7 +642,7 @@ class RedisGmailTokenStore(GmailTokenStoreBackend):
                 if data:
                     return GmailUserState.from_json(data)
             except (ConnectionError, TimeoutError, OSError, ValueError) as e:
-                logger.debug(f"Redis get failed, falling back to SQLite: {e}")
+                logger.debug("Redis get failed, falling back to SQLite: %s", e)
 
         state = await self._sqlite.get(user_id)
 
@@ -651,7 +651,7 @@ class RedisGmailTokenStore(GmailTokenStoreBackend):
             try:
                 redis.setex(self._token_key(user_id), self.REDIS_TTL, state.to_json())
             except (ConnectionError, TimeoutError, OSError) as e:
-                logger.debug(f"Redis cache population failed (expected): {e}")
+                logger.debug("Redis cache population failed (expected): %s", e)
 
         return state
 
@@ -665,7 +665,7 @@ class RedisGmailTokenStore(GmailTokenStoreBackend):
             try:
                 redis.setex(self._token_key(state.user_id), self.REDIS_TTL, state.to_json())
             except (ConnectionError, TimeoutError, OSError) as e:
-                logger.debug(f"Redis cache update failed: {e}")
+                logger.debug("Redis cache update failed: %s", e)
 
     async def delete(self, user_id: str) -> bool:
         redis = self._get_redis()
@@ -673,7 +673,7 @@ class RedisGmailTokenStore(GmailTokenStoreBackend):
             try:
                 redis.delete(self._token_key(user_id))
             except (ConnectionError, TimeoutError, OSError) as e:
-                logger.debug(f"Redis cache deletion failed (expected): {e}")
+                logger.debug("Redis cache deletion failed (expected): %s", e)
 
         return await self._sqlite.delete(user_id)
 
@@ -690,7 +690,7 @@ class RedisGmailTokenStore(GmailTokenStoreBackend):
                     job_data = json.loads(data)
                     return SyncJobState(**job_data)
             except (ConnectionError, TimeoutError, OSError, json.JSONDecodeError, TypeError) as e:
-                logger.debug(f"Redis sync job get failed, falling back to SQLite: {e}")
+                logger.debug("Redis sync job get failed, falling back to SQLite: %s", e)
 
         return await self._sqlite.get_sync_job(user_id)
 
@@ -708,7 +708,7 @@ class RedisGmailTokenStore(GmailTokenStoreBackend):
                     json.dumps(job.to_dict()),
                 )
             except (ConnectionError, TimeoutError, OSError, TypeError) as e:
-                logger.debug(f"Redis sync job cache update failed: {e}")
+                logger.debug("Redis sync job cache update failed: %s", e)
 
     async def delete_sync_job(self, user_id: str) -> bool:
         redis = self._get_redis()
@@ -716,7 +716,7 @@ class RedisGmailTokenStore(GmailTokenStoreBackend):
             try:
                 redis.delete(self._job_key(user_id))
             except (ConnectionError, TimeoutError, OSError) as e:
-                logger.debug(f"Redis sync job deletion failed (expected): {e}")
+                logger.debug("Redis sync job deletion failed (expected): %s", e)
 
         return await self._sqlite.delete_sync_job(user_id)
 
@@ -780,7 +780,7 @@ class PostgresGmailTokenStore(GmailTokenStoreBackend):
             await conn.execute(self.INITIAL_SCHEMA)
 
         self._initialized = True
-        logger.debug(f"[{self.SCHEMA_NAME}] Schema initialized")
+        logger.debug("[%s] Schema initialized", self.SCHEMA_NAME)
 
     async def get(self, user_id: str) -> GmailUserState | None:
         """Get Gmail state for a user."""
@@ -868,7 +868,7 @@ class PostgresGmailTokenStore(GmailTokenStoreBackend):
                 state.created_at,
                 state.updated_at,
             )
-        logger.debug(f"Saved Gmail state for user {state.user_id}")
+        logger.debug("Saved Gmail state for user %s", state.user_id)
 
     async def delete(self, user_id: str) -> bool:
         """Delete Gmail state for a user."""
@@ -886,7 +886,7 @@ class PostgresGmailTokenStore(GmailTokenStoreBackend):
             result = await conn.execute("DELETE FROM gmail_tokens WHERE user_id = $1", user_id)
             deleted = result != "DELETE 0"
             if deleted:
-                logger.debug(f"Deleted Gmail state for user {user_id}")
+                logger.debug("Deleted Gmail state for user %s", user_id)
             return deleted
 
     async def list_all(self) -> list[GmailUserState]:
@@ -1072,7 +1072,7 @@ def set_gmail_token_store(store: GmailTokenStoreBackend) -> None:
     """Set custom Gmail token store."""
     global _gmail_token_store
     _gmail_token_store = store
-    logger.debug(f"Gmail token store backend set: {type(store).__name__}")
+    logger.debug("Gmail token store backend set: %s", type(store).__name__)
 
 
 def reset_gmail_token_store() -> None:

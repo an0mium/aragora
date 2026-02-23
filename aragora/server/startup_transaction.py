@@ -174,7 +174,7 @@ class StartupTransaction:
             cleanup: Function to call for cleanup (sync or async)
         """
         self._cleanups.append((component, cleanup))
-        logger.debug(f"Registered cleanup for: {component}")
+        logger.debug("Registered cleanup for: %s", component)
 
     def mark_initialized(self, component: str) -> None:
         """Mark a component as successfully initialized."""
@@ -184,7 +184,7 @@ class StartupTransaction:
     def mark_failed(self, component: str) -> None:
         """Mark a component as failed."""
         self._components_failed.append(component)
-        logger.warning(f"Failed to initialize: {component}")
+        logger.warning("Failed to initialize: %s", component)
 
     async def run_step(
         self,
@@ -242,7 +242,7 @@ class StartupTransaction:
 
         for component, cleanup in reversed(self._cleanups):
             try:
-                logger.info(f"Cleaning up: {component}")
+                logger.info("Cleaning up: %s", component)
                 if asyncio.iscoroutinefunction(cleanup):
                     await cleanup()
                 else:
@@ -253,7 +253,7 @@ class StartupTransaction:
             except (
                 Exception  # noqa: BLE001 - cleanup must continue even if one cleanup fails
             ) as e:
-                logger.exception(f"Cleanup failed for {component}: {e}")
+                logger.exception("Cleanup failed for %s: %s", component, e)
 
         logger.info("Startup rollback complete")
 
@@ -281,7 +281,7 @@ class StartupTransaction:
     async def __aenter__(self) -> StartupTransaction:
         """Start the transaction."""
         self._start_time = time.time()
-        logger.info(f"Starting {self.name} (SLO: {self.slo_seconds}s)")
+        logger.info("Starting %s (SLO: %ss)", self.name, self.slo_seconds)
         return self
 
     async def __aexit__(self, exc_type, exc_val, exc_tb) -> bool:

@@ -80,7 +80,7 @@ class CacheInvalidationBus:
                 errors.append("Subscriber notification failed")
 
         if errors:
-            logger.warning(f"Cache invalidation had {len(errors)} subscriber errors")
+            logger.warning("Cache invalidation had %s subscriber errors", len(errors))
 
     async def publish_node_update(self, workspace_id: str, node_id: str, **metadata: Any) -> None:
         """Convenience method for node update events."""

@@ -172,7 +172,7 @@ async def deliver_receipt(
                 )
 
         else:
-            logger.warning(f"Unknown delivery channel: {channel}")
+            logger.warning("Unknown delivery channel: %s", channel)
             results.append(
                 ReceiptDeliveryResult(
                     success=False,
@@ -225,7 +225,7 @@ async def _deliver_via_email(
                 )
                 msg.attach(pdf_attachment)
             except (ImportError, RuntimeError) as e:
-                logger.warning(f"PDF generation failed, skipping attachment: {e}")
+                logger.warning("PDF generation failed, skipping attachment: %s", e)
 
         # JSON attachment
         if config.email_include_json:
@@ -248,10 +248,10 @@ async def _deliver_via_email(
                 server.send_message(msg)
         else:
             # Log email for local development
-            logger.info(f"[DEV] Would send receipt email to {recipient}: {msg['Subject']}")
+            logger.info("[DEV] Would send receipt email to %s: %s", recipient, msg['Subject'])
 
         delivery_id = str(uuid.uuid4())
-        logger.info(f"Receipt {receipt.receipt_id} delivered via email to {recipient}")
+        logger.info("Receipt %s delivered via email to %s", receipt.receipt_id, recipient)
 
         return ReceiptDeliveryResult(
             success=True,
@@ -262,7 +262,7 @@ async def _deliver_via_email(
         )
 
     except (smtplib.SMTPException, OSError, ConnectionError) as e:
-        logger.error(f"Email delivery failed for {recipient}: {e}")
+        logger.error("Email delivery failed for %s: %s", recipient, e)
         return ReceiptDeliveryResult(
             success=False,
             channel="email",
@@ -434,7 +434,7 @@ async def _deliver_via_slack(
             )
 
     except (ImportError, RuntimeError, ValueError) as e:
-        logger.error(f"Slack delivery failed: {e}")
+        logger.error("Slack delivery failed: %s", e)
         return ReceiptDeliveryResult(
             success=False,
             channel="slack",
@@ -463,7 +463,7 @@ async def _deliver_via_webhook(
         # SSRF protection: validate webhook URL before making outbound request
         url_check = validate_url(webhook_url)
         if not url_check.is_safe:
-            logger.warning(f"SSRF blocked for receipt webhook: {url_check.error}")
+            logger.warning("SSRF blocked for receipt webhook: %s", url_check.error)
             return ReceiptDeliveryResult(
                 success=False,
                 channel="webhook",
@@ -509,7 +509,7 @@ async def _deliver_via_webhook(
                 if response.status in (200, 201, 202, 204):
                     delivery_id = str(uuid.uuid4())
                     logger.info(
-                        f"Receipt {receipt.receipt_id} delivered via webhook to {webhook_url}"
+                        "Receipt %s delivered via webhook to %s", receipt.receipt_id, webhook_url
                     )
                     return ReceiptDeliveryResult(
                         success=True,
@@ -538,7 +538,7 @@ async def _deliver_via_webhook(
             error="aiohttp not installed",
         )
     except (aiohttp.ClientError, asyncio.TimeoutError, OSError) as e:
-        logger.error(f"Webhook delivery failed: {e}")
+        logger.error("Webhook delivery failed: %s", e)
         return ReceiptDeliveryResult(
             success=False,
             channel="webhook",

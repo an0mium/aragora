@@ -88,7 +88,7 @@ class LifecycleManager:
                 handle.status = HealthStatus.HEALTHY
                 handle.last_heartbeat = datetime.now(timezone.utc)
                 self._agents[config.id] = handle
-                logger.debug(f"Reused agent from pool {pool_id} as {config.id}")
+                logger.debug("Reused agent from pool %s as %s", pool_id, config.id)
                 return handle
 
             handle = AgentHandle(
@@ -101,7 +101,7 @@ class LifecycleManager:
 
             self._agents[config.id] = handle
             self._agents_spawned += 1
-            logger.info(f"Spawned agent {config.id} (model={config.model})")
+            logger.info("Spawned agent %s (model=%s)", config.id, config.model)
             return handle
 
     async def terminate(
@@ -123,7 +123,7 @@ class LifecycleManager:
 
             if graceful:
                 timeout = drain_timeout or self._drain_timeout
-                logger.debug(f"Draining agent {agent_id} (timeout={timeout}s)")
+                logger.debug("Draining agent %s (timeout=%ss)", agent_id, timeout)
                 await asyncio.sleep(0.1)
 
             pool_id = handle.config.pool_id
@@ -133,12 +133,12 @@ class LifecycleManager:
                         self._pools[pool_id] = []
                     self._pools[pool_id].append(handle)
                     del self._agents[agent_id]
-                    logger.debug(f"Returned agent {agent_id} to pool {pool_id}")
+                    logger.debug("Returned agent %s to pool %s", agent_id, pool_id)
             else:
                 async with self._lock:
                     del self._agents[agent_id]
                     self._agents_terminated += 1
-                    logger.info(f"Terminated agent {agent_id}")
+                    logger.info("Terminated agent %s", agent_id)
 
             return True
         finally:
@@ -215,7 +215,7 @@ class LifecycleManager:
             except asyncio.CancelledError:
                 break
             except (RuntimeError, OSError, ValueError) as e:
-                logger.error(f"Health check error: {e}")
+                logger.error("Health check error: %s", e)
 
     async def _check_all_health(self) -> None:
         """Check health of all agents."""
@@ -233,11 +233,11 @@ class LifecycleManager:
                 if handle.last_heartbeat < timeout_threshold:
                     if handle.status != HealthStatus.UNHEALTHY:
                         handle.status = HealthStatus.UNHEALTHY
-                        logger.warning(f"Agent {agent_id} marked UNHEALTHY")
+                        logger.warning("Agent %s marked UNHEALTHY", agent_id)
                 elif handle.last_heartbeat < degraded_threshold:
                     if handle.status == HealthStatus.HEALTHY:
                         handle.status = HealthStatus.DEGRADED
-                        logger.debug(f"Agent {agent_id} marked DEGRADED")
+                        logger.debug("Agent %s marked DEGRADED", agent_id)
 
     async def get_stats(self) -> dict[str, Any]:
         """Get lifecycle manager statistics."""

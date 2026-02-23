@@ -147,7 +147,7 @@ class JobStatusTracker:
                 metadata=json.loads(data.get("metadata", "{}")),
             )
         except (KeyError, ValueError, json.JSONDecodeError) as e:
-            logger.warning(f"Failed to parse job {job_id}: {e}")
+            logger.warning("Failed to parse job %s: %s", job_id, e)
             return None
 
     async def get_status(self, job_id: str) -> JobStatus | None:

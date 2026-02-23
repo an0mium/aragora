@@ -160,7 +160,7 @@ def slo_context(operation: str, is_debate: bool = False):
         # Check against SLO
         is_within, message = check_latency_slo(operation, elapsed_ms)
         if not is_within:
-            logger.warning(f"slo_violation operation={operation} {message}")
+            logger.warning("slo_violation operation=%s %s", operation, message)
 
 
 def track_slo(operation: str, is_debate: bool = False) -> Callable[[F], F]:
@@ -220,7 +220,7 @@ def track_slo_async(operation: str, is_debate: bool = False) -> Callable[[F], F]
 
                 is_within, message = check_latency_slo(operation, elapsed_ms)
                 if not is_within:
-                    logger.warning(f"slo_violation operation={operation} {message}")
+                    logger.warning("slo_violation operation=%s %s", operation, message)
 
         return cast(F, wrapper)
 
@@ -266,7 +266,7 @@ def slo_middleware(handler_func: F) -> F:
             is_within, message = check_latency_slo("api_endpoint", elapsed_ms)
             if not is_within:
                 path = getattr(self, "path", "unknown")
-                logger.warning(f"slo_violation path={path} {message}")
+                logger.warning("slo_violation path=%s %s", path, message)
 
     return cast(F, wrapper)
 

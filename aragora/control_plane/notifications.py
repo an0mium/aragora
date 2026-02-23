@@ -213,7 +213,7 @@ class EmailProvider(ChannelProvider):
             )
 
         except (RuntimeError, ValueError, TypeError, OSError, ConnectionError, TimeoutError, smtplib.SMTPException) as e:
-            logger.error(f"Email send error: {e}")
+            logger.error("Email send error: %s", e)
             return NotificationResult(
                 success=False,
                 channel=NotificationChannel.EMAIL,
@@ -415,7 +415,7 @@ class NotificationDispatcher:
         # Find applicable channels
         channels = self._manager._filter_channels(message)
         if not channels:
-            logger.debug(f"No channels configured for event {event_type.value}")
+            logger.debug("No channels configured for event %s", event_type.value)
             return []
 
         self._metrics["total_dispatched"] += 1
@@ -455,7 +455,7 @@ class NotificationDispatcher:
 
         # Check circuit breaker
         if not breaker.can_proceed():
-            logger.warning(f"Circuit breaker open for {channel.value}, skipping")
+            logger.warning("Circuit breaker open for %s, skipping", channel.value)
             return NotificationResult(
                 success=False,
                 channel=channel,
@@ -464,7 +464,7 @@ class NotificationDispatcher:
 
         # Check rate limit
         if not self._check_rate_limit(channel):
-            logger.warning(f"Rate limit exceeded for {channel.value}, queueing")
+            logger.warning("Rate limit exceeded for %s, queueing", channel.value)
             if self._config.queue_enabled and self._redis:
                 await self._queue_notification(message, config)
             return NotificationResult(
@@ -523,7 +523,7 @@ class NotificationDispatcher:
             self._metrics["total_failed"] += 1
             self._update_channel_metrics(channel, success=False)
 
-            logger.error(f"Error delivering notification to {channel.value}: {e}")
+            logger.error("Error delivering notification to %s: %s", channel.value, e)
             return NotificationResult(
                 success=False,
                 channel=channel,
@@ -577,9 +577,9 @@ class NotificationDispatcher:
                 self._config.queue_stream_key,
                 {"data": json.dumps(queued.to_dict())},
             )
-            logger.info(f"Queued notification {queued.id} for {config.channel_type.value}")
+            logger.info("Queued notification %s for %s", queued.id, config.channel_type.value)
         except (ConnectionError, TimeoutError, OSError, RuntimeError, ValueError) as e:
-            logger.error(f"Failed to queue notification: {e}")
+            logger.error("Failed to queue notification: %s", e)
 
     async def start_worker(self) -> None:
         """Start background worker for processing queued notifications."""
@@ -624,7 +624,7 @@ class NotificationDispatcher:
             )
         except (ConnectionError, TimeoutError, OSError, RuntimeError) as e:
             if "BUSYGROUP" not in str(e):
-                logger.error(f"Failed to create consumer group: {e}")
+                logger.error("Failed to create consumer group: %s", e)
                 return
 
         consumer_name = f"worker-{uuid.uuid4().hex[:8]}"
@@ -650,7 +650,7 @@ class NotificationDispatcher:
             except asyncio.CancelledError:
                 break
             except (ConnectionError, TimeoutError, OSError, RuntimeError, ValueError, TypeError) as e:
-                logger.error(f"Worker error: {e}")
+                logger.error("Worker error: %s", e)
                 await asyncio.sleep(5)
 
     async def _process_queued_message(
@@ -683,7 +683,7 @@ class NotificationDispatcher:
                     message_id,
                 )
                 await self._redis.xdel(self._config.queue_stream_key, message_id)
-                logger.info(f"Delivered queued notification {queued.id}")
+                logger.info("Delivered queued notification %s", queued.id)
             else:
                 # Re-queue with incremented attempt if not max retries
                 if queued.attempt < self._config.retry_config.max_retries:
@@ -712,7 +712,7 @@ class NotificationDispatcher:
                     await self._redis.xdel(self._config.queue_stream_key, message_id)
 
         except (ConnectionError, TimeoutError, OSError, RuntimeError, ValueError, TypeError, json.JSONDecodeError, KeyError) as e:
-            logger.error(f"Error processing queued message: {e}")
+            logger.error("Error processing queued message: %s", e)
 
     async def _move_to_dlq(
         self,
@@ -732,9 +732,9 @@ class NotificationDispatcher:
                 {"data": json.dumps(queued.to_dict())},
                 maxlen=10000,  # Keep last 10k failed notifications
             )
-            logger.warning(f"Moved notification {queued.id} to DLQ after max retries")
+            logger.warning("Moved notification %s to DLQ after max retries", queued.id)
         except (ConnectionError, TimeoutError, OSError, RuntimeError, ValueError) as e:
-            logger.error(f"Failed to move to DLQ: {e}")
+            logger.error("Failed to move to DLQ: %s", e)
 
     # =========================================================================
     # Metrics and Status
@@ -770,7 +770,7 @@ class NotificationDispatcher:
             info = await self._redis.xinfo_stream(self._config.queue_stream_key)
             return info.get("length", 0)
         except (ConnectionError, TimeoutError, OSError) as e:
-            logger.debug(f"Redis connection error getting queue depth: {e}")
+            logger.debug("Redis connection error getting queue depth: %s", e)
             return 0
         except KeyError:
             # Stream doesn't exist yet
@@ -786,7 +786,7 @@ class NotificationDispatcher:
             info = await self._redis.xinfo_stream(dlq_key)
             return info.get("length", 0)
         except (ConnectionError, TimeoutError, OSError) as e:
-            logger.debug(f"Redis connection error getting DLQ depth: {e}")
+            logger.debug("Redis connection error getting DLQ depth: %s", e)
             return 0
         except KeyError:
             # Stream doesn't exist yet
@@ -891,7 +891,7 @@ async def send_security_notification(
     """
     dispatcher = get_default_notification_dispatcher()
     if dispatcher is None:
-        logger.warning(f"Security notification not sent (no dispatcher): {title}")
+        logger.warning("Security notification not sent (no dispatcher): %s", title)
         return False
 
     # Map severity to priority
@@ -914,7 +914,7 @@ async def send_security_notification(
         # Consider success if any channel delivered
         return any(r.success for r in results)
     except (RuntimeError, ValueError, TypeError, OSError, ConnectionError, TimeoutError) as e:
-        logger.error(f"Failed to send security notification: {e}")
+        logger.error("Failed to send security notification: %s", e)
         return False
 
 

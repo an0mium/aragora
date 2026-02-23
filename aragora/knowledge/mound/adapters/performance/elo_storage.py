@@ -174,7 +174,7 @@ class EloStorageMixin:
                 self._agent_matches[participant] = []
             self._agent_matches[participant].append(match_id)
 
-        logger.info(f"Stored match: {match_id} (winner={match.winner})")
+        logger.info("Stored match: %s (winner=%s)", match_id, match.winner)
         return match_id
 
     def store_calibration(
@@ -219,7 +219,7 @@ class EloStorageMixin:
 
         self._calibrations[cal_id] = cal_data
 
-        logger.info(f"Stored calibration: {cal_id} (correct={was_correct})")
+        logger.info("Stored calibration: %s (correct=%s)", cal_id, was_correct)
         return cal_id
 
     def store_relationship(self, metrics: StorableRelationshipMetrics) -> str | None:
@@ -235,7 +235,7 @@ class EloStorageMixin:
             The relationship ID if stored, None if below threshold
         """
         if metrics.debates_together < self.MIN_DEBATES_FOR_RELATIONSHIP:
-            logger.debug(f"Relationship {metrics.agent_a}-{metrics.agent_b} below debate threshold")
+            logger.debug("Relationship %s-%s below debate threshold", metrics.agent_a, metrics.agent_b)
             return None
 
         rel_id = f"{self.ELO_PREFIX}rel_{metrics.agent_a}_{metrics.agent_b}"
@@ -259,7 +259,7 @@ class EloStorageMixin:
 
         self._relationships[rel_id] = rel_data
 
-        logger.info(f"Stored relationship: {rel_id}")
+        logger.info("Stored relationship: %s", rel_id)
         return rel_id
 
     # =========================================================================

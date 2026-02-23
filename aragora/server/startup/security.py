@@ -117,21 +117,20 @@ async def init_deployment_validation() -> dict:
                 )
         else:
             logger.warning(
-                f"[DEPLOYMENT VALIDATION] {critical_count} critical issue(s), "
-                f"{warning_count} warning(s). Server may not function correctly."
+                "[DEPLOYMENT VALIDATION] %s critical issue(s), %s warning(s). Server may not function correctly.", critical_count, warning_count
             )
 
         # Log critical issues
         for issue in result.issues:
             if issue.severity == Severity.CRITICAL:
                 logger.error(
-                    f"[DEPLOYMENT VALIDATION] CRITICAL - {issue.component}: {issue.message}"
+                    "[DEPLOYMENT VALIDATION] CRITICAL - %s: %s", issue.component, issue.message
                 )
                 if issue.suggestion:
-                    logger.error(f"  Suggestion: {issue.suggestion}")
+                    logger.error("  Suggestion: %s", issue.suggestion)
             elif issue.severity == Severity.WARNING:
                 logger.warning(
-                    f"[DEPLOYMENT VALIDATION] WARNING - {issue.component}: {issue.message}"
+                    "[DEPLOYMENT VALIDATION] WARNING - %s: %s", issue.component, issue.message
                 )
 
         return {
@@ -145,10 +144,10 @@ async def init_deployment_validation() -> dict:
         }
 
     except ImportError as e:
-        logger.debug(f"Deployment validator not available: {e}")
+        logger.debug("Deployment validator not available: %s", e)
         return {"available": False, "error": "Deployment validator not available"}
     except (RuntimeError, OSError, ValueError) as e:
-        logger.warning(f"Deployment validation failed: {e}")
+        logger.warning("Deployment validation failed: %s", e)
         return {"available": True, "error": "Deployment validation failed"}
 
 
@@ -208,8 +207,7 @@ def init_graphql_routes(app: Any) -> bool:
 
         # Log configuration
         logger.info(
-            f"GraphQL API enabled (introspection={introspection_enabled}, "
-            f"graphiql={graphiql_enabled})"
+            "GraphQL API enabled (introspection=%s, graphiql=%s)", introspection_enabled, graphiql_enabled
         )
 
         # The handlers are auto-registered via the handler registry pattern
@@ -230,10 +228,10 @@ def init_graphql_routes(app: Any) -> bool:
         return True
 
     except ImportError as e:
-        logger.debug(f"GraphQL module not available: {e}")
+        logger.debug("GraphQL module not available: %s", e)
         return False
     except (RuntimeError, OSError, ValueError) as e:
-        logger.warning(f"Failed to initialize GraphQL routes: {e}")
+        logger.warning("Failed to initialize GraphQL routes: %s", e)
         return False
 
 
@@ -300,18 +298,16 @@ async def init_rbac_distributed_cache() -> bool:
         set_permission_checker(new_checker)
 
         logger.info(
-            f"RBAC distributed cache initialized "
-            f"(decision_ttl={config.decision_ttl_seconds}s, "
-            f"l1={'enabled' if config.l1_enabled else 'disabled'})"
+            "RBAC distributed cache initialized (decision_ttl=%ss, l1=%s)", config.decision_ttl_seconds, 'enabled' if config.l1_enabled else 'disabled'
         )
         return True
 
     except ImportError as e:
-        logger.debug(f"RBAC distributed cache not available: {e}")
+        logger.debug("RBAC distributed cache not available: %s", e)
     except REDIS_CONNECTION_ERRORS as e:
-        logger.warning(f"Failed to initialize RBAC distributed cache: {e}")
+        logger.warning("Failed to initialize RBAC distributed cache: %s", e)
     except RuntimeError as e:
-        logger.warning(f"Failed to initialize RBAC distributed cache: {e}")
+        logger.warning("Failed to initialize RBAC distributed cache: %s", e)
 
     return False
 
@@ -331,14 +327,14 @@ async def init_approval_gate_recovery() -> int:
 
         recovered = await recover_pending_approvals()
         if recovered > 0:
-            logger.info(f"Recovered {recovered} pending approval requests")
+            logger.info("Recovered %s pending approval requests", recovered)
         return recovered
 
     except ImportError as e:
-        logger.debug(f"Approval gate recovery not available: {e}")
+        logger.debug("Approval gate recovery not available: %s", e)
         return 0
     except (OSError, RuntimeError, ValueError) as e:
-        logger.warning(f"Failed to recover pending approvals: {e}")
+        logger.warning("Failed to recover pending approvals: %s", e)
         return 0
 
 
@@ -403,16 +399,15 @@ async def init_access_review_scheduler() -> bool:
         await scheduler.start()
 
         logger.info(
-            f"Access review scheduler started "
-            f"(storage={storage_path}, monthly_review_day={config.monthly_review_day})"
+            "Access review scheduler started (storage=%s, monthly_review_day=%s)", storage_path, config.monthly_review_day
         )
         return True
 
     except ImportError as e:
-        logger.debug(f"Access review scheduler not available: {e}")
+        logger.debug("Access review scheduler not available: %s", e)
         return False
     except (OSError, RuntimeError, ValueError) as e:
-        logger.warning(f"Failed to start access review scheduler: {e}")
+        logger.warning("Failed to start access review scheduler: %s", e)
         return False
 
 
@@ -480,7 +475,7 @@ async def init_key_rotation_scheduler() -> bool:
                     )
             except (ImportError, ConnectionError, OSError, RuntimeError) as e:
                 # Broad catch intentional: alert delivery should never break key rotation
-                logger.warning(f"Failed to dispatch key rotation alert: {e}")
+                logger.warning("Failed to dispatch key rotation alert: %s", e)
 
         scheduler.alert_callback = alert_callback
 
@@ -503,21 +498,18 @@ async def init_key_rotation_scheduler() -> bool:
         next_rotation = status.get("next_rotation", "unknown")
 
         logger.info(
-            f"Key rotation scheduler started "
-            f"(interval={config.rotation_interval_days}d, "
-            f"overlap={config.key_overlap_days}d, "
-            f"re_encrypt={config.re_encrypt_on_rotation})"
+            "Key rotation scheduler started (interval=%sd, overlap=%sd, re_encrypt=%s)", config.rotation_interval_days, config.key_overlap_days, config.re_encrypt_on_rotation
         )
 
         if next_rotation and next_rotation != "unknown":
-            logger.info(f"Next key rotation scheduled: {next_rotation}")
+            logger.info("Next key rotation scheduled: %s", next_rotation)
 
         return True
 
     except ImportError as e:
-        logger.debug(f"Key rotation scheduler not available: {e}")
+        logger.debug("Key rotation scheduler not available: %s", e)
     except (OSError, RuntimeError, ValueError) as e:
-        logger.warning(f"Failed to start key rotation scheduler: {e}")
+        logger.warning("Failed to start key rotation scheduler: %s", e)
 
     return False
 
@@ -561,9 +553,9 @@ async def init_secrets_rotation_scheduler() -> bool:
         return True
 
     except ImportError as e:
-        logger.debug(f"Secrets rotation scheduler not available: {e}")
+        logger.debug("Secrets rotation scheduler not available: %s", e)
     except (OSError, RuntimeError, ValueError) as e:
-        logger.warning(f"Failed to start secrets rotation scheduler: {e}")
+        logger.warning("Failed to start secrets rotation scheduler: %s", e)
 
     return False
 
@@ -703,5 +695,5 @@ async def init_decision_router() -> bool:
         return True
 
     except (ImportError, RuntimeError, AttributeError) as e:
-        logger.warning(f"Failed to initialize DecisionRouter: {e}")
+        logger.warning("Failed to initialize DecisionRouter: %s", e)
         return False

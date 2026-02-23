@@ -222,7 +222,7 @@ class LeaderElection:
         if self._running:
             return
 
-        logger.info(f"[leader] Starting election for node {self._config.node_id}")
+        logger.info("[leader] Starting election for node %s", self._config.node_id)
 
         # Connect to Redis if not provided
         if self._redis is None:
@@ -253,7 +253,7 @@ class LeaderElection:
                         "leader_election",
                         f"Failed to connect to Redis: {e}",
                     ) from e
-                logger.warning(f"[leader] Redis connection failed, using in-memory fallback: {e}")
+                logger.warning("[leader] Redis connection failed, using in-memory fallback: %s", e)
                 self._redis = _InMemoryRedis()
 
         self._running = True
@@ -261,14 +261,14 @@ class LeaderElection:
 
         # Start election loop
         self._election_task = asyncio.create_task(self._election_loop())
-        logger.info(f"[leader] Election started for node {self._config.node_id}")
+        logger.info("[leader] Election started for node %s", self._config.node_id)
 
     async def stop(self) -> None:
         """Stop the leader election and release leadership if held."""
         if not self._running:
             return
 
-        logger.info(f"[leader] Stopping election for node {self._config.node_id}")
+        logger.info("[leader] Stopping election for node %s", self._config.node_id)
         self._running = False
 
         # Release leadership if we have it
@@ -291,7 +291,7 @@ class LeaderElection:
                 pass
 
         self._state = LeaderState.DISCONNECTED
-        logger.info(f"[leader] Election stopped for node {self._config.node_id}")
+        logger.info("[leader] Election stopped for node %s", self._config.node_id)
 
     async def _election_loop(self) -> None:
         """Main election loop."""
@@ -327,7 +327,7 @@ class LeaderElection:
             except asyncio.CancelledError:
                 break
             except (ConnectionError, TimeoutError, OSError, RuntimeError) as e:
-                logger.error(f"[leader] Election loop error: {e}")
+                logger.error("[leader] Election loop error: %s", e)
                 await asyncio.sleep(self._config.retry_interval)
 
     async def _try_become_leader(self) -> bool:
@@ -347,7 +347,7 @@ class LeaderElection:
             )
 
             if result:
-                logger.info(f"[leader] Node {self._config.node_id} acquired leadership")
+                logger.info("[leader] Node %s acquired leadership", self._config.node_id)
 
                 # Store additional leader info
                 info_key = f"{self._config.key_prefix}info"
@@ -364,7 +364,7 @@ class LeaderElection:
             return False
 
         except (ConnectionError, TimeoutError, OSError, RuntimeError) as e:
-            logger.error(f"[leader] Failed to acquire lock: {e}")
+            logger.error("[leader] Failed to acquire lock: %s", e)
             return False
 
     async def _refresh_leadership(self) -> bool:
@@ -377,7 +377,7 @@ class LeaderElection:
             # Check if we still hold the lock
             current = await self._redis.get(lock_key)
             if current != self._config.node_id:
-                logger.warning(f"[leader] Lock held by {current}, not us")
+                logger.warning("[leader] Lock held by %s, not us", current)
                 return False
 
             # Refresh TTL
@@ -390,7 +390,7 @@ class LeaderElection:
             return True
 
         except (ConnectionError, TimeoutError, OSError, RuntimeError) as e:
-            logger.error(f"[leader] Failed to refresh lock: {e}")
+            logger.error("[leader] Failed to refresh lock: %s", e)
             return False
 
     async def _release_leadership(self) -> None:
@@ -402,9 +402,9 @@ class LeaderElection:
             current = await self._redis.get(lock_key)
             if current == self._config.node_id:
                 await self._redis.delete(lock_key)
-                logger.info(f"[leader] Node {self._config.node_id} released leadership")
+                logger.info("[leader] Node %s released leadership", self._config.node_id)
         except (ConnectionError, TimeoutError, OSError, RuntimeError) as e:
-            logger.error(f"[leader] Failed to release lock: {e}")
+            logger.error("[leader] Failed to release lock: %s", e)
 
     async def _get_current_leader(self) -> LeaderInfo | None:
         """Get information about the current leader."""
@@ -433,7 +433,7 @@ class LeaderElection:
             )
 
         except (ConnectionError, TimeoutError, OSError, RuntimeError, ValueError) as e:
-            logger.error(f"[leader] Failed to get leader info: {e}")
+            logger.error("[leader] Failed to get leader info: %s", e)
             return None
 
     async def _handle_become_leader(self) -> None:
@@ -447,7 +447,7 @@ class LeaderElection:
             last_heartbeat=time.time(),
         )
 
-        logger.info(f"[leader] Node {self._config.node_id} is now LEADER")
+        logger.info("[leader] Node %s is now LEADER", self._config.node_id)
 
         # Notify callbacks
         for callback in self._on_become_leader:
@@ -456,13 +456,13 @@ class LeaderElection:
                 if asyncio.iscoroutine(result):
                     await result
             except (RuntimeError, ValueError, TypeError, OSError, AttributeError) as e:
-                logger.error(f"[leader] Callback error: {e}")
+                logger.error("[leader] Callback error: %s", e)
 
         await self._notify_leader_change(self._config.node_id)
 
     async def _handle_lose_leader(self) -> None:
         """Handle losing leadership."""
-        logger.warning(f"[leader] Node {self._config.node_id} lost leadership")
+        logger.warning("[leader] Node %s lost leadership", self._config.node_id)
         self._state = LeaderState.FOLLOWER
 
         # Notify callbacks
@@ -472,7 +472,7 @@ class LeaderElection:
                 if asyncio.iscoroutine(result):
                     await result
             except (RuntimeError, ValueError, TypeError, OSError, AttributeError) as e:
-                logger.error(f"[leader] Callback error: {e}")
+                logger.error("[leader] Callback error: %s", e)
 
     async def _notify_leader_change(self, new_leader: str | None) -> None:
         """Notify callbacks of leader change."""
@@ -482,7 +482,7 @@ class LeaderElection:
                 if asyncio.iscoroutine(result):
                     await result
             except (RuntimeError, ValueError, TypeError, OSError, AttributeError) as e:
-                logger.error(f"[leader] Leader change callback error: {e}")
+                logger.error("[leader] Leader change callback error: %s", e)
 
     def get_stats(self) -> dict[str, Any]:
         """Get election statistics."""
@@ -677,8 +677,7 @@ class RegionalLeaderElection(LeaderElection):
         self._config.key_prefix = self._regional_config.get_region_key_prefix()
 
         logger.info(
-            f"[regional-leader] Starting election for node {self._config.node_id} "
-            f"in region {self.region_id}"
+            "[regional-leader] Starting election for node %s in region %s", self._config.node_id, self.region_id
         )
 
         await super().start()
@@ -725,14 +724,14 @@ class RegionalLeaderElection(LeaderElection):
             last_heartbeat=time.time(),
             is_global_coordinator=event.data.get("is_global_coordinator", False),
         )
-        logger.debug(f"[regional-leader] Region {source_region} elected leader: {event.entity_id}")
+        logger.debug("[regional-leader] Region %s elected leader: %s", source_region, event.entity_id)
 
     async def _handle_remote_leader_resigned(self, event: Any) -> None:
         """Handle leader resignation from another region."""
         source_region = event.source_region
         if source_region in self._regional_leaders:
             del self._regional_leaders[source_region]
-            logger.debug(f"[regional-leader] Region {source_region} leader resigned")
+            logger.debug("[regional-leader] Region %s leader resigned", source_region)
 
     async def _handle_become_leader(self) -> None:
         """Handle becoming the regional leader."""
@@ -745,7 +744,7 @@ class RegionalLeaderElection(LeaderElection):
                 if asyncio.iscoroutine(result):
                     await result
             except (RuntimeError, ValueError, TypeError, OSError, AttributeError) as e:
-                logger.error(f"[regional-leader] Regional callback error: {e}")
+                logger.error("[regional-leader] Regional callback error: %s", e)
 
         # Broadcast leadership via event bus
         await self._broadcast_leadership_change(elected=True)
@@ -770,7 +769,7 @@ class RegionalLeaderElection(LeaderElection):
                 if asyncio.iscoroutine(result):
                     await result
             except (RuntimeError, ValueError, TypeError, OSError, AttributeError) as e:
-                logger.error(f"[regional-leader] Regional callback error: {e}")
+                logger.error("[regional-leader] Regional callback error: %s", e)
 
         # Broadcast leadership change
         await self._broadcast_leadership_change(elected=False)
@@ -782,7 +781,7 @@ class RegionalLeaderElection(LeaderElection):
                     if asyncio.iscoroutine(result):
                         await result
                 except (RuntimeError, ValueError, TypeError, OSError, AttributeError) as e:
-                    logger.error(f"[regional-leader] Global coordinator callback error: {e}")
+                    logger.error("[regional-leader] Global coordinator callback error: %s", e)
 
     async def _broadcast_leadership_change(self, elected: bool) -> None:
         """Broadcast leadership change to other regions."""
@@ -809,10 +808,10 @@ class RegionalLeaderElection(LeaderElection):
             )
             await self._event_bus.publish(event)
             logger.debug(
-                f"[regional-leader] Broadcast leadership {'elected' if elected else 'resigned'}"
+                "[regional-leader] Broadcast leadership %s", 'elected' if elected else 'resigned'
             )
         except (ImportError, ConnectionError, OSError, RuntimeError, ValueError, TypeError) as e:
-            logger.warning(f"[regional-leader] Failed to broadcast leadership: {e}")
+            logger.warning("[regional-leader] Failed to broadcast leadership: %s", e)
 
     async def _try_become_global_coordinator(self) -> None:
         """Try to become the global coordinator (elected from regional leaders)."""
@@ -835,7 +834,7 @@ class RegionalLeaderElection(LeaderElection):
             if result:
                 self._is_global_coordinator = True
                 logger.info(
-                    f"[regional-leader] Node {self._config.node_id} is now GLOBAL COORDINATOR"
+                    "[regional-leader] Node %s is now GLOBAL COORDINATOR", self._config.node_id
                 )
 
                 # Store coordinator info
@@ -856,13 +855,13 @@ class RegionalLeaderElection(LeaderElection):
                         if asyncio.iscoroutine(result):
                             await result
                     except (RuntimeError, ValueError, TypeError, OSError, AttributeError) as e:
-                        logger.error(f"[regional-leader] Global coordinator callback error: {e}")
+                        logger.error("[regional-leader] Global coordinator callback error: %s", e)
 
                 # Broadcast updated status
                 await self._broadcast_leadership_change(elected=True)
 
         except (ConnectionError, TimeoutError, OSError, RuntimeError) as e:
-            logger.debug(f"[regional-leader] Failed to become global coordinator: {e}")
+            logger.debug("[regional-leader] Failed to become global coordinator: %s", e)
 
     async def _release_global_coordinator(self) -> None:
         """Release the global coordinator role."""
@@ -876,10 +875,10 @@ class RegionalLeaderElection(LeaderElection):
             if current == self._config.node_id:
                 await self._redis.delete(global_key)
                 logger.info(
-                    f"[regional-leader] Node {self._config.node_id} released global coordinator"
+                    "[regional-leader] Node %s released global coordinator", self._config.node_id
                 )
         except (ConnectionError, TimeoutError, OSError, RuntimeError) as e:
-            logger.error(f"[regional-leader] Failed to release global coordinator: {e}")
+            logger.error("[regional-leader] Failed to release global coordinator: %s", e)
 
         self._is_global_coordinator = False
 
@@ -904,7 +903,7 @@ class RegionalLeaderElection(LeaderElection):
                 is_global_coordinator=True,
             )
         except (ConnectionError, TimeoutError, OSError, RuntimeError, ValueError) as e:
-            logger.error(f"[regional-leader] Failed to get global coordinator: {e}")
+            logger.error("[regional-leader] Failed to get global coordinator: %s", e)
             return None
 
     def get_stats(self) -> dict[str, Any]:
@@ -964,10 +963,10 @@ async def init_regional_leader_election(
     try:
         await election.start()
         _regional_leader_election = election
-        logger.info(f"[regional-leader] Initialized election for region {config.region_id}")
+        logger.info("[regional-leader] Initialized election for region %s", config.region_id)
         return election
     except (ConnectionError, TimeoutError, OSError, RuntimeError, ImportError) as e:
-        logger.warning(f"[regional-leader] Failed to initialize: {e}")
+        logger.warning("[regional-leader] Failed to initialize: %s", e)
         return None
 
 

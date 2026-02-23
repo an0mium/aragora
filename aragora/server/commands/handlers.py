@@ -426,4 +426,4 @@ def register_default_commands() -> None:
     for handler in handlers:
         registry.register(handler.definition, handler)
 
-    logger.info(f"Registered {len(handlers)} default command handlers")
+    logger.info("Registered %s default command handlers", len(handlers))

@@ -178,7 +178,7 @@ class WebConnector(BaseConnector):
                     limits=httpx.Limits(max_connections=20, max_keepalive_connections=5),
                 )
             except (httpx.HTTPError, OSError, ValueError) as e:
-                logger.error(f"Failed to create HTTP client: {e}")
+                logger.error("Failed to create HTTP client: %s", e)
                 raise  # Fail fast instead of retrying infinitely
         return self._http_client
 
@@ -188,7 +188,7 @@ class WebConnector(BaseConnector):
             try:
                 await self._http_client.aclose()
             except (OSError, RuntimeError, TypeError, AttributeError) as e:
-                logger.warning(f"Error closing HTTP client: {e}")
+                logger.warning("Error closing HTTP client: %s", e)
             finally:
                 self._http_client = None
 
@@ -219,10 +219,10 @@ class WebConnector(BaseConnector):
                 return [Evidence.from_dict(e) for e in cached_data["results"]]
             except (json.JSONDecodeError, KeyError, TypeError) as e:
                 # If cache is corrupted, proceed with search
-                logger.debug(f"Cache load failed for query '{query[:50]}': {e}")
+                logger.debug("Cache load failed for query '%s': %s", query[:50], e)
             except OSError as e:
                 # File system error, proceed with search
-                logger.debug(f"Cache file read error for query '{query[:50]}': {e}")
+                logger.debug("Cache file read error for query '%s': %s", query[:50], e)
 
         # Use test seam for actual search (allows mocking in tests)
         return await self._search_web_actual(query, limit, region)
@@ -262,7 +262,7 @@ class WebConnector(BaseConnector):
                     timeout=DB_TIMEOUT_SECONDS,  # 30 second timeout for DDGS
                 )
             except asyncio.TimeoutError:
-                logger.warning(f"DDGS search timed out for query: {query[:50]}...")
+                logger.warning("DDGS search timed out for query: %s...", query[:50])
                 return [self._create_error_evidence(f"Search timed out for: {query[:50]}")]
 
             evidence_list = []
@@ -283,7 +283,7 @@ class WebConnector(BaseConnector):
             return [self._create_error_evidence(f"Search service error: {e}")]
         except (ValueError, TypeError, AttributeError) as e:
             # Handle other common errors from search library
-            logger.warning(f"Search error: {type(e).__name__}: {e}")
+            logger.warning("Search error: %s: %s", type(e).__name__, e)
             return [self._create_error_evidence(f"Search failed: {e}")]
 
     def _is_local_ip(self, url: str) -> bool:
@@ -312,7 +312,7 @@ class WebConnector(BaseConnector):
 
         except (ValueError, OSError) as e:
             # If parsing fails, err on side of caution
-            logger.warning(f"[web] URL security validation failed for {url}: {e}")
+            logger.warning("[web] URL security validation failed for %s: %s", url, e)
             return True
 
     def _resolve_and_validate_ip(self, url: str) -> tuple[bool, str]:
@@ -349,7 +349,7 @@ class WebConnector(BaseConnector):
                 addr_info = socket.getaddrinfo(hostname, port, socket.AF_UNSPEC, socket.SOCK_STREAM)
             except socket.gaierror as e:
                 # DNS resolution failed - BLOCK (fail-closed for security)
-                logger.warning(f"DNS resolution failed for {hostname}: {e}")
+                logger.warning("DNS resolution failed for %s: %s", hostname, e)
                 return False, f"DNS resolution failed: {e}"
 
             if not addr_info:
@@ -376,7 +376,7 @@ class WebConnector(BaseConnector):
             return True, ""
 
         except (ValueError, OSError) as e:
-            logger.warning(f"[web] IP validation error for {url}: {e}")
+            logger.warning("[web] IP validation error for %s: %s", url, e)
             return False, f"Security validation error: {e}"
 
     def _validate_redirect_target(self, redirect_url: str) -> tuple[bool, str]:
@@ -415,7 +415,7 @@ class WebConnector(BaseConnector):
             cache_file.write_text(json.dumps(cache_data, indent=2))
         except (OSError, TypeError, ValueError) as e:
             # If caching fails, don't break the search
-            logger.debug(f"Failed to cache search results: {e}")
+            logger.debug("Failed to cache search results: %s", e)
 
     async def fetch(self, evidence_id: str) -> Evidence | None:
         """
@@ -527,7 +527,7 @@ class WebConnector(BaseConnector):
                         if not is_safe:
                             return self._create_error_evidence(f"Blocked redirect to: {error_msg}")
 
-                        logger.debug(f"Following redirect: {current_url} -> {redirect_url}")
+                        logger.debug("Following redirect: %s -> %s", current_url, redirect_url)
                         current_url = redirect_url
                         continue
 
@@ -602,7 +602,7 @@ class WebConnector(BaseConnector):
                 # Data parsing/processing errors - don't retry
                 if self._circuit_breaker is not None:
                     self._circuit_breaker.record_failure()
-                logger.warning(f"Fetch data error for {url}: {type(e).__name__}: {e}")
+                logger.warning("Fetch data error for %s: %s: %s", url, type(e).__name__, e)
                 return self._create_error_evidence(f"Error fetching {url}: {e}")
 
             # If we get here, we had a transient error - apply backoff and retry
@@ -615,7 +615,7 @@ class WebConnector(BaseConnector):
                 await asyncio.sleep(delay)
 
         # All retries exhausted
-        logger.warning(f"All {max_retries} fetch attempts failed for {url}: {last_error}")
+        logger.warning("All %s fetch attempts failed for %s: %s", max_retries, url, last_error)
         return self._create_error_evidence(f"Failed after {max_retries} attempts: {last_error}")
 
     def _parse_html(self, html: str) -> tuple[str, str]:

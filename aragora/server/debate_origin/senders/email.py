@@ -32,12 +32,12 @@ async def _send_email_result(origin: DebateOrigin, result: dict[str, Any]) -> bo
             subject=subject,
             body=message,
         )
-        logger.info(f"Email result sent to {email}")
+        logger.info("Email result sent to %s", email)
         return True
 
     except (ImportError, AttributeError):
         logger.debug("Email notification system not available")
         return False
     except (ConnectionError, TimeoutError, OSError, RuntimeError, ValueError) as e:
-        logger.error(f"Email result send error: {e}")
+        logger.error("Email result send error: %s", e)
         return False

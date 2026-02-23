@@ -568,7 +568,7 @@ class MatrixDebateRunner:
 
                 for r in batch_results:
                     if isinstance(r, BaseException):
-                        logger.error(f"Scenario debate failed: {type(r).__name__}: {r}")
+                        logger.error("Scenario debate failed: %s: %s", type(r).__name__, r)
                         continue  # Skip failed scenarios
                     result.results.append(r)
                     if on_scenario_complete:
@@ -626,7 +626,7 @@ class MatrixDebateRunner:
             )
 
         except (asyncio.TimeoutError, asyncio.CancelledError) as e:
-            logger.warning(f"Scenario {scenario.name} debate cancelled or timed out: {e}")
+            logger.warning("Scenario %s debate cancelled or timed out: %s", scenario.name, e)
             return ScenarioResult(
                 scenario_id=scenario.id,
                 scenario_name=scenario.name,
@@ -636,7 +636,7 @@ class MatrixDebateRunner:
                 metadata={"error": "timeout_or_cancelled", "error_type": "timeout"},
             )
         except (ValueError, TypeError, AttributeError) as e:
-            logger.warning(f"Scenario {scenario.name} debate data error: {e}")
+            logger.warning("Scenario %s debate data error: %s", scenario.name, e)
             return ScenarioResult(
                 scenario_id=scenario.id,
                 scenario_name=scenario.name,
@@ -646,7 +646,7 @@ class MatrixDebateRunner:
                 metadata={"error": "data_error", "error_type": "data"},
             )
         except (RuntimeError, OSError, ConnectionError, TimeoutError) as e:
-            logger.exception(f"Unexpected error in scenario {scenario.name} debate: {e}")
+            logger.exception("Unexpected error in scenario %s debate: %s", scenario.name, e)
             return ScenarioResult(
                 scenario_id=scenario.id,
                 scenario_name=scenario.name,

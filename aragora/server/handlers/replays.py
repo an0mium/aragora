@@ -81,7 +81,7 @@ class ReplaysHandler(BaseHandler):
         """Apply rate limiting. Returns error response if limit exceeded, None otherwise."""
         client_ip = get_client_ip(handler)
         if not _replays_limiter.is_allowed(client_ip):
-            logger.warning(f"Rate limit exceeded for replays endpoint: {client_ip}")
+            logger.warning("Rate limit exceeded for replays endpoint: %s", client_ip)
             return error_response("Rate limit exceeded. Please try again later.", 429)
         return None
 
@@ -333,7 +333,7 @@ class ReplaysHandler(BaseHandler):
                         }
                     )
             except (json.JSONDecodeError, KeyError) as e:
-                logger.debug(f"Failed to parse ELO snapshot {elo_path.name}: {e}")
+                logger.debug("Failed to parse ELO snapshot %s: %s", elo_path.name, e)
 
         # Collect debate data from nomic state history
         debates: list[dict] = []
@@ -381,7 +381,7 @@ class ReplaysHandler(BaseHandler):
                         }
                     )
             except (json.JSONDecodeError, KeyError) as e:
-                logger.debug(f"Failed to parse nomic state for debate history: {e}")
+                logger.debug("Failed to parse nomic state for debate history: %s", e)
 
         return json_response(
             {

@@ -153,7 +153,7 @@ async def _run_think_prm_verification(
         result.debate_id = getattr(ctx, "debate_id", "unknown")
         return result
     except (ValueError, TypeError, RuntimeError, OSError) as e:
-        logger.warning(f"think_prm_verification_failed: {e}")
+        logger.warning("think_prm_verification_failed: %s", e)
         return None
 
 
@@ -203,7 +203,7 @@ async def _populate_result_cost(
             result.budget_limit_usd = budget_limit
 
     except (ValueError, TypeError, KeyError, AttributeError) as e:
-        logger.debug(f"cost_population_failed (non-critical): {e}")
+        logger.debug("cost_population_failed (non-critical): %s", e)
 
 
 async def initialize_debate_context(
@@ -297,13 +297,13 @@ async def initialize_debate_context(
 
             await arena.prompt_builder.classify_question_async(use_llm=use_llm)
         except (asyncio.TimeoutError, asyncio.CancelledError) as e:
-            logger.warning(f"Question classification timed out: {e}")
+            logger.warning("Question classification timed out: %s", e)
         except (ValueError, TypeError, AttributeError) as e:
-            logger.warning(f"Question classification failed with data error: {e}")
+            logger.warning("Question classification failed with data error: %s", e)
         except (RuntimeError, OSError, ImportError) as e:
-            logger.exception(f"Unexpected question classification error: {e}")
+            logger.exception("Unexpected question classification error: %s", e)
         except Exception as e:
-            logger.warning(f"Question classification failed (API or other error): {e}")
+            logger.warning("Question classification failed (API or other error): %s", e)
 
     # Apply performance-based agent selection if enabled
     if arena.use_performance_selection:
@@ -382,7 +382,7 @@ async def setup_debate_infrastructure(
             compliance_monitor=compliance_monitor,
         )
         for warning in compliance_result.warnings:
-            logger.warning(f"compliance_warning: {warning}")
+            logger.warning("compliance_warning: %s", warning)
         if not compliance_result.allowed:
             raise RuntimeError(
                 f"Debate blocked by compliance policy: {'; '.join(compliance_result.issues)}"
@@ -392,7 +392,7 @@ async def setup_debate_infrastructure(
     except RuntimeError:
         raise  # Re-raise compliance block
     except (ValueError, TypeError, AttributeError, OSError) as e:
-        logger.debug(f"Pre-debate compliance check failed (non-critical): {e}")
+        logger.debug("Pre-debate compliance check failed (non-critical): %s", e)
 
     # Initialize per-debate budget tracking in extensions
     arena.extensions.setup_debate_budget(state.debate_id)
@@ -408,7 +408,7 @@ async def setup_debate_infrastructure(
                     state.debate_id, state.gupp_bead_id
                 )
         except (OSError, RuntimeError, ValueError, TypeError) as e:
-            logger.debug(f"GUPP initialization failed (non-critical): {e}")
+            logger.debug("GUPP initialization failed (non-critical): %s", e)
 
     # Initialize result early for timeout recovery
     ctx.result = DebateResult(
@@ -437,10 +437,10 @@ async def setup_debate_infrastructure(
             if event_bus is not None:
                 _subscribe_live_explainability(event_bus, stream)
                 logger.info(
-                    f"live_explainability_initialized debate_id={state.debate_id}",
+                    "live_explainability_initialized debate_id=%s", state.debate_id,
                 )
         except (ImportError, RuntimeError, ValueError, TypeError) as e:
-            logger.debug(f"LiveExplainabilityStream init failed (non-critical): {e}")
+            logger.debug("LiveExplainabilityStream init failed (non-critical): %s", e)
             arena.live_explainability_stream = None
 
     # Initialize ActiveIntrospectionTracker if enabled
@@ -456,10 +456,10 @@ async def setup_debate_infrastructure(
             if event_bus is not None:
                 _subscribe_active_introspection(event_bus, tracker)
                 logger.info(
-                    f"active_introspection_initialized debate_id={state.debate_id}",
+                    "active_introspection_initialized debate_id=%s", state.debate_id,
                 )
         except (ImportError, RuntimeError, ValueError, TypeError) as e:
-            logger.debug(f"ActiveIntrospectionTracker init failed (non-critical): {e}")
+            logger.debug("ActiveIntrospectionTracker init failed (non-critical): %s", e)
             arena.active_introspection_tracker = None
 
     # Record start time for metrics
@@ -714,7 +714,7 @@ async def handle_debate_completion(
                     await asyncio.sleep(2**_attempt)  # 1s, 2s backoff
         if not _ingestion_succeeded and _last_error is not None:
             logger.warning(
-                f"Knowledge Mound ingestion failed after 3 attempts for debate {state.debate_id}: {_last_error}"
+                "Knowledge Mound ingestion failed after 3 attempts for debate %s: %s", state.debate_id, _last_error
             )
             try:
                 from aragora.knowledge.mound.ingestion_queue import IngestionDeadLetterQueue
@@ -723,7 +723,7 @@ async def handle_debate_completion(
                 result_dict = ctx.result.to_dict() if hasattr(ctx.result, "to_dict") else {}
                 dlq.enqueue(state.debate_id, result_dict, str(_last_error))
             except (ImportError, OSError, ValueError, TypeError, RuntimeError) as dlq_err:
-                logger.debug(f"DLQ enqueue failed: {dlq_err}")
+                logger.debug("DLQ enqueue failed: %s", dlq_err)
 
     # Auto-attach compliance artifacts for regulated domains
     if ctx.result and getattr(ctx, "domain", "general") in {
@@ -751,12 +751,12 @@ async def handle_debate_completion(
                 bundle = generator.generate(receipt_dict)
                 ctx.result.compliance_artifacts = bundle.to_dict()
                 logger.info(
-                    f"Attached compliance artifacts for debate {state.debate_id} (risk={risk.risk_level.value})"
+                    "Attached compliance artifacts for debate %s (risk=%s)", state.debate_id, risk.risk_level.value
                 )
         except ImportError:
             logger.debug("Compliance module not available for auto-attach")
         except (ValueError, TypeError, KeyError, AttributeError, OSError, RuntimeError) as e:
-            logger.debug(f"Compliance auto-attach failed (non-critical): {e}")
+            logger.debug("Compliance auto-attach failed (non-critical): %s", e)
 
     # Complete GUPP hook tracking for crash recovery
     if state.gupp_bead_id and state.gupp_hook_entries:
@@ -772,7 +772,7 @@ async def handle_debate_completion(
             if success:
                 ctx.result.bead_id = state.gupp_bead_id
         except (ConnectionError, OSError, ValueError, TypeError, AttributeError) as e:
-            logger.debug(f"GUPP completion failed (non-critical): {e}")
+            logger.debug("GUPP completion failed (non-critical): %s", e)
     # Create a Bead if GUPP didn't already create one
     elif ctx.result and not state.gupp_bead_id:
         try:
@@ -780,7 +780,7 @@ async def handle_debate_completion(
             if bead_id:
                 ctx.result.bead_id = bead_id
         except (OSError, ValueError, TypeError, AttributeError, RuntimeError) as e:
-            logger.debug(f"Bead creation failed (non-critical): {e}")
+            logger.debug("Bead creation failed (non-critical): %s", e)
 
     # Post-debate workflow fallback: run if FeedbackPhase didn't trigger it
     if (
@@ -799,21 +799,21 @@ async def handle_debate_completion(
                     try:
                         await workflow.execute({"debate_result": ctx.result})
                     except (RuntimeError, ValueError, TypeError, OSError, ConnectionError) as wf_err:
-                        logger.debug(f"Post-debate workflow fallback failed: {wf_err}")
+                        logger.debug("Post-debate workflow fallback failed: %s", wf_err)
 
                 _fallback_task = _asyncio.create_task(_run_fallback_workflow())
                 _fallback_task.add_done_callback(
                     lambda t: logger.warning(
-                        f"[workflow-fallback] Background workflow failed: {t.exception()}"
+                        "[workflow-fallback] Background workflow failed: %s", t.exception()
                     )
                     if not t.cancelled() and t.exception()
                     else None
                 )
                 logger.info(
-                    f"[workflow-fallback] Triggered post-debate workflow for debate {state.debate_id}"
+                    "[workflow-fallback] Triggered post-debate workflow for debate %s", state.debate_id
                 )
         except (RuntimeError, ValueError, TypeError, AttributeError, OSError) as e:
-            logger.debug(f"Post-debate workflow fallback setup failed: {e}")
+            logger.debug("Post-debate workflow fallback setup failed: %s", e)
 
     # Run post-debate coordinator pipeline (default-on, opt-out via disable_post_debate_pipeline)
     from aragora.debate.post_debate_coordinator import DEFAULT_POST_DEBATE_CONFIG, PostDebateConfig
@@ -870,7 +870,7 @@ async def handle_debate_completion(
                     state.debate_id,
                 )
         except (ImportError, RuntimeError, ValueError, TypeError, AttributeError, OSError) as e:
-            logger.debug(f"Post-debate coordinator pipeline failed (non-critical): {e}")
+            logger.debug("Post-debate coordinator pipeline failed (non-critical): %s", e)
 
     # Attach active introspection summary to result
     introspection_tracker = getattr(arena, "active_introspection_tracker", None)
@@ -883,10 +883,10 @@ async def handle_debate_completion(
                     for agent_name, summary in all_summaries.items()
                 }
                 logger.info(
-                    f"introspection_attached debate_id={state.debate_id} agents={len(all_summaries)}",
+                    "introspection_attached debate_id=%s agents=%s", state.debate_id, len(all_summaries),
                 )
         except (AttributeError, TypeError, ValueError, RuntimeError) as e:
-            logger.debug(f"Introspection summary failed (non-critical): {e}")
+            logger.debug("Introspection summary failed (non-critical): %s", e)
 
     # Attach live explainability snapshot to result
     live_stream = getattr(arena, "live_explainability_stream", None)
@@ -907,10 +907,10 @@ async def handle_debate_completion(
                     "belief_shifts": snapshot.belief_shifts,
                 }
                 logger.info(
-                    f"live_explainability_attached debate_id={state.debate_id} factors={len(snapshot.top_factors)}",
+                    "live_explainability_attached debate_id=%s factors=%s", state.debate_id, len(snapshot.top_factors),
                 )
         except (AttributeError, TypeError, ValueError, RuntimeError) as e:
-            logger.debug(f"Live explainability snapshot failed (non-critical): {e}")
+            logger.debug("Live explainability snapshot failed (non-critical): %s", e)
 
     # Queue for Supabase background sync
     arena._queue_for_supabase_sync(ctx, ctx.result)
@@ -942,9 +942,9 @@ async def cleanup_debate_resources(
             keep_count = getattr(arena.protocol, "checkpoint_keep_on_success", 0)
             deleted = await arena.cleanup_checkpoints(state.debate_id, keep_latest=keep_count)
             if deleted > 0:
-                logger.debug(f"[checkpoint] Cleaned up {deleted} checkpoints for completed debate")
+                logger.debug("[checkpoint] Cleaned up %s checkpoints for completed debate", deleted)
         except (OSError, RuntimeError, ValueError, TypeError) as e:
-            logger.debug(f"[checkpoint] Cleanup failed (non-critical): {e}")
+            logger.debug("[checkpoint] Cleanup failed (non-critical): %s", e)
 
     # Cleanup debate-scoped embedding cache to free memory
     arena._cleanup_convergence_cache()
@@ -978,7 +978,7 @@ async def cleanup_debate_resources(
                 }
             await route_result(state.debate_id, result_dict)
         except (ImportError, RuntimeError, OSError, TypeError, ValueError) as e:
-            logger.debug(f"[result_routing] Failed (non-critical): {e}")
+            logger.debug("[result_routing] Failed (non-critical): %s", e)
 
     return result
 
@@ -1047,10 +1047,10 @@ async def _auto_execute_plan(
                 "tasks_total": outcome.tasks_total,
             }
 
-        logger.info(f"auto_execution plan_id={plan.id} status={plan.status} debate_id={result.debate_id}")
+        logger.info("auto_execution plan_id=%s status=%s debate_id=%s", plan.id, plan.status, result.debate_id)
 
     except (ImportError, AttributeError, TypeError, ValueError, RuntimeError, OSError) as e:
-        logger.warning(f"auto_execution_failed error={type(e).__name__}: {e}")
+        logger.warning("auto_execution_failed error=%s: %s", type(e).__name__, e)
         if not isinstance(result.metadata, dict):
             result.metadata = {}
         result.metadata["auto_execution_error"] = type(e).__name__

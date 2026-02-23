@@ -666,13 +666,13 @@ class RecoveryProgressMonitor:
         self._active_recoveries[recovery_id] = progress
         self._update_metrics(progress)
 
-        logger.info(f"Started tracking recovery {recovery_id} for backup {backup_id}")
+        logger.info("Started tracking recovery %s for backup %s", recovery_id, backup_id)
 
         if self._progress_callback:
             try:
                 self._progress_callback(progress)
             except (OSError, RuntimeError, ValueError) as e:
-                logger.error(f"Progress callback failed: {e}")
+                logger.error("Progress callback failed: %s", e)
 
         return progress
 
@@ -703,7 +703,7 @@ class RecoveryProgressMonitor:
         """
         progress = self._active_recoveries.get(recovery_id)
         if not progress:
-            logger.warning(f"Recovery {recovery_id} not found")
+            logger.warning("Recovery %s not found", recovery_id)
             return None
 
         now = time.time()
@@ -755,7 +755,7 @@ class RecoveryProgressMonitor:
             try:
                 self._progress_callback(progress)
             except (OSError, RuntimeError, ValueError) as e:
-                logger.error(f"Progress callback failed: {e}")
+                logger.error("Progress callback failed: %s", e)
 
         return progress
 
@@ -778,7 +778,7 @@ class RecoveryProgressMonitor:
         """
         progress = self._active_recoveries.pop(recovery_id, None)
         if not progress:
-            logger.warning(f"Recovery {recovery_id} not found")
+            logger.warning("Recovery %s not found", recovery_id)
             return None
 
         progress.phase = RecoveryPhase.COMPLETED if success else RecoveryPhase.FAILED
@@ -817,7 +817,7 @@ class RecoveryProgressMonitor:
             try:
                 self._progress_callback(progress)
             except (OSError, RuntimeError, ValueError) as e:
-                logger.error(f"Progress callback failed: {e}")
+                logger.error("Progress callback failed: %s", e)
 
         return progress
 
@@ -863,7 +863,7 @@ class RecoveryProgressMonitor:
                     RECOVERY_PHASE.labels(**labels, phase=p.value).set(value)
 
         except (OSError, RuntimeError, ValueError) as e:
-            logger.debug(f"Failed to update recovery metrics: {e}")
+            logger.debug("Failed to update recovery metrics: %s", e)
 
     def health_check(self) -> dict[str, Any]:
         """

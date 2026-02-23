@@ -114,8 +114,7 @@ class NoveltyTracker:
         self.scores: list[NoveltyResult] = []
 
         logger.info(
-            f"NoveltyTracker initialized with {self.backend.__class__.__name__}, "
-            f"threshold={low_novelty_threshold}"
+            "NoveltyTracker initialized with %s, threshold=%s", self.backend.__class__.__name__, low_novelty_threshold
         )
 
     def compute_novelty(
@@ -138,9 +137,7 @@ class NoveltyTracker:
         """
         # Debug logging for novelty computation
         logger.debug(
-            f"compute_novelty round={round_num} "
-            f"history_rounds={len(self.history)} "
-            f"current_agents={list(current_proposals.keys())}"
+            "compute_novelty round=%s history_rounds=%s current_agents=%s", round_num, len(self.history), list(current_proposals.keys())
         )
 
         # Flatten history into list of (agent, proposal) tuples
@@ -150,9 +147,7 @@ class NoveltyTracker:
                 prior_proposals.append((agent, text))
 
         logger.debug(
-            f"novelty_history_check round={round_num} "
-            f"prior_proposal_count={len(prior_proposals)} "
-            f"should_be_novel={len(prior_proposals) == 0}"
+            "novelty_history_check round=%s prior_proposal_count=%s should_be_novel=%s", round_num, len(prior_proposals), len(prior_proposals) == 0
         )
 
         # Compute novelty for each current proposal
@@ -255,7 +250,7 @@ class NoveltyTracker:
         """
         # Store a copy to prevent mutation issues
         self.history.append(dict(proposals))
-        logger.debug(f"Added round {len(self.history)} to history ({len(proposals)} proposals)")
+        logger.debug("Added round %s to history (%s proposals)", len(self.history), len(proposals))
 
     def get_agent_novelty_trajectory(self, agent: str) -> list[float]:
         """
@@ -375,8 +370,7 @@ class CodebaseNoveltyChecker:
         self.features = self._extract_features(codebase_context)
 
         logger.info(
-            f"CodebaseNoveltyChecker initialized with {len(self.features)} features, "
-            f"threshold={novelty_threshold}"
+            "CodebaseNoveltyChecker initialized with %s features, threshold=%s", len(self.features), novelty_threshold
         )
 
     def _extract_features(self, context: str) -> list[dict]:
@@ -519,7 +513,7 @@ class CodebaseNoveltyChecker:
                 f"Proposal may duplicate existing feature: '{most_similar['name']}' "
                 f"(module: {most_similar['module']}, similarity: {max_similarity:.2f})"
             )
-            logger.warning(f"[{agent}] {warning}")
+            logger.warning("[%s] %s", agent, warning)
 
         return CodebaseNoveltyResult(
             proposal=proposal,

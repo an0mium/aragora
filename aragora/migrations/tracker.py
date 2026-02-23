@@ -209,7 +209,7 @@ class MigrationTracker:
             """,
             (version, name, applied_by, checksum, rollback_sql),
         )
-        logger.info(f"Marked migration {version} ({name}) as applied")
+        logger.info("Marked migration %s (%s) as applied", version, name)
 
     def mark_rolled_back(self, version: str) -> None:
         """
@@ -230,7 +230,7 @@ class MigrationTracker:
             f"DELETE FROM {self.TABLE_NAME} WHERE version = ?",
             (version,),
         )
-        logger.info(f"Marked migration {version} as rolled back")
+        logger.info("Marked migration %s as rolled back", version)
 
     def get_applied_versions(self) -> list[str]:
         """

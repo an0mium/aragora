@@ -428,12 +428,12 @@ def get_sso_provider() -> SSOProvider | None:
             _sso_provider = OIDCProvider(oidc_config)
 
         else:
-            logger.warning(f"Unknown SSO provider type: {sso_settings.provider_type}")
+            logger.warning("Unknown SSO provider type: %s", sso_settings.provider_type)
 
         _sso_initialized = True
 
     except (ValueError, TypeError, KeyError, AttributeError, ImportError) as e:
-        logger.warning(f"SSO provider initialization failed: {e}")
+        logger.warning("SSO provider initialization failed: %s", e)
         _sso_initialized = True
 
     return _sso_provider
@@ -549,7 +549,7 @@ class SSOSessionManager:
             expires_at=time.time() + self.session_duration,
         )
         self._sessions[session_id] = session
-        logger.info(f"Created SSO session for user_id={user.id}")
+        logger.info("Created SSO session for user_id=%s", user.id)
         return session
 
     async def get_session(self, session_id: str) -> SSOSession:
@@ -593,7 +593,7 @@ class SSOSessionManager:
         """
         if session_id in self._sessions:
             del self._sessions[session_id]
-            logger.info(f"Logged out session: {session_id}")
+            logger.info("Logged out session: %s", session_id)
 
 
 @dataclass
@@ -661,7 +661,7 @@ class SSOAuditLogger:
             metadata=metadata,
         )
         self._logs.append(entry)
-        logger.info(f"SSO login: user={user_id} provider={provider}")
+        logger.info("SSO login: user=%s provider=%s", user_id, provider)
 
     async def log_logout(
         self,
@@ -687,7 +687,7 @@ class SSOAuditLogger:
             metadata=metadata,
         )
         self._logs.append(entry)
-        logger.info(f"SSO logout: user={user_id} reason={reason}")
+        logger.info("SSO logout: user=%s reason=%s", user_id, reason)
 
     async def get_logs(
         self,

@@ -58,7 +58,7 @@ async def get_auth_context(request: Request) -> AuthorizationContext:
     try:
         return await _extract_auth(request, require_auth=False)
     except (ValueError, TypeError, KeyError, RuntimeError, AttributeError) as e:
-        logger.debug(f"Auth context extraction failed: {e}")
+        logger.debug("Auth context extraction failed: %s", e)
         return AuthorizationContext(
             user_id="anonymous",
             org_id=None,
@@ -116,7 +116,7 @@ def require_permission(permission: str) -> Any:
                     if decision.allowed:
                         return auth
             except (ValueError, RuntimeError, ImportError, AttributeError) as e:
-                logger.debug(f"RBAC checker error: {e}")
+                logger.debug("RBAC checker error: %s", e)
 
             raise HTTPException(
                 status_code=403,

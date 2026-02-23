@@ -455,7 +455,7 @@ class ExplainabilityHandler(BaseHandler):
             return decision
 
         except (ImportError, KeyError, ValueError, TypeError, AttributeError, OSError) as e:
-            logger.error(f"Failed to build decision for {debate_id}: {e}")
+            logger.error("Failed to build decision for %s: %s", debate_id, e)
             return None
 
     async def _handle_full_explanation(
@@ -488,7 +488,7 @@ class ExplainabilityHandler(BaseHandler):
             return self._add_headers(result, is_legacy)
 
         except (ImportError, KeyError, ValueError, TypeError, AttributeError) as e:
-            logger.error(f"Explanation error for {debate_id}: {e}")
+            logger.error("Explanation error for %s: %s", debate_id, e)
             return error_response("Explanation generation failed", 500)
 
     async def _handle_evidence(
@@ -523,7 +523,7 @@ class ExplainabilityHandler(BaseHandler):
             return self._add_headers(result, is_legacy)
 
         except (KeyError, ValueError, TypeError, AttributeError) as e:
-            logger.error(f"Evidence error for {debate_id}: {e}")
+            logger.error("Evidence error for %s: %s", debate_id, e)
             return error_response("Evidence retrieval failed", 500)
 
     async def _handle_vote_pivots(
@@ -556,7 +556,7 @@ class ExplainabilityHandler(BaseHandler):
             return self._add_headers(result, is_legacy)
 
         except (KeyError, ValueError, TypeError, AttributeError) as e:
-            logger.error(f"Vote pivot error for {debate_id}: {e}")
+            logger.error("Vote pivot error for %s: %s", debate_id, e)
             return error_response("Vote pivot retrieval failed", 500)
 
     async def _handle_counterfactuals(
@@ -587,7 +587,7 @@ class ExplainabilityHandler(BaseHandler):
             return self._add_headers(result, is_legacy)
 
         except (KeyError, ValueError, TypeError, AttributeError) as e:
-            logger.error(f"Counterfactual error for {debate_id}: {e}")
+            logger.error("Counterfactual error for %s: %s", debate_id, e)
             return error_response("Counterfactual retrieval failed", 500)
 
     async def _handle_summary(
@@ -670,7 +670,7 @@ h3 {{ color: #666; }}
             return self._add_headers(result, is_legacy)
 
         except (KeyError, ValueError, TypeError, AttributeError) as e:
-            logger.error(f"Summary error for {debate_id}: {e}")
+            logger.error("Summary error for %s: %s", debate_id, e)
             return error_response("Summary generation failed", 500)
 
     async def _handle_export(self, debate_id: str, query_params: dict[str, Any]) -> HandlerResult:
@@ -721,7 +721,7 @@ h3 {{ color: #666; }}
                     body=md_content.encode("utf-8"),
                 )
         except (ImportError, KeyError, ValueError, TypeError, AttributeError, OSError) as e:
-            logger.error(f"Export error for {debate_id}: {e}")
+            logger.error("Export error for %s: %s", debate_id, e)
             return error_response("Export operation failed", 500)
 
     # ========================================================================
@@ -805,7 +805,7 @@ h3 {{ color: #666; }}
                 asyncio.set_event_loop(loop)
                 loop.run_until_complete(self._process_batch(job))
             except (RuntimeError, ValueError, TypeError, OSError) as e:
-                logger.error(f"Batch processing error for {job.batch_id}: {e}")
+                logger.error("Batch processing error for %s: %s", job.batch_id, e)
                 job.status = BatchStatus.FAILED
             finally:
                 loop.close()
@@ -860,7 +860,7 @@ h3 {{ color: #666; }}
                     )
 
             except (ImportError, KeyError, ValueError, TypeError, AttributeError, OSError) as e:
-                logger.error(f"Error processing {debate_id} in batch: {e}")
+                logger.error("Error processing %s in batch: %s", debate_id, e)
                 job.results.append(
                     BatchDebateResult(
                         debate_id=debate_id,
@@ -1107,7 +1107,7 @@ h3 {{ color: #666; }}
             return json_response(comparison)
 
         except (KeyError, ValueError, TypeError, AttributeError, ZeroDivisionError) as e:
-            logger.error(f"Compare error: {e}")
+            logger.error("Compare error: %s", e)
             return error_response("Debate comparison failed", 500)
 
 

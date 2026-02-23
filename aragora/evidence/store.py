@@ -148,7 +148,7 @@ class EvidenceStore(SQLiteStore):
                 min_similarity=min_similarity,
             )
         except (OSError, ConnectionError, TimeoutError, ValueError, RuntimeError) as e:
-            logger.warning(f"Failed to query KM for similar evidence: {e}")
+            logger.warning("Failed to query KM for similar evidence: %s", e)
             return []
 
     def query_km_for_topic(
@@ -179,7 +179,7 @@ class EvidenceStore(SQLiteStore):
                 min_reliability=min_reliability,
             )
         except (OSError, ConnectionError, TimeoutError, ValueError, RuntimeError) as e:
-            logger.warning(f"Failed to query KM for topic evidence: {e}")
+            logger.warning("Failed to query KM for topic evidence: %s", e)
             return []
 
     def save_evidence(
@@ -228,7 +228,7 @@ class EvidenceStore(SQLiteStore):
             existing = cursor.fetchone()
             if existing:
                 evidence_id = existing["id"]
-                logger.debug(f"Evidence deduplicated: {evidence_id}")
+                logger.debug("Evidence deduplicated: %s", evidence_id)
             else:
                 # Enrich metadata if requested
                 enriched_metadata = None
@@ -316,10 +316,10 @@ class EvidenceStore(SQLiteStore):
                 self._km_adapter.store(
                     **self._km_adapter.from_ingestion_request(request, evidence_id=evidence_id)
                 )
-                logger.debug(f"Evidence synced to Knowledge Mound: {evidence_id}")
+                logger.debug("Evidence synced to Knowledge Mound: %s", evidence_id)
             except (OSError, ConnectionError, TimeoutError, ValueError, RuntimeError) as e:
                 # Log but don't fail - KM sync is optional
-                logger.warning(f"Failed to sync evidence to Knowledge Mound: {e}")
+                logger.warning("Failed to sync evidence to Knowledge Mound: %s", e)
 
         return evidence_id
 

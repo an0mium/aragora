@@ -267,7 +267,7 @@ class AutoGenAgent(ExternalFrameworkAgent):
 
         if self.autogen_config.audit_all_requests:
             logger.info(
-                f"[{self.name}] AutoGen request",
+                "[%s] AutoGen request", self.name,
                 extra={
                     "prompt_length": len(prompt),
                     "mode": self.autogen_config.mode,
@@ -307,7 +307,7 @@ class AutoGenAgent(ExternalFrameworkAgent):
 
         if self.autogen_config.audit_all_requests:
             logger.info(
-                f"[{self.name}] Initiating AutoGen chat",
+                "[%s] Initiating AutoGen chat", self.name,
                 extra={
                     "conversation_id": conversation_id,
                     "agents": agents,
@@ -333,7 +333,7 @@ class AutoGenAgent(ExternalFrameworkAgent):
                 "success": True,
             }
         except (AgentError, ValueError, KeyError, TypeError, RuntimeError, OSError) as e:
-            logger.error(f"[{self.name}] Failed to initiate chat: {e}")
+            logger.error("[%s] Failed to initiate chat: %s", self.name, e)
             return {
                 "conversation_id": conversation_id,
                 "response": "Chat initiation failed",
@@ -381,7 +381,7 @@ class AutoGenAgent(ExternalFrameworkAgent):
                 "success": True,
             }
         except (AgentError, ValueError, KeyError, TypeError, RuntimeError, OSError) as e:
-            logger.error(f"[{self.name}] Failed to continue chat: {e}")
+            logger.error("[%s] Failed to continue chat: %s", self.name, e)
             return {
                 "response": "Chat continuation failed",
                 "success": False,
@@ -439,8 +439,7 @@ class AutoGenAgent(ExternalFrameworkAgent):
         available = await super().is_available()
         if available:
             logger.debug(
-                f"[{self.name}] AutoGen available at {self.base_url} "
-                f"(mode={self.autogen_config.mode})"
+                "[%s] AutoGen available at %s (mode=%s)", self.name, self.base_url, self.autogen_config.mode
             )
         return available
 

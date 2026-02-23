@@ -788,7 +788,7 @@ def validate_configuration(strict: bool = False) -> dict:
         # Try to create it
         try:
             DATA_DIR.mkdir(parents=True, exist_ok=True)
-            logger.info(f"Created data directory: {DATA_DIR}")
+            logger.info("Created data directory: %s", DATA_DIR)
         except PermissionError:
             errors.append(f"Cannot create ARAGORA_DATA_DIR: {DATA_DIR} (permission denied)")
         except OSError as e:
@@ -856,16 +856,16 @@ def validate_configuration(strict: bool = False) -> dict:
     is_valid = len(errors) == 0
     if is_valid:
         logger.info("Configuration validated successfully")
-        logger.info(f"  Data directory: {DATA_DIR}")
-        logger.info(f"  API providers: {', '.join(api_keys_found) if api_keys_found else 'none'}")
-        logger.info(f"  Rate limit: {DEFAULT_RATE_LIMIT} req/min")
-        logger.info(f"  Debate timeout: {DEBATE_TIMEOUT_SECONDS}s")
-        logger.info(f"  SSL: {'enabled' if SSL_ENABLED else 'disabled'}")
+        logger.info("  Data directory: %s", DATA_DIR)
+        logger.info("  API providers: %s", ', '.join(api_keys_found) if api_keys_found else 'none')
+        logger.info("  Rate limit: %s req/min", DEFAULT_RATE_LIMIT)
+        logger.info("  Debate timeout: %ss", DEBATE_TIMEOUT_SECONDS)
+        logger.info("  SSL: %s", 'enabled' if SSL_ENABLED else 'disabled')
     else:
         for error in errors:
-            logger.error(f"Configuration error: {error}")
+            logger.error("Configuration error: %s", error)
     for warning in warnings:
-        logger.warning(f"Configuration warning: {warning}")
+        logger.warning("Configuration warning: %s", warning)
 
     result = {
         "valid": is_valid,

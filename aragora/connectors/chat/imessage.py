@@ -376,7 +376,7 @@ class IMessageConnector(ChatPlatformConnector):
                     return True
                 return False
         except (httpx.HTTPError, OSError) as e:
-            logger.debug(f"Typing indicator error: {e}")
+            logger.debug("Typing indicator error: %s", e)
             return False
 
     async def send_tapback(
@@ -398,7 +398,7 @@ class IMessageConnector(ChatPlatformConnector):
 
         can_proceed, cb_error = self._check_circuit_breaker()
         if not can_proceed:
-            logger.warning(f"Circuit breaker open: {cb_error}")
+            logger.warning("Circuit breaker open: %s", cb_error)
             return False
 
         # Map tapback types to BlueBubbles API values
@@ -413,7 +413,7 @@ class IMessageConnector(ChatPlatformConnector):
 
         tapback_value = tapback_map.get(tapback_type.lower())
         if tapback_value is None:
-            logger.warning(f"Unknown tapback type: {tapback_type}")
+            logger.warning("Unknown tapback type: %s", tapback_type)
             return False
 
         try:
@@ -463,7 +463,7 @@ class IMessageConnector(ChatPlatformConnector):
                     return True
                 return False
         except (httpx.HTTPError, OSError) as e:
-            logger.debug(f"Mark read error: {e}")
+            logger.debug("Mark read error: %s", e)
             return False
 
     def verify_webhook(
@@ -779,7 +779,7 @@ class IMessageConnector(ChatPlatformConnector):
                     metadata=handle,
                 )
         except (httpx.HTTPError, OSError) as e:
-            logger.warning(f"Failed to get user info for {user_id}, returning default: {e}")
+            logger.warning("Failed to get user info for %s, returning default: %s", user_id, e)
             return ChatUser(
                 id=user_id,
                 platform="imessage",
@@ -830,7 +830,7 @@ class IMessageConnector(ChatPlatformConnector):
                     file=attachment,
                 )
         except (httpx.HTTPError, OSError, KeyError) as e:
-            logger.error(f"Failed to get voice message: {e}")
+            logger.error("Failed to get voice message: %s", e)
         return None
 
     async def test_connection(self) -> dict[str, Any]:

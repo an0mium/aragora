@@ -96,7 +96,7 @@ class GauntletReceiptsMixin:
                     )
                     return json_response(body, status=status)
             except (OSError, RuntimeError, ValueError) as e:
-                logger.warning(f"Storage lookup failed for {gauntlet_id}: {e}")
+                logger.warning("Storage lookup failed for %s: %s", gauntlet_id, e)
                 body, status = gauntlet_error_response("storage_error", {"reason": "Storage lookup failed"})
                 return json_response(body, status=status)
 
@@ -143,7 +143,7 @@ class GauntletReceiptsMixin:
             try:
                 receipt.sign()
             except (ImportError, ValueError) as e:
-                logger.warning(f"Receipt signing failed: {e}")
+                logger.warning("Receipt signing failed: %s", e)
                 # Continue with unsigned receipt
 
         # Prepare receipt data
@@ -161,7 +161,7 @@ class GauntletReceiptsMixin:
                     file_size=size_bytes,
                 )
             except (ImportError, ConnectionError, OSError, ValueError, AttributeError) as e:
-                logger.debug(f"Receipt export webhook skipped: {e}")
+                logger.debug("Receipt export webhook skipped: %s", e)
 
         if format_type == "html":
             html_bytes = receipt.to_html().encode("utf-8")
@@ -368,7 +368,7 @@ class GauntletReceiptsMixin:
             try:
                 computed_hash = receipt._calculate_hash()
             except (TypeError, ValueError, AttributeError) as e:
-                logger.debug(f"Error calculating receipt hash: {e}")
+                logger.debug("Error calculating receipt hash: %s", e)
                 computed_hash = ""
 
             if verification_result["verified"]:
@@ -389,7 +389,7 @@ class GauntletReceiptsMixin:
                     or "verification failed",
                 )
         except (ImportError, ConnectionError, OSError, ValueError, AttributeError) as e:
-            logger.debug(f"Receipt verification webhook skipped: {e}")
+            logger.debug("Receipt verification webhook skipped: %s", e)
 
         # Return appropriate status code
         if verification_result["verified"]:
@@ -454,7 +454,7 @@ class GauntletReceiptsMixin:
                 }
 
             store.save(receipt_dict, signed_receipt=signed_receipt)
-            logger.info(f"Decision receipt auto-persisted: {receipt.receipt_id}")
+            logger.info("Decision receipt auto-persisted: %s", receipt.receipt_id)
 
             # Emit receipt generated webhook
             try:
@@ -480,7 +480,7 @@ class GauntletReceiptsMixin:
                     findings_count=findings_count,
                 )
             except (ImportError, ConnectionError, OSError, ValueError, AttributeError) as e:
-                logger.debug(f"Receipt webhook notification skipped: {e}")
+                logger.debug("Receipt webhook notification skipped: %s", e)
 
             # Auto-ingest receipt to Knowledge Mound for cross-debate learning
             try:
@@ -513,17 +513,16 @@ class GauntletReceiptsMixin:
                         claims_count = getattr(ingest_result, "claims_ingested", 0)
                         findings_count = getattr(ingest_result, "findings_ingested", 0)
                         logger.info(
-                            f"Receipt {receipt.receipt_id} ingested to KM: "
-                            f"{claims_count} claims, {findings_count} findings"
+                            "Receipt %s ingested to KM: %s claims, %s findings", receipt.receipt_id, claims_count, findings_count
                         )
                     else:
                         errors = getattr(ingest_result, "errors", [])
                         error_msg = errors[0] if errors else "unknown"
-                        logger.debug(f"Receipt KM ingestion returned non-success: {error_msg}")
+                        logger.debug("Receipt KM ingestion returned non-success: %s", error_msg)
             except ImportError:
                 logger.debug("Knowledge Mound not available for receipt ingestion")
             except (OSError, RuntimeError, ValueError, TypeError) as e:
-                logger.debug(f"Receipt KM ingestion skipped: {e}")
+                logger.debug("Receipt KM ingestion skipped: %s", e)
 
             # Optional auto-signing
             if os.environ.get("ARAGORA_AUTO_SIGN_RECEIPTS", "").lower() in ("true", "1", "yes"):
@@ -537,14 +536,14 @@ class GauntletReceiptsMixin:
                         algorithm=signed.signature_metadata.algorithm,
                         key_id=signed.signature_metadata.key_id,
                     )
-                    logger.info(f"Receipt auto-signed: {receipt.receipt_id}")
+                    logger.info("Receipt auto-signed: %s", receipt.receipt_id)
                 except (ImportError, ValueError) as sign_err:
-                    logger.warning(f"Auto-signing failed for {receipt.receipt_id}: {sign_err}")
+                    logger.warning("Auto-signing failed for %s: %s", receipt.receipt_id, sign_err)
 
         except ImportError as e:
-            logger.debug(f"Receipt persistence skipped (module not available): {e}")
+            logger.debug("Receipt persistence skipped (module not available): %s", e)
         except (OSError, RuntimeError, ValueError, TypeError, KeyError) as e:
-            logger.warning(f"Failed to auto-persist receipt for {gauntlet_id}: {e}")
+            logger.warning("Failed to auto-persist receipt for %s: %s", gauntlet_id, e)
 
     def _risk_level_from_score(self, robustness_score: float) -> str:
         """Determine risk level from robustness score."""

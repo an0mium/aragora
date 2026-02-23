@@ -172,7 +172,7 @@ def _check_rate_limit(request: web.Request, limiter: RateLimiter) -> web.Respons
     """Check rate limit and return error response if exceeded, None if allowed."""
     client_id = _get_client_identifier(request)
     if not limiter.is_allowed(client_id):
-        logger.warning(f"Rate limit exceeded for payment endpoint: {client_id}")
+        logger.warning("Rate limit exceeded for payment endpoint: %s", client_id)
         return web.json_response(
             {"error": "Rate limit exceeded. Please try again later."},
             status=429,
@@ -304,7 +304,7 @@ async def get_stripe_connector(request: web.Request) -> Any | None:
             logger.warning("Stripe connector not available")
             return None
         except (OSError, ValueError, RuntimeError) as e:
-            logger.error(f"Failed to initialize Stripe connector: {e}")
+            logger.error("Failed to initialize Stripe connector: %s", e)
             return None
     return _stripe_connector
 
@@ -327,7 +327,7 @@ async def get_authnet_connector(request: web.Request) -> Any | None:
             logger.warning("Authorize.net connector not available")
             return None
         except (OSError, ValueError, RuntimeError) as e:
-            logger.error(f"Failed to initialize Authorize.net connector: {e}")
+            logger.error("Failed to initialize Authorize.net connector: %s", e)
             return None
     return _authnet_connector
 
@@ -357,7 +357,7 @@ async def _resilient_stripe_call(operation: str, func, *args, **kwargs):
         Exception: If all retries exhausted
     """
     if not _stripe_cb.can_execute():
-        logger.warning(f"Stripe circuit breaker open for {operation}")
+        logger.warning("Stripe circuit breaker open for %s", operation)
         raise ConnectionError("Stripe service temporarily unavailable")
 
     @with_retry(_payment_retry_config)
@@ -370,7 +370,7 @@ async def _resilient_stripe_call(operation: str, func, *args, **kwargs):
         return result
     except (ConnectionError, TimeoutError, ValueError, RuntimeError) as e:
         _stripe_cb.record_failure(e)
-        logger.error(f"Stripe {operation} failed: {e}")
+        logger.error("Stripe %s failed: %s", operation, e)
         raise
 
 
@@ -391,7 +391,7 @@ async def _resilient_authnet_call(operation: str, func, *args, **kwargs):
         Exception: If all retries exhausted
     """
     if not _authnet_cb.can_execute():
-        logger.warning(f"Authorize.net circuit breaker open for {operation}")
+        logger.warning("Authorize.net circuit breaker open for %s", operation)
         raise ConnectionError("Authorize.net service temporarily unavailable")
 
     @with_retry(_payment_retry_config)
@@ -404,5 +404,5 @@ async def _resilient_authnet_call(operation: str, func, *args, **kwargs):
         return result
     except (ConnectionError, TimeoutError, ValueError, RuntimeError) as e:
         _authnet_cb.record_failure(e)
-        logger.error(f"Authorize.net {operation} failed: {e}")
+        logger.error("Authorize.net %s failed: %s", operation, e)
         raise

@@ -202,7 +202,7 @@ class OpenClawSandbox:
                 execution_time_ms=int((time.monotonic() - start_time) * 1000),
             )
         except (OSError, RuntimeError, PermissionError) as e:
-            logger.exception(f"Sandbox execution failed for task {task.id}")
+            logger.exception("Sandbox execution failed for task %s", task.id)
             return SandboxResult(
                 status=SandboxStatus.FAILED,
                 error=str(e),

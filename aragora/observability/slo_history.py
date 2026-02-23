@@ -303,7 +303,7 @@ class SLOHistoryStore:
             deleted = cursor.rowcount
             if deleted:
                 logger.info(
-                    f"SLO history cleanup: removed {deleted} records older than {days} days"
+                    "SLO history cleanup: removed %s records older than %s days", deleted, days
                 )
             return deleted
 
@@ -401,7 +401,7 @@ def slo_history_callback(breach) -> None:
             timestamp=getattr(breach, "timestamp", None),
         )
     except (OSError, sqlite3.Error, AttributeError) as e:
-        logger.error(f"Failed to persist SLO violation: {e}")
+        logger.error("Failed to persist SLO violation: %s", e)
 
 
 __all__ = [

@@ -300,7 +300,7 @@ class OpenClawActionSandbox:
             if workspace.exists():
                 shutil.rmtree(workspace.parent)  # Remove sandbox directory
         except (OSError, PermissionError) as e:
-            logger.warning(f"Failed to clean up workspace: {e}")
+            logger.warning("Failed to clean up workspace: %s", e)
 
         session.status = "terminated"
         self._stats["sandboxes_destroyed"] += 1
@@ -419,7 +419,7 @@ class OpenClawActionSandbox:
                 execution_time_ms=(time.time() - start_time) * 1000,
             )
         except (OSError, RuntimeError) as e:
-            logger.error(f"Command execution failed: {e}")
+            logger.error("Command execution failed: %s", e)
             return SandboxActionResult(
                 success=False,
                 action_id=action_id,
@@ -686,7 +686,7 @@ class OpenClawActionSandbox:
         try:
             resolved = resolved.resolve()
         except (OSError, ValueError) as e:
-            logger.debug(f"Failed to resolve path '{path}': {type(e).__name__}: {e}")
+            logger.debug("Failed to resolve path '%s': %s: %s", path, type(e).__name__, e)
             return {"allowed": False, "reason": "Invalid path"}
 
         resolved_str = str(resolved)
@@ -746,7 +746,7 @@ class OpenClawActionSandbox:
             try:
                 self._event_callback(event_type, data)
             except (RuntimeError, ValueError, TypeError) as e:  # noqa: BLE001 - user-provided event callback
-                logger.warning(f"Event callback failed: {e}")
+                logger.warning("Event callback failed: %s", e)
 
     async def cleanup_all(self) -> int:
         """Destroy all sandboxes and clean up."""

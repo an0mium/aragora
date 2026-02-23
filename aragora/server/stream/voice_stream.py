@@ -124,14 +124,14 @@ def _get_tts_backend():
         if not _tts_available:
             logger.debug("[Voice] TTS backends not available")
             return None
-        logger.info(f"[Voice] TTS backend initialized: {_tts_backend.name}")
+        logger.info("[Voice] TTS backend initialized: %s", _tts_backend.name)
         return _tts_backend
     except ImportError as e:
-        logger.debug(f"[Voice] TTS backends not available: {e}")
+        logger.debug("[Voice] TTS backends not available: %s", e)
         _tts_available = False
         return None
     except (AttributeError, RuntimeError, OSError) as e:
-        logger.error(f"[Voice] Failed to initialize TTS backend: {e}")
+        logger.error("[Voice] Failed to initialize TTS backend: %s", e)
         _tts_available = False
         return None
 
@@ -301,7 +301,7 @@ class VoiceStreamHandler:
                 self._ip_sessions[client_ip] = set()
             self._ip_sessions[client_ip].add(session_id)
 
-        logger.info(f"[Voice] Session {session_id} started for debate {debate_id} from {client_ip}")
+        logger.info("[Voice] Session %s started for debate %s from %s", session_id, debate_id, client_ip)
 
         # Send ready message
         await ws.send_json(
@@ -339,7 +339,7 @@ class VoiceStreamHandler:
                 elif msg.type == 2:  # aiohttp.WSMsgType.BINARY
                     await self._handle_binary_chunk(session, ws, msg.data)
                 elif msg.type == 8:  # aiohttp.WSMsgType.ERROR
-                    logger.error(f"[Voice] WebSocket error: {ws.exception()}")
+                    logger.error("[Voice] WebSocket error: %s", ws.exception())
                     break
 
                 # Check session limits
@@ -354,7 +354,7 @@ class VoiceStreamHandler:
                     break
 
         except (ConnectionError, RuntimeError, ValueError, OSError) as e:
-            logger.error(f"[Voice] Session {session_id} error: {e}")
+            logger.error("[Voice] Session %s error: %s", session_id, e)
 
         finally:
             # Clean up
@@ -366,7 +366,7 @@ class VoiceStreamHandler:
                 try:
                     await self._transcribe_buffer(session, ws, final=True)
                 except (ConnectorConfigError, ConnectorRateLimitError, RuntimeError, OSError) as e:
-                    logger.warning(f"[Voice] Final transcription failed: {e}")
+                    logger.warning("[Voice] Final transcription failed: %s", e)
 
             # Remove session
             async with self._sessions_lock:
@@ -449,7 +449,7 @@ class VoiceStreamHandler:
                     )
 
         except json.JSONDecodeError:
-            logger.warning(f"[Voice] Invalid JSON message: {data[:100]}")
+            logger.warning("[Voice] Invalid JSON message: %s", data[:100])
 
     async def _handle_binary_chunk(
         self,
@@ -506,7 +506,7 @@ class VoiceStreamHandler:
                 try:
                     await self._transcribe_buffer(session, ws)
                 except (ConnectorConfigError, ConnectorRateLimitError, RuntimeError, OSError) as e:
-                    logger.warning(f"[Voice] Periodic transcription failed: {e}")
+                    logger.warning("[Voice] Periodic transcription failed: %s", e)
 
     async def _transcribe_buffer(
         self,
@@ -566,7 +566,7 @@ class VoiceStreamHandler:
             )
 
         except ConnectorRateLimitError as e:
-            logger.warning(f"[Voice] Whisper rate limit: {e}")
+            logger.warning("[Voice] Whisper rate limit: %s", e)
             # Re-add buffer to try again later
             session.audio_buffer = buffer + session.audio_buffer
             await ws.send_json(
@@ -578,7 +578,7 @@ class VoiceStreamHandler:
             )
 
         except ConnectorConfigError as e:
-            logger.error(f"[Voice] Configuration error: {e}")
+            logger.error("[Voice] Configuration error: %s", e)
             await ws.send_json(
                 {
                     "type": "error",
@@ -588,7 +588,7 @@ class VoiceStreamHandler:
             )
 
         except (RuntimeError, OSError, ValueError) as e:
-            logger.error(f"[Voice] Transcription error: {e}")
+            logger.error("[Voice] Transcription error: %s", e)
             await ws.send_json(
                 {
                     "type": "error",
@@ -679,7 +679,7 @@ class VoiceStreamHandler:
             audio_format = audio_path.suffix.lstrip(".") or "mp3"
 
             logger.info(
-                f"[Voice] TTS synthesized: {len(text)} chars -> {audio_size} bytes ({audio_format})"
+                "[Voice] TTS synthesized: %s chars -> %s bytes (%s)", len(text), audio_size, audio_format
             )
 
             # Send audio metadata
@@ -732,10 +732,10 @@ class VoiceStreamHandler:
             try:
                 audio_path.unlink()
             except OSError as e:
-                logger.debug(f"[Voice] Failed to cleanup temp file: {e}")
+                logger.debug("[Voice] Failed to cleanup temp file: %s", e)
 
         except (RuntimeError, OSError, ValueError) as e:
-            logger.error(f"[Voice] TTS synthesis failed: {e}")
+            logger.error("[Voice] TTS synthesis failed: %s", e)
             await ws.send_json(
                 {
                     "type": "error",
@@ -877,11 +877,11 @@ class VoiceStreamHandler:
                     sessions_sent += 1
                 except (RuntimeError, OSError, ValueError, ConnectionError) as e:
                     logger.error(
-                        f"[Voice] Failed to synthesize for session {session.session_id}: {e}"
+                        "[Voice] Failed to synthesize for session %s: %s", session.session_id, e
                     )
 
         if sessions_sent > 0:
-            logger.info(f"[Voice] Synthesized agent message for {sessions_sent} voice session(s)")
+            logger.info("[Voice] Synthesized agent message for %s voice session(s)", sessions_sent)
 
         return sessions_sent
 

@@ -483,13 +483,13 @@ class DomainCalibrationEngine:
             bucket_key, predictions, correct, brier = row
             parts = bucket_key.split("-")
             if len(parts) < 2:
-                logger.warning(f"Malformed bucket key: {bucket_key}, skipping")
+                logger.warning("Malformed bucket key: %s, skipping", bucket_key)
                 continue
             try:
                 bucket_start = float(parts[0])
                 bucket_end = float(parts[1])
             except ValueError:
-                logger.warning(f"Invalid bucket values in {bucket_key}, skipping")
+                logger.warning("Invalid bucket values in %s, skipping", bucket_key)
                 continue
 
             expected = (bucket_start + bucket_end) / 2

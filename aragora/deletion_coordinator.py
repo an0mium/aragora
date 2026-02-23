@@ -313,7 +313,7 @@ class UnifiedDeletionCoordinator:
             if entity_type not in self._deletion_order:
                 self._deletion_order.append(entity_type)
 
-        logger.info(f"Registered deleter for entity type: {entity_type}")
+        logger.info("Registered deleter for entity type: %s", entity_type)
 
     def register_backup_coordinator(self, coordinator: BackupCoordinator) -> None:
         """
@@ -377,7 +377,7 @@ class UnifiedDeletionCoordinator:
                     await hook(user_id)
                 except (RuntimeError, ValueError, TypeError, OSError) as e:
                     result.warnings.append(f"Pre-deletion hook failed: {e}")
-                    logger.warning(f"Pre-deletion hook failed for {user_id}: {e}")
+                    logger.warning("Pre-deletion hook failed for %s: %s", user_id, e)
 
             # Log deletion start
             if self._audit_logger:
@@ -402,10 +402,10 @@ class UnifiedDeletionCoordinator:
                     for backup_id in backup_ids:
                         self._backup_coordinator.mark_backup_for_purge(backup_id, user_id)
 
-                    logger.info(f"Marked {len(backup_ids)} backups for purge for user {user_id}")
+                    logger.info("Marked %s backups for purge for user %s", len(backup_ids), user_id)
                 except (RuntimeError, ValueError, LookupError, OSError) as e:
                     result.warnings.append(f"Backup coordination failed: {e}")
-                    logger.warning(f"Backup coordination failed for {user_id}: {e}")
+                    logger.warning("Backup coordination failed for %s: %s", user_id, e)
 
             # Execute deleters in order
             for entity_type in self._deletion_order:
@@ -417,10 +417,10 @@ class UnifiedDeletionCoordinator:
                 try:
                     count = await deleter.delete_for_user(user_id)
                     result.entities_deleted[entity_type] = count
-                    logger.info(f"Deleted {count} {entity_type} entities for user {user_id}")
+                    logger.info("Deleted %s %s entities for user %s", count, entity_type, user_id)
                 except (RuntimeError, ValueError, LookupError, OSError) as e:
                     result.errors.append(f"Failed to delete {entity_type}: {e}")
-                    logger.error(f"Failed to delete {entity_type} for user {user_id}: {e}")
+                    logger.error("Failed to delete %s for user %s: %s", entity_type, user_id, e)
 
             # Determine final status
             if result.errors:
@@ -439,7 +439,7 @@ class UnifiedDeletionCoordinator:
                     await post_hook(user_id, result)
                 except (RuntimeError, ValueError, TypeError, OSError) as e:
                     result.warnings.append(f"Post-deletion hook failed: {e}")
-                    logger.warning(f"Post-deletion hook failed for {user_id}: {e}")
+                    logger.warning("Post-deletion hook failed for %s: %s", user_id, e)
 
             # Log deletion completion
             if self._audit_logger:
@@ -454,7 +454,7 @@ class UnifiedDeletionCoordinator:
             result.status = CascadeStatus.FAILED
             result.errors.append(f"Cascade deletion failed: {e}")
             result.completed_at = datetime.now(timezone.utc)
-            logger.exception(f"Cascade deletion failed for user {user_id}: {e}")
+            logger.exception("Cascade deletion failed for user %s: %s", user_id, e)
 
             if self._audit_logger:
                 await self._audit_logger.log(
@@ -663,7 +663,7 @@ class UnifiedDeletionCoordinator:
             now = datetime.now(timezone.utc)
             due_deletions = [req for req in pending if req.scheduled_for <= now]
 
-            logger.info(f"Processing {len(due_deletions)} due deletions")
+            logger.info("Processing %s due deletions", len(due_deletions))
 
             for deletion_req in due_deletions:
                 try:
@@ -688,7 +688,7 @@ class UnifiedDeletionCoordinator:
                     results.append(result)
 
                 except (RuntimeError, ValueError, LookupError, OSError) as e:
-                    logger.error(f"Failed to process deletion for {deletion_req.user_id}: {e}")
+                    logger.error("Failed to process deletion for %s: %s", deletion_req.user_id, e)
                     # Create a failed result
                     failed_result = CascadeResult(
                         user_id=deletion_req.user_id,
@@ -702,7 +702,7 @@ class UnifiedDeletionCoordinator:
         except ImportError:
             logger.warning("Deletion scheduler not available")
         except (RuntimeError, ValueError, LookupError, OSError) as e:
-            logger.exception(f"Error processing pending deletions: {e}")
+            logger.exception("Error processing pending deletions: %s", e)
 
         return results
 
@@ -748,7 +748,7 @@ class UnifiedDeletionCoordinator:
             "reason": reason,
             "added_at": datetime.now(timezone.utc).isoformat(),
         }
-        logger.info(f"Added user {user_id} to backup exclusion list")
+        logger.info("Added user %s to backup exclusion list", user_id)
 
     def remove_from_backup_exclusion_list(self, user_id: str) -> bool:
         """
@@ -762,7 +762,7 @@ class UnifiedDeletionCoordinator:
         """
         if user_id in self._backup_exclusion_list:
             del self._backup_exclusion_list[user_id]
-            logger.info(f"Removed user {user_id} from backup exclusion list")
+            logger.info("Removed user %s from backup exclusion list", user_id)
             return True
         return False
 
@@ -824,7 +824,7 @@ class BackupManagerAdapter:
         if backup_id not in self._backup_purge_status:
             self._backup_purge_status[backup_id] = set()
         self._backup_purge_status[backup_id].add(user_id)
-        logger.info(f"Marked backup {backup_id} for purge of user {user_id}")
+        logger.info("Marked backup %s for purge of user %s", backup_id, user_id)
 
     def mark_user_purged_from_backup(self, backup_id: str, user_id: str) -> None:
         """Mark that a user's data has been purged from a backup."""

@@ -307,11 +307,11 @@ class EvidenceCollector:
             additional_domains = settings.evidence.additional_allowed_domains
         except (ImportError, AttributeError, KeyError) as e:
             # Expected errors: module not installed, missing attribute, or config key
-            logger.debug(f"Settings not available for evidence collector, using defaults: {e}")
+            logger.debug("Settings not available for evidence collector, using defaults: %s", e)
             self._url_fetch_all_enabled = False
             additional_domains = []
         except (RuntimeError, TypeError, ValueError) as e:
-            logger.warning(f"Unexpected error loading evidence settings, using defaults: {e}")
+            logger.warning("Unexpected error loading evidence settings, using defaults: %s", e)
             self._url_fetch_all_enabled = False
             additional_domains = []
 
@@ -362,10 +362,10 @@ class EvidenceCollector:
                 min_reliability=min_reliability,
             )
         except (ConnectionError, TimeoutError, OSError) as e:
-            logger.warning(f"Failed to query KM for existing evidence (network): {e}")
+            logger.warning("Failed to query KM for existing evidence (network): %s", e)
             return []
         except (ValueError, KeyError, TypeError) as e:
-            logger.warning(f"Failed to query KM for existing evidence (data): {e}")
+            logger.warning("Failed to query KM for existing evidence (data): %s", e)
             return []
 
     def _get_document_connector(self) -> Any:
@@ -410,10 +410,10 @@ class EvidenceCollector:
             return self._document_to_snippets(doc, str(path))
 
         except (OSError, PermissionError) as e:
-            logger.error(f"Failed to parse document file {file_path} (I/O error): {e}")
+            logger.error("Failed to parse document file %s (I/O error): %s", file_path, e)
             return None
         except (ValueError, TypeError, KeyError) as e:
-            logger.error(f"Failed to parse document file {file_path} (parse error): {e}")
+            logger.error("Failed to parse document file %s (parse error): %s", file_path, e)
             return None
 
     async def parse_document_bytes(
@@ -447,7 +447,7 @@ class EvidenceCollector:
             return self._document_to_snippets(doc, source_url or filename)
 
         except (ValueError, TypeError, KeyError) as e:
-            logger.error(f"Failed to parse document bytes ({filename}): {e}")
+            logger.error("Failed to parse document bytes (%s): %s", filename, e)
             return None
 
     def _document_to_snippets(
@@ -541,8 +541,7 @@ class EvidenceCollector:
             )
 
         logger.info(
-            f"Parsed document: {doc.filename} -> {len(snippets)} evidence snippets "
-            f"({len(doc.chunks)} chunks, {len(doc.tables)} tables)"
+            "Parsed document: %s -> %s evidence snippets (%s chunks, %s tables)", doc.filename, len(snippets), len(doc.chunks), len(doc.tables)
         )
 
         return snippets
@@ -669,18 +668,18 @@ class EvidenceCollector:
             return True
 
         if self._url_consent_callback is None:
-            logger.warning(f"URL consent required but no callback configured. Blocking: {url}")
+            logger.warning("URL consent required but no callback configured. Blocking: %s", url)
             self._log_audit(url, org_id, "blocked_consent", False)
             return False
 
         try:
             consent_granted = self._url_consent_callback(url, org_id)
             if not consent_granted:
-                logger.info(f"URL consent denied for: {url}")
+                logger.info("URL consent denied for: %s", url)
                 self._log_audit(url, org_id, "blocked_consent", False)
             return consent_granted
         except (TypeError, ValueError, AttributeError) as e:
-            logger.error(f"URL consent callback error: {e}")
+            logger.error("URL consent callback error: %s", e)
             self._log_audit(url, org_id, "blocked_consent", False)
             return False
 
@@ -690,7 +689,7 @@ class EvidenceCollector:
             try:
                 self._audit_callback(url, org_id, action, success)
             except (TypeError, ValueError, AttributeError, RuntimeError) as e:
-                logger.warning(f"Audit callback error: {e}")
+                logger.warning("Audit callback error: %s", e)
 
     def add_connector(self, name: str, connector: Connector) -> None:
         """Add a connector for evidence collection."""
@@ -722,7 +721,7 @@ class EvidenceCollector:
 
             # Block non-HTTP schemes
             if parsed.scheme not in ("http", "https"):
-                logger.debug(f"SSRF: Blocked non-HTTP scheme: {parsed.scheme}")
+                logger.debug("SSRF: Blocked non-HTTP scheme: %s", parsed.scheme)
                 return False
 
             hostname = parsed.hostname
@@ -731,14 +730,14 @@ class EvidenceCollector:
 
             # Block localhost variants
             if hostname in ("localhost", "127.0.0.1", "0.0.0.0", "::1"):
-                logger.debug(f"SSRF: Blocked localhost: {hostname}")
+                logger.debug("SSRF: Blocked localhost: %s", hostname)
                 return False
 
             # Block private IP ranges
             try:
                 ip = ipaddress.ip_address(hostname)
                 if ip.is_private or ip.is_loopback or ip.is_reserved or ip.is_link_local:
-                    logger.debug(f"SSRF: Blocked private/reserved IP: {hostname}")
+                    logger.debug("SSRF: Blocked private/reserved IP: %s", hostname)
                     return False
             except ValueError:
                 # Not an IP address (hostname), which is fine
@@ -746,13 +745,13 @@ class EvidenceCollector:
 
             # Block non-standard ports (only allow 80 and 443)
             if parsed.port and parsed.port not in (80, 443):
-                logger.debug(f"SSRF: Blocked non-standard port: {parsed.port}")
+                logger.debug("SSRF: Blocked non-standard port: %s", parsed.port)
                 return False
 
             return True
 
         except (ValueError, TypeError, AttributeError) as e:
-            logger.debug(f"SSRF: URL parse error: {e}")
+            logger.debug("SSRF: URL parse error: %s", e)
             return False
 
     def _emit_evidence_events(
@@ -792,9 +791,9 @@ class EvidenceCollector:
                 loop_id=self.loop_id,
                 data=evidence_data,
             )
-            logger.debug(f"Emitted evidence_found event with {len(snippets)} snippets")
+            logger.debug("Emitted evidence_found event with %s snippets", len(snippets))
         except (TypeError, AttributeError, RuntimeError) as e:
-            logger.warning(f"Failed to emit evidence_found event: {e}")
+            logger.warning("Failed to emit evidence_found event: %s", e)
 
     async def collect_evidence(
         self,
@@ -837,7 +836,7 @@ class EvidenceCollector:
         km_evidence = self.query_km_for_existing(task, limit=10, min_reliability=0.6)
         if km_evidence:
             logger.info(
-                f"Found {len(km_evidence)} existing evidence items in KM for: {task[:50]}..."
+                "Found %s existing evidence items in KM for: %s...", len(km_evidence), task[:50]
             )
             # Convert KM results to EvidenceSnippet format
             for ev in km_evidence:
@@ -862,7 +861,7 @@ class EvidenceCollector:
                 if doc_snippets:
                     all_snippets.extend(doc_snippets)
                     total_searched += 1
-                    logger.info(f"Added {len(doc_snippets)} snippets from document: {file_path}")
+                    logger.info("Added %s snippets from document: %s", len(doc_snippets), file_path)
 
         # Detect document file paths mentioned in the task
         detected_paths = self._extract_document_paths(task)
@@ -873,12 +872,12 @@ class EvidenceCollector:
                 if doc_snippets:
                     all_snippets.extend(doc_snippets)
                     total_searched += 1
-                    logger.info(f"Auto-detected and parsed document: {path}")
+                    logger.info("Auto-detected and parsed document: %s", path)
 
         # First, fetch any explicit URLs mentioned in the task (with SSRF protection)
         explicit_urls = self._extract_urls(task)
         if explicit_urls:
-            logger.info(f"Found {len(explicit_urls)} URL(s) in task: {explicit_urls}")
+            logger.info("Found %s URL(s) in task: %s", len(explicit_urls), explicit_urls)
             if "web" in self.connectors:
                 web_connector = self.connectors["web"]
                 for url in explicit_urls:
@@ -893,13 +892,13 @@ class EvidenceCollector:
 
                         # SSRF Protection: Always check basic safety first
                         if not self._is_safe_url(full_url):
-                            logger.warning(f"SSRF: Blocked unsafe URL: {full_url}")
+                            logger.warning("SSRF: Blocked unsafe URL: %s", full_url)
                             self._log_audit(full_url, org_id, "blocked_ssrf", False)
                             continue
 
                         # Then check allowlist (unless feature flag bypasses it)
                         if not allow_all_urls and not self._is_domain_allowed(parsed.netloc):
-                            logger.info(f"Skipping non-allowlisted URL: {full_url}")
+                            logger.info("Skipping non-allowlisted URL: %s", full_url)
                             self._log_audit(full_url, org_id, "blocked_domain", False)
                             continue
 
@@ -916,8 +915,7 @@ class EvidenceCollector:
                                 all_snippets.append(readme_snippet)
                                 total_searched += 1
                                 logger.info(
-                                    f"Fetched GitHub README: {full_url} "
-                                    f"({len(readme_snippet.snippet)} chars)"
+                                    "Fetched GitHub README: %s (%s chars)", full_url, len(readme_snippet.snippet)
                                 )
                                 continue  # Skip regular URL fetch for repos
 
@@ -935,15 +933,15 @@ class EvidenceCollector:
                                         if doc_snippets:
                                             all_snippets.extend(doc_snippets)
                                             total_searched += 1
-                                            logger.info(f"Fetched and parsed document: {full_url}")
+                                            logger.info("Fetched and parsed document: %s", full_url)
                                             continue
                                 except (ConnectionError, TimeoutError, OSError) as e:
                                     logger.warning(
-                                        f"Failed to fetch document {full_url} (network): {e}"
+                                        "Failed to fetch document %s (network): %s", full_url, e
                                     )
                                 except (ValueError, TypeError, KeyError) as e:
                                     logger.warning(
-                                        f"Failed to fetch document {full_url} (parse): {e}"
+                                        "Failed to fetch document %s (parse): %s", full_url, e
                                     )
 
                         # Regular URL fetch
@@ -961,15 +959,15 @@ class EvidenceCollector:
                                 )
                                 all_snippets.append(snippet)
                                 total_searched += 1
-                                logger.debug(f"Fetched: {full_url} ({len(evidence.content)} chars)")
+                                logger.debug("Fetched: %s (%s chars)", full_url, len(evidence.content))
                     except (ConnectionError, TimeoutError, OSError) as e:
-                        logger.warning(f"Failed to fetch {url} (network): {e}")
+                        logger.warning("Failed to fetch %s (network): %s", url, e)
                     except (ValueError, TypeError, AttributeError) as e:
-                        logger.warning(f"Failed to fetch {url} (parse): {e}")
+                        logger.warning("Failed to fetch %s (parse): %s", url, e)
 
         # Extract keywords from task for search
         keywords = self._extract_keywords(task)
-        logger.info(f"Searching for keywords: {keywords}")
+        logger.info("Searching for keywords: %s", keywords)
 
         # Search all enabled connectors concurrently
         search_tasks = []
@@ -983,7 +981,7 @@ class EvidenceCollector:
 
             for result in results:
                 if isinstance(result, BaseException):
-                    logger.warning(f"Connector search error: {result}")
+                    logger.warning("Connector search error: %s", result)
                 else:
                     connector_snippets, searched_count = result
                     all_snippets.extend(connector_snippets)
@@ -1053,10 +1051,10 @@ class EvidenceCollector:
             return snippets, len(results)
 
         except (ConnectionError, TimeoutError, OSError) as e:
-            logger.warning(f"Error searching {connector_name} (network): {e}")
+            logger.warning("Error searching %s (network): %s", connector_name, e)
             return [], 0
         except (ValueError, TypeError, KeyError, AttributeError) as e:
-            logger.warning(f"Error searching {connector_name} (data): {e}")
+            logger.warning("Error searching %s (data): %s", connector_name, e)
             return [], 0
 
     def _extract_urls(self, task: str) -> list[str]:
@@ -1153,7 +1151,7 @@ class EvidenceCollector:
                                 continue
 
                             logger.info(
-                                f"Fetched README from {owner}/{repo} ({branch}/{readme_file})"
+                                "Fetched README from %s/%s (%s/%s)", owner, repo, branch, readme_file
                             )
                             return EvidenceSnippet(
                                 id=f"gh_{owner}_{repo}_readme",
@@ -1171,13 +1169,13 @@ class EvidenceCollector:
                                 },
                             )
                 except (ConnectionError, TimeoutError, OSError) as e:
-                    logger.debug(f"Failed to fetch {raw_url} (network): {e}")
+                    logger.debug("Failed to fetch %s (network): %s", raw_url, e)
                     continue
                 except (ValueError, TypeError, AttributeError) as e:
-                    logger.debug(f"Failed to fetch {raw_url} (data): {e}")
+                    logger.debug("Failed to fetch %s (data): %s", raw_url, e)
                     continue
 
-        logger.warning(f"Could not find README for {owner}/{repo}")
+        logger.warning("Could not find README for %s/%s", owner, repo)
         return None
 
     def _extract_keywords(self, task: str) -> list[str]:
@@ -1402,7 +1400,7 @@ class EvidenceCollector:
 
                 for result in results:
                     if isinstance(result, BaseException):
-                        logger.warning(f"Connector search error for claim: {result}")
+                        logger.warning("Connector search error for claim: %s", result)
                     else:
                         connector_snippets, searched_count = result
                         # Limit per claim
@@ -1424,8 +1422,7 @@ class EvidenceCollector:
         final_snippets = ranked_snippets[: self.max_total_snippets]
 
         logger.info(
-            f"evidence_for_claims claims={len(claims)} snippets={len(final_snippets)} "
-            f"searched={total_searched}"
+            "evidence_for_claims claims=%s snippets=%s searched=%s", len(claims), len(final_snippets), total_searched
         )
 
         return EvidencePack(

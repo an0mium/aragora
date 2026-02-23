@@ -112,7 +112,7 @@ class GitHubConnector(BaseConnector):
             OSError,
             subprocess.TimeoutExpired,
         ) as e:
-            logger.debug(f"[github] gh CLI check failed: {e}")
+            logger.debug("[github] gh CLI check failed: %s", e)
             self._gh_available = False
 
         return self._gh_available
@@ -147,11 +147,11 @@ class GitHubConnector(BaseConnector):
             proc.kill()
             await proc.wait()
             self.record_circuit_breaker_failure()
-            logger.warning(f"[github] gh command timed out (args={args[:2]}...)")
+            logger.warning("[github] gh command timed out (args=%s...)", args[:2])
             return None
         except (OSError, UnicodeDecodeError) as e:
             self.record_circuit_breaker_failure()
-            logger.warning(f"[github] gh command failed (args={args[:2]}...): {e}")
+            logger.warning("[github] gh command failed (args=%s...): %s", args[:2], e)
             return None
 
     async def search(
@@ -399,10 +399,10 @@ class GitHubConnector(BaseConnector):
                 number = parts[2]
                 # Validate parsed input before passing to subprocess
                 if not self._validate_repo(repo):
-                    logger.warning(f"[github] Invalid repo format in evidence_id: {repo[:50]}")
+                    logger.warning("[github] Invalid repo format in evidence_id: %s", repo[:50])
                     return None
                 if not self._validate_number(number):
-                    logger.warning(f"[github] Invalid issue number in evidence_id: {number[:20]}")
+                    logger.warning("[github] Invalid issue number in evidence_id: %s", number[:20])
                     return None
                 return await self._fetch_issue(repo, number)
 
@@ -413,10 +413,10 @@ class GitHubConnector(BaseConnector):
                 number = parts[2]
                 # Validate parsed input before passing to subprocess
                 if not self._validate_repo(repo):
-                    logger.warning(f"[github] Invalid repo format in evidence_id: {repo[:50]}")
+                    logger.warning("[github] Invalid repo format in evidence_id: %s", repo[:50])
                     return None
                 if not self._validate_number(number):
-                    logger.warning(f"[github] Invalid PR number in evidence_id: {number[:20]}")
+                    logger.warning("[github] Invalid PR number in evidence_id: %s", number[:20])
                     return None
                 return await self._fetch_pr(repo, number)
 
@@ -542,14 +542,14 @@ class GitHubConnector(BaseConnector):
         # Parse PR URL
         match = re.match(r"https?://github\.com/([^/]+/[^/]+)/pull/(\d+)", pr_url)
         if not match:
-            logger.warning(f"Invalid PR URL format: {pr_url}")
+            logger.warning("Invalid PR URL format: %s", pr_url)
             return None
 
         repo = match.group(1)
         pr_number = match.group(2)
 
         if not self._validate_repo(repo) or not self._validate_number(pr_number):
-            logger.warning(f"Invalid repo/number in PR URL: {pr_url}")
+            logger.warning("Invalid repo/number in PR URL: %s", pr_url)
             return None
 
         args = [
@@ -665,5 +665,5 @@ class GitHubConnector(BaseConnector):
             try:
                 os.unlink(temp_path)
             except OSError as e:
-                logger.warning(f"Failed to remove temp file '{temp_path}': {e}")
+                logger.warning("Failed to remove temp file '%s': %s", temp_path, e)
                 # File cleanup is best-effort; continue normally

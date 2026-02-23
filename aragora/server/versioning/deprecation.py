@@ -201,7 +201,7 @@ class DeprecationMiddleware:
         if self.log_usage:
             self.registry.record_usage(path, method)
             logger.warning(
-                f"Deprecated endpoint accessed: {method} {path}",
+                "Deprecated endpoint accessed: %s %s", method, path,
                 extra={
                     "deprecation_level": warning.level.value,
                     "sunset_date": warning.sunset_date.isoformat() if warning.sunset_date else None,
@@ -293,7 +293,7 @@ def deprecated(
         def wrapper(*args, **kwargs):
             # Log at call time
             logger.warning(
-                f"Deprecated function called: {func.__name__}",
+                "Deprecated function called: %s", func.__name__,
                 extra={
                     "function": func.__name__,
                     "sunset_date": sunset_date.isoformat() if sunset_date else None,
@@ -380,4 +380,4 @@ def register_deprecations(deprecations: list[dict[str, Any]]) -> None:
             migration_guide=dep.get("migration_guide"),
         )
 
-    logger.info(f"Registered {len(deprecations)} deprecated endpoints")
+    logger.info("Registered %s deprecated endpoints", len(deprecations))

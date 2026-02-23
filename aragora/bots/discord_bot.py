@@ -87,7 +87,7 @@ class AragoraDiscordBot:
         # Register event handlers
         @self._client.event
         async def on_ready():
-            logger.info(f"Discord bot logged in as {self._client.user}")
+            logger.info("Discord bot logged in as %s", self._client.user)
             # Sync slash commands
             if self.application_id:
                 await self._tree.sync()

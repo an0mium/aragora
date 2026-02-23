@@ -276,9 +276,9 @@ class AssignmentManager:
             try:
                 hook(assignment)
             except (ValueError, RuntimeError, OSError) as e:
-                logger.warning(f"Assignment hook error: {e}")
+                logger.warning("Assignment hook error: %s", e)
 
-        logger.info(f"Assigned finding {finding_id} to user {user_id} (priority: {priority.value})")
+        logger.info("Assigned finding %s to user %s (priority: %s)", finding_id, user_id, priority.value)
 
         return assignment
 
@@ -306,7 +306,7 @@ class AssignmentManager:
         assignment.unassigned_at = datetime.now(timezone.utc)
         assignment.unassigned_by = unassigned_by
 
-        logger.info(f"Unassigned finding {finding_id} by {unassigned_by}")
+        logger.info("Unassigned finding %s by %s", finding_id, unassigned_by)
 
         return assignment
 
@@ -330,7 +330,7 @@ class AssignmentManager:
         assignment.is_active = False
         assignment.completed_at = datetime.now(timezone.utc)
 
-        logger.info(f"Completed assignment for finding {finding_id}")
+        logger.info("Completed assignment for finding %s", finding_id)
 
         return assignment
 
@@ -425,7 +425,7 @@ class AssignmentManager:
         """Add an auto-assignment rule."""
         self._rules.append(rule)
         self._rules.sort(key=lambda r: r.priority_order)
-        logger.debug(f"Added auto-assign rule: {rule.name}")
+        logger.debug("Added auto-assign rule: %s", rule.name)
 
     def remove_rule(self, rule_id: str) -> bool:
         """Remove an auto-assignment rule."""
@@ -483,7 +483,7 @@ class AssignmentManager:
 
             # Found a matching rule
             if not rule.user_id and not rule.team_id:
-                logger.warning(f"Rule {rule.name} has no assignment target")
+                logger.warning("Rule %s has no assignment target", rule.name)
                 continue
 
             priority = rule.priority or self._severity_to_priority(severity)
@@ -510,8 +510,7 @@ class AssignmentManager:
             self._assignments[finding_id] = assignment
 
             logger.info(
-                f"Auto-assigned finding {finding_id} via rule '{rule.name}' "
-                f"to user={rule.user_id} team={rule.team_id}"
+                "Auto-assigned finding %s via rule '%s' to user=%s team=%s", finding_id, rule.name, rule.user_id, rule.team_id
             )
 
             return assignment

@@ -576,7 +576,7 @@ class DebatePhase:
                         f"(similarity: {novelty_result.max_similarity:.2f})"
                     )
                     logger.warning(
-                        f"Codebase novelty check failed for consensus: {codebase_novelty_warning}"
+                        "Codebase novelty check failed for consensus: %s", codebase_novelty_warning
                     )
                 else:
                     self._log(
@@ -584,7 +584,7 @@ class DebatePhase:
                         f"(max_similarity: {novelty_result.max_similarity:.2f})"
                     )
             except (RuntimeError, ValueError, OSError) as e:
-                logger.warning(f"Codebase novelty check failed: {e}")
+                logger.warning("Codebase novelty check failed: %s", e)
 
         # Process post-debate hooks
         if hooks:

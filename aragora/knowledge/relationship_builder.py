@@ -235,8 +235,7 @@ class RelationshipBuilder:
         self._build_dependency_relationships(crawl_result.dependency_graph)
 
         logger.info(
-            f"Built relationship graph: {len(self._graph.entities)} entities, "
-            f"{len(self._graph.relationships)} relationships"
+            "Built relationship graph: %s entities, %s relationships", len(self._graph.entities), len(self._graph.relationships)
         )
 
         return self._graph

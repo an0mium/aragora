@@ -34,7 +34,7 @@ async def get_webhooks(connector) -> list[dict[str, Any]]:
         data = await connector._request("GET", "webhooks")
         return data if isinstance(data, list) else []
     except (ConnectorAPIError, OSError) as e:
-        logger.error(f"Failed to get webhooks: {e}")
+        logger.error("Failed to get webhooks: %s", e)
         return []
 
 
@@ -70,7 +70,7 @@ async def create_webhook(
         data = await connector._request("POST", "webhooks", json_data=webhook_data)
         return data
     except (ConnectorAPIError, OSError) as e:
-        logger.error(f"Failed to create webhook {name}: {e}")
+        logger.error("Failed to create webhook %s: %s", name, e)
         return None
 
 
@@ -97,7 +97,7 @@ async def delete_webhook(connector, webhook_id: int, force: bool = True) -> bool
         )
         return True
     except (ConnectorAPIError, ConnectorCircuitOpenError, ConnectorTimeoutError, OSError) as e:
-        logger.error(f"Failed to delete webhook {webhook_id}: {e}")
+        logger.error("Failed to delete webhook %s: %s", webhook_id, e)
         return False
 
 

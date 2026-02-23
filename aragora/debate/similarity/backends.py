@@ -397,10 +397,10 @@ class SentenceTransformerBackend(SimilarityBackend):
                 SentenceTransformerBackend._model_cache is not None
                 and SentenceTransformerBackend._model_name_cache == model_name
             ):
-                logger.debug(f"Reusing cached sentence transformer: {model_name}")
+                logger.debug("Reusing cached sentence transformer: %s", model_name)
                 self.model = SentenceTransformerBackend._model_cache
             else:
-                logger.info(f"Loading sentence transformer: {model_name}")
+                logger.info("Loading sentence transformer: %s", model_name)
                 self.model = SentenceTransformer(model_name)
                 SentenceTransformerBackend._model_cache = self.model
                 SentenceTransformerBackend._model_name_cache = model_name
@@ -444,18 +444,17 @@ class SentenceTransformerBackend(SimilarityBackend):
                 SentenceTransformerBackend._nli_model_cache is not None
                 and SentenceTransformerBackend._nli_model_name_cache == nli_model_name
             ):
-                logger.debug(f"Reusing cached NLI model: {nli_model_name}")
+                logger.debug("Reusing cached NLI model: %s", nli_model_name)
                 self.nli_model = SentenceTransformerBackend._nli_model_cache
             else:
-                logger.info(f"Loading NLI model for contradiction detection: {nli_model_name}")
+                logger.info("Loading NLI model for contradiction detection: %s", nli_model_name)
                 self.nli_model = CrossEncoder(nli_model_name)
                 SentenceTransformerBackend._nli_model_cache = self.nli_model
                 SentenceTransformerBackend._nli_model_name_cache = nli_model_name
 
         except (RuntimeError, ValueError, TypeError, OSError, ImportError) as e:
             logger.warning(
-                f"Failed to load NLI model '{nli_model_name}': {e}. "
-                "Falling back to pattern-based contradiction detection."
+                "Failed to load NLI model '%s': %s. Falling back to pattern-based contradiction detection.", nli_model_name, e
             )
             self.nli_model = None
             self.use_nli = False
@@ -590,7 +589,7 @@ class SentenceTransformerBackend(SimilarityBackend):
                     return is_contradiction
             return False
         except (RuntimeError, ValueError, TypeError, OSError, AttributeError) as e:
-            logger.warning(f"NLI prediction failed: {e}. Using pattern fallback.")
+            logger.warning("NLI prediction failed: %s. Using pattern fallback.", e)
             return super().is_contradictory(text1, text2)
 
     @classmethod
@@ -671,7 +670,7 @@ def get_similarity_backend(
         if env_override:
             preferred = env_override
         elif os.getenv(_ENV_SIMILARITY_BACKEND):
-            logger.warning(f"{_ENV_SIMILARITY_BACKEND} value is invalid; using auto selection.")
+            logger.warning("%s value is invalid; using auto selection.", _ENV_SIMILARITY_BACKEND)
 
     if preferred == "jaccard":
         return JaccardBackend()
@@ -688,12 +687,12 @@ def get_similarity_backend(
     except ImportError:
         logger.debug("sentence-transformers not available for auto-select")
     except RuntimeError as e:
-        logger.debug(f"sentence-transformers failed: {e}")
+        logger.debug("sentence-transformers failed: %s", e)
     except OSError as e:
-        logger.debug(f"sentence-transformers model error: {e}")
+        logger.debug("sentence-transformers model error: %s", e)
     except (ValueError, TypeError, AttributeError, ConnectionError) as e:
         # Catch-all for model loading failures (network, auth, etc.)
-        logger.debug(f"sentence-transformers initialization error: {e}")
+        logger.debug("sentence-transformers initialization error: %s", e)
 
     try:
         return TFIDFBackend()

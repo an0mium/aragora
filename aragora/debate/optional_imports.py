@@ -52,7 +52,7 @@ class OptionalImports:
             cls._cache[key] = getattr(mod, class_name)
             return cls._cache[key]
         except (ImportError, AttributeError) as e:
-            logger.debug(f"Optional import {module}.{class_name} not available: {e}")
+            logger.debug("Optional import %s.%s not available: %s", module, class_name, e)
             cls._cache[key] = None
             return None
 

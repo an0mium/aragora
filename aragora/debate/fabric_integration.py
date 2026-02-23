@@ -446,7 +446,7 @@ class FabricDebateRunner:
             raise TimeoutError(f"Debate {debate_id} exceeded timeout")
 
         except (RuntimeError, ValueError, TypeError, OSError, ConnectionError, PermissionError) as e:
-            logger.exception(f"Debate {debate_id} failed: {e}")
+            logger.exception("Debate %s failed: %s", debate_id, e)
             await self.fabric.complete_task(handle.task_id, error=f"debate_failed:{type(e).__name__}")
             raise
 

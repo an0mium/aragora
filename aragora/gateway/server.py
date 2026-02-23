@@ -265,7 +265,7 @@ class LocalGateway:
 
         self._running = True
         self._started_at = time.time()
-        logger.info(f"Local gateway started on {actual_host}:{actual_port}")
+        logger.info("Local gateway started on %s:%s", actual_host, actual_port)
         await self._hydrate_state()
 
     async def stop(self) -> None:
@@ -480,7 +480,7 @@ class LocalGateway:
                 timeout=self._config.request_timeout_seconds,
             )
         except asyncio.TimeoutError:
-            logger.warning(f"Request timeout: {request.method} {request.path}")
+            logger.warning("Request timeout: %s %s", request.method, request.path)
             return web.json_response(
                 {"error": "Request timeout", "code": "TIMEOUT"},
                 status=504,
@@ -767,7 +767,7 @@ class LocalGateway:
                         )
                         break
                 elif msg.type == WSMsgType.ERROR:
-                    logger.warning(f"WebSocket error: {ws.exception()}")
+                    logger.warning("WebSocket error: %s", ws.exception())
         finally:
             self._ws_subscribers.discard(ws)
             logger.debug("WebSocket client disconnected")
@@ -796,7 +796,7 @@ class LocalGateway:
                 try:
                     await ws.send_json(event)
                 except (OSError, ConnectionError, RuntimeError) as e:
-                    logger.debug(f"Failed to send to WebSocket subscriber: {type(e).__name__}: {e}")
+                    logger.debug("Failed to send to WebSocket subscriber: %s: %s", type(e).__name__, e)
                     self._ws_subscribers.discard(ws)
 
     # =========================================================================
@@ -842,9 +842,7 @@ class LocalGateway:
         await self._hydrate_state()
 
         logger.info(
-            f"Local gateway HTTP server started on {actual_host}:{actual_port} "
-            f"(timeout={self._config.request_timeout_seconds}s, "
-            f"rate_limit={self._config.rate_limit_rpm}/min)"
+            "Local gateway HTTP server started on %s:%s (timeout=%ss, rate_limit=%s/min)", actual_host, actual_port, self._config.request_timeout_seconds, self._config.rate_limit_rpm
         )
         return runner
 
@@ -857,7 +855,7 @@ class LocalGateway:
             asyncio.set_event_loop(loop)
 
         def handle_signal(sig: signal.Signals) -> None:
-            logger.info(f"Received {sig.name}, initiating graceful shutdown...")
+            logger.info("Received %s, initiating graceful shutdown...", sig.name)
             asyncio.create_task(self.graceful_shutdown())
 
         for sig in (signal.SIGTERM, signal.SIGINT):
@@ -892,12 +890,12 @@ class LocalGateway:
         drain_timeout = min(self._config.shutdown_timeout_seconds / 2, 15.0)
         drain_start = time.time()
         while self._active_connections > 0 and (time.time() - drain_start) < drain_timeout:
-            logger.debug(f"Draining {self._active_connections} active connection(s)...")
+            logger.debug("Draining %s active connection(s)...", self._active_connections)
             await asyncio.sleep(0.5)
 
         if self._active_connections > 0:
             logger.warning(
-                f"{self._active_connections} connection(s) still active after drain timeout"
+                "%s connection(s) still active after drain timeout", self._active_connections
             )
 
         # Phase 2: Close WebSocket subscribers
@@ -909,7 +907,7 @@ class LocalGateway:
                         await ws.close(code=1001, message=b"Server shutting down")
                     except (OSError, ConnectionError, RuntimeError) as exc:
                         logger.debug("Cleanup failed during shutdown: %s", exc)
-            logger.info(f"Closed {ws_count} WebSocket connection(s)")
+            logger.info("Closed %s WebSocket connection(s)", ws_count)
 
         # Phase 3: Flush stores
         try:
@@ -920,7 +918,7 @@ class LocalGateway:
             if session_store and session_store is not store:
                 await session_store.close()
         except (OSError, ConnectionError, RuntimeError) as e:
-            logger.warning(f"Error closing stores: {e}")
+            logger.warning("Error closing stores: %s", e)
 
         # Phase 4: Stop HTTP server
         await self.stop_http()

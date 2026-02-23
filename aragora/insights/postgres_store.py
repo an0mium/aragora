@@ -318,7 +318,7 @@ class PostgresInsightStore(PostgresStore):
                     )
                     stored_count = len(all_insights)
                 except (OSError, ValueError, TypeError) as e:
-                    logger.error(f"Error batch storing insights: {e}")
+                    logger.error("Error batch storing insights: %s", e)
 
             # Store agent performances in batch
             if insights.agent_performances:
@@ -405,16 +405,16 @@ class PostgresInsightStore(PostgresStore):
                         stored_ids = self._km_adapter.store_debate_insights(
                             insights, self._km_min_confidence
                         )
-                        logger.debug(f"Batch synced {len(stored_ids)} insights to Knowledge Mound")
+                        logger.debug("Batch synced %s insights to Knowledge Mound", len(stored_ids))
                     else:
                         # Fallback to individual storage
                         for insight in high_conf_insights:
                             try:
                                 self._km_adapter.store_insight(insight)
                             except (RuntimeError, ValueError, TypeError) as e:
-                                logger.warning(f"Failed to sync insight to KM: {e}")
+                                logger.warning("Failed to sync insight to KM: %s", e)
                 except (RuntimeError, ValueError, TypeError) as e:
-                    logger.warning(f"Failed to batch sync insights to KM: {e}")
+                    logger.warning("Failed to batch sync insights to KM: %s", e)
 
         # Invalidate agent stats cache after storing new performance data
         # This ensures subsequent get_agent_stats calls return fresh data
@@ -679,7 +679,7 @@ class PostgresInsightStore(PostgresStore):
                 json.dumps(wisdom_data.get("context_tags", [])),
             )
             wisdom_id = row["id"]
-            logger.info(f"[wisdom] Added submission {wisdom_id} for loop {loop_id}")
+            logger.info("[wisdom] Added submission %s for loop %s", wisdom_id, loop_id)
             return wisdom_id
 
     async def get_relevant_wisdom(self, loop_id: str, limit: int = 3) -> list[dict]:
@@ -815,8 +815,7 @@ class PostgresInsightStore(PostgresStore):
             )
 
         logger.debug(
-            f"[insight] Recorded usage: insight={insight_id} "
-            f"debate={debate_id} success={was_successful}"
+            "[insight] Recorded usage: insight=%s debate=%s success=%s", insight_id, debate_id, was_successful
         )
 
     async def get_insight_usage_stats(self, insight_id: str) -> dict:
@@ -852,7 +851,7 @@ class PostgresInsightStore(PostgresStore):
         try:
             insight_type = InsightType(row["type"])
         except ValueError:
-            logger.warning(f"Invalid insight type '{row['type']}', defaulting to PATTERN")
+            logger.warning("Invalid insight type '%s', defaulting to PATTERN", row['type'])
             insight_type = InsightType.PATTERN
 
         # Handle JSONB columns

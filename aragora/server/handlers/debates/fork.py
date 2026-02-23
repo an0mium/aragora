@@ -533,7 +533,7 @@ class ForkOperationsMixin:
                 with open(followup_file, "w") as f:
                     json_mod.dump(followup_data, f, indent=2)
 
-            logger.info(f"Created follow-up debate {followup_id} from parent {debate_id}")
+            logger.info("Created follow-up debate %s from parent %s", followup_id, debate_id)
 
             return json_response(
                 {

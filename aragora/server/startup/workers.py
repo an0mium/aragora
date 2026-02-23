@@ -64,9 +64,9 @@ def init_slo_webhooks() -> bool:
             return False
 
     except ImportError as e:
-        logger.debug(f"SLO webhooks not available: {e}")
+        logger.debug("SLO webhooks not available: %s", e)
     except (RuntimeError, OSError, ValueError, TypeError) as e:
-        logger.warning(f"Failed to initialize SLO webhooks: {e}")
+        logger.warning("Failed to initialize SLO webhooks: %s", e)
 
     return False
 
@@ -84,16 +84,16 @@ def init_webhook_dispatcher() -> bool:
 
         dispatcher = init_dispatcher()
         if dispatcher:
-            logger.info(f"Webhook dispatcher started with {len(dispatcher.configs)} endpoint(s)")
+            logger.info("Webhook dispatcher started with %s endpoint(s)", len(dispatcher.configs))
             return True
         else:
             logger.debug("No webhook configurations found, dispatcher not started")
             return False
 
     except ImportError as e:
-        logger.debug(f"Webhook dispatcher not available: {e}")
+        logger.debug("Webhook dispatcher not available: %s", e)
     except (RuntimeError, OSError, ValueError, TypeError) as e:
-        logger.warning(f"Failed to initialize webhook dispatcher: {e}")
+        logger.warning("Failed to initialize webhook dispatcher: %s", e)
 
     return False
 
@@ -121,13 +121,13 @@ def init_gauntlet_run_recovery() -> int:
 
         recovered = recover_stale_gauntlet_runs(max_age_seconds=7200)
         if recovered > 0:
-            logger.info(f"Recovered {recovered} stale gauntlet runs from previous session")
+            logger.info("Recovered %s stale gauntlet runs from previous session", recovered)
         return recovered
 
     except ImportError as e:
-        logger.debug(f"Gauntlet run recovery not available: {e}")
+        logger.debug("Gauntlet run recovery not available: %s", e)
     except (RuntimeError, OSError, ValueError, TypeError) as e:
-        logger.warning(f"Failed to recover stale gauntlet runs: {e}")
+        logger.warning("Failed to recover stale gauntlet runs: %s", e)
 
     return 0
 
@@ -152,13 +152,13 @@ async def init_durable_job_queue_recovery() -> int:
 
         recovered = await recover_interrupted_gauntlets()
         if recovered > 0:
-            logger.info(f"Recovered {recovered} interrupted gauntlet jobs to durable queue")
+            logger.info("Recovered %s interrupted gauntlet jobs to durable queue", recovered)
         return recovered
 
     except ImportError as e:
-        logger.debug(f"Durable job queue recovery not available: {e}")
+        logger.debug("Durable job queue recovery not available: %s", e)
     except (RuntimeError, OSError, ValueError, TypeError) as e:
-        logger.warning(f"Failed to recover durable job queue: {e}")
+        logger.warning("Failed to recover durable job queue: %s", e)
 
     return 0
 
@@ -204,13 +204,13 @@ async def init_gauntlet_worker() -> bool:
             if not t.cancelled() and t.exception()
             else None
         )
-        logger.info(f"Gauntlet worker started (max_concurrent={max_concurrent})")
+        logger.info("Gauntlet worker started (max_concurrent=%s)", max_concurrent)
         return True
 
     except ImportError as e:
-        logger.debug(f"Gauntlet worker not available: {e}")
+        logger.debug("Gauntlet worker not available: %s", e)
     except (RuntimeError, OSError, ValueError, TypeError) as e:
-        logger.warning(f"Failed to start gauntlet worker: {e}")
+        logger.warning("Failed to start gauntlet worker: %s", e)
 
     return False
 
@@ -285,17 +285,16 @@ async def init_notification_worker() -> bool:
         logger.info("task_event_dispatcher_wired")
 
         logger.info(
-            f"Notification worker started "
-            f"(concurrency={config.max_concurrent_deliveries}, channels_loaded={channel_count})"
+            "Notification worker started (concurrency=%s, channels_loaded=%s)", config.max_concurrent_deliveries, channel_count
         )
         return True
 
     except ImportError as e:
-        logger.debug(f"Notification worker dependencies not available: {e}")
+        logger.debug("Notification worker dependencies not available: %s", e)
     except REDIS_CONNECTION_ERRORS as e:
-        logger.warning(f"Failed to start notification worker: {e}")
+        logger.warning("Failed to start notification worker: %s", e)
     except (RuntimeError, ValueError, TypeError) as e:
-        logger.warning(f"Failed to start notification worker: {e}")
+        logger.warning("Failed to start notification worker: %s", e)
 
     return False
 
@@ -327,9 +326,9 @@ async def init_testfixer_worker() -> bool:
         logger.info("TestFixer worker started")
         return True
     except ImportError as e:
-        logger.debug(f"TestFixer worker not available: {e}")
+        logger.debug("TestFixer worker not available: %s", e)
     except (RuntimeError, OSError, ValueError, TypeError) as e:
-        logger.warning(f"Failed to start TestFixer worker: {e}")
+        logger.warning("Failed to start TestFixer worker: %s", e)
     return False
 
 
@@ -350,9 +349,9 @@ async def init_testfixer_task_worker() -> bool:
         logger.info("TestFixer task worker started")
         return True
     except ImportError as e:
-        logger.debug(f"TestFixer task worker not available: {e}")
+        logger.debug("TestFixer task worker not available: %s", e)
     except (RuntimeError, OSError, ValueError, TypeError) as e:
-        logger.warning(f"Failed to start TestFixer task worker: {e}")
+        logger.warning("Failed to start TestFixer task worker: %s", e)
     return False
 
 
@@ -381,9 +380,9 @@ def init_workflow_checkpoint_persistence() -> bool:
         return True
 
     except ImportError as e:
-        logger.debug(f"KnowledgeMound not available for checkpoints: {e}")
+        logger.debug("KnowledgeMound not available for checkpoints: %s", e)
     except (RuntimeError, OSError, ValueError, TypeError) as e:
-        logger.warning(f"Failed to wire checkpoint persistence: {e}")
+        logger.warning("Failed to wire checkpoint persistence: %s", e)
 
     return False
 
@@ -428,7 +427,7 @@ async def init_backup_scheduler() -> bool:
             hour, minute = map(int, daily_time_str.split(":"))
             daily_time = dt_time(hour, minute)
         except (ValueError, TypeError):
-            logger.warning(f"Invalid BACKUP_DAILY_TIME '{daily_time_str}', using 02:00")
+            logger.warning("Invalid BACKUP_DAILY_TIME '%s', using 02:00", daily_time_str)
             daily_time = dt_time(2, 0)
 
         # Parse DR drill settings
@@ -453,16 +452,13 @@ async def init_backup_scheduler() -> bool:
         await start_backup_scheduler(manager, schedule)
 
         logger.info(
-            f"Backup scheduler started "
-            f"(daily={daily_time_str}, "
-            f"dr_drills={'enabled' if dr_drills_enabled else 'disabled'}, "
-            f"dr_interval={dr_drill_interval}d)"
+            "Backup scheduler started (daily=%s, dr_drills=%s, dr_interval=%sd)", daily_time_str, 'enabled' if dr_drills_enabled else 'disabled', dr_drill_interval
         )
         return True
 
     except ImportError as e:
-        logger.debug(f"Backup scheduler not available: {e}")
+        logger.debug("Backup scheduler not available: %s", e)
     except (RuntimeError, OSError, ValueError, TypeError) as e:
-        logger.warning(f"Failed to start backup scheduler: {e}")
+        logger.warning("Failed to start backup scheduler: %s", e)
 
     return False

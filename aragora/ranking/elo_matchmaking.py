@@ -236,9 +236,9 @@ def _sync_to_km(
                     debate_id=debate_id,
                     reason="match_update",
                 )
-        logger.debug(f"ELO changes synced to Knowledge Mound: {debate_id}")
+        logger.debug("ELO changes synced to Knowledge Mound: %s", debate_id)
     except (ConnectionError, TimeoutError, OSError, ValueError, RuntimeError) as e:
-        logger.warning(f"Failed to sync ELO to KM: {e}")
+        logger.warning("Failed to sync ELO to KM: %s", e)
 
 
 __all__ = [

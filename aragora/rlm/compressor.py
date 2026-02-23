@@ -262,8 +262,7 @@ Conclusion:""",
         content_bytes = len(content.encode("utf-8"))
         if content_bytes > self.config.max_content_bytes:
             logger.warning(
-                f"Content size {content_bytes} bytes exceeds limit "
-                f"{self.config.max_content_bytes} bytes"
+                "Content size %s bytes exceeds limit %s bytes", content_bytes, self.config.max_content_bytes
             )
             raise ValueError(
                 f"Content size ({content_bytes:,} bytes) exceeds maximum allowed "
@@ -275,7 +274,7 @@ Conclusion:""",
         if self.config.cache_compressions:
             cached = _compression_cache.get(cache_key)
             if cached is not None:
-                logger.debug(f"Cache hit for compression: {cache_key[:16]}...")
+                logger.debug("Cache hit for compression: %s...", cache_key[:16])
                 return CompressionResult(
                     context=cached,
                     original_tokens=cached.original_tokens,
@@ -547,7 +546,7 @@ Conclusion:""",
             return node, 1
 
         except (RuntimeError, ValueError, TimeoutError, ConnectionError, OSError) as e:
-            logger.error(f"Compression failed for group {group_index}: {e}")
+            logger.error("Compression failed for group %s: %s", group_index, e)
             # Fallback to truncation
             truncated = combined[: self.config.target_tokens * 4]
             node = AbstractionNode(
@@ -701,7 +700,7 @@ Conclusion:""",
         except ImportError:
             pass  # Events module not available
         except (AttributeError, TypeError, RuntimeError, ValueError) as e:
-            logger.warning(f"Failed to emit compression event: {e}")
+            logger.warning("Failed to emit compression event: %s", e)
 
 
 def clear_compression_cache() -> None:

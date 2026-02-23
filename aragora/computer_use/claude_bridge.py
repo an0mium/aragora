@@ -300,8 +300,7 @@ class ClaudeComputerUseBridge:
         messages = self._build_messages(goal, screenshot_b64, previous_steps, initial_context)
 
         logger.debug(
-            f"Calling Claude API: {len(messages)} messages, "
-            f"screenshot={'yes' if screenshot_b64 else 'no'}"
+            "Calling Claude API: %s messages, screenshot=%s", len(messages), 'yes' if screenshot_b64 else 'no'
         )
 
         # Make API call
@@ -315,7 +314,7 @@ class ClaudeComputerUseBridge:
                 messages=messages,
             )
         except Exception as e:  # noqa: BLE001 - must catch all API errors before re-raising
-            logger.error(f"Claude API call failed: {e}")
+            logger.error("Claude API call failed: %s", e)
             raise
 
         # Parse response

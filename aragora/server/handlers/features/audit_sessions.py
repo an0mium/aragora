@@ -151,7 +151,7 @@ class AuditSessionsHandler(SecureHandler):
         except UnauthorizedError:
             return self._error_response(401, "Authentication required for audit sessions")
         except ForbiddenError as e:
-            logger.warning(f"Audit session access denied: {e}")
+            logger.warning("Audit session access denied: %s", e)
             return self._error_response(403, "Permission denied")
 
         # Route to appropriate handler
@@ -255,7 +255,7 @@ class AuditSessionsHandler(SecureHandler):
         _findings[session_id] = []
         _event_queues[session_id] = []
 
-        logger.info(f"Created audit session {session_id} with {len(document_ids)} documents")
+        logger.info("Created audit session %s with %s documents", session_id, len(document_ids))
 
         return self._json_response(201, session)
 
@@ -312,7 +312,7 @@ class AuditSessionsHandler(SecureHandler):
         _findings.pop(session_id, None)
         _event_queues.pop(session_id, None)
 
-        logger.info(f"Deleted audit session {session_id}")
+        logger.info("Deleted audit session %s", session_id)
 
         return self._json_response(200, {"deleted": session_id})
 
@@ -346,7 +346,7 @@ class AuditSessionsHandler(SecureHandler):
             if not t.cancelled() and t.exception() else None
         )
 
-        logger.info(f"Started audit session {session_id}")
+        logger.info("Started audit session %s", session_id)
 
         return self._json_response(200, session)
 
@@ -371,7 +371,7 @@ class AuditSessionsHandler(SecureHandler):
             },
         )
 
-        logger.info(f"Paused audit session {session_id}")
+        logger.info("Paused audit session %s", session_id)
 
         return self._json_response(200, session)
 
@@ -396,7 +396,7 @@ class AuditSessionsHandler(SecureHandler):
             },
         )
 
-        logger.info(f"Resumed audit session {session_id}")
+        logger.info("Resumed audit session %s", session_id)
 
         return self._json_response(200, session)
 
@@ -415,16 +415,16 @@ class AuditSessionsHandler(SecureHandler):
             body = await self._parse_json_body(request)
             reason = body.get("reason", reason)
         except (json.JSONDecodeError, ValueError) as e:
-            logger.debug(f"Could not parse cancellation reason from body: {e}, using default")
+            logger.debug("Could not parse cancellation reason from body: %s, using default", e)
 
         # Trigger CancellationToken if available
         token = _cancellation_tokens.get(session_id)
         if token:
             try:
                 token.cancel(reason)
-                logger.debug(f"Triggered CancellationToken for session {session_id}")
+                logger.debug("Triggered CancellationToken for session %s", session_id)
             except (RuntimeError, ValueError, TypeError) as e:
-                logger.warning(f"Failed to trigger CancellationToken: {e}")
+                logger.warning("Failed to trigger CancellationToken: %s", e)
 
         session["status"] = "cancelled"
         session["cancel_reason"] = reason
@@ -441,7 +441,7 @@ class AuditSessionsHandler(SecureHandler):
             },
         )
 
-        logger.info(f"Cancelled audit session {session_id}: {reason}")
+        logger.info("Cancelled audit session %s: %s", session_id, reason)
 
         return self._json_response(200, session)
 
@@ -581,7 +581,7 @@ class AuditSessionsHandler(SecureHandler):
             },
         )
 
-        logger.info(f"Human intervention in session {session_id}: {action}")
+        logger.info("Human intervention in session %s: %s", session_id, action)
 
         return self._json_response(
             200,
@@ -684,7 +684,7 @@ class AuditSessionsHandler(SecureHandler):
                     )
                     finding_objects.append(finding_obj)
                 except (ValueError, KeyError, TypeError) as e:
-                    logger.warning(f"Could not convert finding: {e}")
+                    logger.warning("Could not convert finding: %s", e)
 
             # Create mock session with findings
             mock_session = RealSession(
@@ -735,7 +735,7 @@ class AuditSessionsHandler(SecureHandler):
             }
 
         except ImportError as e:
-            logger.warning(f"New report generator not available, falling back: {e}")
+            logger.warning("New report generator not available, falling back: %s", e)
             # Fallback to legacy JSON export
             return self._json_response(
                 200,
@@ -746,7 +746,7 @@ class AuditSessionsHandler(SecureHandler):
                 },
             )
         except (ValueError, KeyError, TypeError, RuntimeError, OSError) as e:
-            logger.warning(f"Report generation failed, falling back: {e}")
+            logger.warning("Report generation failed, falling back: %s", e)
             return self._json_response(
                 200,
                 {
@@ -910,10 +910,10 @@ class AuditSessionsHandler(SecureHandler):
                     },
                 )
 
-                logger.info(f"Completed audit session {session_id}")
+                logger.info("Completed audit session %s", session_id)
 
         except (ValueError, KeyError, TypeError, RuntimeError, OSError) as e:
-            logger.error(f"Error in audit session {session_id}: {e}")
+            logger.error("Error in audit session %s: %s", session_id, e)
             _cancellation_tokens.pop(session_id, None)
             if session_id in _sessions:
                 _sessions[session_id]["status"] = "failed"

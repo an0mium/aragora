@@ -388,20 +388,20 @@ class ShopifyConnector(EnterpriseConnector):
             async with self._session.get(f"{self.base_url}/shop.json") as resp:
                 if resp.status == 200:
                     data = await resp.json()
-                    logger.info(f"Connected to Shopify store: {data['shop']['name']}")
+                    logger.info("Connected to Shopify store: %s", data['shop']['name'])
                     return True
                 else:
-                    logger.error(f"Failed to connect to Shopify: {resp.status}")
+                    logger.error("Failed to connect to Shopify: %s", resp.status)
                     return False
 
         except ImportError:
             logger.error("aiohttp package not installed. Run: pip install aiohttp")
             return False
         except OSError as e:
-            logger.error(f"Failed to connect to Shopify: {e}")
+            logger.error("Failed to connect to Shopify: %s", e)
             return False
         except (RuntimeError, ValueError, TypeError) as e:
-            logger.error(f"Failed to connect to Shopify: {e}")
+            logger.error("Failed to connect to Shopify: %s", e)
             return False
 
     async def disconnect(self) -> None:
@@ -616,7 +616,7 @@ class ShopifyConnector(EnterpriseConnector):
             data = await self._request("GET", f"/orders/{order_id}.json")
             return self._parse_order(data["order"])
         except (ConnectorAPIError, OSError, RuntimeError, ValueError, KeyError) as e:
-            logger.error(f"Failed to get order {order_id}: {e}")
+            logger.error("Failed to get order %s: %s", order_id, e)
             return None
 
     async def fulfill_order(
@@ -655,7 +655,7 @@ class ShopifyConnector(EnterpriseConnector):
             )
             return True
         except (ConnectorAPIError, OSError, RuntimeError, ValueError) as e:
-            logger.error(f"Failed to fulfill order {order_id}: {e}")
+            logger.error("Failed to fulfill order %s: %s", order_id, e)
             return False
 
     # =========================================================================
@@ -742,7 +742,7 @@ class ShopifyConnector(EnterpriseConnector):
             data = await self._request("GET", f"/products/{product_id}.json")
             return self._parse_product(data["product"])
         except (ConnectorAPIError, OSError, RuntimeError, ValueError, KeyError) as e:
-            logger.error(f"Failed to get product {product_id}: {e}")
+            logger.error("Failed to get product %s: %s", product_id, e)
             return None
 
     async def update_variant_inventory(
@@ -773,7 +773,7 @@ class ShopifyConnector(EnterpriseConnector):
             )
             return True
         except (ConnectorAPIError, OSError, RuntimeError, ValueError) as e:
-            logger.error(f"Failed to adjust inventory: {e}")
+            logger.error("Failed to adjust inventory: %s", e)
             return False
 
     async def get_low_stock_variants(
@@ -847,7 +847,7 @@ class ShopifyConnector(EnterpriseConnector):
             data = await self._request("GET", f"/customers/{customer_id}.json")
             return self._parse_customer(data["customer"])
         except (ConnectorAPIError, OSError, RuntimeError, ValueError, KeyError) as e:
-            logger.error(f"Failed to get customer {customer_id}: {e}")
+            logger.error("Failed to get customer %s: %s", customer_id, e)
             return None
 
     # =========================================================================

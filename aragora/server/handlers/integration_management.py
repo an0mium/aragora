@@ -234,7 +234,7 @@ class IntegrationsHandler(BaseHandler):
             return _legacy_error_response("Not found", 404, code="NOT_FOUND")
 
         except (KeyError, ValueError, TypeError, AttributeError, OSError, RuntimeError) as e:
-            logger.exception(f"Error handling integration request: {e}")
+            logger.exception("Error handling integration request: %s", e)
             return _legacy_error_response(
                 f"Internal error: {safe_error_message(e, 'integration management')}",
                 500,
@@ -465,7 +465,7 @@ class IntegrationsHandler(BaseHandler):
             success = store.deactivate(workspace_id)
 
             if success:
-                logger.info(f"Disconnected Slack workspace: {workspace_id}")
+                logger.info("Disconnected Slack workspace: %s", workspace_id)
                 return json_response(
                     {
                         "disconnected": True,
@@ -491,7 +491,7 @@ class IntegrationsHandler(BaseHandler):
             success = store.deactivate(workspace_id)
 
             if success:
-                logger.info(f"Disconnected Teams tenant: {workspace_id}")
+                logger.info("Disconnected Teams tenant: %s", workspace_id)
                 return json_response(
                     {
                         "disconnected": True,
@@ -750,7 +750,7 @@ class IntegrationsHandler(BaseHandler):
 
         if not _stats_limiter.is_allowed(rate_key):
             remaining = _stats_limiter.get_remaining(rate_key)
-            logger.warning(f"Rate limit exceeded for stats endpoint: {rate_key}")
+            logger.warning("Rate limit exceeded for stats endpoint: %s", rate_key)
             headers = {
                 "X-RateLimit-Limit": "30",
                 "X-RateLimit-Remaining": str(remaining),

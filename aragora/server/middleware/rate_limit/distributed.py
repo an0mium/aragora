@@ -180,16 +180,15 @@ class DistributedRateLimiter:
                     )
                     self._using_redis = True
                     logger.info(
-                        f"Distributed rate limiter initialized with Redis backend "
-                        f"(instance={self.instance_id})"
+                        "Distributed rate limiter initialized with Redis backend (instance=%s)", self.instance_id
                     )
                 except (ConnectionError, TimeoutError, OSError, ValueError, RuntimeError) as e:
-                    logger.warning(f"Failed to create Redis rate limiter: {e}")
+                    logger.warning("Failed to create Redis rate limiter: %s", e)
                     self._redis_limiter = None
                     self._using_redis = False
                 except Exception as e:  # noqa: BLE001 - redis.exceptions.* don't inherit builtins.ConnectionError
                     if "redis" in type(e).__module__:
-                        logger.warning(f"Failed to create Redis rate limiter: {e}")
+                        logger.warning("Failed to create Redis rate limiter: %s", e)
                         self._redis_limiter = None
                         self._using_redis = False
                     else:
@@ -219,8 +218,7 @@ class DistributedRateLimiter:
 
             if not self._using_redis:
                 logger.info(
-                    f"Distributed rate limiter using in-memory backend "
-                    f"(instance={self.instance_id})"
+                    "Distributed rate limiter using in-memory backend (instance=%s)", self.instance_id
                 )
 
             # Record initial backend status
@@ -321,14 +319,14 @@ class DistributedRateLimiter:
                 result = self._memory_limiter.allow(client_ip, endpoint, token, tenant_id)
 
         except (ConnectionError, TimeoutError, OSError, ValueError, RuntimeError) as e:
-            logger.warning(f"Rate limit check failed, using fallback: {e}")
+            logger.warning("Rate limit check failed, using fallback: %s", e)
             self._fallback_requests += 1
             if self.enable_metrics:
                 record_fallback_request(self.instance_id)
             result = self._memory_limiter.allow(client_ip, endpoint, token, tenant_id)
         except Exception as e:  # noqa: BLE001 - redis.exceptions.* don't inherit builtins.ConnectionError
             if "redis" in type(e).__module__:
-                logger.warning(f"Rate limit check failed (redis), using fallback: {e}")
+                logger.warning("Rate limit check failed (redis), using fallback: %s", e)
                 self._fallback_requests += 1
                 if self.enable_metrics:
                     record_fallback_request(self.instance_id)

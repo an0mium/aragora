@@ -168,7 +168,7 @@ class AgentChannel:
         async with self._lock:
             if agent_name not in self._mailboxes:
                 self._mailboxes[agent_name] = asyncio.Queue()
-                logger.debug(f"Agent {agent_name} joined channel {self._channel_id}")
+                logger.debug("Agent %s joined channel %s", agent_name, self._channel_id)
                 return True
             return False
 
@@ -187,7 +187,7 @@ class AgentChannel:
                 del self._mailboxes[agent_name]
                 if agent_name in self._handlers:
                     del self._handlers[agent_name]
-                logger.debug(f"Agent {agent_name} left channel {self._channel_id}")
+                logger.debug("Agent %s left channel %s", agent_name, self._channel_id)
                 return True
             return False
 
@@ -271,7 +271,7 @@ class AgentChannel:
             The sent message, or None if recipient not in channel
         """
         if recipient not in self._mailboxes:
-            logger.warning(f"Cannot send to {recipient}: not in channel {self._channel_id}")
+            logger.warning("Cannot send to %s: not in channel %s", recipient, self._channel_id)
             return None
 
         message = ChannelMessage(
@@ -297,7 +297,7 @@ class AgentChannel:
         # Trigger handlers
         await self._trigger_handlers(recipient, message)
 
-        logger.debug(f"[{self._channel_id}] {sender} -> {recipient}: {content[:50]}...")
+        logger.debug("[%s] %s -> %s: %s...", self._channel_id, sender, recipient, content[:50])
 
         return message
 
@@ -388,7 +388,7 @@ class AgentChannel:
             try:
                 await handler(message)
             except Exception as e:  # noqa: BLE001 - handler isolation: user-provided message handlers can raise any exception
-                logger.error(f"Handler error for {agent_name}: {e}")
+                logger.error("Handler error for %s: %s", agent_name, e)
 
     def get_history(
         self,
@@ -443,7 +443,7 @@ class AgentChannel:
         async with self._lock:
             self._mailboxes.clear()
             self._handlers.clear()
-        logger.debug(f"Channel {self._channel_id} closed")
+        logger.debug("Channel %s closed", self._channel_id)
 
     def to_context(self, limit: int = 10) -> str:
         """
@@ -502,7 +502,7 @@ class ChannelManager:
 
             channel = AgentChannel(channel_id, max_history)
             self._channels[channel_id] = channel
-            logger.info(f"Created channel: {channel_id}")
+            logger.info("Created channel: %s", channel_id)
             return channel
 
     async def get_channel(self, channel_id: str) -> AgentChannel | None:
@@ -523,7 +523,7 @@ class ChannelManager:
             if channel_id in self._channels:
                 await self._channels[channel_id].close()
                 del self._channels[channel_id]
-                logger.info(f"Closed channel: {channel_id}")
+                logger.info("Closed channel: %s", channel_id)
                 return True
             return False
 

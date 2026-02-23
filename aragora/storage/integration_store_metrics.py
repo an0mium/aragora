@@ -366,7 +366,7 @@ class InstrumentedIntegrationStore:
             self._metrics.consecutive_failures = 0
         except (OSError, RuntimeError, ConnectionError, ValueError) as e:
             self._metrics.is_healthy = False
-            logger.warning(f"Integration store health check failed: {e}")
+            logger.warning("Integration store health check failed: %s", e)
 
         return {
             "healthy": self._metrics.is_healthy,

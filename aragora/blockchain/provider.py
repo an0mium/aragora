@@ -196,9 +196,9 @@ class Web3Provider:
             if new_url:
                 active_url = new_url
                 self._active_rpc[cid] = new_url
-                logger.info(f"Failover to RPC: {new_url} for chain {cid}")
+                logger.info("Failover to RPC: %s for chain %s", new_url, cid)
             else:
-                logger.warning(f"No healthy RPCs for chain {cid}, using {active_url}")
+                logger.warning("No healthy RPCs for chain %s, using %s", cid, active_url)
 
         # Return cached or create new instance
         if active_url in self._web3_instances:
@@ -245,7 +245,7 @@ class Web3Provider:
             new_url = self._find_healthy_rpc(config)
             if new_url and new_url != url:
                 self._active_rpc[cid] = new_url
-                logger.info(f"RPC failover: {url} -> {new_url} for chain {cid}")
+                logger.info("RPC failover: %s -> %s for chain %s", url, new_url, cid)
 
     def is_connected(self, chain_id: int | None = None) -> bool:
         """Check if connected to the chain.

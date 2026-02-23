@@ -245,21 +245,20 @@ class HandlerRegistryMixin:
             skipped = len(HANDLER_REGISTRY) - len(active_registry)
             tier_info = ",".join(sorted(active_tiers))
             logger.info(
-                f"[handlers] Initialized {len(active_registry)}/{len(HANDLER_REGISTRY)} "
-                f"handlers (tiers={tier_info}, skipped={skipped})"
+                "[handlers] Initialized %s/%s handlers (tiers=%s, skipped=%s)", len(active_registry), len(HANDLER_REGISTRY), tier_info, skipped
             )
 
             # Check for unregistered handler classes in the codebase
             try:
                 check_handler_coverage(active_registry)
             except (ImportError, OSError, RuntimeError, ValueError) as e:
-                logger.debug(f"[handlers] Handler coverage check failed: {e}")
+                logger.debug("[handlers] Handler coverage check failed: %s", e)
 
             # Validate instantiated handlers
             validation_results = validate_handlers_on_init(cls, active_registry)
             if validation_results["invalid"]:
                 logger.warning(
-                    f"[handlers] {len(validation_results['invalid'])} handlers have validation issues"
+                    "[handlers] %s handlers have validation issues", len(validation_results['invalid'])
                 )
 
             # Log resource availability for observability
@@ -295,10 +294,10 @@ class HandlerRegistryMixin:
         unavailable = [k for k, v in resources.items() if not v]
 
         if unavailable:
-            logger.info(f"[resources] Available: {', '.join(available)}")
-            logger.info(f"[resources] Unavailable: {', '.join(unavailable)}")
+            logger.info("[resources] Available: %s", ', '.join(available))
+            logger.info("[resources] Unavailable: %s", ', '.join(unavailable))
         else:
-            logger.info(f"[resources] All resources available: {', '.join(available)}")
+            logger.info("[resources] All resources available: %s", ', '.join(available))
 
     def _try_modular_handler(self, path: str, query: dict) -> bool:
         """Try to handle request via modular handlers.
@@ -389,7 +388,7 @@ class HandlerRegistryMixin:
                 else:
                     self._auth_context = None
             except (ImportError, AttributeError, KeyError, ValueError) as auth_err:
-                logger.debug(f"[handlers] Auth context extraction failed: {auth_err}")
+                logger.debug("[handlers] Auth context extraction failed: %s", auth_err)
                 self._auth_context = None
 
             # Determine the handler method name for rate limit checking
@@ -511,7 +510,7 @@ class HandlerRegistryMixin:
             # Check for permission-related errors
             error_msg = str(e)
             if "AuthorizationContext" in error_msg or "Permission" in error_msg:
-                logger.warning(f"[handlers] Permission denied in {handler.__class__.__name__}: {e}")
+                logger.warning("[handlers] Permission denied in %s: %s", handler.__class__.__name__, e)
                 body_403 = json.dumps({"error": "Permission denied", "code": "forbidden"}).encode()
                 self.send_response(403)
                 self.send_header("Content-Type", "application/json")
@@ -522,7 +521,7 @@ class HandlerRegistryMixin:
                 self.end_headers()
                 self.wfile.write(body_403)
                 return True
-            logger.error(f"[handlers] Error in {handler.__class__.__name__}: {e}", exc_info=True)
+            logger.error("[handlers] Error in %s: %s", handler.__class__.__name__, e, exc_info=True)
             body_500 = json.dumps(
                 {
                     "error": "Internal server error",

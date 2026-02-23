@@ -131,7 +131,7 @@ class SessionMixin:
 
         await manager.link_debate(session.session_id, debate_id)
         logger.debug(
-            f"Linked debate {debate_id[:8]} to {self.platform_name} session for user {user_id}"
+            "Linked debate %s to %s session for user %s", debate_id[:8], self.platform_name, user_id
         )
         return session.session_id
 
@@ -195,7 +195,7 @@ class SessionMixin:
 
             if not target_channel:
                 logger.warning(
-                    f"No channel found in session {session.session_id} context, skipping"
+                    "No channel found in session %s context, skipping", session.session_id
                 )
                 continue
 
@@ -208,13 +208,11 @@ class SessionMixin:
                 )
                 responses.append(response)
                 logger.debug(
-                    f"Routed debate {debate_id[:8]} result to {self.platform_name} "
-                    f"channel {target_channel}"
+                    "Routed debate %s result to %s channel %s", debate_id[:8], self.platform_name, target_channel
                 )
             except (RuntimeError, OSError, ValueError, Exception) as e:
                 logger.error(
-                    f"Failed to route debate result to {self.platform_name} "
-                    f"channel {target_channel}: {e}"
+                    "Failed to route debate result to %s channel %s: %s", self.platform_name, target_channel, e
                 )
 
         return responses

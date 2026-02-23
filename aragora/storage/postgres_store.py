@@ -314,8 +314,7 @@ async def get_postgres_pool(
         await conn.execute("SET idle_in_transaction_session_timeout = '300s'")
 
     logger.info(
-        f"Creating PostgreSQL pool (min={min_size}, max={max_size}, "
-        f"command_timeout={command_timeout}s, statement_timeout={statement_timeout}s)"
+        "Creating PostgreSQL pool (min=%s, max=%s, command_timeout=%ss, statement_timeout=%ss)", min_size, max_size, command_timeout, statement_timeout
     )
     _pool = await asyncpg.create_pool(
         dsn,
@@ -466,8 +465,7 @@ async def acquire_connection_resilient(
                 circuit_breaker.record_failure()
 
             logger.warning(
-                f"Connection pool timeout (attempt {attempt + 1}/{retries}), "
-                f"pool utilization: {pool.get_size()}/{pool.get_max_size()}"
+                "Connection pool timeout (attempt %s/%s), pool utilization: %s/%s", attempt + 1, retries, pool.get_size(), pool.get_max_size()
             )
 
         except Exception as e:  # noqa: BLE001 - retry loop must catch all transient pool/connection errors (asyncpg, network, etc.)
@@ -477,7 +475,7 @@ async def acquire_connection_resilient(
             if circuit_breaker:
                 circuit_breaker.record_failure()
 
-            logger.warning(f"Connection acquisition error (attempt {attempt + 1}/{retries}): {e}")
+            logger.warning("Connection acquisition error (attempt %s/%s): %s", attempt + 1, retries, e)
 
         # Exponential backoff before retry (except on last attempt)
         if attempt < retries - 1:
@@ -596,7 +594,7 @@ class PostgresStore(ABC):
 
             if current_version == 0:
                 # New database - run initial schema
-                logger.info(f"[{self.SCHEMA_NAME}] Creating initial schema v{self.SCHEMA_VERSION}")
+                logger.info("[%s] Creating initial schema v%s", self.SCHEMA_NAME, self.SCHEMA_VERSION)
                 await conn.execute(self.INITIAL_SCHEMA)
                 await conn.execute(
                     """
@@ -611,7 +609,7 @@ class PostgresStore(ABC):
             elif current_version < self.SCHEMA_VERSION:
                 # Run migrations
                 logger.info(
-                    f"[{self.SCHEMA_NAME}] Migrating from v{current_version} to v{self.SCHEMA_VERSION}"
+                    "[%s] Migrating from v%s to v%s", self.SCHEMA_NAME, current_version, self.SCHEMA_VERSION
                 )
                 await self._run_migrations(conn, current_version)
                 await conn.execute(
@@ -624,7 +622,7 @@ class PostgresStore(ABC):
                 )
 
         self._initialized = True
-        logger.debug(f"[{self.SCHEMA_NAME}] Schema initialized at version {self.SCHEMA_VERSION}")
+        logger.debug("[%s] Schema initialized at version %s", self.SCHEMA_NAME, self.SCHEMA_VERSION)
 
     async def _run_migrations(self, conn: Connection, from_version: int) -> None:
         """
@@ -823,7 +821,7 @@ class PostgresStore(ABC):
             safe_patterns = ["IS NULL", "IS NOT NULL", "TRUE", "FALSE"]
             if not any(p in where_check for p in safe_patterns):
                 logger.warning(
-                    f"WHERE clause without placeholders or params may indicate SQL injection risk: {where[:50]}"
+                    "WHERE clause without placeholders or params may indicate SQL injection risk: %s", where[:50]
                 )
 
     async def count(
@@ -905,7 +903,7 @@ class PostgresStore(ABC):
             return row[0] if row else 0
         except (OSError, RuntimeError) as e:
             # Table may not exist yet, or connection issue
-            logger.debug(f"Could not fetch schema version: {e}")
+            logger.debug("Could not fetch schema version: %s", e)
             return 0
 
 

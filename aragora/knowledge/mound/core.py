@@ -147,7 +147,7 @@ class KnowledgeMoundCore:
         if self._initialized:
             return
 
-        logger.info(f"Initializing Knowledge Mound (backend={self.config.backend.value})")
+        logger.info("Initializing Knowledge Mound (backend=%s)", self.config.backend.value)
 
         # Initialize primary storage based on backend
         if self.config.backend == MoundBackend.SQLITE:
@@ -197,7 +197,7 @@ class KnowledgeMoundCore:
 
         db_path = self.config.sqlite_path or str(Path(DB_KNOWLEDGE_PATH) / "mound.db")
         self._meta_store = KnowledgeMoundMetaStore(db_path)
-        logger.debug(f"SQLite backend initialized at {db_path}")
+        logger.debug("SQLite backend initialized at %s", db_path)
 
     async def _init_postgres(self) -> None:
         """Initialize PostgreSQL backend with optional resilience hardening."""
@@ -240,11 +240,9 @@ class KnowledgeMoundCore:
                 # Initialize with integrity checks
                 integrity_result = await self._meta_store.initialize()
                 if self.config.enable_integrity_checks and not integrity_result.passed:
-                    logger.warning(f"Integrity check found issues: {integrity_result.issues_found}")
+                    logger.warning("Integrity check found issues: %s", integrity_result.issues_found)
                 logger.debug(
-                    f"PostgreSQL backend initialized with resilience "
-                    f"(integrity: {integrity_result.checks_performed} checks, "
-                    f"{'passed' if integrity_result.passed else 'issues found'})"
+                    "PostgreSQL backend initialized with resilience (integrity: %s checks, %s)", integrity_result.checks_performed, 'passed' if integrity_result.passed else 'issues found'
                 )
             else:
                 self._meta_store = base_store
@@ -252,13 +250,13 @@ class KnowledgeMoundCore:
                 logger.debug("PostgreSQL backend initialized (resilience disabled)")
 
         except ImportError as e:
-            logger.warning(f"asyncpg not available ({e}), falling back to SQLite")
+            logger.warning("asyncpg not available (%s), falling back to SQLite", e)
             await self._init_sqlite()
         except (ConnectionError, TimeoutError, OSError) as e:
-            logger.warning(f"PostgreSQL init failed: {e}, falling back to SQLite")
+            logger.warning("PostgreSQL init failed: %s, falling back to SQLite", e)
             await self._init_sqlite()
         except (RuntimeError, ValueError) as e:
-            logger.exception(f"Unexpected PostgreSQL init error: {e}, falling back to SQLite")
+            logger.exception("Unexpected PostgreSQL init error: %s, falling back to SQLite", e)
             await self._init_sqlite()
 
     async def _init_redis(self) -> None:
@@ -286,7 +284,7 @@ class KnowledgeMoundCore:
         except ImportError:
             logger.warning("redis not available, caching disabled")
         except (ConnectionError, TimeoutError, OSError) as e:
-            logger.warning(f"Redis init failed: {e}, caching disabled")
+            logger.warning("Redis init failed: %s, caching disabled", e)
 
     async def _init_weaviate(self) -> None:
         """Initialize Weaviate vector store.
@@ -323,7 +321,7 @@ class KnowledgeMoundCore:
         except ImportError:
             logger.warning("Weaviate not available")
         except (ConnectionError, TimeoutError, RuntimeError) as e:
-            logger.warning(f"Weaviate init failed: {e}")
+            logger.warning("Weaviate init failed: %s", e)
 
     async def _init_semantic_store(self) -> None:
         """Initialize local semantic store for embeddings."""
@@ -341,11 +339,11 @@ class KnowledgeMoundCore:
                 db_path=semantic_db_path,
                 default_tenant_id=self.workspace_id,
             )
-            logger.debug(f"Semantic store initialized at {semantic_db_path}")
+            logger.debug("Semantic store initialized at %s", semantic_db_path)
         except ImportError:
             logger.warning("Semantic store dependencies not available")
         except (RuntimeError, OSError, ValueError) as e:
-            logger.warning(f"Semantic store init failed: {e}")
+            logger.warning("Semantic store init failed: %s", e)
 
     def _ensure_initialized(self) -> None:
         """Ensure the mound is initialized."""
@@ -364,7 +362,7 @@ class KnowledgeMoundCore:
             try:
                 await self._vector_store.close()
             except (RuntimeError, ConnectionError, OSError) as e:
-                logger.debug(f"Error closing vector store: {e}")
+                logger.debug("Error closing vector store: %s", e)
         if hasattr(self._meta_store, "close"):
             await self._meta_store.close()
 
@@ -501,11 +499,11 @@ class KnowledgeMoundCore:
         # Use getattr to access method that comes from mixin
         get_method = getattr(self, "get", None)
         if get_method is None:
-            logger.debug(f"Node {node_id} cannot be archived - get method not available")
+            logger.debug("Node %s cannot be archived - get method not available", node_id)
             return
         node = await get_method(node_id)
         if not node:
-            logger.debug(f"Node {node_id} not found, skipping archive")
+            logger.debug("Node %s not found, skipping archive", node_id)
             return
 
         archive_record = {
@@ -578,12 +576,12 @@ class KnowledgeMoundCore:
                         ),
                     )
                     conn.commit()
-                logger.debug(f"Archived node {node_id} to knowledge_archive table")
+                logger.debug("Archived node %s to knowledge_archive table", node_id)
             except (RuntimeError, OSError, sqlite3.Error) as e:
-                logger.warning(f"Failed to archive node {node_id}: {e}")
+                logger.warning("Failed to archive node %s: %s", node_id, e)
                 # Don't block deletion on archive failure
             except (ValueError, KeyError, AttributeError) as e:
-                logger.exception(f"Unexpected archive error for node {node_id}: {e}")
+                logger.exception("Unexpected archive error for node %s: %s", node_id, e)
                 # Don't block deletion on archive failure
 
     async def _save_relationship(self, from_id: str, to_id: str, rel_type: str) -> None:
@@ -747,7 +745,7 @@ class KnowledgeMoundCore:
         # Get node data first
         node = await self._get_node(node_id)
         if not node:
-            logger.debug(f"Node {node_id} not found, skipping archive")
+            logger.debug("Node %s not found, skipping archive", node_id)
             return
 
         archive_record = {
@@ -818,9 +816,9 @@ class KnowledgeMoundCore:
                 conn.commit()
             # Delete the original node
             await self._delete_node(node_id)
-            logger.debug(f"Archived node {node_id} with reason: {reason}")
+            logger.debug("Archived node %s with reason: %s", node_id, reason)
         except (RuntimeError, OSError) as e:
-            logger.warning(f"Failed to archive node {node_id}: {e}")
+            logger.warning("Failed to archive node %s: %s", node_id, e)
 
     async def _restore_archived_node(self, node_id: str, workspace_id: str) -> bool:
         """Restore an archived node (used by pruning restore)."""
@@ -849,7 +847,7 @@ class KnowledgeMoundCore:
                 conn.commit()
                 return True
         except (RuntimeError, OSError, KeyError) as e:
-            logger.warning(f"Failed to restore node {node_id}: {e}")
+            logger.warning("Failed to restore node %s: %s", node_id, e)
             return False
 
     async def _get_nodes_by_content_hash(self, workspace_id: str) -> dict[str, list[str]]:
@@ -917,7 +915,7 @@ class KnowledgeMoundCore:
                     for row in rows
                 ]
         except (RuntimeError, OSError) as e:
-            logger.warning(f"Failed to get prune history: {e}")
+            logger.warning("Failed to get prune history: %s", e)
             return []
 
     async def _save_prune_history(self, history: Any) -> None:
@@ -957,7 +955,7 @@ class KnowledgeMoundCore:
                 )
                 conn.commit()
         except (RuntimeError, OSError) as e:
-            logger.warning(f"Failed to save prune history: {e}")
+            logger.warning("Failed to save prune history: %s", e)
 
     # =========================================================================
     # Query Helper Methods (for connected stores)
@@ -1001,7 +999,7 @@ class KnowledgeMoundCore:
             entries = search_fn(query, limit=limit)
             return [self._continuum_to_item(e) for e in entries]
         except (KeyError, ValueError, AttributeError, RuntimeError, OSError) as e:
-            logger.warning(f"Continuum query failed: {e}")
+            logger.warning("Continuum query failed: %s", e)
             return []
 
     async def _query_consensus(
@@ -1017,7 +1015,7 @@ class KnowledgeMoundCore:
             entries = await search_fn(query, limit=limit)
             return [self._consensus_to_item(e) for e in entries]
         except (KeyError, ValueError, AttributeError, RuntimeError, OSError) as e:
-            logger.warning(f"Consensus query failed: {e}")
+            logger.warning("Consensus query failed: %s", e)
             return []
 
     async def _query_facts(
@@ -1037,7 +1035,7 @@ class KnowledgeMoundCore:
             facts = query_fn(query, workspace_id=workspace_id, limit=limit)
             return [self._fact_to_item(f) for f in facts]
         except (KeyError, ValueError, AttributeError, RuntimeError, OSError) as e:
-            logger.warning(f"Facts query failed: {e}")
+            logger.warning("Facts query failed: %s", e)
             return []
 
     async def _query_evidence(
@@ -1058,7 +1056,7 @@ class KnowledgeMoundCore:
             evidence_list = search_fn(query, limit=limit)
             return [self._evidence_to_item(e) for e in evidence_list]
         except (KeyError, ValueError, AttributeError, RuntimeError, OSError) as e:
-            logger.warning(f"Evidence query failed: {e}")
+            logger.warning("Evidence query failed: %s", e)
             return []
 
     async def _query_critique(
@@ -1078,7 +1076,7 @@ class KnowledgeMoundCore:
             patterns = search_fn(query, limit=limit)
             return [self._critique_to_item(p) for p in patterns]
         except (KeyError, ValueError, AttributeError, RuntimeError, OSError) as e:
-            logger.warning(f"Critique query failed: {e}")
+            logger.warning("Critique query failed: %s", e)
             return []
 
     # =========================================================================

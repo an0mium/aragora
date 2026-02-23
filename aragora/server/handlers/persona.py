@@ -98,7 +98,7 @@ class PersonaHandler(BaseHandler):
         # Rate limit check
         client_ip = get_client_ip(handler)
         if not _persona_limiter.is_allowed(client_ip):
-            logger.warning(f"Rate limit exceeded for persona endpoint: {client_ip}")
+            logger.warning("Rate limit exceeded for persona endpoint: %s", client_ip)
             return error_response("Rate limit exceeded. Please try again later.", 429)
 
         # List all personas
@@ -166,7 +166,7 @@ class PersonaHandler(BaseHandler):
                 }
             )
         except (TypeError, ValueError, KeyError, AttributeError, OSError) as e:
-            logger.error(f"Error getting personas: {e}", exc_info=True)
+            logger.error("Error getting personas: %s", e, exc_info=True)
             return json_response({"error": "Failed to get personas", "personas": []})
 
     def _get_agent_persona(self, agent: str) -> HandlerResult:
@@ -195,7 +195,7 @@ class PersonaHandler(BaseHandler):
                     {"error": f"No persona found for agent '{agent}'", "persona": None}
                 )
         except (TypeError, ValueError, KeyError, AttributeError, OSError) as e:
-            logger.error(f"Error getting persona for {agent}: {e}", exc_info=True)
+            logger.error("Error getting persona for %s: %s", agent, e, exc_info=True)
             return error_response("Failed to get persona", 500)
 
     def _get_agent_performance(self, agent: str) -> HandlerResult:
@@ -213,7 +213,7 @@ class PersonaHandler(BaseHandler):
                 }
             )
         except (TypeError, ValueError, KeyError, AttributeError, OSError) as e:
-            logger.error(f"Error getting performance for {agent}: {e}", exc_info=True)
+            logger.error("Error getting performance for %s: %s", agent, e, exc_info=True)
             return error_response("Failed to get performance", 500)
 
     def _get_agent_domains(self, agent: str, limit: int) -> HandlerResult:
@@ -232,7 +232,7 @@ class PersonaHandler(BaseHandler):
                 }
             )
         except (TypeError, ValueError, KeyError, AttributeError, OSError) as e:
-            logger.error(f"Error getting domains for {agent}: {e}", exc_info=True)
+            logger.error("Error getting domains for %s: %s", agent, e, exc_info=True)
             return error_response("Failed to get domains", 500)
 
     def _get_grounded_persona(self, agent: str) -> HandlerResult:
@@ -265,7 +265,7 @@ class PersonaHandler(BaseHandler):
             else:
                 return json_response({"agent": agent, "message": "No grounded persona data"})
         except (TypeError, ValueError, KeyError, AttributeError, OSError) as e:
-            logger.error(f"Error getting grounded persona for {agent}: {e}", exc_info=True)
+            logger.error("Error getting grounded persona for %s: %s", agent, e, exc_info=True)
             return error_response("Failed to get grounded persona", 500)
 
     def _get_identity_prompt(self, agent: str, sections: str | None = None) -> HandlerResult:
@@ -292,7 +292,7 @@ class PersonaHandler(BaseHandler):
                 }
             )
         except (TypeError, ValueError, KeyError, AttributeError, OSError) as e:
-            logger.error(f"Error getting identity prompt for {agent}: {e}", exc_info=True)
+            logger.error("Error getting identity prompt for %s: %s", agent, e, exc_info=True)
             return error_response("Failed to get identity prompt", 500)
 
     def _get_agent_accuracy(self, agent: str) -> HandlerResult:
@@ -343,7 +343,7 @@ class PersonaHandler(BaseHandler):
                     }
                 )
         except (TypeError, ValueError, KeyError, AttributeError, OSError) as e:
-            logger.error(f"Error getting accuracy for {agent}: {e}", exc_info=True)
+            logger.error("Error getting accuracy for %s: %s", agent, e, exc_info=True)
             return error_response("Failed to get accuracy", 500)
 
     def _get_persona_options(self) -> HandlerResult:
@@ -428,7 +428,7 @@ class PersonaHandler(BaseHandler):
                 }
             )
         except (TypeError, ValueError, KeyError, AttributeError, OSError) as e:
-            logger.error(f"Error creating persona: {e}", exc_info=True)
+            logger.error("Error creating persona: %s", e, exc_info=True)
             return error_response("Failed to create persona", 500)
 
     # =========================================================================
@@ -498,7 +498,7 @@ class PersonaHandler(BaseHandler):
                 }
             )
         except (TypeError, ValueError, KeyError, AttributeError, OSError) as e:
-            logger.error(f"Error updating persona for {agent}: {e}", exc_info=True)
+            logger.error("Error updating persona for %s: %s", agent, e, exc_info=True)
             return error_response("Failed to update persona", 500)
 
     # =========================================================================
@@ -548,5 +548,5 @@ class PersonaHandler(BaseHandler):
                 }
             )
         except (TypeError, ValueError, KeyError, AttributeError, OSError) as e:
-            logger.error(f"Error deleting persona for {agent}: {e}", exc_info=True)
+            logger.error("Error deleting persona for %s: %s", agent, e, exc_info=True)
             return error_response("Failed to delete persona", 500)

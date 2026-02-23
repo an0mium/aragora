@@ -176,7 +176,7 @@ class ComputerUseBridge:
             y = coords[1] if len(coords) > 1 else 0
             return MoveAction(x=x, y=y)
 
-        logger.warning(f"Unknown OpenClaw action type: {action_type}, defaulting to screenshot")
+        logger.warning("Unknown OpenClaw action type: %s, defaulting to screenshot", action_type)
         return ScreenshotAction()
 
     @staticmethod
@@ -222,7 +222,7 @@ class ComputerUseBridge:
         if isinstance(action, MoveAction):
             return {"action": "move", "coordinate": [action.x, action.y]}
 
-        logger.warning(f"Unknown action type for OpenClaw conversion: {type(action).__name__}")
+        logger.warning("Unknown action type for OpenClaw conversion: %s", type(action).__name__)
         return {"action": "unknown"}
 
     @staticmethod

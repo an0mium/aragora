@@ -219,8 +219,7 @@ class TeamsTokenRefreshScheduler:
         self._running = True
         self._task = asyncio.create_task(self._refresh_loop())
         logger.info(
-            f"Started Teams token refresh scheduler "
-            f"(interval={self.interval_minutes}min, window={self.expiry_window_hours}h)"
+            "Started Teams token refresh scheduler (interval=%smin, window=%sh)", self.interval_minutes, self.expiry_window_hours
         )
 
     async def stop(self) -> None:
@@ -249,14 +248,13 @@ class TeamsTokenRefreshScheduler:
 
                 if stats.failed > 0:
                     logger.warning(
-                        f"Teams token refresh cycle completed with errors: "
-                        f"{stats.refreshed} refreshed, {stats.failed} failed"
+                        "Teams token refresh cycle completed with errors: %s refreshed, %s failed", stats.refreshed, stats.failed
                     )
                 elif stats.refreshed > 0:
-                    logger.info(f"Teams token refresh cycle completed: {stats.refreshed} refreshed")
+                    logger.info("Teams token refresh cycle completed: %s refreshed", stats.refreshed)
 
             except (ConnectionError, TimeoutError, OSError, RuntimeError) as e:
-                logger.error(f"Error in Teams token refresh cycle: {e}", exc_info=True)
+                logger.error("Error in Teams token refresh cycle: %s", e, exc_info=True)
 
             # Wait for next cycle
             await asyncio.sleep(self.interval_minutes * 60)
@@ -276,7 +274,7 @@ class TeamsTokenRefreshScheduler:
             # Update active tenants metric
             _update_active_tenants(len(expiring))
         except (ConnectionError, TimeoutError, OSError, RuntimeError, ValueError) as e:
-            logger.error(f"Failed to get expiring Teams tokens: {e}")
+            logger.error("Failed to get expiring Teams tokens: %s", e)
             _record_refresh_failure("store_error")
             return stats
 
@@ -284,7 +282,7 @@ class TeamsTokenRefreshScheduler:
             logger.debug("No Teams tokens expiring soon")
             return stats
 
-        logger.info(f"Found {len(expiring)} Teams tokens to refresh")
+        logger.info("Found %s Teams tokens to refresh", len(expiring))
 
         # Refresh each token with small delays to avoid rate limiting
         for tenant in expiring:
@@ -302,7 +300,7 @@ class TeamsTokenRefreshScheduler:
                     try:
                         self.on_refresh_failure(result)
                     except (TypeError, ValueError, RuntimeError) as e:
-                        logger.error(f"Error in refresh failure callback: {e}")
+                        logger.error("Error in refresh failure callback: %s", e)
 
             # Small delay between refreshes to avoid rate limiting
             await asyncio.sleep(0.5)
@@ -328,7 +326,7 @@ class TeamsTokenRefreshScheduler:
             )
 
             if result:
-                logger.info(f"Successfully refreshed Teams token for tenant: {tenant_name}")
+                logger.info("Successfully refreshed Teams token for tenant: %s", tenant_name)
                 return RefreshResult(
                     tenant_id=tenant_id,
                     tenant_name=tenant_name,
@@ -336,7 +334,7 @@ class TeamsTokenRefreshScheduler:
                 )
             else:
                 error = "Refresh returned None (token may be revoked)"
-                logger.warning(f"Failed to refresh Teams token for {tenant_name}: {error}")
+                logger.warning("Failed to refresh Teams token for %s: %s", tenant_name, error)
                 return RefreshResult(
                     tenant_id=tenant_id,
                     tenant_name=tenant_name,
@@ -345,7 +343,7 @@ class TeamsTokenRefreshScheduler:
                 )
 
         except (ConnectionError, TimeoutError, OSError, RuntimeError, ValueError) as e:
-            logger.error(f"Exception refreshing Teams token for {tenant_name}: {e}")
+            logger.error("Exception refreshing Teams token for %s: %s", tenant_name, e)
             return RefreshResult(
                 tenant_id=tenant_id,
                 tenant_name=tenant_name,

@@ -171,10 +171,10 @@ class ConnectionRouter:
                     },
                 )
                 logger.info(
-                    f"[router] Primary pool initialized (size: {self._primary_pool.get_size()})"
+                    "[router] Primary pool initialized (size: %s)", self._primary_pool.get_size()
                 )
             except (OSError, RuntimeError, ConnectionError, TimeoutError) as e:
-                logger.error(f"[router] Failed to initialize primary pool: {e}")
+                logger.error("[router] Failed to initialize primary pool: %s", e)
                 return False
 
         # Initialize replica pools
@@ -192,17 +192,16 @@ class ConnectionRouter:
                 )
                 self._replica_pools.append(pool)
                 logger.info(
-                    f"[router] Replica pool '{replica_config.name}' initialized "
-                    f"(size: {pool.get_size()})"
+                    "[router] Replica pool '%s' initialized (size: %s)", replica_config.name, pool.get_size()
                 )
             except (OSError, RuntimeError, ConnectionError, TimeoutError) as e:
                 logger.warning(
-                    f"[router] Failed to initialize replica '{replica_config.name}': {e}"
+                    "[router] Failed to initialize replica '%s': %s", replica_config.name, e
                 )
                 # Continue with other replicas
 
         self._initialized = True
-        logger.info(f"[router] Initialized with 1 primary + {len(self._replica_pools)} replicas")
+        logger.info("[router] Initialized with 1 primary + %s replicas", len(self._replica_pools))
         return True
 
     async def _select_replica_pool(self) -> Pool | None:
@@ -237,7 +236,7 @@ class ConnectionRouter:
                         yield conn
                     return
                 except (OSError, RuntimeError, ConnectionError, TimeoutError) as e:
-                    logger.warning(f"[router] Replica connection failed: {e}")
+                    logger.warning("[router] Replica connection failed: %s", e)
                     self._metrics.replica_failovers += 1
                     # Fall through to primary if failover enabled
                     if not self.config.failover_to_primary:
@@ -304,7 +303,7 @@ class ConnectionRouter:
 
         for i, pool in enumerate(self._replica_pools):
             await pool.close()
-            logger.info(f"[router] Replica pool {i} closed")
+            logger.info("[router] Replica pool %s closed", i)
 
         self._initialized = False
         self._replica_pools = []

@@ -144,12 +144,12 @@ class ConsensusVerifier:
                 # Emit verification result event
                 self._emit_verification_event(ctx, agent_name, verified_count or 0, bonus)
             except asyncio.TimeoutError:
-                logger.debug(f"verification_timeout agent={agent_name}")
+                logger.debug("verification_timeout agent=%s", agent_name)
                 if hasattr(result, "verification_results"):
                     result.verification_results[agent_name] = -1  # Timeout indicator
                 self._emit_verification_event(ctx, agent_name, -1, 0.0, timeout=True)
             except Exception as e:  # noqa: BLE001 - phase isolation
-                logger.debug(f"verification_error agent={agent_name} error={e}")
+                logger.debug("verification_error agent=%s error=%s", agent_name, e)
 
         # Update ELO based on verification results
         await self._update_elo_from_verification(ctx)
@@ -180,7 +180,7 @@ class ConsensusVerifier:
             try:
                 domain = self._extract_debate_domain()
             except (RuntimeError, AttributeError, TypeError) as e:  # noqa: BLE001
-                logger.debug(f"Failed to extract debate domain: {e}")
+                logger.debug("Failed to extract debate domain: %s", e)
 
         # Process verification results for each agent
         for agent_name, verification_data in result.verification_results.items():
@@ -215,7 +215,7 @@ class ConsensusVerifier:
                         f"change={change:.1f}"
                     )
             except (RuntimeError, AttributeError, TypeError) as e:  # noqa: BLE001
-                logger.debug(f"verification_elo_error agent={agent_name} error={e}")
+                logger.debug("verification_elo_error agent=%s error=%s", agent_name, e)
 
     def adjust_vote_confidence_from_verification(
         self,
@@ -298,8 +298,7 @@ class ConsensusVerifier:
 
         if adjusted_count > 0:
             logger.info(
-                f"[verification] Adjusted confidence for {adjusted_count} votes "
-                f"based on verification results"
+                "[verification] Adjusted confidence for %s votes based on verification results", adjusted_count
             )
 
         return votes
@@ -342,7 +341,7 @@ class ConsensusVerifier:
                 )
             )
         except (RuntimeError, AttributeError, TypeError) as e:  # noqa: BLE001
-            logger.debug(f"verification_event_error: {e}")
+            logger.debug("verification_event_error: %s", e)
 
 
 __all__ = ["ConsensusVerifier"]

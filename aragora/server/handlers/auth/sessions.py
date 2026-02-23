@@ -199,7 +199,7 @@ def handle_revoke_session(handler_instance: AuthHandler, handler, session_id: st
     # 2. Token expires naturally
     # For immediate revocation, users should use logout-all
 
-    logger.info(f"Session {session_id[:8]}... revoked for user {auth_ctx.user_id}")
+    logger.info("Session %s... revoked for user %s", session_id[:8], auth_ctx.user_id)
     emit_handler_event("auth", DELETED, {"action": "session_revoked"}, user_id=auth_ctx.user_id)
 
     return json_response(

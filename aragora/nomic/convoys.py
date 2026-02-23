@@ -283,7 +283,7 @@ class ConvoyManager:
         self.convoy_dir.mkdir(parents=True, exist_ok=True)
         await self._load_convoys()
         self._initialized = True
-        logger.info(f"ConvoyManager initialized with {len(self._convoys)} convoys")
+        logger.info("ConvoyManager initialized with %s convoys", len(self._convoys))
 
     async def _load_convoys(self) -> None:
         """Load convoys from JSONL file."""
@@ -301,9 +301,9 @@ class ConvoyManager:
                         convoy = Convoy.from_dict(data)
                         self._convoys[convoy.id] = convoy
                     except (json.JSONDecodeError, KeyError) as e:
-                        logger.warning(f"Invalid convoy data: {e}")
+                        logger.warning("Invalid convoy data: %s", e)
         except OSError as e:
-            logger.error(f"Failed to load convoys: {e}")
+            logger.error("Failed to load convoys: %s", e)
 
     async def _save_convoy(self, convoy: Convoy) -> None:
         """Save a convoy to the JSONL file."""
@@ -366,7 +366,7 @@ class ConvoyManager:
             self._convoys[convoy.id] = convoy
             await self._save_convoy(convoy)
 
-            logger.info(f"Created convoy: {convoy.id} ({convoy.title}) with {len(bead_ids)} beads")
+            logger.info("Created convoy: %s (%s) with %s beads", convoy.id, convoy.title, len(bead_ids))
             return convoy
 
     async def create_convoy_from_subtasks(
@@ -428,7 +428,7 @@ class ConvoyManager:
             self._convoys[convoy.id] = convoy
             await self._save_convoy(convoy)
 
-            logger.info(f"Created convoy from subtasks: {convoy.id} with {len(bead_ids)} beads")
+            logger.info("Created convoy from subtasks: %s with %s beads", convoy.id, len(bead_ids))
             return convoy
 
     async def get_convoy(self, convoy_id: str) -> Convoy | None:
@@ -513,7 +513,7 @@ class ConvoyManager:
 
             await self._save_convoy(convoy)
 
-            logger.info(f"Assigned convoy {convoy_id} to agents: {agent_ids}")
+            logger.info("Assigned convoy %s to agents: %s", convoy_id, agent_ids)
             return True
 
     async def get_convoy_progress(self, convoy_id: str) -> ConvoyProgress:

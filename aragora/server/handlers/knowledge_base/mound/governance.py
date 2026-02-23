@@ -123,7 +123,7 @@ class GovernanceOperationsMixin:
                 }
             )
         except (KeyError, ValueError, OSError, TypeError, AttributeError) as e:
-            logger.error(f"Error creating role: {e}")
+            logger.error("Error creating role: %s", e)
             return error_response(safe_error_message(e), status=500)
 
     @require_permission("governance:admin")
@@ -180,7 +180,7 @@ class GovernanceOperationsMixin:
             logger.warning("Handler error: %s", e)
             return error_response("Resource not found", status=404)
         except (KeyError, OSError, TypeError, AttributeError) as e:
-            logger.error(f"Error assigning role: {e}")
+            logger.error("Error assigning role: %s", e)
             return error_response(safe_error_message(e), status=500)
 
     @require_permission("governance:admin")
@@ -233,7 +233,7 @@ class GovernanceOperationsMixin:
                 }
             )
         except (KeyError, ValueError, OSError, TypeError, AttributeError) as e:
-            logger.error(f"Error revoking role: {e}")
+            logger.error("Error revoking role: %s", e)
             return error_response(safe_error_message(e), status=500)
 
     @require_permission("governance:read")
@@ -276,7 +276,7 @@ class GovernanceOperationsMixin:
                 }
             )
         except (KeyError, ValueError, OSError, TypeError, AttributeError) as e:
-            logger.error(f"Error getting user permissions: {e}")
+            logger.error("Error getting user permissions: %s", e)
             return error_response(safe_error_message(e), status=500)
 
     @require_permission("governance:read")
@@ -338,7 +338,7 @@ class GovernanceOperationsMixin:
                 }
             )
         except (KeyError, ValueError, OSError, TypeError, AttributeError) as e:
-            logger.error(f"Error checking permission: {e}")
+            logger.error("Error checking permission: %s", e)
             return error_response(safe_error_message(e), status=500)
 
     @require_permission("governance:read")
@@ -399,7 +399,7 @@ class GovernanceOperationsMixin:
                 }
             )
         except (KeyError, ValueError, OSError, TypeError, AttributeError) as e:
-            logger.error(f"Error querying audit trail: {e}")
+            logger.error("Error querying audit trail: %s", e)
             return error_response(safe_error_message(e), status=500)
 
     @require_permission("governance:read")
@@ -436,7 +436,7 @@ class GovernanceOperationsMixin:
 
             return json_response(activity)
         except (KeyError, ValueError, OSError, TypeError, AttributeError) as e:
-            logger.error(f"Error getting user activity: {e}")
+            logger.error("Error getting user activity: %s", e)
             return error_response(safe_error_message(e), status=500)
 
     @require_permission("governance:read")
@@ -458,5 +458,5 @@ class GovernanceOperationsMixin:
             stats = mound.get_governance_stats()
             return json_response(stats)
         except (KeyError, ValueError, OSError, TypeError, AttributeError) as e:
-            logger.error(f"Error getting governance stats: {e}")
+            logger.error("Error getting governance stats: %s", e)
             return error_response(safe_error_message(e), status=500)

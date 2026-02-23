@@ -60,11 +60,11 @@ def _check_inbox_permission(
         checker = get_permission_checker()
         decision = checker.check_permission(context, permission)
         if not decision.allowed:
-            logger.warning(f"RBAC denied {permission} for user {user_id}: {decision.reason}")
+            logger.warning("RBAC denied %s for user %s: %s", permission, user_id, decision.reason)
             return error_response("Permission denied", status=403)
         return None
     except (ValueError, TypeError, KeyError, AttributeError, RuntimeError) as e:
-        logger.error(f"RBAC check failed: {e}")
+        logger.error("RBAC check failed: %s", e)
         return error_response("Authorization check failed", status=500)
 
 
@@ -551,7 +551,7 @@ async def handle_batch_extract(
                 total_high_priority += result.high_priority_count
 
             except (KeyError, ValueError, TypeError, AttributeError, RuntimeError, OSError) as e:
-                logger.warning(f"Failed to extract from email {email.id}: {e}")
+                logger.warning("Failed to extract from email %s: %s", email.id, e)
                 results.append(
                     {
                         "email_id": email.id,

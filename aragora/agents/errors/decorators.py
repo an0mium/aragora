@@ -365,7 +365,7 @@ def handle_agent_errors(
                 except ValueError as e:
                     if "json" in str(e).lower() or "decode" in str(e).lower():
                         action = _handle_json_error(e, ctx)
-                        logger.error(f"[{agent_name}] Response parse error: {action.error}")
+                        logger.error("[%s] Response parse error: %s", agent_name, action.error)
                         raise action.error from e
                     raise
 
@@ -379,7 +379,7 @@ def handle_agent_errors(
                 ) as e:
                     action = _handle_unexpected_error(e, ctx)
                     logger.error(
-                        f"[{agent_name}] Unexpected error (attempt {attempt}): {action.error}",
+                        "[%s] Unexpected error (attempt %s): %s", agent_name, attempt, action.error,
                         exc_info=True,
                     )
                     if circuit_breaker is not None:

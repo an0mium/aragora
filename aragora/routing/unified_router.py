@@ -109,7 +109,7 @@ class UnifiedDecisionRouter:
                 )
                 logger.debug("Gateway router initialized with configured criteria")
             except ImportError as e:
-                logger.warning(f"Gateway router not available: {e}")
+                logger.warning("Gateway router not available: %s", e)
         return self._gateway_router
 
     def _get_core_router(self) -> Any:
@@ -126,7 +126,7 @@ class UnifiedDecisionRouter:
                 )
                 logger.debug("Core router initialized")
             except ImportError as e:
-                logger.warning(f"Core router not available: {e}")
+                logger.warning("Core router not available: %s", e)
         return self._core_router
 
     async def route(self, request: DecisionRequest) -> DecisionResult:
@@ -144,8 +144,7 @@ class UnifiedDecisionRouter:
         # For explicit types, route directly through Core
         if request.decision_type != DecisionType.AUTO:
             logger.debug(
-                f"Explicit decision type {request.decision_type.value}, "
-                f"routing directly to Core router"
+                "Explicit decision type %s, routing directly to Core router", request.decision_type.value
             )
             return await self._route_via_core(request)
 
@@ -181,8 +180,7 @@ class UnifiedDecisionRouter:
             decision = await gateway.route(gateway_request, gateway_context)
 
             logger.info(
-                f"Gateway routing decision: {decision.destination.value} "
-                f"(reason: {decision.reason[:80]}...)"
+                "Gateway routing decision: %s (reason: %s...)", decision.destination.value, decision.reason[:80]
             )
 
             # Map Gateway destination to Core decision type
@@ -219,7 +217,7 @@ class UnifiedDecisionRouter:
             else:
                 # Unknown destination, default to DEBATE
                 logger.warning(
-                    f"Unknown gateway destination {decision.destination}, defaulting to DEBATE"
+                    "Unknown gateway destination %s, defaulting to DEBATE", decision.destination
                 )
                 request.decision_type = DecisionType.DEBATE
 
@@ -239,7 +237,7 @@ class UnifiedDecisionRouter:
             return result
 
         except (ValueError, TypeError, KeyError, AttributeError, RuntimeError) as e:
-            logger.error(f"Gateway routing failed: {e}", exc_info=True)
+            logger.error("Gateway routing failed: %s", e, exc_info=True)
             # Fallback to DEBATE
             request.decision_type = DecisionType.DEBATE
             return await self._route_via_core(request)
@@ -341,8 +339,7 @@ class UnifiedDecisionRouter:
             )
             gateway.update_criteria(criteria)
             logger.info(
-                f"Gateway criteria updated: threshold=${financial_threshold}, "
-                f"risk_levels={risk_levels}"
+                "Gateway criteria updated: threshold=$%s, risk_levels=%s", financial_threshold, risk_levels
             )
         except ImportError:
             logger.warning("Gateway router criteria update failed - module not available")
@@ -389,7 +386,7 @@ class UnifiedDecisionRouter:
                 reason=reason,
             )
             gateway.add_rule(rule)
-            logger.info(f"Added routing rule: {rule_id} -> {destination}")
+            logger.info("Added routing rule: %s -> %s", rule_id, destination)
         except ImportError:
             logger.warning("Gateway routing rule add failed - module not available")
 

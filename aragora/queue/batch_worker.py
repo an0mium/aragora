@@ -135,10 +135,10 @@ class BatchExplainabilityWorker:
     async def start(self) -> None:
         """Start the worker."""
         if self._running:
-            logger.warning(f"Worker {self._worker_id} already running")
+            logger.warning("Worker %s already running", self._worker_id)
             return
 
-        logger.info(f"Starting batch explainability worker {self._worker_id}")
+        logger.info("Starting batch explainability worker %s", self._worker_id)
         self._running = True
         self._start_time = time.time()
         self._shutdown_event.clear()
@@ -156,13 +156,13 @@ class BatchExplainabilityWorker:
         if not self._running:
             return
 
-        logger.info(f"Stopping batch worker {self._worker_id}")
+        logger.info("Stopping batch worker %s", self._worker_id)
         self._running = False
         self._shutdown_event.set()
 
         # Wait for active tasks with timeout
         if self._tasks:
-            logger.info(f"Waiting for {len(self._tasks)} active batch jobs")
+            logger.info("Waiting for %s active batch jobs", len(self._tasks))
             done, pending = await asyncio.wait(
                 self._tasks,
                 timeout=timeout,
@@ -170,11 +170,11 @@ class BatchExplainabilityWorker:
             )
 
             if pending:
-                logger.warning(f"Cancelling {len(pending)} pending batch jobs")
+                logger.warning("Cancelling %s pending batch jobs", len(pending))
                 for task in pending:
                     task.cancel()
 
-        logger.info(f"Batch worker {self._worker_id} stopped")
+        logger.info("Batch worker %s stopped", self._worker_id)
 
     async def _process_loop(self) -> None:
         """Main processing loop."""
@@ -206,7 +206,7 @@ class BatchExplainabilityWorker:
             except asyncio.CancelledError:
                 break
             except (RuntimeError, ValueError, OSError) as e:  # noqa: BLE001 - worker isolation
-                logger.error(f"Error in batch worker loop: {e}", exc_info=True)
+                logger.error("Error in batch worker loop: %s", e, exc_info=True)
                 await asyncio.sleep(poll_interval)
 
     def _on_task_done(self, task: asyncio.Task[None]) -> None:
@@ -215,7 +215,7 @@ class BatchExplainabilityWorker:
         self._batch_semaphore.release()
 
         if not task.cancelled() and task.exception():
-            logger.error(f"Batch task failed: {task.exception()}")
+            logger.error("Batch task failed: %s", task.exception())
 
     async def _process_batch(self, job: Job) -> None:
         """Process a single batch job."""
@@ -225,7 +225,7 @@ class BatchExplainabilityWorker:
         debate_ids: list[str] = payload.get("debate_ids", [])
         options: dict[str, Any] = payload.get("options", {})
 
-        logger.info(f"Processing batch job {job_id} with {len(debate_ids)} debates")
+        logger.info("Processing batch job %s with %s debates", job_id, len(debate_ids))
 
         # Initialize progress tracking
         progress = BatchJobProgress(
@@ -272,11 +272,11 @@ class BatchExplainabilityWorker:
 
             self._batches_processed += 1
             logger.info(
-                f"Batch job {job_id} completed: {progress.succeeded}/{progress.total} succeeded"
+                "Batch job %s completed: %s/%s succeeded", job_id, progress.succeeded, progress.total
             )
 
         except (RuntimeError, OSError, ConnectionError, TimeoutError) as e:
-            logger.error(f"Batch job {job_id} failed: {e}", exc_info=True)
+            logger.error("Batch job %s failed: %s", job_id, e, exc_info=True)
             await self._queue.fail(job_id=job_id, error=str(e))
         finally:
             del self._active_batches[job_id]
@@ -317,7 +317,7 @@ class BatchExplainabilityWorker:
                 )
                 progress.failed += 1
                 self._debates_failed += 1
-                logger.warning(f"Failed to explain debate {debate_id}: {e}")
+                logger.warning("Failed to explain debate %s: %s", debate_id, e)
 
             progress.processed += 1
 

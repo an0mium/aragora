@@ -737,7 +737,7 @@ class HL7Parser:
             except (ValueError, IndexError) as e:
                 if self.strict:
                     raise ValueError(f"Failed to parse segment: {line}") from e
-                logger.warning(f"Skipping invalid segment: {line} ({e})")
+                logger.warning("Skipping invalid segment: %s (%s)", line, e)
 
         # Build message with typed segments
         message = HL7Message(raw=raw, segments=segments)
@@ -766,7 +766,7 @@ class HL7Parser:
             except (ValueError, KeyError, IndexError, AttributeError) as e:
                 if self.strict:
                     raise
-                logger.warning(f"Failed to parse typed segment {segment.segment_type}: {e}")
+                logger.warning("Failed to parse typed segment %s: %s", segment.segment_type, e)
 
     def parse_mllp(self, data: bytes) -> list[HL7Message]:
         """
@@ -801,7 +801,7 @@ class HL7Parser:
             except (ValueError, UnicodeDecodeError) as e:
                 if self.strict:
                     raise
-                logger.warning(f"Failed to parse MLLP message: {e}")
+                logger.warning("Failed to parse MLLP message: %s", e)
 
         return messages
 
@@ -1108,7 +1108,7 @@ class HL7v2Connector(EnterpriseConnector):
         ) -> None:
             """Handle incoming MLLP connection."""
             peer = writer.get_extra_info("peername")
-            logger.info(f"HL7 MLLP connection from {peer}")
+            logger.info("HL7 MLLP connection from %s", peer)
 
             try:
                 for _page in range(_MAX_PAGES):
@@ -1123,8 +1123,7 @@ class HL7v2Connector(EnterpriseConnector):
                         for msg in messages:
                             await self._message_queue.put(msg)
                             logger.debug(
-                                f"Received HL7 message: {msg.message_type} "
-                                f"(control_id={msg.message_control_id})"
+                                "Received HL7 message: %s (control_id=%s)", msg.message_type, msg.message_control_id
                             )
 
                             # Send ACK
@@ -1133,7 +1132,7 @@ class HL7v2Connector(EnterpriseConnector):
                             await writer.drain()
 
                     except (ValueError, UnicodeDecodeError) as e:
-                        logger.error(f"Error processing MLLP message: {e}")
+                        logger.error("Error processing MLLP message: %s", e)
                         self._parsing_errors += 1
                         # Send NACK
                         if messages:
@@ -1142,9 +1141,9 @@ class HL7v2Connector(EnterpriseConnector):
                             await writer.drain()
 
             except asyncio.IncompleteReadError:
-                logger.debug(f"Client {peer} disconnected")
+                logger.debug("Client %s disconnected", peer)
             except (ConnectionResetError, BrokenPipeError, OSError) as e:
-                logger.error(f"MLLP connection error: {e}")
+                logger.error("MLLP connection error: %s", e)
             finally:
                 writer.close()
                 await writer.wait_closed()
@@ -1153,7 +1152,7 @@ class HL7v2Connector(EnterpriseConnector):
             handle_connection, self.mllp_host, self.mllp_port
         )
 
-        logger.info(f"HL7 MLLP listener started on {self.mllp_host}:{self.mllp_port}")
+        logger.info("HL7 MLLP listener started on %s:%s", self.mllp_host, self.mllp_port)
 
     async def stop_mllp_listener(self) -> None:
         """Stop MLLP TCP listener."""
@@ -1214,7 +1213,7 @@ class HL7v2Connector(EnterpriseConnector):
 
             source_dir = Path(self.source_path)
             if not source_dir.exists():
-                logger.error(f"Source path does not exist: {self.source_path}")
+                logger.error("Source path does not exist: %s", self.source_path)
                 return
 
             # Find HL7 files (common extensions)
@@ -1235,7 +1234,7 @@ class HL7v2Connector(EnterpriseConnector):
                         yield item
 
                 except (ValueError, OSError, UnicodeDecodeError) as e:
-                    logger.error(f"Error processing file {file_path}: {e}")
+                    logger.error("Error processing file %s: %s", file_path, e)
                     self._parsing_errors += 1
 
     async def _process_message(
@@ -1248,7 +1247,7 @@ class HL7v2Connector(EnterpriseConnector):
         if self.message_types:
             msg_type = message.message_type.split("^")[0] if message.message_type else ""
             if msg_type not in self.message_types:
-                logger.debug(f"Skipping message type {message.message_type}")
+                logger.debug("Skipping message type %s", message.message_type)
                 return None
 
         self._messages_processed += 1
@@ -1320,7 +1319,7 @@ class HL7v2Connector(EnterpriseConnector):
             "redactions_count": redaction_result.redactions_count if redaction_result else 0,
         }
 
-        logger.info(f"AUDIT: {audit_entry}")
+        logger.info("AUDIT: %s", audit_entry)
 
         # Write to audit file if configured
         if self.audit_log_path:
@@ -1330,7 +1329,7 @@ class HL7v2Connector(EnterpriseConnector):
                 with open(self.audit_log_path, "a") as f:
                     f.write(json.dumps(audit_entry) + "\n")
             except OSError as e:
-                logger.error(f"Failed to write audit log: {e}")
+                logger.error("Failed to write audit log: %s", e)
 
     async def search(
         self,

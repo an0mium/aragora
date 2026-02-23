@@ -152,10 +152,10 @@ class TelegramIntegration:
                     return data.get("ok", False)
                 return False
         except (aiohttp.ClientError, asyncio.TimeoutError) as e:
-            logger.warning(f"Telegram verification connection error: {type(e).__name__}: {e}")
+            logger.warning("Telegram verification connection error: %s: %s", type(e).__name__, e)
             return False
         except (ValueError, KeyError) as e:
-            logger.warning(f"Telegram verification response parse error: {type(e).__name__}: {e}")
+            logger.warning("Telegram verification response parse error: %s: %s", type(e).__name__, e)
             return False
 
     def _check_rate_limit(self) -> bool:
@@ -196,26 +196,26 @@ class TelegramIntegration:
                     elif response.status == 429:
                         # Rate limited by Telegram
                         retry_after = result.get("parameters", {}).get("retry_after", 30)
-                        logger.warning(f"Telegram rate limited, retry after {retry_after}s")
+                        logger.warning("Telegram rate limited, retry after %ss", retry_after)
                         if attempt < self.config.max_retries - 1:
                             await asyncio.sleep(retry_after)
                             continue
                     else:
                         error_desc = result.get("description", "Unknown error")
-                        logger.error(f"Telegram API error: {response.status} - {error_desc}")
+                        logger.error("Telegram API error: %s - %s", response.status, error_desc)
                         return False
 
             except aiohttp.ClientError as e:
-                logger.error(f"Telegram connection error: {e}")
+                logger.error("Telegram connection error: %s", e)
                 if attempt < self.config.max_retries - 1:
                     await asyncio.sleep(self.config.retry_delay * (2**attempt))
                     continue
                 return False
             except (ValueError, TypeError) as e:
-                logger.error(f"Telegram payload error: {type(e).__name__}: {e}")
+                logger.error("Telegram payload error: %s: %s", type(e).__name__, e)
                 return False
             except OSError as e:
-                logger.error(f"Telegram network error: {type(e).__name__}: {e}")
+                logger.error("Telegram network error: %s: %s", type(e).__name__, e)
                 return False
 
         return False
@@ -319,7 +319,7 @@ class TelegramIntegration:
 
         if confidence < self.config.min_consensus_confidence:
             logger.debug(
-                f"Skipping consensus alert: confidence {confidence} < {self.config.min_consensus_confidence}"
+                "Skipping consensus alert: confidence %s < %s", confidence, self.config.min_consensus_confidence
             )
             return True
 

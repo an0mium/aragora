@@ -39,7 +39,7 @@ def _encrypt_mfa_field(value: str, user_id: str) -> str:
         encrypted = service.encrypt(value, associated_data=user_id)
         return encrypted.to_base64()
     except (ValueError, RuntimeError, OSError, ImportError) as e:
-        logger.warning(f"MFA field encryption failed: {e}")
+        logger.warning("MFA field encryption failed: %s", e)
         return value
 
 
@@ -58,7 +58,7 @@ def _decrypt_mfa_field(value: str, user_id: str) -> str:
         service = get_encryption_service()
         return service.decrypt_string(value, associated_data=user_id)
     except (ValueError, RuntimeError, OSError, ImportError) as e:
-        logger.debug(f"MFA field decryption failed (may be legacy): {e}")
+        logger.debug("MFA field decryption failed (may be legacy): %s", e)
         return value
 
 
@@ -187,7 +187,7 @@ class UserRepository:
                 raise ValueError(f"Email already exists: {email}")
             raise
 
-        logger.info(f"user_created id={user.id} email={email}")
+        logger.info("user_created id=%s email=%s", user.id, email)
         return user
 
     def get_by_id(self, user_id: str) -> User | None:
@@ -228,7 +228,7 @@ class UserRepository:
                 user = self._row_to_user(row)
                 # Check expiration
                 if user.api_key_expires_at and datetime.now(timezone.utc) > user.api_key_expires_at:
-                    logger.debug(f"API key expired for user {user.id}")
+                    logger.debug("API key expired for user %s", user.id)
                     return None
                 return user
 
@@ -383,7 +383,7 @@ class UserRepository:
                 try:
                     return json.loads(row[0])
                 except json.JSONDecodeError:
-                    logger.warning(f"Invalid preferences JSON for user {user_id}")
+                    logger.warning("Invalid preferences JSON for user %s", user_id)
                     return {}
             return {} if row else None
 
@@ -430,7 +430,7 @@ class UserRepository:
             )
 
             if cursor.rowcount == 0:
-                logger.warning(f"increment_token_version: user {user_id} not found")
+                logger.warning("increment_token_version: user %s not found", user_id)
                 return 0
 
             cursor.execute(
@@ -440,7 +440,7 @@ class UserRepository:
             row = cursor.fetchone()
             new_version = row[0] if row else 1
 
-            logger.info(f"token_version_incremented user_id={user_id} new_version={new_version}")
+            logger.info("token_version_incremented user_id=%s new_version=%s", user_id, new_version)
             return new_version
 
     @staticmethod
@@ -470,7 +470,7 @@ class UserRepository:
                 try:
                     return datetime.fromtimestamp(float(value), tz=timezone.utc)
                 except (ValueError, OSError):
-                    logger.warning(f"Could not parse datetime: {value}")
+                    logger.warning("Could not parse datetime: %s", value)
                     return datetime.now(timezone.utc)
 
         return User(

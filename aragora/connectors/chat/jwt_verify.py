@@ -115,10 +115,10 @@ def _fetch_openid_metadata(
             data = json.loads(resp.read().decode("utf-8"))
             if isinstance(data, dict) and "jwks_uri" in data:
                 return data
-            logger.warning(f"OpenID metadata from {metadata_url} missing 'jwks_uri' field")
+            logger.warning("OpenID metadata from %s missing 'jwks_uri' field", metadata_url)
             return None
     except (URLError, OSError, json.JSONDecodeError, ValueError) as e:
-        logger.warning(f"Failed to fetch OpenID metadata from {metadata_url}: {e}")
+        logger.warning("Failed to fetch OpenID metadata from %s: %s", metadata_url, e)
         return None
 
 
@@ -210,7 +210,7 @@ class JWTVerifier:
                 issuer=issuer,
                 fetched_at=now,
             )
-            logger.debug(f"Resolved Microsoft JWKS URI via OpenID discovery: {jwks_uri}")
+            logger.debug("Resolved Microsoft JWKS URI via OpenID discovery: %s", jwks_uri)
             return jwks_uri
 
         # Fallback to hardcoded URI
@@ -236,7 +236,7 @@ class JWTVerifier:
                 self._microsoft_jwks_client = PyJWKClient(jwks_uri)
                 self._microsoft_cache_time = now
             except (PyJWTError, ValueError, OSError) as e:
-                logger.warning(f"Failed to create Microsoft JWKS client: {e}")
+                logger.warning("Failed to create Microsoft JWKS client: %s", e)
                 return None
 
         return self._microsoft_jwks_client
@@ -252,7 +252,7 @@ class JWTVerifier:
                 self._google_jwks_client = PyJWKClient(GOOGLE_JWKS_URI)
                 self._google_cache_time = now
             except (PyJWTError, ValueError, OSError) as e:
-                logger.warning(f"Failed to create Google JWKS client: {e}")
+                logger.warning("Failed to create Google JWKS client: %s", e)
                 return None
 
         return self._google_jwks_client
@@ -312,7 +312,7 @@ class JWTVerifier:
                 },
             )
 
-            logger.debug(f"Microsoft token verified: iss={claims.get('iss')}")
+            logger.debug("Microsoft token verified: iss=%s", claims.get('iss'))
             return JWTVerificationResult(valid=True, claims=claims)
 
         except PyJWTError as e:
@@ -320,17 +320,17 @@ class JWTVerifier:
             # Invalidate cache on signature-related errors that might indicate key rotation
             if "signature" in error_str or "key" in error_str or "kid" in error_str:
                 logger.info(
-                    f"Invalidating Microsoft JWT cache due to potential key rotation (error: {e})"
+                    "Invalidating Microsoft JWT cache due to potential key rotation (error: %s)", e
                 )
                 self.invalidate_microsoft_cache()
-            logger.warning(f"Microsoft token verification failed: {e}")
+            logger.warning("Microsoft token verification failed: %s", e)
             return JWTVerificationResult(
                 valid=False,
                 claims={},
                 error="Token verification failed",
             )
         except (KeyError, ValueError, TypeError) as e:
-            logger.error(f"Unexpected error verifying Microsoft token: {e}")
+            logger.error("Unexpected error verifying Microsoft token: %s", e)
             return JWTVerificationResult(
                 valid=False,
                 claims={},
@@ -413,7 +413,7 @@ class JWTVerifier:
             # Decode and verify the token
             claims = jwt.decode(token, signing_key.key, **decode_kwargs)
 
-            logger.debug(f"Google token verified: iss={claims.get('iss')}")
+            logger.debug("Google token verified: iss=%s", claims.get('iss'))
             return JWTVerificationResult(valid=True, claims=claims)
 
         except PyJWTError as e:
@@ -421,17 +421,17 @@ class JWTVerifier:
             # Invalidate cache on signature-related errors that might indicate key rotation
             if "signature" in error_str or "key" in error_str or "kid" in error_str:
                 logger.info(
-                    f"Invalidating Google JWT cache due to potential key rotation (error: {e})"
+                    "Invalidating Google JWT cache due to potential key rotation (error: %s)", e
                 )
                 self.invalidate_google_cache()
-            logger.warning(f"Google token verification failed: {e}")
+            logger.warning("Google token verification failed: %s", e)
             return JWTVerificationResult(
                 valid=False,
                 claims={},
                 error="Token verification failed",
             )
         except (KeyError, ValueError, TypeError) as e:
-            logger.error(f"Unexpected error verifying Google token: {e}")
+            logger.error("Unexpected error verifying Google token: %s", e)
             return JWTVerificationResult(
                 valid=False,
                 claims={},
@@ -481,7 +481,7 @@ def verify_teams_webhook(
     result = verifier.verify_microsoft_token(token, app_id)
 
     if not result.valid and result.error:
-        logger.warning(f"Teams webhook verification failed: {result.error}")
+        logger.warning("Teams webhook verification failed: %s", result.error)
 
     return result.valid
 
@@ -509,7 +509,7 @@ def verify_google_chat_webhook(
     result = verifier.verify_google_token(token, project_id)
 
     if not result.valid and result.error:
-        logger.warning(f"Google Chat webhook verification failed: {result.error}")
+        logger.warning("Google Chat webhook verification failed: %s", result.error)
 
     return result.valid
 

@@ -211,7 +211,7 @@ class EmailStore(SQLiteStore):
                 (config_id, user_id, workspace_id, json.dumps(config), now),
             )
 
-        logger.debug(f"[EmailStore] Saved config for user={user_id}, workspace={workspace_id}")
+        logger.debug("[EmailStore] Saved config for user=%s, workspace=%s", user_id, workspace_id)
         return config_id
 
     def get_user_config(
@@ -407,7 +407,7 @@ class EmailStore(SQLiteStore):
                 ),
             )
 
-        logger.info(f"[EmailStore] Created shared inbox: {inbox_id}")
+        logger.info("[EmailStore] Created shared inbox: %s", inbox_id)
         return inbox_id
 
     def get_shared_inbox(self, inbox_id: str) -> dict[str, Any] | None:
@@ -739,7 +739,7 @@ class EmailStore(SQLiteStore):
                     FROM shared_inbox_messages
                     """)
                 logger.info(
-                    f"[EmailStore] Populated FTS5 index with {msg_count[0]} existing messages"
+                    "[EmailStore] Populated FTS5 index with %s existing messages", msg_count[0]
                 )
 
         logger.info("[EmailStore] FTS5 full-text search initialized")
@@ -958,7 +958,7 @@ class EmailStore(SQLiteStore):
                 ),
             )
 
-        logger.info(f"[EmailStore] Created routing rule: {rule_id}")
+        logger.info("[EmailStore] Created routing rule: %s", rule_id)
         return rule_id
 
     def get_routing_rule(self, rule_id: str) -> dict[str, Any] | None:
@@ -1218,7 +1218,7 @@ def get_email_store(db_path: str | None = None) -> EmailStore:
             db_path = str(DATA_DIR / "email_store.db")
 
         _email_store = EmailStore(db_path)
-        logger.info(f"[EmailStore] Initialized at {db_path}")
+        logger.info("[EmailStore] Initialized at %s", db_path)
 
     return _email_store
 

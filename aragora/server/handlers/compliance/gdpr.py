@@ -224,14 +224,13 @@ class GDPRMixin:
             )
 
             logger.info(
-                f"GDPR RTBF request processed: user={user_id}, "
-                f"request_id={request_id}, deletion={deletion_scheduled.isoformat()}"
+                "GDPR RTBF request processed: user=%s, request_id=%s, deletion=%s", user_id, request_id, deletion_scheduled.isoformat()
             )
 
             return json_response(result)
 
         except (RuntimeError, OSError, ValueError, KeyError, TypeError, AttributeError) as e:
-            logger.exception(f"RTBF request failed for user {user_id}: {e}")
+            logger.exception("RTBF request failed for user %s: %s", user_id, e)
             result["status"] = "failed"
             result["error"] = "RTBF request processing failed"
             return json_response(result, status=500)
@@ -243,10 +242,10 @@ class GDPRMixin:
 
             manager = get_consent_manager()
             revoked_count = manager.bulk_revoke_for_user(user_id)
-            logger.info(f"Revoked {revoked_count} consents for user {user_id}")
+            logger.info("Revoked %s consents for user %s", revoked_count, user_id)
             return revoked_count
         except (ImportError, AttributeError, RuntimeError) as e:
-            logger.warning(f"Failed to revoke consents for {user_id}: {e}")
+            logger.warning("Failed to revoke consents for %s: %s", user_id, e)
             return 0
 
     async def _generate_final_export(self, user_id: str) -> dict[str, Any]:
@@ -282,7 +281,7 @@ class GDPRMixin:
             export_data["consent_records"] = consent_export.to_dict()
             data_categories.append("consent_records")
         except (ImportError, AttributeError, RuntimeError) as e:
-            logger.warning(f"Failed to export consent data: {e}")
+            logger.warning("Failed to export consent data: %s", e)
 
         # Calculate checksum
         data_str = json.dumps(export_data, sort_keys=True, default=str)
@@ -352,7 +351,7 @@ class GDPRMixin:
                     metadata=deletion_record,
                 )
             except (RuntimeError, OSError, ValueError) as e:
-                logger.warning(f"Failed to log deletion schedule: {e}")
+                logger.warning("Failed to log deletion schedule: %s", e)
 
             return deletion_record
 
@@ -360,7 +359,7 @@ class GDPRMixin:
             # Re-raise legal hold errors
             raise
         except (RuntimeError, OSError, KeyError, TypeError, AttributeError) as e:
-            logger.error(f"Failed to schedule deletion: {e}")
+            logger.error("Failed to schedule deletion: %s", e)
             # Fall back to basic audit logging if scheduler fails
             deletion_record = {
                 "request_id": request_id,
@@ -381,7 +380,7 @@ class GDPRMixin:
                     metadata=deletion_record,
                 )
             except (RuntimeError, OSError, ValueError) as log_err:
-                logger.warning(f"Failed to log deletion schedule: {log_err}")
+                logger.warning("Failed to log deletion schedule: %s", log_err)
 
             return deletion_record
 
@@ -411,7 +410,7 @@ class GDPRMixin:
                 },
             )
         except (RuntimeError, OSError, ValueError) as e:
-            logger.warning(f"Failed to log RTBF request: {e}")
+            logger.warning("Failed to log RTBF request: %s", e)
 
     # =========================================================================
     # Deletion Management Endpoints
@@ -445,7 +444,7 @@ class GDPRMixin:
             )
 
         except (ImportError, ValueError, KeyError, RuntimeError) as e:
-            logger.exception(f"Error listing deletions: {e}")
+            logger.exception("Error listing deletions: %s", e)
             return error_response("Failed to list deletions", 500)
 
     @require_permission("compliance:gdpr")
@@ -466,7 +465,7 @@ class GDPRMixin:
             return json_response({"deletion": request.to_dict()})
 
         except (KeyError, RuntimeError, ValueError) as e:
-            logger.exception(f"Error getting deletion: {e}")
+            logger.exception("Error getting deletion: %s", e)
             return error_response("Failed to retrieve deletion", 500)
 
     @require_permission("compliance:gdpr")
@@ -509,7 +508,7 @@ class GDPRMixin:
                     },
                 )
             except (RuntimeError, OSError, ValueError) as log_err:
-                logger.warning(f"Failed to log deletion cancellation: {log_err}")
+                logger.warning("Failed to log deletion cancellation: %s", log_err)
 
             return json_response(
                 {
@@ -522,7 +521,7 @@ class GDPRMixin:
             logger.warning("Handler error: %s", e)
             return error_response("Invalid request", 400)
         except (RuntimeError, OSError, KeyError, TypeError) as e:
-            logger.exception(f"Error cancelling deletion: {e}")
+            logger.exception("Error cancelling deletion: %s", e)
             return error_response("Deletion cancellation failed", 500)
 
     # =========================================================================
@@ -597,7 +596,7 @@ class GDPRMixin:
                     },
                 )
             except (RuntimeError, OSError, ValueError) as log_err:
-                logger.warning(f"Failed to log coordinated deletion: {log_err}")
+                logger.warning("Failed to log coordinated deletion: %s", log_err)
 
             return json_response(
                 {
@@ -609,7 +608,7 @@ class GDPRMixin:
             )
 
         except (RuntimeError, OSError, ValueError, KeyError, TypeError, AttributeError) as e:
-            logger.exception(f"Error executing coordinated deletion: {e}")
+            logger.exception("Error executing coordinated deletion: %s", e)
             return error_response("Deletion execution failed", 500)
 
     @require_permission("compliance:gdpr")
@@ -655,7 +654,7 @@ class GDPRMixin:
                     },
                 )
             except (RuntimeError, OSError, ValueError) as log_err:
-                logger.warning(f"Failed to log batch deletion: {log_err}")
+                logger.warning("Failed to log batch deletion: %s", log_err)
 
             return json_response(
                 {
@@ -670,7 +669,7 @@ class GDPRMixin:
             )
 
         except (RuntimeError, ValueError, OSError) as e:
-            logger.exception(f"Error processing pending deletions: {e}")
+            logger.exception("Error processing pending deletions: %s", e)
             return error_response("Deletion processing failed", 500)
 
     @require_permission("compliance:gdpr")
@@ -698,7 +697,7 @@ class GDPRMixin:
             )
 
         except (RuntimeError, ValueError, KeyError) as e:
-            logger.exception(f"Error listing backup exclusions: {e}")
+            logger.exception("Error listing backup exclusions: %s", e)
             return error_response("Failed to list exclusions", 500)
 
     @require_permission("compliance:gdpr")
@@ -735,7 +734,7 @@ class GDPRMixin:
                     metadata={"reason": reason},
                 )
             except (RuntimeError, OSError, ValueError) as log_err:
-                logger.warning(f"Failed to log backup exclusion: {log_err}")
+                logger.warning("Failed to log backup exclusion: %s", log_err)
 
             return json_response(
                 {
@@ -747,7 +746,7 @@ class GDPRMixin:
             )
 
         except (RuntimeError, ValueError, KeyError) as e:
-            logger.exception(f"Error adding backup exclusion: {e}")
+            logger.exception("Error adding backup exclusion: %s", e)
             return error_response("Exclusion addition failed", 500)
 
     # =========================================================================
@@ -773,7 +772,7 @@ class GDPRMixin:
                 for r in receipts[:50]  # Limit for GDPR export
             ]
         except (RuntimeError, AttributeError, KeyError) as e:
-            logger.warning(f"Failed to fetch user decisions: {e}")
+            logger.warning("Failed to fetch user decisions: %s", e)
             return []
 
     async def _get_user_preferences(self, user_id: str) -> dict[str, Any]:
@@ -788,7 +787,7 @@ class GDPRMixin:
             activity = store.get_recent_activity(user_id=user_id, hours=720, limit=100)
             return activity
         except (RuntimeError, AttributeError, KeyError) as e:
-            logger.warning(f"Failed to fetch user activity: {e}")
+            logger.warning("Failed to fetch user activity: %s", e)
             return []
 
     def _render_gdpr_csv(self, export_data: dict[str, Any]) -> str:

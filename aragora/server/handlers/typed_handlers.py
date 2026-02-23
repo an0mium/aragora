@@ -563,7 +563,7 @@ class AdminHandler(AuthenticatedHandler):
         user_id = user.user_id if user else "unknown"
 
         logger.info(
-            f"Admin action: user={user_id} action={action} resource={resource_id} details={details}"
+            "Admin action: user=%s action=%s resource=%s details=%s", user_id, action, resource_id, details
         )
 
         # Try to use unified audit logging if available

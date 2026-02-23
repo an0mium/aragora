@@ -202,10 +202,10 @@ def ensure_metrics_initialized() -> bool:
             init_security_metrics()
             logger.info("All metrics submodules initialized")
         except ImportError as e:
-            logger.warning(f"prometheus-client not installed: {e}")
+            logger.warning("prometheus-client not installed: %s", e)
             enabled = False
         except (RuntimeError, TypeError, ValueError) as e:
-            logger.error(f"Failed to initialize metrics: {e}")
+            logger.error("Failed to initialize metrics: %s", e)
             enabled = False
 
     _initialized = True

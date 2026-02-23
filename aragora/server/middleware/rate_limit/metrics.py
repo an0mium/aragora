@@ -141,7 +141,7 @@ def record_rate_limit_decision(
             ).inc()
 
     except (ValueError, TypeError, RuntimeError) as e:
-        logger.debug(f"Failed to record rate limit metrics: {e}")
+        logger.debug("Failed to record rate limit metrics: %s", e)
 
 
 def record_redis_operation(
@@ -167,7 +167,7 @@ def record_redis_operation(
             RATE_LIMIT_REDIS_LATENCY.labels(operation=operation).observe(latency_seconds)
 
     except (ValueError, TypeError, RuntimeError) as e:
-        logger.debug(f"Failed to record Redis operation metrics: {e}")
+        logger.debug("Failed to record Redis operation metrics: %s", e)
 
 
 def record_backend_status(instance_id: str, using_redis: bool) -> None:
@@ -183,7 +183,7 @@ def record_backend_status(instance_id: str, using_redis: bool) -> None:
     try:
         RATE_LIMIT_BACKEND_STATUS.labels(instance_id=instance_id).set(1 if using_redis else 0)
     except (ValueError, TypeError, RuntimeError) as e:
-        logger.debug(f"Failed to record backend status: {e}")
+        logger.debug("Failed to record backend status: %s", e)
 
 
 def record_circuit_breaker_state(instance_id: str, state: str) -> None:
@@ -200,7 +200,7 @@ def record_circuit_breaker_state(instance_id: str, state: str) -> None:
         state_value = {"closed": 0, "open": 1, "half_open": 2}.get(state, -1)
         RATE_LIMIT_CIRCUIT_BREAKER_STATE.labels(instance_id=instance_id).set(state_value)
     except (ValueError, TypeError, RuntimeError) as e:
-        logger.debug(f"Failed to record circuit breaker state: {e}")
+        logger.debug("Failed to record circuit breaker state: %s", e)
 
 
 def record_fallback_request(instance_id: str) -> None:
@@ -215,7 +215,7 @@ def record_fallback_request(instance_id: str) -> None:
     try:
         RATE_LIMIT_FALLBACK_REQUESTS.labels(instance_id=instance_id).inc()
     except (ValueError, TypeError, RuntimeError) as e:
-        logger.debug(f"Failed to record fallback request: {e}")
+        logger.debug("Failed to record fallback request: %s", e)
 
 
 def record_distributed_metrics(instance_count: int, total_rejections: int) -> None:
@@ -233,7 +233,7 @@ def record_distributed_metrics(instance_count: int, total_rejections: int) -> No
         # Note: Counter can only increment, so we track delta
         # This is called periodically with the current total
     except (ValueError, TypeError, RuntimeError) as e:
-        logger.debug(f"Failed to record distributed metrics: {e}")
+        logger.debug("Failed to record distributed metrics: %s", e)
 
 
 def _normalize_endpoint_for_metrics(endpoint: str) -> str:
@@ -303,7 +303,7 @@ def get_rate_limit_metrics() -> dict[str, Any]:
         }
 
     except (ValueError, TypeError, RuntimeError, AttributeError) as e:
-        logger.debug(f"Failed to collect rate limit metrics: {e}")
+        logger.debug("Failed to collect rate limit metrics: %s", e)
         return {"prometheus_available": True, "error": "Failed to collect rate limit metrics"}
 
 

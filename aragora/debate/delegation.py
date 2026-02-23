@@ -181,8 +181,7 @@ class ContentBasedDelegation(DelegationStrategy):
             selected = selected[:max_agents]
 
         logger.debug(
-            f"ContentBasedDelegation selected {len(selected)} agents "
-            f"(scores: {[(a.name, s) for a, s in scored[:5]]})"
+            "ContentBasedDelegation selected %s agents (scores: %s)", len(selected), [(a.name, s) for a, s in scored[:5]]
         )
         return selected
 
@@ -252,8 +251,7 @@ class LoadBalancedDelegation(DelegationStrategy):
             selected = selected[:max_agents]
 
         logger.debug(
-            f"LoadBalancedDelegation selected {len(selected)} agents "
-            f"(loads: {[(a.name, self.get_load(a.name, context)) for a in selected[:5]]})"
+            "LoadBalancedDelegation selected %s agents (loads: %s)", len(selected), [(a.name, self.get_load(a.name, context)) for a in selected[:5]]
         )
         return selected
 
@@ -377,8 +375,7 @@ class ExpertiseDelegation(DelegationStrategy):
             selected = selected[:max_agents]
 
         logger.debug(
-            f"ExpertiseDelegation selected {len(selected)} agents "
-            f"(matched domains: {self._match_domains(task)})"
+            "ExpertiseDelegation selected %s agents (matched domains: %s)", len(selected), self._match_domains(task)
         )
         return selected
 
@@ -427,7 +424,7 @@ class RoundRobinDelegation(DelegationStrategy):
         # Advance cursor
         self.cursor = (self.cursor + max_select) % n
 
-        logger.debug(f"RoundRobinDelegation selected {len(selected)} agents (cursor={self.cursor})")
+        logger.debug("RoundRobinDelegation selected %s agents (cursor=%s)", len(selected), self.cursor)
         return selected
 
 
@@ -490,8 +487,7 @@ class HybridDelegation(DelegationStrategy):
             selected = selected[:max_agents]
 
         logger.debug(
-            f"HybridDelegation selected {len(selected)} agents "
-            f"using {len(self.strategies)} strategies"
+            "HybridDelegation selected %s agents using %s strategies", len(selected), len(self.strategies)
         )
         return selected
 

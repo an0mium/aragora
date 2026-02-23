@@ -277,7 +277,7 @@ class TaskDecomposer:
         # Enforce depth limit to prevent unbounded recursive decomposition
         if depth >= self.config.max_depth:
             logger.info(
-                f"decomposition_depth_limit_reached depth={depth} max={self.config.max_depth}"
+                "decomposition_depth_limit_reached depth=%s max=%s", depth, self.config.max_depth
             )
             complexity_score = self._calculate_complexity(task_description, debate_result)
             return TaskDecomposition(
@@ -304,8 +304,7 @@ class TaskDecomposer:
             expanded = self._expand_vague_goal(task_description)
             if expanded is not None:
                 logger.info(
-                    f"vague_goal_expanded original_score={complexity_score} "
-                    f"subtasks={len(expanded.subtasks)} depth={depth}"
+                    "vague_goal_expanded original_score=%s subtasks=%s depth=%s", complexity_score, len(expanded.subtasks), depth
                 )
                 return expanded
 
@@ -337,13 +336,11 @@ class TaskDecomposer:
         if should_decompose:
             result.subtasks = self._generate_subtasks(task_description, debate_result)
             logger.info(
-                f"task_decomposed complexity={complexity_score} "
-                f"subtasks={len(result.subtasks)} depth={depth}"
+                "task_decomposed complexity=%s subtasks=%s depth=%s", complexity_score, len(result.subtasks), depth
             )
         else:
             logger.debug(
-                f"task_not_decomposed complexity={complexity_score} "
-                f"threshold={self.config.complexity_threshold}"
+                "task_not_decomposed complexity=%s threshold=%s", complexity_score, self.config.complexity_threshold
             )
 
         return result
@@ -747,7 +744,7 @@ class TaskDecomposer:
                 if subtasks:
                     return subtasks
             except (RuntimeError, ValueError, KeyError) as e:
-                logger.debug(f"AI subtask extraction failed: {e}")
+                logger.debug("AI subtask extraction failed: %s", e)
 
         # Fall back to heuristic decomposition
         return self._heuristic_decomposition(task, debate_result)
@@ -1223,7 +1220,7 @@ class TaskDecomposer:
         # Enforce depth limit
         if depth >= self.config.max_depth:
             logger.info(
-                f"debate_decomposition_depth_limit depth={depth} max={self.config.max_depth}"
+                "debate_decomposition_depth_limit depth=%s max=%s", depth, self.config.max_depth
             )
             return self.analyze(goal, depth=self.config.max_depth)
         from aragora.core import Environment
@@ -1256,7 +1253,7 @@ class TaskDecomposer:
             consensus_threshold=0.6,
         )
 
-        logger.info(f"debate_decomposition_started goal={goal[:50]}...")
+        logger.info("debate_decomposition_started goal=%s...", goal[:50])
 
         # Try to run debate, with OpenRouter fallback on API errors
         result = await self._run_debate_with_fallback(env, agents, protocol, goal, context)
@@ -1359,7 +1356,7 @@ class TaskDecomposer:
                 fallback_reason = f"billing error: {e}"
             else:
                 # Other API errors might not benefit from fallback
-                logger.exception(f"debate_api_error error={e}")
+                logger.exception("debate_api_error error=%s", e)
                 return None
         except AgentError as e:
             # Generic agent error - try fallback
@@ -1384,14 +1381,14 @@ class TaskDecomposer:
                 should_fallback = True
                 fallback_reason = f"api error: {e}"
             else:
-                logger.exception(f"debate_failed error={e}")
+                logger.exception("debate_failed error=%s", e)
                 return None
 
         if not should_fallback:
             return result
 
         # Fallback: try with OpenRouter agents
-        logger.warning(f"debate_fallback_triggered reason={fallback_reason}")
+        logger.warning("debate_fallback_triggered reason=%s", fallback_reason)
 
         try:
             fallback_agents = await self._get_openrouter_agents()
@@ -1400,7 +1397,7 @@ class TaskDecomposer:
                 # Return original result if we have one (better than nothing)
                 return result
 
-            logger.info(f"debate_fallback_started agents={len(fallback_agents)}")
+            logger.info("debate_fallback_started agents=%s", len(fallback_agents))
 
             # Rebuild environment and protocol for fresh debate
             from aragora.core import Environment
@@ -1439,7 +1436,7 @@ class TaskDecomposer:
             return result or fallback_result
 
         except (RuntimeError, OSError, ConnectionError, TimeoutError) as e:
-            logger.exception(f"debate_fallback_failed error={e}")
+            logger.exception("debate_fallback_failed error=%s", e)
             # Return original result if we have one
             return result
 
@@ -1470,7 +1467,7 @@ class TaskDecomposer:
                 ),
             ]
         except (ImportError, RuntimeError, OSError) as e:
-            logger.warning(f"openrouter_agents_failed error={e}")
+            logger.warning("openrouter_agents_failed error=%s", e)
             return []
 
     def _build_debate_task(self, goal: str, context: str = "") -> str:
@@ -1567,7 +1564,7 @@ Prioritize by impact: which improvements would provide the most value?"""
                 )
 
         except json.JSONDecodeError as e:
-            logger.debug(f"Failed to parse debate JSON: {e}")
+            logger.debug("Failed to parse debate JSON: %s", e)
 
         return subtasks
 
@@ -1648,7 +1645,7 @@ Prioritize by impact: which improvements would provide the most value?"""
                 f"Errors: {'; '.join(errors) if errors else 'No API keys found'}"
             )
 
-        logger.info(f"debate_agents_loaded count={len(agents)}")
+        logger.info("debate_agents_loaded count=%s", len(agents))
         return agents
 
 

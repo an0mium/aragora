@@ -378,7 +378,7 @@ class DebateForker:
         completed = []
         for result in results:
             if isinstance(result, BaseException):
-                logger.error(f"Branch execution failed: {type(result).__name__}: {result}")
+                logger.error("Branch execution failed: %s: %s", type(result).__name__, result)
             else:
                 completed.append(result)
         return completed
@@ -410,7 +410,7 @@ class DebateForker:
         winner_id = max(branch_scores, key=lambda k: branch_scores[k])
         winner = next((b for b in completed if b.branch_id == winner_id), None)
         if not winner:
-            logger.error(f"branch_winner_not_found winner_id={winner_id}")
+            logger.error("branch_winner_not_found winner_id=%s", winner_id)
             winner = completed[0]  # Fallback to first branch
 
         # Generate comparison summary

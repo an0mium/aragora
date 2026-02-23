@@ -103,7 +103,7 @@ class ReplayRecorder:
             with open(self.meta_path, "w", encoding="utf-8") as f:
                 f.write(self.meta.to_json())
         except OSError as e:
-            logger.warning(f"Failed to write replay metadata to {self.meta_path}: {e}")
+            logger.warning("Failed to write replay metadata to %s: %s", self.meta_path, e)
 
     def _elapsed_ms(self) -> int:
         return int((time.time() - (self._start_time or time.time())) * 1000)
@@ -125,7 +125,7 @@ class ReplayRecorder:
             )
             self._write_queue.put_nowait(event)
         except queue.Full:
-            logger.warning(f"Replay queue full, dropping {event_type} event")
+            logger.warning("Replay queue full, dropping %s event", event_type)
 
     def record_turn(
         self, agent_id: str, content: str, round_num: int, loop_id: str | None = None
@@ -157,7 +157,7 @@ class ReplayRecorder:
             self._writer_thread.join(timeout=10.0)
             if self._writer_thread.is_alive():
                 logger.warning(
-                    f"Replay writer thread didn't stop in 10s, queue depth: {self._write_queue.qsize()}"
+                    "Replay writer thread didn't stop in 10s, queue depth: %s", self._write_queue.qsize()
                 )
         self.meta.status = "completed"
         self.meta.ended_at = datetime.now(timezone.utc).isoformat()

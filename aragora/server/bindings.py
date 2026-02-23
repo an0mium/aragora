@@ -247,8 +247,7 @@ class BindingRouter:
         self._bindings[provider][account].sort(key=lambda b: b.priority, reverse=True)
 
         logger.debug(
-            f"Added binding: {binding.name or binding.peer_pattern} "
-            f"for {provider}/{account} -> {binding.agent_binding}"
+            "Added binding: %s for %s/%s -> %s", binding.name or binding.peer_pattern, provider, account, binding.agent_binding
         )
 
     def remove_binding(
@@ -458,7 +457,7 @@ class BindingRouter:
                     )
 
             # Fall back to first available
-            logger.warning(f"Bound agent {agent_binding} not available, using fallback")
+            logger.warning("Bound agent %s not available, using fallback", agent_binding)
 
         elif resolution.binding_type == BindingType.AGENT_POOL:
             # Select from pool

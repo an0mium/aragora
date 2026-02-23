@@ -354,7 +354,7 @@ class CalculationSkill(SyncSkill):
                 error_code="overflow",
             )
         except (TypeError, ArithmeticError) as e:
-            logger.exception(f"Calculation failed: {e}")
+            logger.exception("Calculation failed: %s", e)
             return SkillResult.create_failure(f"Calculation failed: {e}")
 
     def _handle_unit_conversion(self, conversion: dict[str, Any]) -> SkillResult:

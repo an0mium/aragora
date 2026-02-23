@@ -159,7 +159,7 @@ class PhaseValidator:
             # Validate confidence is in range
             confidence = result.get("confidence", 0)
             if not isinstance(confidence, (int, float)) or not (0 <= confidence <= 1):
-                logger.warning(f"Invalid confidence value: {confidence}, clamping to [0,1]")
+                logger.warning("Invalid confidence value: %s, clamping to [0,1]", confidence)
 
         if phase == "design":
             files = result.get("files_affected", [])

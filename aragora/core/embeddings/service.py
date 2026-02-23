@@ -95,7 +95,7 @@ class UnifiedEmbeddingService:
         for backend_class in backend_classes:
             backend = backend_class(self.config)
             if backend.is_available():
-                logger.info(f"Using {backend.provider_name} embedding provider")
+                logger.info("Using %s embedding provider", backend.provider_name)
                 return backend
 
         # Fallback to hash (always available)
@@ -130,7 +130,7 @@ class UnifiedEmbeddingService:
         if self._cache is not None:
             cached = self._cache.get(text)
             if cached is not None:
-                logger.debug(f"Cache hit for {self._backend.provider_name}")
+                logger.debug("Cache hit for %s", self._backend.provider_name)
                 return EmbeddingResult(
                     embedding=cached,
                     text=text[:100],

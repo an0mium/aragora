@@ -206,7 +206,7 @@ async def _send_via_proactive(
         ref = get_conversation_reference(origin.channel_id)
         if not ref:
             logger.debug(
-                f"No conversation reference for {origin.channel_id}, falling back to webhook"
+                "No conversation reference for %s, falling back to webhook", origin.channel_id
             )
             return None
 
@@ -223,7 +223,7 @@ async def _send_via_proactive(
         logger.debug("TeamsBot not available for proactive messaging")
         return None
     except (RuntimeError, OSError, ValueError, AttributeError) as e:
-        logger.warning(f"Proactive messaging failed: {e}")
+        logger.warning("Proactive messaging failed: %s", e)
         return None
 
 
@@ -246,10 +246,10 @@ async def _send_via_webhook(
         async with httpx.AsyncClient(timeout=30.0) as client:
             response = await client.post(webhook_url, json=payload)
             if response.is_success:
-                logger.info(f"Teams {context} sent via webhook")
+                logger.info("Teams %s sent via webhook", context)
                 return True
             else:
-                logger.warning(f"Teams {context} webhook failed: {response.status_code}")
+                logger.warning("Teams %s webhook failed: %s", context, response.status_code)
                 return False
 
     except ImportError:
@@ -257,7 +257,7 @@ async def _send_via_webhook(
         return False
     except (Exception,) as e:
         # Broad catch here because httpx.HTTPError is conditionally imported
-        logger.error(f"Teams {context} send error: {e}")
+        logger.error("Teams %s send error: %s", context, e)
         return False
 
 
@@ -282,7 +282,7 @@ async def _send_teams_result(origin: DebateOrigin, result: dict[str, Any]) -> bo
     # Strategy 1: Proactive messaging via Bot Framework
     proactive_result = await _send_via_proactive(origin, card=card, fallback_text=fallback_text)
     if proactive_result is True:
-        logger.info(f"Teams result sent via proactive messaging for debate {origin.debate_id}")
+        logger.info("Teams result sent via proactive messaging for debate %s", origin.debate_id)
         return True
     elif proactive_result is False:
         logger.warning("Proactive messaging returned False, trying webhook fallback")
@@ -335,7 +335,7 @@ async def _send_teams_receipt(origin: DebateOrigin, summary: str, receipt_url: s
         origin, card=card, fallback_text="Decision Receipt"
     )
     if proactive_result is True:
-        logger.info(f"Teams receipt sent via proactive messaging for debate {origin.debate_id}")
+        logger.info("Teams receipt sent via proactive messaging for debate %s", origin.debate_id)
         return True
 
     # Webhook fallback

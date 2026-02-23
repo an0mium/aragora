@@ -181,7 +181,7 @@ class GitHubEnterpriseConnector(EnterpriseConnector):
             result = await self._run_gh(["api", f"repos/{self.repo}"])
             return result is not None
         except (OSError, asyncio.TimeoutError, RuntimeError) as e:
-            logger.debug(f"GitHub health check failed: {e}")
+            logger.debug("GitHub health check failed: %s", e)
             return False
 
     def _check_gh_cli(self) -> bool:
@@ -199,7 +199,7 @@ class GitHubEnterpriseConnector(EnterpriseConnector):
             )
             self._gh_available = result.returncode == 0
         except (OSError, subprocess.SubprocessError, subprocess.TimeoutExpired) as e:
-            logger.debug(f"gh CLI check failed: {e}")
+            logger.debug("gh CLI check failed: %s", e)
             self._gh_available = False
 
         return self._gh_available
@@ -219,7 +219,7 @@ class GitHubEnterpriseConnector(EnterpriseConnector):
             stdout, stderr = await asyncio.wait_for(proc.communicate(), timeout=60)
             if proc.returncode == 0:
                 return stdout.decode("utf-8")
-            logger.debug(f"gh command failed: {stderr.decode()}")
+            logger.debug("gh command failed: %s", stderr.decode())
             return None
         except asyncio.TimeoutError:
             proc.kill()
@@ -227,7 +227,7 @@ class GitHubEnterpriseConnector(EnterpriseConnector):
             logger.warning("gh command timed out")
             return None
         except (OSError, UnicodeDecodeError) as e:
-            logger.warning(f"gh command error: {e}")
+            logger.warning("gh command error: %s", e)
             return None
 
     async def _get_latest_commit(self) -> str | None:
@@ -333,7 +333,7 @@ class GitHubEnterpriseConnector(EnterpriseConnector):
         try:
             return base64.b64decode(output.strip()).decode("utf-8")
         except (ValueError, UnicodeDecodeError, TypeError) as e:
-            logger.debug(f"Base64 decode failed for file content: {e}")
+            logger.debug("Base64 decode failed for file content: %s", e)
             return None
 
     def _should_index_file(self, path: str, size: int) -> bool:
@@ -524,14 +524,14 @@ class GitHubEnterpriseConnector(EnterpriseConnector):
         # Get latest commit
         latest_sha = await self._get_latest_commit()
         if not latest_sha:
-            logger.warning(f"[{self.name}] Could not get latest commit")
+            logger.warning("[%s] Could not get latest commit", self.name)
             return
 
         # Get commits since last sync
         commits = await self._get_commits_since(state.cursor, limit=batch_size)
 
         if not commits and state.cursor == latest_sha:
-            logger.info(f"[{self.name}] No new commits since {state.cursor[:8]}")
+            logger.info("[%s] No new commits since %s", self.name, state.cursor[:8])
         else:
             # Get file tree
             tree = await self._get_tree(latest_sha)
@@ -674,7 +674,7 @@ class GitHubEnterpriseConnector(EnterpriseConnector):
         if "push" in str(payload.get("ref", "")):
             # Push event - sync changed files
             commits = payload.get("commits", [])
-            logger.info(f"[{self.name}] Webhook: push with {len(commits)} commits")
+            logger.info("[%s] Webhook: push with %s commits", self.name, len(commits))
 
             # Trigger incremental sync
             asyncio.create_task(self.sync(max_items=len(commits) * 10))
@@ -684,7 +684,7 @@ class GitHubEnterpriseConnector(EnterpriseConnector):
             # Issue/PR event
             issue = payload.get("issue") or payload.get("pull_request")
             if issue:
-                logger.info(f"[{self.name}] Webhook: {event_type} #{issue.get('number')}")
+                logger.info("[%s] Webhook: %s #%s", self.name, event_type, issue.get('number'))
                 return True
 
         return False

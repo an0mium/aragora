@@ -171,7 +171,7 @@ class DebateStrategy:
                 )
 
         except (RuntimeError, ValueError, TypeError, AttributeError, KeyError, OSError) as e:
-            logger.warning(f"[debate_strategy] Error querying memory: {e}")
+            logger.warning("[debate_strategy] Error querying memory: %s", e)
             return StrategyRecommendation(
                 estimated_rounds=default,
                 confidence=0.0,
@@ -276,7 +276,7 @@ class DebateStrategy:
                 )
 
         except (RuntimeError, ValueError, TypeError, AttributeError, KeyError, OSError) as e:
-            logger.warning(f"[debate_strategy] Async memory query failed: {e}")
+            logger.warning("[debate_strategy] Async memory query failed: %s", e)
             return StrategyRecommendation(
                 estimated_rounds=default,
                 confidence=0.0,
@@ -320,5 +320,5 @@ class DebateStrategy:
             return memories
 
         except (RuntimeError, ValueError, TypeError, AttributeError, KeyError, OSError) as e:
-            logger.warning(f"[debate_strategy] Error getting context: {e}")
+            logger.warning("[debate_strategy] Error getting context: %s", e)
             return []

@@ -102,7 +102,7 @@ async def log_metric(
         tags["platform"] = str(context["platform"])
 
     tag_str = ",".join(f"{k}={v}" for k, v in tags.items())
-    logger.info(f"METRIC {metric_name}={value} {tag_str}")
+    logger.info("METRIC %s=%s %s", metric_name, value, tag_str)
 
 
 # =============================================================================
@@ -163,14 +163,14 @@ async def send_webhook(
                 response = await client.get(url, params=payload, headers=headers)
 
             if response.is_success:
-                logger.debug(f"Webhook sent to {url}")
+                logger.debug("Webhook sent to %s", url)
                 return True
             else:
-                logger.warning(f"Webhook failed: {response.status_code}")
+                logger.warning("Webhook failed: %s", response.status_code)
                 return False
 
     except (ConnectionError, TimeoutError, OSError, ValueError) as e:
-        logger.error(f"Webhook error: {e}")
+        logger.error("Webhook error: %s", e)
         return False
 
 
@@ -271,11 +271,11 @@ async def save_checkpoint(
         with open(file_path, "w") as f:
             json.dump(data, f, default=str, indent=2)
 
-        logger.info(f"Checkpoint saved: {file_path}")
+        logger.info("Checkpoint saved: %s", file_path)
         return str(file_path)
 
     except (OSError, ValueError, TypeError) as e:
-        logger.error(f"Checkpoint save error: {e}")
+        logger.error("Checkpoint save error: %s", e)
         return None
 
 
@@ -315,14 +315,14 @@ async def store_fact(
             topics=[fact_type] if fact_type else None,
         )
 
-        logger.info(f"Fact stored: {fact_type} from debate {debate_id}")
+        logger.info("Fact stored: %s from debate %s", fact_type, debate_id)
         return True
 
     except ImportError:
         logger.debug("Knowledge mound not available")
         return False
     except (RuntimeError, ValueError, TypeError, OSError) as e:
-        logger.error(f"Fact storage error: {e}")
+        logger.error("Fact storage error: %s", e)
         return False
 
 

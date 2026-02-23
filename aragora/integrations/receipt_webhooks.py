@@ -108,10 +108,10 @@ class ReceiptWebhookNotifier:
         try:
             cast(Any, self.dispatcher).emit(payload.event_type, payload.to_dict())
             logger.debug(
-                f"Emitted receipt webhook: {payload.event_type} for receipt {payload.receipt_id}"
+                "Emitted receipt webhook: %s for receipt %s", payload.event_type, payload.receipt_id
             )
         except (RuntimeError, ValueError, TypeError, AttributeError, ConnectionError, OSError) as e:
-            logger.warning(f"Failed to emit receipt webhook: {e}")
+            logger.warning("Failed to emit receipt webhook: %s", e)
 
     def notify_receipt_generated(
         self,

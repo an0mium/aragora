@@ -297,7 +297,7 @@ class HybridDebateProtocol:
         critiques_all: list[str] = []
         consensus_score = 0.0
 
-        logger.info(f"Starting hybrid debate {debate_id[:8]} for task: {task[:100]}...")
+        logger.info("Starting hybrid debate %s for task: %s...", debate_id[:8], task[:100])
 
         # 0. Parallel health check on all agents
         health = await self._check_agents_health()
@@ -320,16 +320,16 @@ class HybridDebateProtocol:
         # 1. Get initial proposal from external agent
         try:
             proposal = await self.external_agent.generate(task, context)
-            logger.debug(f"[{debate_id[:8]}] External proposal received: {len(proposal)} chars")
+            logger.debug("[%s] External proposal received: %s chars", debate_id[:8], len(proposal))
         except (RuntimeError, ValueError, TypeError, OSError, ConnectionError, TimeoutError) as e:
-            logger.error(f"[{debate_id[:8]}] External agent failed: {e}")
+            logger.error("[%s] External agent failed: %s", debate_id[:8], e)
             raise
 
         quorum_met = False
 
         for round_num in range(self.config.max_refinement_rounds):
             logger.debug(
-                f"[{debate_id[:8]}] Verification round {round_num + 1}/{self.config.max_refinement_rounds}"
+                "[%s] Verification round %s/%s", debate_id[:8], round_num + 1, self.config.max_refinement_rounds
             )
 
             # 2. Collect critiques from verification agents
@@ -339,8 +339,7 @@ class HybridDebateProtocol:
             # 2b. Check verification quorum
             if len(critiques) < self.config.min_verification_quorum:
                 logger.warning(
-                    f"[{debate_id[:8]}] Insufficient critiques "
-                    f"({len(critiques)}/{self.config.min_verification_quorum})"
+                    "[%s] Insufficient critiques (%s/%s)", debate_id[:8], len(critiques), self.config.min_verification_quorum
                 )
                 # On final round with insufficient quorum, mark as unverified
                 if round_num == self.config.max_refinement_rounds - 1:
@@ -394,14 +393,13 @@ class HybridDebateProtocol:
                 refinements.append(refined)
                 proposal = refined
                 logger.debug(
-                    f"[{debate_id[:8]}] Proposal refined, new length: {len(refined)} chars"
+                    "[%s] Proposal refined, new length: %s chars", debate_id[:8], len(refined)
                 )
 
         # Max rounds reached without consensus
         if not quorum_met:
             logger.warning(
-                f"[{debate_id[:8]}] Verification quorum never met across "
-                f"{self.config.max_refinement_rounds} rounds"
+                "[%s] Verification quorum never met across %s rounds", debate_id[:8], self.config.max_refinement_rounds
             )
         else:
             logger.warning(
@@ -450,7 +448,7 @@ class HybridDebateProtocol:
                 )
                 return critique.content
             except (RuntimeError, ValueError, TypeError, OSError, ConnectionError, TimeoutError) as e:
-                logger.warning(f"Critique from {agent.name} failed: {e}")
+                logger.warning("Critique from %s failed: %s", agent.name, e)
                 return None
 
         # Limit concurrency
@@ -467,7 +465,7 @@ class HybridDebateProtocol:
             if isinstance(result, str):
                 critiques.append(result)
             elif isinstance(result, Exception):
-                logger.warning(f"Critique task failed: {result}")
+                logger.warning("Critique task failed: %s", result)
 
         return critiques
 

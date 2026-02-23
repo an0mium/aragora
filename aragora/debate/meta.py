@@ -394,7 +394,7 @@ class MetaCritiqueAnalyzer:
             try:
                 return self._semantic_similarity(text1, text2)
             except (RuntimeError, ValueError, TypeError, AttributeError, OSError) as e:
-                logger.debug(f"Semantic similarity failed, using word-based fallback: {e}")
+                logger.debug("Semantic similarity failed, using word-based fallback: %s", e)
 
         # Word-based Jaccard similarity (fallback)
         words1 = set(text1.lower().split())

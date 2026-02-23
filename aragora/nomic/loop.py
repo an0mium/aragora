@@ -490,7 +490,7 @@ class NomicLoop:
                 checkpoint_path.write_text(json.dumps(checkpoint, indent=2, default=str))
                 self._log(f"Checkpoint saved: {checkpoint_path}")
             except OSError as e:
-                logger.warning(f"Failed to save checkpoint: {e}")
+                logger.warning("Failed to save checkpoint: %s", e)
 
         return checkpoint
 
@@ -559,10 +559,10 @@ class NomicLoop:
             self._get_cycle_store().save_cycle(self._current_record)
 
             logger.debug(
-                f"cycle_record_saved cycle_id={self._current_record.cycle_id} success={success}"
+                "cycle_record_saved cycle_id=%s success=%s", self._current_record.cycle_id, success
             )
         except OSError as e:
-            logger.warning(f"Failed to save cycle record: {e}")
+            logger.warning("Failed to save cycle record: %s", e)
 
     def _extract_debate_metadata(self, debate_result: Any) -> None:
         """Extract rich debate metadata from a DebateResult into the cycle record.
@@ -695,7 +695,7 @@ class NomicLoop:
             return context
 
         except (RuntimeError, ValueError, OSError) as e:
-            logger.debug(f"Failed to get cross-cycle context: {e}")
+            logger.debug("Failed to get cross-cycle context: %s", e)
             return {}
 
     def record_agent_contribution(

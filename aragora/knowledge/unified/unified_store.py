@@ -211,7 +211,7 @@ class KnowledgeMound:
         all_items: list[KnowledgeItem] = []
         for i, query_result in enumerate(results):
             if isinstance(query_result, BaseException):
-                logger.warning(f"Query to {source_list[i]} failed: {query_result}")
+                logger.warning("Query to %s failed: %s", source_list[i], query_result)
             elif query_result:
                 all_items.extend(query_result)
 
@@ -376,7 +376,7 @@ class KnowledgeMound:
                 self._target_links[target_id] = []
             self._target_links[target_id].append(link_id)
 
-            logger.debug(f"Created link {link_id}: {source_id} -> {target_id} ({relationship})")
+            logger.debug("Created link %s: %s -> %s (%s)", link_id, source_id, target_id, relationship)
 
             return LinkResult(id=link_id, success=True)
 
@@ -539,7 +539,7 @@ class KnowledgeMound:
                 )
             return items
         except (RuntimeError, ValueError, OSError, AttributeError) as e:
-            logger.error(f"Continuum query failed: {e}")
+            logger.error("Continuum query failed: %s", e)
             return []
 
     async def _query_consensus(
@@ -577,7 +577,7 @@ class KnowledgeMound:
                 )
             return items
         except (RuntimeError, ValueError, OSError, AttributeError) as e:
-            logger.error(f"Consensus query failed: {e}")
+            logger.error("Consensus query failed: %s", e)
             return []
 
     async def _query_facts(
@@ -621,7 +621,7 @@ class KnowledgeMound:
                 )
             return items
         except (RuntimeError, ValueError, OSError, AttributeError) as e:
-            logger.error(f"Facts query failed: {e}")
+            logger.error("Facts query failed: %s", e)
             return []
 
     async def _query_vectors(
@@ -666,7 +666,7 @@ class KnowledgeMound:
                 )
             return items
         except (RuntimeError, ValueError, OSError, AttributeError) as e:
-            logger.error(f"Vector query failed: {e}")
+            logger.error("Vector query failed: %s", e)
             return []
 
     async def _store_to_continuum(

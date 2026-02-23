@@ -178,8 +178,7 @@ async def handle_create_routing_rule(
 
         if not validation_result.is_valid:
             logger.warning(
-                f"[SharedInbox] Rule validation failed for workspace {workspace_id}: "
-                f"{validation_result.error}"
+                "[SharedInbox] Rule validation failed for workspace %s: %s", workspace_id, validation_result.error
             )
             return {
                 "success": False,
@@ -228,10 +227,10 @@ async def handle_create_routing_rule(
             try:
                 rules_store.create_rule(rule_data)
                 logger.info(
-                    f"[SharedInbox] Created routing rule {rule_id}: {sanitized_name} (persistent)"
+                    "[SharedInbox] Created routing rule %s: %s (persistent)", rule_id, sanitized_name
                 )
             except (OSError, RuntimeError, ValueError, KeyError) as e:
-                logger.warning(f"[SharedInbox] Failed to persist rule to RulesStore: {e}")
+                logger.warning("[SharedInbox] Failed to persist rule to RulesStore: %s", e)
                 # Fall through to in-memory storage
 
         # Also persist to email store for backward compatibility
@@ -250,7 +249,7 @@ async def handle_create_routing_rule(
                     inbox_id=inbox_id,
                 )
             except (OSError, RuntimeError, ValueError, KeyError) as e:
-                logger.warning(f"[SharedInbox] Failed to persist rule to email store: {e}")
+                logger.warning("[SharedInbox] Failed to persist rule to email store: %s", e)
 
         # Build in-memory RoutingRule object for cache
         rule = RoutingRule(
@@ -274,8 +273,7 @@ async def handle_create_routing_rule(
             _routing_rules[rule_id] = rule
 
         logger.info(
-            f"[SharedInbox] Created routing rule {rule_id} for workspace {workspace_id} "
-            f"(remaining rate limit: {remaining - 1})"
+            "[SharedInbox] Created routing rule %s for workspace %s (remaining rate limit: %s)", rule_id, workspace_id, remaining - 1
         )
 
         return {
@@ -284,7 +282,7 @@ async def handle_create_routing_rule(
         }
 
     except (KeyError, ValueError, TypeError, AttributeError, OSError, RuntimeError) as e:  # broad catch: last-resort handler
-        logger.exception(f"Failed to create routing rule: {e}")
+        logger.exception("Failed to create routing rule: %s", e)
         return {
             "success": False,
             "error": "Internal server error",
@@ -329,7 +327,7 @@ async def handle_list_routing_rules(
                     "offset": offset,
                 }
             except (OSError, RuntimeError, ValueError, KeyError) as e:
-                logger.warning(f"[SharedInbox] Failed to load rules from RulesStore: {e}")
+                logger.warning("[SharedInbox] Failed to load rules from RulesStore: %s", e)
 
         # Try email store as fallback
         email_store = _get_store()
@@ -351,7 +349,7 @@ async def handle_list_routing_rules(
                         "offset": offset,
                     }
             except (OSError, RuntimeError, ValueError, KeyError) as e:
-                logger.warning(f"[SharedInbox] Failed to load rules from email store: {e}")
+                logger.warning("[SharedInbox] Failed to load rules from email store: %s", e)
 
         # Fallback to in-memory
         with _storage_lock:
@@ -380,7 +378,7 @@ async def handle_list_routing_rules(
         }
 
     except (KeyError, ValueError, TypeError, AttributeError, OSError, RuntimeError) as e:  # broad catch: last-resort handler
-        logger.exception(f"Failed to list routing rules: {e}")
+        logger.exception("Failed to list routing rules: %s", e)
         return {
             "success": False,
             "error": "Internal server error",
@@ -429,7 +427,7 @@ async def handle_update_routing_rule(
                         existing_rule = RoutingRule.from_dict(rule_data)
                         workspace_id = existing_rule.workspace_id
                 except (OSError, RuntimeError, ValueError, KeyError) as e:
-                    logger.debug(f"Failed to get rule {rule_id} from store: {e}")
+                    logger.debug("Failed to get rule %s from store: %s", rule_id, e)
 
         if not existing_rule:
             return {"success": False, "error": "Rule not found"}
@@ -546,9 +544,9 @@ async def handle_update_routing_rule(
             try:
                 updated_rule_data = rules_store.update_rule(rule_id, updates)
                 if updated_rule_data:
-                    logger.info(f"[SharedInbox] Updated routing rule {rule_id} in RulesStore")
+                    logger.info("[SharedInbox] Updated routing rule %s in RulesStore", rule_id)
             except (OSError, RuntimeError, ValueError, KeyError) as e:
-                logger.warning(f"[SharedInbox] Failed to update rule in RulesStore: {e}")
+                logger.warning("[SharedInbox] Failed to update rule in RulesStore: %s", e)
 
         # Also update in email store for backward compatibility
         email_store = _get_store()
@@ -556,7 +554,7 @@ async def handle_update_routing_rule(
             try:
                 email_store.update_routing_rule(rule_id, **updates)
             except (OSError, RuntimeError, ValueError, KeyError) as e:
-                logger.warning(f"[SharedInbox] Failed to update rule in email store: {e}")
+                logger.warning("[SharedInbox] Failed to update rule in email store: %s", e)
 
         # Update in-memory cache
         with _storage_lock:
@@ -597,7 +595,7 @@ async def handle_update_routing_rule(
                         "rule": rule_data,
                     }
             except (OSError, RuntimeError, ValueError, KeyError) as e:
-                logger.debug(f"Failed to get rule {rule_id} from store: {e}")
+                logger.debug("Failed to get rule %s from store: %s", rule_id, e)
 
         # Return from in-memory cache if available
         with _storage_lock:
@@ -611,7 +609,7 @@ async def handle_update_routing_rule(
         return {"success": False, "error": "Rule not found"}
 
     except (KeyError, ValueError, TypeError, AttributeError, OSError, RuntimeError) as e:  # broad catch: last-resort handler
-        logger.exception(f"Failed to update routing rule: {e}")
+        logger.exception("Failed to update routing rule: %s", e)
         return {
             "success": False,
             "error": "Internal server error",
@@ -636,9 +634,9 @@ async def handle_delete_routing_rule(
             try:
                 deleted = rules_store.delete_rule(rule_id)
                 if deleted:
-                    logger.info(f"[SharedInbox] Deleted routing rule {rule_id} from RulesStore")
+                    logger.info("[SharedInbox] Deleted routing rule %s from RulesStore", rule_id)
             except (OSError, RuntimeError, ValueError, KeyError) as e:
-                logger.warning(f"[SharedInbox] Failed to delete rule from RulesStore: {e}")
+                logger.warning("[SharedInbox] Failed to delete rule from RulesStore: %s", e)
 
         # Also delete from email store for backward compatibility
         email_store = _get_store()
@@ -646,7 +644,7 @@ async def handle_delete_routing_rule(
             try:
                 email_store.delete_routing_rule(rule_id)
             except (OSError, RuntimeError, ValueError, KeyError) as e:
-                logger.warning(f"[SharedInbox] Failed to delete rule from email store: {e}")
+                logger.warning("[SharedInbox] Failed to delete rule from email store: %s", e)
 
         # Delete from in-memory cache
         with _storage_lock:
@@ -666,7 +664,7 @@ async def handle_delete_routing_rule(
             }
 
     except (KeyError, ValueError, TypeError, AttributeError, OSError, RuntimeError) as e:  # broad catch: last-resort handler
-        logger.exception(f"Failed to delete routing rule: {e}")
+        logger.exception("Failed to delete routing rule: %s", e)
         return {
             "success": False,
             "error": "Internal server error",
@@ -698,7 +696,7 @@ async def handle_test_routing_rule(
                 if rule_data:
                     rule = RoutingRule.from_dict(rule_data)
             except (OSError, RuntimeError, ValueError, KeyError) as e:
-                logger.warning(f"[SharedInbox] Failed to load rule from RulesStore: {e}")
+                logger.warning("[SharedInbox] Failed to load rule from RulesStore: %s", e)
 
         # Try email store as fallback
         if not rule:
@@ -709,7 +707,7 @@ async def handle_test_routing_rule(
                     if rule_data:
                         rule = RoutingRule.from_dict(rule_data)
                 except (OSError, RuntimeError, ValueError, KeyError) as e:
-                    logger.warning(f"[SharedInbox] Failed to load rule from email store: {e}")
+                    logger.warning("[SharedInbox] Failed to load rule from email store: %s", e)
 
         # Fallback to in-memory
         if not rule:
@@ -729,7 +727,7 @@ async def handle_test_routing_rule(
         }
 
     except (KeyError, ValueError, TypeError, AttributeError, OSError, RuntimeError) as e:  # broad catch: last-resort handler
-        logger.exception(f"Failed to test routing rule: {e}")
+        logger.exception("Failed to test routing rule: %s", e)
         return {
             "success": False,
             "error": "Internal server error",

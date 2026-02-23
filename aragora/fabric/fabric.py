@@ -305,7 +305,7 @@ class AgentFabric:
             await self.spawn(config)
             pool.current_agents.append(config.id)
 
-        logger.info(f"Created pool {pool_id} ({name}) with {min_agents} agents")
+        logger.info("Created pool %s (%s) with %s agents", pool_id, name, min_agents)
         return pool
 
     async def get_pool(self, pool_id: str) -> AgentPool | None:
@@ -353,7 +353,7 @@ class AgentFabric:
                 await self.terminate(agent_id, graceful=True)
             pool.current_agents = pool.current_agents[:target]
 
-        logger.info(f"Scaled pool {pool_id} to {len(pool.current_agents)} agents")
+        logger.info("Scaled pool %s to %s agents", pool_id, len(pool.current_agents))
         return len(pool.current_agents)
 
     async def delete_pool(self, pool_id: str) -> bool:
@@ -369,7 +369,7 @@ class AgentFabric:
         async with self._lock:
             del self._pools[pool_id]
 
-        logger.info(f"Deleted pool {pool_id}")
+        logger.info("Deleted pool %s", pool_id)
         return True
 
     async def schedule_to_pool(
@@ -658,4 +658,4 @@ class AgentFabric:
             executor: Async function that executes the task
         """
         self._executors[task_type] = executor
-        logger.debug(f"Registered executor for task type: {task_type}")
+        logger.debug("Registered executor for task type: %s", task_type)

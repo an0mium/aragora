@@ -191,7 +191,7 @@ class PostgresOriginStore:
             await conn.execute(self.INITIAL_SCHEMA)
 
         self._initialized = True
-        logger.debug(f"[{self.SCHEMA_NAME}] Schema initialized")
+        logger.debug("[%s] Schema initialized", self.SCHEMA_NAME)
 
     async def save(self, origin: DebateOrigin) -> None:
         """Save a debate origin to PostgreSQL."""
@@ -288,7 +288,7 @@ async def _get_postgres_store() -> PostgresOriginStore | None:
         logger.info("PostgreSQL origin store initialized")
         return _postgres_store
     except (ImportError, ConnectionError, TimeoutError, OSError, RuntimeError, ValueError) as e:
-        logger.warning(f"PostgreSQL origin store not available: {e}")
+        logger.warning("PostgreSQL origin store not available: %s", e)
         return None
 
 

@@ -84,8 +84,7 @@ async def handle_scan_sast(
                     sast_scan_results[repo_id][scan_id] = result
 
                 logger.info(
-                    f"[SAST] Completed scan {scan_id} for {repo_id}: "
-                    f"{len(result.findings)} findings"
+                    "[SAST] Completed scan %s for %s: %s findings", scan_id, repo_id, len(result.findings)
                 )
 
                 # Emit security events for critical/high findings
@@ -96,7 +95,7 @@ async def handle_scan_sast(
                     await emit_sast_events(result, repo_id, scan_id, workspace_id)
 
             except (OSError, ValueError, TypeError, RuntimeError) as e:
-                logger.exception(f"[SAST] Scan failed for {repo_id}: {e}")
+                logger.exception("[SAST] Scan failed for %s: %s", repo_id, e)
             finally:
                 if repo_id in running_sast_scans:
                     del running_sast_scans[repo_id]
@@ -113,7 +112,7 @@ async def handle_scan_sast(
         )
 
     except (OSError, ValueError, TypeError, RuntimeError) as e:
-        logger.exception(f"[SAST] Failed to start scan: {e}")
+        logger.exception("[SAST] Failed to start scan: %s", e)
         return error_response("Internal server error", 500)
 
 
@@ -155,7 +154,7 @@ async def handle_get_sast_scan_status(
             )
 
     except (KeyError, ValueError, TypeError) as e:
-        logger.exception(f"[SAST] Failed to get scan status: {e}")
+        logger.exception("[SAST] Failed to get scan status: %s", e)
         return error_response("Internal server error", 500)
 
 
@@ -211,7 +210,7 @@ async def handle_get_sast_findings(
             )
 
     except (KeyError, ValueError, TypeError, AttributeError) as e:
-        logger.exception(f"[SAST] Failed to get findings: {e}")
+        logger.exception("[SAST] Failed to get findings: %s", e)
         return error_response("Internal server error", 500)
 
 
@@ -250,5 +249,5 @@ async def handle_get_owasp_summary(repo_id: str) -> HandlerResult:
             )
 
     except (KeyError, ValueError, TypeError) as e:
-        logger.exception(f"[SAST] Failed to get OWASP summary: {e}")
+        logger.exception("[SAST] Failed to get OWASP summary: %s", e)
         return error_response("Internal server error", 500)

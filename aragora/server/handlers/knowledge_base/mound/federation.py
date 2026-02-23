@@ -116,7 +116,7 @@ class FederationOperationsMixin:
                 )
             )
         except (ConnectionError, TimeoutError, OSError, ValueError, TypeError, KeyError) as e:
-            logger.error(f"Failed to register region: {e}")
+            logger.error("Failed to register region: %s", e)
             return error_response("Failed to register region", 500)
 
         return json_response(
@@ -149,7 +149,7 @@ class FederationOperationsMixin:
         try:
             success = _run_async(mound.unregister_federated_region(region_id))
         except (ConnectionError, TimeoutError, OSError, ValueError, TypeError, KeyError) as e:
-            logger.error(f"Failed to unregister region: {e}")
+            logger.error("Failed to unregister region: %s", e)
             return error_response("Failed to unregister region", 500)
 
         if not success:
@@ -214,7 +214,7 @@ class FederationOperationsMixin:
                 metrics_ctx["status"] = "success" if result.success else "failed"
             except (ConnectionError, TimeoutError, OSError, ValueError, TypeError, KeyError) as e:
                 metrics_ctx["status"] = "error"
-                logger.error(f"Failed to sync to region: {e}")
+                logger.error("Failed to sync to region: %s", e)
                 return error_response("Failed to sync to region", 500)
 
         return json_response(
@@ -280,7 +280,7 @@ class FederationOperationsMixin:
                 metrics_ctx["status"] = "success" if result.success else "failed"
             except (ConnectionError, TimeoutError, OSError, ValueError, TypeError, KeyError) as e:
                 metrics_ctx["status"] = "error"
-                logger.error(f"Failed to pull from region: {e}")
+                logger.error("Failed to pull from region: %s", e)
                 return error_response("Failed to pull from region", 500)
 
         return json_response(
@@ -335,7 +335,7 @@ class FederationOperationsMixin:
                 )
             )
         except (ConnectionError, TimeoutError, OSError, ValueError, TypeError, KeyError) as e:
-            logger.error(f"Failed to sync all regions: {e}")
+            logger.error("Failed to sync all regions: %s", e)
             return error_response("Failed to sync all regions", 500)
 
         return json_response(
@@ -370,7 +370,7 @@ class FederationOperationsMixin:
         try:
             status = _run_async(mound.get_federation_status())
         except (ConnectionError, TimeoutError, OSError, ValueError, TypeError, KeyError) as e:
-            logger.error(f"Failed to get federation status: {e}")
+            logger.error("Failed to get federation status: %s", e)
             return error_response("Failed to get federation status", 500)
 
         # Track region counts
@@ -406,7 +406,7 @@ class FederationOperationsMixin:
         try:
             status = _run_async(mound.get_federation_status())
         except (ConnectionError, TimeoutError, OSError, ValueError, TypeError, KeyError) as e:
-            logger.error(f"Failed to list regions: {e}")
+            logger.error("Failed to list regions: %s", e)
             return error_response("Failed to list regions", 500)
 
         regions = [

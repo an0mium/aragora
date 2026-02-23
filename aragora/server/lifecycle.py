@@ -302,7 +302,7 @@ class ServerLifecycleManager:
 
         def signal_handler(signum, frame):
             signame = signal.Signals(signum).name
-            logger.info(f"Received {signame}, initiating graceful shutdown...")
+            logger.info("Received %s, initiating graceful shutdown...", signame)
             asyncio.create_task(self.graceful_shutdown())
 
         try:
@@ -310,7 +310,7 @@ class ServerLifecycleManager:
             signal.signal(signal.SIGINT, signal_handler)
             logger.debug("Signal handlers registered for graceful shutdown")
         except (ValueError, OSError) as e:
-            logger.debug(f"Could not register signal handlers: {e}")
+            logger.debug("Could not register signal handlers: %s", e)
 
     async def graceful_shutdown(self, timeout: float = 30.0) -> None:
         """Gracefully shut down the server."""
@@ -345,7 +345,7 @@ class ServerLifecycleManager:
         if not in_progress:
             return
 
-        logger.info(f"Waiting for {len(in_progress)} in-flight debate(s)")
+        logger.info("Waiting for %s in-flight debate(s)", len(in_progress))
         wait_start = time.time()
 
         sleep_interval = 0.2
@@ -371,9 +371,9 @@ class ServerLifecycleManager:
 
             count = persist_all_circuit_breakers()
             if count > 0:
-                logger.info(f"Persisted {count} circuit breaker state(s)")
+                logger.info("Persisted %s circuit breaker state(s)", count)
         except (ImportError, OSError, RuntimeError) as e:
-            logger.warning(f"Failed to persist circuit breaker states: {e}")
+            logger.warning("Failed to persist circuit breaker states: %s", e)
 
     async def _stop_background_tasks(self) -> None:
         """Stop background task manager."""
@@ -384,7 +384,7 @@ class ServerLifecycleManager:
             background_mgr.stop()
             logger.info("Background tasks stopped")
         except (ImportError, RuntimeError, AttributeError) as e:
-            logger.debug(f"Background task shutdown: {e}")
+            logger.debug("Background task shutdown: %s", e)
 
         try:
             from aragora.server.handlers.pulse import get_pulse_scheduler
@@ -394,7 +394,7 @@ class ServerLifecycleManager:
                 await scheduler.stop(graceful=True)
                 logger.info("Pulse scheduler stopped")
         except (ImportError, RuntimeError, AttributeError) as e:
-            logger.debug(f"Pulse scheduler shutdown: {e}")
+            logger.debug("Pulse scheduler shutdown: %s", e)
 
     async def _close_websockets(self) -> None:
         """Close WebSocket connections."""
@@ -405,7 +405,7 @@ class ServerLifecycleManager:
             await self.stream_server.graceful_shutdown()
             logger.info("WebSocket connections closed")
         except (OSError, RuntimeError, asyncio.CancelledError) as e:
-            logger.warning(f"WebSocket shutdown error: {e}")
+            logger.warning("WebSocket shutdown error: %s", e)
 
     async def _close_http_connector(self) -> None:
         """Close shared HTTP connector."""
@@ -415,7 +415,7 @@ class ServerLifecycleManager:
             await close_shared_connector()
             logger.info("Shared HTTP connector closed")
         except (ImportError, OSError, RuntimeError) as e:
-            logger.debug(f"Connector shutdown: {e}")
+            logger.debug("Connector shutdown: %s", e)
 
     def _close_database_connections(self) -> None:
         """Close database connections."""
@@ -425,7 +425,7 @@ class ServerLifecycleManager:
             DatabaseManager.clear_instances()
             logger.info("Database connections closed")
         except (ImportError, sqlite3.Error) as e:
-            logger.debug(f"Database shutdown: {e}")
+            logger.debug("Database shutdown: %s", e)
 
     async def _run_shutdown_callbacks(self) -> None:
         """Run registered shutdown callbacks."""
@@ -435,7 +435,7 @@ class ServerLifecycleManager:
                 if asyncio.iscoroutine(result):
                     await result
             except Exception as e:  # noqa: BLE001 - Shutdown must continue despite individual callback failures
-                logger.warning(f"Shutdown callback error: {e}")
+                logger.warning("Shutdown callback error: %s", e)
 
 
 __all__ = [

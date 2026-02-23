@@ -79,8 +79,7 @@ async def _get_store() -> SyncStore | None:
             logger.info("Using persistent sync store for enterprise connectors")
         except (ConnectionError, TimeoutError, OSError, ValueError, TypeError, RuntimeError) as e:
             logger.warning(
-                f"ENTERPRISE CONNECTORS: Failed to initialize sync store: {e}. "
-                "Using in-memory fallback - CONFIGURATIONS WILL BE LOST ON RESTART!"
+                "ENTERPRISE CONNECTORS: Failed to initialize sync store: %s. Using in-memory fallback - CONFIGURATIONS WILL BE LOST ON RESTART!", e
             )
     return _store
 
@@ -466,7 +465,7 @@ class ConnectorsHandler(SecureHandler):
 
         _connectors[connector_id] = connector
 
-        logger.info(f"Created connector {connector_id} of type {connector_type}")
+        logger.info("Created connector %s of type %s", connector_id, connector_type)
 
         return self._json_response(201, connector)
 
@@ -496,7 +495,7 @@ class ConnectorsHandler(SecureHandler):
 
         _connectors[connector_id] = connector
 
-        logger.info(f"Updated connector {connector_id}")
+        logger.info("Updated connector %s", connector_id)
 
         return self._json_response(200, connector)
 
@@ -513,7 +512,7 @@ class ConnectorsHandler(SecureHandler):
 
         del _connectors[connector_id]
 
-        logger.info(f"Deleted connector {connector_id}")
+        logger.info("Deleted connector %s", connector_id)
 
         return self._json_response(200, {"message": "Connector removed successfully"})
 
@@ -560,7 +559,7 @@ class ConnectorsHandler(SecureHandler):
             if not t.cancelled() and t.exception() else None
         )
 
-        logger.info(f"Started sync {sync_id} for connector {connector_id}")
+        logger.info("Started sync %s for connector %s", sync_id, connector_id)
 
         return self._json_response(
             202,
@@ -613,7 +612,7 @@ class ConnectorsHandler(SecureHandler):
             # Add to history
             _sync_history.append(dict(sync_job))
 
-            logger.info(f"Completed sync {sync_id} for connector {connector_id}")
+            logger.info("Completed sync %s for connector %s", sync_id, connector_id)
 
         except (ConnectionError, TimeoutError, OSError, ValueError, KeyError, TypeError) as e:
             sync_job["status"] = "failed"
@@ -623,7 +622,7 @@ class ConnectorsHandler(SecureHandler):
             connector["error_message"] = "Sync operation failed"
             _sync_history.append(dict(sync_job))
 
-            logger.error(f"Sync {sync_id} failed: {e}")
+            logger.error("Sync %s failed: %s", sync_id, e)
 
     async def _cancel_sync(self, request: Any, sync_id: str) -> dict[str, Any]:
         """Cancel a running sync operation."""
@@ -641,7 +640,7 @@ class ConnectorsHandler(SecureHandler):
         if connector:
             connector["status"] = "connected" if connector.get("last_sync") else "disconnected"
 
-        logger.info(f"Cancelled sync {sync_id}")
+        logger.info("Cancelled sync %s", sync_id)
 
         return self._json_response(200, {"message": "Sync cancelled"})
 

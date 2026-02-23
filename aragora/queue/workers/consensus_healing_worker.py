@@ -158,7 +158,7 @@ class ConsensusHealingWorker:
     async def start(self) -> None:
         """Start the healing worker loop."""
         self._running = True
-        logger.info(f"[{self.worker_id}] Starting consensus healing worker")
+        logger.info("[%s] Starting consensus healing worker", self.worker_id)
 
         while self._running:
             try:
@@ -166,15 +166,15 @@ class ConsensusHealingWorker:
                 await self._process_candidates()
                 await asyncio.sleep(self.config.scan_interval_seconds)
             except asyncio.CancelledError:
-                logger.info(f"[{self.worker_id}] Worker cancelled")
+                logger.info("[%s] Worker cancelled", self.worker_id)
                 break
             except (RuntimeError, ValueError, OSError, ConnectionError) as e:  # noqa: BLE001 - worker isolation
-                logger.error(f"[{self.worker_id}] Error in healing loop: {e}")
+                logger.error("[%s] Error in healing loop: %s", self.worker_id, e)
                 await asyncio.sleep(30)  # Back off on errors
 
     async def stop(self) -> None:
         """Stop the healing worker."""
-        logger.info(f"[{self.worker_id}] Stopping consensus healing worker")
+        logger.info("[%s] Stopping consensus healing worker", self.worker_id)
         self._running = False
 
     async def _scan_for_candidates(self) -> None:
@@ -192,11 +192,11 @@ class ConsensusHealingWorker:
                         try:
                             self.on_healing_needed(candidate)
                         except (RuntimeError, ValueError, TypeError) as e:
-                            logger.error(f"Error in on_healing_needed callback: {e}")
+                            logger.error("Error in on_healing_needed callback: %s", e)
 
-            logger.debug(f"[{self.worker_id}] Scan complete: {len(candidates)} candidates found")
+            logger.debug("[%s] Scan complete: %s candidates found", self.worker_id, len(candidates))
         except (RuntimeError, OSError, ConnectionError, ValueError) as e:
-            logger.error(f"[{self.worker_id}] Error scanning for candidates: {e}")
+            logger.error("[%s] Error scanning for candidates: %s", self.worker_id, e)
 
     async def _find_healing_candidates(self) -> list[HealingCandidate]:
         """Find debates that need consensus healing."""
@@ -244,7 +244,7 @@ class ConsensusHealingWorker:
         except ImportError:
             logger.debug("ConsensusMemory not available, skipping scan")
         except (RuntimeError, OSError, ConnectionError, ValueError) as e:
-            logger.error(f"Error finding healing candidates: {e}")
+            logger.error("Error finding healing candidates: %s", e)
 
         return candidates
 
@@ -265,7 +265,7 @@ class ConsensusHealingWorker:
                 return []
             return []
         except (RuntimeError, OSError, ConnectionError, ValueError) as e:
-            logger.debug(f"Failed to query stale debates: {type(e).__name__}: {e}")
+            logger.debug("Failed to query stale debates: %s: %s", type(e).__name__, e)
             return []
 
     def _determine_reason(self, debate_info: dict[str, Any]) -> HealingReason:
@@ -313,18 +313,17 @@ class ConsensusHealingWorker:
                     try:
                         self.on_healing_complete(result)
                     except (RuntimeError, ValueError, TypeError) as e:
-                        logger.error(f"Error in on_healing_complete callback: {e}")
+                        logger.error("Error in on_healing_complete callback: %s", e)
 
             except (RuntimeError, OSError, ConnectionError, ValueError) as e:
-                logger.error(f"Error healing candidate {candidate.debate_id}: {e}")
+                logger.error("Error healing candidate %s: %s", candidate.debate_id, e)
 
     async def _heal_candidate(self, candidate: HealingCandidate) -> HealingResult:
         """Attempt to heal a single candidate."""
         action = self._determine_action(candidate)
 
         logger.info(
-            f"[{self.worker_id}] Healing {candidate.debate_id}: "
-            f"reason={candidate.reason.value}, action={action.value}"
+            "[%s] Healing %s: reason=%s, action=%s", self.worker_id, candidate.debate_id, candidate.reason.value, action.value
         )
 
         try:
@@ -396,7 +395,7 @@ class ConsensusHealingWorker:
     async def _action_redebate(self, candidate: HealingCandidate) -> HealingResult:
         """Trigger a new debate with modified parameters."""
         # In a real implementation, this would create a new debate job
-        logger.info(f"Would trigger re-debate for {candidate.debate_id}")
+        logger.info("Would trigger re-debate for %s", candidate.debate_id)
 
         return HealingResult(
             debate_id=candidate.debate_id,
@@ -408,7 +407,7 @@ class ConsensusHealingWorker:
 
     async def _action_extend_rounds(self, candidate: HealingCandidate) -> HealingResult:
         """Extend the debate with additional rounds."""
-        logger.info(f"Would extend rounds for {candidate.debate_id}")
+        logger.info("Would extend rounds for %s", candidate.debate_id)
 
         return HealingResult(
             debate_id=candidate.debate_id,
@@ -420,7 +419,7 @@ class ConsensusHealingWorker:
 
     async def _action_add_mediator(self, candidate: HealingCandidate) -> HealingResult:
         """Add a mediating agent to help reach consensus."""
-        logger.info(f"Would add mediator for {candidate.debate_id}")
+        logger.info("Would add mediator for %s", candidate.debate_id)
 
         return HealingResult(
             debate_id=candidate.debate_id,
@@ -439,7 +438,7 @@ class ConsensusHealingWorker:
                 message="Notifications disabled",
             )
 
-        logger.info(f"Would notify user about {candidate.debate_id}")
+        logger.info("Would notify user about %s", candidate.debate_id)
 
         return HealingResult(
             debate_id=candidate.debate_id,
@@ -450,7 +449,7 @@ class ConsensusHealingWorker:
 
     async def _action_archive(self, candidate: HealingCandidate) -> HealingResult:
         """Archive debate as unresolved."""
-        logger.info(f"Archiving unresolved debate {candidate.debate_id}")
+        logger.info("Archiving unresolved debate %s", candidate.debate_id)
 
         return HealingResult(
             debate_id=candidate.debate_id,
@@ -461,7 +460,7 @@ class ConsensusHealingWorker:
 
     async def _action_escalate(self, candidate: HealingCandidate) -> HealingResult:
         """Escalate debate for human review."""
-        logger.info(f"Escalating debate {candidate.debate_id} for human review")
+        logger.info("Escalating debate %s for human review", candidate.debate_id)
 
         return HealingResult(
             debate_id=candidate.debate_id,

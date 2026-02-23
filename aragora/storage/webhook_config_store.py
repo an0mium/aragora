@@ -132,7 +132,7 @@ def _encrypt_secret(secret: str) -> str:
                 str(e),
                 "webhook_config_store",
             ) from e
-        logger.warning(f"Secret encryption failed, storing unencrypted: {e}")
+        logger.warning("Secret encryption failed, storing unencrypted: %s", e)
         return secret
 
 
@@ -151,7 +151,7 @@ def _decrypt_secret(encrypted_secret: str) -> str:
         service = get_encryption_service()
         return service.decrypt_string(encrypted_secret)
     except (EncryptionError, ValueError, TypeError, AttributeError, RuntimeError, OSError) as e:
-        logger.debug(f"Secret decryption failed (may be legacy unencrypted): {e}")
+        logger.debug("Secret decryption failed (may be legacy unencrypted): %s", e)
         return encrypted_secret  # Return as-is if decryption fails
 
 
@@ -368,7 +368,7 @@ class InMemoryWebhookConfigStore(WebhookConfigStoreBackend):
         with self._lock:
             self._webhooks[webhook_id] = webhook
 
-        logger.info(f"Registered webhook {webhook_id} for events: {events}")
+        logger.info("Registered webhook %s for events: %s", webhook_id, events)
         return webhook
 
     def get(self, webhook_id: str) -> WebhookConfig | None:
@@ -397,7 +397,7 @@ class InMemoryWebhookConfigStore(WebhookConfigStoreBackend):
         with self._lock:
             if webhook_id in self._webhooks:
                 del self._webhooks[webhook_id]
-                logger.info(f"Deleted webhook {webhook_id}")
+                logger.info("Deleted webhook %s", webhook_id)
                 return True
             return False
 
@@ -491,7 +491,7 @@ class SQLiteWebhookConfigStore(WebhookConfigStoreBackend):
         self._connections: set[sqlite3.Connection] = set()
         self._connections_lock = threading.Lock()
         self._init_schema()
-        logger.info(f"SQLiteWebhookConfigStore initialized: {self.db_path}")
+        logger.info("SQLiteWebhookConfigStore initialized: %s", self.db_path)
 
     def _get_conn(self) -> sqlite3.Connection:
         """Get per-context database connection (async-safe)."""
@@ -591,7 +591,7 @@ class SQLiteWebhookConfigStore(WebhookConfigStoreBackend):
             ),
         )
         conn.commit()
-        logger.info(f"Registered webhook {webhook_id} for events: {events}")
+        logger.info("Registered webhook %s for events: %s", webhook_id, events)
         return webhook
 
     def get(self, webhook_id: str) -> WebhookConfig | None:
@@ -642,7 +642,7 @@ class SQLiteWebhookConfigStore(WebhookConfigStoreBackend):
         conn.commit()
         deleted = cursor.rowcount > 0
         if deleted:
-            logger.info(f"Deleted webhook {webhook_id}")
+            logger.info("Deleted webhook %s", webhook_id)
         return deleted
 
     def update(
@@ -775,7 +775,7 @@ class RedisWebhookConfigStore(WebhookConfigStoreBackend):
             self._redis_checked = True
             logger.info("Redis connected for webhook config store")
         except (ImportError, _RedisError, ConnectionError, TimeoutError, OSError, ValueError) as e:
-            logger.debug(f"Redis not available, using SQLite only: {e}")
+            logger.debug("Redis not available, using SQLite only: %s", e)
             self._redis = None
             self._redis_checked = True
 
@@ -809,7 +809,7 @@ class RedisWebhookConfigStore(WebhookConfigStoreBackend):
             try:
                 redis.setex(self._redis_key(webhook.id), self.REDIS_TTL, webhook.to_json())
             except (_RedisError, ConnectionError, TimeoutError, OSError, ValueError) as e:
-                logger.debug(f"Redis cache update failed: {e}")
+                logger.debug("Redis cache update failed: %s", e)
 
         return webhook
 
@@ -823,7 +823,7 @@ class RedisWebhookConfigStore(WebhookConfigStoreBackend):
                 if data:
                     return WebhookConfig.from_json(data)
             except (_RedisError, ConnectionError, TimeoutError, OSError, ValueError, json.JSONDecodeError) as e:
-                logger.debug(f"Redis get failed, falling back to SQLite: {e}")
+                logger.debug("Redis get failed, falling back to SQLite: %s", e)
 
         # Fall back to SQLite
         webhook = self._sqlite.get(webhook_id)
@@ -833,9 +833,9 @@ class RedisWebhookConfigStore(WebhookConfigStoreBackend):
             try:
                 redis.setex(self._redis_key(webhook_id), self.REDIS_TTL, webhook.to_json())
             except (_RedisError, ConnectionError, TimeoutError) as e:
-                logger.debug(f"Redis cache population failed (connection issue): {e}")
+                logger.debug("Redis cache population failed (connection issue): %s", e)
             except (_RedisError, ConnectionError, TimeoutError, OSError, ValueError) as e:
-                logger.debug(f"Redis cache population failed: {e}")
+                logger.debug("Redis cache population failed: %s", e)
 
         return webhook
 
@@ -856,9 +856,9 @@ class RedisWebhookConfigStore(WebhookConfigStoreBackend):
             try:
                 redis.delete(self._redis_key(webhook_id))
             except (_RedisError, ConnectionError, TimeoutError) as e:
-                logger.debug(f"Redis cache delete failed (connection issue): {e}")
+                logger.debug("Redis cache delete failed (connection issue): %s", e)
             except (_RedisError, ConnectionError, TimeoutError, OSError, ValueError) as e:
-                logger.debug(f"Redis cache delete failed: {e}")
+                logger.debug("Redis cache delete failed: %s", e)
 
         return self._sqlite.delete(webhook_id)
 
@@ -887,7 +887,7 @@ class RedisWebhookConfigStore(WebhookConfigStoreBackend):
                 try:
                     redis.setex(self._redis_key(webhook_id), self.REDIS_TTL, webhook.to_json())
                 except (_RedisError, ConnectionError, TimeoutError, OSError, ValueError) as e:
-                    logger.debug(f"Redis cache update failed: {e}")
+                    logger.debug("Redis cache update failed: %s", e)
 
         return webhook
 
@@ -905,7 +905,7 @@ class RedisWebhookConfigStore(WebhookConfigStoreBackend):
             try:
                 redis.delete(self._redis_key(webhook_id))
             except (_RedisError, ConnectionError, TimeoutError, OSError, ValueError) as e:
-                logger.debug(f"Redis cache invalidation failed: {e}")
+                logger.debug("Redis cache invalidation failed: %s", e)
 
     def get_for_event(self, event_type: str) -> _list[WebhookConfig]:
         return self._sqlite.get_for_event(event_type)
@@ -964,7 +964,7 @@ class PostgresWebhookConfigStore(WebhookConfigStoreBackend):
             await conn.execute(self.INITIAL_SCHEMA)
 
         self._initialized = True
-        logger.debug(f"[{self.SCHEMA_NAME}] Schema initialized")
+        logger.debug("[%s] Schema initialized", self.SCHEMA_NAME)
 
     def register(
         self,
@@ -1032,7 +1032,7 @@ class PostgresWebhookConfigStore(WebhookConfigStoreBackend):
                 webhook.workspace_id,
             )
 
-        logger.info(f"Registered webhook {webhook_id} for events: {events}")
+        logger.info("Registered webhook %s for events: %s", webhook_id, events)
         return webhook
 
     def get(self, webhook_id: str) -> WebhookConfig | None:
@@ -1133,7 +1133,7 @@ class PostgresWebhookConfigStore(WebhookConfigStoreBackend):
             result = await conn.execute("DELETE FROM webhook_configs WHERE id = $1", webhook_id)
             deleted = result != "DELETE 0"
             if deleted:
-                logger.info(f"Deleted webhook {webhook_id}")
+                logger.info("Deleted webhook %s", webhook_id)
             return deleted
 
     def update(
@@ -1319,7 +1319,7 @@ def set_webhook_config_store(store: WebhookConfigStoreBackend) -> None:
     """
     global _webhook_config_store
     _webhook_config_store = store
-    logger.debug(f"Webhook config store backend set: {type(store).__name__}")
+    logger.debug("Webhook config store backend set: %s", type(store).__name__)
 
 
 def reset_webhook_config_store() -> None:

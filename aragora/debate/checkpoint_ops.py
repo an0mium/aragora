@@ -95,9 +95,9 @@ class CheckpointOperations:
                 agents=agents,
                 current_consensus=getattr(ctx.result, "final_answer", None),
             )
-            logger.debug(f"[checkpoint] Saved checkpoint after round {round_num}")
+            logger.debug("[checkpoint] Saved checkpoint after round %s", round_num)
         except (OSError, TypeError, ValueError, RuntimeError) as e:
-            logger.warning(f"[checkpoint] Failed to create checkpoint: {e}")
+            logger.warning("[checkpoint] Failed to create checkpoint: %s", e)
 
     def store_debate_outcome(
         self,

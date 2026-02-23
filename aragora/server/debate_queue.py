@@ -377,7 +377,7 @@ class DebateQueue:
         # Register batch
         self._batches[batch.batch_id] = batch
 
-        logger.info(f"Batch {batch.batch_id} submitted with {len(batch.items)} items")
+        logger.info("Batch %s submitted with %s items", batch.batch_id, len(batch.items))
 
         # Start processing if not already running
         if self._processor_task is None or self._processor_task.done():
@@ -436,7 +436,7 @@ class DebateQueue:
             if item.status == ItemStatus.QUEUED:
                 item.status = ItemStatus.CANCELLED
 
-        logger.info(f"Batch {batch_id} cancelled")
+        logger.info("Batch %s cancelled", batch_id)
         return True
 
     async def _process_batches(self) -> None:
@@ -506,7 +506,7 @@ class DebateQueue:
                 item.error = "No debate executor configured"
 
         except (RuntimeError, ValueError, TimeoutError, asyncio.CancelledError) as e:
-            logger.error(f"Failed to process item {item.item_id}: {e}")
+            logger.error("Failed to process item %s: %s", item.item_id, e)
             item.status = ItemStatus.FAILED
             item.error = "Debate execution failed"
         finally:
@@ -543,8 +543,7 @@ class DebateQueue:
             batch.status = BatchStatus.COMPLETED
 
         logger.info(
-            f"Batch {batch.batch_id} completed: "
-            f"{len(batch.items) - failed - cancelled}/{len(batch.items)} succeeded"
+            "Batch %s completed: %s/%s succeeded", batch.batch_id, len(batch.items) - failed - cancelled, len(batch.items)
         )
 
         # Trigger webhook if configured
@@ -588,14 +587,14 @@ class DebateQueue:
                 )
                 if response.status_code >= 400:
                     logger.warning(
-                        f"Webhook failed for batch {batch.batch_id}: status={response.status_code}"
+                        "Webhook failed for batch %s: status=%s", batch.batch_id, response.status_code
                     )
                 else:
-                    logger.info(f"Webhook sent for batch {batch.batch_id}")
+                    logger.info("Webhook sent for batch %s", batch.batch_id)
         except ImportError:
             logger.debug("httpx not available for webhook")
         except (ConnectionError, OSError, TimeoutError, asyncio.TimeoutError) as e:
-            logger.error(f"Webhook error for batch {batch.batch_id}: {e}")
+            logger.error("Webhook error for batch %s: %s", batch.batch_id, e)
 
     def cleanup_old_batches(self, max_age_hours: int = 24) -> int:
         """Remove batches older than max_age_hours."""

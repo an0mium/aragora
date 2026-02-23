@@ -278,7 +278,7 @@ class DataLoader(Generic[K, V]):
                     req.future.set_result(value)
 
         except (RuntimeError, ValueError, TypeError, KeyError, OSError) as e:
-            logger.exception(f"DataLoader {self._name} batch failed")
+            logger.exception("DataLoader %s batch failed", self._name)
             self._stats.total_load_time_ms += (time.perf_counter() - start) * 1000
             for req in batch:
                 if not req.future.done():

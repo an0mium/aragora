@@ -81,7 +81,7 @@ class MetricsHandler(BaseHandler):
         # Rate limit check
         client_ip = get_client_ip(handler)
         if not _metrics_limiter.is_allowed(client_ip):
-            logger.warning(f"Rate limit exceeded for metrics endpoint: {client_ip}")
+            logger.warning("Rate limit exceeded for metrics endpoint: %s", client_ip)
             return error_response("Rate limit exceeded. Please try again later.", 429)
 
         # Require auth and permission for /api/metrics/* endpoints
@@ -100,8 +100,7 @@ class MetricsHandler(BaseHandler):
                 # Security: Reject query parameter authentication to prevent token exposure in logs
                 if query_params.get("token"):
                     logger.warning(
-                        f"Rejected query parameter authentication for /metrics from {client_ip}. "
-                        "Tokens in query parameters are logged and insecure."
+                        "Rejected query parameter authentication for /metrics from %s. Tokens in query parameters are logged and insecure.", client_ip
                     )
                     return error_response(
                         "Query parameter authentication is not supported for security reasons. "
@@ -116,7 +115,7 @@ class MetricsHandler(BaseHandler):
                     provided_token = auth_header[7:]
 
                 if provided_token != metrics_token:
-                    logger.warning(f"Unauthorized /metrics access attempt from {client_ip}")
+                    logger.warning("Unauthorized /metrics access attempt from %s", client_ip)
                     return error_response("Unauthorized. Provide valid metrics token.", 401)
 
         if path == "/api/metrics":
@@ -242,11 +241,11 @@ class MetricsHandler(BaseHandler):
                     storage.list_debates(limit=1)
                     checks["storage"] = {"status": "healthy"}
                 except (sqlite3.Error, OSError) as e:
-                    logger.warning(f"Storage health check failed with database error: {e}")
+                    logger.warning("Storage health check failed with database error: %s", e)
                     checks["storage"] = {"status": "unhealthy", "error": "Health check failed"}
                     status = "degraded"
                 except (RuntimeError, AttributeError, ValueError) as e:
-                    logger.exception(f"Unexpected error in storage health check: {e}")
+                    logger.exception("Unexpected error in storage health check: %s", e)
                     checks["storage"] = {"status": "unhealthy", "error": "Internal error"}
                     status = "degraded"
             else:
@@ -259,11 +258,11 @@ class MetricsHandler(BaseHandler):
                     elo.get_leaderboard(limit=1)
                     checks["elo_system"] = {"status": "healthy"}
                 except (sqlite3.Error, OSError) as e:
-                    logger.warning(f"ELO system health check failed with database error: {e}")
+                    logger.warning("ELO system health check failed with database error: %s", e)
                     checks["elo_system"] = {"status": "unhealthy", "error": "Health check failed"}
                     status = "degraded"
                 except (RuntimeError, AttributeError, ValueError) as e:
-                    logger.exception(f"Unexpected error in ELO system health check: {e}")
+                    logger.exception("Unexpected error in ELO system health check: %s", e)
                     checks["elo_system"] = {"status": "unhealthy", "error": "Internal error"}
                     status = "degraded"
             else:

@@ -100,7 +100,7 @@ class ArenaEventBridge:
             self._event_bus.subscribe_sync(event_type_str, self._on_event)
 
         self._connected = True
-        logger.info(f"ArenaEventBridge connected: {len(EVENT_TYPE_MAP)} event types bridged")
+        logger.info("ArenaEventBridge connected: %s event types bridged", len(EVENT_TYPE_MAP))
 
     def _on_event(self, event: DebateEvent) -> None:
         """
@@ -118,7 +118,7 @@ class ArenaEventBridge:
             stream_event = self._convert_to_stream_event(event, stream_event_type)
             self._cross_manager._dispatch_event(stream_event)
         except (KeyError, TypeError, AttributeError, ValueError, RuntimeError) as e:
-            logger.warning(f"ArenaEventBridge dispatch failed: {e}")
+            logger.warning("ArenaEventBridge dispatch failed: %s", e)
 
     def _convert_to_stream_event(
         self,

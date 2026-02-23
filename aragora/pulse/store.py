@@ -94,7 +94,7 @@ class ScheduledDebateStore(SQLiteStore):
     def __init__(self, db_path: str | Path = "scheduled_debates.db", **kwargs):
         """Initialize the scheduled debate store."""
         super().__init__(db_path, **kwargs)
-        logger.info(f"ScheduledDebateStore initialized: {db_path}")
+        logger.info("ScheduledDebateStore initialized: %s", db_path)
 
     @staticmethod
     def hash_topic(topic_text: str) -> str:
@@ -141,7 +141,7 @@ class ScheduledDebateStore(SQLiteStore):
                 ),
             )
 
-        logger.debug(f"Recorded scheduled debate: {record.topic_text[:50]}...")
+        logger.debug("Recorded scheduled debate: %s...", record.topic_text[:50])
 
     def get_recent_topics(self, hours: int = 24) -> list[ScheduledDebateRecord]:
         """
@@ -347,7 +347,7 @@ class ScheduledDebateStore(SQLiteStore):
                 f"(consensus={consensus_reached}, confidence={confidence:.2f})"
             )
         else:
-            logger.warning(f"No scheduled debate found for debate_id: {debate_id}")
+            logger.warning("No scheduled debate found for debate_id: %s", debate_id)
 
         return updated
 
@@ -396,7 +396,7 @@ class ScheduledDebateStore(SQLiteStore):
             removed = cursor.rowcount
 
         if removed > 0:
-            logger.info(f"Cleaned up {removed} old scheduled debate records")
+            logger.info("Cleaned up %s old scheduled debate records", removed)
 
         return removed
 

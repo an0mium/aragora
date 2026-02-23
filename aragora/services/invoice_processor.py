@@ -378,7 +378,7 @@ class InvoiceProcessor:
             return True
         cb = self._circuit_breakers[service]
         if not cb.can_proceed():
-            logger.warning(f"Circuit breaker open for {service}")
+            logger.warning("Circuit breaker open for %s", service)
             return False
         return True
 
@@ -431,7 +431,7 @@ class InvoiceProcessor:
                 metadata={"service": "invoice_processor"},
             )
         except (ValueError, OSError, ConnectionError, RuntimeError) as e:
-            logger.debug(f"Failed to emit usage event: {e}")
+            logger.debug("Failed to emit usage event: %s", e)
 
     async def extract_invoice_data(
         self,
@@ -491,7 +491,7 @@ class InvoiceProcessor:
             )
 
         logger.info(
-            f"Extracted invoice {invoice_id}: {invoice.vendor_name} ${invoice.total_amount}"
+            "Extracted invoice %s: %s $%s", invoice_id, invoice.vendor_name, invoice.total_amount
         )
         return invoice
 
@@ -510,7 +510,7 @@ class InvoiceProcessor:
         is_jpeg = document_bytes[:2] == b"\xff\xd8"
 
         doc_type = "PDF" if is_pdf else "PNG" if is_png else "JPEG" if is_jpeg else "unknown"
-        logger.debug(f"Processing {doc_type} invoice ({len(document_bytes)} bytes)")
+        logger.debug("Processing %s invoice (%s bytes)", doc_type, len(document_bytes))
 
         extracted_text = ""
         tables_data = []
@@ -543,9 +543,9 @@ class InvoiceProcessor:
                         extracted_text += page.extract_text() or ""
                     confidence = 0.7 if extracted_text.strip() else 0.2
                 except (ValueError, OSError, ConnectionError, RuntimeError) as e:
-                    logger.warning(f"PDF extraction failed: {e}")
+                    logger.warning("PDF extraction failed: %s", e)
             except (ValueError, OSError, ConnectionError, RuntimeError) as e:
-                logger.warning(f"pdfplumber extraction failed: {e}")
+                logger.warning("pdfplumber extraction failed: %s", e)
 
         # Try image OCR with pytesseract
         elif is_png or is_jpeg:
@@ -561,7 +561,7 @@ class InvoiceProcessor:
                 extracted_text = "[Image OCR requires pytesseract]"
                 confidence = 0.0
             except (ValueError, OSError, ConnectionError, RuntimeError) as e:
-                logger.warning(f"Image OCR failed: {e}")
+                logger.warning("Image OCR failed: %s", e)
 
         # Parse extracted text for invoice data
         result = self._parse_invoice_text(extracted_text, tables_data)
@@ -1021,7 +1021,7 @@ class InvoiceProcessor:
         self._payment_schedule[invoice.id] = schedule
 
         logger.info(
-            f"Scheduled payment for invoice {invoice.id}: ${schedule.amount} on {pay_date.date()}"
+            "Scheduled payment for invoice %s: $%s on %s", invoice.id, schedule.amount, pay_date.date()
         )
         return schedule
 

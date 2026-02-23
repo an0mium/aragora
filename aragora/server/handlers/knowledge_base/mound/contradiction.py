@@ -84,7 +84,7 @@ class ContradictionOperationsMixin:
 
             return json_response(report.to_dict())
         except (KeyError, ValueError, OSError, TypeError) as e:
-            logger.error(f"Error detecting contradictions: {e}")
+            logger.error("Error detecting contradictions: %s", e)
             return error_response(safe_error_message(e), status=500)
 
     @require_permission("knowledge:read")
@@ -125,7 +125,7 @@ class ContradictionOperationsMixin:
                 }
             )
         except (KeyError, ValueError, OSError, TypeError) as e:
-            logger.error(f"Error listing contradictions: {e}")
+            logger.error("Error listing contradictions: %s", e)
             return error_response(safe_error_message(e), status=500)
 
     @require_permission("knowledge:read")
@@ -195,7 +195,7 @@ class ContradictionOperationsMixin:
                 }
             )
         except (KeyError, ValueError, OSError, TypeError) as e:
-            logger.error(f"Error resolving contradiction: {e}")
+            logger.error("Error resolving contradiction: %s", e)
             return error_response(safe_error_message(e), status=500)
 
     @require_permission("knowledge:read")
@@ -217,5 +217,5 @@ class ContradictionOperationsMixin:
             stats = mound.get_contradiction_stats()
             return json_response(stats)
         except (KeyError, ValueError, OSError, TypeError) as e:
-            logger.error(f"Error getting contradiction stats: {e}")
+            logger.error("Error getting contradiction stats: %s", e)
             return error_response(safe_error_message(e), status=500)

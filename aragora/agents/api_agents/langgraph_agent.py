@@ -221,7 +221,7 @@ class LangGraphAgent(ExternalFrameworkAgent):
             if node is None or self._validate_node_allowed(node):
                 filtered.append(event)
             else:
-                logger.debug(f"[{self.name}] Filtered out event from disallowed node: {node}")
+                logger.debug("[%s] Filtered out event from disallowed node: %s", self.name, node)
         return filtered
 
     def _build_run_payload(
@@ -295,7 +295,7 @@ class LangGraphAgent(ExternalFrameworkAgent):
             Generated response text.
         """
         logger.info(
-            f"[{self.name}] LangGraph request",
+            "[%s] LangGraph request", self.name,
             extra={
                 "prompt_length": len(prompt),
                 "graph_id": self.langgraph_config.graph_id,
@@ -431,7 +431,7 @@ class LangGraphAgent(ExternalFrameworkAgent):
             Full response dictionary including output and metadata.
         """
         logger.info(
-            f"[{self.name}] LangGraph invoke",
+            "[%s] LangGraph invoke", self.name,
             extra={
                 "graph_id": self.langgraph_config.graph_id,
                 "thread_id": thread_id,
@@ -491,7 +491,7 @@ class LangGraphAgent(ExternalFrameworkAgent):
             Streaming events from graph execution.
         """
         logger.info(
-            f"[{self.name}] LangGraph stream",
+            "[%s] LangGraph stream", self.name,
             extra={
                 "graph_id": self.langgraph_config.graph_id,
                 "stream_mode": self.langgraph_config.stream_mode,
@@ -542,13 +542,13 @@ class LangGraphAgent(ExternalFrameworkAgent):
                                 # Filter by allowed nodes
                                 node = event.get("node")
                                 if node and not self._validate_node_allowed(node):
-                                    logger.debug(f"[{self.name}] Skipping disallowed node: {node}")
+                                    logger.debug("[%s] Skipping disallowed node: %s", self.name, node)
                                     continue
 
                                 yield event
 
                             except json.JSONDecodeError:
-                                logger.debug(f"[{self.name}] Malformed JSON in stream")
+                                logger.debug("[%s] Malformed JSON in stream", self.name)
                                 continue
 
             except aiohttp.ClientConnectorError as e:
@@ -583,7 +583,7 @@ class LangGraphAgent(ExternalFrameworkAgent):
         url = f"{self.base_url}/threads/{tid}/state"
 
         logger.info(
-            f"[{self.name}] LangGraph get_state",
+            "[%s] LangGraph get_state", self.name,
             extra={"thread_id": tid},
         )
 
@@ -653,7 +653,7 @@ class LangGraphAgent(ExternalFrameworkAgent):
             payload["as_node"] = as_node
 
         logger.info(
-            f"[{self.name}] LangGraph update_state",
+            "[%s] LangGraph update_state", self.name,
             extra={"thread_id": tid, "as_node": as_node},
         )
 

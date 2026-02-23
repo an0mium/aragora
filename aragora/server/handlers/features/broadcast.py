@@ -179,7 +179,7 @@ class BroadcastHandler(BaseHandler):
                 }
             )
         except (ConnectionError, TimeoutError, OSError, ValueError, TypeError, RuntimeError) as e:
-            logger.error(f"Pipeline failed for {debate_id}: {e}", exc_info=True)
+            logger.error("Pipeline failed for %s: %s", debate_id, e, exc_info=True)
             return error_response(_safe_error_message(e, "broadcast_pipeline"), status=500)
 
     @require_permission("broadcast:create")
@@ -259,7 +259,7 @@ class BroadcastHandler(BaseHandler):
                             duration_seconds = int(audio.info.length)
                         except (OSError, ValueError, KeyError, TypeError) as e:
                             logger.warning(
-                                f"Failed to extract audio metadata from {temp_output_path}: {e}"
+                                "Failed to extract audio metadata from %s: %s", temp_output_path, e
                             )
 
                     stored_path = audio_store.save(
@@ -285,7 +285,7 @@ class BroadcastHandler(BaseHandler):
                     )
 
                 except (OSError, ValueError, TypeError, KeyError) as e:
-                    logger.warning(f"Failed to persist audio: {e}")
+                    logger.warning("Failed to persist audio: %s", e)
                     return json_response(
                         {
                             "debate_id": actual_debate_id,

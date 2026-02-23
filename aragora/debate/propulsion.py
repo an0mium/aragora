@@ -234,12 +234,12 @@ class PropulsionEngine:
         # Sort by priority (lower value = higher priority)
         self._handlers[event_type].sort(key=lambda h: h.priority.value)
 
-        logger.debug(f"Registered propulsion handler: {handler_name} for {event_type}")
+        logger.debug("Registered propulsion handler: %s for %s", handler_name, event_type)
 
         def unregister():
             if registered in self._handlers[event_type]:
                 self._handlers[event_type].remove(registered)
-                logger.debug(f"Unregistered propulsion handler: {handler_name}")
+                logger.debug("Unregistered propulsion handler: %s", handler_name)
 
         return unregister
 
@@ -292,12 +292,12 @@ class PropulsionEngine:
 
         handlers = self._handlers.get(event_type, [])
         if not handlers:
-            logger.warning(f"No handlers registered for event: {event_type}")
+            logger.warning("No handlers registered for event: %s", event_type)
             return []
 
         # Check deadline
         if payload.is_expired():
-            logger.warning(f"Payload {payload.id} expired before processing")
+            logger.warning("Payload %s expired before processing", payload.id)
             return [
                 PropulsionResult(
                     payload_id=payload.id,
@@ -312,7 +312,7 @@ class PropulsionEngine:
         for registered in handlers:
             # Apply filter if present
             if registered.filter_fn and not registered.filter_fn(payload):
-                logger.debug(f"Handler {registered.name} filtered out payload {payload.id}")
+                logger.debug("Handler %s filtered out payload %s", registered.name, payload.id)
                 continue
 
             result = await self._execute_handler(registered, payload)
@@ -355,7 +355,7 @@ class PropulsionEngine:
                 payload.last_error = f"handler_error:{type(e).__name__}"
 
                 logger.error(
-                    f"Propulsion handler {registered.name} failed: {e}",
+                    "Propulsion handler %s failed: %s", registered.name, e,
                     exc_info=True,
                 )
 
@@ -400,8 +400,7 @@ class PropulsionEngine:
                 failures = [r for r in results if not r.success]
                 if failures:
                     logger.warning(
-                        f"Chain stopped at {event_type} due to failures: "
-                        f"{[f.error_message for f in failures]}"
+                        "Chain stopped at %s due to failures: %s", event_type, [f.error_message for f in failures]
                     )
                     break
 

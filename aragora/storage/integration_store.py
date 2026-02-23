@@ -117,7 +117,7 @@ def set_integration_store(store: IntegrationStoreBackend) -> None:
     """
     global _integration_store
     _integration_store = store
-    logger.debug(f"Integration store backend set: {type(store).__name__}")
+    logger.debug("Integration store backend set: %s", type(store).__name__)
 
 
 def reset_integration_store() -> None:

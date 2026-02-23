@@ -429,9 +429,9 @@ class CruxDetector:
                 if crux.crux_score >= self._km_min_crux_score:
                     try:
                         self._km_adapter.store_crux(crux)
-                        logger.debug(f"Crux synced to Knowledge Mound: {crux.claim_id}")
+                        logger.debug("Crux synced to Knowledge Mound: %s", crux.claim_id)
                     except Exception as e:  # noqa: BLE001
-                        logger.warning(f"Failed to sync crux to KM: {e}")
+                        logger.warning("Failed to sync crux to KM: %s", e)
 
         return CruxAnalysisResult(
             cruxes=cruxes,

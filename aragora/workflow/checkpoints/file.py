@@ -47,7 +47,7 @@ class FileCheckpointStore:
         checkpoint_dict["checkpoint_id"] = checkpoint_id
 
         file_path.write_text(json.dumps(checkpoint_dict, indent=2, default=str))
-        logger.info(f"Saved checkpoint to file: {file_path}")
+        logger.info("Saved checkpoint to file: %s", file_path)
         return checkpoint_id
 
     async def load(self, checkpoint_id: str) -> WorkflowCheckpoint | None:

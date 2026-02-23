@@ -437,7 +437,7 @@ class CounterfactualOrchestrator:
             for i, result in enumerate(results):
                 if isinstance(result, Exception):
                     logger.error(
-                        f"Counterfactual branch {i} failed: {type(result).__name__}: {result}"
+                        "Counterfactual branch %s failed: %s: %s", i, type(result).__name__, result
                     )
         else:
             # Run sequentially
@@ -803,7 +803,7 @@ async def explore_counterfactual(
 
     if not true_branch or not false_branch:
         logger.error(
-            f"counterfactual_missing_branch true={true_branch is not None} false={false_branch is not None}"
+            "counterfactual_missing_branch true=%s false=%s", true_branch is not None, false_branch is not None
         )
         raise ValueError("Counterfactual analysis requires both true and false branches")
 

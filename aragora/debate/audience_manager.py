@@ -113,7 +113,7 @@ class AudienceManager:
             try:
                 self._event_queue.put_nowait((event.type, event.data))
             except queue.Full:
-                logger.warning(f"User event queue full, dropping {event.type}")
+                logger.warning("User event queue full, dropping %s", event.type)
 
     def drain_events(self) -> int:
         """
@@ -154,7 +154,7 @@ class AudienceManager:
                 break
 
         if skipped_count > 0:
-            logger.warning(f"[audience] Skipped {skipped_count} events due to lock timeout")
+            logger.warning("[audience] Skipped %s events due to lock timeout", skipped_count)
 
         if drained_count > 0 and self._notify_callback:
             self._notify_callback(

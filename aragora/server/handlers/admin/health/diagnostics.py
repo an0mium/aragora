@@ -189,7 +189,7 @@ def deployment_diagnostics(handler: Any) -> HandlerResult:
             status=504,
         )
     except (RuntimeError, ValueError, TypeError, KeyError, AttributeError, OSError) as e:
-        logger.warning(f"Deployment diagnostics failed: {e}")
+        logger.warning("Deployment diagnostics failed: %s", e)
         return json_response(
             {
                 "status": "error",

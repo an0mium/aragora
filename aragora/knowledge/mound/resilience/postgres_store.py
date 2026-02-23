@@ -74,10 +74,10 @@ class ResilientPostgresStore:
 
         if not result.passed:
             logger.warning(
-                f"Integrity check found {len(result.issues_found)} issues: {result.issues_found}"
+                "Integrity check found %s issues: %s", len(result.issues_found), result.issues_found
             )
         else:
-            logger.info(f"Integrity check passed ({result.checks_performed} checks)")
+            logger.info("Integrity check passed (%s checks)", result.checks_performed)
 
         return result
 

@@ -359,7 +359,7 @@ class PostgreSQLConnector(EnterpriseConnector):
                         state.cursor = f"{table}:{pk_value}"
 
             except Exception as e:  # noqa: BLE001 - DB driver (asyncpg) raises its own exception hierarchy without hard dependency
-                logger.warning(f"Failed to sync table {table} ({type(e).__name__}): {e}")
+                logger.warning("Failed to sync table %s (%s): %s", table, type(e).__name__, e)
                 state.errors.append(f"{table}: sync failed")
                 continue
 
@@ -408,7 +408,7 @@ class PostgreSQLConnector(EnterpriseConnector):
                             )
                     except (ValueError, RuntimeError, OSError) as e:
                         # Fallback to ILIKE search (FTS may not be configured)
-                        logger.debug(f"FTS query failed on {table}, falling back to ILIKE: {e}")
+                        logger.debug("FTS query failed on %s, falling back to ILIKE: %s", table, e)
                         columns = await self._get_table_columns(table)
                         text_columns = [
                             c["column_name"]
@@ -440,7 +440,7 @@ class PostgreSQLConnector(EnterpriseConnector):
                                 )
 
                 except (ValueError, RuntimeError, OSError) as e:
-                    logger.debug(f"Search failed on {table}: {e}")
+                    logger.debug("Search failed on %s: %s", table, e)
                     continue
 
         return sorted(results, key=lambda x: x.get("rank", 0), reverse=True)[:limit]
@@ -459,7 +459,7 @@ class PostgreSQLConnector(EnterpriseConnector):
             return None
 
         if parsed.get("is_legacy"):
-            logger.debug(f"[{self.name}] Cannot fetch legacy hash-based ID: {evidence_id}")
+            logger.debug("[%s] Cannot fetch legacy hash-based ID: %s", self.name, evidence_id)
             return None
 
         database = parsed["database"]
@@ -498,7 +498,7 @@ class PostgreSQLConnector(EnterpriseConnector):
                 return None
 
         except (ValueError, RuntimeError, OSError, KeyError) as e:
-            logger.error(f"[{self.name}] Fetch failed: {e}")
+            logger.error("[%s] Fetch failed: %s", self.name, e)
             return None
 
     async def start_listener(self) -> None:
@@ -511,7 +511,7 @@ class PostgreSQLConnector(EnterpriseConnector):
         async def listener_loop() -> None:
             async with pool.acquire() as conn:
                 await conn.add_listener(self.notify_channel, self._handle_notification)
-                logger.info(f"[{self.name}] Listening on channel: {self.notify_channel}")
+                logger.info("[%s] Listening on channel: %s", self.name, self.notify_channel)
 
                 # Keep connection alive until stop event is set
                 while not self._stop_event.is_set():
@@ -520,7 +520,7 @@ class PostgreSQLConnector(EnterpriseConnector):
                         await asyncio.wait_for(self._stop_event.wait(), timeout=60.0)
                     except asyncio.TimeoutError:
                         pass  # Continue loop, check stop event again
-                logger.info(f"[{self.name}] Listener loop stopped gracefully")
+                logger.info("[%s] Listener loop stopped gracefully", self.name)
 
         self._listener_task = asyncio.create_task(listener_loop())
 
@@ -539,7 +539,7 @@ class PostgreSQLConnector(EnterpriseConnector):
             )
 
             logger.info(
-                f"[{self.name}] CDC event: {event.operation.value} on {event.qualified_table}"
+                "[%s] CDC event: %s on %s", self.name, event.operation.value, event.qualified_table
             )
 
             # Process through CDC manager if handlers are configured
@@ -550,7 +550,7 @@ class PostgreSQLConnector(EnterpriseConnector):
                 asyncio.create_task(self.sync(max_items=10))
 
         except (ValueError, KeyError, json.JSONDecodeError) as e:
-            logger.warning(f"[{self.name}] Notification handler error: {e}")
+            logger.warning("[%s] Notification handler error: %s", self.name, e)
 
     async def stop_listener(self) -> None:
         """Stop the LISTEN/NOTIFY listener gracefully."""
@@ -598,7 +598,7 @@ class PostgreSQLConnector(EnterpriseConnector):
         )
 
         logger.info(
-            f"[{self.name}] Webhook CDC event: {event.operation.value} on {event.qualified_table}"
+            "[%s] Webhook CDC event: %s on %s", self.name, event.operation.value, event.qualified_table
         )
 
         # Process through CDC manager if handlers are configured

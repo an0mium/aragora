@@ -152,7 +152,7 @@ class DRHandler(BaseHandler):
             return error_response("Not found", 404)
 
         except (KeyError, ValueError, TypeError, OSError, RuntimeError) as e:  # broad catch: last-resort handler
-            logger.exception(f"Error handling DR request: {e}")
+            logger.exception("Error handling DR request: %s", e)
             return error_response("Internal server error", 500)
 
     @require_permission("dr:read")
@@ -365,7 +365,7 @@ class DRHandler(BaseHandler):
                 )
 
         except (OSError, RuntimeError, ValueError) as e:
-            logger.exception(f"DR drill failed: {e}")
+            logger.exception("DR drill failed: %s", e)
             drill_results["success"] = False
             drill_results["error"] = "DR drill failed"
 

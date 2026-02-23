@@ -100,7 +100,7 @@ class KnowledgePipelineStep(BaseStep):
             sources = sources + input_sources
 
         if not sources:
-            logger.warning(f"No sources specified for KnowledgePipelineStep '{self.name}'")
+            logger.warning("No sources specified for KnowledgePipelineStep '%s'", self.name)
             return {
                 "success": False,
                 "error": "No sources specified",
@@ -109,12 +109,11 @@ class KnowledgePipelineStep(BaseStep):
 
         # Validate chunk strategy
         if chunk_strategy not in self.CHUNK_STRATEGIES:
-            logger.warning(f"Unknown chunk strategy '{chunk_strategy}', using 'semantic'")
+            logger.warning("Unknown chunk strategy '%s', using 'semantic'", chunk_strategy)
             chunk_strategy = "semantic"
 
         logger.info(
-            f"KnowledgePipelineStep '{self.name}' starting: "
-            f"sources={len(sources)}, workspace={workspace_id}, strategy={chunk_strategy}"
+            "KnowledgePipelineStep '%s' starting: sources=%s, workspace=%s, strategy=%s", self.name, len(sources), workspace_id, chunk_strategy
         )
 
         try:
@@ -153,7 +152,7 @@ class KnowledgePipelineStep(BaseStep):
                     results.append(result)
                     self._documents_processed += result.get("documents", 0)
                 except (ImportError, RuntimeError, ValueError, TypeError, OSError, ConnectionError, AttributeError) as e:
-                    logger.error(f"Failed to process source '{source}': {e}")
+                    logger.error("Failed to process source '%s': %s", source, e)
                     errors.append(
                         {
                             "source": source,
@@ -176,7 +175,7 @@ class KnowledgePipelineStep(BaseStep):
             }
 
         except ImportError as e:
-            logger.error(f"Failed to import knowledge pipeline: {e}")
+            logger.error("Failed to import knowledge pipeline: %s", e)
             return {
                 "success": False,
                 "error": f"Knowledge pipeline not available: {e}",
@@ -227,7 +226,7 @@ class KnowledgePipelineStep(BaseStep):
                     documents_processed += 1
                     chunks_created += result.get("chunks_created", 0)
                 except (RuntimeError, ValueError, TypeError, OSError, UnicodeDecodeError) as e:
-                    logger.warning(f"Failed to process {file_path}: {e}")
+                    logger.warning("Failed to process %s: %s", file_path, e)
 
         return {
             "source": str(directory),
@@ -347,7 +346,7 @@ class KnowledgePipelineStep(BaseStep):
             }
 
         except (ImportError, RuntimeError, ValueError, TypeError, OSError, ConnectionError, AttributeError) as e:
-            logger.error(f"Connector processing failed: {e}")
+            logger.error("Connector processing failed: %s", e)
             return {
                 "source": source,
                 "type": connector_type,
@@ -396,6 +395,6 @@ class KnowledgePipelineStep(BaseStep):
         """Validate pipeline step configuration."""
         chunk_strategy = self._config.get("chunk_strategy", "semantic")
         if chunk_strategy not in self.CHUNK_STRATEGIES:
-            logger.warning(f"Invalid chunk strategy: {chunk_strategy}")
+            logger.warning("Invalid chunk strategy: %s", chunk_strategy)
             return False
         return True

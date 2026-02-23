@@ -522,7 +522,7 @@ class SAMLProvider(SSOProvider):
                     {"code": "DOMAIN_NOT_ALLOWED"},
                 )
 
-            logger.info(f"SAML authentication successful for user_id={user.id}")
+            logger.info("SAML authentication successful for user_id=%s", user.id)
             return user
 
         except ET.ParseError as e:
@@ -531,7 +531,7 @@ class SAMLProvider(SSOProvider):
         except SSOAuthenticationError:
             raise
         except (ValueError, KeyError, AttributeError, binascii.Error, zlib.error) as e:
-            logger.error(f"SAML authentication error: {e}")
+            logger.error("SAML authentication error: %s", e)
             raise SSOAuthenticationError("SAML authentication failed")
 
     async def _authenticate_with_library(
@@ -584,7 +584,7 @@ class SAMLProvider(SSOProvider):
             raise
         except (ValueError, RuntimeError, KeyError, AttributeError, TypeError, *_LXML_XML_ERRORS) as e:
             # Catch XML parsing errors, validation errors, and other library exceptions
-            logger.error(f"SAML library authentication error: {e}")
+            logger.error("SAML library authentication error: %s", e)
             raise SSOAuthenticationError("Invalid SAML response")
 
         # Get user data

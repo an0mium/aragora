@@ -197,7 +197,7 @@ def dispatch_webhook(
 
     url_check = validate_url(webhook.url)
     if not url_check.is_safe:
-        logger.warning(f"SSRF blocked for webhook {webhook.id}: {url_check.error}")
+        logger.warning("SSRF blocked for webhook %s: %s", webhook.id, url_check.error)
         return False, 0, f"URL validation failed: {url_check.error}"
 
     try:
@@ -249,19 +249,19 @@ def dispatch_webhook(
             return True, status_code, None
 
     except HTTPError as e:
-        logger.warning(f"Webhook HTTP error for {webhook.url}: {e.code} {e.reason}")
+        logger.warning("Webhook HTTP error for %s: %s %s", webhook.url, e.code, e.reason)
         return False, e.code, f"HTTP {e.code}: {e.reason}"
 
     except URLError as e:
-        logger.warning(f"Webhook URL error for {webhook.url}: {e.reason}")
+        logger.warning("Webhook URL error for %s: %s", webhook.url, e.reason)
         return False, 0, f"Connection failed: {e.reason}"
 
     except TimeoutError:
-        logger.warning(f"Webhook timeout for {webhook.url}")
+        logger.warning("Webhook timeout for %s", webhook.url)
         return False, 0, "Request timed out"
 
     except (OSError, ValueError, TypeError, RuntimeError) as e:
-        logger.error(f"Webhook delivery error for {webhook.url}: {e}")
+        logger.error("Webhook delivery error for %s: %s", webhook.url, e)
         return False, 0, str(e)
 
 
@@ -467,7 +467,7 @@ class WebhookDispatcher:
         # Check rate limit
         rate_limiter = get_event_rate_limiter()
         if rate_limiter and not rate_limiter.is_allowed(event_type):
-            logger.warning(f"Event rate limited: {event_type}")
+            logger.warning("Event rate limited: %s", event_type)
             with self._lock:
                 self._rate_limited += 1
             return
@@ -538,7 +538,7 @@ class WebhookDispatcher:
 
         if not result.success:
             logger.warning(
-                f"Webhook delivery failed: {webhook.id} -> {webhook.url}: {result.error}"
+                "Webhook delivery failed: %s -> %s: %s", webhook.id, webhook.url, result.error
             )
 
     def get_stats(self) -> dict:

@@ -92,19 +92,19 @@ class CommandsMixin:
             )
 
         except ImportError as e:
-            logger.warning(f"ELO system not available for status: {e}")
+            logger.warning("ELO system not available for status: %s", e)
             return slack_response(
                 "Status service temporarily unavailable",
                 response_type="ephemeral",
             )
         except (KeyError, TypeError, AttributeError) as e:
-            logger.warning(f"Data error in status command: {e}")
+            logger.warning("Data error in status command: %s", e)
             return slack_response(
                 "Sorry, an error occurred while processing your request.",
                 response_type="ephemeral",
             )
         except (ConnectionError, TimeoutError, OSError, ValueError, RuntimeError) as e:
-            logger.exception(f"Unexpected status command error: {e}")
+            logger.exception("Unexpected status command error: %s", e)
             return slack_response(
                 "Sorry, an error occurred while processing your request.",
                 response_type="ephemeral",
@@ -171,19 +171,19 @@ class CommandsMixin:
             )
 
         except ImportError as e:
-            logger.warning(f"ELO system not available for agents: {e}")
+            logger.warning("ELO system not available for agents: %s", e)
             return slack_response(
                 "Agent listing temporarily unavailable",
                 response_type="ephemeral",
             )
         except (KeyError, TypeError, AttributeError) as e:
-            logger.warning(f"Data error in agents command: {e}")
+            logger.warning("Data error in agents command: %s", e)
             return slack_response(
                 "Sorry, an error occurred while processing your request.",
                 response_type="ephemeral",
             )
         except (ConnectionError, TimeoutError, OSError, ValueError, RuntimeError) as e:
-            logger.exception(f"Unexpected agents command error: {e}")
+            logger.exception("Unexpected agents command error: %s", e)
             return slack_response(
                 "Sorry, an error occurred while processing your request.",
                 response_type="ephemeral",
@@ -239,13 +239,13 @@ class CommandsMixin:
             )
 
         except ImportError as e:
-            logger.warning(f"ELO system not available for leaderboard: {e}")
+            logger.warning("ELO system not available for leaderboard: %s", e)
             return slack_response(
                 "Leaderboard temporarily unavailable",
                 response_type="ephemeral",
             )
         except (KeyError, TypeError, AttributeError, ValueError, RuntimeError) as e:
-            logger.exception(f"Leaderboard command error: {e}")
+            logger.exception("Leaderboard command error: %s", e)
             return slack_response(
                 "Sorry, an error occurred while processing your request.",
                 response_type="ephemeral",

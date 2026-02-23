@@ -100,7 +100,7 @@ class TeamsChannelManager:
         """
         if conversation_id in _conversation_references:
             del _conversation_references[conversation_id]
-            logger.info(f"Removed conversation reference for {conversation_id}")
+            logger.info("Removed conversation reference for %s", conversation_id)
             return True
         return False
 
@@ -112,7 +112,7 @@ class TeamsChannelManager:
         """
         count = len(_conversation_references)
         _conversation_references.clear()
-        logger.info(f"Cleared {count} conversation references")
+        logger.info("Cleared %s conversation references", count)
         return count
 
     # =========================================================================
@@ -148,7 +148,7 @@ class TeamsChannelManager:
             return response
 
         except (RuntimeError, OSError, ValueError, KeyError) as e:
-            logger.error(f"Failed to get team details: {e}")
+            logger.error("Failed to get team details: %s", e)
             return None
 
     async def get_team_channels(self, team_id: str, service_url: str) -> list[dict[str, Any]]:
@@ -180,7 +180,7 @@ class TeamsChannelManager:
             return response.get("conversations", [])
 
         except (RuntimeError, OSError, ValueError, KeyError) as e:
-            logger.error(f"Failed to get team channels: {e}")
+            logger.error("Failed to get team channels: %s", e)
             return []
 
     async def get_conversation_members(
@@ -214,7 +214,7 @@ class TeamsChannelManager:
             return response if isinstance(response, list) else []
 
         except (RuntimeError, OSError, ValueError, KeyError) as e:
-            logger.error(f"Failed to get conversation members: {e}")
+            logger.error("Failed to get conversation members: %s", e)
             return []
 
     async def get_member(
@@ -249,7 +249,7 @@ class TeamsChannelManager:
             return response
 
         except (RuntimeError, OSError, ValueError, KeyError) as e:
-            logger.error(f"Failed to get member: {e}")
+            logger.error("Failed to get member: %s", e)
             return None
 
     # =========================================================================
@@ -287,7 +287,7 @@ class TeamsChannelManager:
         # Direct connector approach without bot
         ref = get_conversation_reference(conversation_id)
         if not ref:
-            logger.warning(f"No conversation reference for {conversation_id}")
+            logger.warning("No conversation reference for %s", conversation_id)
             return False
 
         connector = await self._get_connector()
@@ -325,7 +325,7 @@ class TeamsChannelManager:
             return True
 
         except (RuntimeError, OSError, ValueError, KeyError) as e:
-            logger.error(f"Failed to send proactive message: {e}")
+            logger.error("Failed to send proactive message: %s", e)
             return False
 
     async def send_to_channel(
@@ -398,7 +398,7 @@ class TeamsChannelManager:
             return True
 
         except (RuntimeError, OSError, ValueError, KeyError) as e:
-            logger.error(f"Failed to send to channel: {e}")
+            logger.error("Failed to send to channel: %s", e)
             return False
 
     async def create_personal_conversation(
@@ -451,7 +451,7 @@ class TeamsChannelManager:
             return response.get("id")
 
         except (RuntimeError, OSError, ValueError, KeyError) as e:
-            logger.error(f"Failed to create personal conversation: {e}")
+            logger.error("Failed to create personal conversation: %s", e)
             return None
 
     # =========================================================================
@@ -513,7 +513,7 @@ class TeamsChannelManager:
             return True
 
         except (RuntimeError, OSError, ValueError, KeyError) as e:
-            logger.error(f"Failed to update activity: {e}")
+            logger.error("Failed to update activity: %s", e)
             return False
 
     async def delete_activity(
@@ -548,7 +548,7 @@ class TeamsChannelManager:
             return True
 
         except (RuntimeError, OSError, ValueError, KeyError) as e:
-            logger.error(f"Failed to delete activity: {e}")
+            logger.error("Failed to delete activity: %s", e)
             return False
 
 

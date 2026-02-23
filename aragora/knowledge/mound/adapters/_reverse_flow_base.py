@@ -238,7 +238,7 @@ class ReverseFlowMixin:
             except asyncio.TimeoutError:
                 error_msg = f"Per-item timeout ({tc.per_item_timeout_seconds}s) for {source_id}"
                 result["errors"].append(error_msg)
-                logger.warning(f"[{self.adapter_name}] {error_msg}")
+                logger.warning("[%s] %s", self.adapter_name, error_msg)
 
                 if tc.fail_fast_on_timeout:
                     result["errors"].append("Batch stopped: fail_fast_on_timeout=True")
@@ -251,10 +251,7 @@ class ReverseFlowMixin:
         result["duration_ms"] = (time.time() - start_time) * 1000
 
         logger.info(
-            f"[{self.adapter_name}] Reverse sync complete: "
-            f"analyzed={result['records_analyzed']}, "
-            f"updated={result['records_updated']}, "
-            f"skipped={result['records_skipped']}"
+            "[%s] Reverse sync complete: analyzed=%s, updated=%s, skipped=%s", self.adapter_name, result['records_analyzed'], result['records_updated'], result['records_skipped']
         )
 
         return result

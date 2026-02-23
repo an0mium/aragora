@@ -263,7 +263,7 @@ class RLMSelectionBridge:
         elif hasattr(result, "confidence") and hasattr(result, "sub_calls_made"):
             return self.record_query(agent_name, result)
         else:
-            logger.warning(f"Unknown RLM result type: {type(result)}")
+            logger.warning("Unknown RLM result type: %s", type(result))
             return self._rlm_adjustments.get(agent_name, 0.0)
 
     def _get_or_create_stats(self, agent_name: str) -> AgentRLMStats:
@@ -422,7 +422,7 @@ class RLMSelectionBridge:
                 self.selection_feedback._selection_adjustments[agent_name] = current + adjustment
                 updated += 1
 
-        logger.info(f"rlm_selection_synced agents_updated={updated}")
+        logger.info("rlm_selection_synced agents_updated=%s", updated)
         return updated
 
     def get_agent_stats(self, agent_name: str) -> AgentRLMStats | None:

@@ -67,7 +67,7 @@ class ChannelUserMixin:
         Returns:
             VoiceMessage with audio content, or None if not supported
         """
-        logger.info(f"{self.platform_name} voice messages not implemented")
+        logger.info("%s voice messages not implemented", self.platform_name)
         return None
 
     # ==========================================================================
@@ -89,7 +89,7 @@ class ChannelUserMixin:
         Returns:
             ChatChannel info or None
         """
-        logger.debug(f"{self.platform_name} get_channel_info not implemented")
+        logger.debug("%s get_channel_info not implemented", self.platform_name)
         return None
 
     async def get_user_info(
@@ -107,7 +107,7 @@ class ChannelUserMixin:
         Returns:
             ChatUser info or None
         """
-        logger.debug(f"{self.platform_name} get_user_info not implemented")
+        logger.debug("%s get_user_info not implemented", self.platform_name)
         return None
 
     async def get_user_profile(
@@ -157,7 +157,7 @@ class ChannelUserMixin:
             Default implementation returns empty list. Override in
             subclasses for platform-specific user enumeration.
         """
-        logger.debug(f"{self.platform_name} list_users not implemented")
+        logger.debug("%s list_users not implemented", self.platform_name)
         return [], None
 
     async def create_channel(
@@ -183,7 +183,7 @@ class ChannelUserMixin:
             Default implementation returns None. Override in subclasses
             for platforms that support channel creation via API.
         """
-        logger.debug(f"{self.platform_name} create_channel not implemented")
+        logger.debug("%s create_channel not implemented", self.platform_name)
         return None
 
     async def send_dm(
@@ -214,7 +214,7 @@ class ChannelUserMixin:
             as the channel_id. Override if the platform requires opening
             a DM channel first.
         """
-        logger.debug(f"{self.platform_name} send_dm using user_id as channel_id")
+        logger.debug("%s send_dm using user_id as channel_id", self.platform_name)
         return await self.send_message(
             channel_id=user_id,
             text=text,
@@ -249,7 +249,7 @@ class ChannelUserMixin:
             Default implementation returns False. Override in subclasses
             for platforms that support message reactions.
         """
-        logger.debug(f"{self.platform_name} react_to_message not implemented")
+        logger.debug("%s react_to_message not implemented", self.platform_name)
         return False
 
     async def remove_reaction(
@@ -275,7 +275,7 @@ class ChannelUserMixin:
             Default implementation returns False. Override in subclasses
             for platforms that support message reactions.
         """
-        logger.debug(f"{self.platform_name} remove_reaction not implemented")
+        logger.debug("%s remove_reaction not implemented", self.platform_name)
         return False
 
     # ==========================================================================
@@ -306,7 +306,7 @@ class ChannelUserMixin:
             Default implementation returns False. Override in subclasses
             for platforms that support message pinning.
         """
-        logger.debug(f"{self.platform_name} pin_message not implemented")
+        logger.debug("%s pin_message not implemented", self.platform_name)
         return False
 
     async def unpin_message(
@@ -330,7 +330,7 @@ class ChannelUserMixin:
             Default implementation returns False. Override in subclasses
             for platforms that support message pinning.
         """
-        logger.debug(f"{self.platform_name} unpin_message not implemented")
+        logger.debug("%s unpin_message not implemented", self.platform_name)
         return False
 
     async def get_pinned_messages(
@@ -352,7 +352,7 @@ class ChannelUserMixin:
             Default implementation returns empty list. Override in
             subclasses for platforms that support message pinning.
         """
-        logger.debug(f"{self.platform_name} get_pinned_messages not implemented")
+        logger.debug("%s get_pinned_messages not implemented", self.platform_name)
         return []
 
     # ==========================================================================
@@ -503,7 +503,7 @@ class ChannelUserMixin:
                 if message.content == "/stop":
                     break
         """
-        logger.debug(f"{self.platform_name} receive_messages not implemented")
+        logger.debug("%s receive_messages not implemented", self.platform_name)
         # Default implementation: empty async generator
         return
         yield  # This makes it a generator  # noqa: B901

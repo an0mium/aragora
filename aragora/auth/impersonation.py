@@ -158,7 +158,7 @@ class ImpersonationManager:
 
                 self._store = get_impersonation_store()
             except (ImportError, OSError, RuntimeError) as e:
-                logger.warning(f"Failed to get impersonation store: {e}")
+                logger.warning("Failed to get impersonation store: %s", e)
         return self._store
 
     def _generate_session_id(self, admin_id: str, target_id: str) -> str:
@@ -189,21 +189,18 @@ class ImpersonationManager:
                     error_message=entry.error_message,
                 )
             except (OSError, RuntimeError, TypeError, ValueError) as e:
-                logger.error(f"Failed to persist audit entry to store: {e}")
+                logger.error("Failed to persist audit entry to store: %s", e)
 
         if self._audit_callback:
             try:
                 self._audit_callback(entry)
             except (OSError, RuntimeError, ValueError, TypeError, AttributeError) as e:
                 # Catch callback errors to ensure they don't block impersonation
-                logger.error(f"Failed to persist audit entry via callback: {type(e).__name__}: {e}")
+                logger.error("Failed to persist audit entry via callback: %s: %s", type(e).__name__, e)
 
         # Always log to structured logger
         logger.info(
-            f"[IMPERSONATION AUDIT] {entry.event_type}: "
-            f"admin={entry.admin_user_id} target={entry.target_user_id} "
-            f"session={entry.session_id} success={entry.success} "
-            f"ip={entry.ip_address}"
+            "[IMPERSONATION AUDIT] %s: admin=%s target=%s session=%s success=%s ip=%s", entry.event_type, entry.admin_user_id, entry.target_user_id, entry.session_id, entry.success, entry.ip_address
         )
 
     def _notify_target(self, session: ImpersonationSession) -> None:
@@ -217,7 +214,7 @@ class ImpersonationManager:
                 )
             except (OSError, RuntimeError, ValueError, TypeError, AttributeError) as e:
                 # Catch notification errors to ensure they don't block impersonation
-                logger.error(f"Failed to notify target user: {type(e).__name__}: {e}")
+                logger.error("Failed to notify target user: %s: %s", type(e).__name__, e)
 
     def start_impersonation(
         self,
@@ -382,7 +379,7 @@ class ImpersonationManager:
                     user_agent=user_agent,
                 )
             except (OSError, RuntimeError, TypeError, ValueError) as e:
-                logger.error(f"Failed to persist session to store: {e}")
+                logger.error("Failed to persist session to store: %s", e)
 
         # Log audit
         entry = ImpersonationAuditEntry(
@@ -472,7 +469,7 @@ class ImpersonationManager:
                     actions_performed=session.actions_performed,
                 )
             except (OSError, RuntimeError, TypeError, ValueError) as e:
-                logger.error(f"Failed to end session in store: {e}")
+                logger.error("Failed to end session in store: %s", e)
 
         # Remove session from memory
         del self._sessions[session_id]
@@ -520,7 +517,7 @@ class ImpersonationManager:
             try:
                 store.update_session_actions(session_id, session.actions_performed)
             except (OSError, RuntimeError, TypeError, ValueError) as e:
-                logger.error(f"Failed to update session actions in store: {e}")
+                logger.error("Failed to update session actions in store: %s", e)
 
         entry = ImpersonationAuditEntry(
             timestamp=datetime.now(timezone.utc),
@@ -576,7 +573,7 @@ class ImpersonationManager:
             for sid, _ in sorted_sessions[:evict_count]:
                 self._cleanup_expired_session(sid)
             logger.warning(
-                f"Evicted {evict_count} oldest impersonation sessions (limit: {self.MAX_TOTAL_SESSIONS})"
+                "Evicted %s oldest impersonation sessions (limit: %s)", evict_count, self.MAX_TOTAL_SESSIONS
             )
 
     def _cleanup_expired_session(self, session_id: str) -> None:
@@ -609,7 +606,7 @@ class ImpersonationManager:
                     actions_performed=session.actions_performed,
                 )
             except (OSError, RuntimeError, TypeError, ValueError) as e:
-                logger.error(f"Failed to end session in store: {e}")
+                logger.error("Failed to end session in store: %s", e)
 
         del self._sessions[session_id]
         admin_id = session.admin_user_id
@@ -751,10 +748,10 @@ def recover_impersonation_sessions() -> int:
         _sessions_recovered = True
 
         if recovered > 0:
-            logger.info(f"Recovered {recovered} active impersonation sessions from store")
+            logger.info("Recovered %s active impersonation sessions from store", recovered)
 
     except (OSError, RuntimeError, TypeError, ValueError, AttributeError) as e:
-        logger.warning(f"Failed to recover impersonation sessions: {e}")
+        logger.warning("Failed to recover impersonation sessions: %s", e)
 
     return recovered
 

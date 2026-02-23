@@ -111,7 +111,7 @@ def setup_exception_handlers(app: FastAPI) -> None:
     @app.exception_handler(Exception)
     async def generic_error_handler(request: Request, exc: Exception) -> JSONResponse:
         """Handle unexpected errors."""
-        logger.exception(f"Unhandled error: {exc}")
+        logger.exception("Unhandled error: %s", exc)
         return JSONResponse(
             status_code=500,
             content={

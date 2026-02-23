@@ -201,8 +201,7 @@ class PlaywrightActionExecutor:
 
         self._running = True
         logger.info(
-            f"PlaywrightActionExecutor started ({self._config.browser_type}, "
-            f"headless={self._config.headless})"
+            "PlaywrightActionExecutor started (%s, headless=%s)", self._config.browser_type, self._config.headless
         )
 
     async def stop(self) -> None:
@@ -220,7 +219,7 @@ class PlaywrightActionExecutor:
             if self._playwright:
                 await self._playwright.stop()
         except (RuntimeError, OSError, TimeoutError) as e:
-            logger.warning(f"Error stopping executor: {e}")
+            logger.warning("Error stopping executor: %s", e)
 
         self._page = None
         self._context = None
@@ -284,7 +283,7 @@ class PlaywrightActionExecutor:
 
         except (RuntimeError, OSError, TimeoutError) as e:
             self._error_count += 1
-            logger.exception(f"Action {action.action_id} failed: {e}")
+            logger.exception("Action %s failed: %s", action.action_id, e)
             return ActionResult(
                 action_id=action.action_id,
                 action_type=action.action_type,
@@ -342,7 +341,7 @@ class PlaywrightActionExecutor:
             await self._page.goto(url)
             return True
         except (RuntimeError, OSError, TimeoutError) as e:
-            logger.error(f"Navigation failed: {e}")
+            logger.error("Navigation failed: %s", e)
             return False
 
     # =========================================================================

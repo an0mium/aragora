@@ -90,7 +90,7 @@ class MessagingMixin:
         """
         # Validate URL to prevent SSRF attacks
         if not _validate_slack_url(url):
-            logger.warning(f"Invalid Slack response_url blocked (SSRF protection): {url[:50]}")
+            logger.warning("Invalid Slack response_url blocked (SSRF protection): %s", url[:50])
             return
 
         # Check circuit breaker before making the call
@@ -113,7 +113,7 @@ class MessagingMixin:
                 if response.status_code != 200:
                     text = response.text
                     logger.warning(
-                        f"Slack response_url POST failed: {response.status_code} - {text[:100]}"
+                        "Slack response_url POST failed: %s - %s", response.status_code, text[:100]
                     )
                     # Record failure for non-2xx responses
                     if response.status_code >= 500:
@@ -121,10 +121,10 @@ class MessagingMixin:
                 else:
                     circuit_breaker.record_success()
         except (ConnectionError, TimeoutError) as e:
-            logger.warning(f"Connection error posting to Slack response_url: {e}")
+            logger.warning("Connection error posting to Slack response_url: %s", e)
             circuit_breaker.record_failure()
         except (RuntimeError, ValueError, TypeError, OSError) as e:
-            logger.exception(f"Unexpected error posting to Slack response_url: {e}")
+            logger.exception("Unexpected error posting to Slack response_url: %s", e)
             circuit_breaker.record_failure()
 
     async def _post_message_async(
@@ -183,7 +183,7 @@ class MessagingMixin:
                 result = response.json()
                 if not result.get("ok"):
                     error = result.get("error", "unknown")
-                    logger.warning(f"Slack API error: {error}")
+                    logger.warning("Slack API error: %s", error)
                     # Some errors indicate Slack issues (rate_limited, service_unavailable)
                     if error in ("rate_limited", "service_unavailable", "fatal_error"):
                         circuit_breaker.record_failure()
@@ -193,11 +193,11 @@ class MessagingMixin:
                 # Return message timestamp for thread tracking
                 return result.get("ts")
         except (ConnectionError, TimeoutError) as e:
-            logger.warning(f"Connection error posting Slack message: {e}")
+            logger.warning("Connection error posting Slack message: %s", e)
             circuit_breaker.record_failure()
             return None
         except (RuntimeError, ValueError, TypeError, OSError) as e:
-            logger.exception(f"Unexpected error posting Slack message: {e}")
+            logger.exception("Unexpected error posting Slack message: %s", e)
             circuit_breaker.record_failure()
             return None
 

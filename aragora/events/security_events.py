@@ -235,7 +235,7 @@ class SecurityEventEmitter:
         if event_type not in self._handlers:
             self._handlers[event_type] = []
         self._handlers[event_type].append(handler)
-        logger.debug(f"Subscribed handler to {event_type.value}")
+        logger.debug("Subscribed handler to %s", event_type.value)
 
     def subscribe_all(self, handler: SecurityEventHandler) -> None:
         """
@@ -295,14 +295,14 @@ class SecurityEventEmitter:
             try:
                 await handler(event)
             except Exception as e:  # noqa: BLE001 - intentional broad catch for event handler isolation
-                logger.warning(f"Security event handler failed for {event.event_type.value}: {e}")
+                logger.warning("Security event handler failed for %s: %s", event.event_type.value, e)
 
         # Notify global handlers
         for handler in self._global_handlers:
             try:
                 await handler(event)
             except Exception as e:  # noqa: BLE001 - intentional broad catch for event handler isolation
-                logger.warning(f"Global security event handler failed: {e}")
+                logger.warning("Global security event handler failed: %s", e)
 
         # Auto-trigger debate for critical findings
         if self._should_trigger_debate(event):
@@ -363,7 +363,7 @@ class SecurityEventEmitter:
             return debate_id
 
         except (RuntimeError, ValueError, OSError) as e:
-            logger.exception(f"Failed to trigger security debate: {e}")
+            logger.exception("Failed to trigger security debate: %s", e)
             return None
 
     def get_recent_events(
@@ -529,7 +529,7 @@ async def trigger_security_debate(
             org_id=event.workspace_id or "default",
         )
 
-        logger.info(f"[Security] Starting debate {debate_id} for {len(event.findings)} findings")
+        logger.info("[Security] Starting debate %s for %s findings", debate_id, len(event.findings))
 
         result: DebateResult = await arena.run()
 
@@ -544,10 +544,10 @@ async def trigger_security_debate(
         return debate_id
 
     except ImportError as e:
-        logger.warning(f"Arena not available for security debate: {e}")
+        logger.warning("Arena not available for security debate: %s", e)
         return None
     except (RuntimeError, ValueError, TypeError, OSError) as e:
-        logger.exception(f"Failed to run security debate: {e}")
+        logger.exception("Failed to run security debate: %s", e)
         return None
 
 
@@ -579,7 +579,7 @@ async def _get_security_debate_agents() -> list[Any]:
                     )
                 )
             except (ValueError, RuntimeError) as e:
-                logger.debug(f"Could not create Anthropic security agent: {e}")
+                logger.debug("Could not create Anthropic security agent: %s", e)
 
             try:
                 agents.append(
@@ -589,7 +589,7 @@ async def _get_security_debate_agents() -> list[Any]:
                     )
                 )
             except (ValueError, RuntimeError) as e:
-                logger.debug(f"Could not create OpenAI security agent: {e}")
+                logger.debug("Could not create OpenAI security agent: %s", e)
 
             return agents
         except ImportError:

@@ -78,7 +78,7 @@ class CanvasStreamServer:
             ping_interval=30,
             ping_timeout=10,
         )
-        logger.info(f"Canvas stream server started on ws://{self.host}:{self.port}")
+        logger.info("Canvas stream server started on ws://%s:%s", self.host, self.port)
 
     async def stop(self):
         """Stop the WebSocket server."""
@@ -161,7 +161,7 @@ class CanvasStreamServer:
                 await self._handle_message(websocket, message)
 
         except (ConnectionError, asyncio.CancelledError) as e:
-            logger.warning(f"Canvas WebSocket error: {e}")
+            logger.warning("Canvas WebSocket error: %s", e)
         finally:
             # Cleanup
             await self._unregister_client(canvas_id, websocket)
@@ -175,8 +175,7 @@ class CanvasStreamServer:
                 self._clients[canvas_id] = set()
             self._clients[canvas_id].add(websocket)
             logger.debug(
-                f"Client connected to canvas {canvas_id}. "
-                f"Total clients: {len(self._clients[canvas_id])}"
+                "Client connected to canvas %s. Total clients: %s", canvas_id, len(self._clients[canvas_id])
             )
 
     async def _unregister_client(self, canvas_id: str, websocket):
@@ -186,7 +185,7 @@ class CanvasStreamServer:
                 self._clients[canvas_id].discard(websocket)
                 if not self._clients[canvas_id]:
                     del self._clients[canvas_id]
-            logger.debug(f"Client disconnected from canvas {canvas_id}")
+            logger.debug("Client disconnected from canvas %s", canvas_id)
 
     async def _handle_message(self, websocket, message: str):
         """
@@ -293,10 +292,10 @@ class CanvasStreamServer:
                 await self._handle_goal_node_lock(canvas_id, user_id, data, lock=False)
 
             else:
-                logger.debug(f"Unknown message type: {msg_type}")
+                logger.debug("Unknown message type: %s", msg_type)
 
         except (ValueError, KeyError, TypeError) as e:
-            logger.error(f"Error handling canvas message: {e}")
+            logger.error("Error handling canvas message: %s", e)
             await self._send_error(websocket, "Failed to process canvas operation")
 
     async def _handle_node_create(
@@ -621,7 +620,7 @@ class CanvasStreamServer:
         try:
             await websocket.send(json.dumps(message))
         except (ConnectionError, OSError) as e:
-            logger.debug(f"Failed to send message: {e}")
+            logger.debug("Failed to send message: %s", e)
 
     async def _send_error(self, websocket, error: str):
         """Send an error message to a client."""
@@ -639,7 +638,7 @@ class CanvasStreamServer:
         try:
             await websocket.send(json.dumps(event.to_dict()))
         except (ConnectionError, OSError) as e:
-            logger.debug(f"Failed to send event: {e}")
+            logger.debug("Failed to send event: %s", e)
 
     async def broadcast_to_canvas(self, canvas_id: str, message: dict[str, Any]):
         """
@@ -664,7 +663,7 @@ class CanvasStreamServer:
         try:
             await websocket.send(message)
         except (ConnectionError, OSError) as e:
-            logger.debug(f"Failed to send to client: {e}")
+            logger.debug("Failed to send to client: %s", e)
 
     def get_connected_users(self, canvas_id: str) -> list[dict[str, Any]]:
         """Get list of users connected to a canvas."""

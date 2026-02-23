@@ -67,7 +67,7 @@ async def validate_enterprise_deployment(
 
     for result in results:
         if isinstance(result, Exception):
-            logger.error(f"Validation error: {result}")
+            logger.error("Validation error: %s", result)
             issues.append(
                 ValidationIssue(
                     component="validator",

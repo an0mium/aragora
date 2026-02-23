@@ -99,7 +99,7 @@ class GitHubOAuthMixin:
         error = _get_param(query_params, "error")
         if error:
             error_desc = _get_param(query_params, "error_description", error)
-            logger.warning(f"GitHub OAuth error: {error} - {error_desc}")
+            logger.warning("GitHub OAuth error: %s - %s", error, error_desc)
             return self._redirect_with_error(f"OAuth error: {error_desc}")
 
         # Validate state
@@ -122,7 +122,7 @@ class GitHubOAuthMixin:
             if inspect.isawaitable(token_data):
                 token_data = await token_data
         except (httpx.HTTPError, ConnectionError, TimeoutError, OSError, ValueError, json.JSONDecodeError) as e:
-            logger.error(f"GitHub token exchange failed: {e}")
+            logger.error("GitHub token exchange failed: %s", e)
             return self._redirect_with_error("Failed to exchange authorization code")
 
         access_token = token_data.get("access_token")
@@ -130,7 +130,7 @@ class GitHubOAuthMixin:
             error_msg = token_data.get(
                 "error_description", token_data.get("error", "Unknown error")
             )
-            logger.error(f"GitHub OAuth: No access token - {error_msg}")
+            logger.error("GitHub OAuth: No access token - %s", error_msg)
             return self._redirect_with_error("No access token received from GitHub")
 
         # Get user info from GitHub
@@ -139,7 +139,7 @@ class GitHubOAuthMixin:
             if inspect.isawaitable(user_info):
                 user_info = await user_info
         except (httpx.HTTPError, ConnectionError, TimeoutError, OSError, ValueError, KeyError, json.JSONDecodeError) as e:
-            logger.error(f"Failed to get GitHub user info: {e}")
+            logger.error("Failed to get GitHub user info: %s", e)
             return self._redirect_with_error("Failed to get user info from GitHub")
 
         # Handle user creation/login
@@ -200,7 +200,7 @@ class GitHubOAuthMixin:
             role=user.role,
         )
 
-        logger.info(f"OAuth login: {user.email} via GitHub")
+        logger.info("OAuth login: %s via GitHub", user.email)
 
         # Redirect to frontend with tokens
         redirect_url = state_data.get("redirect_url", impl._get_oauth_success_url())
@@ -233,7 +233,7 @@ class GitHubOAuthMixin:
             try:
                 return json.loads(body.decode("utf-8")) if body else {}
             except json.JSONDecodeError as e:
-                logger.error(f"Invalid JSON from GitHub token endpoint: {e}")
+                logger.error("Invalid JSON from GitHub token endpoint: %s", e)
                 raise ValueError(f"Invalid JSON response from GitHub: {e}") from e
 
         async def _exchange_async() -> dict[str, Any]:
@@ -249,7 +249,7 @@ class GitHubOAuthMixin:
                 try:
                     return response.json()
                 except json.JSONDecodeError as e:
-                    logger.error(f"Invalid JSON from GitHub token endpoint: {e}")
+                    logger.error("Invalid JSON from GitHub token endpoint: %s", e)
                     raise ValueError(f"Invalid JSON response from GitHub: {e}") from e
 
         return _exchange_async()
@@ -279,7 +279,7 @@ class GitHubOAuthMixin:
             try:
                 user_data = json.loads(body.decode("utf-8")) if body else {}
             except json.JSONDecodeError as e:
-                logger.error(f"Invalid JSON from GitHub user endpoint: {e}")
+                logger.error("Invalid JSON from GitHub user endpoint: %s", e)
                 raise ValueError(f"Invalid JSON response from GitHub: {e}") from e
 
             # Get user's emails (need to find primary verified email)
@@ -300,7 +300,7 @@ class GitHubOAuthMixin:
                 try:
                     emails = json.loads(body.decode("utf-8")) if body else []
                 except json.JSONDecodeError as e:
-                    logger.error(f"Invalid JSON from GitHub emails endpoint: {e}")
+                    logger.error("Invalid JSON from GitHub emails endpoint: %s", e)
                     raise ValueError(f"Invalid JSON from GitHub emails: {e}") from e
 
                 # Find primary verified email
@@ -350,7 +350,7 @@ class GitHubOAuthMixin:
                 try:
                     user_data = response.json()
                 except json.JSONDecodeError as e:
-                    logger.error(f"Invalid JSON from GitHub user endpoint: {e}")
+                    logger.error("Invalid JSON from GitHub user endpoint: %s", e)
                     raise ValueError(f"Invalid JSON response from GitHub: {e}") from e
 
             # Get user's emails (need to find primary verified email)
@@ -369,7 +369,7 @@ class GitHubOAuthMixin:
                     try:
                         emails = response.json()
                     except json.JSONDecodeError as e:
-                        logger.error(f"Invalid JSON from GitHub emails endpoint: {e}")
+                        logger.error("Invalid JSON from GitHub emails endpoint: %s", e)
                         raise ValueError(f"Invalid JSON from GitHub emails: {e}") from e
 
                 for email_entry in emails:

@@ -123,7 +123,7 @@ async def _close_connector_async(connector: aiohttp.TCPConnector) -> None:
         await connector.close()
         logger.debug("Old TCP connector closed successfully")
     except (OSError, RuntimeError, asyncio.CancelledError) as e:
-        logger.debug(f"Error closing old connector: {e}")
+        logger.debug("Error closing old connector: %s", e)
 
 
 def get_shared_connector() -> aiohttp.TCPConnector:
@@ -174,7 +174,7 @@ def get_shared_connector() -> aiohttp.TCPConnector:
                     # If no running loop, connector will be garbage collected
                     # This is safe because we're creating a new one for the new loop
                 except (OSError, RuntimeError, asyncio.CancelledError) as e:
-                    logger.debug(f"Error scheduling connector close: {e}")
+                    logger.debug("Error scheduling connector close: %s", e)
 
             per_host: int
             total: int
@@ -187,8 +187,7 @@ def get_shared_connector() -> aiohttp.TCPConnector:
             )
             _pool_state.loop_id = current_loop_id
             logger.debug(
-                f"Created shared TCP connector: limit={total}, "
-                f"per_host={per_host}, loop_id={current_loop_id}"
+                "Created shared TCP connector: limit=%s, per_host=%s, loop_id=%s", total, per_host, current_loop_id
             )
         return _pool_state.connector
 
@@ -289,7 +288,7 @@ async def close_shared_connector() -> None:
     if _pool_state.pending_close_tasks:
         pending: list[asyncio.Task[Any]] = list(_pool_state.pending_close_tasks)
         if pending:
-            logger.debug(f"Awaiting {len(pending)} pending connector close tasks")
+            logger.debug("Awaiting %s pending connector close tasks", len(pending))
             await asyncio.gather(*pending, return_exceptions=True)
             _pool_state.pending_close_tasks.clear()
 
@@ -516,7 +515,7 @@ class SSEStreamParser:
                         event: Any = json.loads(data_str)
                         if not isinstance(event, dict):
                             logger.debug(
-                                f"[{agent_name}] Unexpected JSON type: {type(event).__name__}"
+                                "[%s] Unexpected JSON type: %s", agent_name, type(event).__name__
                             )
                             continue
                         content: str = self.content_extractor(event)
@@ -524,14 +523,14 @@ class SSEStreamParser:
                             yield content
                     except json.JSONDecodeError as e:
                         # Log malformed JSON for debugging, skip gracefully
-                        logger.debug(f"[{agent_name}] Malformed JSON in stream: {e}")
+                        logger.debug("[%s] Malformed JSON in stream: %s", agent_name, e)
                         continue
 
         except asyncio.TimeoutError:
-            logger.warning(f"[{agent_name}] Streaming timeout")
+            logger.warning("[%s] Streaming timeout", agent_name)
             raise
         except aiohttp.ClientError as e:
-            logger.warning(f"[{agent_name}] Streaming connection error: {e}")
+            logger.warning("[%s] Streaming connection error: %s", agent_name, e)
             raise AgentConnectionError(
                 f"Streaming connection error: {e}", agent_name=agent_name
             ) from e

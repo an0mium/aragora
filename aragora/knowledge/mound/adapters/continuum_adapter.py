@@ -189,7 +189,7 @@ class ContinuumAdapter(FusionMixin, SemanticSearchMixin, KnowledgeMoundAdapter):
             )
             return True
         except (RuntimeError, ValueError, OSError, AttributeError) as e:
-            logger.warning(f"Failed to apply fusion result: {e}")
+            logger.warning("Failed to apply fusion result: %s", e)
             return False
 
     def __init__(
@@ -293,7 +293,7 @@ class ContinuumAdapter(FusionMixin, SemanticSearchMixin, KnowledgeMoundAdapter):
                 try:
                     tier_enums.append(MemoryTier(tier_name))
                 except ValueError:
-                    logger.warning(f"Unknown tier: {tier_name}, skipping")
+                    logger.warning("Unknown tier: %s, skipping", tier_name)
 
         # Use ContinuumMemory's retrieve method
         entries = self._continuum.retrieve(
@@ -652,7 +652,7 @@ class ContinuumAdapter(FusionMixin, SemanticSearchMixin, KnowledgeMoundAdapter):
         # Get current entry
         entry = self._continuum.get(memory_id)
         if not entry:
-            logger.warning(f"Continuum entry not found for KM validation: {memory_id}")
+            logger.warning("Continuum entry not found for KM validation: %s", memory_id)
             return False
 
         # Calculate new importance based on KM feedback
@@ -682,8 +682,7 @@ class ContinuumAdapter(FusionMixin, SemanticSearchMixin, KnowledgeMoundAdapter):
                 tier_changed = self._continuum.promote_entry(memory_id, new_tier)
                 if tier_changed:
                     logger.info(
-                        f"Promoted continuum entry from KM validation: {memory_id} "
-                        f"{entry.tier.value} -> {new_tier.value}"
+                        "Promoted continuum entry from KM validation: %s %s -> %s", memory_id, entry.tier.value, new_tier.value
                     )
 
         elif recommendation == "demote" and entry.tier != MemoryTier.FAST:
@@ -695,8 +694,7 @@ class ContinuumAdapter(FusionMixin, SemanticSearchMixin, KnowledgeMoundAdapter):
                 tier_changed = self._continuum.demote_entry(memory_id, new_tier)
                 if tier_changed:
                     logger.info(
-                        f"Demoted continuum entry from KM validation: {memory_id} "
-                        f"{entry.tier.value} -> {new_tier.value}"
+                        "Demoted continuum entry from KM validation: %s %s -> %s", memory_id, entry.tier.value, new_tier.value
                     )
 
         # Check if importance changed significantly
@@ -793,10 +791,7 @@ class ContinuumAdapter(FusionMixin, SemanticSearchMixin, KnowledgeMoundAdapter):
         result.duration_ms = int((time.time() - start_time) * 1000)
 
         logger.info(
-            f"KM validation sync complete: "
-            f"promoted={result.promoted}, demoted={result.demoted}, "
-            f"updated={result.updated}, skipped={result.skipped}, "
-            f"errors={len(result.errors)}, duration={result.duration_ms}ms"
+            "KM validation sync complete: promoted=%s, demoted=%s, updated=%s, skipped=%s, errors=%s, duration=%sms", result.promoted, result.demoted, result.updated, result.skipped, len(result.errors), result.duration_ms
         )
 
         return result
@@ -922,7 +917,7 @@ class ContinuumAdapter(FusionMixin, SemanticSearchMixin, KnowledgeMoundAdapter):
                 self.link_to_mound(entry.id, km_id)
 
                 result["synced"] += 1
-                logger.debug(f"Synced continuum entry to KM: {entry.id} -> {km_id}")
+                logger.debug("Synced continuum entry to KM: %s -> %s", entry.id, km_id)
 
             except (RuntimeError, ValueError, OSError, AttributeError) as e:
                 error_msg = f"Error syncing {entry.id}: {e}"
@@ -930,9 +925,7 @@ class ContinuumAdapter(FusionMixin, SemanticSearchMixin, KnowledgeMoundAdapter):
                 result["errors"].append(error_msg)
 
         logger.info(
-            f"Memory to KM sync complete: synced={result['synced']}, "
-            f"skipped={result['skipped']}, already_synced={result['already_synced']}, "
-            f"errors={len(result['errors'])}"
+            "Memory to KM sync complete: synced=%s, skipped=%s, already_synced=%s, errors=%s", result['synced'], result['skipped'], result['already_synced'], len(result['errors'])
         )
 
         return result

@@ -133,7 +133,7 @@ class CostHandler:
             OSError,
             ImportError,
         ) as e:
-            logger.exception(f"Failed to get costs: {e}")
+            logger.exception("Failed to get costs: %s", e)
             return web_error_response("Internal server error", 500)
 
     @api_endpoint(
@@ -183,7 +183,7 @@ class CostHandler:
             OSError,
             ImportError,
         ) as e:
-            logger.exception(f"Failed to get breakdown: {e}")
+            logger.exception("Failed to get breakdown: %s", e)
             return web_error_response("Internal server error", 500)
 
     @api_endpoint(
@@ -227,7 +227,7 @@ class CostHandler:
             OSError,
             ImportError,
         ) as e:
-            logger.exception(f"Failed to get timeline: {e}")
+            logger.exception("Failed to get timeline: %s", e)
             return web_error_response("Internal server error", 500)
 
     @api_endpoint(
@@ -282,7 +282,7 @@ class CostHandler:
             OSError,
             ImportError,
         ) as e:
-            logger.exception(f"Failed to get alerts: {e}")
+            logger.exception("Failed to get alerts: %s", e)
             return web_error_response("Internal server error", 500)
 
     @api_endpoint(
@@ -328,7 +328,7 @@ class CostHandler:
                     daily_limit_usd=Decimal(str(daily_limit)) if daily_limit else None,
                 )
                 tracker.set_budget(budget)
-                logger.info(f"[CostHandler] Budget set for {workspace_id}: ${budget_amount}")
+                logger.info("[CostHandler] Budget set for %s: $%s", workspace_id, budget_amount)
 
             return web.json_response(
                 {
@@ -348,7 +348,7 @@ class CostHandler:
             OSError,
             ImportError,
         ) as e:
-            logger.exception(f"Failed to set budget: {e}")
+            logger.exception("Failed to set budget: %s", e)
             return web_error_response("Internal server error", 500)
 
     @api_endpoint(
@@ -371,7 +371,7 @@ class CostHandler:
 
             # For now, alerts are ephemeral (recalculated from budget state)
             # In production, this would update a database record
-            logger.info(f"[CostHandler] Alert {alert_id} dismissed for {workspace_id}")
+            logger.info("[CostHandler] Alert %s dismissed for %s", alert_id, workspace_id)
 
             return web.json_response(
                 {
@@ -390,7 +390,7 @@ class CostHandler:
             OSError,
             ImportError,
         ) as e:
-            logger.exception(f"Failed to dismiss alert: {e}")
+            logger.exception("Failed to dismiss alert: %s", e)
             return web_error_response("Internal server error", 500)
 
     @api_endpoint(
@@ -456,7 +456,7 @@ class CostHandler:
             OSError,
             ImportError,
         ) as e:
-            logger.exception(f"Failed to get recommendations: {e}")
+            logger.exception("Failed to get recommendations: %s", e)
             return web_error_response("Internal server error", 500)
 
     @api_endpoint(
@@ -495,7 +495,7 @@ class CostHandler:
             OSError,
             ImportError,
         ) as e:
-            logger.exception(f"Failed to get recommendation: {e}")
+            logger.exception("Failed to get recommendation: %s", e)
             return web_error_response("Internal server error", 500)
 
     @api_endpoint(
@@ -545,7 +545,7 @@ class CostHandler:
             OSError,
             ImportError,
         ) as e:
-            logger.exception(f"Failed to apply recommendation: {e}")
+            logger.exception("Failed to apply recommendation: %s", e)
             return web_error_response("Internal server error", 500)
 
     @api_endpoint(
@@ -584,7 +584,7 @@ class CostHandler:
             OSError,
             ImportError,
         ) as e:
-            logger.exception(f"Failed to dismiss recommendation: {e}")
+            logger.exception("Failed to dismiss recommendation: %s", e)
             return web_error_response("Internal server error", 500)
 
     @api_endpoint(
@@ -661,7 +661,7 @@ class CostHandler:
             OSError,
             ImportError,
         ) as e:
-            logger.exception(f"Failed to get efficiency: {e}")
+            logger.exception("Failed to get efficiency: %s", e)
             return web_error_response("Internal server error", 500)
 
     @api_endpoint(
@@ -707,7 +707,7 @@ class CostHandler:
             OSError,
             ImportError,
         ) as e:
-            logger.exception(f"Failed to get forecast: {e}")
+            logger.exception("Failed to get forecast: %s", e)
             return web_error_response("Internal server error", 500)
 
     @api_endpoint(
@@ -763,7 +763,7 @@ class CostHandler:
             OSError,
             ImportError,
         ) as e:
-            logger.exception(f"Failed to simulate forecast: {e}")
+            logger.exception("Failed to simulate forecast: %s", e)
             return web_error_response("Internal server error", 500)
 
     @api_endpoint(
@@ -829,7 +829,7 @@ class CostHandler:
             OSError,
             ImportError,
         ) as e:
-            logger.exception(f"Failed to export costs: {e}")
+            logger.exception("Failed to export costs: %s", e)
             return web_error_response("Internal server error", 500)
 
     # =========================================================================
@@ -932,7 +932,7 @@ class CostHandler:
             OSError,
             ImportError,
         ) as e:
-            logger.exception(f"Failed to get usage: {e}")
+            logger.exception("Failed to get usage: %s", e)
             return web_error_response("Internal server error", 500)
 
     @api_endpoint(
@@ -1006,7 +1006,7 @@ class CostHandler:
             OSError,
             ImportError,
         ) as e:
-            logger.exception(f"Failed to list budgets: {e}")
+            logger.exception("Failed to list budgets: %s", e)
             return web_error_response("Internal server error", 500)
 
     @api_endpoint(
@@ -1058,7 +1058,7 @@ class CostHandler:
                     alert_threshold_90=90 in alert_thresholds,
                 )
                 tracker.set_budget(budget)
-                logger.info(f"[CostHandler] Budget created for {workspace_id}: ${monthly_limit}")
+                logger.info("[CostHandler] Budget created for %s: $%s", workspace_id, monthly_limit)
 
             return web.json_response(
                 {
@@ -1084,7 +1084,7 @@ class CostHandler:
             OSError,
             ImportError,
         ) as e:
-            logger.exception(f"Failed to create budget: {e}")
+            logger.exception("Failed to create budget: %s", e)
             return web_error_response("Internal server error", 500)
 
     @api_endpoint(
@@ -1170,7 +1170,7 @@ class CostHandler:
             OSError,
             ImportError,
         ) as e:
-            logger.exception(f"Failed to check constraints: {e}")
+            logger.exception("Failed to check constraints: %s", e)
             return web_error_response("Internal server error", 500)
 
     @api_endpoint(
@@ -1263,7 +1263,7 @@ class CostHandler:
             OSError,
             ImportError,
         ) as e:
-            logger.exception(f"Failed to estimate cost: {e}")
+            logger.exception("Failed to estimate cost: %s", e)
             return web_error_response("Internal server error", 500)
 
     @api_endpoint(
@@ -1341,7 +1341,7 @@ class CostHandler:
             OSError,
             ImportError,
         ) as e:
-            logger.exception(f"Failed to get detailed forecast: {e}")
+            logger.exception("Failed to get detailed forecast: %s", e)
             return web_error_response("Internal server error", 500)
 
     @api_endpoint(
@@ -1422,7 +1422,7 @@ class CostHandler:
             OSError,
             ImportError,
         ) as e:
-            logger.exception(f"Failed to get detailed recommendations: {e}")
+            logger.exception("Failed to get detailed recommendations: %s", e)
             return web_error_response("Internal server error", 500)
 
     @api_endpoint(
@@ -1483,7 +1483,7 @@ class CostHandler:
                 "created_at": datetime.now(timezone.utc).isoformat(),
             }
 
-            logger.info(f"[CostHandler] Created alert {alert_id} for {workspace_id}")
+            logger.info("[CostHandler] Created alert %s for %s", alert_id, workspace_id)
 
             return web.json_response(
                 {
@@ -1502,5 +1502,5 @@ class CostHandler:
             OSError,
             ImportError,
         ) as e:
-            logger.exception(f"Failed to create alert: {e}")
+            logger.exception("Failed to create alert: %s", e)
             return web_error_response("Internal server error", 500)

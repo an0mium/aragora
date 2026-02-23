@@ -151,7 +151,7 @@ class PolicyHandlerMixin:
                 }
             )
         except (ValueError, TypeError, KeyError, RuntimeError, OSError) as e:
-            logger.error(f"Error listing policy violations: {e}")
+            logger.error("Error listing policy violations: %s", e)
             return error_response(safe_error_message(e, "policy"), 500)
 
     @api_endpoint(
@@ -188,7 +188,7 @@ class PolicyHandlerMixin:
 
             return json_response({"violation": violation})
         except (ValueError, TypeError, KeyError, RuntimeError, OSError) as e:
-            logger.error(f"Error getting policy violation {violation_id}: {e}")
+            logger.error("Error getting policy violation %s: %s", violation_id, e)
             return error_response(safe_error_message(e, "policy"), 500)
 
     @api_endpoint(
@@ -234,7 +234,7 @@ class PolicyHandlerMixin:
                 }
             )
         except (ValueError, TypeError, KeyError, RuntimeError, OSError) as e:
-            logger.error(f"Error getting policy violation stats: {e}")
+            logger.error("Error getting policy violation stats: %s", e)
             return error_response(safe_error_message(e, "policy"), 500)
 
     @api_endpoint(
@@ -299,5 +299,5 @@ class PolicyHandlerMixin:
                 }
             )
         except (ValueError, TypeError, KeyError, RuntimeError, OSError) as e:
-            logger.error(f"Error updating policy violation {violation_id}: {e}")
+            logger.error("Error updating policy violation %s: %s", violation_id, e)
             return error_response(safe_error_message(e, "policy"), 500)

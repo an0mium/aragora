@@ -217,7 +217,7 @@ class DebateDelegator:
         # Delegate in parallel using llm_batch
         async def analyze_with_agent(agent: Agent) -> AnalysisResult:
             """Execute analysis with a single agent."""
-            logger.debug(f"delegation_analysis_start agent={agent.name}")
+            logger.debug("delegation_analysis_start agent=%s", agent.name)
 
             if self._generate_fn:
                 response = await self._generate_fn(agent, prompt)
@@ -390,7 +390,7 @@ CONFIDENCE: <0.0-1.0>"""
             return self._parse_synthesis_response(str(response))
 
         except (RuntimeError, OSError, ConnectionError, TimeoutError) as e:  # noqa: BLE001
-            logger.error(f"Synthesis failed: {e}")
+            logger.error("Synthesis failed: %s", e)
             return SynthesisResult(
                 summary=f"Synthesis failed: {e}",
                 confidence=0.0,
@@ -445,7 +445,7 @@ CONFIDENCE: <0.0-1.0>"""
                     confidence = float(conf_str)
                     confidence = max(0.0, min(1.0, confidence))
                 except ValueError as e:
-                    logger.debug(f"Failed to parse analysis confidence: {e}")
+                    logger.debug("Failed to parse analysis confidence: %s", e)
                 current_section = None
             elif current_section == "key_points" and line_stripped.startswith("-"):
                 key_points.append(line_stripped[1:].strip())
@@ -493,7 +493,7 @@ CONFIDENCE: <0.0-1.0>"""
                     confidence = float(conf_str)
                     confidence = max(0.0, min(1.0, confidence))
                 except ValueError as e:
-                    logger.debug(f"Failed to parse synthesis confidence: {e}")
+                    logger.debug("Failed to parse synthesis confidence: %s", e)
 
         return SynthesisResult(
             summary=summary or response[:500],

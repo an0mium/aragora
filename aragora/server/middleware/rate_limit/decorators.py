@@ -158,7 +158,7 @@ def rate_limit(
                 result = limiter.allow(client_key, endpoint=endpoint)
 
             if not result.allowed:
-                logger.warning(f"Rate limit exceeded for {client_key} on {func.__name__}")
+                logger.warning("Rate limit exceeded for %s on %s", client_key, func.__name__)
                 return _error_response(
                     "Rate limit exceeded. Please try again later.",
                     429,
@@ -243,7 +243,7 @@ def user_rate_limit(
             result = check_user_rate_limit(handler, user_store, action)
 
             if not result.allowed:
-                logger.warning(f"User rate limit exceeded for {result.key} on {action}")
+                logger.warning("User rate limit exceeded for %s on %s", result.key, action)
                 return _error_response(
                     f"Rate limit exceeded for {action}. Please try again later.",
                     429,

@@ -172,7 +172,7 @@ class Policy:
                 if not self._eval_condition(condition, context):
                     return False
             except (ValueError, TypeError, KeyError, AttributeError, RuntimeError) as e:
-                logger.warning(f"Policy condition '{condition}' failed: {e}")
+                logger.warning("Policy condition '%s' failed: %s", condition, e)
                 return False
 
         return True
@@ -294,7 +294,7 @@ class PolicyEngine:
         self.policies.append(policy)
         # Sort by priority (descending)
         self.policies.sort(key=lambda p: -p.priority)
-        logger.info(f"Added policy '{policy.name}' (priority: {policy.priority})")
+        logger.info("Added policy '%s' (priority: %s)", policy.name, policy.priority)
 
     def remove_policy(self, name: str) -> bool:
         """Remove a policy by name."""
@@ -302,7 +302,7 @@ class PolicyEngine:
         self.policies = [p for p in self.policies if p.name != name]
         removed = len(self.policies) < original_count
         if removed:
-            logger.info(f"Removed policy '{name}'")
+            logger.info("Removed policy '%s'", name)
         return removed
 
     def get_budget(self, session_id: str) -> RiskBudget:

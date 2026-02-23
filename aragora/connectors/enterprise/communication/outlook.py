@@ -284,7 +284,7 @@ class OutlookConnector(EnterpriseConnector):
             return True
 
         except (OSError, ConnectionError, TimeoutError, ValueError, KeyError, RuntimeError) as e:
-            logger.error(f"[Outlook] Authentication failed: {e}")
+            logger.error("[Outlook] Authentication failed: %s", e)
             return False
 
     async def _refresh_access_token(self) -> str:
@@ -396,7 +396,7 @@ class OutlookConnector(EnterpriseConnector):
                 )
                 if response.status_code >= 400:
                     # Log the full error response for debugging
-                    logger.error(f"Outlook API error {response.status_code}: {response.text}")
+                    logger.error("Outlook API error %s: %s", response.status_code, response.text)
                     # Record failure for circuit breaker on 5xx errors or rate limits
                     if response.status_code >= 500 or response.status_code == 429:
                         self.record_failure()
@@ -405,14 +405,14 @@ class OutlookConnector(EnterpriseConnector):
                 return response.json() if response.content else {}
         except httpx.TimeoutException as e:
             self.record_failure()
-            logger.error(f"Outlook API timeout: {e}")
+            logger.error("Outlook API timeout: %s", e)
             raise
         except httpx.HTTPStatusError:
             # Already handled above
             raise
         except (OSError, ConnectionError) as e:
             self.record_failure()
-            logger.error(f"Outlook API error: {e}")
+            logger.error("Outlook API error: %s", e)
             raise
 
     def _get_client(self) -> Any:
@@ -551,7 +551,7 @@ class OutlookConnector(EnterpriseConnector):
         try:
             date = datetime.fromisoformat(date_str.replace("Z", "+00:00"))
         except (ValueError, TypeError):
-            logger.debug(f"Failed to parse date string '{date_str}'")
+            logger.debug("Failed to parse date string '%s'", date_str)
             date = datetime.now(timezone.utc)
 
         # Extract body
@@ -756,7 +756,7 @@ class OutlookConnector(EnterpriseConnector):
             )
 
         except (OSError, ConnectionError, TimeoutError, ValueError, KeyError, RuntimeError) as e:
-            logger.error(f"[Outlook] Fetch failed: {e}")
+            logger.error("[Outlook] Fetch failed: %s", e)
             return None
 
     async def sync_items(
@@ -819,7 +819,7 @@ class OutlookConnector(EnterpriseConnector):
                         await asyncio.sleep(0)
 
                 except (OSError, ValueError, KeyError, RuntimeError) as e:
-                    logger.warning(f"[Outlook] Failed to fetch message {msg_id}: {e}")
+                    logger.warning("[Outlook] Failed to fetch message %s: %s", msg_id, e)
 
             return
 
@@ -873,7 +873,7 @@ class OutlookConnector(EnterpriseConnector):
                             return
 
                     except (OSError, ValueError, KeyError, RuntimeError) as e:
-                        logger.warning(f"[Outlook] Failed to fetch message {msg_id}: {e}")
+                        logger.warning("[Outlook] Failed to fetch message %s: %s", msg_id, e)
 
                 if not page_token:
                     break
@@ -991,7 +991,7 @@ class OutlookConnector(EnterpriseConnector):
                 json_data={"comment": comment},
             )
 
-            logger.info(f"[Outlook] Sent reply to message {original_message_id}")
+            logger.info("[Outlook] Sent reply to message %s", original_message_id)
 
             return {
                 "success": True,

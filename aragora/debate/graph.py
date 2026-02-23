@@ -765,7 +765,7 @@ class GraphDebateOrchestrator:
                     )
                 )
         except (ImportError, RuntimeError, ValueError, TypeError, AttributeError, OSError) as e:
-            logger.debug(f"Stream event emission failed (non-critical): {e}")
+            logger.debug("Stream event emission failed (non-critical): %s", e)
 
     async def run_debate(
         self,

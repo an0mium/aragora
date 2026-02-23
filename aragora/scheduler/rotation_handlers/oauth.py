@@ -72,7 +72,7 @@ class OAuthRotationHandler(RotationHandler):
                 client_id = client_id or get_secret(f"{provider.upper()}_CLIENT_ID")
                 client_secret = client_secret or get_secret(f"{provider.upper()}_CLIENT_SECRET")
             except (ImportError, OSError, KeyError) as e:
-                logger.debug(f"Could not load OAuth client credentials from secrets: {e}")
+                logger.debug("Could not load OAuth client credentials from secrets: %s", e)
 
         if not client_id or not client_secret:
             raise RotationError(
@@ -107,7 +107,7 @@ class OAuthRotationHandler(RotationHandler):
             if not new_access_token:
                 raise RotationError("No access token in response", secret_id)
 
-            logger.info(f"Refreshed OAuth tokens for {secret_id} ({provider})")
+            logger.info("Refreshed OAuth tokens for %s (%s)", secret_id, provider)
 
             return new_access_token, {
                 **metadata,
@@ -166,7 +166,7 @@ class OAuthRotationHandler(RotationHandler):
         validation_url = self._get_validation_url(provider, metadata)
 
         if not validation_url:
-            logger.warning(f"No validation URL for provider {provider}")
+            logger.warning("No validation URL for provider %s", provider)
             return True
 
         try:
@@ -181,14 +181,14 @@ class OAuthRotationHandler(RotationHandler):
                 )
 
                 if response.status_code == 200:
-                    logger.info(f"Validated OAuth token for {secret_id}")
+                    logger.info("Validated OAuth token for %s", secret_id)
                     return True
                 elif response.status_code == 401:
-                    logger.error(f"OAuth token invalid for {secret_id}")
+                    logger.error("OAuth token invalid for %s", secret_id)
                     return False
                 else:
                     logger.warning(
-                        f"Unexpected status {response.status_code} validating {secret_id}"
+                        "Unexpected status %s validating %s", response.status_code, secret_id
                     )
                     return response.status_code < 400
 
@@ -196,7 +196,7 @@ class OAuthRotationHandler(RotationHandler):
             logger.warning("HTTPClientPool not available, assuming token valid")
             return True
         except (OSError, ValueError) as e:
-            logger.error(f"OAuth validation error for {secret_id}: {e}")
+            logger.error("OAuth validation error for %s: %s", secret_id, e)
             return False
 
     def _get_validation_url(self, provider: str, metadata: dict[str, Any]) -> str | None:
@@ -232,7 +232,7 @@ class OAuthRotationHandler(RotationHandler):
         revoke_url = self._get_revoke_url(provider, metadata)
 
         if not revoke_url:
-            logger.info(f"Token revocation not supported for {provider}")
+            logger.info("Token revocation not supported for %s", provider)
             return True
 
         client_id = metadata.get("client_id")
@@ -254,11 +254,11 @@ class OAuthRotationHandler(RotationHandler):
                 )
 
                 if response.status_code < 400:
-                    logger.info(f"Revoked old OAuth token for {secret_id}")
+                    logger.info("Revoked old OAuth token for %s", secret_id)
                     return True
                 else:
                     logger.warning(
-                        f"Token revocation returned {response.status_code} for {secret_id}"
+                        "Token revocation returned %s for %s", response.status_code, secret_id
                     )
                     return False
 
@@ -266,7 +266,7 @@ class OAuthRotationHandler(RotationHandler):
             logger.warning("HTTPClientPool not available, skipping revocation")
             return True
         except (OSError, ValueError) as e:
-            logger.error(f"OAuth revocation error for {secret_id}: {e}")
+            logger.error("OAuth revocation error for %s: %s", secret_id, e)
             return False
 
     def _get_revoke_url(self, provider: str, metadata: dict[str, Any]) -> str | None:

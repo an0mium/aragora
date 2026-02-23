@@ -27,7 +27,7 @@ _task_handlers: dict[str, Callable] = {}
 def register_task_handler(name: str, handler: Callable) -> None:
     """Register a task handler function."""
     _task_handlers[name] = handler
-    logger.debug(f"Registered task handler: {name}")
+    logger.debug("Registered task handler: %s", name)
 
 
 def get_task_handler(name: str) -> Callable | None:
@@ -105,7 +105,7 @@ class TaskStep(BaseStep):
                 return {"success": False, "error": f"Unknown task type: {task_type}"}
 
         except (RuntimeError, ValueError, TypeError, OSError, ConnectionError, ImportError) as e:
-            logger.error(f"Task execution failed: {e}")
+            logger.error("Task execution failed: %s", e)
             return {"success": False, "error": "Task execution failed"}
 
     async def _execute_function(self, config: dict[str, Any], context: WorkflowContext) -> Any:

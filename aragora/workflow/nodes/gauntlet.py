@@ -120,7 +120,7 @@ class GauntletStep(BaseStep):
                     break
 
         if not input_content:
-            logger.warning(f"No input content found for GauntletStep '{self.name}'")
+            logger.warning("No input content found for GauntletStep '%s'", self.name)
             return {
                 "success": False,
                 "error": f"No input content found at key '{input_key}'",
@@ -131,9 +131,7 @@ class GauntletStep(BaseStep):
         additional_context = context.get_input(context_key, "")
 
         logger.info(
-            f"GauntletStep '{self.name}' starting: "
-            f"attacks={len(attack_categories)}, probes={len(probe_categories)}, "
-            f"compliance={len(compliance_frameworks)}"
+            "GauntletStep '%s' starting: attacks=%s, probes=%s, compliance=%s", self.name, len(attack_categories), len(probe_categories), len(compliance_frameworks)
         )
 
         try:
@@ -217,8 +215,7 @@ class GauntletStep(BaseStep):
             # Check if we should fail the workflow
             if require_passing and not passed:
                 logger.warning(
-                    f"Gauntlet validation failed: "
-                    f"found {self._findings_count} issues, highest severity: {self._highest_severity}"
+                    "Gauntlet validation failed: found %s issues, highest severity: %s", self._findings_count, self._highest_severity
                 )
 
             return {
@@ -265,7 +262,7 @@ class GauntletStep(BaseStep):
             }
 
         except ImportError as e:
-            logger.error(f"Failed to import gauntlet module: {e}")
+            logger.error("Failed to import gauntlet module: %s", e)
             return {
                 "success": False,
                 "error": f"Gauntlet module not available: {e}",
@@ -305,7 +302,7 @@ class GauntletStep(BaseStep):
             for framework in frameworks:
                 persona_class = persona_map.get(framework.lower())
                 if not persona_class:
-                    logger.warning(f"Unknown compliance framework: {framework}")
+                    logger.warning("Unknown compliance framework: %s", framework)
                     continue
 
                 try:
@@ -321,7 +318,7 @@ class GauntletStep(BaseStep):
                         }
                     )
                 except (ImportError, RuntimeError, ValueError, TypeError, OSError, AttributeError) as e:
-                    logger.error(f"Compliance check failed for {framework}: {e}")
+                    logger.error("Compliance check failed for %s: %s", framework, e)
                     results.append(
                         {
                             "framework": framework,
@@ -331,7 +328,7 @@ class GauntletStep(BaseStep):
                     )
 
         except ImportError as e:
-            logger.warning(f"Compliance personas not available: {e}")
+            logger.warning("Compliance personas not available: %s", e)
 
         return results
 
@@ -351,6 +348,6 @@ class GauntletStep(BaseStep):
         """Validate gauntlet step configuration."""
         severity = self._config.get("severity_threshold", "medium")
         if severity not in self.SEVERITY_LEVELS:
-            logger.warning(f"Invalid severity threshold: {severity}")
+            logger.warning("Invalid severity threshold: %s", severity)
             return False
         return True

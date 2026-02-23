@@ -135,7 +135,7 @@ def handle_register(handler_instance: AuthHandler, handler) -> HandlerResult:
             name=name or email.split("@")[0],
         )
     except ValueError as e:
-        logger.warning(f"User creation failed: {type(e).__name__}: {e}")
+        logger.warning("User creation failed: %s: %s", type(e).__name__, e)
         return error_response("User creation failed", 409)
 
     # Create organization if name provided
@@ -155,7 +155,7 @@ def handle_register(handler_instance: AuthHandler, handler) -> HandlerResult:
         role=user.role,
     )
 
-    logger.info(f"User registered: id={user.id}")
+    logger.info("User registered: id=%s", user.id)
 
     # Audit log: user registration
     if AUDIT_AVAILABLE and audit_admin:
@@ -276,7 +276,7 @@ def handle_login(handler_instance: AuthHandler, handler) -> HandlerResult:
     if lockout_tracker.is_locked(email=email, ip=client_ip):
         remaining_seconds = lockout_tracker.get_remaining_time(email=email, ip=client_ip)
         remaining_minutes = max(1, remaining_seconds // 60)
-        logger.warning(f"Login attempt on locked account/IP: ip={client_ip}")
+        logger.warning("Login attempt on locked account/IP: ip=%s", client_ip)
         return error_response(
             f"Too many failed attempts. Try again in {remaining_minutes} minute(s).", 429
         )
@@ -346,7 +346,7 @@ def handle_login(handler_instance: AuthHandler, handler) -> HandlerResult:
     # Check if MFA is enabled - require second factor before issuing tokens
     if user.mfa_enabled and user.mfa_secret:
         pending_token = create_mfa_pending_token(user.id, user.email)
-        logger.info(f"User login pending MFA: user_id={user.id}")
+        logger.info("User login pending MFA: user_id=%s", user.id)
         return json_response(
             {
                 "mfa_required": True,
@@ -363,7 +363,7 @@ def handle_login(handler_instance: AuthHandler, handler) -> HandlerResult:
         role=user.role,
     )
 
-    logger.info(f"User logged in: user_id={user.id}")
+    logger.info("User logged in: user_id=%s", user.id)
 
     # Audit log: successful login
     if AUDIT_AVAILABLE and audit_login:

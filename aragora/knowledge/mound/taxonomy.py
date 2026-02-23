@@ -401,7 +401,7 @@ class DomainTaxonomy:
         await self._ensure_default_taxonomy()
         await self._load_cache()
         self._initialized = True
-        logger.info(f"DomainTaxonomy initialized with {len(self._cache)} domains")
+        logger.info("DomainTaxonomy initialized with %s domains", len(self._cache))
 
     async def _ensure_default_taxonomy(self) -> None:
         """Create default taxonomy structure if it doesn't exist."""

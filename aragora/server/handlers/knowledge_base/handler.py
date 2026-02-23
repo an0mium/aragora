@@ -123,7 +123,7 @@ class KnowledgeHandler(
             try:
                 self._fact_store = FactStore()
             except (OSError, ValueError, TypeError, RuntimeError, ImportError) as e:
-                logger.warning(f"Failed to create FactStore, using in-memory: {e}")
+                logger.warning("Failed to create FactStore, using in-memory: %s", e)
                 self._fact_store = InMemoryFactStore()
         return self._fact_store
 
@@ -182,7 +182,7 @@ class KnowledgeHandler(
         # Rate limit check
         client_ip = get_client_ip(handler)
         if not _knowledge_limiter.is_allowed(client_ip):
-            logger.warning(f"Rate limit exceeded for knowledge endpoint: {client_ip}")
+            logger.warning("Rate limit exceeded for knowledge endpoint: %s", client_ip)
             return error_response("Rate limit exceeded. Please try again later.", 429)
 
         # Check read permission for GET requests

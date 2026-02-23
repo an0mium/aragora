@@ -759,7 +759,7 @@ class HookHandlerRegistry:
                     asyncio.get_running_loop()
                     _delivery_task = asyncio.create_task(deliver_all())
                     _delivery_task.add_done_callback(
-                        lambda t: logger.warning(f"Webhook delivery failed: {t.exception()}")
+                        lambda t: logger.warning("Webhook delivery failed: %s", t.exception())
                         if not t.cancelled() and t.exception()
                         else None
                     )
@@ -827,7 +827,7 @@ class HookHandlerRegistry:
                     asyncio.get_running_loop()
                     _consensus_task = asyncio.create_task(deliver_all())
                     _consensus_task.add_done_callback(
-                        lambda t: logger.warning(f"Webhook consensus delivery failed: {t.exception()}")
+                        lambda t: logger.warning("Webhook consensus delivery failed: %s", t.exception())
                         if not t.cancelled() and t.exception()
                         else None
                     )
@@ -1167,7 +1167,7 @@ class HookHandlerRegistry:
                     asyncio.get_running_loop()  # Check if loop exists
                     _enrich_task = asyncio.create_task(_enrich_plan_async())
                     _enrich_task.add_done_callback(
-                        lambda t: logger.warning(f"Plan enrichment failed: {t.exception()}")
+                        lambda t: logger.warning("Plan enrichment failed: %s", t.exception())
                         if not t.cancelled() and t.exception()
                         else None
                     )

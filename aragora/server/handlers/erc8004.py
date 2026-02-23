@@ -83,7 +83,7 @@ def _get_provider():
                 "web3 is required for blockchain endpoints"
             )
         except (ConnectionError, TimeoutError, OSError, ValueError, RuntimeError) as e:
-            logger.error(f"Failed to create Web3Provider: {e}")
+            logger.error("Failed to create Web3Provider: %s", e)
             raise
     return _provider
 
@@ -179,7 +179,7 @@ async def handle_blockchain_config() -> HandlerResult:
             status=503,
         )
     except (ConnectionError, TimeoutError, OSError, ValueError, RuntimeError, AttributeError) as e:
-        logger.error(f"Error getting blockchain config: {e}")
+        logger.error("Error getting blockchain config: %s", e)
         return error_response("Configuration error. Check server logs for details.", status=500)
 
 
@@ -220,7 +220,7 @@ async def handle_get_agent(token_id: int) -> HandlerResult:
             status=503,
         )
     except (ConnectionError, TimeoutError, OSError, LookupError, ValueError, RuntimeError) as e:
-        logger.error(f"Error fetching agent {token_id}: {e}")
+        logger.error("Error fetching agent %s: %s", token_id, e)
         return error_response("Agent not found or could not be retrieved.", status=404)
 
 
@@ -275,7 +275,7 @@ async def handle_get_reputation(
             status=503,
         )
     except (ConnectionError, TimeoutError, OSError, LookupError, ValueError, RuntimeError) as e:
-        logger.error(f"Error fetching reputation for agent {token_id}: {e}")
+        logger.error("Error fetching reputation for agent %s: %s", token_id, e)
         return error_response("Reputation not found or could not be retrieved.", status=404)
 
 
@@ -326,7 +326,7 @@ async def handle_get_validations(
             status=503,
         )
     except (ConnectionError, TimeoutError, OSError, LookupError, ValueError, RuntimeError) as e:
-        logger.error(f"Error fetching validations for agent {token_id}: {e}")
+        logger.error("Error fetching validations for agent %s: %s", token_id, e)
         return error_response("Validations not found or could not be retrieved.", status=404)
 
 
@@ -381,7 +381,7 @@ async def handle_blockchain_sync(
             status=503,
         )
     except (ConnectionError, TimeoutError, OSError, ValueError, RuntimeError) as e:
-        logger.error(f"Blockchain sync error: {e}")
+        logger.error("Blockchain sync error: %s", e)
         return error_response("Blockchain sync failed. Check server logs for details.")
 
 
@@ -505,7 +505,7 @@ async def handle_list_agents(skip: int = 0, limit: int = 100) -> HandlerResult:
                 identity = contract.get_agent(token_id)
                 agents.append(_serialize_identity(identity))
             except (ConnectionError, TimeoutError, OSError, LookupError, ValueError, RuntimeError) as e:
-                logger.debug(f"Could not fetch agent {token_id}: {e}")
+                logger.debug("Could not fetch agent %s: %s", token_id, e)
 
         return json_response(
             {
@@ -523,7 +523,7 @@ async def handle_list_agents(skip: int = 0, limit: int = 100) -> HandlerResult:
             status=503,
         )
     except (ConnectionError, TimeoutError, OSError, ValueError, RuntimeError) as e:
-        logger.error(f"Error listing agents: {e}")
+        logger.error("Error listing agents: %s", e)
         return error_response("Listing error. Check server logs for details.", status=500)
 
 
@@ -607,7 +607,7 @@ async def handle_register_agent(
             status=503,
         )
     except (ConnectionError, TimeoutError, OSError, RuntimeError) as e:
-        logger.error(f"Error registering agent: {e}")
+        logger.error("Error registering agent: %s", e)
         return error_response("Registration error. Check server logs for details.", status=500)
 
 

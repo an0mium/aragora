@@ -653,17 +653,17 @@ def create_store_factory(
                             pool = get_postgres_pool()
                             if pool:
                                 _store = postgres_class(pool)
-                                logger.info(f"[{store_name}] Using PostgreSQL backend")
+                                logger.info("[%s] Using PostgreSQL backend", store_name)
                                 return _store
                         except (ImportError, RuntimeError) as e:
                             logger.warning(
-                                f"[{store_name}] Postgres unavailable, falling back to SQLite: {e}"
+                                "[%s] Postgres unavailable, falling back to SQLite: %s", store_name, e
                             )
 
                     # Default to SQLite
                     db_name = default_db_name or f"{store_name}.db"
                     _store = sqlite_class(Path(db_name))
-                    logger.debug(f"[{store_name}] Using SQLite backend")
+                    logger.debug("[%s] Using SQLite backend", store_name)
         return _store
 
     def set_store(store: GenericStoreBackend) -> None:

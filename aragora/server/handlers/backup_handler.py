@@ -165,7 +165,7 @@ class BackupHandler(BaseHandler):
             return error_response("Not found", 404)
 
         except (ValueError, KeyError, TypeError, RuntimeError, OSError) as e:
-            logger.exception(f"Error handling backup request: {e}")
+            logger.exception("Error handling backup request: %s", e)
             return error_response("Internal server error", 500)
 
     @require_permission("backups:read")
@@ -281,7 +281,7 @@ class BackupHandler(BaseHandler):
                 continue
 
         if validated_path is None:
-            logger.warning(f"Backup source path validation failed: {source_path}")
+            logger.warning("Backup source path validation failed: %s", source_path)
             return error_response(
                 "Invalid source path. Path must be within allowed backup directories.",
                 400,
@@ -321,7 +321,7 @@ class BackupHandler(BaseHandler):
             logger.warning("Handler error: %s", e)
             return error_response("Resource not found", 404)
         except (OSError, RuntimeError, AttributeError, TypeError) as e:
-            logger.exception(f"Backup creation failed: {e}")
+            logger.exception("Backup creation failed: %s", e)
             return error_response("Backup operation failed", 500)
 
     @require_permission("backups:verify")
@@ -393,7 +393,7 @@ class BackupHandler(BaseHandler):
                 continue
 
         if validated_target is None:
-            logger.warning(f"Restore target path validation failed: {target_path}")
+            logger.warning("Restore target path validation failed: %s", target_path)
             return error_response(
                 "Invalid target path. Path must be within allowed restore directories.",
                 400,
@@ -443,7 +443,7 @@ class BackupHandler(BaseHandler):
             backup_path = Path(backup.backup_path)
             if backup_path.exists():
                 backup_path.unlink()
-                logger.info(f"Deleted backup file: {backup_path}")
+                logger.info("Deleted backup file: %s", backup_path)
 
             # Remove from manager's tracking
             if backup_id in manager._backups:
@@ -459,7 +459,7 @@ class BackupHandler(BaseHandler):
             )
 
         except (OSError, KeyError, AttributeError) as e:
-            logger.exception(f"Failed to delete backup: {e}")
+            logger.exception("Failed to delete backup: %s", e)
             return error_response("Delete operation failed", 500)
 
     @require_permission("backups:delete")

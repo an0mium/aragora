@@ -197,7 +197,7 @@ class CalibrationCostBridge:
         try:
             return self.calibration_tracker.get_calibration_summary(agent_name)
         except (ValueError, KeyError, TypeError, RuntimeError, AttributeError) as e:
-            logger.warning(f"Failed to get calibration for {agent_name}: {e}")
+            logger.warning("Failed to get calibration for %s: %s", agent_name, e)
             return None
 
     def _get_avg_cost(self, agent_name: str) -> Decimal:
@@ -218,7 +218,7 @@ class CalibrationCostBridge:
                     api_calls = stats.get("api_calls", 1)
                     return total_cost / max(1, api_calls)
         except (KeyError, TypeError, ValueError, ZeroDivisionError, AttributeError) as e:
-            logger.debug(f"Could not get cost for {agent_name}: {e}")
+            logger.debug("Could not get cost for %s: %s", agent_name, e)
 
         return Decimal("0")
 
@@ -307,8 +307,7 @@ class CalibrationCostBridge:
 
         recommended = candidates[0][0]
         logger.info(
-            f"cost_efficient_agent_recommended agent={recommended} "
-            f"from {len(available_agents)} candidates"
+            "cost_efficient_agent_recommended agent=%s from %s candidates", recommended, len(available_agents)
         )
 
         return recommended

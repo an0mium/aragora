@@ -155,13 +155,12 @@ class NomicHandler(SecureEndpointMixin, SecureHandler):  # type: ignore[misc]  #
                         )
                         await asyncio.sleep(delay)
                 except (RuntimeError, AttributeError, TypeError, ValueError) as e:
-                    logger.warning(f"Nomic stream emission unexpected error: {e}")
+                    logger.warning("Nomic stream emission unexpected error: %s", e)
                     last_error = e
                     break  # Don't retry unexpected errors
 
             logger.warning(
-                f"Nomic stream emission failed after {max_retries} attempts "
-                f"for {emit_method}: {last_error}"
+                "Nomic stream emission failed after %s attempts for %s: %s", max_retries, emit_method, last_error
             )
 
         # Schedule the emission task without blocking
@@ -180,9 +179,9 @@ class NomicHandler(SecureEndpointMixin, SecureHandler):  # type: ignore[misc]  #
             try:
                 _run_async(method(*args, **kwargs))
             except REDIS_CONNECTION_ERRORS as e:
-                logger.warning(f"Nomic stream emission failed (no event loop): {e}")
+                logger.warning("Nomic stream emission failed (no event loop): %s", e)
             except (RuntimeError, AttributeError, TypeError, ValueError) as e:
-                logger.warning(f"Nomic stream emission failed (no event loop): {e}")
+                logger.warning("Nomic stream emission failed (no event loop): %s", e)
 
     def can_handle(self, path: str, method: str = "GET") -> bool:
         """Check if this handler can handle the given path."""
@@ -501,7 +500,7 @@ class NomicHandler(SecureEndpointMixin, SecureHandler):  # type: ignore[misc]  #
                         }
                     )
         except (ImportError, OSError, AttributeError, ValueError) as e:
-            logger.debug(f"Could not load custom modes: {type(e).__name__}: {e}")
+            logger.debug("Could not load custom modes: %s: %s", type(e).__name__, e)
 
         return json_response({"modes": modes, "total": len(modes)})
 
@@ -574,12 +573,12 @@ class NomicHandler(SecureEndpointMixin, SecureHandler):  # type: ignore[misc]  #
                         "recommendations": report.recommendations[:5],  # Top 5
                     }
             except (RuntimeError, OSError, AttributeError) as e:
-                logger.debug(f"Could not generate health report: {e}")
+                logger.debug("Could not generate health report: %s", e)
 
             return json_response(response)
 
         except ImportError as e:
-            logger.debug(f"Witness behavior not available: {e}")
+            logger.debug("Witness behavior not available: %s", e)
             return json_response(
                 {
                     "patrolling": False,
@@ -588,7 +587,7 @@ class NomicHandler(SecureEndpointMixin, SecureHandler):  # type: ignore[misc]  #
                 }
             )
         except (RuntimeError, OSError, AttributeError, KeyError, TypeError) as e:
-            logger.error(f"Failed to get witness status: {e}")
+            logger.error("Failed to get witness status: %s", e)
             return error_response(safe_error_message(e, "witness status"), 500)
 
     def _get_mayor_current(self) -> HandlerResult:
@@ -630,7 +629,7 @@ class NomicHandler(SecureEndpointMixin, SecureHandler):  # type: ignore[misc]  #
             return json_response(response)
 
         except ImportError as e:
-            logger.debug(f"Mayor coordinator not available: {e}")
+            logger.debug("Mayor coordinator not available: %s", e)
             return json_response(
                 {
                     "initialized": False,
@@ -638,7 +637,7 @@ class NomicHandler(SecureEndpointMixin, SecureHandler):  # type: ignore[misc]  #
                 }
             )
         except (RuntimeError, OSError, AttributeError, KeyError, TypeError) as e:
-            logger.error(f"Failed to get mayor info: {e}")
+            logger.error("Failed to get mayor info: %s", e)
             return error_response(safe_error_message(e, "mayor info"), 500)
 
     # =========================================================================

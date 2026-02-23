@@ -190,7 +190,7 @@ class AWSSecretsManagerProvider:
                 return {"_binary": response["SecretBinary"]}
 
         except (OSError, ValueError, KeyError, RuntimeError) as e:
-            logger.error(f"Failed to fetch secret {self.secret_name}: {e}")
+            logger.error("Failed to fetch secret %s: %s", self.secret_name, e)
             raise
 
     async def get_credential(self, key: str) -> str | None:
@@ -217,7 +217,7 @@ class AWSSecretsManagerProvider:
         try:
             secret_data = await self._fetch_secret()
         except (OSError, ValueError, KeyError, RuntimeError) as e:
-            logger.error(f"Failed to fetch credentials: {e}")
+            logger.error("Failed to fetch credentials: %s", e)
             return None
 
         # Navigate nested keys

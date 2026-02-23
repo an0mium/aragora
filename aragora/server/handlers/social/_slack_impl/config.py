@@ -30,7 +30,7 @@ def _get_audit_logger() -> Any:
 
             _slack_audit = get_slack_audit_logger()
         except (ImportError, RuntimeError, OSError) as e:
-            logger.debug(f"Slack audit logger not available: {e}")
+            logger.debug("Slack audit logger not available: %s", e)
             _slack_audit = None
     return _slack_audit
 
@@ -51,7 +51,7 @@ def _get_user_rate_limiter() -> Any:
 
             _slack_user_limiter = get_user_rate_limiter()
         except (ImportError, RuntimeError, OSError) as e:
-            logger.debug(f"User rate limiter not available: {e}")
+            logger.debug("User rate limiter not available: %s", e)
             _slack_user_limiter = None
     return _slack_user_limiter
 
@@ -80,7 +80,7 @@ def _get_workspace_rate_limiter() -> Any:
                     SLACK_WORKSPACE_RATE_LIMIT_RPM
                 )
         except (ImportError, RuntimeError, OSError) as e:
-            logger.debug(f"Workspace rate limiter not available: {e}")
+            logger.debug("Workspace rate limiter not available: %s", e)
             _slack_workspace_limiter = None
     return _slack_workspace_limiter
 
@@ -117,7 +117,7 @@ def _validate_slack_url(url: str) -> bool:
             return False
         return True
     except (ValueError, TypeError) as e:
-        logger.debug(f"URL validation failed for slack: {e}")
+        logger.debug("URL validation failed for slack: %s", e)
         return False
 
 
@@ -131,10 +131,10 @@ from collections.abc import Coroutine
 def _handle_task_exception(task: asyncio.Task[Any], task_name: str) -> None:
     """Handle exceptions from fire-and-forget async tasks."""
     if task.cancelled():
-        logger.debug(f"Task {task_name} was cancelled")
+        logger.debug("Task %s was cancelled", task_name)
     elif task.exception():
         exc = task.exception()
-        logger.error(f"Task {task_name} failed with exception: {exc}", exc_info=exc)
+        logger.error("Task %s failed with exception: %s", task_name, exc, exc_info=exc)
 
 
 def create_tracked_task(coro: Coroutine[Any, Any, Any], name: str) -> asyncio.Task[Any]:
@@ -157,7 +157,7 @@ def create_tracked_task(coro: Coroutine[Any, Any, Any], name: str) -> asyncio.Ta
         try:
             asyncio.run(coro)
         except (ValueError, KeyError, TypeError, RuntimeError, OSError, ConnectionError) as exc:  # pragma: no cover - safety net
-            logger.error(f"Task {name} failed with exception: {exc}", exc_info=exc)
+            logger.error("Task %s failed with exception: %s", name, exc, exc_info=exc)
 
     thread = threading.Thread(target=_run_in_thread, name=f"slack-task-{name}", daemon=True)
     thread.start()
@@ -217,7 +217,7 @@ def resolve_workspace(team_id: str) -> Any:
         try:
             return store.get(team_id)
         except (KeyError, OSError, RuntimeError) as e:
-            logger.debug(f"Failed to get workspace {team_id}: {e}")
+            logger.debug("Failed to get workspace %s: %s", team_id, e)
 
     return None
 
@@ -246,13 +246,13 @@ def get_slack_integration() -> Any | None:
             _slack_integration = SlackIntegration(config)
             logger.info("Slack integration initialized")
         except ImportError as e:
-            logger.warning(f"Slack integration module not available: {e}")
+            logger.warning("Slack integration module not available: %s", e)
             return None
         except (ValueError, KeyError, TypeError) as e:
-            logger.warning(f"Invalid Slack configuration: {e}")
+            logger.warning("Invalid Slack configuration: %s", e)
             return None
         except (RuntimeError, OSError, AttributeError) as e:
-            logger.exception(f"Unexpected error initializing Slack integration: {e}")
+            logger.exception("Unexpected error initializing Slack integration: %s", e)
             return None
     return _slack_integration
 
@@ -295,7 +295,7 @@ try:
     auto_error_response = _auto_error_response
     rate_limit = _rate_limit
 except ImportError as e:
-    logger.warning(f"Failed to import handler utilities: {e}")
+    logger.warning("Failed to import handler utilities: %s", e)
     # Define stubs to prevent import errors
     # Note: These are typed as Any at module level (lines 243-244), so None is valid
     HandlerResult = None

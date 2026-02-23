@@ -118,7 +118,7 @@ async def record_debate_tokens(
                 total_cost += record.total_cost
                 agents_recorded += 1
             except (OSError, ConnectionError, RuntimeError, ValueError, TypeError) as e:
-                logger.warning(f"Failed to record agent token usage: {e}")
+                logger.warning("Failed to record agent token usage: %s", e)
 
             total_input += agent_input
             total_output += agent_output
@@ -140,7 +140,7 @@ async def record_debate_tokens(
             )
             debate_recorded = True
         except (OSError, ConnectionError, RuntimeError, ValueError, TypeError) as e:
-            logger.warning(f"Failed to record debate usage: {e}")
+            logger.warning("Failed to record debate usage: %s", e)
 
     logger.info(
         f"Debate tokens recorded: org={org_id} debate={debate_id} "
@@ -220,7 +220,7 @@ async def record_agent_tokens(
             "output_cost": str(record.output_cost),
         }
     except (OSError, ConnectionError, RuntimeError, ValueError, TypeError) as e:
-        logger.warning(f"Failed to record agent tokens: {e}")
+        logger.warning("Failed to record agent tokens: %s", e)
         return {
             "record_id": None,
             "total_cost": "0",
@@ -274,7 +274,7 @@ async def record_api_call(
             "endpoint": endpoint,
         }
     except (OSError, ConnectionError, RuntimeError, ValueError, TypeError) as e:
-        logger.warning(f"Failed to record API call: {e}")
+        logger.warning("Failed to record API call: %s", e)
         return {
             "record_id": None,
             "error": "Failed to record API call",
@@ -343,7 +343,7 @@ class MeteredUsageTracker:
                     metadata=metadata,
                 )
             except (OSError, ConnectionError, RuntimeError, ValueError, TypeError) as e:
-                logger.warning(f"Legacy tracker failed: {e}")
+                logger.warning("Legacy tracker failed: %s", e)
 
         # Record to new metering system (async wrapper)
         try:
@@ -455,7 +455,7 @@ class MeteredUsageTracker:
                     model=model,
                 )
             except (OSError, ConnectionError, RuntimeError, ValueError, TypeError) as e:
-                logger.warning(f"Legacy tracker failed: {e}")
+                logger.warning("Legacy tracker failed: %s", e)
 
         # Record to new metering system
         try:

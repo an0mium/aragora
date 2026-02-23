@@ -147,7 +147,7 @@ def with_timeout(
                     try:
                         config.on_timeout(operation)
                     except (RuntimeError, ValueError, TypeError, AttributeError) as e:
-                        logger.warning(f"Timeout callback error for {operation}: {e}")
+                        logger.warning("Timeout callback error for %s: %s", operation, e)
 
                 logger.warning(message)
                 raise config.error_class(
@@ -187,11 +187,11 @@ def with_timeout_sync(
         def wrapper(*args: P.args, **kwargs: P.kwargs) -> T:
             # Check if we can use signals (Unix only, main thread only)
             if not hasattr(signal, "SIGALRM"):
-                logger.warning(f"SIGALRM not available, timeout not enforced for {func.__name__}")
+                logger.warning("SIGALRM not available, timeout not enforced for %s", func.__name__)
                 return func(*args, **kwargs)
             if threading.current_thread() is not threading.main_thread():
                 logger.warning(
-                    f"SIGALRM timeout not enforced for {func.__name__}: not in main thread"
+                    "SIGALRM timeout not enforced for %s: not in main thread", func.__name__
                 )
                 return func(*args, **kwargs)
 
@@ -202,7 +202,7 @@ def with_timeout_sync(
                     try:
                         config.on_timeout(operation)
                     except (RuntimeError, ValueError, TypeError, AttributeError) as e:
-                        logger.warning(f"Timeout callback error for {operation}: {e}")
+                        logger.warning("Timeout callback error for %s: %s", operation, e)
                 raise config.error_class(
                     message,
                     timeout_seconds=config.seconds,
@@ -253,7 +253,7 @@ async def timeout_context(
             try:
                 on_timeout(context_name)
             except (RuntimeError, ValueError, TypeError, AttributeError) as e:
-                logger.warning(f"Timeout callback error for {context_name}: {e}")
+                logger.warning("Timeout callback error for %s: %s", context_name, e)
         logger.warning(message)
         raise TimeoutError(message, timeout_seconds=seconds, operation=context_name) from None
 
@@ -275,11 +275,11 @@ def timeout_context_sync(
         None
     """
     if not hasattr(signal, "SIGALRM"):
-        logger.warning(f"SIGALRM not available, timeout not enforced for {context_name}")
+        logger.warning("SIGALRM not available, timeout not enforced for %s", context_name)
         yield
         return
     if threading.current_thread() is not threading.main_thread():
-        logger.warning(f"SIGALRM timeout not enforced for {context_name}: not in main thread")
+        logger.warning("SIGALRM timeout not enforced for %s: not in main thread", context_name)
         yield
         return
 
@@ -289,7 +289,7 @@ def timeout_context_sync(
             try:
                 on_timeout(context_name)
             except (RuntimeError, ValueError, TypeError, AttributeError) as e:
-                logger.warning(f"Timeout callback error for {context_name}: {e}")
+                logger.warning("Timeout callback error for %s: %s", context_name, e)
         raise TimeoutError(message, timeout_seconds=seconds, operation=context_name)
 
     old_handler = signal.signal(signal.SIGALRM, timeout_handler)

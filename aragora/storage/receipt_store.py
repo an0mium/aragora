@@ -315,7 +315,7 @@ class ReceiptStore:
         else:
             self.db_path.parent.mkdir(parents=True, exist_ok=True)
             self._backend = SQLiteBackend(str(self.db_path))
-            logger.info(f"ReceiptStore using SQLite backend: {self.db_path}")
+            logger.info("ReceiptStore using SQLite backend: %s", self.db_path)
 
         self._init_schema()
 
@@ -339,13 +339,13 @@ class ReceiptStore:
             try:
                 self._backend.execute_write(statement)
             except (OSError, RuntimeError, ValueError, sqlite3.Error) as e:
-                logger.debug(f"Migration statement skipped: {e}")
+                logger.debug("Migration statement skipped: %s", e)
 
         for statement in schema_statements:
             try:
                 self._backend.execute_write(statement)
             except (OSError, RuntimeError, ValueError, sqlite3.Error) as e:
-                logger.debug(f"Schema statement skipped: {e}")
+                logger.debug("Schema statement skipped: %s", e)
 
     # =========================================================================
     # Core CRUD Operations
@@ -465,7 +465,7 @@ class ReceiptStore:
                 """,
                 params,
             )
-        logger.debug(f"Saved receipt: {receipt_id}")
+        logger.debug("Saved receipt: %s", receipt_id)
         return receipt_id
 
     def get(self, receipt_id: str) -> StoredReceipt | None:
@@ -844,7 +844,7 @@ class ReceiptStore:
             """,
             (signature, algorithm, key_id, signed_at, receipt_id),
         )
-        logger.info(f"Updated signature for receipt: {receipt_id}")
+        logger.info("Updated signature for receipt: %s", receipt_id)
         return True
 
     def verify_signature(self, receipt_id: str) -> SignatureVerificationResult:
@@ -918,7 +918,7 @@ class ReceiptStore:
                 error="Signing module not available",
             )
         except (ValueError, RuntimeError, KeyError, TypeError) as e:
-            logger.warning(f"Signature verification failed: {e}")
+            logger.warning("Signature verification failed: %s", e)
             return SignatureVerificationResult(
                 receipt_id=receipt_id,
                 is_valid=False,
@@ -1068,9 +1068,9 @@ class ReceiptStore:
                     reason="retention_expired",
                     operator=operator,
                 )
-                logger.info(f"Logged {count} receipt deletions to audit trail")
+                logger.info("Logged %s receipt deletions to audit trail", count)
             except (OSError, RuntimeError, ValueError, ImportError) as e:
-                logger.warning(f"Failed to log deletions to audit trail: {e}")
+                logger.warning("Failed to log deletions to audit trail: %s", e)
                 # Continue with deletion even if logging fails
                 # (configurable behavior could be added)
 
@@ -1079,7 +1079,7 @@ class ReceiptStore:
             "DELETE FROM receipts WHERE created_at < ?",
             (cutoff,),
         )
-        logger.info(f"Removed {count} expired receipts (older than {days} days)")
+        logger.info("Removed %s expired receipts (older than %s days)", count, days)
 
         return count
 
@@ -1272,10 +1272,10 @@ class ReceiptStore:
 
         try:
             self._backend.execute_write(query, params)
-            logger.info(f"Legal hold placed on receipt {receipt_id} by {placed_by}: {reason}")
+            logger.info("Legal hold placed on receipt %s by %s: %s", receipt_id, placed_by, reason)
             return True
         except (OSError, RuntimeError, ValueError) as e:
-            logger.error(f"Failed to place legal hold on receipt {receipt_id}: {e}")
+            logger.error("Failed to place legal hold on receipt %s: %s", receipt_id, e)
             return False
 
     def remove_legal_hold(self, receipt_id: str, removed_by: str) -> bool:
@@ -1305,10 +1305,10 @@ class ReceiptStore:
 
         try:
             self._backend.execute_write(query, params)
-            logger.info(f"Legal hold removed from receipt {receipt_id} by {removed_by}")
+            logger.info("Legal hold removed from receipt %s by %s", receipt_id, removed_by)
             return True
         except (OSError, RuntimeError, ValueError) as e:
-            logger.error(f"Failed to remove legal hold from receipt {receipt_id}: {e}")
+            logger.error("Failed to remove legal hold from receipt %s: %s", receipt_id, e)
             return False
 
     def list_under_legal_hold(
@@ -1421,10 +1421,10 @@ class ReceiptStore:
 
         try:
             self._backend.execute_write(query, params)
-            logger.info(f"Timestamp added to receipt {receipt_id} from {tsa_url}")
+            logger.info("Timestamp added to receipt %s from %s", receipt_id, tsa_url)
             return True
         except (OSError, RuntimeError, ValueError) as e:
-            logger.error(f"Failed to add timestamp to receipt {receipt_id}: {e}")
+            logger.error("Failed to add timestamp to receipt %s: %s", receipt_id, e)
             return False
 
     def _row_to_stored_receipt_extended(self, row: tuple) -> StoredReceipt:

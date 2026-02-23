@@ -123,7 +123,7 @@ class ProvenanceStore(SQLiteStore):
             db_path = "provenance.db"
 
         super().__init__(db_path, **kwargs)
-        logger.debug(f"ProvenanceStore initialized at {db_path}")
+        logger.debug("ProvenanceStore initialized at %s", db_path)
 
     # =========================================================================
     # Chain Operations
@@ -161,7 +161,7 @@ class ProvenanceStore(SQLiteStore):
             for record in chain.records:
                 self._save_record(conn, chain.chain_id, record)
 
-        logger.debug(f"Saved chain {chain.chain_id} for debate {debate_id}")
+        logger.debug("Saved chain %s for debate %s", chain.chain_id, debate_id)
 
     def load_chain(self, chain_id: str) -> ProvenanceChain | None:
         """Load a provenance chain by ID.
@@ -591,8 +591,7 @@ class ProvenanceStore(SQLiteStore):
             self.save_citation(manager.chain.chain_id, citation)
 
         logger.debug(
-            f"Saved ProvenanceManager for debate {manager.debate_id} "
-            f"({len(manager.chain.records)} records, {len(manager.graph.citations)} citations)"
+            "Saved ProvenanceManager for debate %s (%s records, %s citations)", manager.debate_id, len(manager.chain.records), len(manager.graph.citations)
         )
 
     def load_manager(self, debate_id: str) -> ProvenanceManager | None:

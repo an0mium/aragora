@@ -91,7 +91,7 @@ class IntrospectionHandler(BaseHandler):
         # Rate limit check
         client_ip = get_client_ip(handler)
         if not _introspection_limiter.is_allowed(client_ip):
-            logger.warning(f"Rate limit exceeded for introspection endpoint: {client_ip}")
+            logger.warning("Rate limit exceeded for introspection endpoint: %s", client_ip)
             return error_response("Rate limit exceeded. Please try again later.", 429)
 
         if path == "/api/introspection/all":
@@ -146,7 +146,7 @@ class IntrospectionHandler(BaseHandler):
                 if agents:
                     return agents
             except (KeyError, ValueError, OSError, TypeError) as e:
-                logger.debug(f"Could not fetch agent reputations: {e}")
+                logger.debug("Could not fetch agent reputations: %s", e)
         return self.DEFAULT_AGENTS
 
     @ttl_cache(ttl_seconds=60, key_prefix="lb_introspection_agents")
@@ -174,7 +174,7 @@ class IntrospectionHandler(BaseHandler):
                                 reputation, "total_critiques", 0
                             )
                     except (KeyError, ValueError, OSError, TypeError) as e:
-                        logger.debug(f"Failed to get reputation for {agent}: {e}")
+                        logger.debug("Failed to get reputation for %s: %s", agent, e)
 
                 agent_list.append(agent_info)
 
@@ -188,7 +188,7 @@ class IntrospectionHandler(BaseHandler):
                 }
             )
         except (KeyError, ValueError, OSError, TypeError) as e:
-            logger.error(f"Error listing agents: {e}", exc_info=True)
+            logger.error("Error listing agents: %s", e, exc_info=True)
             return error_response("Failed to list agents", 500)
 
     def _get_agent_introspection(self, agent: str) -> HandlerResult:
@@ -206,7 +206,7 @@ class IntrospectionHandler(BaseHandler):
                 return error_response(f"Agent '{agent}' not found", 404)
             return json_response(snapshot.to_dict())
         except (KeyError, ValueError, OSError, TypeError, AttributeError) as e:
-            logger.error(f"Error getting introspection for {agent}: {e}", exc_info=True)
+            logger.error("Error getting introspection for %s: %s", agent, e, exc_info=True)
             return error_response("Failed to get introspection", 500)
 
     def _get_agent_availability(self) -> HandlerResult:
@@ -242,7 +242,7 @@ class IntrospectionHandler(BaseHandler):
                 }
             )
         except (TypeError, ValueError, KeyError, AttributeError) as e:
-            logger.error(f"Error getting agent availability: {e}", exc_info=True)
+            logger.error("Error getting agent availability: %s", e, exc_info=True)
             return error_response("Failed to determine agent availability", 500)
 
     @ttl_cache(ttl_seconds=120, key_prefix="lb_introspection_all")
@@ -267,7 +267,7 @@ class IntrospectionHandler(BaseHandler):
                     )
                     snapshots[agent] = snapshot.to_dict()
                 except (KeyError, ValueError, OSError, TypeError, AttributeError) as e:
-                    logger.debug(f"Error getting introspection for {agent}: {e}")
+                    logger.debug("Error getting introspection for %s: %s", agent, e)
                     continue
 
             return json_response(
@@ -277,7 +277,7 @@ class IntrospectionHandler(BaseHandler):
                 }
             )
         except (KeyError, ValueError, OSError, TypeError, AttributeError) as e:
-            logger.error(f"Error getting all introspection: {e}", exc_info=True)
+            logger.error("Error getting all introspection: %s", e, exc_info=True)
             return error_response("Failed to get introspection data", 500)
 
     @ttl_cache(ttl_seconds=120, key_prefix="lb_introspection_lb")
@@ -302,7 +302,7 @@ class IntrospectionHandler(BaseHandler):
                     )
                     snapshots.append(snapshot.to_dict())
                 except (KeyError, ValueError, OSError, TypeError, AttributeError) as e:
-                    logger.debug(f"Error getting introspection for {agent}: {e}")
+                    logger.debug("Error getting introspection for %s: %s", agent, e)
                     continue
 
             # Sort by reputation score descending
@@ -315,5 +315,5 @@ class IntrospectionHandler(BaseHandler):
                 }
             )
         except (KeyError, ValueError, OSError, TypeError, AttributeError) as e:
-            logger.error(f"Error getting introspection leaderboard: {e}", exc_info=True)
+            logger.error("Error getting introspection leaderboard: %s", e, exc_info=True)
             return error_response("Failed to get leaderboard", 500)

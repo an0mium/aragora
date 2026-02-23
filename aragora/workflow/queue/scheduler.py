@@ -326,7 +326,7 @@ class DependencyScheduler:
             if task:
                 await self._schedule_task(task)
 
-        logger.info(f"Submitted workflow {workflow_id} with {len(tasks)} tasks")
+        logger.info("Submitted workflow %s with %s tasks", workflow_id, len(tasks))
         return workflow_id
 
     async def _schedule_task(self, task: WorkflowTask) -> None:
@@ -352,7 +352,7 @@ class DependencyScheduler:
         if self._on_task_scheduled:
             self._on_task_scheduled(task)
 
-        logger.debug(f"Scheduled task {task.id}")
+        logger.debug("Scheduled task %s", task.id)
 
     def _handle_task_complete(self, task: WorkflowTask) -> None:
         """Handle task completion."""
@@ -390,7 +390,7 @@ class DependencyScheduler:
         # Check workflow completion
         if workflow.is_complete:
             workflow.completed_at = datetime.now()
-            logger.info(f"Workflow {workflow_id} completed")
+            logger.info("Workflow %s completed", workflow_id)
 
             if self._on_workflow_complete:
                 self._on_workflow_complete(workflow_id)
@@ -425,7 +425,7 @@ class DependencyScheduler:
         if workflow:
             workflow.completed_at = datetime.now()
 
-        logger.info(f"Cancelled workflow {workflow_id}, {cancelled} tasks cancelled")
+        logger.info("Cancelled workflow %s, %s tasks cancelled", workflow_id, cancelled)
         return cancelled
 
     def get_workflow_state(self, workflow_id: str) -> WorkflowState | None:
@@ -446,7 +446,7 @@ class DependencyScheduler:
             except asyncio.CancelledError:
                 break
             except (RuntimeError, ValueError, TypeError, OSError) as e:
-                logger.error(f"Rebalance error: {e}")
+                logger.error("Rebalance error: %s", e)
 
     async def _rebalance(self) -> None:
         """Rebalance task priorities based on workflow fairness."""
@@ -462,7 +462,7 @@ class DependencyScheduler:
 
                 # Check for starvation
                 if elapsed > self._config.starvation_threshold_seconds and workflow.progress < 0.1:
-                    logger.warning(f"Workflow {workflow_id} may be starving")
+                    logger.warning("Workflow %s may be starving", workflow_id)
                     # Could boost priority of pending tasks here
 
     def on_workflow_complete(self, callback: Callable[[str], None]) -> None:

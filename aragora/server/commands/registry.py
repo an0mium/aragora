@@ -41,7 +41,7 @@ class CommandRegistry:
         """
         name = definition.name.lower()
         if name in self._commands:
-            logger.warning(f"Overwriting existing command: {name}")
+            logger.warning("Overwriting existing command: %s", name)
 
         self._commands[name] = definition
         self._handlers[name] = handler
@@ -50,10 +50,10 @@ class CommandRegistry:
         for alias in definition.aliases:
             alias_lower = alias.lower()
             if alias_lower in self._aliases:
-                logger.warning(f"Alias {alias_lower} already registered")
+                logger.warning("Alias %s already registered", alias_lower)
             self._aliases[alias_lower] = name
 
-        logger.info(f"Registered command: {name} with {len(definition.aliases)} aliases")
+        logger.info("Registered command: %s with %s aliases", name, len(definition.aliases))
 
     def unregister(self, name: str) -> bool:
         """
@@ -78,7 +78,7 @@ class CommandRegistry:
         del self._commands[name]
         del self._handlers[name]
 
-        logger.info(f"Unregistered command: {name}")
+        logger.info("Unregistered command: %s", name)
         return True
 
     def get_command(self, name: str) -> CommandDefinition | None:

@@ -299,7 +299,7 @@ class ConvoyCoordinator:
         await self._load_assignments()
         await self._refresh_agent_loads()
         self._initialized = True
-        logger.info(f"ConvoyCoordinator initialized with {len(self._assignments)} assignments")
+        logger.info("ConvoyCoordinator initialized with %s assignments", len(self._assignments))
 
     async def _load_assignments(self) -> None:
         """Load assignments from storage."""
@@ -319,9 +319,9 @@ class ConvoyCoordinator:
                         self._assignments[assignment.id] = assignment
                         self._bead_assignments[assignment.bead_id] = assignment.id
                     except (json.JSONDecodeError, KeyError) as e:
-                        logger.warning(f"Invalid assignment data: {e}")
+                        logger.warning("Invalid assignment data: %s", e)
         except OSError as e:
-            logger.error(f"Failed to load assignments: {e}")
+            logger.error("Failed to load assignments: %s", e)
 
     async def _save_assignments(self) -> None:
         """Save assignments to storage."""
@@ -336,7 +336,7 @@ class ConvoyCoordinator:
         except OSError as e:
             if temp_file.exists():
                 temp_file.unlink()
-            logger.error(f"Failed to save assignments: {e}")
+            logger.error("Failed to save assignments: %s", e)
 
     async def _refresh_agent_loads(self) -> None:
         """Refresh agent load information."""
@@ -384,7 +384,7 @@ class ConvoyCoordinator:
                     queue_depth = stats.get("pending", 0)
                     load.pending_beads = max(load.pending_beads, queue_depth)
         except (RuntimeError, ValueError, AttributeError, OSError) as e:
-            logger.warning(f"Failed to update loads from hook queue: {e}")
+            logger.warning("Failed to update loads from hook queue: %s", e)
 
     async def distribute_convoy(
         self,
@@ -416,7 +416,7 @@ class ConvoyCoordinator:
             # Get beads that need assignment
             unassigned_beads = await self._get_unassigned_beads(convoy)
             if not unassigned_beads:
-                logger.info(f"All beads in convoy {convoy_id} already assigned")
+                logger.info("All beads in convoy %s already assigned", convoy_id)
                 return []
 
             # Distribute based on strategy
@@ -430,7 +430,7 @@ class ConvoyCoordinator:
 
             await self._save_assignments()
             logger.info(
-                f"Distributed {len(assignments)} beads in convoy {convoy_id} to {len(agents)} agents"
+                "Distributed %s beads in convoy %s to %s agents", len(assignments), convoy_id, len(agents)
             )
             return assignments
 
@@ -535,7 +535,7 @@ class ConvoyCoordinator:
                 if self.policy.spawn_polecats_on_demand:
                     agent_id = await self._spawn_polecat_for_bead(bead_id)
                 else:
-                    logger.warning(f"No capacity for bead {bead_id}, skipping")
+                    logger.warning("No capacity for bead %s, skipping", bead_id)
                     continue
 
             # Create assignment
@@ -676,7 +676,7 @@ class ConvoyCoordinator:
         # Initialize load tracking
         self._agent_loads[assignment.agent_id] = AgentLoad(agent_id=assignment.agent_id)
 
-        logger.info(f"Spawned Polecat {assignment.agent_id} for bead {bead_id}")
+        logger.info("Spawned Polecat %s for bead %s", assignment.agent_id, bead_id)
         return assignment.agent_id
 
     async def check_rebalance(self, convoy_id: str | None = None) -> list[BeadAssignment]:
@@ -715,7 +715,7 @@ class ConvoyCoordinator:
 
             if reassigned:
                 await self._save_assignments()
-                logger.info(f"Rebalanced {len(reassigned)} assignments")
+                logger.info("Rebalanced %s assignments", len(reassigned))
 
             return reassigned
 
@@ -730,7 +730,7 @@ class ConvoyCoordinator:
         # Check reassignment limit
         if len(assignment.previous_agents) >= self.policy.max_reassignments:
             logger.warning(
-                f"Bead {assignment.bead_id} hit max reassignments ({self.policy.max_reassignments})"
+                "Bead %s hit max reassignments (%s)", assignment.bead_id, self.policy.max_reassignments
             )
             return None
 
@@ -746,7 +746,7 @@ class ConvoyCoordinator:
             if self.policy.spawn_polecats_on_demand:
                 new_agent = await self._spawn_polecat_for_bead(assignment.bead_id)
             else:
-                logger.warning(f"No agents available to reassign bead {assignment.bead_id}")
+                logger.warning("No agents available to reassign bead %s", assignment.bead_id)
                 return None
         else:
             # Pick agent with most capacity
@@ -791,8 +791,7 @@ class ConvoyCoordinator:
         self._agent_loads[new_agent] = new_load
 
         logger.info(
-            f"Reassigned bead {assignment.bead_id} from {current_agent} to {new_agent} "
-            f"(reason: {reason.value})"
+            "Reassigned bead %s from %s to %s (reason: %s)", assignment.bead_id, current_agent, new_agent, reason.value
         )
         return new_assignment
 
@@ -831,7 +830,7 @@ class ConvoyCoordinator:
             if reassigned:
                 await self._save_assignments()
 
-            logger.info(f"Handled failure of agent {agent_id}, reassigned {len(reassigned)} beads")
+            logger.info("Handled failure of agent %s, reassigned %s beads", agent_id, len(reassigned))
             return reassigned
 
     async def update_assignment_status(

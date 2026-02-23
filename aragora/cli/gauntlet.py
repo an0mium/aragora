@@ -516,7 +516,7 @@ Examples:
         # Gauntlet personas module not available - use defaults
         persona_choices = ["gdpr", "hipaa", "ai_act", "security", "sox"]
     except (OSError, RuntimeError, ValueError) as e:
-        logger.debug(f"Could not load personas, using defaults: {e}")
+        logger.debug("Could not load personas, using defaults: %s", e)
         persona_choices = ["gdpr", "hipaa", "ai_act", "security", "sox"]
     gauntlet_parser.add_argument(
         "--persona",

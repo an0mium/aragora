@@ -154,10 +154,10 @@ def get_supabase_postgres_dsn() -> str | None:
         project_ref = parsed.netloc.replace(".supabase.co", "")
 
         dsn = f"postgresql://postgres:{db_password}@db.{project_ref}.supabase.co:5432/postgres"
-        logger.debug(f"Derived Supabase PostgreSQL DSN for project: {project_ref}")
+        logger.debug("Derived Supabase PostgreSQL DSN for project: %s", project_ref)
         return dsn
     except (ValueError, KeyError, TypeError) as e:
-        logger.warning(f"Failed to derive Supabase PostgreSQL DSN: {e}")
+        logger.warning("Failed to derive Supabase PostgreSQL DSN: %s", e)
         return None
 
 
@@ -207,7 +207,7 @@ def resolve_database_config(
                     f"SQLite not allowed for {store_name}. "
                     "Configure SUPABASE_URL or ARAGORA_POSTGRES_DSN."
                 )
-            logger.info(f"[{store_name}] Using SQLite (explicit override)")
+            logger.info("[%s] Using SQLite (explicit override)", store_name)
             return DatabaseConfig(
                 backend_type=StorageBackendType.SQLITE,
                 dsn=None,
@@ -218,7 +218,7 @@ def resolve_database_config(
             # Explicit postgres - use self-hosted, not Supabase
             dsn = get_selfhosted_postgres_dsn()
             if dsn:
-                logger.info(f"[{store_name}] Using self-hosted PostgreSQL (explicit)")
+                logger.info("[%s] Using self-hosted PostgreSQL (explicit)", store_name)
                 return DatabaseConfig(
                     backend_type=StorageBackendType.POSTGRES,
                     dsn=dsn,
@@ -229,14 +229,14 @@ def resolve_database_config(
                 "but ARAGORA_POSTGRES_DSN/DATABASE_URL is not configured."
             )
             if allow_sqlite:
-                logger.warning(f"{message} Falling back to auto-detect.")
+                logger.warning("%s Falling back to auto-detect.", message)
             else:
                 raise RuntimeError(message)
 
         if explicit_backend == "supabase":
             dsn = get_supabase_postgres_dsn()
             if dsn:
-                logger.info(f"[{store_name}] Using Supabase PostgreSQL (explicit)")
+                logger.info("[%s] Using Supabase PostgreSQL (explicit)", store_name)
                 return DatabaseConfig(
                     backend_type=StorageBackendType.SUPABASE,
                     dsn=dsn,
@@ -248,19 +248,17 @@ def resolve_database_config(
                 "is not configured."
             )
             if allow_sqlite:
-                logger.warning(f"{message} Falling back to auto-detect.")
+                logger.warning("%s Falling back to auto-detect.", message)
             else:
                 raise RuntimeError(message)
 
         if explicit_backend in ("redis", "memory"):
             logger.warning(
-                f"[{store_name}] Backend '{explicit_backend}' is not a persistent database "
-                "backend. Falling back to auto-detect."
+                "[%s] Backend '%s' is not a persistent database backend. Falling back to auto-detect.", store_name, explicit_backend
             )
         elif explicit_backend not in ("postgres", "postgresql", "supabase", "sqlite"):
             logger.warning(
-                f"[{store_name}] Unknown backend override '{explicit_backend}'. "
-                "Falling back to auto-detect."
+                "[%s] Unknown backend override '%s'. Falling back to auto-detect.", store_name, explicit_backend
             )
 
     # Auto-detect with preference order
@@ -268,7 +266,7 @@ def resolve_database_config(
     # 1. Try Supabase first (preferred)
     supabase_dsn = get_supabase_postgres_dsn()
     if supabase_dsn:
-        logger.info(f"[{store_name}] Using Supabase PostgreSQL (preferred)")
+        logger.info("[%s] Using Supabase PostgreSQL (preferred)", store_name)
         return DatabaseConfig(
             backend_type=StorageBackendType.SUPABASE,
             dsn=supabase_dsn,
@@ -278,7 +276,7 @@ def resolve_database_config(
     # 2. Try self-hosted PostgreSQL
     postgres_dsn = get_selfhosted_postgres_dsn()
     if postgres_dsn:
-        logger.info(f"[{store_name}] Using self-hosted PostgreSQL")
+        logger.info("[%s] Using self-hosted PostgreSQL", store_name)
         return DatabaseConfig(
             backend_type=StorageBackendType.POSTGRES,
             dsn=postgres_dsn,
@@ -287,7 +285,7 @@ def resolve_database_config(
 
     # 3. Fall back to SQLite
     if allow_sqlite:
-        logger.info(f"[{store_name}] Using SQLite (fallback)")
+        logger.info("[%s] Using SQLite (fallback)", store_name)
         return DatabaseConfig(
             backend_type=StorageBackendType.SQLITE,
             dsn=None,
@@ -374,7 +372,7 @@ def get_database_pool_sync(
         asyncio.get_running_loop()
         # We're in an async context - can't use run_until_complete
         # Return config with DSN, let caller handle pool creation async
-        logger.debug(f"[{store_name}] Async context detected, returning config only")
+        logger.debug("[%s] Async context detected, returning config only", store_name)
         return None, config
     except RuntimeError:
         # No running loop - safe to run async
@@ -413,9 +411,9 @@ async def _safe_store_init(store: Any, store_name: str) -> None:
     """Safely initialize a store asynchronously, logging any errors."""
     try:
         await store.initialize()
-        logger.debug(f"[{store_name}] Async store initialization completed")
+        logger.debug("[%s] Async store initialization completed", store_name)
     except (OSError, RuntimeError, ConnectionError, TimeoutError, ValueError) as e:
-        logger.error(f"[{store_name}] Async store initialization failed: {e}")
+        logger.error("[%s] Async store initialization failed: %s", store_name, e)
 
 
 def create_persistent_store(
@@ -459,7 +457,7 @@ def create_persistent_store(
     # Check for memory backend override (testing only)
     backend_override = _get_backend_override(store_name, include_global=False)
     if backend_override == "memory" and memory_class:
-        logger.info(f"[{store_name}] Using in-memory store (testing)")
+        logger.info("[%s] Using in-memory store (testing)", store_name)
         return memory_class()
 
     # Check if we're in an async context - if so, we can't safely create PostgreSQL pools
@@ -488,10 +486,7 @@ def create_persistent_store(
     # PostgreSQL pools (asyncpg pools are event-loop bound)
     if in_async_context and not allow_sqlite:
         logger.warning(
-            f"[{store_name}] Forcing SQLite fallback in async context. "
-            "asyncpg pools cannot be created from within a running event loop. "
-            "Initialize stores BEFORE starting the async server, or set "
-            "ARAGORA_ALLOW_SQLITE_FALLBACK=true to suppress this warning."
+            "[%s] Forcing SQLite fallback in async context. asyncpg pools cannot be created from within a running event loop. Initialize stores BEFORE starting the async server, or set ARAGORA_ALLOW_SQLITE_FALLBACK=true to suppress this warning.", store_name
         )
         allow_sqlite = True
 
@@ -520,19 +515,17 @@ def create_persistent_store(
 
                             run_async(store.initialize())
                         backend_name = "Supabase" if config.is_supabase else "PostgreSQL"
-                        logger.info(f"[{store_name}] Using shared pool ({backend_name})")
+                        logger.info("[%s] Using shared pool (%s)", store_name, backend_name)
                         return store
                     except (OSError, RuntimeError, ConnectionError, TimeoutError, ValueError) as e:
-                        logger.warning(f"[{store_name}] Shared pool store creation failed: {e}")
+                        logger.warning("[%s] Shared pool store creation failed: %s", store_name, e)
         except ImportError:
             pass  # pool_manager not available
 
         if in_async_context:
             # No shared pool and can't safely create one from async context
             logger.warning(
-                f"[{store_name}] Cannot initialize PostgreSQL from async context. "
-                "asyncpg pools are event-loop bound. Initialize stores BEFORE starting "
-                "the event loop, or use async store factory. Falling back to SQLite."
+                "[%s] Cannot initialize PostgreSQL from async context. asyncpg pools are event-loop bound. Initialize stores BEFORE starting the event loop, or use async store factory. Falling back to SQLite.", store_name
             )
         else:
             try:
@@ -545,7 +538,7 @@ def create_persistent_store(
 
                         run_async(store.initialize())
                     backend_name = "Supabase" if config.is_supabase else "PostgreSQL"
-                    logger.info(f"[{store_name}] Initialized with {backend_name}")
+                    logger.info("[%s] Initialized with %s", store_name, backend_name)
                     return store
                 elif config.dsn:
                     from aragora.utils.async_utils import run_async
@@ -561,10 +554,10 @@ def create_persistent_store(
 
                     store = run_async(init_postgres())
                     backend_name = "Supabase" if config.is_supabase else "PostgreSQL"
-                    logger.info(f"[{store_name}] Initialized with {backend_name}")
+                    logger.info("[%s] Initialized with %s", store_name, backend_name)
                     return store
             except (OSError, RuntimeError, ConnectionError, TimeoutError, ImportError) as e:
-                logger.warning(f"[{store_name}] PostgreSQL unavailable: {e}")
+                logger.warning("[%s] PostgreSQL unavailable: %s", store_name, e)
                 if not allow_sqlite:
                     raise RuntimeError(
                         f"PostgreSQL required for {store_name} in production. "
@@ -589,11 +582,10 @@ def create_persistent_store(
 
     if is_production_environment():
         logger.warning(
-            f"[{store_name}] Using SQLite in production (not recommended). "
-            "Configure Supabase or PostgreSQL for distributed deployments."
+            "[%s] Using SQLite in production (not recommended). Configure Supabase or PostgreSQL for distributed deployments.", store_name
         )
 
-    logger.info(f"[{store_name}] Using SQLite: {db_path}")
+    logger.info("[%s] Using SQLite: %s", store_name, db_path)
     return sqlite_class(db_path)
 
 

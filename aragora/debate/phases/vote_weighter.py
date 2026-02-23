@@ -140,7 +140,7 @@ class VoteWeighter:
                 else:
                     adjusted_votes.append(vote)
             except (ValueError, KeyError, TypeError) as e:  # noqa: BLE001
-                logger.debug(f"Calibration adjustment failed for {vote.agent}: {e}")
+                logger.debug("Calibration adjustment failed for %s: %s", vote.agent, e)
                 adjusted_votes.append(vote)
 
         return adjusted_votes

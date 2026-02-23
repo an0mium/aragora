@@ -72,12 +72,12 @@ class ResourceMonitor:
         self._process_cache[agent_id] = pid
         if agent_id not in self._usage_history:
             self._usage_history[agent_id] = []
-        logger.debug(f"Registered process {pid} for agent {agent_id}")
+        logger.debug("Registered process %s for agent %s", pid, agent_id)
 
     def unregister_process(self, agent_id: str) -> None:
         """Unregister an agent's process."""
         self._process_cache.pop(agent_id, None)
-        logger.debug(f"Unregistered process for agent {agent_id}")
+        logger.debug("Unregistered process for agent %s", agent_id)
 
     def get_usage(self, agent_id: str) -> ResourceUsage | None:
         """
@@ -128,11 +128,11 @@ class ResourceMonitor:
             return usage
 
         except psutil.NoSuchProcess:
-            logger.warning(f"Process {pid} for agent {agent_id} no longer exists")
+            logger.warning("Process %s for agent %s no longer exists", pid, agent_id)
             self.unregister_process(agent_id)
             return None
         except psutil.AccessDenied:
-            logger.warning(f"Access denied to process {pid} for agent {agent_id}")
+            logger.warning("Access denied to process %s for agent %s", pid, agent_id)
             return None
 
     def _record_usage(self, agent_id: str, usage: ResourceUsage) -> None:
@@ -255,7 +255,7 @@ class IsolationEnforcer:
         to use as its working directory.
         """
         if agent_id in self._sandboxes:
-            logger.warning(f"Sandbox already exists for agent {agent_id}")
+            logger.warning("Sandbox already exists for agent %s", agent_id)
             return self._sandboxes[agent_id]
 
         # Create sandbox directory
@@ -274,10 +274,10 @@ class IsolationEnforcer:
                 if subdir.is_dir():
                     os.chmod(subdir, 0o700)
         except OSError as e:
-            logger.warning(f"Could not set permissions on sandbox: {e}")
+            logger.warning("Could not set permissions on sandbox: %s", e)
 
         self._sandboxes[agent_id] = sandbox_path
-        logger.info(f"Created sandbox for agent {agent_id} at {sandbox_path}")
+        logger.info("Created sandbox for agent %s at %s", agent_id, sandbox_path)
         return sandbox_path
 
     def get_sandbox(self, agent_id: str) -> Path | None:
@@ -293,16 +293,16 @@ class IsolationEnforcer:
         """
         sandbox_path = self._sandboxes.pop(agent_id, None)
         if sandbox_path is None:
-            logger.debug(f"No sandbox to clean up for agent {agent_id}")
+            logger.debug("No sandbox to clean up for agent %s", agent_id)
             return False
 
         try:
             if sandbox_path.exists():
                 shutil.rmtree(sandbox_path)
-                logger.info(f"Cleaned up sandbox for agent {agent_id}")
+                logger.info("Cleaned up sandbox for agent %s", agent_id)
             return True
         except OSError as e:
-            logger.error(f"Failed to clean up sandbox for agent {agent_id}: {e}")
+            logger.error("Failed to clean up sandbox for agent %s: %s", agent_id, e)
             return False
 
     def validate_network_egress(self, url: str, config: IsolationConfig) -> bool:
@@ -337,11 +337,11 @@ class IsolationEnforcer:
                 if host.endswith("." + allowed):
                     return True
 
-            logger.debug(f"Network egress blocked for {host}: not in allowlist")
+            logger.debug("Network egress blocked for %s: not in allowlist", host)
             return False
 
         except (ValueError, AttributeError) as e:  # URL parsing errors
-            logger.warning(f"Failed to parse URL {url}: {e}")
+            logger.warning("Failed to parse URL %s: %s", url, e)
             return False
 
     def check_network_egress(self, url: str, config: IsolationConfig) -> bool:

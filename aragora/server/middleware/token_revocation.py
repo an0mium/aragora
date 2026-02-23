@@ -117,7 +117,7 @@ class InMemoryRevocationStore:
         with self._lock:
             self._store[entry.token_hash] = entry
             self._maybe_cleanup()
-        logger.debug(f"token_revoked hash={entry.token_hash[:8]}... reason={entry.reason}")
+        logger.debug("token_revoked hash=%s... reason=%s", entry.token_hash[:8], entry.reason)
 
     def contains(self, token_hash: str) -> bool:
         """Check if a token hash is revoked."""
@@ -148,7 +148,7 @@ class InMemoryRevocationStore:
                 del self._store[h]
             self._last_cleanup = time.time()
             if expired:
-                logger.debug(f"token_revocation_cleanup removed={len(expired)}")
+                logger.debug("token_revocation_cleanup removed=%s", len(expired))
             return len(expired)
 
     def count(self) -> int:
@@ -217,11 +217,10 @@ class RedisRevocationStore:
                     json.dumps(entry.to_dict()),
                 )
                 logger.debug(
-                    f"token_revoked_redis hash={entry.token_hash[:8]}... "
-                    f"ttl={ttl_seconds}s reason={entry.reason}"
+                    "token_revoked_redis hash=%s... ttl=%ss reason=%s", entry.token_hash[:8], ttl_seconds, entry.reason
                 )
         except REDIS_CONNECTION_ERRORS as e:
-            logger.warning(f"Redis revocation store error: {e}")
+            logger.warning("Redis revocation store error: %s", e)
             raise
 
     def contains(self, token_hash: str) -> bool:
@@ -230,7 +229,7 @@ class RedisRevocationStore:
             client = self._get_client()
             return client.exists(self._key(token_hash)) > 0
         except REDIS_CONNECTION_ERRORS as e:
-            logger.warning(f"Redis revocation check error: {e}")
+            logger.warning("Redis revocation check error: %s", e)
             return False
 
     def remove(self, token_hash: str) -> bool:
@@ -239,7 +238,7 @@ class RedisRevocationStore:
             client = self._get_client()
             return client.delete(self._key(token_hash)) > 0
         except REDIS_CONNECTION_ERRORS as e:
-            logger.warning(f"Redis revocation remove error: {e}")
+            logger.warning("Redis revocation remove error: %s", e)
             return False
 
     def cleanup_expired(self) -> int:
@@ -260,7 +259,7 @@ class RedisRevocationStore:
                     break
             return count
         except REDIS_CONNECTION_ERRORS as e:
-            logger.warning(f"Redis count error: {e}")
+            logger.warning("Redis count error: %s", e)
             return 0
 
 
@@ -370,8 +369,7 @@ def revoke_token(
     store.add(entry)
 
     logger.info(
-        f"token_revoked reason={reason} revoked_by={revoked_by} "
-        f"ttl={ttl_seconds}s hash={entry.token_hash[:8]}..."
+        "token_revoked reason=%s revoked_by=%s ttl=%ss hash=%s...", reason, revoked_by, ttl_seconds, entry.token_hash[:8]
     )
 
     # Log audit event for security tracking
@@ -418,7 +416,7 @@ def unrevoke_token(token: str) -> bool:
     store = get_revocation_store()
     result = store.remove(hash_token(token))
     if result:
-        logger.warning(f"token_unrevoked hash={hash_token(token)[:8]}...")
+        logger.warning("token_unrevoked hash=%s...", hash_token(token)[:8])
     return result
 
 

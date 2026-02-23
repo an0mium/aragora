@@ -66,7 +66,7 @@ def _safe_path(storage_dir: Path, doc_id: str) -> Path | None:
         Safe path if valid, None if the ID is unsafe
     """
     if not _validate_doc_id(doc_id):
-        logger.warning(f"Invalid document ID rejected: {doc_id!r}")
+        logger.warning("Invalid document ID rejected: %r", doc_id)
         return None
 
     # Construct path and verify it's within storage_dir
@@ -77,7 +77,7 @@ def _safe_path(storage_dir: Path, doc_id: str) -> Path | None:
     try:
         doc_path.relative_to(storage_resolved)
     except ValueError:
-        logger.warning(f"Path traversal attempt detected: {doc_id!r}")
+        logger.warning("Path traversal attempt detected: %r", doc_id)
         return None
 
     return doc_path
@@ -335,13 +335,13 @@ class DocumentStore:
                     }
                 )
             except json.JSONDecodeError as e:
-                logger.warning(f"Corrupted document file {doc_path}: {e}")
+                logger.warning("Corrupted document file %s: %s", doc_path, e)
                 continue
             except KeyError as e:
-                logger.warning(f"Missing required field in {doc_path}: {e}")
+                logger.warning("Missing required field in %s: %s", doc_path, e)
                 continue
             except OSError as e:
-                logger.warning(f"Failed to read document {doc_path}: {e}")
+                logger.warning("Failed to read document %s: %s", doc_path, e)
                 continue
         return docs
 

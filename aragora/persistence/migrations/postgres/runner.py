@@ -202,11 +202,11 @@ class PostgresMigrationRunner:
                 pending = [v for v in pending if v <= target]
 
             if dry_run:
-                logger.info(f"[DRY RUN] Would apply {len(pending)} migrations")
+                logger.info("[DRY RUN] Would apply %s migrations", len(pending))
                 for version in pending:
                     migration = self._migrations[version]
                     logger.info(
-                        f"  - {version}: {migration['name']} (checksum: {migration['checksum']})"
+                        "  - %s: %s (checksum: %s)", version, migration['name'], migration['checksum']
                     )
                 return MigrationResult(
                     success=True,
@@ -221,7 +221,7 @@ class PostgresMigrationRunner:
                 migration = self._migrations[version]
                 name = migration["name"]
                 checksum = migration["checksum"]
-                logger.info(f"Applying migration {version}: {name}")
+                logger.info("Applying migration %s: %s", version, name)
 
                 try:
                     async with conn.transaction():
@@ -230,7 +230,7 @@ class PostgresMigrationRunner:
 
                     applied_count += 1
                     current_version = version
-                    logger.info(f"Migration {version} applied successfully")
+                    logger.info("Migration %s applied successfully", version)
                 except (OSError, ConnectionError, RuntimeError, ValueError) as e:
                     error_msg = f"Migration {version} failed: {e}"
                     logger.error(error_msg)
@@ -300,9 +300,9 @@ class PostgresMigrationRunner:
                 )
 
             if dry_run:
-                logger.info(f"[DRY RUN] Would rollback {len(to_rollback)} migrations")
+                logger.info("[DRY RUN] Would rollback %s migrations", len(to_rollback))
                 for row in to_rollback:
-                    logger.info(f"  - {row['version']}: {row['name']}")
+                    logger.info("  - %s: %s", row['version'], row['name'])
                 return MigrationResult(
                     success=True,
                     migrations_applied=0,
@@ -327,8 +327,7 @@ class PostgresMigrationRunner:
                 # Verify checksum if available
                 if row["checksum"] and migration["checksum"] != row["checksum"]:
                     logger.warning(
-                        f"Migration {version} checksum mismatch: "
-                        f"expected {row['checksum']}, got {migration['checksum']}"
+                        "Migration %s checksum mismatch: expected %s, got %s", version, row['checksum'], migration['checksum']
                     )
 
                 if migration["down_sql"] is None:
@@ -337,7 +336,7 @@ class PostgresMigrationRunner:
                     errors.append(error_msg)
                     break
 
-                logger.info(f"Rolling back migration {version}: {name}")
+                logger.info("Rolling back migration %s: %s", version, name)
 
                 try:
                     async with conn.transaction():
@@ -348,7 +347,7 @@ class PostgresMigrationRunner:
 
                     rolled_back_count += 1
                     current_version = version - 1
-                    logger.info(f"Migration {version} rolled back successfully")
+                    logger.info("Migration %s rolled back successfully", version)
                 except (OSError, ConnectionError, RuntimeError, ValueError) as e:
                     error_msg = f"Rollback of migration {version} failed: {e}"
                     logger.error(error_msg)

@@ -74,7 +74,7 @@ async def fetch_channel_context_tool(
         return result
 
     except (RuntimeError, OSError, ConnectionError, TimeoutError) as e:
-        logger.error(f"Failed to fetch channel context: {e}")
+        logger.error("Failed to fetch channel context: %s", e)
         return {
             "error": str(e),
             "channel_id": channel_id,
@@ -144,7 +144,7 @@ async def fetch_debate_context_tool(
         return result
 
     except (RuntimeError, ValueError, OSError, ImportError) as e:
-        logger.error(f"Failed to fetch debate context: {e}")
+        logger.error("Failed to fetch debate context: %s", e)
         return {
             "error": str(e),
             "debate_id": debate_id,
@@ -249,7 +249,7 @@ async def get_thread_context_tool(
         return result
 
     except (RuntimeError, OSError, ConnectionError, TimeoutError) as e:
-        logger.error(f"Failed to fetch thread context: {e}")
+        logger.error("Failed to fetch thread context: %s", e)
         return {"error": str(e), "thread_id": thread_id}
 
 
@@ -295,7 +295,7 @@ async def get_user_context_tool(
         return result
 
     except (RuntimeError, OSError, ConnectionError, TimeoutError) as e:
-        logger.error(f"Failed to fetch user context: {e}")
+        logger.error("Failed to fetch user context: %s", e)
         return {"error": str(e), "user_id": user_id}
 
 
@@ -322,10 +322,10 @@ async def _get_chat_connector(platform: str) -> Any | None:
 
             return TeamsConnector()
         else:
-            logger.warning(f"Unknown platform: {platform}")
+            logger.warning("Unknown platform: %s", platform)
             return None
     except ImportError as e:
-        logger.warning(f"Could not import connector for {platform}: {e}")
+        logger.warning("Could not import connector for %s: %s", platform, e)
         return None
 
 

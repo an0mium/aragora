@@ -158,7 +158,7 @@ class AnalyticsHandler(BaseHandler):
             if user:
                 user_id = user.user_id
         except (RuntimeError, ValueError, AttributeError) as e:
-            logger.warning(f"Authentication failed for knowledge analytics: {e}")
+            logger.warning("Authentication failed for knowledge analytics: %s", e)
             return error_response("Authentication required", 401)
 
         # RBAC permission check
@@ -178,11 +178,11 @@ class AnalyticsHandler(BaseHandler):
                 decision = checker.check_permission(auth_ctx, KNOWLEDGE_READ_PERMISSION)
                 if not decision.allowed:
                     logger.warning(
-                        f"Knowledge analytics access denied for {user_id}: {decision.reason}"
+                        "Knowledge analytics access denied for %s: %s", user_id, decision.reason
                     )
                     return error_response(f"Permission denied: {decision.reason}", 403)
             except (RuntimeError, ValueError, TypeError, AttributeError, KeyError) as e:
-                logger.warning(f"RBAC check failed for knowledge analytics: {e}")
+                logger.warning("RBAC check failed for knowledge analytics: %s", e)
                 # Continue without RBAC if it fails (graceful degradation)
 
         workspace_id = query_params.get("workspace_id")
@@ -248,7 +248,7 @@ class AnalyticsHandler(BaseHandler):
                 )
 
         except (RuntimeError, ValueError, TypeError, KeyError, AttributeError) as e:
-            logger.error(f"Failed to get mound stats: {e}")
+            logger.error("Failed to get mound stats: %s", e)
             return error_response("Failed to get mound stats", 500)
 
     @rate_limit(requests_per_minute=60, limiter_name="knowledge_analytics_read")
@@ -301,7 +301,7 @@ class AnalyticsHandler(BaseHandler):
                 )
 
         except (RuntimeError, ValueError, TypeError, KeyError, AttributeError) as e:
-            logger.error(f"Failed to get sharing stats: {e}")
+            logger.error("Failed to get sharing stats: %s", e)
             return error_response("Failed to get sharing stats", 500)
 
     @rate_limit(requests_per_minute=60, limiter_name="knowledge_analytics_read")
@@ -353,7 +353,7 @@ class AnalyticsHandler(BaseHandler):
                 )
 
         except (RuntimeError, ValueError, TypeError, KeyError, AttributeError) as e:
-            logger.error(f"Failed to get federation stats: {e}")
+            logger.error("Failed to get federation stats: %s", e)
             return error_response("Failed to get federation stats", 500)
 
     @rate_limit(requests_per_minute=5, limiter_name="knowledge_analytics_expensive")
@@ -392,7 +392,7 @@ class AnalyticsHandler(BaseHandler):
             )
 
         except (RuntimeError, ValueError, TypeError, KeyError, AttributeError) as e:
-            logger.error(f"Failed to get analytics summary: {e}")
+            logger.error("Failed to get analytics summary: %s", e)
             return error_response("Failed to get analytics summary", 500)
 
     @rate_limit(requests_per_minute=60, limiter_name="knowledge_analytics_read")
@@ -467,7 +467,7 @@ class AnalyticsHandler(BaseHandler):
             except ImportError:
                 pass
             except (RuntimeError, AttributeError, KeyError, TypeError) as e:
-                logger.debug(f"Failed to get continuum learning stats: {e}")
+                logger.debug("Failed to get continuum learning stats: %s", e)
 
             # Try to get consensus adapter stats
             # Note: ConsensusMemory doesn't have a singleton getter, so we skip this
@@ -492,7 +492,7 @@ class AnalyticsHandler(BaseHandler):
             except ImportError:
                 pass
             except (RuntimeError, AttributeError, KeyError, TypeError) as e:
-                logger.debug(f"Failed to get cross-subscriber stats: {e}")
+                logger.debug("Failed to get cross-subscriber stats: %s", e)
 
             # Calculate derived metrics
             if knowledge_reuse["total_queries"] > 0:
@@ -521,7 +521,7 @@ class AnalyticsHandler(BaseHandler):
             return json_response(learning_stats)
 
         except (ImportError, RuntimeError, ValueError, TypeError, KeyError, AttributeError) as e:
-            logger.error(f"Failed to get learning stats: {e}")
+            logger.error("Failed to get learning stats: %s", e)
             return error_response("Failed to get learning stats", 500)
 
 

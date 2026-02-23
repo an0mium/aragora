@@ -151,9 +151,9 @@ class IntegrityVerifier:
                 for row in invalid:
                     issues.append(f"Invalid index: {row['index_name']}")
         except (ConnectionError, TimeoutError, OSError) as e:
-            logger.warning(f"Index health check failed (connection error): {e}")
+            logger.warning("Index health check failed (connection error): %s", e)
         except (KeyError, TypeError, ValueError) as e:
-            logger.warning(f"Index health check failed (data error): {e}")
+            logger.warning("Index health check failed (data error): %s", e)
         return issues
 
     async def _check_duplicate_content(self) -> int:
@@ -216,6 +216,6 @@ class IntegrityVerifier:
                     """)
                 repairs["access_grants"] = int(result.split()[-1])
 
-                logger.info(f"Repaired orphaned records: {repairs}")
+                logger.info("Repaired orphaned records: %s", repairs)
 
         return repairs

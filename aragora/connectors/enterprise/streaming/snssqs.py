@@ -333,9 +333,9 @@ class SNSSQSConnector(EnterpriseConnector):
                         },
                     },
                 )
-                logger.info(f"[SNS/SQS] Sent message to DLQ: {self.config.dead_letter_queue_url}")
+                logger.info("[SNS/SQS] Sent message to DLQ: %s", self.config.dead_letter_queue_url)
             except (OSError, RuntimeError, ConnectionError, TimeoutError) as e:
-                logger.error(f"[SNS/SQS] Failed to send to DLQ: {e}")
+                logger.error("[SNS/SQS] Failed to send to DLQ: %s", e)
 
     async def _create_clients(self) -> None:
         """Create SQS and SNS clients."""
@@ -366,7 +366,7 @@ class SNSSQSConnector(EnterpriseConnector):
             if self.config.topic_arn:
                 self._sns_client = await self._session.client("sns", **client_kwargs).__aenter__()
 
-            logger.info(f"[SNS/SQS] Created AWS clients for region {self.config.region}")
+            logger.info("[SNS/SQS] Created AWS clients for region %s", self.config.region)
 
         except ImportError:
             logger.error("[SNS/SQS] aioboto3 not installed. Install with: pip install aioboto3")
@@ -409,7 +409,7 @@ class SNSSQSConnector(EnterpriseConnector):
                     await self._health_monitor.record_failure(e)
 
                 if attempt == self.config.resilience.max_retries:
-                    logger.error(f"[SNS/SQS] Connection failed after {attempt + 1} attempts: {e}")
+                    logger.error("[SNS/SQS] Connection failed after %s attempts: %s", attempt + 1, e)
                     return False
 
                 delay = backoff.get_delay(attempt)
@@ -431,7 +431,7 @@ class SNSSQSConnector(EnterpriseConnector):
                 QueueUrl=self.config.queue_url,
                 AttributeNames=["QueueArn"],
             )
-            logger.info(f"[SNS/SQS] Connected to queue: {self.config.queue_url}")
+            logger.info("[SNS/SQS] Connected to queue: %s", self.config.queue_url)
             return True
 
         return False
@@ -447,14 +447,14 @@ class SNSSQSConnector(EnterpriseConnector):
             try:
                 await self._sqs_client.__aexit__(None, None, None)
             except (OSError, RuntimeError, ConnectionError, TimeoutError) as e:
-                logger.warning(f"[SNS/SQS] Error closing SQS client: {e}")
+                logger.warning("[SNS/SQS] Error closing SQS client: %s", e)
             self._sqs_client = None
 
         if self._sns_client:
             try:
                 await self._sns_client.__aexit__(None, None, None)
             except (OSError, RuntimeError, ConnectionError, TimeoutError) as e:
-                logger.warning(f"[SNS/SQS] Error closing SNS client: {e}")
+                logger.warning("[SNS/SQS] Error closing SNS client: %s", e)
             self._sns_client = None
 
         logger.info("[SNS/SQS] Disconnected from AWS services")
@@ -474,7 +474,7 @@ class SNSSQSConnector(EnterpriseConnector):
                     Entries=entries,
                 )
             except (OSError, RuntimeError, ConnectionError, TimeoutError) as e:
-                logger.warning(f"[SNS/SQS] Error deleting messages: {e}")
+                logger.warning("[SNS/SQS] Error deleting messages: %s", e)
 
         self._pending_deletes.clear()
 
@@ -558,7 +558,7 @@ class SNSSQSConnector(EnterpriseConnector):
                             consecutive_failures = 0
 
                         except (ValueError, KeyError, TypeError) as e:
-                            logger.error(f"[SNS/SQS] Failed to parse message: {e}")
+                            logger.error("[SNS/SQS] Failed to parse message: %s", e)
                             self._error_count += 1
 
                             # Send to DLQ
@@ -593,8 +593,7 @@ class SNSSQSConnector(EnterpriseConnector):
 
                     if consecutive_failures > self.config.resilience.max_retries:
                         logger.error(
-                            f"[SNS/SQS] Too many consecutive failures ({consecutive_failures}), "
-                            f"stopping consume"
+                            "[SNS/SQS] Too many consecutive failures (%s), stopping consume", consecutive_failures
                         )
                         break
 
@@ -694,7 +693,7 @@ class SNSSQSConnector(EnterpriseConnector):
                 return response.get("MessageId")
 
         except (OSError, RuntimeError, ConnectionError, TimeoutError) as e:
-            logger.error(f"[SNS/SQS] Failed to publish message: {e}")
+            logger.error("[SNS/SQS] Failed to publish message: %s", e)
             if self._streaming_circuit_breaker:
                 await self._streaming_circuit_breaker.record_failure(e)
             return None
@@ -721,7 +720,7 @@ class SNSSQSConnector(EnterpriseConnector):
             )
             return True
         except (OSError, RuntimeError, ConnectionError, TimeoutError) as e:
-            logger.error(f"[SNS/SQS] Failed to delete message: {e}")
+            logger.error("[SNS/SQS] Failed to delete message: %s", e)
             return False
 
     async def change_visibility(
@@ -750,7 +749,7 @@ class SNSSQSConnector(EnterpriseConnector):
             )
             return True
         except (OSError, RuntimeError, ConnectionError, TimeoutError) as e:
-            logger.error(f"[SNS/SQS] Failed to change visibility: {e}")
+            logger.error("[SNS/SQS] Failed to change visibility: %s", e)
             return False
 
     async def get_health(self) -> HealthStatus:

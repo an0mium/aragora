@@ -178,7 +178,7 @@ class DecisionCache:
             entry.hit_count += 1
             self._hits += 1
 
-            logger.debug(f"Cache hit for request hash {request_hash[:8]}")
+            logger.debug("Cache hit for request hash %s", request_hash[:8])
             return entry.result
 
     async def set(
@@ -214,7 +214,7 @@ class DecisionCache:
                 request_hash=request_hash,
             )
 
-        logger.debug(f"Cached result for request hash {request_hash[:8]}, TTL={ttl}s")
+        logger.debug("Cached result for request hash %s, TTL=%ss", request_hash[:8], ttl)
 
     async def _evict_oldest(self) -> None:
         """Evict oldest entries to make room. Called with lock held."""
@@ -403,7 +403,7 @@ class DecisionCache:
             return None
 
         except asyncio.TimeoutError:
-            logger.warning(f"Timeout waiting for in-flight request {request_hash[:8]}")
+            logger.warning("Timeout waiting for in-flight request %s", request_hash[:8])
             return None
 
     # =========================================================================

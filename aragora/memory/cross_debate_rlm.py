@@ -275,7 +275,7 @@ class CrossDebateMemory:
                         "(will use compression fallback since official RLM not installed)"
                     )
             except (ImportError, AttributeError, TypeError, RuntimeError) as e:
-                logger.warning(f"[CrossDebateMemory] Failed to get RLM from factory: {e}")
+                logger.warning("[CrossDebateMemory] Failed to get RLM from factory: %s", e)
         return self._rlm
 
     async def initialize(self) -> None:
@@ -295,7 +295,7 @@ class CrossDebateMemory:
                 try:
                     self._compressor = get_compressor()
                 except (ImportError, AttributeError, TypeError, RuntimeError) as e:
-                    logger.warning(f"Failed to get compressor from factory: {e}")
+                    logger.warning("Failed to get compressor from factory: %s", e)
             else:
                 logger.warning("RLM factory not available for cross-debate memory")
         return self._compressor
@@ -323,7 +323,7 @@ class CrossDebateMemory:
         except ImportError:
             logger.debug("DebateAdapter not available - KM integration disabled")
         except (RuntimeError, TypeError, AttributeError) as e:
-            logger.warning(f"Failed to initialize KM DebateAdapter: {e}")
+            logger.warning("Failed to initialize KM DebateAdapter: %s", e)
 
         return self._km_debate_adapter
 
@@ -371,7 +371,7 @@ class CrossDebateMemory:
                 )
             return km_summaries
         except (RuntimeError, TypeError, AttributeError, KeyError) as e:
-            logger.warning(f"KM debate query failed: {e}")
+            logger.warning("KM debate query failed: %s", e)
             return []
 
     def _estimate_tokens(self, text: str) -> int:
@@ -658,12 +658,11 @@ class CrossDebateMemory:
                 if result.answer and len(result.answer) < len(context):
                     approach = "TRUE RLM" if result.used_true_rlm else "compression fallback"
                     logger.debug(
-                        f"[CrossDebateMemory] Compressed {len(context)} -> {len(result.answer)} chars "
-                        f"via {approach}"
+                        "[CrossDebateMemory] Compressed %s -> %s chars via %s", len(context), len(result.answer), approach
                     )
                     return result.answer
             except (AttributeError, TypeError, ValueError, RuntimeError) as e:
-                logger.warning(f"[CrossDebateMemory] AragoraRLM compression failed: {e}")
+                logger.warning("[CrossDebateMemory] AragoraRLM compression failed: %s", e)
 
         # FALLBACK: Try HierarchicalCompressor directly
         compressor = await self._get_compressor()
@@ -684,7 +683,7 @@ class CrossDebateMemory:
 
                     return result.context.get_at_level(AbstractionLevel.SUMMARY) or context[:2000]
             except (AttributeError, TypeError, ValueError, RuntimeError) as e:
-                logger.warning(f"[CrossDebateMemory] HierarchicalCompressor failed: {e}")
+                logger.warning("[CrossDebateMemory] HierarchicalCompressor failed: %s", e)
 
         # FINAL FALLBACK: Simple truncation
         logger.debug("[CrossDebateMemory] All RLM approaches failed, using simple truncation")
@@ -846,19 +845,17 @@ class CrossDebateMemory:
                 # Log which approach was used
                 if result.used_true_rlm:
                     logger.info(
-                        f"[CrossDebateMemory] query_past_debates used TRUE RLM "
-                        f"(REPL-based), strategy={strategy}"
+                        "[CrossDebateMemory] query_past_debates used TRUE RLM (REPL-based), strategy=%s", strategy
                     )
                 elif result.used_compression_fallback:
                     logger.info(
-                        f"[CrossDebateMemory] query_past_debates used compression fallback, "
-                        f"strategy={strategy}"
+                        "[CrossDebateMemory] query_past_debates used compression fallback, strategy=%s", strategy
                     )
 
                 return result.answer if hasattr(result, "answer") else str(result)
 
             except (AttributeError, TypeError, ValueError, RuntimeError) as e:
-                logger.warning(f"[CrossDebateMemory] AragoraRLM query failed, using fallback: {e}")
+                logger.warning("[CrossDebateMemory] AragoraRLM query failed, using fallback: %s", e)
 
         # FINAL FALLBACK: keyword-based search on compressed context
         logger.debug("[CrossDebateMemory] Using keyword-based fallback search")
@@ -1061,9 +1058,9 @@ Key insight: {entry.key_insights[0] if entry.key_insights else "N/A"}
             }
             self.config.storage_path.write_text(json.dumps(data, indent=2))
         except (OSError, PermissionError) as e:
-            logger.error(f"Failed to save cross-debate memory (I/O): {e}")
+            logger.error("Failed to save cross-debate memory (I/O): %s", e)
         except (TypeError, ValueError) as e:
-            logger.error(f"Failed to save cross-debate memory (serialization): {e}")
+            logger.error("Failed to save cross-debate memory (serialization): %s", e)
 
     async def _load_from_disk(self) -> None:
         """Load memory from disk."""
@@ -1076,9 +1073,9 @@ Key insight: {entry.key_insights[0] if entry.key_insights else "N/A"}
                 entry = DebateMemoryEntry.from_dict(entry_data)
                 self._entries[entry.debate_id] = entry
         except (OSError, PermissionError) as e:
-            logger.error(f"Failed to load cross-debate memory (I/O): {e}")
+            logger.error("Failed to load cross-debate memory (I/O): %s", e)
         except (json.JSONDecodeError, ValueError, TypeError, KeyError) as e:
-            logger.error(f"Failed to load cross-debate memory (parse): {e}")
+            logger.error("Failed to load cross-debate memory (parse): %s", e)
 
     def get_statistics(self) -> dict[str, Any]:
         """Get memory statistics."""

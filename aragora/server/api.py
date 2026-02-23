@@ -175,7 +175,7 @@ class DebateAPIHandler(BaseHTTPRequestHandler):
 
             self._send_json({"meta": meta, "events": events})
         except (OSError, json.JSONDecodeError) as e:
-            logger.error(f"Error reading replay {debate_id}: {type(e).__name__}: {e}")
+            logger.error("Error reading replay %s: %s: %s", debate_id, type(e).__name__, e)
             self.send_error(500, "Failed to read replay")
 
     def _fork_replay(self, debate_id: str) -> None:
@@ -210,7 +210,7 @@ class DebateAPIHandler(BaseHTTPRequestHandler):
             self.send_error(400, "Invalid JSON")
             return
         except (TimeoutError, OSError) as e:
-            logger.warning(f"Request body read error: {type(e).__name__}: {e}")
+            logger.warning("Request body read error: %s: %s", type(e).__name__, e)
             self.send_error(400, "Failed to read request body")
             return
 
@@ -268,7 +268,7 @@ class DebateAPIHandler(BaseHTTPRequestHandler):
 
         except (OSError, json.JSONDecodeError, ValueError, KeyError) as e:
             # Log error server-side but return generic message to client
-            logger.error(f"Fork operation failed for {debate_id}: {type(e).__name__}: {e}")
+            logger.error("Fork operation failed for %s: %s: %s", debate_id, type(e).__name__, e)
             self.send_error(500, "Fork operation failed")
 
     def _health_check(self) -> None:
@@ -316,7 +316,7 @@ class DebateAPIHandler(BaseHTTPRequestHandler):
             self.end_headers()
             self.wfile.write(content)
         except OSError as e:
-            logger.error(f"File serving error: {type(e).__name__}: {e}")
+            logger.error("File serving error: %s: %s", type(e).__name__, e)
             self.send_error(500, "Failed to read file")
 
     def _send_json(self, data) -> None:
@@ -382,7 +382,7 @@ def run_api_server(
     DebateAPIHandler.static_dir = static_dir
 
     server = HTTPServer((host, port), DebateAPIHandler)
-    logger.info(f"API server: http://localhost:{port}")
+    logger.info("API server: http://localhost:%s", port)
     logger.info("  - GET /api/debates - List recent debates")
     logger.info("  - GET /api/debates/<slug> - Get debate by slug")
     logger.info("  - GET /api/replays - List recent replays")

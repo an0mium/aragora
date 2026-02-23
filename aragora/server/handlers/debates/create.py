@@ -136,7 +136,7 @@ class CreateOperationsMixin:
                 logger.info("[_create_debate] Rate limit check failed")
                 return error_response("Rate limit exceeded", 429)
         except (TypeError, ValueError, AttributeError, KeyError, RuntimeError) as e:
-            logger.exception(f"[_create_debate] Rate limit check error: {e}")
+            logger.exception("[_create_debate] Rate limit check error: %s", e)
             return error_response("Rate limit check failed", 500)
 
         logger.info("[_create_debate] Rate limit passed")
@@ -146,7 +146,7 @@ class CreateOperationsMixin:
             if hasattr(handler, "_check_tier_rate_limit") and not handler._check_tier_rate_limit():
                 return error_response("Tier rate limit exceeded", 429)
         except (TypeError, ValueError, AttributeError, KeyError, RuntimeError) as e:
-            logger.warning(f"Tier rate limit check failed, proceeding: {e}")
+            logger.warning("Tier rate limit check failed, proceeding: %s", e)
 
         # Check if debate orchestrator is available
         debate_available = False
@@ -229,8 +229,7 @@ class CreateOperationsMixin:
         result = await router.route(request)
 
         logger.info(
-            f"DecisionRouter completed debate {request.request_id} "
-            f"(success={result.success}, debate_id={getattr(result, 'debate_id', 'N/A')})"
+            "DecisionRouter completed debate %s (success=%s, debate_id=%s)", request.request_id, result.success, getattr(result, 'debate_id', 'N/A')
         )
 
         # Build response
@@ -269,7 +268,7 @@ class CreateOperationsMixin:
             controller = handler._get_debate_controller()
             response = controller.start_debate(request)
         except (TypeError, ValueError, AttributeError, KeyError, RuntimeError, OSError) as e:
-            logger.exception(f"Failed to start debate: {e}")
+            logger.exception("Failed to start debate: %s", e)
             return error_response(safe_error_message(e, "start debate"), 500)
 
         # Note: Usage increment is handled by @require_quota decorator on success
@@ -354,9 +353,9 @@ class CreateOperationsMixin:
         if task and hasattr(task, "cancel") and not getattr(task, "done", lambda: True)():
             try:
                 task.cancel()
-                logger.info(f"Cancelled running task for debate {debate_id}")
+                logger.info("Cancelled running task for debate %s", debate_id)
             except (RuntimeError, TypeError, AttributeError, OSError) as e:
-                logger.warning(f"Failed to cancel task for {debate_id}: {e}")
+                logger.warning("Failed to cancel task for %s: %s", debate_id, e)
 
         # Emit cancellation event to all subscribers
         stream_emitter = getattr(handler, "stream_emitter", None)
@@ -373,7 +372,7 @@ class CreateOperationsMixin:
                 )
             )
 
-        logger.info(f"Debate {debate_id} cancelled by user")
+        logger.info("Debate %s cancelled by user", debate_id)
 
         return json_response(
             {
@@ -518,10 +517,10 @@ class CreateOperationsMixin:
             return None
         except ContentModerationError as e:
             # Moderation explicitly rejected content
-            logger.warning(f"Content moderation error: {e}")
+            logger.warning("Content moderation error: %s", e)
             return error_response("Invalid request", 400)
         except (ValueError, KeyError, TypeError, RuntimeError, OSError) as e:
-            logger.error(f"Spam check failed unexpectedly: {e}", exc_info=True)
+            logger.error("Spam check failed unexpectedly: %s", e, exc_info=True)
             return None
 
 

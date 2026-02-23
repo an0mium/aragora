@@ -227,8 +227,7 @@ class RBACDistributedCache:
                 )
 
             logger.warning(
-                f"RBAC cache Redis unavailable, using local-only: {e}. "
-                "Set ARAGORA_MULTI_INSTANCE=true to enforce distributed cache."
+                "RBAC cache Redis unavailable, using local-only: %s. Set ARAGORA_MULTI_INSTANCE=true to enforce distributed cache.", e
             )
             self._redis_checked = True
             self._redis = None
@@ -254,7 +253,7 @@ class RBACDistributedCache:
                 self._pubsub_thread.start()
                 logger.debug("RBAC cache pub/sub listener started")
             except REDIS_CONNECTION_ERRORS as e:
-                logger.warning(f"Failed to start RBAC cache pub/sub: {e}")
+                logger.warning("Failed to start RBAC cache pub/sub: %s", e)
 
     def stop(self) -> None:
         """Stop the cache (cleanup pub/sub)."""
@@ -264,7 +263,7 @@ class RBACDistributedCache:
                 self._pubsub.unsubscribe()
                 self._pubsub.close()
             except (OSError, ConnectionError, TimeoutError, RuntimeError) as e:
-                logger.debug(f"RBAC pub/sub cleanup error: {e}")
+                logger.debug("RBAC pub/sub cleanup error: %s", e)
             self._pubsub = None
 
     def _pubsub_listener(self) -> None:
@@ -292,7 +291,7 @@ class RBACDistributedCache:
             except REDIS_CONNECTION_ERRORS as e:
                 if self._running:
                     consecutive_errors += 1
-                    logger.debug(f"RBAC pub/sub error (attempt {consecutive_errors}): {e}")
+                    logger.debug("RBAC pub/sub error (attempt %s): %s", consecutive_errors, e)
                     # Exponential backoff with jitter: base * 2^(errors-1) * (0.5 to 1.5)
                     sleep_time = min(backoff * (2 ** (consecutive_errors - 1)), max_backoff)
                     jitter = random.uniform(0.5, 1.5)
@@ -350,7 +349,7 @@ class RBACDistributedCache:
                 self._stats.l2_misses += 1
             except (OSError, ConnectionError, TimeoutError, ValueError, TypeError) as e:
                 self._stats.errors += 1
-                logger.debug(f"Redis get_decision error: {e}")
+                logger.debug("Redis get_decision error: %s", e)
 
         self._record_cache_miss("decision")
         return None
@@ -383,7 +382,7 @@ class RBACDistributedCache:
                 )
             except (OSError, ConnectionError, TimeoutError, TypeError) as e:
                 self._stats.errors += 1
-                logger.debug(f"Redis set_decision error: {e}")
+                logger.debug("Redis set_decision error: %s", e)
 
     def _decision_key(
         self,
@@ -427,7 +426,7 @@ class RBACDistributedCache:
                 self._stats.l2_misses += 1
             except (OSError, ConnectionError, TimeoutError, ValueError, TypeError) as e:
                 self._stats.errors += 1
-                logger.debug(f"Redis get_user_roles error: {e}")
+                logger.debug("Redis get_user_roles error: %s", e)
 
         return None
 
@@ -449,7 +448,7 @@ class RBACDistributedCache:
                 )
             except (OSError, ConnectionError, TimeoutError, TypeError) as e:
                 self._stats.errors += 1
-                logger.debug(f"Redis set_user_roles error: {e}")
+                logger.debug("Redis set_user_roles error: %s", e)
 
     # --------------------------------------------------------------------------
     # Permission Set Cache
@@ -480,7 +479,7 @@ class RBACDistributedCache:
                 self._stats.l2_misses += 1
             except (OSError, ConnectionError, TimeoutError, ValueError, TypeError) as e:
                 self._stats.errors += 1
-                logger.debug(f"Redis get_role_permissions error: {e}")
+                logger.debug("Redis get_role_permissions error: %s", e)
 
         return None
 
@@ -502,7 +501,7 @@ class RBACDistributedCache:
                 )
             except (OSError, ConnectionError, TimeoutError, TypeError) as e:
                 self._stats.errors += 1
-                logger.debug(f"Redis set_role_permissions error: {e}")
+                logger.debug("Redis set_role_permissions error: %s", e)
 
     # --------------------------------------------------------------------------
     # Invalidation
@@ -533,14 +532,14 @@ class RBACDistributedCache:
                     redis.publish(self.config.invalidation_channel, f"user:{user_id}")
             except REDIS_CONNECTION_ERRORS as e:
                 self._stats.errors += 1
-                logger.debug(f"Redis invalidate_user error: {e}")
+                logger.debug("Redis invalidate_user error: %s", e)
 
         # Call callbacks
         for callback in self._invalidation_callbacks:
             try:
                 callback(f"user:{user_id}")
             except (OSError, ValueError, TypeError, RuntimeError) as e:
-                logger.debug(f"RBAC invalidation callback error: {e}")
+                logger.debug("RBAC invalidation callback error: %s", e)
 
     def invalidate_role(self, role_name: str) -> None:
         """Invalidate cached permissions for a role (affects all users)."""
@@ -559,7 +558,7 @@ class RBACDistributedCache:
                     redis.publish(self.config.invalidation_channel, f"role:{role_name}")
             except REDIS_CONNECTION_ERRORS as e:
                 self._stats.errors += 1
-                logger.debug(f"Redis invalidate_role error: {e}")
+                logger.debug("Redis invalidate_role error: %s", e)
 
     def invalidate_all(self) -> int:
         """Clear entire cache. Returns count of local entries cleared."""
@@ -582,7 +581,7 @@ class RBACDistributedCache:
                     redis.publish(self.config.invalidation_channel, "all")
             except REDIS_CONNECTION_ERRORS as e:
                 self._stats.errors += 1
-                logger.debug(f"Redis invalidate_all error: {e}")
+                logger.debug("Redis invalidate_all error: %s", e)
 
         return count
 

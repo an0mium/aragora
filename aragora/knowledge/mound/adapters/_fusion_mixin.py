@@ -340,7 +340,7 @@ class FusionMixin:
             return True
 
         except (RuntimeError, ValueError, OSError, AttributeError) as e:
-            logger.warning(f"Failed to apply fusion result: {e}")
+            logger.warning("Failed to apply fusion result: %s", e)
             return False
 
     def _get_record_for_fusion(self, source_id: str) -> Any | None:
@@ -428,8 +428,7 @@ class FusionMixin:
 
         if len(filtered_sources) < min_sources:
             logger.info(
-                f"[{self.adapter_name}] Insufficient sources for fusion: "
-                f"{len(filtered_sources)} < {min_sources}"
+                "[%s] Insufficient sources for fusion: %s < %s", self.adapter_name, len(filtered_sources), min_sources
             )
             result["items_skipped"] = len(km_items)
             result["duration_ms"] = (time.time() - start_time) * 1000

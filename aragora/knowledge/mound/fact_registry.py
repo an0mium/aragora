@@ -324,7 +324,7 @@ class FactRegistry:
                         existing.refresh()
                         existing.verification_count += 1
                         logger.debug(
-                            f"Updated existing fact {existing_id} instead of creating duplicate"
+                            "Updated existing fact %s instead of creating duplicate", existing_id
                         )
                         return existing
 
@@ -362,7 +362,7 @@ class FactRegistry:
                 namespace=fact.vertical,
             )
 
-        logger.debug(f"Registered fact {fact.id} in vertical {vertical}")
+        logger.debug("Registered fact %s in vertical %s", fact.id, vertical)
         return fact
 
     async def query(
@@ -632,9 +632,9 @@ class FactRegistry:
             try:
                 return await self._embedding_service.embed(text)
             except (RuntimeError, ConnectionError, TimeoutError) as e:
-                logger.warning(f"Failed to generate embedding: {e}")
+                logger.warning("Failed to generate embedding: %s", e)
             except (OSError, ConnectionError, TimeoutError, RuntimeError) as e:
-                logger.exception(f"Unexpected embedding generation error: {e}")
+                logger.exception("Unexpected embedding generation error: %s", e)
         return None
 
     def _search_memory(
@@ -688,5 +688,5 @@ class FactRegistry:
                 embedding=result.embedding,
             )
         except (KeyError, AttributeError, ValueError) as e:
-            logger.debug(f"Could not convert search result to fact: {e}")
+            logger.debug("Could not convert search result to fact: %s", e)
             return None

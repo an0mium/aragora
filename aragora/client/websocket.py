@@ -351,7 +351,7 @@ class DebateStream:
             # Start message receiver
             asyncio.create_task(self._receive_loop())
 
-            logger.debug(f"Connected to {self.url}")
+            logger.debug("Connected to %s", self.url)
 
         except asyncio.TimeoutError:
             raise ConnectionError(f"Connection timeout to {self.url}")
@@ -491,9 +491,9 @@ class DebateStream:
                         logger.warning("Event queue full, dropping event")
 
                 except json.JSONDecodeError:
-                    logger.warning(f"Invalid JSON: {message[:100]}")
+                    logger.warning("Invalid JSON: %s", message[:100])
                 except (ValueError, KeyError, TypeError, AttributeError) as e:
-                    logger.warning(f"Error processing message: {e}")
+                    logger.warning("Error processing message: %s", e)
 
         except (ConnectionError, OSError, RuntimeError) as e:
             if not self._is_closing:
@@ -512,7 +512,7 @@ class DebateStream:
                 try:
                     callback(event)
                 except Exception as e:  # noqa: BLE001 - user-provided callback isolation
-                    logger.warning(f"Callback error: {e}")
+                    logger.warning("Callback error: %s", e)
 
         # Wildcard callbacks
         if "*" in self._event_callbacks:
@@ -520,7 +520,7 @@ class DebateStream:
                 try:
                     callback(event)
                 except Exception as e:  # noqa: BLE001 - user-provided callback isolation
-                    logger.warning(f"Callback error: {e}")
+                    logger.warning("Callback error: %s", e)
 
     def _emit_error(self, error: Exception) -> None:
         """Emit error to callbacks."""
@@ -528,7 +528,7 @@ class DebateStream:
             try:
                 callback(error)
             except Exception as e:  # noqa: BLE001 - user-provided callback isolation
-                logger.warning(f"Error callback error: {e}")
+                logger.warning("Error callback error: %s", e)
 
     def _emit_close(self, code: int, reason: str) -> None:
         """Emit close to callbacks."""
@@ -536,7 +536,7 @@ class DebateStream:
             try:
                 callback(code, reason)
             except Exception as e:  # noqa: BLE001 - user-provided callback isolation
-                logger.warning(f"Close callback error: {e}")
+                logger.warning("Close callback error: %s", e)
 
     async def _attempt_reconnect(self) -> None:
         """Attempt to reconnect with exponential backoff."""
@@ -547,13 +547,13 @@ class DebateStream:
         self._reconnect_attempts += 1
         delay = self.options.reconnect_interval * (2 ** (self._reconnect_attempts - 1))
 
-        logger.info(f"Reconnecting in {delay}s (attempt {self._reconnect_attempts})")
+        logger.info("Reconnecting in %ss (attempt %s)", delay, self._reconnect_attempts)
         await asyncio.sleep(delay)
 
         try:
             await self.connect()
         except (ConnectionError, TimeoutError, OSError, RuntimeError) as e:
-            logger.warning(f"Reconnect failed: {e}")
+            logger.warning("Reconnect failed: %s", e)
             await self._attempt_reconnect()
 
     def __aiter__(self):

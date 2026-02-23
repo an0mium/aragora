@@ -108,7 +108,7 @@ class TeamsDock(ChannelDock):
                     )
 
         except (ConnectionError, TimeoutError, OSError, ValueError) as e:
-            logger.error(f"Teams send error: {e}")
+            logger.error("Teams send error: %s", e)
             return SendResult.fail(
                 error=str(e),
                 platform=self.PLATFORM,

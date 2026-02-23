@@ -204,8 +204,7 @@ class RLMContextAdapter:
         )
 
         logger.debug(
-            f"adapter_register id={content_id} type={content_type} "
-            f"size={len(content)} sections={list(sections.keys())}"
+            "adapter_register id=%s type=%s size=%s sections=%s", content_id, content_type, len(content), list(sections.keys())
         )
 
         return content_id
@@ -230,7 +229,7 @@ class RLMContextAdapter:
         """
         registered = self._registry.get(content_id)
         if not registered:
-            logger.warning(f"adapter_get_summary not_found id={content_id}")
+            logger.warning("adapter_get_summary not_found id=%s", content_id)
             return ""
 
         summary = registered.summary
@@ -392,7 +391,7 @@ Answer (be specific and cite relevant parts):"""
         except ConnectionError as e:
             if self._circuit_breaker:
                 self._circuit_breaker.record_failure()
-            logger.warning(f"adapter_query_connection_error error={e}")
+            logger.warning("adapter_query_connection_error error=%s", e)
             raise RLMProviderError(
                 f"Provider connection failed: {e}",
                 is_transient=True,
@@ -403,7 +402,7 @@ Answer (be specific and cite relevant parts):"""
         except (RuntimeError, ValueError, TypeError, OSError) as e:
             if self._circuit_breaker:
                 self._circuit_breaker.record_failure()
-            logger.warning(f"adapter_query_failed error={e}")
+            logger.warning("adapter_query_failed error=%s", e)
             # Return degraded result instead of raising
             return RLMResult(
                 answer=self._search_content(registered.full_content, question, max_response_chars),
@@ -614,20 +613,20 @@ Summary:"""
                     if self._circuit_breaker:
                         self._circuit_breaker.record_failure()
                     logger.warning(
-                        f"adapter_llm_summary_timeout timeout={timeout}s, trying compression"
+                        "adapter_llm_summary_timeout timeout=%ss, trying compression", timeout
                     )
 
                 except ConnectionError as e:
                     if self._circuit_breaker:
                         self._circuit_breaker.record_failure()
                     logger.warning(
-                        f"adapter_llm_summary_connection_error error={e}, trying compression"
+                        "adapter_llm_summary_connection_error error=%s, trying compression", e
                     )
 
                 except (RuntimeError, ValueError, TypeError, OSError) as e:
                     if self._circuit_breaker:
                         self._circuit_breaker.record_failure()
-                    logger.warning(f"adapter_llm_summary_failed error={e}, trying compression")
+                    logger.warning("adapter_llm_summary_failed error=%s, trying compression", e)
 
         # PRIORITY 2: COMPRESSION - Use compressor if available
         if self._compressor:
@@ -649,10 +648,10 @@ Summary:"""
                 return summary
 
             except asyncio.TimeoutError:
-                logger.warning(f"adapter_compress_timeout timeout={timeout}s, using truncation")
+                logger.warning("adapter_compress_timeout timeout=%ss, using truncation", timeout)
 
             except (RuntimeError, ValueError, TypeError, OSError) as e:
-                logger.warning(f"adapter_compress_failed error={e}, using truncation")
+                logger.warning("adapter_compress_failed error=%s, using truncation", e)
 
         # PRIORITY 3: TRUNCATION - Heuristic extraction as last resort
         summary = registered.summary or self._heuristic_summary(
@@ -963,14 +962,13 @@ class REPLContextAdapter(RLMContextAdapter):
             self._repl_environments[content_id] = env
 
             logger.info(
-                f"repl_env_created type=debate id={content_id} "
-                f"rounds={debate_context.total_rounds} agents={len(debate_context.agent_names)}"
+                "repl_env_created type=debate id=%s rounds=%s agents=%s", content_id, debate_context.total_rounds, len(debate_context.agent_names)
             )
 
             return env
 
         except (ImportError, RuntimeError, ValueError, TypeError, AttributeError) as e:
-            logger.error(f"Failed to create debate REPL environment: {e}")
+            logger.error("Failed to create debate REPL environment: %s", e)
             return None
 
     def _debate_to_string(self, debate_context: Any) -> str:
@@ -1088,7 +1086,7 @@ class REPLContextAdapter(RLMContextAdapter):
             return env
 
         except (ImportError, RuntimeError, ValueError, TypeError, AttributeError) as e:
-            logger.error(f"Failed to create knowledge REPL environment: {e}")
+            logger.error("Failed to create knowledge REPL environment: %s", e)
             return None
 
     def _knowledge_to_string(self, km_context: Any) -> str:

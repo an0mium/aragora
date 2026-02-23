@@ -264,11 +264,11 @@ class TelegramHandler(BotHandlerMixin, SecureHandler):
             try:
                 update = json.loads(body.decode("utf-8"))
             except json.JSONDecodeError as e:
-                logger.error(f"Invalid JSON in Telegram update: {e}")
+                logger.error("Invalid JSON in Telegram update: %s", e)
                 return error_response("Invalid JSON", 400)
 
             update_id = update.get("update_id")
-            logger.debug(f"Telegram update received: {update_id}")
+            logger.debug("Telegram update received: %s", update_id)
 
             # Route update types
             if "message" in update:
@@ -281,11 +281,11 @@ class TelegramHandler(BotHandlerMixin, SecureHandler):
                 return self._handle_message(update["edited_message"], edited=True)
             else:
                 # Acknowledge unknown update types
-                logger.debug(f"Unhandled Telegram update type: {list(update.keys())}")
+                logger.debug("Unhandled Telegram update type: %s", list(update.keys()))
                 return json_response({"ok": True})
 
         except json.JSONDecodeError as e:
-            logger.error(f"Invalid JSON in Telegram update: {e}")
+            logger.error("Invalid JSON in Telegram update: %s", e)
             return error_response("Invalid JSON payload", 400)
         except (ValueError, KeyError, TypeError, OSError) as e:
             logger.exception("Unexpected Telegram webhook error: %s", e)
@@ -304,7 +304,7 @@ class TelegramHandler(BotHandlerMixin, SecureHandler):
 
         text = message.get("text", "")
 
-        logger.info(f"Telegram message from {username} in {chat_type}: {text[:50]}...")
+        logger.info("Telegram message from %s in %s: %s...", username, chat_type, text[:50])
 
         # Check for bot commands
         entities = message.get("entities", [])
@@ -417,7 +417,7 @@ class TelegramHandler(BotHandlerMixin, SecureHandler):
         """Handle Telegram bot command."""
         command = command.lower().lstrip("/")
 
-        logger.info(f"Telegram command: /{command} {args[:50]}...")
+        logger.info("Telegram command: /%s %s...", command, args[:50])
 
         # Route commands
         if command == "start":
@@ -459,7 +459,7 @@ class TelegramHandler(BotHandlerMixin, SecureHandler):
         from_user = callback.get("from", {})
         user_id = from_user.get("id")
 
-        logger.info(f"Telegram callback from {user_id}: {data}")
+        logger.info("Telegram callback from %s: %s", user_id, data)
 
         # Parse callback data (format: action:param1:param2)
         parts = data.split(":")
@@ -479,7 +479,7 @@ class TelegramHandler(BotHandlerMixin, SecureHandler):
         query.get("id")
         query_text = query.get("query", "")
 
-        logger.debug(f"Telegram inline query: {query_text[:50]}...")
+        logger.debug("Telegram inline query: %s...", query_text[:50])
 
         # For now, return empty results
         return json_response({"ok": True})
@@ -496,7 +496,7 @@ class TelegramHandler(BotHandlerMixin, SecureHandler):
             self._answer_callback_query(callback_id, "Permission denied: cannot vote.")
             return json_response({"ok": False, "error": "permission_denied"})
 
-        logger.info(f"Vote from {user_id} on {debate_id}: {vote_option}")
+        logger.info("Vote from %s on %s: %s", user_id, debate_id, vote_option)
 
         try:
             from aragora.memory.consensus import ConsensusStore
@@ -515,7 +515,7 @@ class TelegramHandler(BotHandlerMixin, SecureHandler):
             # Acknowledge the callback
             self._answer_callback_query(callback_id, f"Vote recorded: {vote_option}")
 
-            logger.info(f"Vote recorded from Telegram user {user_id} on {debate_id}: {vote_option}")
+            logger.info("Vote recorded from Telegram user %s on %s: %s", user_id, debate_id, vote_option)
             audit_data(
                 user_id=f"telegram:{user_id}",
                 resource_type="debate_vote",
@@ -553,7 +553,7 @@ class TelegramHandler(BotHandlerMixin, SecureHandler):
                 client.post(url, json=data)
 
         except (ImportError, OSError, ConnectionError, TimeoutError) as e:
-            logger.error(f"Failed to answer callback query: {e}")
+            logger.error("Failed to answer callback query: %s", e)
 
     # Command implementations
 
@@ -630,7 +630,7 @@ class TelegramHandler(BotHandlerMixin, SecureHandler):
             f"Debate ID: {debate_id[:8]}...",
         )
 
-        logger.info(f"Debate requested from Telegram user {user_id}: {topic[:100]}")
+        logger.info("Debate requested from Telegram user %s: %s", user_id, topic[:100])
         return json_response({"ok": True, "debate_started": True, "debate_id": debate_id})
 
     def _start_debate_async(
@@ -737,7 +737,7 @@ class TelegramHandler(BotHandlerMixin, SecureHandler):
                         logger.debug("Failed to register dedup Telegram origin: %s", exc)
 
                 if result.debate_id:
-                    logger.info(f"DecisionRouter started debate {result.debate_id} from Telegram")
+                    logger.info("DecisionRouter started debate %s from Telegram", result.debate_id)
                     return result.debate_id
                 return debate_id
 
@@ -745,7 +745,7 @@ class TelegramHandler(BotHandlerMixin, SecureHandler):
                 logger.debug("DecisionRouter not available, falling back to queue system")
                 return await self._fallback_queue_debate(chat_id, user_id, topic, debate_id)
             except (RuntimeError, ValueError, KeyError, AttributeError) as e:
-                logger.error(f"DecisionRouter failed: {e}, falling back to queue system")
+                logger.error("DecisionRouter failed: %s, falling back to queue system", e)
                 return await self._fallback_queue_debate(chat_id, user_id, topic, debate_id)
 
         # Run async routing
@@ -782,7 +782,7 @@ class TelegramHandler(BotHandlerMixin, SecureHandler):
                 metadata={"topic": topic},
             )
         except (RuntimeError, KeyError, AttributeError, OSError) as e:
-            logger.warning(f"Failed to register debate origin: {e}")
+            logger.warning("Failed to register debate origin: %s", e)
 
         try:
             from aragora.queue import create_debate_job, create_redis_queue
@@ -799,14 +799,14 @@ class TelegramHandler(BotHandlerMixin, SecureHandler):
 
             queue = await create_redis_queue()
             await queue.enqueue(job)
-            logger.info(f"Debate job enqueued via fallback: {job.id}")
+            logger.info("Debate job enqueued via fallback: %s", job.id)
             return job.id
 
         except ImportError:
             logger.warning("Queue system not available, using direct execution")
             return self._run_debate_direct(chat_id, user_id, topic, debate_id)
         except (RuntimeError, OSError, ConnectionError) as e:
-            logger.error(f"Failed to enqueue debate: {e}")
+            logger.error("Failed to enqueue debate: %s", e)
             return debate_id
 
     def _run_debate_direct(self, chat_id: int, user_id: int, topic: str, debate_id: str) -> str:
@@ -911,9 +911,9 @@ class TelegramHandler(BotHandlerMixin, SecureHandler):
             with httpx.Client(timeout=10.0) as client:
                 response = client.post(url, json=data)
                 if not response.is_success:
-                    logger.warning(f"Telegram send failed: {response.status_code}")
+                    logger.warning("Telegram send failed: %s", response.status_code)
 
         except ImportError:
             logger.warning("httpx not available for Telegram messaging")
         except (OSError, ConnectionError, TimeoutError) as e:
-            logger.error(f"Failed to send Telegram message: {e}")
+            logger.error("Failed to send Telegram message: %s", e)

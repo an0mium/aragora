@@ -327,7 +327,7 @@ class MarketplaceStore(SQLiteStore):
                     raise ValueError(f"Template with name '{name}' already exists") from e
                 raise
 
-        logger.info(f"Created template: {template.id} ({template.name})")
+        logger.info("Created template: %s (%s)", template.id, template.name)
         return template
 
     def get_template(self, template_id: str) -> StoredTemplate | None:

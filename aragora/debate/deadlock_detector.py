@@ -473,7 +473,7 @@ class DeadlockDetector:
             if deadlock.id == deadlock_id:
                 deadlock.resolved = True
                 deadlock.resolution = resolution
-                logger.info(f"Deadlock {deadlock_id} resolved: {resolution}")
+                logger.info("Deadlock %s resolved: %s", deadlock_id, resolution)
                 return True
         return False
 

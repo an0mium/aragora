@@ -242,7 +242,7 @@ class BatchWebhookDispatcher:
         try:
             self._deliver_callback(event.event_type, payload)
         except (OSError, ConnectionError, RuntimeError, ValueError, TypeError) as e:
-            logger.error(f"Failed to deliver priority event: {e}")
+            logger.error("Failed to deliver priority event: %s", e)
 
     def _flush_batch(self, event_type: str) -> None:
         """Flush a batch for delivery. Must hold lock."""
@@ -273,12 +273,12 @@ class BatchWebhookDispatcher:
                     except (OSError, ConnectionError, RuntimeError, ValueError, TypeError) as e:
                         span.set_attribute("webhook.batch_success", False)
                         span.set_attribute("webhook.error", str(e)[:200])
-                        logger.error(f"Failed to deliver batch for {event_type}: {e}")
+                        logger.error("Failed to deliver batch for %s: %s", event_type, e)
             else:
                 try:
                     self._deliver_callback(event_type, payload)
                 except (OSError, ConnectionError, RuntimeError, ValueError, TypeError) as e:
-                    logger.error(f"Failed to deliver batch for {event_type}: {e}")
+                    logger.error("Failed to deliver batch for %s: %s", event_type, e)
 
     def _flush_loop(self) -> None:
         """Background thread that flushes expired batches."""

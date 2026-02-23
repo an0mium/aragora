@@ -180,7 +180,7 @@ class MoleculeOrchestrator:
             profile = AgentProfileWrapper.from_agent(agent)
             self._agent_profiles[profile.name] = profile
             logger.debug(
-                f"Registered agent {profile.name} with capabilities: {profile.capabilities}"
+                "Registered agent %s with capabilities: %s", profile.name, profile.capabilities
             )
 
     def get_agent_profile(self, name: str) -> AgentProfileWrapper | None:
@@ -272,7 +272,7 @@ class MoleculeOrchestrator:
         self._debate_molecules[debate_id].extend([m.molecule_id for m in molecules])
 
         logger.info(
-            f"Created {len(molecules)} molecules for debate {debate_id} round {round_number}"
+            "Created %s molecules for debate %s round %s", len(molecules), debate_id, round_number
         )
 
         return molecules
@@ -434,11 +434,10 @@ class MoleculeOrchestrator:
         # Log retry status
         if can_retry:
             logger.info(
-                f"Molecule {molecule_id} failed but can retry "
-                f"(attempt {molecule.attempts}/{molecule.max_attempts})"
+                "Molecule %s failed but can retry (attempt %s/%s)", molecule_id, molecule.attempts, molecule.max_attempts
             )
         else:
-            logger.warning(f"Molecule {molecule_id} failed with no retries remaining")
+            logger.warning("Molecule %s failed with no retries remaining", molecule_id)
 
         return MoleculeExecutionResult(
             molecule_id=molecule_id,
@@ -489,7 +488,7 @@ class MoleculeOrchestrator:
                     mol.status = MoleculeStatus.PENDING
                     if self._tracker.assign_molecule(mol.molecule_id, best):
                         reassigned.append((mol.molecule_id, best.name))
-                        logger.info(f"Reassigned molecule {mol.molecule_id} to {best.name}")
+                        logger.info("Reassigned molecule %s to %s", mol.molecule_id, best.name)
 
         return reassigned
 
@@ -552,7 +551,7 @@ class MoleculeOrchestrator:
             mol["molecule_id"] for mol in state.get("molecules", [])
         ]
 
-        logger.info(f"Restored {len(state.get('molecules', []))} molecules for debate {debate_id}")
+        logger.info("Restored %s molecules for debate %s", len(state.get('molecules', [])), debate_id)
 
 
 # Singleton instance

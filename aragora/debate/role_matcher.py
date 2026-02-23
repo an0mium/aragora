@@ -118,8 +118,7 @@ class RoleMatcher:
         self._calibration_cache: dict[str, CalibrationSummary] = {}
 
         logger.info(
-            f"RoleMatcher initialized: strategy={self.config.strategy}, "
-            f"developmental={self.config.enable_developmental_assignment}"
+            "RoleMatcher initialized: strategy=%s, developmental=%s", self.config.strategy, self.config.enable_developmental_assignment
         )
 
     def match_roles(
@@ -486,7 +485,7 @@ class RoleMatcher:
                     self._calibration_cache[agent] = summary
                     result[agent] = summary
                 except (RuntimeError, ValueError, TypeError, AttributeError, KeyError, OSError) as e:
-                    logger.debug(f"Failed to get calibration for {agent}: {e}")
+                    logger.debug("Failed to get calibration for %s: %s", agent, e)
                     result[agent] = None
 
         return result
@@ -504,7 +503,7 @@ class RoleMatcher:
             try:
                 result[agent] = self.persona_manager.get_persona(agent)
             except (RuntimeError, ValueError, TypeError, AttributeError, KeyError) as e:
-                logger.debug(f"Failed to get persona for {agent}: {e}")
+                logger.debug("Failed to get persona for %s: %s", agent, e)
                 result[agent] = None
 
         return result

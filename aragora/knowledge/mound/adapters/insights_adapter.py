@@ -209,7 +209,7 @@ class InsightsAdapter(FusionMixin, SemanticSearchMixin, KnowledgeMoundAdapter):
                 return True
             return False
         except (RuntimeError, ValueError, OSError, AttributeError) as e:
-            logger.warning(f"Failed to apply fusion result to insights: {e}")
+            logger.warning("Failed to apply fusion result to insights: %s", e)
             return False
 
     # ========================================================================
@@ -408,7 +408,7 @@ class InsightsAdapter(FusionMixin, SemanticSearchMixin, KnowledgeMoundAdapter):
             if insight_id:
                 stored_ids.append(insight_id)
 
-        logger.info(f"Stored {len(stored_ids)} insights from debate {debate_insights.debate_id}")
+        logger.info("Stored %s insights from debate %s", len(stored_ids), debate_insights.debate_id)
         return stored_ids
 
     def store_flip(
@@ -458,7 +458,7 @@ class InsightsAdapter(FusionMixin, SemanticSearchMixin, KnowledgeMoundAdapter):
                 self._domain_flips[flip.domain] = []
             self._domain_flips[flip.domain].append(flip_id)
 
-        logger.info(f"Stored flip event: {flip_id} (type={flip.flip_type})")
+        logger.info("Stored flip event: %s (type=%s)", flip_id, flip.flip_type)
         return flip_id
 
     def store_flips_batch(
@@ -499,7 +499,7 @@ class InsightsAdapter(FusionMixin, SemanticSearchMixin, KnowledgeMoundAdapter):
         """
         if occurrence_count < self.MIN_PATTERN_OCCURRENCES:
             logger.debug(
-                f"Pattern '{pattern_text[:50]}' below occurrence threshold: {occurrence_count}"
+                "Pattern '%s' below occurrence threshold: %s", pattern_text[:50], occurrence_count
             )
             return None
 
@@ -529,7 +529,7 @@ class InsightsAdapter(FusionMixin, SemanticSearchMixin, KnowledgeMoundAdapter):
         self._patterns[pattern_id] = pattern_data
 
         logger.info(
-            f"Stored pattern: {pattern_id} (occurrences={pattern_data['occurrence_count']})"
+            "Stored pattern: %s (occurrences=%s)", pattern_id, pattern_data['occurrence_count']
         )
         return pattern_id
 
@@ -1278,8 +1278,7 @@ class InsightsAdapter(FusionMixin, SemanticSearchMixin, KnowledgeMoundAdapter):
         flip["km_recommendation"] = validation.recommendation
 
         logger.info(
-            f"Applied KM validation to flip {validation.flip_id}: "
-            f"expected={validation.is_expected}, recommendation={validation.recommendation}"
+            "Applied KM validation to flip %s: expected=%s, recommendation=%s", validation.flip_id, validation.is_expected, validation.recommendation
         )
 
         return True

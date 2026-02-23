@@ -521,7 +521,7 @@ class ServiceNowConnector(EnterpriseConnector):
                 )
 
         except (OSError, RuntimeError, ValueError, TypeError, KeyError) as e:
-            logger.warning(f"[{self.name}] Failed to get comments for {sys_id}: {e}")
+            logger.warning("[%s] Failed to get comments for %s: %s", self.name, sys_id, e)
 
         return comments
 
@@ -548,7 +548,7 @@ class ServiceNowConnector(EnterpriseConnector):
 
         for table in self.tables:
             table_config = SERVICENOW_TABLES.get(table, {"name": table})
-            logger.info(f"[{self.name}] Syncing table: {table_config.get('name', table)}")
+            logger.info("[%s] Syncing table: %s", self.name, table_config.get('name', table))
 
             async for record in self._get_records(table, modified_since):
                 # Get comments
@@ -675,7 +675,7 @@ class ServiceNowConnector(EnterpriseConnector):
                     )
 
             except (OSError, RuntimeError, ValueError, TypeError, KeyError) as e:
-                logger.error(f"[{self.name}] Search in {tbl} failed: {e}")
+                logger.error("[%s] Search in %s failed: %s", self.name, tbl, e)
 
         return results[:limit]
 
@@ -686,7 +686,7 @@ class ServiceNowConnector(EnterpriseConnector):
         # Parse evidence_id format: snow-{table}-{number}
         parts = evidence_id.split("-", 2)
         if len(parts) < 3 or parts[0] != "snow":
-            logger.error(f"[{self.name}] Invalid evidence ID format: {evidence_id}")
+            logger.error("[%s] Invalid evidence ID format: %s", self.name, evidence_id)
             return None
 
         table = parts[1]
@@ -726,7 +726,7 @@ class ServiceNowConnector(EnterpriseConnector):
             )
 
         except (OSError, RuntimeError, ValueError, TypeError, KeyError) as e:
-            logger.error(f"[{self.name}] Fetch failed: {e}")
+            logger.error("[%s] Fetch failed: %s", self.name, e)
             return None
 
     async def handle_webhook(
@@ -750,11 +750,11 @@ class ServiceNowConnector(EnterpriseConnector):
         secret = self.get_webhook_secret()
         if secret:
             if not signature:
-                logger.warning(f"[{self.name}] Webhook missing signature")
+                logger.warning("[%s] Webhook missing signature", self.name)
                 return False
 
             if not self._verify_payload_signature(payload, signature, secret):
-                logger.warning(f"[{self.name}] Webhook signature verification failed")
+                logger.warning("[%s] Webhook signature verification failed", self.name)
                 return False
 
             # Replay protection: reject requests older than 5 minutes
@@ -764,7 +764,7 @@ class ServiceNowConnector(EnterpriseConnector):
 
                     request_time = float(timestamp)
                     if abs(time.time() - request_time) > 300:
-                        logger.warning(f"[{self.name}] Webhook timestamp too old")
+                        logger.warning("[%s] Webhook timestamp too old", self.name)
                         return False
                 except (ValueError, TypeError) as e:
                     logger.debug("handle webhook encountered an error: %s", e)
@@ -773,7 +773,7 @@ class ServiceNowConnector(EnterpriseConnector):
         sys_id = payload.get("sys_id", "")
         operation = payload.get("operation", "")
 
-        logger.info(f"[{self.name}] Webhook: {operation} on {table}/{sys_id}")
+        logger.info("[%s] Webhook: %s on %s/%s", self.name, operation, table, sys_id)
 
         if table in self.tables:
             # Trigger incremental sync
@@ -814,13 +814,13 @@ class ServiceNowConnector(EnterpriseConnector):
             try:
                 provided = base64.b64decode(signature)
             except (ValueError, TypeError) as e:
-                logger.debug(f"Base64 decode failed, trying hex: {e}")
+                logger.debug("Base64 decode failed, trying hex: %s", e)
                 provided = bytes.fromhex(signature)
 
             return hmac.compare_digest(expected, provided)
 
         except (ValueError, TypeError, AttributeError) as e:
-            logger.error(f"[{self.name}] Signature verification error: {e}")
+            logger.error("[%s] Signature verification error: %s", self.name, e)
             return False
 
     def _verify_payload_signature(
@@ -888,7 +888,7 @@ class ServiceNowConnector(EnterpriseConnector):
             results = data.get("result", [])
             return results[0] if results else None
         except (OSError, RuntimeError, ValueError, TypeError, KeyError, AttributeError) as e:
-            logger.error(f"[{self.name}] Reference resolution failed: {e}")
+            logger.error("[%s] Reference resolution failed: %s", self.name, e)
 
         return None
 

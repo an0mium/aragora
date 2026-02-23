@@ -62,7 +62,7 @@ class VerticalRegistry:
         vertical_id = instance.vertical_id
 
         cls._registry[vertical_id] = vertical_class
-        logger.debug(f"Registered vertical: {vertical_id} -> {vertical_class.__name__}")
+        logger.debug("Registered vertical: %s -> %s", vertical_id, vertical_class.__name__)
 
         return vertical_class
 
@@ -77,7 +77,7 @@ class VerticalRegistry:
         vertical_id = instance.vertical_id
         cls._instances[vertical_id] = instance
         cls._registry[vertical_id] = type(instance)
-        logger.debug(f"Registered vertical instance: {vertical_id}")
+        logger.debug("Registered vertical instance: %s", vertical_id)
 
     @classmethod
     def unregister(cls, vertical_id: str) -> bool:

@@ -73,7 +73,7 @@ class KnowledgePruningStep(BaseStep):
 
         # Validate action
         if action not in self.VALID_ACTIONS:
-            logger.warning(f"Invalid action '{action}', using 'archive'")
+            logger.warning("Invalid action '%s', using 'archive'", action)
             action = "archive"
 
         try:
@@ -106,7 +106,7 @@ class KnowledgePruningStep(BaseStep):
             )
 
             if not items:
-                logger.info(f"No items to prune in workspace '{workspace_id}'")
+                logger.info("No items to prune in workspace '%s'", workspace_id)
                 return {
                     "success": True,
                     "workspace_id": workspace_id,
@@ -124,9 +124,7 @@ class KnowledgePruningStep(BaseStep):
             )
 
             logger.info(
-                f"Pruning complete for '{workspace_id}': "
-                f"{result.items_pruned}/{result.items_analyzed} items "
-                f"({'dry run' if dry_run else 'executed'})"
+                "Pruning complete for '%s': %s/%s items (%s)", workspace_id, result.items_pruned, result.items_analyzed, 'dry run' if dry_run else 'executed'
             )
 
             return {
@@ -144,7 +142,7 @@ class KnowledgePruningStep(BaseStep):
             }
 
         except (ImportError, RuntimeError, ValueError, TypeError, OSError, AttributeError) as e:
-            logger.error(f"Pruning step failed: {e}")
+            logger.error("Pruning step failed: %s", e)
             return {
                 "success": False,
                 "workspace_id": workspace_id,
@@ -225,15 +223,13 @@ class KnowledgeDedupStep(BaseStep):
                 result_data["duplicates_removed"] = merge_result.get("duplicates_found", 0)
 
             logger.info(
-                f"Dedup complete for '{workspace_id}': "
-                f"{report.duplicate_clusters_found} clusters found, "
-                f"{result_data.get('merges_performed', 0)} merged"
+                "Dedup complete for '%s': %s clusters found, %s merged", workspace_id, report.duplicate_clusters_found, result_data.get('merges_performed', 0)
             )
 
             return result_data
 
         except (ImportError, RuntimeError, ValueError, TypeError, OSError, AttributeError) as e:
-            logger.error(f"Dedup step failed: {e}")
+            logger.error("Dedup step failed: %s", e)
             return {
                 "success": False,
                 "workspace_id": workspace_id,
@@ -306,7 +302,7 @@ class ConfidenceDecayStep(BaseStep):
             )
 
             logger.info(
-                f"Confidence decay applied to '{workspace_id}': {items_decayed} items decayed"
+                "Confidence decay applied to '%s': %s items decayed", workspace_id, items_decayed
             )
 
             return {
@@ -318,7 +314,7 @@ class ConfidenceDecayStep(BaseStep):
             }
 
         except (ImportError, RuntimeError, ValueError, TypeError, OSError, AttributeError) as e:
-            logger.error(f"Confidence decay step failed: {e}")
+            logger.error("Confidence decay step failed: %s", e)
             return {
                 "success": False,
                 "workspace_id": workspace_id,
@@ -366,4 +362,4 @@ def _register_pruning_handlers():
 try:
     _register_pruning_handlers()
 except (ImportError, RuntimeError, ValueError, TypeError, AttributeError) as e:
-    logger.warning(f"Could not register pruning handlers: {e}")
+    logger.warning("Could not register pruning handlers: %s", e)

@@ -175,7 +175,7 @@ def _cleanup_expired_approvals() -> int:
         del _pending_approvals[rid]
 
     if expired_ids:
-        logger.debug(f"Cleaned up {len(expired_ids)} expired/resolved approval requests")
+        logger.debug("Cleaned up %s expired/resolved approval requests", len(expired_ids))
 
     return len(expired_ids)
 
@@ -255,8 +255,7 @@ async def create_approval_request(
     _record_approval_request_created(request)
 
     logger.info(
-        f"Approval request created: {request_id} for {operation} "
-        f"by {auth_context.user_id} (risk: {risk_level.value})"
+        "Approval request created: %s for %s by %s (risk: %s)", request_id, operation, auth_context.user_id, risk_level.value
     )
 
     return request
@@ -294,11 +293,11 @@ async def resolve_approval(
     """
     request = await get_approval_request(request_id)
     if not request:
-        logger.warning(f"Approval request not found: {request_id}")
+        logger.warning("Approval request not found: %s", request_id)
         return False
 
     if request.state != ApprovalState.PENDING:
-        logger.warning(f"Approval request {request_id} already resolved: {request.state}")
+        logger.warning("Approval request %s already resolved: %s", request_id, request.state)
         return False
 
     # Check if expired
@@ -319,8 +318,7 @@ async def resolve_approval(
         for item in request.checklist:
             if item.required and not item.checked:
                 logger.warning(
-                    f"Cannot approve {request_id}: required checklist item "
-                    f"'{item.label}' not checked"
+                    "Cannot approve %s: required checklist item '%s' not checked", request_id, item.label
                 )
                 return False
 
@@ -341,7 +339,7 @@ async def resolve_approval(
     # Record metrics and audit
     _record_approval_resolved(request)
 
-    logger.info(f"Approval request {request_id} resolved: {request.state.value} by {approver_id}")
+    logger.info("Approval request %s resolved: %s by %s", request_id, request.state.value, approver_id)
 
     return True
 
@@ -432,8 +430,7 @@ def require_approval(
             # Check if user has auto-approve role
             if auto_roles and auth_context.has_any_role(*auto_roles):
                 logger.debug(
-                    f"Auto-approved {operation} for {auth_context.user_id} "
-                    f"(roles: {auth_context.roles})"
+                    "Auto-approved %s for %s (roles: %s)", operation, auth_context.user_id, auth_context.roles
                 )
                 result = await func(*args, **kwargs)
                 return result
@@ -447,7 +444,7 @@ def require_approval(
                 if request and request.state == ApprovalState.APPROVED:
                     # Approval is valid, proceed
                     logger.info(
-                        f"Executing approved operation {operation} (approval: {approval_id})"
+                        "Executing approved operation %s (approval: %s)", operation, approval_id
                     )
                     result = await func(*args, **kwargs)
                     return result
@@ -543,7 +540,7 @@ async def _persist_approval_request(request: OperationApprovalRequest) -> None:
                 f"Failed to persist approval request: {e}. "
                 "Approvals must be persisted in distributed deployments.",
             )
-        logger.warning(f"Failed to persist approval request: {e}")
+        logger.warning("Failed to persist approval request: %s", e)
 
 
 async def _recover_approval_request(request_id: str) -> OperationApprovalRequest | None:
@@ -608,7 +605,7 @@ async def _recover_approval_request(request_id: str) -> OperationApprovalRequest
         OSError,
         json.JSONDecodeError,
     ) as e:
-        logger.warning(f"Failed to recover approval request {request_id}: {e}")
+        logger.warning("Failed to recover approval request %s: %s", request_id, e)
         return None
 
 
@@ -625,7 +622,7 @@ async def _update_approval_state(request: OperationApprovalRequest) -> None:
             rejection_reason=request.rejection_reason,
         )
     except (TypeError, ValueError, KeyError, AttributeError, RuntimeError, OSError) as e:
-        logger.warning(f"Failed to update approval state: {e}")
+        logger.warning("Failed to update approval state: %s", e)
 
 
 def _record_approval_request_created(request: OperationApprovalRequest) -> None:
@@ -638,7 +635,7 @@ def _record_approval_request_created(request: OperationApprovalRequest) -> None:
         # Metrics module not available (optional dependency)
         pass
     except (AttributeError, TypeError, RuntimeError, ValueError) as e:
-        logger.warning(f"Failed to record approval creation metric: {e}")
+        logger.warning("Failed to record approval creation metric: %s", e)
 
 
 def _record_approval_resolved(request: OperationApprovalRequest) -> None:
@@ -651,7 +648,7 @@ def _record_approval_resolved(request: OperationApprovalRequest) -> None:
         # Metrics module not available (optional dependency)
         pass
     except (AttributeError, TypeError, RuntimeError, ValueError) as e:
-        logger.warning(f"Failed to record approval resolution metric: {e}")
+        logger.warning("Failed to record approval resolution metric: %s", e)
 
     # Audit log
     try:
@@ -673,7 +670,7 @@ def _record_approval_resolved(request: OperationApprovalRequest) -> None:
         # Audit module not available (optional dependency)
         pass
     except (RuntimeError, TypeError) as e:
-        logger.warning(f"Failed to create audit task for approval: {e}")
+        logger.warning("Failed to create audit task for approval: %s", e)
 
 
 # =============================================================================
@@ -752,10 +749,10 @@ async def recover_pending_approvals() -> int:
                 recovered += 1
 
             except (TypeError, ValueError, KeyError, AttributeError, json.JSONDecodeError) as e:
-                logger.warning(f"Failed to recover approval {record.approval_id}: {e}")
+                logger.warning("Failed to recover approval %s: %s", record.approval_id, e)
 
         if recovered > 0 or expired > 0:
-            logger.info(f"Approval gate recovery: {recovered} pending restored, {expired} expired")
+            logger.info("Approval gate recovery: %s pending restored, %s expired", recovered, expired)
 
         return recovered
 
@@ -763,7 +760,7 @@ async def recover_pending_approvals() -> int:
         logger.debug("GovernanceStore not available, approval recovery skipped")
         return 0
     except (TypeError, ValueError, KeyError, AttributeError, RuntimeError, OSError) as e:
-        logger.warning(f"Failed to recover pending approvals: {e}")
+        logger.warning("Failed to recover pending approvals: %s", e)
         return 0
 
 

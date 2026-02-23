@@ -224,11 +224,11 @@ class FindingWorkflowHandler(BaseHandler):
             decision = check_permission(context, permission_key, resource_id)
             if not decision.allowed:
                 logger.warning(
-                    f"Permission denied: {permission_key} for user {context.user_id}: {decision.reason}"
+                    "Permission denied: %s for user %s: %s", permission_key, context.user_id, decision.reason
                 )
                 return self._error_response(403, "Permission denied")
         except PermissionDeniedError as e:
-            logger.warning(f"Permission denied: {permission_key} for user {context.user_id}: {e}")
+            logger.warning("Permission denied: %s for user %s: %s", permission_key, context.user_id, e)
             return self._error_response(403, "Permission denied")
         return None
 
@@ -332,7 +332,7 @@ class FindingWorkflowHandler(BaseHandler):
             # Persist workflow data
             await store.save(workflow.data.to_dict())
 
-            logger.info(f"Finding {finding_id} transitioned to {new_status} by {user_id}")
+            logger.info("Finding %s transitioned to %s by %s", finding_id, new_status, user_id)
 
             return self._json_response(
                 200,
@@ -422,7 +422,7 @@ class FindingWorkflowHandler(BaseHandler):
 
             await store.save(workflow.data.to_dict())
 
-            logger.info(f"Finding {finding_id} assigned to {assignee_id} by {user_id}")
+            logger.info("Finding %s assigned to %s by %s", finding_id, assignee_id, user_id)
 
             return self._json_response(
                 200,
@@ -475,7 +475,7 @@ class FindingWorkflowHandler(BaseHandler):
             comment = body.get("comment", "")
         except (json.JSONDecodeError, ValueError, TypeError) as e:
             # Comment is optional, proceed with empty string if body parsing fails
-            logger.debug(f"Optional comment body not provided or invalid: {e}")
+            logger.debug("Optional comment body not provided or invalid: %s", e)
 
         user_id, user_name = self._get_user_from_request(request)
 

@@ -172,7 +172,7 @@ class PostgresWorkflowStore(PostgresStore):
             now,
         )
 
-        logger.debug(f"Saved workflow {workflow.id}")
+        logger.debug("Saved workflow %s", workflow.id)
 
     async def get_workflow(
         self, workflow_id: str, tenant_id: str = "default"
@@ -301,7 +301,7 @@ class PostgresWorkflowStore(PostgresStore):
         deleted = not result.endswith(" 0")
 
         if deleted:
-            logger.info(f"Deleted workflow {workflow_id}")
+            logger.info("Deleted workflow %s", workflow_id)
 
         return deleted
 

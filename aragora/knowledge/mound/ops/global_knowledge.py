@@ -141,7 +141,7 @@ class GlobalKnowledgeMixin:
         )
 
         result = await host.store(request)
-        logger.info(f"Stored verified fact {result.node_id} in global knowledge")
+        logger.info("Stored verified fact %s in global knowledge", result.node_id)
         return result.node_id
 
     async def query_global_knowledge(

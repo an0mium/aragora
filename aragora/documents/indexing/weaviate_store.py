@@ -148,11 +148,11 @@ class WeaviateStore:
             # Ensure collection exists
             await self._ensure_collection()
             self._connected = True
-            logger.info(f"Connected to Weaviate at {self.config.url}")
+            logger.info("Connected to Weaviate at %s", self.config.url)
             return True
 
         except (ConnectionError, TimeoutError, OSError, RuntimeError) as e:
-            logger.error(f"Failed to connect to Weaviate: {e}")
+            logger.error("Failed to connect to Weaviate: %s", e)
             self._connected = False
             raise
 
@@ -164,7 +164,7 @@ class WeaviateStore:
         collections = self._client.collections
 
         if not collections.exists(self.config.collection_name):
-            logger.info(f"Creating collection: {self.config.collection_name}")
+            logger.info("Creating collection: %s", self.config.collection_name)
 
             collections.create(
                 name=self.config.collection_name,
@@ -295,7 +295,7 @@ class WeaviateStore:
             # Small delay between batches to avoid overwhelming the server
             await asyncio.sleep(0.01)
 
-        logger.info(f"Indexed {len(uuids)} chunks to Weaviate")
+        logger.info("Indexed %s chunks to Weaviate", len(uuids))
         return uuids
 
     async def search_vector(
@@ -423,7 +423,7 @@ class WeaviateStore:
         )
 
         deleted = result.successful if hasattr(result, "successful") else 0
-        logger.info(f"Deleted {deleted} chunks for document {document_id}")
+        logger.info("Deleted %s chunks for document %s", deleted, document_id)
         return deleted
 
     async def get_document_chunks(

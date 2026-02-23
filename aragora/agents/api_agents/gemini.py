@@ -209,7 +209,7 @@ class GeminiAgent(QuotaFallbackMixin, APIAgent):
 
         # Add Google Search grounding if web search is needed
         if self._needs_web_search(full_prompt):
-            logger.info(f"[{self.name}] Enabling Google Search grounding for web content")
+            logger.info("[%s] Enabling Google Search grounding for web content", self.name)
             payload["tools"] = [{"googleSearch": {}}]
 
         headers = {
@@ -265,7 +265,7 @@ class GeminiAgent(QuotaFallbackMixin, APIAgent):
                     if finish_reason == "MAX_TOKENS" and text.strip():
                         # Got partial content - use it but log warning
                         logger.warning(
-                            f"Gemini response truncated at {len(text)} chars, using partial content"
+                            "Gemini response truncated at %s chars, using partial content", len(text)
                         )
                         return text
 
@@ -339,7 +339,7 @@ class GeminiAgent(QuotaFallbackMixin, APIAgent):
 
         # Add Google Search grounding if web search is needed
         if self._needs_web_search(full_prompt):
-            logger.info(f"[{self.name}] Enabling Google Search grounding for streaming")
+            logger.info("[%s] Enabling Google Search grounding for streaming", self.name)
             payload["tools"] = [{"googleSearch": {}}]
 
         headers = {
@@ -434,10 +434,10 @@ class GeminiAgent(QuotaFallbackMixin, APIAgent):
                             except json.JSONDecodeError:
                                 break
                 except asyncio.TimeoutError:
-                    logger.warning(f"[{self.name}] Streaming timeout")
+                    logger.warning("[%s] Streaming timeout", self.name)
                     raise
                 except aiohttp.ClientError as e:
-                    logger.warning(f"[{self.name}] Streaming connection error: {e}")
+                    logger.warning("[%s] Streaming connection error: %s", self.name, e)
                     raise AgentStreamError(
                         f"Streaming connection error: {e}",
                         agent_name=self.name,

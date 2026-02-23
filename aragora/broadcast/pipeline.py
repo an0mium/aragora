@@ -106,12 +106,12 @@ class BroadcastPipeline:
 
             trace_path = self.traces_dir / f"{debate_id}.json"
             if not trace_path.exists():
-                logger.warning(f"Trace not found: {trace_path}")
+                logger.warning("Trace not found: %s", trace_path)
                 return None
 
             return DebateTrace.load(trace_path)
         except (OSError, ValueError, KeyError, RuntimeError) as e:
-            logger.error(f"Failed to load trace {debate_id}: {e}")
+            logger.error("Failed to load trace %s: %s", debate_id, e)
             return None
 
     async def run(
@@ -146,7 +146,7 @@ class BroadcastPipeline:
                 result.audio_path = audio_path
                 result.steps_completed.append("audio")
                 result.duration_seconds = self._get_audio_duration(audio_path)
-                logger.info(f"Audio generated: {audio_path}")
+                logger.info("Audio generated: %s", audio_path)
             else:
                 result.error_message = "Audio generation failed"
                 return result
@@ -161,7 +161,7 @@ class BroadcastPipeline:
             if video_path:
                 result.video_path = video_path
                 result.steps_completed.append("video")
-                logger.info(f"Video generated: {video_path}")
+                logger.info("Video generated: %s", video_path)
             else:
                 logger.warning("Video generation failed, continuing without video")
 
@@ -176,7 +176,7 @@ class BroadcastPipeline:
             if episode_guid:
                 result.rss_episode_guid = episode_guid
                 result.steps_completed.append("rss")
-                logger.info(f"RSS episode created: {episode_guid}")
+                logger.info("RSS episode created: %s", episode_guid)
 
         # Step 4: Persist to audio store (if available)
         if self.audio_store and audio_path:
@@ -189,7 +189,7 @@ class BroadcastPipeline:
                 result.audio_path = stored_path
                 result.steps_completed.append("storage")
             except Exception as e:  # noqa: BLE001 - graceful degradation, pipeline continues without storage
-                logger.warning(f"Failed to persist to audio store: {e}")
+                logger.warning("Failed to persist to audio store: %s", e)
 
         result.success = "audio" in result.steps_completed
         return result
@@ -210,7 +210,7 @@ class BroadcastPipeline:
             logger.error("Broadcast module not available")
             return None
         except Exception as e:  # noqa: BLE001 - graceful degradation, pipeline continues without audio
-            logger.error(f"Audio generation failed: {e}")
+            logger.error("Audio generation failed: %s", e)
             return None
 
     async def _generate_video(
@@ -241,7 +241,7 @@ class BroadcastPipeline:
             logger.warning("Video generation module not available")
             return None
         except Exception as e:  # noqa: BLE001 - graceful degradation, pipeline continues without video
-            logger.warning(f"Video generation failed: {e}")
+            logger.warning("Video generation failed: %s", e)
             return None
 
     def _create_rss_episode(
@@ -291,7 +291,7 @@ class BroadcastPipeline:
             self.rss_generator.add_episode(episode)
             return episode.guid
         except Exception as e:  # noqa: BLE001 - graceful degradation, RSS episode creation is non-critical
-            logger.warning(f"Failed to create RSS episode: {e}")
+            logger.warning("Failed to create RSS episode: %s", e)
             return None
 
     def _format_show_notes(self, trace: DebateTrace) -> str:
@@ -330,7 +330,7 @@ class BroadcastPipeline:
             logger.debug("mutagen not available for duration extraction")
             return None
         except (RuntimeError, OSError, ValueError) as e:
-            logger.debug(f"Failed to get audio duration: {e}")
+            logger.debug("Failed to get audio duration: %s", e)
             return None
 
     def get_rss_feed(self) -> str | None:
@@ -340,7 +340,7 @@ class BroadcastPipeline:
         try:
             return self.rss_generator.generate()
         except (RuntimeError, ValueError) as e:
-            logger.error(f"Failed to generate RSS feed: {e}")
+            logger.error("Failed to generate RSS feed: %s", e)
             return None
 
 

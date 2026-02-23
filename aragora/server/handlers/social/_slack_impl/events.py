@@ -86,15 +86,15 @@ class EventsMixin(MessagingMixin):
             return json_response({"ok": True})
 
         except json.JSONDecodeError as e:
-            logger.warning(f"Invalid JSON in Slack event: {e}")
+            logger.warning("Invalid JSON in Slack event: %s", e)
             self._audit_event_error(team_id, event_type or "unknown", "Invalid JSON")
             return json_response({"ok": True})  # Always 200 for events
         except (ValueError, KeyError, TypeError) as e:
-            logger.warning(f"Invalid event data: {e}")
+            logger.warning("Invalid event data: %s", e)
             self._audit_event_error(team_id, event_type or inner_type or "unknown", "Invalid event data")
             return json_response({"ok": True})  # Always 200 for events
         except (ValueError, KeyError, TypeError, RuntimeError, OSError, ConnectionError) as e:
-            logger.exception(f"Unexpected events handler error: {e}")
+            logger.exception("Unexpected events handler error: %s", e)
             self._audit_event_error(team_id, event_type or inner_type or "unknown", "Internal error")
             return json_response({"ok": True})  # Always 200 for events
 
@@ -116,7 +116,7 @@ class EventsMixin(MessagingMixin):
         channel = event.get("channel", "")
         user = event.get("user", "")
 
-        logger.info(f"App mention from {user} in {channel}: {text[:50]}...")
+        logger.info("App mention from %s in %s: %s...", user, channel, text[:50])
 
         # Parse the mention to extract command/question
         # Remove the bot mention from the text
@@ -161,7 +161,7 @@ class EventsMixin(MessagingMixin):
         user = event.get("user", "")
         channel = event.get("channel", "")
 
-        logger.info(f"DM from {user}: {text[:50]}...")
+        logger.info("DM from %s: %s...", user, text[:50])
 
         # Parse DM commands
         if not text:
@@ -184,7 +184,7 @@ class EventsMixin(MessagingMixin):
                 agents = store.get_all_ratings()
                 response_text = f"*Aragora Status*\n\u2022 Status: Online\n\u2022 Agents: {len(agents)} registered"
             except (ImportError, AttributeError, RuntimeError) as e:
-                logger.debug(f"Failed to fetch status: {e}")
+                logger.debug("Failed to fetch status: %s", e)
                 response_text = "*Aragora Status*\n\u2022 Status: Online\n\u2022 Agents: Unknown"
         elif text.lower() == "agents":
             try:
@@ -203,7 +203,7 @@ class EventsMixin(MessagingMixin):
                 else:
                     response_text = "No agents registered yet."
             except (ImportError, AttributeError, RuntimeError) as e:
-                logger.debug(f"Failed to fetch agent list: {e}")
+                logger.debug("Failed to fetch agent list: %s", e)
                 response_text = "Could not fetch agent list."
         elif text.lower() == "recent":
             try:
@@ -224,7 +224,7 @@ class EventsMixin(MessagingMixin):
                 else:
                     response_text = "Debate history not available."
             except (ImportError, AttributeError, RuntimeError) as e:
-                logger.debug(f"Failed to fetch recent debates: {e}")
+                logger.debug("Failed to fetch recent debates: %s", e)
                 response_text = "Could not fetch recent debates."
         elif text.lower().startswith("debate "):
             topic = text[7:].strip().strip("\"'")
@@ -293,11 +293,11 @@ class EventsMixin(MessagingMixin):
             await self._post_message_async(channel, response)
 
         except ImportError as e:
-            logger.warning(f"Debate modules not available: {e}")
+            logger.warning("Debate modules not available: %s", e)
             await self._post_message_async(channel, "Debate service temporarily unavailable")
         except (ValueError, KeyError, TypeError) as e:
-            logger.warning(f"Invalid debate request data: {e}")
+            logger.warning("Invalid debate request data: %s", e)
             await self._post_message_async(channel, "Sorry, an error occurred while processing your request.")
         except (ValueError, KeyError, TypeError, RuntimeError, OSError, ConnectionError) as e:
-            logger.exception(f"Unexpected DM debate creation error: {e}")
+            logger.exception("Unexpected DM debate creation error: %s", e)
             await self._post_message_async(channel, "Sorry, an error occurred while processing your request.")

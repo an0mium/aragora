@@ -196,13 +196,13 @@ class SupermemoryBackend:
             if result.success:
                 # Store supermemory ID in metadata for cross-reference
                 entry.metadata["supermemory_id"] = result.memory_id
-                logger.debug(f"Synced entry {entry.id} to Supermemory: {result.memory_id}")
+                logger.debug("Synced entry %s to Supermemory: %s", entry.id, result.memory_id)
                 return True
             else:
-                logger.warning(f"Failed to sync entry {entry.id}: {result.error}")
+                logger.warning("Failed to sync entry %s: %s", entry.id, result.error)
                 return False
         except (OSError, ValueError, RuntimeError) as e:
-            logger.error(f"Error syncing to Supermemory: {e}")
+            logger.error("Error syncing to Supermemory: %s", e)
             return False
 
     async def get(self, entry_id: str) -> MemoryEntry | None:
@@ -359,7 +359,7 @@ class SupermemoryBackend:
             )
             return [(result.content, result.similarity) for result in response.results]
         except (OSError, ValueError, RuntimeError) as e:
-            logger.error(f"Error searching Supermemory: {e}")
+            logger.error("Error searching Supermemory: %s", e)
             return []
 
     # =========================================================================
@@ -437,7 +437,7 @@ class SupermemoryBackend:
         # Clear expired cache entries
         await self.cleanup_expired()
         logger.debug(
-            f"Vacuum complete. {len(self._local_entries)} entries, {len(self._cache)} cached"
+            "Vacuum complete. %s entries, %s cached", len(self._local_entries), len(self._cache)
         )
 
     # =========================================================================

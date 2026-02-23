@@ -268,7 +268,7 @@ class SlackConnector(EnterpriseConnector):
             return user
 
         except (RuntimeError, ValueError, KeyError) as e:
-            logger.warning(f"[{self.name}] Failed to get user {user_id}: {e}")
+            logger.warning("[%s] Failed to get user %s: %s", self.name, user_id, e)
             return None
 
     async def _get_messages(
@@ -301,7 +301,7 @@ class SlackConnector(EnterpriseConnector):
                 try:
                     created_at = datetime.fromtimestamp(float(ts), tz=timezone.utc)
                 except (ValueError, TypeError) as e:
-                    logger.debug(f"Invalid Slack timestamp format: {e}")
+                    logger.debug("Invalid Slack timestamp format: %s", e)
 
             message = SlackMessage(
                 ts=ts,
@@ -350,7 +350,7 @@ class SlackConnector(EnterpriseConnector):
                     try:
                         created_at = datetime.fromtimestamp(float(ts), tz=timezone.utc)
                     except (ValueError, TypeError) as e:
-                        logger.debug(f"Invalid Slack thread timestamp: {e}")
+                        logger.debug("Invalid Slack thread timestamp: %s", e)
 
                 replies.append(
                     SlackMessage(
@@ -366,7 +366,7 @@ class SlackConnector(EnterpriseConnector):
             return replies
 
         except (RuntimeError, ValueError, KeyError) as e:
-            logger.warning(f"[{self.name}] Failed to get thread replies: {e}")
+            logger.warning("[%s] Failed to get thread replies: %s", self.name, e)
             return []
 
     async def _resolve_mentions(self, text: str) -> str:
@@ -456,7 +456,7 @@ class SlackConnector(EnterpriseConnector):
         items_yielded = 0
 
         for channel in channels:
-            logger.info(f"[{self.name}] Syncing channel: #{channel.name}")
+            logger.info("[%s] Syncing channel: #%s", self.name, channel.name)
 
             messages_fetched = 0
             current_oldest = oldest_ts
@@ -577,7 +577,7 @@ class SlackConnector(EnterpriseConnector):
             return results
 
         except (RuntimeError, ValueError, KeyError) as e:
-            logger.error(f"[{self.name}] Search failed: {e}")
+            logger.error("[%s] Search failed: %s", self.name, e)
             return []
 
     async def fetch(self, evidence_id: str) -> Any | None:
@@ -625,7 +625,7 @@ class SlackConnector(EnterpriseConnector):
             )
 
         except (RuntimeError, ValueError, KeyError) as e:
-            logger.error(f"[{self.name}] Fetch failed: {e}")
+            logger.error("[%s] Fetch failed: %s", self.name, e)
             return None
 
     async def handle_webhook(self, payload: dict[str, Any]) -> bool:
@@ -639,7 +639,7 @@ class SlackConnector(EnterpriseConnector):
             event = payload.get("event", {})
             event_type = event.get("type", "")
 
-            logger.info(f"[{self.name}] Webhook event: {event_type}")
+            logger.info("[%s] Webhook event: %s", self.name, event_type)
 
             if event_type in ["message", "message.channels", "message.groups"]:
                 # New message - trigger incremental sync
@@ -675,7 +675,7 @@ class SlackConnector(EnterpriseConnector):
                 "connection_count": data.get("connection_count", 0),
             }
         except (RuntimeError, ValueError, KeyError) as e:
-            logger.debug(f"[{self.name}] Failed to get presence for {user_id}: {e}")
+            logger.debug("[%s] Failed to get presence for %s: %s", self.name, user_id, e)
             return {"presence": "away", "online": False}
 
     async def get_user_by_email(self, email: str) -> dict[str, Any] | None:
@@ -708,10 +708,10 @@ class SlackConnector(EnterpriseConnector):
             # Slack returns error if user not found
             if "users_not_found" in str(e):
                 return None
-            logger.debug(f"[{self.name}] Failed to lookup user by email: {e}")
+            logger.debug("[%s] Failed to lookup user by email: %s", self.name, e)
             return None
         except (ValueError, KeyError) as e:
-            logger.debug(f"[{self.name}] Failed to lookup user by email: {e}")
+            logger.debug("[%s] Failed to lookup user by email: %s", self.name, e)
             return None
 
     async def search_messages(
@@ -763,7 +763,7 @@ class SlackConnector(EnterpriseConnector):
             return messages
 
         except (RuntimeError, ValueError, KeyError) as e:
-            logger.debug(f"[{self.name}] Message search failed: {e}")
+            logger.debug("[%s] Message search failed: %s", self.name, e)
             return []
 
     async def authenticate(self, token: str | None = None) -> bool:
@@ -784,11 +784,11 @@ class SlackConnector(EnterpriseConnector):
             # Test authentication
             data = await self._api_request("auth.test")
             logger.info(
-                f"[{self.name}] Authenticated as {data.get('user')} in workspace {data.get('team')}"
+                "[%s] Authenticated as %s in workspace %s", self.name, data.get('user'), data.get('team')
             )
             return True
         except (RuntimeError, ValueError, OSError) as e:
-            logger.error(f"[{self.name}] Authentication failed: {e}")
+            logger.error("[%s] Authentication failed: %s", self.name, e)
             return False
 
     async def get_channels_for_user(
@@ -830,7 +830,7 @@ class SlackConnector(EnterpriseConnector):
             return channels
 
         except (RuntimeError, ValueError, KeyError) as e:
-            logger.debug(f"[{self.name}] Failed to get channels for user {user_id}: {e}")
+            logger.debug("[%s] Failed to get channels for user %s: %s", self.name, user_id, e)
             return []
 
     async def post_message(
@@ -873,7 +873,7 @@ class SlackConnector(EnterpriseConnector):
             return data.get("ts")
 
         except (RuntimeError, ValueError, OSError) as e:
-            logger.error(f"[{self.name}] Failed to post message: {e}")
+            logger.error("[%s] Failed to post message: %s", self.name, e)
             return None
 
 

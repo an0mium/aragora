@@ -271,7 +271,7 @@ class TwilioVoiceIntegration:
         )
         response.hangup()
 
-        logger.info(f"Inbound call from {caller}, SID: {call_sid}")
+        logger.info("Inbound call from %s, SID: %s", caller, call_sid)
         return str(response)
 
     def handle_gather_result(
@@ -344,7 +344,7 @@ class TwilioVoiceIntegration:
         )
         response.hangup()
 
-        logger.info(f"Gather result for {call_sid}: {speech_result[:100]}...")
+        logger.info("Gather result for %s: %s...", call_sid, speech_result[:100])
         return str(response)
 
     def handle_confirmation(
@@ -448,18 +448,18 @@ class TwilioVoiceIntegration:
             )
             self._sessions[call.sid] = session
 
-            logger.info(f"Outbound call initiated to {to}, SID: {call.sid}")
+            logger.info("Outbound call initiated to %s, SID: %s", to, call.sid)
             return call.sid
 
         except (ConnectionError, TimeoutError, OSError) as e:
-            logger.error(f"Twilio outbound call connection error: {type(e).__name__}: {e}")
+            logger.error("Twilio outbound call connection error: %s: %s", type(e).__name__, e)
             return None
         except Exception as e:  # noqa: BLE001 - Twilio SDK exception hierarchy may not be importable
             error_name = type(e).__name__
             if "Twilio" in error_name or "Auth" in error_name:
-                logger.error(f"Twilio API/auth error: {error_name}: {e}")
+                logger.error("Twilio API/auth error: %s: %s", error_name, e)
             else:
-                logger.error(f"Twilio outbound call error: {error_name}: {e}")
+                logger.error("Twilio outbound call error: %s: %s", error_name, e)
             return None
 
     async def call_with_result(
@@ -518,7 +518,7 @@ class TwilioVoiceIntegration:
             session.updated_at = datetime.now()
             session.metadata.update(kwargs)
 
-        logger.info(f"Call {call_sid} status: {call_status}")
+        logger.info("Call %s status: %s", call_sid, call_status)
 
         # Clean up completed calls after a delay
         if call_status in ("completed", "failed", "busy", "no-answer", "canceled"):

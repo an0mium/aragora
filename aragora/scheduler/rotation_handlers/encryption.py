@@ -94,7 +94,7 @@ class EncryptionKeyRotationHandler(RotationHandler):
         encoded_key = base64.b64encode(new_key).decode("ascii")
         key_id = secrets.token_hex(8)
 
-        logger.info(f"Generated new {key_type} encryption key for {secret_id}")
+        logger.info("Generated new %s encryption key for %s", key_type, secret_id)
 
         return encoded_key, {
             **metadata,
@@ -132,8 +132,7 @@ class EncryptionKeyRotationHandler(RotationHandler):
             expected_length = metadata.get("key_length", self.key_length)
             if len(key_bytes) != expected_length:
                 logger.error(
-                    f"Key length mismatch for {secret_id}: "
-                    f"expected {expected_length}, got {len(key_bytes)}"
+                    "Key length mismatch for %s: expected %s, got %s", secret_id, expected_length, len(key_bytes)
                 )
                 return False
 
@@ -148,7 +147,7 @@ class EncryptionKeyRotationHandler(RotationHandler):
                 return True
 
         except (ValueError, TypeError, UnicodeDecodeError) as e:
-            logger.error(f"Key validation failed for {secret_id}: {e}")
+            logger.error("Key validation failed for %s: %s", secret_id, e)
             return False
 
     async def _validate_aes_key(self, key: bytes) -> bool:
@@ -181,7 +180,7 @@ class EncryptionKeyRotationHandler(RotationHandler):
             logger.warning("cryptography not installed, assuming key valid")
             return True
         except (ValueError, TypeError, OSError) as e:
-            logger.error(f"AES validation error: {e}")
+            logger.error("AES validation error: %s", e)
             return False
 
     async def _validate_hmac_key(self, key: bytes) -> bool:
@@ -200,7 +199,7 @@ class EncryptionKeyRotationHandler(RotationHandler):
             )
 
         except (ValueError, TypeError) as e:
-            logger.error(f"HMAC validation error: {e}")
+            logger.error("HMAC validation error: %s", e)
             return False
 
     async def revoke_old_credentials(
@@ -226,8 +225,7 @@ class EncryptionKeyRotationHandler(RotationHandler):
             # Archive the old key (in production, store in secure archive)
             key_id = metadata.get("key_id", "unknown")
             logger.info(
-                f"Archiving old encryption key {key_id} for {secret_id}. "
-                f"Key removed from active rotation."
+                "Archiving old encryption key %s for %s. Key removed from active rotation.", key_id, secret_id
             )
 
             # In production, you might:
@@ -238,7 +236,7 @@ class EncryptionKeyRotationHandler(RotationHandler):
             return True
 
         except (OSError, RuntimeError, ValueError) as e:
-            logger.error(f"Key archival failed for {secret_id}: {e}")
+            logger.error("Key archival failed for %s: %s", secret_id, e)
             return False
 
     async def trigger_reencryption(
@@ -271,10 +269,10 @@ class EncryptionKeyRotationHandler(RotationHandler):
         for store in stores:
             try:
                 # In production, this would call store-specific re-encryption
-                logger.info(f"Re-encrypting {store} with new key for {secret_id}")
+                logger.info("Re-encrypting %s with new key for %s", store, secret_id)
                 results[store] = {"status": "pending", "message": "Re-encryption queued"}
             except (OSError, RuntimeError, ValueError, TypeError) as e:
-                logger.error(f"Re-encryption failed for {store}: {e}")
+                logger.error("Re-encryption failed for %s: %s", store, e)
                 results[store] = {"status": "failed", "error": "Re-encryption failed"}
 
         return {

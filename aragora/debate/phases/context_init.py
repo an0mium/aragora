@@ -190,7 +190,7 @@ class ContextInitializer:
                         "(compression fallback - install rlm for TRUE RLM)"
                     )
             except (RuntimeError, AttributeError, ImportError) as e:  # noqa: BLE001 - phase isolation
-                logger.warning(f"[rlm] Failed to initialize AragoraRLM: {e}")
+                logger.warning("[rlm] Failed to initialize AragoraRLM: %s", e)
 
         # Callbacks
         self._fetch_historical_context = fetch_historical_context
@@ -245,7 +245,7 @@ class ContextInitializer:
 
         # 2. Select proposers (needed by proposal phase)
         self._select_proposers(ctx)
-        logger.debug(f"proposers_selected count={len(ctx.proposers)}")
+        logger.debug("proposers_selected count=%s", len(ctx.proposers))
 
         # === FAST SYNC: Quick operations that set up context ===
 
@@ -419,7 +419,7 @@ class ContextInitializer:
             else:
                 ctx.env.context = topic_context
         except (ValueError, KeyError, TypeError, AttributeError) as e:  # noqa: BLE001 - phase isolation
-            logger.debug(f"Trending topic injection failed: {e}")
+            logger.debug("Trending topic injection failed: %s", e)
 
     async def _inject_pulse_context(self, ctx: DebateContext) -> None:
         """Auto-fetch and inject trending topics from Pulse.
@@ -459,7 +459,7 @@ class ContextInitializer:
         except asyncio.TimeoutError:
             logger.warning("[pulse] Trending topic fetch timed out")
         except (RuntimeError, AttributeError, ImportError) as e:  # noqa: BLE001 - phase isolation
-            logger.debug(f"[pulse] Trending topic fetch failed: {e}")
+            logger.debug("[pulse] Trending topic fetch failed: %s", e)
 
     def _start_recorder(self) -> None:
         """Start the replay recorder if provided."""
@@ -470,7 +470,7 @@ class ContextInitializer:
             self.recorder.start()
             self.recorder.record_phase_change("debate_start")
         except (RuntimeError, AttributeError, ImportError) as e:  # noqa: BLE001 - phase isolation
-            logger.warning(f"Recorder start error (non-fatal): {e}")
+            logger.warning("Recorder start error (non-fatal): %s", e)
 
     async def _fetch_historical(self, ctx: DebateContext) -> None:
         """Fetch historical context for institutional memory."""
@@ -485,7 +485,7 @@ class ContextInitializer:
             logger.warning("Historical context fetch timed out")
             ctx.historical_context_cache = ""
         except (RuntimeError, AttributeError, ImportError) as e:  # noqa: BLE001 - phase isolation
-            logger.debug(f"Historical context fetch error: {e}")
+            logger.debug("Historical context fetch error: %s", e)
             ctx.historical_context_cache = ""
 
     async def _inject_knowledge_context(self, ctx: DebateContext) -> None:
@@ -555,7 +555,7 @@ class ContextInitializer:
         except asyncio.TimeoutError:
             logger.warning("[knowledge_mound] Knowledge context fetch timed out")
         except (RuntimeError, AttributeError, ImportError) as e:  # noqa: BLE001 - phase isolation
-            logger.debug(f"[knowledge_mound] Knowledge context fetch error: {e}")
+            logger.debug("[knowledge_mound] Knowledge context fetch error: %s", e)
 
     def _set_knowledge_on_builder_or_env(
         self,
@@ -596,7 +596,7 @@ class ContextInitializer:
                 debate_topic=ctx.env.task,
             )
         except (RuntimeError, AttributeError, ImportError) as e:  # noqa: BLE001 - phase isolation
-            logger.debug(f"[supermemory] Context injection error: {e}")
+            logger.debug("[supermemory] Context injection error: %s", e)
 
     async def _inject_debate_knowledge(self, ctx: DebateContext) -> None:
         """Inject past debate knowledge from KM via the knowledge injection flywheel.
@@ -777,7 +777,7 @@ class ContextInitializer:
         except asyncio.TimeoutError:
             logger.warning("[receipt_feedback] Receipt conclusions fetch timed out")
         except (RuntimeError, AttributeError, ImportError, TypeError, ValueError) as e:  # noqa: BLE001 - phase isolation
-            logger.debug(f"[receipt_feedback] Receipt conclusions injection error: {e}")
+            logger.debug("[receipt_feedback] Receipt conclusions injection error: %s", e)
 
     def _set_receipt_conclusions_on_context(
         self,
@@ -968,7 +968,7 @@ class ContextInitializer:
                 )
 
         except (RuntimeError, AttributeError, ImportError) as e:  # noqa: BLE001 - phase isolation
-            logger.debug(f"Pattern injection error: {e}")
+            logger.debug("Pattern injection error: %s", e)
 
     def _inject_memory_patterns(self, ctx: DebateContext) -> None:
         """Inject successful critique patterns from CritiqueStore memory."""
@@ -984,7 +984,7 @@ class ContextInitializer:
                     ctx.env.context = memory_patterns
                 logger.info("  [memory] Injected successful critique patterns into debate context")
         except (ValueError, KeyError, TypeError) as e:  # noqa: BLE001 - phase isolation
-            logger.debug(f"Memory pattern injection error: {e}")
+            logger.debug("Memory pattern injection error: %s", e)
 
     def _inject_historical_dissents(self, ctx: DebateContext) -> None:
         """Inject historical dissenting views from similar past debates.
@@ -1046,7 +1046,7 @@ class ContextInitializer:
             )
 
         except (ValueError, KeyError, TypeError, RuntimeError) as e:  # noqa: BLE001 - phase isolation
-            logger.debug(f"Historical dissent injection error: {e}")
+            logger.debug("Historical dissent injection error: %s", e)
 
         # Also inject epistemic graph priors (inherited beliefs from past debates)
         self._inject_epistemic_priors(ctx)
@@ -1283,7 +1283,7 @@ class ContextInitializer:
             )
 
         except (ValueError, KeyError, TypeError, AttributeError) as e:  # noqa: BLE001 - phase isolation
-            logger.debug(f"[belief_guidance] Crux injection error: {e}")
+            logger.debug("[belief_guidance] Crux injection error: %s", e)
 
     async def _inject_cross_debate_context(self, ctx: DebateContext) -> None:
         """Inject institutional knowledge from CrossDebateMemory.
@@ -1332,7 +1332,7 @@ class ContextInitializer:
         except asyncio.TimeoutError:
             logger.debug("[cross_debate] Context fetch timed out")
         except (RuntimeError, AttributeError, ImportError) as e:  # noqa: BLE001 - phase isolation
-            logger.debug(f"[cross_debate] Context injection error: {e}")
+            logger.debug("[cross_debate] Context injection error: %s", e)
 
     async def _inject_outcome_context(self, ctx: DebateContext) -> None:
         """Inject past decision outcome data into the debate context.
@@ -1448,7 +1448,7 @@ class ContextInitializer:
             logger.info("research_start phase=research")
             research_context = await self._perform_research(ctx.env.task)
             if research_context:
-                logger.info(f"research_complete chars={len(research_context)}")
+                logger.info("research_complete chars=%s", len(research_context))
                 ctx.research_context = research_context
                 if ctx.env.context:
                     ctx.env.context += "\n\n" + research_context
@@ -1457,7 +1457,7 @@ class ContextInitializer:
             else:
                 logger.info("research_empty")
         except (RuntimeError, OSError, ConnectionError, TimeoutError) as e:  # noqa: BLE001 - phase isolation
-            logger.warning(f"research_error error={e}")
+            logger.warning("research_error error=%s", e)
             # Continue without research - don't break the debate
 
     async def _collect_evidence(self, ctx: DebateContext) -> None:
@@ -1487,8 +1487,7 @@ class ContextInitializer:
                 ctx.evidence_pack = evidence_pack
                 evidence_context = evidence_pack.to_context_string()
                 logger.info(
-                    f"evidence_collection_complete snippets={len(evidence_pack.snippets)} "
-                    f"sources={evidence_pack.total_searched}"
+                    "evidence_collection_complete snippets=%s sources=%s", len(evidence_pack.snippets), evidence_pack.total_searched
                 )
 
                 # Inject evidence into environment context
@@ -1509,12 +1508,12 @@ class ContextInitializer:
 
                         ctx.evidence_pack = EvidencePack(snippets=[], total_searched=0)
                     ctx.evidence_pack.snippets.extend(skill_snippets)
-                    logger.info(f"skill_evidence_collected snippets={len(skill_snippets)}")
+                    logger.info("skill_evidence_collected snippets=%s", len(skill_snippets))
 
         except asyncio.TimeoutError:
             logger.warning("evidence_collection_timeout")
         except (RuntimeError, OSError, ConnectionError, TimeoutError) as e:  # noqa: BLE001 - phase isolation
-            logger.warning(f"evidence_collection_error error={e}")
+            logger.warning("evidence_collection_error error=%s", e)
             # Continue without evidence - don't break the debate
 
     async def _collect_skill_evidence(self, task: str) -> list:
@@ -1586,9 +1585,9 @@ class ContextInitializer:
                             },
                         )
                 except asyncio.TimeoutError:
-                    logger.debug(f"[skills] Timeout invoking {skill_manifest.name}")
+                    logger.debug("[skills] Timeout invoking %s", skill_manifest.name)
                 except (RuntimeError, OSError, ConnectionError, TimeoutError) as e:  # noqa: BLE001 - phase isolation
-                    logger.debug(f"[skills] Error invoking {skill_manifest.name}: {e}")
+                    logger.debug("[skills] Error invoking %s: %s", skill_manifest.name, e)
                 return None
 
             results = await asyncio.gather(
@@ -1600,12 +1599,12 @@ class ContextInitializer:
                 if isinstance(result, EvidenceSnippet):
                     snippets.append(result)
 
-            logger.info(f"[skills] Collected {len(snippets)} evidence snippets from skills")
+            logger.info("[skills] Collected %s evidence snippets from skills", len(snippets))
 
         except ImportError as e:
-            logger.debug(f"[skills] Evidence collection skipped (missing imports): {e}")
+            logger.debug("[skills] Evidence collection skipped (missing imports): %s", e)
         except (RuntimeError, AttributeError, ImportError) as e:  # noqa: BLE001 - phase isolation
-            logger.warning(f"[skills] Evidence collection error: {e}")
+            logger.warning("[skills] Evidence collection error: %s", e)
 
         return snippets
 
@@ -1629,7 +1628,7 @@ class ContextInitializer:
         if not tasks:
             return
 
-        logger.info(f"awaiting_background_context tasks={task_names}")
+        logger.info("awaiting_background_context tasks=%s", task_names)
 
         try:
             # Wait up to 30s for background tasks to complete
@@ -1668,7 +1667,7 @@ class ContextInitializer:
                 )
 
         if ctx.context_messages:
-            logger.debug(f"fork_context loaded {len(ctx.context_messages)} initial messages")
+            logger.debug("fork_context loaded %s initial messages", len(ctx.context_messages))
 
     def _select_proposers(self, ctx: DebateContext) -> None:
         """Select proposers from agent list."""

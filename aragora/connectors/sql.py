@@ -305,7 +305,7 @@ class SQLConnector(BaseConnector):
                 rows = [dict(row) for row in cursor.fetchall()]
 
         except (OSError, ValueError, RuntimeError) as e:
-            logger.error(f"SQL query failed: {e}")
+            logger.error("SQL query failed: %s", e)
             raise
 
         elapsed_ms = (time.time() - start_time) * 1000
@@ -461,7 +461,7 @@ class SQLConnector(BaseConnector):
                         if hasattr(result, "__await__"):
                             await result
             except (OSError, RuntimeError) as e:
-                logger.warning(f"Error closing SQL connection: {e}")
+                logger.warning("Error closing SQL connection: %s", e)
             finally:
                 self._connection = None
 

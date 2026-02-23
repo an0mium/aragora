@@ -353,7 +353,7 @@ class ResumeTokenStore:
                     for key, value in data.items():
                         self._tokens[key] = ResumeToken.from_dict(value)
             except (json.JSONDecodeError, KeyError) as e:
-                logger.warning(f"Failed to load resume tokens: {e}")
+                logger.warning("Failed to load resume tokens: %s", e)
                 self._tokens = {}
 
     def _save(self) -> None:
@@ -363,7 +363,7 @@ class ResumeTokenStore:
                 data = {key: token.to_dict() for key, token in self._tokens.items()}
                 json.dump(data, f, indent=2)
         except OSError as e:
-            logger.error(f"Failed to save resume tokens: {e}")
+            logger.error("Failed to save resume tokens: %s", e)
 
     def get(self, connector_id: str) -> ResumeToken | None:
         """Get resume token for a connector."""

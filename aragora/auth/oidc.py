@@ -130,10 +130,7 @@ def validate_oidc_security_settings() -> None:
         fallback_enabled = fallback_setting.lower() in ("1", "true", "yes")
         if fallback_enabled:
             logger.warning(
-                "SECURITY WARNING: ARAGORA_ALLOW_DEV_AUTH_FALLBACK is enabled. "
-                "ID token validation failures will fall back to userinfo endpoint. "
-                "This is INSECURE and should NEVER be used in production. "
-                f"Current ARAGORA_ENV={env}"
+                "SECURITY WARNING: ARAGORA_ALLOW_DEV_AUTH_FALLBACK is enabled. ID token validation failures will fall back to userinfo endpoint. This is INSECURE and should NEVER be used in production. Current ARAGORA_ENV=%s", env
             )
 
 
@@ -415,17 +412,17 @@ class OIDCProvider(SSOProvider):
                 )
 
             self._discovery_cached_at = time.time()
-            logger.debug(f"OIDC discovery successful for {self.config.issuer_url}")
+            logger.debug("OIDC discovery successful for %s", self.config.issuer_url)
             return self._discovery_cache
 
         except json.JSONDecodeError as e:
-            logger.warning(f"OIDC discovery failed - invalid JSON: {e}")
+            logger.warning("OIDC discovery failed - invalid JSON: %s", e)
             return {}
         except (OSError, TimeoutError) as e:
-            logger.warning(f"OIDC discovery failed - network error: {e}")
+            logger.warning("OIDC discovery failed - network error: %s", e)
             return {}
         except RuntimeError as e:
-            logger.warning(f"OIDC discovery failed - runtime error: {e}")
+            logger.warning("OIDC discovery failed - runtime error: %s", e)
             return {}
 
     async def _get_endpoint(self, name: str) -> str:
@@ -597,7 +594,7 @@ class OIDCProvider(SSOProvider):
                 {"code": "DOMAIN_NOT_ALLOWED"},
             )
 
-        logger.info(f"OIDC authentication successful for user_id={user.id}")
+        logger.info("OIDC authentication successful for user_id=%s", user.id)
         return user
 
     async def _exchange_code(
@@ -647,13 +644,13 @@ class OIDCProvider(SSOProvider):
                 )
 
         except json.JSONDecodeError as e:
-            logger.error(f"Token exchange failed - invalid JSON response: {e}")
+            logger.error("Token exchange failed - invalid JSON response: %s", e)
             raise SSOAuthenticationError("Token exchange failed - invalid response from provider")
         except (OSError, TimeoutError) as e:
-            logger.error(f"Token exchange failed - network error: {e}")
+            logger.error("Token exchange failed - network error: %s", e)
             raise SSOAuthenticationError("Token exchange failed - network error")
         except ValueError as e:
-            logger.error(f"Token exchange failed - invalid data: {e}")
+            logger.error("Token exchange failed - invalid data: %s", e)
             raise SSOAuthenticationError("Token exchange failed")
 
     async def _get_user_info(
@@ -768,8 +765,7 @@ class OIDCProvider(SSOProvider):
                         )
 
                 logger.warning(
-                    f"ID token validation failed, using userinfo fallback (dev mode): {e}. "
-                    "This is INSECURE - do not use in production!"
+                    "ID token validation failed, using userinfo fallback (dev mode): %s. This is INSECURE - do not use in production!", e
                 )
                 # Emit security audit event for the fallback if audit system is available
                 try:
@@ -854,10 +850,10 @@ class OIDCProvider(SSOProvider):
                 )
 
         except json.JSONDecodeError as e:
-            logger.warning(f"Userinfo fetch failed - invalid JSON: {e}")
+            logger.warning("Userinfo fetch failed - invalid JSON: %s", e)
             return {}
         except (OSError, TimeoutError) as e:
-            logger.warning(f"Userinfo fetch failed - network error: {e}")
+            logger.warning("Userinfo fetch failed - network error: %s", e)
             return {}
 
     def _claims_to_user(
@@ -982,13 +978,13 @@ class OIDCProvider(SSOProvider):
             )
 
         except json.JSONDecodeError as e:
-            logger.warning(f"Token refresh failed - invalid JSON: {e}")
+            logger.warning("Token refresh failed - invalid JSON: %s", e)
             return None
         except (OSError, TimeoutError) as e:
-            logger.warning(f"Token refresh failed - network error: {e}")
+            logger.warning("Token refresh failed - network error: %s", e)
             return None
         except (KeyError, TypeError) as e:
-            logger.warning(f"Token refresh failed - invalid response: {e}")
+            logger.warning("Token refresh failed - invalid response: %s", e)
             return None
 
     async def logout(self, user: SSOUser) -> str | None:

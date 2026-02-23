@@ -186,7 +186,7 @@ class HierarchyRegistry:
             self._children_index[parent_key].add(key)
 
         self._stats["registrations"] += 1
-        logger.debug(f"Registered hierarchy: {key} -> parent: {parent_key}")
+        logger.debug("Registered hierarchy: %s -> parent: %s", key, parent_key)
 
     def unregister(self, resource_type: ResourceType, resource_id: str) -> bool:
         """
@@ -221,7 +221,7 @@ class HierarchyRegistry:
         del self._nodes[key]
 
         self._stats["unregistrations"] += 1
-        logger.debug(f"Unregistered hierarchy: {key}")
+        logger.debug("Unregistered hierarchy: %s", key)
         return True
 
     def get_node(self, resource_type: ResourceType, resource_id: str) -> ResourceNode | None:

@@ -1037,7 +1037,7 @@ class DatabaseConsolidator:
             conn.executescript(schema_sql)
             conn.commit()
         else:
-            logger.warning(f"No schema found for {db_name} at {schema_path}")
+            logger.warning("No schema found for %s at %s", db_name, schema_path)
 
         return conn
 
@@ -1049,12 +1049,12 @@ class DatabaseConsolidator:
         for db_file in self.source_dir.glob("*.db"):
             try:
                 shutil.copy2(db_file, backup_dir / db_file.name)
-                logger.info(f"Backed up: {db_file.name}")
+                logger.info("Backed up: %s", db_file.name)
             except (OSError, RuntimeError) as e:
                 self.errors.append(f"Backup failed for {db_file.name}: {e}")
                 return False
 
-        logger.info(f"Backups created in: {backup_dir}")
+        logger.info("Backups created in: %s", backup_dir)
         return True
 
     def _get_source_columns(
@@ -1167,7 +1167,7 @@ class DatabaseConsolidator:
             for source_db_name, config in MIGRATION_MAP.items():
                 source_path = self.source_dir / source_db_name
                 if not source_path.exists():
-                    logger.debug(f"Skipping missing source: {source_db_name}")
+                    logger.debug("Skipping missing source: %s", source_db_name)
                     continue
 
                 source_conn = self._get_connection(source_path)
@@ -1192,9 +1192,7 @@ class DatabaseConsolidator:
                     columns = table_config["columns"]
 
                     logger.info(
-                        f"{'[DRY RUN] ' if dry_run else ''}"
-                        f"Migrating {source_db_name}:{source_table} -> "
-                        f"{target_db_name}:{target_table}"
+                        "%sMigrating %s:%s -> %s:%s", '[DRY RUN] ' if dry_run else '', source_db_name, source_table, target_db_name, target_table
                     )
 
                     if dry_run:
@@ -1210,7 +1208,7 @@ class DatabaseConsolidator:
                             )
                             self.stats.append(stats)
                         except (OSError, RuntimeError, ValueError) as e:
-                            logger.warning(f"Could not count {source_table}: {e}")
+                            logger.warning("Could not count %s: %s", source_table, e)
                     else:
                         stats = self._migrate_table(
                             source_conn=source_conn,

@@ -279,7 +279,7 @@ class KnowledgeGraphStore(SQLiteStore):
                     return row[0] if row else link_id
                 raise
 
-        logger.debug(f"Added link: {source_id} --{relationship}--> {target_id}")
+        logger.debug("Added link: %s --%s--> %s", source_id, relationship, target_id)
         return link_id
 
     async def get_links(
@@ -529,7 +529,7 @@ class KnowledgeGraphStore(SQLiteStore):
                     ),
                 )
 
-        logger.debug(f"Added lineage: {current_id} supersedes {predecessor_id}")
+        logger.debug("Added lineage: %s supersedes %s", current_id, predecessor_id)
         return lineage_id
 
     async def get_lineage(

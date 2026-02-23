@@ -118,7 +118,7 @@ class OpenAIAPIAgent(OpenAICompatibleMixin, APIAgent):
     def _build_extra_payload(self) -> dict | None:
         """Add web search tool if prompt indicates web content is needed."""
         if self._needs_web_search(self._current_prompt):
-            logger.info(f"[{self.name}] Enabling web search tool for web content")
+            logger.info("[%s] Enabling web search tool for web content", self.name)
             return {
                 "tools": [
                     {

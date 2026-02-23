@@ -371,7 +371,7 @@ class ReconciliationService:
             )
             return txns
         except (ValueError, OSError, ConnectionError, RuntimeError) as e:
-            logger.error(f"[Reconciliation] Failed to fetch bank transactions: {e}")
+            logger.error("[Reconciliation] Failed to fetch bank transactions: %s", e)
             return []
 
     async def _fetch_book_transactions(
@@ -394,7 +394,7 @@ class ReconciliationService:
 
             return invoices + expenses
         except (ValueError, OSError, ConnectionError, RuntimeError) as e:
-            logger.error(f"[Reconciliation] Failed to fetch book transactions: {e}")
+            logger.error("[Reconciliation] Failed to fetch book transactions: %s", e)
             return []
 
     async def _match_transactions(
@@ -589,13 +589,13 @@ Format: EXPLANATION: ... ACTION: ... CONFIDENCE: ..."""
                         disc.resolution_confidence = float(conf_match.group(1))
 
                     logger.debug(
-                        f"[Reconciliation] Agent suggested resolution for {disc.discrepancy_id}"
+                        "[Reconciliation] Agent suggested resolution for %s", disc.discrepancy_id
                     )
 
         except ImportError:
             logger.warning("[Reconciliation] Debate arena not available")
         except (ValueError, OSError, ConnectionError, RuntimeError) as e:
-            logger.error(f"[Reconciliation] Agent resolution failed: {e}")
+            logger.error("[Reconciliation] Agent resolution failed: %s", e)
 
     async def resolve_discrepancy(
         self,

@@ -173,7 +173,7 @@ def import_openclaw_skills(
             bridge = OpenClawSkillConverter.convert(parsed)
         results.append(bridge)
 
-    logger.info(f"Imported {len(results)} OpenClaw skills from {directory}")
+    logger.info("Imported %s OpenClaw skills from %s", len(results), directory)
     return results
 
 
@@ -196,5 +196,5 @@ def export_to_openclaw(skill: Skill, output_dir: str | Path) -> Path:
     skill_file = skill_dir / "SKILL.md"
     skill_file.write_text(skill_md, encoding="utf-8")
 
-    logger.info(f"Exported skill '{skill.manifest.name}' to {skill_file}")
+    logger.info("Exported skill '%s' to %s", skill.manifest.name, skill_file)
     return skill_file

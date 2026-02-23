@@ -211,7 +211,7 @@ def cmd_template_list(args: argparse.Namespace) -> int:
         return 0
 
     except (OSError, RuntimeError, ValueError, KeyError) as e:
-        logger.error(f"Failed to list templates: {e}")
+        logger.error("Failed to list templates: %s", e)
         print(f"Error: {e}", file=sys.stderr)
         return 1
 
@@ -303,7 +303,7 @@ def cmd_template_show(args: argparse.Namespace) -> int:
         return 0
 
     except (OSError, RuntimeError, ValueError, KeyError) as e:
-        logger.error(f"Failed to show template: {e}")
+        logger.error("Failed to show template: %s", e)
         print(f"Error: {e}", file=sys.stderr)
         return 1
 
@@ -380,7 +380,7 @@ def cmd_template_run(args: argparse.Namespace) -> int:
         return 0
 
     except (OSError, RuntimeError, ValueError, KeyError) as e:
-        logger.error(f"Failed to run template: {e}")
+        logger.error("Failed to run template: %s", e)
         print(f"Error: {e}", file=sys.stderr)
         return 1
 
@@ -464,7 +464,7 @@ def cmd_template_validate(args: argparse.Namespace) -> int:
         print(f"Invalid JSON: {e}", file=sys.stderr)
         return 1
     except (OSError, RuntimeError, ValueError) as e:
-        logger.error(f"Validation failed: {e}")
+        logger.error("Validation failed: %s", e)
         print(f"Error: {e}", file=sys.stderr)
         return 1
 
@@ -515,7 +515,7 @@ def cmd_template_package(args: argparse.Namespace) -> int:
         return 0
 
     except (OSError, RuntimeError, ValueError) as e:
-        logger.error(f"Packaging failed: {e}")
+        logger.error("Packaging failed: %s", e)
         print(f"Error: {e}", file=sys.stderr)
         return 1
 

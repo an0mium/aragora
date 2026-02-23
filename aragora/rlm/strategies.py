@@ -386,7 +386,7 @@ Combined answer:"""
                 final_answer = await result if inspect.isawaitable(result) else result
                 sub_calls += 1
             except (RuntimeError, ValueError, TimeoutError, ConnectionError, OSError) as e:
-                logger.error(f"Reduce step failed: {e}")
+                logger.error("Reduce step failed: %s", e)
                 final_answer = "\n\n".join(partial_answers)
         elif partial_answers:
             final_answer = partial_answers[0]
@@ -418,7 +418,7 @@ Combined answer:"""
                 return None
             return response
         except (RuntimeError, ValueError, TimeoutError, ConnectionError, OSError) as e:
-            logger.error(f"Chunk {index} processing failed: {e}")
+            logger.error("Chunk %s processing failed: %s", index, e)
             return None
 
     async def _fallback_execute(
@@ -487,7 +487,7 @@ Summary:"""
                     summary = await result if inspect.isawaitable(result) else result
                     answer_parts.append(summary)
                 except (RuntimeError, ValueError, TimeoutError, ConnectionError, OSError) as e:
-                    logger.error(f"Summarization failed: {e}")
+                    logger.error("Summarization failed: %s", e)
                     answer_parts.append(context.original_content[:1000] + "...")
             else:
                 answer_parts.append(context.original_content[:1000] + "...")
@@ -559,7 +559,7 @@ Relevant node IDs (comma-separated):"""
                 sub_calls += 1
                 examined_tokens += len(abstract_content) // 4
             except (RuntimeError, ValueError, TimeoutError, ConnectionError, OSError) as e:
-                logger.error(f"Relevance identification failed: {e}")
+                logger.error("Relevance identification failed: %s", e)
 
         # Step 2: Drill down into relevant sections
         detailed_content = []
@@ -599,7 +599,7 @@ Answer with citations:"""
                 answer = await result if inspect.isawaitable(result) else result
                 sub_calls += 1
             except (RuntimeError, ValueError, TimeoutError, ConnectionError, OSError) as e:
-                logger.error(f"Answer generation failed: {e}")
+                logger.error("Answer generation failed: %s", e)
                 answer = f"Based on the content: {detailed_content[0][:500]}..."
         else:
             # Fall back to summary-based answer

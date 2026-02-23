@@ -85,7 +85,7 @@ async def check_org_quota_async(
                 )
         return True, None
     except (TypeError, ValueError, KeyError, AttributeError, RuntimeError, OSError) as e:
-        logger.error(f"Async quota check failed for org {org_id}: {e}")
+        logger.error("Async quota check failed for org %s: %s", org_id, e)
         return True, None  # Fail open
 
 
@@ -113,7 +113,7 @@ async def increment_org_usage_async(
         await manager.consume(resource, count, tenant_id=org_id)
         return True
     except (TypeError, ValueError, KeyError, AttributeError, RuntimeError, OSError) as e:
-        logger.error(f"Async usage increment failed for org {org_id}: {e}")
+        logger.error("Async usage increment failed for org %s: %s", org_id, e)
         return False
 
 
@@ -185,7 +185,7 @@ def check_org_quota(
     try:
         org = user_store.get_organization_by_id(org_id)
         if org is None:
-            logger.warning(f"Organization not found: {org_id}")
+            logger.warning("Organization not found: %s", org_id)
             return True, None  # Allow if org not found (shouldn't happen)
 
         if resource == "debate":
@@ -201,7 +201,7 @@ def check_org_quota(
         return True, None
 
     except (TypeError, ValueError, KeyError, AttributeError, RuntimeError, OSError) as e:
-        logger.error(f"Quota check failed for org {org_id}: {e}")
+        logger.error("Quota check failed for org %s: %s", org_id, e)
         # Fail open - don't block on quota check errors
         return True, None
 
@@ -246,7 +246,7 @@ def increment_org_usage(
             return True
         return True
     except (TypeError, ValueError, KeyError, AttributeError, RuntimeError, OSError) as e:
-        logger.error(f"Failed to increment usage for org {org_id}: {e}")
+        logger.error("Failed to increment usage for org %s: %s", org_id, e)
         return False
 
 
@@ -299,15 +299,14 @@ def require_quota(resource: str = "debate") -> Callable:
                     if auth_ctx.is_authenticated:
                         org_id = auth_ctx.org_id
             except (TypeError, ValueError, KeyError, AttributeError, ImportError) as e:
-                logger.debug(f"Could not extract auth context: {e}")
+                logger.debug("Could not extract auth context: %s", e)
 
             # Check quota
             has_quota, error = check_org_quota(org_id, resource, user_store)
 
             if not has_quota and error:
                 logger.info(
-                    f"Quota exceeded for org {org_id}: "
-                    f"{error.used}/{error.limit} {resource}s ({error.tier} tier)"
+                    "Quota exceeded for org %s: %s/%s %ss (%s tier)", org_id, error.used, error.limit, resource, error.tier
                 )
                 return HandlerResult(
                     status_code=402,  # Payment Required
@@ -379,7 +378,7 @@ def get_quota_status(
         }
 
     except (TypeError, ValueError, KeyError, AttributeError, RuntimeError, OSError) as e:
-        logger.error(f"Failed to get quota status for org {org_id}: {e}")
+        logger.error("Failed to get quota status for org %s: %s", org_id, e)
         return {"error": "Failed to retrieve quota status"}
 
 

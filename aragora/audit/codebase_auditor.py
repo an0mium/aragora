@@ -236,11 +236,11 @@ class CodebaseAuditor:
         start_time = datetime.now(timezone.utc)
         session_id = f"codebase_audit_{start_time.strftime('%Y%m%d_%H%M%S')}"
 
-        logger.info(f"[{session_id}] Starting codebase audit")
+        logger.info("[%s] Starting codebase audit", session_id)
 
         # Collect files
         files = self._collect_files()
-        logger.info(f"[{session_id}] Found {len(files)} files to audit")
+        logger.info("[%s] Found %s files to audit", session_id, len(files))
 
         # Process files and collect chunks
         all_chunks = []
@@ -268,7 +268,7 @@ class CodebaseAuditor:
                     )
 
             except (SyntaxError, ValueError, OSError) as e:
-                logger.warning(f"[{session_id}] Failed to process {file_path}: {e}")
+                logger.warning("[%s] Failed to process %s: %s", session_id, file_path, e)
 
         logger.info(f"[{session_id}] Created {len(all_chunks)} chunks, {total_tokens:,} tokens")
 
@@ -337,7 +337,7 @@ class CodebaseAuditor:
             findings = await self.consistency_auditor.audit(chunks, mock_session)
             return findings
         except (ValueError, RuntimeError, OSError) as e:
-            logger.warning(f"Consistency audit failed: {e}")
+            logger.warning("Consistency audit failed: %s", e)
             return []
 
     async def _run_pattern_audits(self, chunks: list[dict], session_id: str) -> list[AuditFinding]:
@@ -588,7 +588,7 @@ class CodebaseAuditor:
                         }
                     )
             except (SyntaxError, ValueError, OSError) as e:
-                logger.warning(f"Failed to process {file_path}: {e}")
+                logger.warning("Failed to process %s: %s", file_path, e)
 
         # Run pattern audits only for speed
         findings = await self._run_pattern_audits(all_chunks, "incremental")
@@ -619,7 +619,7 @@ class CodebaseAuditor:
         start_time = datetime.now(timezone.utc)
         session_id = f"incremental_audit_{start_time.strftime('%Y%m%d_%H%M%S')}"
 
-        logger.info(f"[{session_id}] Running incremental audit: {base_ref}..{head_ref}")
+        logger.info("[%s] Running incremental audit: %s..%s", session_id, base_ref, head_ref)
 
         # Get list of changed files
         try:
@@ -632,7 +632,7 @@ class CodebaseAuditor:
             )
             changed_files = [f.strip() for f in result.stdout.strip().split("\n") if f.strip()]
         except (OSError, RuntimeError, ValueError) as e:
-            logger.error(f"[{session_id}] Failed to get git diff: {e}")
+            logger.error("[%s] Failed to get git diff: %s", session_id, e)
             return IncrementalAuditResult(
                 session_id=session_id,
                 base_ref=base_ref,
@@ -656,7 +656,7 @@ class CodebaseAuditor:
                 untracked = [f.strip() for f in result.stdout.strip().split("\n") if f.strip()]
                 changed_files.extend(untracked)
             except (OSError, RuntimeError) as e:
-                logger.warning(f"[{session_id}] Failed to get untracked files: {e}")
+                logger.warning("[%s] Failed to get untracked files: %s", session_id, e)
 
         # Filter to auditable files
         auditable_extensions = set(self.config.code_extensions + self.config.doc_extensions)
@@ -674,8 +674,7 @@ class CodebaseAuditor:
                     auditable_files.append(path)
 
         logger.info(
-            f"[{session_id}] Found {len(changed_files)} changed files, "
-            f"{len(auditable_files)} auditable"
+            "[%s] Found %s changed files, %s auditable", session_id, len(changed_files), len(auditable_files)
         )
 
         # Audit the changed files

@@ -78,10 +78,10 @@ def _get_storage() -> GauntletStorage:
 def _handle_task_exception(task: asyncio.Task[Any], task_name: str) -> None:
     """Handle exceptions from fire-and-forget async tasks."""
     if task.cancelled():
-        logger.debug(f"Task {task_name} was cancelled")
+        logger.debug("Task %s was cancelled", task_name)
     elif task.exception():
         exc = task.exception()
-        logger.error(f"Task {task_name} failed with exception: {exc}", exc_info=exc)
+        logger.error("Task %s failed with exception: %s", task_name, exc, exc_info=exc)
 
 
 def create_tracked_task(coro: Any, name: str) -> asyncio.Task[Any]:
@@ -209,15 +209,15 @@ def recover_stale_gauntlet_runs(max_age_seconds: int = 7200) -> int:
                 recovered += 1
 
             except (OSError, RuntimeError, ValueError) as e:
-                logger.warning(f"Failed to recover stale run {run.gauntlet_id}: {e}")
+                logger.warning("Failed to recover stale run %s: %s", run.gauntlet_id, e)
 
         if recovered:
-            logger.info(f"Recovered {recovered} stale gauntlet runs after server restart")
+            logger.info("Recovered %s stale gauntlet runs after server restart", recovered)
 
         return recovered
 
     except (ImportError, OSError, RuntimeError, ValueError) as e:
-        logger.warning(f"Failed to recover stale gauntlet runs: {e}")
+        logger.warning("Failed to recover stale gauntlet runs: %s", e)
         return 0
 
 

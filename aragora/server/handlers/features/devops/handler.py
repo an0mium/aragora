@@ -234,7 +234,7 @@ class DevOpsHandler(SecureHandler):
             return error_response("Not found", 404)
 
         except (ValueError, KeyError, TypeError, RuntimeError, OSError) as e:
-            logger.exception(f"Error in devops handler: {e}")
+            logger.exception("Error in devops handler: %s", e)
             return error_response("Internal server error", 500)
 
     def _get_tenant_id(self, request: Any) -> str:
@@ -361,7 +361,7 @@ class DevOpsHandler(SecureHandler):
 
         except (ConnectionError, TimeoutError, OSError, ValueError, AttributeError) as e:
             circuit_breaker.record_failure()
-            logger.error(f"Failed to list incidents: {e}")
+            logger.error("Failed to list incidents: %s", e)
             return error_response("Failed to list incidents", 500)
 
     @rate_limit(requests_per_minute=30)
@@ -446,7 +446,7 @@ class DevOpsHandler(SecureHandler):
             incident = await connector.create_incident(create_request)
 
             circuit_breaker.record_success()
-            logger.info(f"[DevOps] Created incident {incident.id} for tenant {tenant_id}")
+            logger.info("[DevOps] Created incident %s for tenant %s", incident.id, tenant_id)
 
             return json_response(
                 {
@@ -466,7 +466,7 @@ class DevOpsHandler(SecureHandler):
 
         except (ImportError, ConnectionError, TimeoutError, OSError, ValueError, AttributeError) as e:
             circuit_breaker.record_failure()
-            logger.error(f"Failed to create incident: {e}")
+            logger.error("Failed to create incident: %s", e)
             return error_response("Failed to create incident", 500)
 
     @rate_limit(requests_per_minute=60)
@@ -516,7 +516,7 @@ class DevOpsHandler(SecureHandler):
 
         except (ConnectionError, TimeoutError, OSError, ValueError, AttributeError) as e:
             circuit_breaker.record_failure()
-            logger.error(f"Failed to get incident {incident_id}: {e}")
+            logger.error("Failed to get incident %s: %s", incident_id, e)
             return error_response("Failed to get incident", 500)
 
     @rate_limit(requests_per_minute=30)
@@ -542,7 +542,7 @@ class DevOpsHandler(SecureHandler):
             incident = await connector.acknowledge_incident(incident_id)
 
             circuit_breaker.record_success()
-            logger.info(f"[DevOps] Acknowledged incident {incident_id} for tenant {tenant_id}")
+            logger.info("[DevOps] Acknowledged incident %s for tenant %s", incident_id, tenant_id)
 
             return success_response(
                 {
@@ -556,7 +556,7 @@ class DevOpsHandler(SecureHandler):
 
         except (ConnectionError, TimeoutError, OSError, ValueError, AttributeError) as e:
             circuit_breaker.record_failure()
-            logger.error(f"Failed to acknowledge incident {incident_id}: {e}")
+            logger.error("Failed to acknowledge incident %s: %s", incident_id, e)
             return error_response("Failed to acknowledge incident", 500)
 
     @rate_limit(requests_per_minute=30)
@@ -597,7 +597,7 @@ class DevOpsHandler(SecureHandler):
             incident = await connector.resolve_incident(incident_id, resolution)
 
             circuit_breaker.record_success()
-            logger.info(f"[DevOps] Resolved incident {incident_id} for tenant {tenant_id}")
+            logger.info("[DevOps] Resolved incident %s for tenant %s", incident_id, tenant_id)
 
             return success_response(
                 {
@@ -611,7 +611,7 @@ class DevOpsHandler(SecureHandler):
 
         except (ConnectionError, TimeoutError, OSError, ValueError, AttributeError) as e:
             circuit_breaker.record_failure()
-            logger.error(f"Failed to resolve incident {incident_id}: {e}")
+            logger.error("Failed to resolve incident %s: %s", incident_id, e)
             return error_response("Failed to resolve incident", 500)
 
     @rate_limit(requests_per_minute=30)
@@ -668,7 +668,7 @@ class DevOpsHandler(SecureHandler):
             )
 
             circuit_breaker.record_success()
-            logger.info(f"[DevOps] Reassigned incident {incident_id} for tenant {tenant_id}")
+            logger.info("[DevOps] Reassigned incident %s for tenant %s", incident_id, tenant_id)
 
             return success_response(
                 {
@@ -682,7 +682,7 @@ class DevOpsHandler(SecureHandler):
 
         except (ConnectionError, TimeoutError, OSError, ValueError, AttributeError) as e:
             circuit_breaker.record_failure()
-            logger.error(f"Failed to reassign incident {incident_id}: {e}")
+            logger.error("Failed to reassign incident %s: %s", incident_id, e)
             return error_response("Failed to reassign incident", 500)
 
     @rate_limit(requests_per_minute=20)
@@ -727,7 +727,7 @@ class DevOpsHandler(SecureHandler):
             incident = await connector.merge_incidents(incident_id, validated_source_ids)
 
             circuit_breaker.record_success()
-            logger.info(f"[DevOps] Merged {len(validated_source_ids)} incidents into {incident_id}")
+            logger.info("[DevOps] Merged %s incidents into %s", len(validated_source_ids), incident_id)
 
             return success_response(
                 {
@@ -741,7 +741,7 @@ class DevOpsHandler(SecureHandler):
 
         except (ConnectionError, TimeoutError, OSError, ValueError, AttributeError) as e:
             circuit_breaker.record_failure()
-            logger.error(f"Failed to merge incidents into {incident_id}: {e}")
+            logger.error("Failed to merge incidents into %s: %s", incident_id, e)
             return error_response("Failed to merge incidents", 500)
 
     # =========================================================================
@@ -793,7 +793,7 @@ class DevOpsHandler(SecureHandler):
 
         except (ConnectionError, TimeoutError, OSError, ValueError, AttributeError) as e:
             circuit_breaker.record_failure()
-            logger.error(f"Failed to list notes for {incident_id}: {e}")
+            logger.error("Failed to list notes for %s: %s", incident_id, e)
             return error_response("Failed to list notes", 500)
 
     @rate_limit(requests_per_minute=30)
@@ -834,7 +834,7 @@ class DevOpsHandler(SecureHandler):
             note = await connector.add_note(incident_id, content)
 
             circuit_breaker.record_success()
-            logger.info(f"[DevOps] Added note to incident {incident_id}")
+            logger.info("[DevOps] Added note to incident %s", incident_id)
 
             return json_response(
                 {
@@ -850,7 +850,7 @@ class DevOpsHandler(SecureHandler):
 
         except (ConnectionError, TimeoutError, OSError, ValueError, AttributeError) as e:
             circuit_breaker.record_failure()
-            logger.error(f"Failed to add note to {incident_id}: {e}")
+            logger.error("Failed to add note to %s: %s", incident_id, e)
             return error_response("Failed to add note", 500)
 
     # =========================================================================
@@ -910,7 +910,7 @@ class DevOpsHandler(SecureHandler):
 
         except (ConnectionError, TimeoutError, OSError, ValueError, AttributeError) as e:
             circuit_breaker.record_failure()
-            logger.error(f"Failed to get on-call: {e}")
+            logger.error("Failed to get on-call: %s", e)
             return error_response("Failed to get on-call", 500)
 
     async def _handle_get_oncall_for_service(
@@ -944,7 +944,7 @@ class DevOpsHandler(SecureHandler):
             )
 
         except (ConnectionError, TimeoutError, OSError, ValueError, AttributeError) as e:
-            logger.error(f"Failed to get on-call for service {service_id}: {e}")
+            logger.error("Failed to get on-call for service %s: %s", service_id, e)
             return error_response("Failed to retrieve on-call info", 500)
 
     # =========================================================================
@@ -982,7 +982,7 @@ class DevOpsHandler(SecureHandler):
             )
 
         except (ConnectionError, TimeoutError, OSError, ValueError, AttributeError) as e:
-            logger.error(f"Failed to list services: {e}")
+            logger.error("Failed to list services: %s", e)
             return error_response("Failed to list services", 500)
 
     async def _handle_get_service(
@@ -1013,7 +1013,7 @@ class DevOpsHandler(SecureHandler):
             )
 
         except (ConnectionError, TimeoutError, OSError, ValueError, AttributeError) as e:
-            logger.error(f"Failed to get service {service_id}: {e}")
+            logger.error("Failed to get service %s: %s", service_id, e)
             return error_response("Failed to retrieve service", 500)
 
     # =========================================================================
@@ -1042,7 +1042,7 @@ class DevOpsHandler(SecureHandler):
 
             event_type = payload.event_type if payload else body.get("event", {}).get("event_type")
 
-            logger.info(f"[DevOps] PagerDuty webhook: event_type={event_type}")
+            logger.info("[DevOps] PagerDuty webhook: event_type=%s", event_type)
 
             # Emit event for downstream processing
             await self._emit_connector_event(
@@ -1063,7 +1063,7 @@ class DevOpsHandler(SecureHandler):
             )
 
         except (ValueError, KeyError, TypeError, RuntimeError, OSError) as e:
-            logger.error(f"Error processing PagerDuty webhook: {e}")
+            logger.error("Error processing PagerDuty webhook: %s", e)
             return success_response({"received": True, "error": "Webhook processing failed"})
 
     # =========================================================================
@@ -1130,7 +1130,7 @@ class DevOpsHandler(SecureHandler):
 
             # Log structured event for processing pipelines
             logger.info(
-                f"[DevOps] Connector event: {event_type}",
+                "[DevOps] Connector event: %s", event_type,
                 extra={"event_data": event_data},
             )
 
@@ -1142,7 +1142,7 @@ class DevOpsHandler(SecureHandler):
                     event_data,
                 )
         except (ImportError, ConnectionError, AttributeError, ValueError, TypeError) as e:
-            logger.debug(f"[DevOps] Event emission skipped: {e}")
+            logger.debug("[DevOps] Event emission skipped: %s", e)
 
 
 # =============================================================================

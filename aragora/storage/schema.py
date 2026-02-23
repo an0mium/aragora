@@ -317,13 +317,13 @@ class SchemaManager:
 
         if current == 0 and initial_schema:
             # Fresh database - create initial schema
-            logger.info(f"[{self.module_name}] Creating initial schema (v1)")
+            logger.info("[%s] Creating initial schema (v1)", self.module_name)
             try:
                 self.conn.executescript(initial_schema)
                 self.conn.commit()
             except sqlite3.Error as e:
                 self.conn.rollback()
-                logger.error(f"[{self.module_name}] Schema initialization failed: {e}")
+                logger.error("[%s] Schema initialization failed: %s", self.module_name, e)
                 raise
             self.set_version(1)
             current = 1
@@ -334,8 +334,7 @@ class SchemaManager:
 
         if current > self.current_version:
             logger.warning(
-                f"[{self.module_name}] Database version ({current}) is newer than "
-                f"code version ({self.current_version}). Skipping migrations."
+                "[%s] Database version (%s) is newer than code version (%s). Skipping migrations.", self.module_name, current, self.current_version
             )
             return False
 
@@ -351,7 +350,7 @@ class SchemaManager:
                 desc = (
                     migration.description or f"v{migration.from_version} -> v{migration.to_version}"
                 )
-                logger.info(f"[{self.module_name}] Running migration: {desc}")
+                logger.info("[%s] Running migration: %s", self.module_name, desc)
                 try:
                     migration.apply(self.conn)
                     self.conn.commit()
@@ -360,7 +359,7 @@ class SchemaManager:
                 except (sqlite3.Error, ValueError) as e:
                     self.conn.rollback()
                     logger.error(
-                        f"[{self.module_name}] Migration to v{migration.to_version} failed: {e}"
+                        "[%s] Migration to v%s failed: %s", self.module_name, migration.to_version, e
                     )
                     raise
 
@@ -439,7 +438,7 @@ def safe_add_column(
 
     conn.execute(sql)
     conn.commit()
-    logger.debug(f"Added column {column} to {table}")
+    logger.debug("Added column %s to %s", column, table)
     return True
 
 
@@ -525,12 +524,12 @@ class DatabaseManager:
                     return conn
                 except sqlite3.Error as e:
                     # Connection is broken, discard and try next
-                    logger.debug(f"Pooled connection validation failed, discarding: {e}")
+                    logger.debug("Pooled connection validation failed, discarding: %s", e)
                     self._pool_stats["closed"] += 1
                     try:
                         conn.close()
                     except sqlite3.Error as close_err:
-                        logger.debug(f"Error closing broken pooled connection: {close_err}")
+                        logger.debug("Error closing broken pooled connection: %s", close_err)
 
             # No valid pooled connections, create new one
             self._pool_stats["misses"] += 1
@@ -558,7 +557,7 @@ class DatabaseManager:
         try:
             conn.close()
         except sqlite3.Error as e:
-            logger.debug(f"Error closing excess pooled connection: {e}")
+            logger.debug("Error closing excess pooled connection: %s", e)
 
     def pool_stats(self) -> dict[str, int]:
         """Get connection pool statistics.
@@ -602,7 +601,7 @@ class DatabaseManager:
         with timed_lock(cls._instances_lock, timeout=30.0, name="DatabaseManager.instances"):
             if resolved_path not in cls._instances:
                 cls._instances[resolved_path] = cls(db_path, timeout)
-                logger.debug(f"Created DatabaseManager for {resolved_path}")
+                logger.debug("Created DatabaseManager for %s", resolved_path)
             return cls._instances[resolved_path]
 
     @classmethod
@@ -630,7 +629,7 @@ class DatabaseManager:
         with self._lock:
             if self._conn is None:
                 self._conn = get_wal_connection(self.db_path, self.timeout)
-                logger.debug(f"Opened connection to {self.db_path}")
+                logger.debug("Opened connection to %s", self.db_path)
             return self._conn
 
     @contextmanager
@@ -652,13 +651,13 @@ class DatabaseManager:
             yield conn
             conn.commit()
         except sqlite3.Error as e:
-            logger.error(f"Database error in DatabaseManager.connection(): {e}", exc_info=True)
+            logger.error("Database error in DatabaseManager.connection(): %s", e, exc_info=True)
             conn.rollback()
             raise
         except Exception as e:  # noqa: BLE001 - must rollback on any user code exception before re-raising
             # Rollback on any exception from user code, then re-raise unchanged
             logger.warning(
-                f"Non-database exception in DatabaseManager.connection(), rolling back: {type(e).__name__}: {e}"
+                "Non-database exception in DatabaseManager.connection(), rolling back: %s: %s", type(e).__name__, e
             )
             conn.rollback()
             raise
@@ -678,13 +677,13 @@ class DatabaseManager:
             yield conn
             conn.execute("COMMIT")
         except sqlite3.Error as e:
-            logger.error(f"Database error in DatabaseManager.transaction(): {e}", exc_info=True)
+            logger.error("Database error in DatabaseManager.transaction(): %s", e, exc_info=True)
             conn.execute("ROLLBACK")
             raise
         except Exception as e:  # noqa: BLE001 - must rollback on any user code exception before re-raising
             # Rollback on any exception from user code, then re-raise unchanged
             logger.warning(
-                f"Non-database exception in transaction context, rolling back: {type(e).__name__}: {e}"
+                "Non-database exception in transaction context, rolling back: %s: %s", type(e).__name__, e
             )
             conn.execute("ROLLBACK")
             raise
@@ -708,13 +707,13 @@ class DatabaseManager:
             conn.commit()
         except sqlite3.Error as e:
             logger.error(
-                f"Database error in DatabaseManager.fresh_connection(): {e}", exc_info=True
+                "Database error in DatabaseManager.fresh_connection(): %s", e, exc_info=True
             )
             conn.rollback()
             raise
         except Exception as e:  # noqa: BLE001 - must rollback on any user code exception before re-raising
             logger.warning(
-                f"Non-database exception in fresh_connection context, rolling back: {type(e).__name__}: {e}"
+                "Non-database exception in fresh_connection context, rolling back: %s: %s", type(e).__name__, e
             )
             conn.rollback()
             raise
@@ -934,7 +933,7 @@ def create_performance_indexes(
             sql = f"CREATE INDEX IF NOT EXISTS {index_name} ON {table}({columns})"
             conn.execute(sql)
             created.append(index_name)
-            logger.info(f"Created index {index_name} on {table}({columns})")
+            logger.info("Created index %s on %s(%s)", index_name, table, columns)
         except sqlite3.Error as e:
             errors.append(f"{index_name}: {e}")
 
@@ -1043,7 +1042,7 @@ class ConnectionPool:
                         return conn
                     except sqlite3.Error:
                         # Connection is broken, discard it
-                        logger.debug(f"Discarded broken pooled connection to {self.db_path}")
+                        logger.debug("Discarded broken pooled connection to %s", self.db_path)
                         continue
 
                 # Create a new connection if under limit
@@ -1052,8 +1051,7 @@ class ConnectionPool:
                     conn = get_wal_connection(self.db_path, self.timeout, check_same_thread=False)
                     self._active.add(id(conn))
                     logger.debug(
-                        f"Created new pooled connection to {self.db_path} "
-                        f"(active: {len(self._active)}/{self.max_connections})"
+                        "Created new pooled connection to %s (active: %s/%s)", self.db_path, len(self._active), self.max_connections
                     )
                     return conn
 
@@ -1087,7 +1085,7 @@ class ConnectionPool:
                 try:
                     conn.close()
                 except sqlite3.Error as e:
-                    logger.debug(f"Error closing connection on pool release: {e}")
+                    logger.debug("Error closing connection on pool release: %s", e)
             else:
                 # Return to idle pool
                 self._idle.append(conn)
@@ -1107,13 +1105,13 @@ class ConnectionPool:
             yield conn
             conn.commit()
         except sqlite3.Error as e:
-            logger.error(f"Database error in ConnectionPool.connection(): {e}", exc_info=True)
+            logger.error("Database error in ConnectionPool.connection(): %s", e, exc_info=True)
             conn.rollback()
             raise
         except Exception as e:  # noqa: BLE001 - must rollback on any user code exception before re-raising
             # Rollback on any exception from user code, then re-raise unchanged
             logger.warning(
-                f"Non-database exception in ConnectionPool.connection(), rolling back: {type(e).__name__}: {e}"
+                "Non-database exception in ConnectionPool.connection(), rolling back: %s: %s", type(e).__name__, e
             )
             conn.rollback()
             raise

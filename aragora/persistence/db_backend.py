@@ -320,7 +320,7 @@ class UnifiedBackend:
             self._async_pool = await self._async_pool_factory()
             return self._async_pool
         except (OSError, ConnectionError, RuntimeError) as e:
-            logger.warning(f"Failed to create async pool: {e}")
+            logger.warning("Failed to create async pool: %s", e)
             return None
 
     def get_schema_info(self, table_name: str) -> SchemaInfo:
@@ -381,7 +381,7 @@ class UnifiedBackend:
         try:
             self.sync.close()
         except (OSError, RuntimeError) as e:
-            logger.warning(f"Error closing sync backend: {e}")
+            logger.warning("Error closing sync backend: %s", e)
 
     async def close_async(self) -> None:
         """Close async pool if it exists."""
@@ -390,7 +390,7 @@ class UnifiedBackend:
                 await self._async_pool.close()
                 self._async_pool = None
             except (OSError, ConnectionError, RuntimeError) as e:
-                logger.warning(f"Error closing async pool: {e}")
+                logger.warning("Error closing async pool: %s", e)
 
     def __repr__(self) -> str:
         pool_status = "pool=yes" if self._async_pool else "pool=no"
@@ -471,7 +471,7 @@ def _create_sqlite_backend(db_path: str | None = None) -> UnifiedBackend:
     sync_backend = SQLiteBackend(db_path)
     capabilities = BackendCapabilities.for_sqlite()
 
-    logger.info(f"Unified backend: SQLite ({db_path})")
+    logger.info("Unified backend: SQLite (%s)", db_path)
     return UnifiedBackend(
         sync_backend=sync_backend,
         capabilities=capabilities,
@@ -509,7 +509,7 @@ def _create_postgres_backend() -> UnifiedBackend:
     try:
         sync_backend = PostgreSQLBackend(dsn)
     except (OSError, ConnectionError, RuntimeError) as e:
-        logger.warning(f"PostgreSQL connection failed ({e}), falling back to SQLite")
+        logger.warning("PostgreSQL connection failed (%s), falling back to SQLite", e)
         return _create_sqlite_backend()
 
     # Pool size from environment
@@ -533,7 +533,7 @@ def _create_postgres_backend() -> UnifiedBackend:
 
             return await get_postgres_pool(dsn=dsn)
         except (OSError, ConnectionError, RuntimeError) as e:
-            logger.warning(f"Failed to create async PostgreSQL pool: {e}")
+            logger.warning("Failed to create async PostgreSQL pool: %s", e)
             return None
 
     capabilities = BackendCapabilities.for_postgres(
@@ -543,7 +543,7 @@ def _create_postgres_backend() -> UnifiedBackend:
 
     # Mask credentials in log
     safe_dsn = dsn.split("@")[-1] if "@" in dsn else "***"
-    logger.info(f"Unified backend: PostgreSQL ({safe_dsn})")
+    logger.info("Unified backend: PostgreSQL (%s)", safe_dsn)
 
     return UnifiedBackend(
         sync_backend=sync_backend,

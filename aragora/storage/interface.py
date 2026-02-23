@@ -401,10 +401,10 @@ class RedisStoreMixin:
 
             self._redis_client = redis.from_url(self._redis_url)
             self._redis_client.ping()
-            self._logger.info(f"Connected to Redis for {self.__class__.__name__}")
+            self._logger.info("Connected to Redis for %s", self.__class__.__name__)
             self._using_fallback = False
         except (ConnectionError, TimeoutError, OSError, ImportError) as e:
-            self._logger.warning(f"Redis connection failed, using SQLite fallback: {e}")
+            self._logger.warning("Redis connection failed, using SQLite fallback: %s", e)
             self._using_fallback = True
             self._redis_client = None
 
@@ -418,7 +418,7 @@ class RedisStoreMixin:
 
     def _log_redis_fallback(self, operation: str, error: Exception) -> None:
         """Log Redis failure and fallback."""
-        self._logger.warning(f"Redis {operation} failed, using fallback: {error}")
+        self._logger.warning("Redis %s failed, using fallback: %s", operation, error)
 
     async def _redis_get(self, item_id: str) -> dict[str, Any] | None:
         """Get item from Redis with fallback."""

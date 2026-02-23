@@ -147,7 +147,7 @@ class SLOHandler(BaseHandler):
         # Rate limit check
         client_ip = get_client_ip(handler)
         if not _slo_limiter.is_allowed(client_ip):
-            logger.warning(f"Rate limit exceeded for SLO endpoint: {client_ip}")
+            logger.warning("Rate limit exceeded for SLO endpoint: %s", client_ip)
             return error_response(
                 "Rate limit exceeded. Please try again later.", 429, code="RATE_LIMITED"
             )
@@ -186,7 +186,7 @@ class SLOHandler(BaseHandler):
                 return error_response(f"Unknown SLO endpoint: {path}", 404, code="UNKNOWN_ENDPOINT")
 
         except (KeyError, ValueError, AttributeError, TypeError, RuntimeError, OSError) as e:
-            logger.exception(f"Error handling SLO request: {e}")
+            logger.exception("Error handling SLO request: %s", e)
             return error_response("Internal server error", 500, code="INTERNAL_ERROR")
 
     def _handle_slo_status(self) -> HandlerResult:
@@ -195,7 +195,7 @@ class SLOHandler(BaseHandler):
             status_json = get_slo_status_json()
             return json_response(status_json)
         except (KeyError, ValueError, AttributeError, TypeError, RuntimeError, OSError) as e:
-            logger.exception(f"Failed to get SLO status: {e}")
+            logger.exception("Failed to get SLO status: %s", e)
             return error_response(
                 "Internal server error", 500, code="SLO_STATUS_ERROR"
             )
@@ -228,7 +228,7 @@ class SLOHandler(BaseHandler):
                 }
             )
         except (KeyError, ValueError, AttributeError, TypeError, RuntimeError, OSError) as e:
-            logger.exception(f"Failed to get SLO detail for {slo_name}: {e}")
+            logger.exception("Failed to get SLO detail for %s: %s", slo_name, e)
             return error_response(
                 "Internal server error", 500, code="SLO_DETAIL_ERROR"
             )
@@ -269,7 +269,7 @@ class SLOHandler(BaseHandler):
                 }
             )
         except (KeyError, ValueError, AttributeError, TypeError, RuntimeError, OSError) as e:
-            logger.exception(f"Failed to get error budget: {e}")
+            logger.exception("Failed to get error budget: %s", e)
             return error_response(
                 "Internal server error", 500, code="ERROR_BUDGET_ERROR"
             )
@@ -304,7 +304,7 @@ class SLOHandler(BaseHandler):
                 }
             )
         except (KeyError, ValueError, AttributeError, TypeError, RuntimeError, OSError) as e:
-            logger.exception(f"Failed to get violations: {e}")
+            logger.exception("Failed to get violations: %s", e)
             return error_response(
                 "Internal server error", 500, code="VIOLATIONS_ERROR"
             )
@@ -333,7 +333,7 @@ class SLOHandler(BaseHandler):
                 }
             )
         except (KeyError, ValueError, AttributeError, TypeError, RuntimeError, OSError) as e:
-            logger.exception(f"Failed to get targets: {e}")
+            logger.exception("Failed to get targets: %s", e)
             return error_response("Failed to retrieve targets", 500, code="TARGETS_ERROR")
 
     def _handle_slo_sub_route(self, slo_name: str, sub_route: str) -> HandlerResult:
@@ -400,7 +400,7 @@ class SLOHandler(BaseHandler):
                 )
 
         except (KeyError, ValueError, AttributeError, TypeError, RuntimeError, OSError) as e:
-            logger.exception(f"Failed to get SLO sub-route {slo_name}/{sub_route}: {e}")
+            logger.exception("Failed to get SLO sub-route %s/%s: %s", slo_name, sub_route, e)
             return error_response("Operation failed", 500, code="SLO_SUB_ROUTE_ERROR")
 
     def _calculate_exhaustion_time(self, result: Any) -> str | None:

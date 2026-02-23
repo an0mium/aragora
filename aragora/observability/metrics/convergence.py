@@ -64,7 +64,7 @@ def init_convergence_metrics() -> None:
         _init_noop_metrics()
         _initialized = True
     except (RuntimeError, TypeError) as e:
-        logger.warning(f"Failed to initialize convergence metrics: {e}")
+        logger.warning("Failed to initialize convergence metrics: %s", e)
         _init_noop_metrics()
         _initialized = True
 

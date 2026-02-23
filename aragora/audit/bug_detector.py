@@ -805,7 +805,7 @@ class BugDetector:
                 content = f.read()
                 lines = content.split("\n")
         except OSError as e:
-            logger.warning(f"Failed to read {file_path}: {e}")
+            logger.warning("Failed to read %s: %s", file_path, e)
             return bugs
 
         # Detect language
@@ -882,7 +882,7 @@ class BugDetector:
         start_time = datetime.now(timezone.utc)
         scan_id = f"bug_scan_{start_time.strftime('%Y%m%d_%H%M%S')}"
 
-        logger.info(f"[{scan_id}] Starting bug detection in {directory}")
+        logger.info("[%s] Starting bug detection in %s", scan_id, directory)
 
         report = BugReport(
             scan_id=scan_id,
@@ -922,7 +922,7 @@ class BugDetector:
                 if not excluded:
                     files_to_scan.append(file_path)
 
-        logger.info(f"[{scan_id}] Found {len(files_to_scan)} files to analyze")
+        logger.info("[%s] Found %s files to analyze", scan_id, len(files_to_scan))
 
         # Analyze files
         total_lines = 0
@@ -937,7 +937,7 @@ class BugDetector:
                 report.files_scanned += 1
 
             except (SyntaxError, ValueError, OSError) as e:
-                logger.warning(f"[{scan_id}] Error analyzing {file_path}: {e}")
+                logger.warning("[%s] Error analyzing %s: %s", scan_id, file_path, e)
 
         report.lines_scanned = total_lines
         report.completed_at = datetime.now(timezone.utc)

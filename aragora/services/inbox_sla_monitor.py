@@ -236,7 +236,7 @@ class InboxSLAMonitor:
         """Set SLA configuration for an inbox."""
         with self._lock:
             self._configs[config.inbox_id] = config
-        logger.info(f"[SLAMonitor] Set SLA config for inbox {config.inbox_id}")
+        logger.info("[SLAMonitor] Set SLA config for inbox %s", config.inbox_id)
 
     def get_config(self, inbox_id: str) -> SLAConfig | None:
         """Get SLA configuration for an inbox."""
@@ -248,7 +248,7 @@ class InboxSLAMonitor:
         with self._lock:
             if inbox_id in self._configs:
                 del self._configs[inbox_id]
-                logger.info(f"[SLAMonitor] Deleted SLA config for inbox {inbox_id}")
+                logger.info("[SLAMonitor] Deleted SLA config for inbox %s", inbox_id)
                 return True
             return False
 
@@ -439,7 +439,7 @@ class InboxSLAMonitor:
         ]
 
         if not applicable_rules:
-            logger.debug(f"[SLAMonitor] No escalation rules for level {violation.escalation_level}")
+            logger.debug("[SLAMonitor] No escalation rules for level %s", violation.escalation_level)
             return False
 
         # Mark as triggered
@@ -450,7 +450,7 @@ class InboxSLAMonitor:
             try:
                 handler(violation, config)
             except (RuntimeError, TypeError, ValueError) as e:
-                logger.warning(f"[SLAMonitor] Escalation handler failed: {e}")
+                logger.warning("[SLAMonitor] Escalation handler failed: %s", e)
 
         # Log activity
         try:
@@ -476,11 +476,10 @@ class InboxSLAMonitor:
             )
             store.log_activity(activity)
         except (ValueError, OSError, RuntimeError, ImportError) as e:
-            logger.debug(f"[SLAMonitor] Failed to log activity: {e}")
+            logger.debug("[SLAMonitor] Failed to log activity: %s", e)
 
         logger.info(
-            f"[SLAMonitor] Triggered {violation.escalation_level.value} escalation "
-            f"for message {violation.message_id}"
+            "[SLAMonitor] Triggered %s escalation for message %s", violation.escalation_level.value, violation.message_id
         )
         return True
 
@@ -677,7 +676,7 @@ class InboxSLAMonitor:
 
             return messages
         except (ValueError, OSError, ConnectionError, RuntimeError) as e:
-            logger.debug(f"[SLAMonitor] Failed to get messages: {e}")
+            logger.debug("[SLAMonitor] Failed to get messages: %s", e)
             return []
 
 

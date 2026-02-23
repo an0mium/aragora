@@ -181,7 +181,7 @@ class ExternalAgentProxy:
 
         except asyncio.TimeoutError:
             self._timeout_errors += 1
-            logger.error(f"Task submission timeout for adapter {self._adapter.adapter_name}")
+            logger.error("Task submission timeout for adapter %s", self._adapter.adapter_name)
             raise
 
     async def get_task_status(self, task_id: str) -> TaskStatus:
@@ -203,7 +203,7 @@ class ExternalAgentProxy:
             )
         except asyncio.TimeoutError:
             self._timeout_errors += 1
-            logger.warning(f"Status check timeout for task {task_id}")
+            logger.warning("Status check timeout for task %s", task_id)
             raise
 
     async def get_task_result(self, task_id: str) -> TaskResult:
@@ -245,7 +245,7 @@ class ExternalAgentProxy:
 
         except asyncio.TimeoutError:
             self._timeout_errors += 1
-            logger.warning(f"Result retrieval timeout for task {task_id}")
+            logger.warning("Result retrieval timeout for task %s", task_id)
             raise
 
     async def cancel_task(self, task_id: str) -> bool:
@@ -275,7 +275,7 @@ class ExternalAgentProxy:
 
         except asyncio.TimeoutError:
             self._timeout_errors += 1
-            logger.warning(f"Cancel timeout for task {task_id}")
+            logger.warning("Cancel timeout for task %s", task_id)
             return False
 
     async def stream_progress(self, task_id: str) -> AsyncIterator[TaskProgress]:
@@ -327,12 +327,12 @@ class ExternalAgentProxy:
             except asyncio.TimeoutError:
                 last_error = asyncio.TimeoutError(f"{operation} timed out after {timeout}s")
                 logger.warning(
-                    f"{operation} timeout, attempt {attempt + 1}/{self._config.max_retries}"
+                    "%s timeout, attempt %s/%s", operation, attempt + 1, self._config.max_retries
                 )
             except (RuntimeError, OSError, ConnectionError, ValueError) as e:
                 last_error = e
                 logger.warning(
-                    f"{operation} failed: {e}, attempt {attempt + 1}/{self._config.max_retries}"
+                    "%s failed: %s, attempt %s/%s", operation, e, attempt + 1, self._config.max_retries
                 )
 
             if attempt < self._config.max_retries - 1:

@@ -841,7 +841,7 @@ class SoftwareAuditor(BaseAuditor):
                         )
                     )
             except re.error as e:
-                logger.warning(f"Invalid regex pattern {vuln.name}: {e}")
+                logger.warning("Invalid regex pattern %s: %s", vuln.name, e)
 
         return findings
 
@@ -901,7 +901,7 @@ class SoftwareAuditor(BaseAuditor):
                         )
                     )
             except re.error as e:
-                logger.warning(f"Invalid secret pattern {secret.name}: {e}")
+                logger.warning("Invalid secret pattern %s: %s", secret.name, e)
 
         return findings
 

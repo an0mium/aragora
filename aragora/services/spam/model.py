@@ -119,13 +119,13 @@ class NaiveBayesClassifier:
             with open(path, encoding="utf-8") as f:
                 data = json.load(f)
         except (json.JSONDecodeError, UnicodeDecodeError) as e:
-            logger.warning(f"Invalid JSON model file {path}: {e}")
+            logger.warning("Invalid JSON model file %s: %s", path, e)
             return False
         except FileNotFoundError:
-            logger.warning(f"Model file not found: {path}")
+            logger.warning("Model file not found: %s", path)
             return False
         except OSError as e:
-            logger.warning(f"Failed to load model: {e}")
+            logger.warning("Failed to load model: %s", e)
             return False
 
         self._apply_model_data(data)

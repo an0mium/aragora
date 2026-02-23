@@ -192,7 +192,7 @@ def check_tier_rate_limit(
                     if org:
                         tier = org.tier.value
         except (ImportError, ValueError, TypeError, KeyError, RuntimeError) as e:
-            logger.debug(f"Could not extract user tier: {e}")
+            logger.debug("Could not extract user tier: %s", e)
 
     return limiter.allow(client_key, tier)
 

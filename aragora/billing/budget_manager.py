@@ -665,9 +665,7 @@ class BudgetManager:
             self.update_budget(budget.budget_id, status=BudgetStatus.SUSPENDED)
 
         logger.warning(
-            f"Suspended {len(budgets)} budget(s) for org {org_id} "
-            f"due to {severity} {anomaly_type} anomaly "
-            f"(actual={amount}, expected={expected})"
+            "Suspended %s budget(s) for org %s due to %s %s anomaly (actual=%s, expected=%s)", len(budgets), org_id, severity, anomaly_type, amount, expected
         )
 
         # Emit COST_ANOMALY event
@@ -750,7 +748,7 @@ class BudgetManager:
         )
         conn.commit()
 
-        logger.info(f"Updated budget {budget_id}")
+        logger.info("Updated budget %s", budget_id)
         return budget
 
     def delete_budget(self, budget_id: str) -> bool:
@@ -879,7 +877,7 @@ class BudgetManager:
                     "UPDATE budgets SET status = 'suspended', updated_at = ? WHERE budget_id = ?",
                     (time.time(), budget.budget_id),
                 )
-                logger.warning(f"Budget {budget.budget_id} auto-suspended (exceeded)")
+                logger.warning("Budget %s auto-suspended (exceeded)", budget.budget_id)
 
             # Trip circuit breaker for exceeded/suspended budgets
             self._check_budget_circuit_breaker(budget)
@@ -950,7 +948,7 @@ class BudgetManager:
                         try:
                             callback(alert)
                         except (TypeError, ValueError, RuntimeError, OSError) as e:
-                            logger.error(f"Alert callback failed: {e}")
+                            logger.error("Alert callback failed: %s", e)
 
     def _create_alert(self, budget: Budget, threshold: BudgetThreshold) -> BudgetAlert:
         """Create and persist a budget alert."""
@@ -988,7 +986,7 @@ class BudgetManager:
         )
         conn.commit()
 
-        logger.info(f"Budget alert: {alert.message}")
+        logger.info("Budget alert: %s", alert.message)
         return alert
 
     # =========================================================================
@@ -1089,7 +1087,7 @@ class BudgetManager:
         )
         conn.commit()
 
-        logger.info(f"Added override for user {user_id} on budget {budget_id}")
+        logger.info("Added override for user %s on budget %s", user_id, budget_id)
         return True
 
     def remove_override(self, budget_id: str, user_id: str) -> bool:
@@ -1208,7 +1206,7 @@ class BudgetManager:
         )
         conn.commit()
 
-        logger.info(f"Reset budget {budget_id} for new period")
+        logger.info("Reset budget %s for new period", budget_id)
         return budget
 
     def get_summary(self, org_id: str) -> dict[str, Any]:

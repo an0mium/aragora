@@ -133,16 +133,16 @@ class SynthesisGenerator:
                     synthesizer.generate(synthesis_prompt, ctx.context_messages),
                     timeout=60.0,
                 )
-            logger.info(f"synthesis_generated_opus chars={len(synthesis)}")
+            logger.info("synthesis_generated_opus chars=%s", len(synthesis))
 
         except asyncio.TimeoutError:
             logger.warning("synthesis_opus_timeout timeout=60s, trying sonnet fallback")
             synthesis_source = "sonnet"
         except ImportError as e:
-            logger.warning(f"synthesis_import_error: {e}, trying sonnet fallback")
+            logger.warning("synthesis_import_error: %s, trying sonnet fallback", e)
             synthesis_source = "sonnet"
         except Exception as e:  # noqa: BLE001 - phase isolation
-            logger.warning(f"synthesis_opus_failed error={e}, trying sonnet fallback")
+            logger.warning("synthesis_opus_failed error=%s, trying sonnet fallback", e)
             synthesis_source = "sonnet"
 
         # Try 2: Claude Sonnet fallback
@@ -160,15 +160,15 @@ class SynthesisGenerator:
                         synthesizer.generate(synthesis_prompt, ctx.context_messages),
                         timeout=30.0,
                     )
-                logger.info(f"synthesis_generated_sonnet chars={len(synthesis)}")
+                logger.info("synthesis_generated_sonnet chars=%s", len(synthesis))
             except Exception as e:  # noqa: BLE001 - phase isolation: must not crash, fall through to proposal combination
-                logger.warning(f"synthesis_sonnet_failed error={e}, using proposal combination")
+                logger.warning("synthesis_sonnet_failed error=%s, using proposal combination", e)
                 synthesis_source = "combined"
 
         # Try 3: Combine proposals as final fallback (always succeeds)
         if not synthesis:
             synthesis = self._combine_proposals_as_synthesis(ctx)
-            logger.info(f"synthesis_generated_combined chars={len(synthesis)}")
+            logger.info("synthesis_generated_combined chars=%s", len(synthesis))
 
         # Store synthesis in result
         ctx.result.synthesis = synthesis
@@ -205,7 +205,7 @@ class SynthesisGenerator:
                     confidence=ctx.result.confidence if ctx.result else 0.0,
                 )
         except (RuntimeError, AttributeError, TypeError) as e:  # noqa: BLE001
-            logger.warning(f"on_synthesis hook failed: {e}")
+            logger.warning("on_synthesis hook failed: %s", e)
 
         # Also emit as agent_message for backwards compatibility
         try:
@@ -218,7 +218,7 @@ class SynthesisGenerator:
                     round_num=rounds + 1,
                 )
         except (RuntimeError, AttributeError, TypeError) as e:  # noqa: BLE001
-            logger.warning(f"on_message hook failed: {e}")
+            logger.warning("on_message hook failed: %s", e)
 
         # Notify spectator
         try:
@@ -230,7 +230,7 @@ class SynthesisGenerator:
                     metric=ctx.result.confidence if ctx.result else 0.0,
                 )
         except (RuntimeError, AttributeError, TypeError) as e:  # noqa: BLE001
-            logger.warning(f"notify_spectator failed: {e}")
+            logger.warning("notify_spectator failed: %s", e)
 
     def _generate_export_links(self, ctx: DebateContext) -> None:
         """Generate export download links for the debate.
@@ -250,7 +250,7 @@ class SynthesisGenerator:
             "csv_summary": f"/api/debates/{debate_id}/export/csv?table=summary",
             "csv_messages": f"/api/debates/{debate_id}/export/csv?table=messages",
         }
-        logger.info(f"export_links_generated debate_id={debate_id}")
+        logger.info("export_links_generated debate_id=%s", debate_id)
 
         # Emit export ready event
         try:
@@ -260,7 +260,7 @@ class SynthesisGenerator:
                     links=ctx.result.export_links,
                 )
         except (RuntimeError, AttributeError, TypeError) as e:  # noqa: BLE001
-            logger.warning(f"on_export_ready hook failed: {e}")
+            logger.warning("on_export_ready hook failed: %s", e)
 
     def _combine_proposals_as_synthesis(self, ctx: DebateContext) -> str:
         """Combine proposals into a synthesis when LLM generation fails.

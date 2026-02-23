@@ -378,10 +378,10 @@ class ConfigValidator:
         result = cls.validate_all()
 
         for warning in result.warnings:
-            logger.warning(f"Configuration warning: {warning}")
+            logger.warning("Configuration warning: %s", warning)
 
         for error in result.errors:
-            logger.error(f"Configuration error: {error}")
+            logger.error("Configuration error: %s", error)
 
         if strict and result.has_warnings:
             return False
@@ -605,7 +605,7 @@ class ConfigValidator:
 
         except (ImportError, OSError, RuntimeError, ValueError) as e:
             # Log but don't fail startup for migration check errors
-            logger.warning(f"Could not verify Alembic migrations: {e}")
+            logger.warning("Could not verify Alembic migrations: %s", e)
             return True, None
 
     @classmethod
@@ -798,10 +798,10 @@ async def validate_startup_config_async(
 
     # Log results
     for warning in result.warnings:
-        logger.warning(f"Configuration warning: {warning}")
+        logger.warning("Configuration warning: %s", warning)
 
     for error in result.errors:
-        logger.error(f"Configuration error: {error}")
+        logger.error("Configuration error: %s", error)
 
     return result
 

@@ -134,7 +134,7 @@ class InboxManager:
             )
 
             self._channels[channel_id] = channel
-            logger.info(f"Registered {config.type.value} channel ({channel_id})")
+            logger.info("Registered %s channel (%s)", config.type.value, channel_id)
 
             return channel
 
@@ -182,7 +182,7 @@ class InboxManager:
                 return False
 
             del self._channels[channel_id]
-            logger.info(f"Unregistered channel {channel_id}")
+            logger.info("Unregistered channel %s", channel_id)
             return True
 
     # ========== Message Management ==========
@@ -255,7 +255,7 @@ class InboxManager:
             channel.last_message_at = datetime.now(timezone.utc)
             channel.message_count += 1
 
-            logger.debug(f"Received message {message_id} on channel {channel_id}")
+            logger.debug("Received message %s on channel %s", message_id, channel_id)
 
             # Process message (intent detection, etc.)
             await self._process_message(message)
@@ -335,7 +335,7 @@ class InboxManager:
 
         message.updated_at = datetime.now(timezone.utc)
 
-        logger.debug(f"Sent message {message_id} via channel {channel_id}")
+        logger.debug("Sent message %s via channel %s", message_id, channel_id)
         await self._mirror_to_gateway(message, channel)
         if self._gateway_inbox and reply_to:
             await self._gateway_inbox.mark_replied(reply_to)
@@ -441,7 +441,7 @@ class InboxManager:
                 await handler(message, channel)
                 return True
             except (RuntimeError, ValueError, AttributeError) as e:  # delivery handler
-                logger.error(f"Failed to deliver message {message.id}: {e}")
+                logger.error("Failed to deliver message %s: %s", message.id, e)
                 return False
 
         # Default: assume success for mock
@@ -454,7 +454,7 @@ class InboxManager:
     ) -> None:
         """Register a message handler for a channel type."""
         self._handlers[channel_type] = handler
-        logger.info(f"Registered handler for {channel_type.value}")
+        logger.info("Registered handler for %s", channel_type.value)
 
     # ========== Analytics ==========
 

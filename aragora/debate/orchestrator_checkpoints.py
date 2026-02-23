@@ -76,12 +76,12 @@ async def save_checkpoint(
             current_consensus=current_consensus,
         )
         logger.info(
-            f"[checkpoint] Saved checkpoint {checkpoint.checkpoint_id} for debate {debate_id}"
+            "[checkpoint] Saved checkpoint %s for debate %s", checkpoint.checkpoint_id, debate_id
         )
         return checkpoint.checkpoint_id
 
     except (OSError, ValueError, TypeError, RuntimeError) as e:
-        logger.warning(f"[checkpoint] Failed to save checkpoint: {e}")
+        logger.warning("[checkpoint] Failed to save checkpoint: %s", e)
         return None
 
 
@@ -127,7 +127,7 @@ async def restore_from_checkpoint(
         )
 
         if not resumed:
-            logger.warning(f"[checkpoint] Checkpoint {checkpoint_id} not found or corrupted")
+            logger.warning("[checkpoint] Checkpoint %s not found or corrupted", checkpoint_id)
             return None
 
         # Reconstruct DebateContext from checkpoint
@@ -173,13 +173,12 @@ async def restore_from_checkpoint(
         ctx._checkpoint_resume_round = resumed.checkpoint.current_round
 
         logger.info(
-            f"[checkpoint] Restored from checkpoint {checkpoint_id} "
-            f"at round {resumed.checkpoint.current_round}"
+            "[checkpoint] Restored from checkpoint %s at round %s", checkpoint_id, resumed.checkpoint.current_round
         )
         return ctx
 
     except (OSError, ValueError, TypeError, KeyError, AttributeError) as e:
-        logger.warning(f"[checkpoint] Failed to restore checkpoint: {e}")
+        logger.warning("[checkpoint] Failed to restore checkpoint: %s", e)
         return None
 
 
@@ -216,7 +215,7 @@ async def list_checkpoints(
             limit=limit,
         )
     except (OSError, ValueError, TypeError, AttributeError) as e:
-        logger.warning(f"[checkpoint] Failed to list checkpoints: {e}")
+        logger.warning("[checkpoint] Failed to list checkpoints: %s", e)
         return []
 
 
@@ -256,12 +255,12 @@ async def cleanup_checkpoints(
         for cp in checkpoints[keep_latest:]:
             if await checkpoint_manager.store.delete(cp["checkpoint_id"]):
                 deleted += 1
-                logger.debug(f"[checkpoint] Deleted checkpoint {cp['checkpoint_id']}")
+                logger.debug("[checkpoint] Deleted checkpoint %s", cp['checkpoint_id'])
 
         if deleted > 0:
-            logger.info(f"[checkpoint] Cleaned up {deleted} checkpoints for debate {debate_id}")
+            logger.info("[checkpoint] Cleaned up %s checkpoints for debate %s", deleted, debate_id)
         return deleted
 
     except (OSError, ValueError, TypeError, AttributeError) as e:
-        logger.warning(f"[checkpoint] Cleanup failed: {e}")
+        logger.warning("[checkpoint] Cleanup failed: %s", e)
         return 0

@@ -215,7 +215,7 @@ class AutonomicExecutor:
                     phase=phase,
                 )
             except (RuntimeError, TypeError, AttributeError, ValueError) as e:
-                logger.debug(f"[Autonomic] Failed to emit agent error event: {e}")
+                logger.debug("[Autonomic] Failed to emit agent error event: %s", e)
 
     def _should_power_sample(self, agent: Agent, phase: str) -> bool:
         cfg = self.power_sampling_config
@@ -389,10 +389,10 @@ class AutonomicExecutor:
             pass  # Telemetry not available
         except (TypeError, ValueError, OSError) as e:
             # Expected telemetry issues: serialization, I/O
-            logger.debug(f"[telemetry] Emission failed: {e}")
+            logger.debug("[telemetry] Emission failed: %s", e)
         except (RuntimeError, AttributeError, KeyError) as e:
             # Unexpected errors - log at warning level
-            logger.warning(f"[telemetry] Unexpected emission error: {type(e).__name__}: {e}")
+            logger.warning("[telemetry] Unexpected emission error: %s: %s", type(e).__name__, e)
 
     def _get_wisdom_fallback(self, failed_agent: str) -> str | None:
         """
@@ -411,7 +411,7 @@ class AutonomicExecutor:
             wisdom = wisdom_list[0]
             self.wisdom_store.mark_wisdom_used(wisdom["id"])
 
-            logger.info(f"[wisdom] Injecting audience wisdom for failed agent {failed_agent}")
+            logger.info("[wisdom] Injecting audience wisdom for failed agent %s", failed_agent)
 
             return (
                 f"[Audience Wisdom - submitted by {wisdom['submitter_id']}]\n\n"
@@ -421,11 +421,11 @@ class AutonomicExecutor:
             )
         except (KeyError, OSError) as e:
             # Expected database/storage issues
-            logger.warning(f"[wisdom] Failed to retrieve wisdom: {e}")
+            logger.warning("[wisdom] Failed to retrieve wisdom: %s", e)
             return None
         except (RuntimeError, AttributeError, TypeError, ValueError) as e:
             # Unexpected errors - log with more detail
-            logger.error(f"[wisdom] Unexpected error retrieving wisdom: {type(e).__name__}: {e}")
+            logger.error("[wisdom] Unexpected error retrieving wisdom: %s: %s", type(e).__name__, e)
             return None
 
     def get_escalated_timeout(self, agent_name: str, base_timeout: float | None = None) -> float:
@@ -497,7 +497,7 @@ class AutonomicExecutor:
                 just_opened = self.circuit_breaker.record_failure(agent_name)
                 if just_opened and self.immune_system:
                     self.immune_system.circuit_opened(agent_name, f"timeout after {timeout}s")
-            logger.warning(f"Agent {agent_name} timed out after {timeout}s")
+            logger.warning("Agent %s timed out after %ss", agent_name, timeout)
             raise TimeoutError(f"Agent {agent_name} timed out after {timeout}s")
 
     async def generate(
@@ -554,7 +554,7 @@ class AutonomicExecutor:
             progress_task = asyncio.create_task(_report_progress())
             progress_task.add_done_callback(
                 lambda t: logger.debug(
-                    f"[Autonomic] Progress monitoring error: {t.exception()}"
+                    "[Autonomic] Progress monitoring error: %s", t.exception()
                 )
                 if not t.cancelled() and t.exception()
                 else None
@@ -584,17 +584,17 @@ class AutonomicExecutor:
             # Retry once on empty output (qwen and other agents sometimes produce empty responses)
             if empty_output:
                 logger.warning(
-                    f"[Autonomic] Agent {agent.name} produced empty output, retrying once..."
+                    "[Autonomic] Agent %s produced empty output, retrying once...", agent.name
                 )
                 retry_raw = await agent.generate(prompt, context)
                 retry_sanitized = OutputSanitizer.sanitize_agent_output(retry_raw, agent.name)
                 if retry_sanitized != "(Agent produced empty output)":
-                    logger.info(f"[Autonomic] Agent {agent.name} retry succeeded")
+                    logger.info("[Autonomic] Agent %s retry succeeded", agent.name)
                     sanitized = retry_sanitized
                     empty_output = False
                 else:
                     logger.warning(
-                        f"[Autonomic] Agent {agent.name} retry also produced empty output"
+                        "[Autonomic] Agent %s retry also produced empty output", agent.name
                     )
 
             if empty_output:
@@ -637,12 +637,11 @@ class AutonomicExecutor:
             )
             if not validation_result.is_valid:
                 logger.warning(
-                    f"[Autonomic] Agent {agent.name} response validation failed: "
-                    f"{validation_result.errors}"
+                    "[Autonomic] Agent %s response validation failed: %s", agent.name, validation_result.errors
                 )
             elif validation_result.warnings:
                 for warning in validation_result.warnings:
-                    logger.info(f"[Autonomic] Agent {agent.name} response warning: {warning}")
+                    logger.info("[Autonomic] Agent %s response warning: %s", agent.name, warning)
 
             # Record successful completion
             if tracking_id and self.performance_monitor:
@@ -663,7 +662,7 @@ class AutonomicExecutor:
             return sanitized
         except asyncio.TimeoutError as e:
             timeout_seconds = time.time() - start_time
-            logger.warning(f"[Autonomic] Agent {agent.name} timed out")
+            logger.warning("[Autonomic] Agent %s timed out", agent.name)
 
             # Record timeout failure
             if tracking_id and self.performance_monitor:
@@ -696,7 +695,7 @@ class AutonomicExecutor:
 
         except (ConnectionError, OSError) as e:
             # Network/OS errors - log without full traceback
-            logger.warning(f"[Autonomic] Agent {agent.name} connection error: {e}")
+            logger.warning("[Autonomic] Agent %s connection error: %s", agent.name, e)
 
             # Record connection failure
             if tracking_id and self.performance_monitor:
@@ -729,7 +728,7 @@ class AutonomicExecutor:
 
         except Exception as e:  # noqa: BLE001 - autonomic containment: agent failures must not crash debate
             # Autonomic containment: convert crashes to valid responses
-            logger.exception(f"[Autonomic] Agent {agent.name} failed: {type(e).__name__}: {e}")
+            logger.exception("[Autonomic] Agent %s failed: %s: %s", agent.name, type(e).__name__, e)
 
             # Record exception failure
             if tracking_id and self.performance_monitor:
@@ -804,7 +803,7 @@ class AutonomicExecutor:
             result = await agent.critique(proposal, task, context, target_agent=target_agent)
             if self._is_empty_critique(result):
                 logger.warning(
-                    f"[Autonomic] Agent {agent.name} returned empty critique, retrying once..."
+                    "[Autonomic] Agent %s returned empty critique, retrying once...", agent.name
                 )
                 retry_result = await agent.critique(
                     proposal, task, context, target_agent=target_agent
@@ -813,7 +812,7 @@ class AutonomicExecutor:
                     result = retry_result
                 else:
                     logger.warning(
-                        f"[Autonomic] Agent {agent.name} retry also returned empty critique"
+                        "[Autonomic] Agent %s retry also returned empty critique", agent.name
                     )
                     if tracking_id and self.performance_monitor:
                         self.performance_monitor.record_completion(
@@ -871,7 +870,7 @@ class AutonomicExecutor:
             )
             return result
         except asyncio.TimeoutError as e:
-            logger.warning(f"[Autonomic] Agent {agent.name} critique timed out")
+            logger.warning("[Autonomic] Agent %s critique timed out", agent.name)
             if tracking_id and self.performance_monitor:
                 self.performance_monitor.record_completion(
                     tracking_id, success=False, error="timeout"
@@ -888,7 +887,7 @@ class AutonomicExecutor:
             )
             return None
         except (ConnectionError, OSError) as e:
-            logger.warning(f"[Autonomic] Agent {agent.name} critique connection error: {e}")
+            logger.warning("[Autonomic] Agent %s critique connection error: %s", agent.name, e)
             if tracking_id and self.performance_monitor:
                 self.performance_monitor.record_completion(
                     tracking_id, success=False, error=f"connection error: {e}"
@@ -905,7 +904,7 @@ class AutonomicExecutor:
             )
             return None
         except Exception as e:  # noqa: BLE001 - autonomic containment: agent failures must not crash debate
-            logger.exception(f"[Autonomic] Agent {agent.name} critique failed: {e}")
+            logger.exception("[Autonomic] Agent %s critique failed: %s", agent.name, e)
             if tracking_id and self.performance_monitor:
                 self.performance_monitor.record_completion(
                     tracking_id, success=False, error=f"{type(e).__name__}: {e}"
@@ -1010,7 +1009,7 @@ class AutonomicExecutor:
             )
             return result
         except asyncio.TimeoutError as e:
-            logger.warning(f"[Autonomic] Agent {agent.name} vote timed out")
+            logger.warning("[Autonomic] Agent %s vote timed out", agent.name)
             if tracking_id and self.performance_monitor:
                 self.performance_monitor.record_completion(
                     tracking_id, success=False, error="timeout"
@@ -1027,7 +1026,7 @@ class AutonomicExecutor:
             )
             return None
         except (ConnectionError, OSError) as e:
-            logger.warning(f"[Autonomic] Agent {agent.name} vote connection error: {e}")
+            logger.warning("[Autonomic] Agent %s vote connection error: %s", agent.name, e)
             if tracking_id and self.performance_monitor:
                 self.performance_monitor.record_completion(
                     tracking_id, success=False, error=f"connection error: {e}"
@@ -1044,7 +1043,7 @@ class AutonomicExecutor:
             )
             return None
         except Exception as e:  # noqa: BLE001 - autonomic containment: agent failures must not crash debate
-            logger.exception(f"[Autonomic] Agent {agent.name} vote failed: {e}")
+            logger.exception("[Autonomic] Agent %s vote failed: %s", agent.name, e)
             if tracking_id and self.performance_monitor:
                 self.performance_monitor.record_completion(
                     tracking_id, success=False, error=f"{type(e).__name__}: {e}"
@@ -1093,7 +1092,7 @@ class AutonomicExecutor:
         for current_agent in all_agents:
             # Skip agents that are circuit-broken
             if self.circuit_breaker and not self.circuit_breaker.is_available(current_agent.name):
-                logger.info(f"[Autonomic] Skipping circuit-broken agent {current_agent.name}")
+                logger.info("[Autonomic] Skipping circuit-broken agent %s", current_agent.name)
                 continue
 
             for attempt in range(max_retries):
@@ -1125,14 +1124,12 @@ class AutonomicExecutor:
                     partial = self.streaming_buffer.get_partial(current_agent.name)
                     if partial and len(partial) > 100:
                         logger.warning(
-                            f"[Autonomic] {current_agent.name} timed out but has "
-                            f"{len(partial)} chars of partial content"
+                            "[Autonomic] %s timed out but has %s chars of partial content", current_agent.name, len(partial)
                         )
                         # Could use partial content as fallback
 
                     logger.warning(
-                        f"[Autonomic] {current_agent.name} timed out on attempt "
-                        f"{attempt + 1}/{max_retries}"
+                        "[Autonomic] %s timed out on attempt %s/%s", current_agent.name, attempt + 1, max_retries
                     )
                     last_error = f"timeout after {timeout:.1f}s"
 
@@ -1141,8 +1138,7 @@ class AutonomicExecutor:
                     if self.circuit_breaker:
                         self.circuit_breaker.record_failure(current_agent.name)
                     logger.warning(
-                        f"[Autonomic] {current_agent.name} connection error on attempt "
-                        f"{attempt + 1}: {e}"
+                        "[Autonomic] %s connection error on attempt %s: %s", current_agent.name, attempt + 1, e
                     )
                     last_error = f"timeout after {timeout:.1f}s"
 
@@ -1151,8 +1147,7 @@ class AutonomicExecutor:
                     if self.circuit_breaker:
                         self.circuit_breaker.record_failure(current_agent.name)
                     logger.warning(
-                        f"[Autonomic] {current_agent.name} connection error on attempt "
-                        f"{attempt + 1}: {e}"
+                        "[Autonomic] %s connection error on attempt %s: %s", current_agent.name, attempt + 1, e
                     )
                     last_error = f"connection_error:{type(e).__name__}"
 
@@ -1161,23 +1156,21 @@ class AutonomicExecutor:
                     if self.circuit_breaker:
                         self.circuit_breaker.record_failure(current_agent.name)
                     logger.exception(
-                        f"[Autonomic] {current_agent.name} failed on attempt "
-                        f"{attempt + 1}: {type(e).__name__}: {e}"
+                        "[Autonomic] %s failed on attempt %s: %s: %s", current_agent.name, attempt + 1, type(e).__name__, e
                     )
                     last_error = f"agent_error:{type(e).__name__}"
                     # Don't retry on unexpected errors
                     break
 
             # Agent exhausted retries, try next fallback
-            logger.info(f"[Autonomic] Moving to fallback after {current_agent.name} failed")
+            logger.info("[Autonomic] Moving to fallback after %s failed", current_agent.name)
 
         # All agents failed - check for any partial content
         for tried_agent in all_agents:
             partial = self.streaming_buffer.get_partial(tried_agent.name)
             if partial and len(partial) > 200:
                 logger.info(
-                    f"[Autonomic] Using partial content ({len(partial)} chars) "
-                    f"from {tried_agent.name}"
+                    "[Autonomic] Using partial content (%s chars) from %s", len(partial), tried_agent.name
                 )
                 sanitized = OutputSanitizer.sanitize_agent_output(partial, tried_agent.name)
                 return f"{sanitized}\n\n[System: Response truncated due to timeout]"

@@ -144,7 +144,7 @@ def load_knowledge_context(
     except (AttributeError, TypeError) as e:
         # Graceful degradation if mound doesn't have expected methods
         logger.debug(
-            f"Knowledge mound access failed (graceful degradation): {type(e).__name__}: {e}"
+            "Knowledge mound access failed (graceful degradation): %s: %s", type(e).__name__, e
         )
 
     # Calculate stats

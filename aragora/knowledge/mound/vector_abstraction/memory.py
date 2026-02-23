@@ -485,7 +485,7 @@ class InMemoryVectorStore(BaseVectorStore):
             return field_exists and isinstance(field_value, str) and op_value in field_value
         else:
             # Unknown operator - treat as equality for backwards compatibility
-            logger.warning(f"Unknown filter operator: {operator}")
+            logger.warning("Unknown filter operator: %s", operator)
             return field_exists and field_value == op_value
 
     def _cosine_similarity(self, a: list[float], b: list[float]) -> float:

@@ -66,7 +66,7 @@ class GoogleChatDock(ChannelDock):
                 logger.warning("Google Chat connector not configured")
                 return False
         except ImportError as e:
-            logger.warning(f"Google Chat connector not available: {e}")
+            logger.warning("Google Chat connector not available: %s", e)
             return False
 
     async def send_message(
@@ -123,7 +123,7 @@ class GoogleChatDock(ChannelDock):
                 )
 
         except (ConnectionError, TimeoutError, OSError, ValueError, RuntimeError) as e:
-            logger.error(f"Google Chat send error: {e}")
+            logger.error("Google Chat send error: %s", e)
             return SendResult.fail(
                 error=str(e),
                 platform=self.PLATFORM,
@@ -292,7 +292,7 @@ class GoogleChatDock(ChannelDock):
                 )
 
         except (ConnectionError, TimeoutError, OSError, ValueError, RuntimeError) as e:
-            logger.error(f"Google Chat result send error: {e}")
+            logger.error("Google Chat result send error: %s", e)
             return SendResult.fail(
                 error=str(e),
                 platform=self.PLATFORM,

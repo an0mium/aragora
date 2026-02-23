@@ -339,14 +339,14 @@ class HandoffStore:
         # Load bead handoffs
         self._handoffs = await loop.run_in_executor(None, self._load_bead_handoffs_sync)
         if self._handoffs:
-            logger.info(f"Loaded {len(self._handoffs)} bead handoffs")
+            logger.info("Loaded %s bead handoffs", len(self._handoffs))
 
         # Load molecule handoffs
         self._molecule_handoffs = await loop.run_in_executor(
             None, self._load_molecule_handoffs_sync
         )
         if self._molecule_handoffs:
-            logger.info(f"Loaded {len(self._molecule_handoffs)} molecule handoffs")
+            logger.info("Loaded %s molecule handoffs", len(self._molecule_handoffs))
 
     async def save_bead_handoff(self, handoff: BeadHandoffContext) -> None:
         """Save a bead handoff context."""
@@ -463,7 +463,7 @@ class HandoffProtocol:
         )
         await self.store.save_bead_handoff(handoff)
         logger.info(
-            f"Created handoff {handoff.id}: {source_bead_id} -> {target_bead_id or target_agent_id}"
+            "Created handoff %s: %s -> %s", handoff.id, source_bead_id, target_bead_id or target_agent_id
         )
         return handoff
 
@@ -515,7 +515,7 @@ class HandoffProtocol:
         Called on agent startup to ensure GUPP compliance.
         """
         handoffs = await self.store.get_pending_for_agent(agent_id)
-        logger.info(f"Recovered {len(handoffs)} pending handoffs for agent {agent_id}")
+        logger.info("Recovered %s pending handoffs for agent %s", len(handoffs), agent_id)
         return sorted(handoffs, key=lambda h: h.priority.value, reverse=True)
 
     async def recover_for_bead(self, bead_id: str) -> list[BeadHandoffContext]:

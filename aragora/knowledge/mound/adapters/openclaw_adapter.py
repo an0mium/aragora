@@ -251,7 +251,7 @@ class OpenClawAdapter(OpenClawLearningMixin, FusionMixin, SemanticSearchMixin, K
 
             return False
         except (RuntimeError, ValueError, OSError, AttributeError) as e:
-            logger.warning(f"Failed to apply fusion result to OpenClaw record: {e}")
+            logger.warning("Failed to apply fusion result to OpenClaw record: %s", e)
             return False
 
     # =========================================================================
@@ -464,7 +464,7 @@ class OpenClawAdapter(OpenClawLearningMixin, FusionMixin, SemanticSearchMixin, K
                 action_data["km_node_id"] = km_id
 
                 result.items_synced += 1
-                logger.debug(f"Synced OpenClaw action to KM: {action_data['id']} -> {km_id}")
+                logger.debug("Synced OpenClaw action to KM: %s -> %s", action_data['id'], km_id)
 
             except (RuntimeError, ValueError, OSError, AttributeError) as e:
                 error_msg = f"Error syncing action {action_data.get('id')}: {e}"
@@ -475,8 +475,7 @@ class OpenClawAdapter(OpenClawLearningMixin, FusionMixin, SemanticSearchMixin, K
         result.duration_ms = (time.time() - start_time) * 1000
 
         logger.info(
-            f"OpenClaw to KM sync complete: synced={result.items_synced}, "
-            f"skipped={result.items_skipped}, failed={result.items_failed}"
+            "OpenClaw to KM sync complete: synced=%s, skipped=%s, failed=%s", result.items_synced, result.items_skipped, result.items_failed
         )
 
         return result
@@ -620,7 +619,7 @@ class OpenClawAdapter(OpenClawLearningMixin, FusionMixin, SemanticSearchMixin, K
                         update.applied = True
                         update.applied_at = datetime.now(timezone.utc)
                 except (RuntimeError, ValueError, TypeError, AttributeError, ConnectionError, OSError) as e:
-                    logger.warning(f"Failed to push priority update to OpenClaw: {e}")
+                    logger.warning("Failed to push priority update to OpenClaw: %s", e)
 
             pushed_count += 1
 
@@ -664,7 +663,7 @@ class OpenClawAdapter(OpenClawLearningMixin, FusionMixin, SemanticSearchMixin, K
                         )
                         applied_count += 1
                 except (RuntimeError, ValueError, TypeError, AttributeError) as e:  # noqa: BLE001 - adapter isolation
-                    logger.warning(f"Failed to push context update to OpenClaw: {e}")
+                    logger.warning("Failed to push context update to OpenClaw: %s", e)
 
         self._emit_event(
             "km_openclaw_context_updated",

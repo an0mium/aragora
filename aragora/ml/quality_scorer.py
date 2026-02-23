@@ -108,7 +108,7 @@ class QualityScorer:
 
                 self._embedding_service = get_embedding_service()
             except (ImportError, RuntimeError, OSError, ValueError) as e:
-                logger.warning(f"Could not load embedding service: {e}")
+                logger.warning("Could not load embedding service: %s", e)
                 self.config.use_embeddings = False
         return self._embedding_service
 
@@ -279,7 +279,7 @@ class QualityScorer:
                 similarity = embedding_service.similarity(text_emb, context_emb)
                 return float(similarity)
             except (RuntimeError, ValueError, OSError) as e:
-                logger.debug(f"Embedding similarity failed: {e}")
+                logger.debug("Embedding similarity failed: %s", e)
 
         # Fallback: keyword overlap
         text_words = set(text.lower().split())

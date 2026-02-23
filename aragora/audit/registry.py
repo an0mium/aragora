@@ -135,7 +135,7 @@ class AuditRegistry:
             )
 
         self._auditors[audit_type_id] = auditor
-        logger.info(f"Registered auditor: {audit_type_id} (v{auditor.version}) by {auditor.author}")
+        logger.info("Registered auditor: %s (v%s) by %s", audit_type_id, auditor.version, auditor.author)
 
     def register_class(
         self,
@@ -158,7 +158,7 @@ class AuditRegistry:
             raise ValueError(f"Auditor class '{audit_type_id}' is already registered.")
 
         self._auditor_classes[audit_type_id] = auditor_class
-        logger.debug(f"Registered auditor class: {audit_type_id}")
+        logger.debug("Registered auditor class: %s", audit_type_id)
 
     def register_legacy(
         self,
@@ -184,7 +184,7 @@ class AuditRegistry:
             "display_name": display_name or audit_type_id.title(),
             "description": description,
         }
-        logger.debug(f"Registered legacy auditor: {audit_type_id}")
+        logger.debug("Registered legacy auditor: %s", audit_type_id)
 
     def get(self, audit_type_id: str) -> BaseAuditor | None:
         """
@@ -299,7 +299,7 @@ class AuditRegistry:
         if name in self._presets and not override:
             raise ValueError(f"Preset '{name}' is already registered.")
         self._presets[name] = preset
-        logger.debug(f"Registered preset: {name}")
+        logger.debug("Registered preset: %s", name)
 
     def load_preset_file(self, path: Path) -> PresetConfig:
         """Load and register a preset from file."""
@@ -389,7 +389,7 @@ class AuditRegistry:
                 count += 1
 
         except ImportError as e:
-            logger.warning(f"Could not import built-in auditors: {e}")
+            logger.warning("Could not import built-in auditors: %s", e)
 
         return count
 
@@ -441,12 +441,11 @@ class AuditRegistry:
                                 self.register(attr())
                                 count += 1
                                 logger.info(
-                                    f"Discovered plugin auditor: {attr_name} "
-                                    f"from {plugin_dir / module_info.name}.py"
+                                    "Discovered plugin auditor: %s from %s.py", attr_name, plugin_dir / module_info.name
                                 )
 
                 except (ImportError, ValueError, OSError, RuntimeError) as e:
-                    logger.warning(f"Failed to load plugin {module_info.name}: {e}")
+                    logger.warning("Failed to load plugin %s: %s", module_info.name, e)
 
         return count
 
@@ -481,9 +480,9 @@ class AuditRegistry:
                     preset = PresetConfig.from_file(yaml_file)
                     self.register_preset(preset)
                     count += 1
-                    logger.debug(f"Discovered preset: {preset.name} from {yaml_file}")
+                    logger.debug("Discovered preset: %s from %s", preset.name, yaml_file)
                 except (ValueError, OSError, RuntimeError) as e:
-                    logger.warning(f"Failed to load preset {yaml_file}: {e}")
+                    logger.warning("Failed to load preset %s: %s", yaml_file, e)
 
             for yaml_file in preset_dir.glob("*.yml"):
                 try:
@@ -491,7 +490,7 @@ class AuditRegistry:
                     self.register_preset(preset)
                     count += 1
                 except (ValueError, OSError, RuntimeError) as e:
-                    logger.warning(f"Failed to load preset {yaml_file}: {e}")
+                    logger.warning("Failed to load preset %s: %s", yaml_file, e)
 
         return count
 

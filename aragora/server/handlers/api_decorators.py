@@ -176,7 +176,7 @@ def validate_body(required_fields: list[str]) -> Callable[[Callable[..., Any]], 
                 try:
                     body = await request.json()
                 except (json.JSONDecodeError, ValueError, TypeError) as e:
-                    logger.debug(f"JSON parse error in request body: {e}")
+                    logger.debug("JSON parse error in request body: %s", e)
                     if hasattr(self, "error_response"):
                         return self.error_response("Invalid JSON body", status=400)
                     return error_response("Invalid JSON body", status=400)
@@ -197,7 +197,7 @@ def validate_body(required_fields: list[str]) -> Callable[[Callable[..., Any]], 
             try:
                 body = request.json() if callable(getattr(request, "json", None)) else None
             except (json.JSONDecodeError, ValueError, TypeError) as e:
-                logger.debug(f"JSON parse error in request body: {e}")
+                logger.debug("JSON parse error in request body: %s", e)
                 if hasattr(self, "error_response"):
                     return self.error_response("Invalid JSON body", status=400)
                 return error_response("Invalid JSON body", status=400)
@@ -296,8 +296,7 @@ def require_quota(debate_count: int = 1) -> Callable[[Callable[..., Any]], Calla
                             # Check if at limit
                             if org.is_at_limit:
                                 logger.info(
-                                    f"Quota exceeded for org {user_ctx.org_id}: "
-                                    f"{org.debates_used_this_month}/{org.limits.debates_per_month}"
+                                    "Quota exceeded for org %s: %s/%s", user_ctx.org_id, org.debates_used_this_month, org.limits.debates_per_month
                                 )
                                 return json_response(
                                     {
@@ -322,8 +321,7 @@ def require_quota(debate_count: int = 1) -> Callable[[Callable[..., Any]], Calla
                                     org.limits.debates_per_month - org.debates_used_this_month
                                 )
                                 logger.info(
-                                    f"Quota insufficient for org {user_ctx.org_id}: "
-                                    f"requested {debate_count}, remaining {remaining}"
+                                    "Quota insufficient for org %s: requested %s, remaining %s", user_ctx.org_id, debate_count, remaining
                                 )
                                 return json_response(
                                     {
@@ -341,7 +339,7 @@ def require_quota(debate_count: int = 1) -> Callable[[Callable[..., Any]], Calla
 
                 except (ValueError, TypeError, KeyError, AttributeError, OSError, RuntimeError) as e:
                     # Log but don't block on quota check failure
-                    logger.warning(f"Quota check failed for org {user_ctx.org_id}: {e}")
+                    logger.warning("Quota check failed for org %s: %s", user_ctx.org_id, e)
 
             # Execute the handler
             result = func(*args, **kwargs)
@@ -360,10 +358,10 @@ def require_quota(debate_count: int = 1) -> Callable[[Callable[..., Any]], Calla
                         if user_store and hasattr(user_store, "increment_usage"):
                             user_store.increment_usage(user_ctx.org_id, debate_count)
                             logger.debug(
-                                f"Incremented usage for org {user_ctx.org_id} by {debate_count}"
+                                "Incremented usage for org %s by %s", user_ctx.org_id, debate_count
                             )
                     except (ValueError, TypeError, KeyError, AttributeError, OSError, RuntimeError) as e:
-                        logger.warning(f"Usage increment failed for org {user_ctx.org_id}: {e}")
+                        logger.warning("Usage increment failed for org %s: %s", user_ctx.org_id, e)
 
             return result
 

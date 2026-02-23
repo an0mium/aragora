@@ -376,9 +376,9 @@ class FlipDetector:
             for flip in flips:
                 try:
                     self._km_adapter.store_flip(flip)
-                    logger.debug(f"Flip synced to Knowledge Mound: {flip.id}")
+                    logger.debug("Flip synced to Knowledge Mound: %s", flip.id)
                 except (OSError, ValueError, RuntimeError, TypeError) as e:
-                    logger.warning(f"Failed to sync flip to KM: {e}")
+                    logger.warning("Failed to sync flip to KM: %s", e)
 
     def get_agent_consistency(self, agent_name: str) -> AgentConsistencyScore:
         """Get consistency score and metrics for an agent."""

@@ -204,7 +204,7 @@ class NotionConnector(EnterpriseConnector):
             data = await self._api_request(f"/pages/{page_id}")
             return self._parse_page(data)
         except (RuntimeError, ValueError, KeyError, Exception) as e:
-            logger.warning(f"[{self.name}] Failed to get page {page_id}: {e}")
+            logger.warning("[%s] Failed to get page %s: %s", self.name, page_id, e)
             return None
 
     async def _get_database(self, database_id: str) -> NotionDatabase | None:
@@ -213,7 +213,7 @@ class NotionConnector(EnterpriseConnector):
             data = await self._api_request(f"/databases/{database_id}")
             return self._parse_database(data)
         except (RuntimeError, ValueError, KeyError, Exception) as e:
-            logger.warning(f"[{self.name}] Failed to get database {database_id}: {e}")
+            logger.warning("[%s] Failed to get database %s: %s", self.name, database_id, e)
             return None
 
     async def _query_database(
@@ -391,7 +391,7 @@ class NotionConnector(EnterpriseConnector):
             try:
                 created_at = datetime.fromisoformat(data["created_time"].replace("Z", "+00:00"))
             except ValueError as e:
-                logger.debug(f"Invalid created_time format: {e}")
+                logger.debug("Invalid created_time format: %s", e)
 
         if data.get("last_edited_time"):
             try:
@@ -399,7 +399,7 @@ class NotionConnector(EnterpriseConnector):
                     data["last_edited_time"].replace("Z", "+00:00")
                 )
             except ValueError as e:
-                logger.debug(f"Invalid last_edited_time format: {e}")
+                logger.debug("Invalid last_edited_time format: %s", e)
 
         return NotionPage(
             id=data.get("id", ""),
@@ -433,7 +433,7 @@ class NotionConnector(EnterpriseConnector):
             try:
                 created_at = datetime.fromisoformat(data["created_time"].replace("Z", "+00:00"))
             except ValueError as e:
-                logger.debug(f"Invalid created_time format: {e}")
+                logger.debug("Invalid created_time format: %s", e)
 
         if data.get("last_edited_time"):
             try:
@@ -441,7 +441,7 @@ class NotionConnector(EnterpriseConnector):
                     data["last_edited_time"].replace("Z", "+00:00")
                 )
             except ValueError as e:
-                logger.debug(f"Invalid last_edited_time format: {e}")
+                logger.debug("Invalid last_edited_time format: %s", e)
 
         return NotionDatabase(
             id=data.get("id", ""),
@@ -639,7 +639,7 @@ class NotionConnector(EnterpriseConnector):
             try:
                 modified_since = datetime.fromisoformat(state.cursor)
             except ValueError as e:
-                logger.debug(f"Invalid cursor timestamp, starting fresh sync: {e}")
+                logger.debug("Invalid cursor timestamp, starting fresh sync: %s", e)
 
         items_yielded = 0
         cursor = None
@@ -721,7 +721,7 @@ class NotionConnector(EnterpriseConnector):
         # (e.g., pages created inside other pages that aren't explicitly shared)
         if self.recursive_pages and pages_for_recursion:
             logger.debug(
-                f"[{self.name}] Discovering child pages from {len(pages_for_recursion)} parent pages"
+                "[%s] Discovering child pages from %s parent pages", self.name, len(pages_for_recursion)
             )
 
             for parent_id in pages_for_recursion:
@@ -1003,12 +1003,12 @@ class NotionConnector(EnterpriseConnector):
             data = await self._api_request("/pages", method="POST", json_data=body)
 
             page = self._parse_page(data)
-            logger.info(f"[{self.name}] Created page: {page.title} ({page.id})")
+            logger.info("[%s] Created page: %s (%s)", self.name, page.title, page.id)
 
             return page
 
         except (ConnectionError, TimeoutError, OSError, ValueError, KeyError, TypeError) as e:
-            logger.error(f"[{self.name}] Failed to create page: {e}")
+            logger.error("[%s] Failed to create page: %s", self.name, e)
             return None
 
     async def update_page(
@@ -1047,12 +1047,12 @@ class NotionConnector(EnterpriseConnector):
             )
 
             page = self._parse_page(data)
-            logger.info(f"[{self.name}] Updated page: {page.title} ({page.id})")
+            logger.info("[%s] Updated page: %s (%s)", self.name, page.title, page.id)
 
             return page
 
         except (RuntimeError, ValueError, KeyError, OSError) as e:
-            logger.error(f"[{self.name}] Failed to update page {page_id}: {e}")
+            logger.error("[%s] Failed to update page %s: %s", self.name, page_id, e)
             return None
 
     async def append_content(
@@ -1079,11 +1079,11 @@ class NotionConnector(EnterpriseConnector):
                 json_data={"children": blocks},
             )
 
-            logger.info(f"[{self.name}] Appended content to page {page_id}")
+            logger.info("[%s] Appended content to page %s", self.name, page_id)
             return True
 
         except (RuntimeError, ValueError, OSError) as e:
-            logger.error(f"[{self.name}] Failed to append content: {e}")
+            logger.error("[%s] Failed to append content: %s", self.name, e)
             return False
 
     async def delete_block(self, block_id: str) -> bool:
@@ -1102,11 +1102,11 @@ class NotionConnector(EnterpriseConnector):
                 method="DELETE",
             )
 
-            logger.info(f"[{self.name}] Deleted block {block_id}")
+            logger.info("[%s] Deleted block %s", self.name, block_id)
             return True
 
         except (RuntimeError, ValueError, OSError) as e:
-            logger.error(f"[{self.name}] Failed to delete block {block_id}: {e}")
+            logger.error("[%s] Failed to delete block %s: %s", self.name, block_id, e)
             return False
 
     async def archive_page(self, page_id: str) -> bool:

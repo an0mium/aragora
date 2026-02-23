@@ -103,7 +103,7 @@ class VoteWeightCalculator:
             try:
                 weight *= self._reputation_source(agent_name)
             except (ValueError, KeyError, TypeError, RuntimeError) as e:  # noqa: BLE001
-                logger.debug(f"Reputation weight error for {agent_name}: {e}")
+                logger.debug("Reputation weight error for %s: %s", agent_name, e)
 
         # Reliability weight (0-1 multiplier)
         if agent_name in self._reliability_weights:
@@ -116,14 +116,14 @@ class VoteWeightCalculator:
                 consistency_weight = 0.5 + (consistency_score * 0.5)
                 weight *= consistency_weight
             except (ValueError, KeyError, TypeError, RuntimeError) as e:  # noqa: BLE001
-                logger.debug(f"Consistency weight error for {agent_name}: {e}")
+                logger.debug("Consistency weight error for %s: %s", agent_name, e)
 
         # Calibration weight (0.5-1.5)
         if self._calibration_source:
             try:
                 weight *= self._calibration_source(agent_name)
             except (ValueError, KeyError, TypeError, RuntimeError) as e:  # noqa: BLE001
-                logger.debug(f"Calibration weight error for {agent_name}: {e}")
+                logger.debug("Calibration weight error for %s: %s", agent_name, e)
 
         self._cache[agent_name] = weight
         return weight
@@ -370,7 +370,7 @@ class VotingPhase:
                 result.choice_mapping[variant] = canonical
 
         if vote_groups:
-            logger.debug(f"vote_grouping_merged groups={vote_groups}")
+            logger.debug("vote_grouping_merged groups=%s", vote_groups)
 
         # Count votes with weights
         vote_counts: defaultdict[str, float] = defaultdict(float)
@@ -511,7 +511,7 @@ class VotingPhase:
                 result.consensus_reached = True
                 result.consensus_strength = "unanimous"
                 result.consensus_variance = 0.0
-                logger.info(f"consensus_unanimous winner={winner} votes={count}/{total_voters}")
+                logger.info("consensus_unanimous winner=%s votes=%s/%s", winner, count, total_voters)
             else:
                 result.consensus_reached = False
                 result.consensus_strength = "none"

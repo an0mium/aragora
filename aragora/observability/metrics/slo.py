@@ -463,10 +463,10 @@ def init_slo_webhooks(
         return True
 
     except ImportError as e:
-        logger.debug(f"Could not initialize SLO webhooks: {e}")
+        logger.debug("Could not initialize SLO webhooks: %s", e)
         return False
     except (RuntimeError, TypeError, AttributeError, ValueError) as e:
-        logger.warning(f"Failed to initialize SLO webhooks: {e}")
+        logger.warning("Failed to initialize SLO webhooks: %s", e)
         return False
 
 
@@ -497,7 +497,7 @@ def notify_slo_violation(
     now = time.time()
     last_time = _last_notification.get(operation, 0)
     if now - last_time < cooldown_seconds:
-        logger.debug(f"SLO webhook cooldown for {operation}, skipping notification")
+        logger.debug("SLO webhook cooldown for %s, skipping notification", operation)
         return False
 
     margin_ms = latency_ms - threshold_ms
@@ -522,7 +522,7 @@ def notify_slo_violation(
         try:
             result = _webhook_callback(violation_data)
         except (OSError, ConnectionError, RuntimeError, TypeError, ValueError) as e:
-            logger.debug(f"Failed to send SLO violation webhook: {e}")
+            logger.debug("Failed to send SLO violation webhook: %s", e)
 
     # Invoke registered external callbacks (e.g., SLO Alert Bridge)
     if _violation_callbacks:
@@ -600,7 +600,7 @@ def notify_slo_recovery(
             result = dispatcher.enqueue(event)
 
     except (ImportError, OSError, ConnectionError, RuntimeError) as e:
-        logger.debug(f"Failed to send SLO recovery webhook: {e}")
+        logger.debug("Failed to send SLO recovery webhook: %s", e)
 
     # Invoke registered external callbacks (e.g., SLO Alert Bridge)
     if _recovery_callbacks:
@@ -754,7 +754,7 @@ def register_violation_callback(
     """
     if callback not in _violation_callbacks:
         _violation_callbacks.append(callback)
-        logger.debug(f"Registered SLO violation callback: {callback.__name__}")
+        logger.debug("Registered SLO violation callback: %s", callback.__name__)
 
 
 def register_recovery_callback(
@@ -777,7 +777,7 @@ def register_recovery_callback(
     """
     if callback not in _recovery_callbacks:
         _recovery_callbacks.append(callback)
-        logger.debug(f"Registered SLO recovery callback: {callback.__name__}")
+        logger.debug("Registered SLO recovery callback: %s", callback.__name__)
 
 
 def unregister_violation_callback(
@@ -793,7 +793,7 @@ def unregister_violation_callback(
     """
     try:
         _violation_callbacks.remove(callback)
-        logger.debug(f"Unregistered SLO violation callback: {callback.__name__}")
+        logger.debug("Unregistered SLO violation callback: %s", callback.__name__)
         return True
     except ValueError:
         return False
@@ -812,7 +812,7 @@ def unregister_recovery_callback(
     """
     try:
         _recovery_callbacks.remove(callback)
-        logger.debug(f"Unregistered SLO recovery callback: {callback.__name__}")
+        logger.debug("Unregistered SLO recovery callback: %s", callback.__name__)
         return True
     except ValueError:
         return False
@@ -855,7 +855,7 @@ def _invoke_callbacks(
                 # Sync callback
                 callback(data)
         except Exception as e:  # noqa: BLE001 - observability callbacks must not crash app
-            logger.warning(f"SLO callback {callback.__name__} failed: {e}")
+            logger.warning("SLO callback %s failed: %s", callback.__name__, e)
 
 
 # =============================================================================

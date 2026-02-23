@@ -289,7 +289,7 @@ def dict_to_dataclass(cls: type[T], data: dict[str, Any]) -> T:
         hints = get_type_hints(cls)
     except (NameError, AttributeError, TypeError) as e:
         # Forward references, missing imports, or complex generics can cause these errors
-        logger.debug(f"Failed to get type hints for {cls.__name__}: {type(e).__name__}: {e}")
+        logger.debug("Failed to get type hints for %s: %s: %s", cls.__name__, type(e).__name__, e)
         hints = {}
 
     kwargs: dict[str, Any] = {}

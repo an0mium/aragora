@@ -192,7 +192,7 @@ class PositionEvolution:
                 )
                 self.pivots.append(pivot)
                 logger.info(
-                    f"Position pivot detected: {agent} {prev.stance.value} -> {stance.value}"
+                    "Position pivot detected: %s %s -> %s", agent, prev.stance.value, stance.value
                 )
 
         self.positions[agent].append(record)

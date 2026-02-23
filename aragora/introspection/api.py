@@ -57,7 +57,7 @@ def get_agent_introspection(
                 snapshot.calibration_score = rep.calibration_score
         except (KeyError, AttributeError, TypeError, ValueError, RuntimeError) as e:
             # Graceful degradation - continue with defaults
-            logger.debug(f"Could not get reputation for {agent_name}: {type(e).__name__}: {e}")
+            logger.debug("Could not get reputation for %s: %s: %s", agent_name, type(e).__name__, e)
 
     # 2. Persona data (enrichment)
     if persona_manager is not None:
@@ -81,7 +81,7 @@ def get_agent_introspection(
                     snapshot.traits = persona.traits[:3]
         except (KeyError, AttributeError, TypeError, ValueError) as e:
             # Graceful degradation - continue with defaults
-            logger.debug(f"Could not get persona for {agent_name}: {type(e).__name__}: {e}")
+            logger.debug("Could not get persona for %s: %s: %s", agent_name, type(e).__name__, e)
 
     return snapshot
 

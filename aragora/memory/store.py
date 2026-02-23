@@ -280,7 +280,7 @@ class CritiqueStore(SQLiteStore):
                     grounded_verdict_json = json.dumps(result.grounded_verdict.to_dict())
                 except (AttributeError, TypeError) as e:
                     # Fallback for objects without to_dict - continue without verdict
-                    logger.debug(f"Could not serialize grounded_verdict: {e}")
+                    logger.debug("Could not serialize grounded_verdict: %s", e)
 
             # Store debate
             cursor.execute(
@@ -1277,7 +1277,7 @@ class CritiqueStore(SQLiteStore):
                     change_types.append("critique_given")
                 if critique_valuable:
                     change_types.append("critique_valuable")
-                logger.debug(f"[reputation] Updated {agent_name}: {', '.join(change_types)}")
+                logger.debug("[reputation] Updated %s: %s", agent_name, ', '.join(change_types))
 
             conn.commit()
 

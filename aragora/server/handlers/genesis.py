@@ -117,7 +117,7 @@ class GenesisHandler(BaseHandler):
         # Rate limit check
         client_ip = get_client_ip(handler)
         if not _genesis_limiter.is_allowed(client_ip):
-            logger.warning(f"Rate limit exceeded for genesis endpoint: {client_ip}")
+            logger.warning("Rate limit exceeded for genesis endpoint: %s", client_ip)
             return error_response("Rate limit exceeded. Please try again later.", 429)
 
         nomic_dir = self.ctx.get("nomic_dir")
@@ -397,7 +397,7 @@ class GenesisHandler(BaseHandler):
                                 break
                 except Exception as e:  # noqa: BLE001 - graceful degradation, lineage works without event details
                     logger.debug(
-                        f"Optional event lookup failed for genome lineage: {type(e).__name__}"
+                        "Optional event lookup failed for genome lineage: %s", type(e).__name__
                     )
 
                 enriched_lineage.append(enriched_node)

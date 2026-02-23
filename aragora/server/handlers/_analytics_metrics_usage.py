@@ -357,7 +357,7 @@ class UsageAnalyticsMixin:
                 }
             )
         except (ValueError, TypeError, KeyError, AttributeError, OSError, RuntimeError) as e:
-            logger.warning(f"Failed to get active users: {e}")
+            logger.warning("Failed to get active users: %s", e)
             return json_response(
                 {
                     "org_id": org_id,

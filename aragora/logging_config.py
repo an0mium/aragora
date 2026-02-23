@@ -450,7 +450,7 @@ def log_function(
             except BaseException as e:
                 fields["duration_ms"] = (time.monotonic() - start) * 1000
                 fields["error"] = str(e)
-                logger.error(f"Function failed: {func.__name__}", exc_info=True, **fields)
+                logger.error("Function failed: %s", func.__name__, exc_info=True, **fields)
                 raise
 
         @wraps(func)
@@ -474,7 +474,7 @@ def log_function(
             except BaseException as e:
                 fields["duration_ms"] = (time.monotonic() - start) * 1000
                 fields["error"] = str(e)
-                logger.error(f"Function failed: {func.__name__}", exc_info=True, **fields)
+                logger.error("Function failed: %s", func.__name__, exc_info=True, **fields)
                 raise
 
         import asyncio

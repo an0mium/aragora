@@ -318,7 +318,7 @@ class ExtractionAdapter(KnowledgeMoundAdapter):
                 return result
 
         except (RuntimeError, ValueError, OSError, AttributeError) as e:
-            logger.error(f"Failed to extract from debate {debate_id}: {e}")
+            logger.error("Failed to extract from debate %s: %s", debate_id, e)
             raise ExtractionAdapterError(f"Extraction failed: {e}") from e
         finally:
             self._record_metric("extract", success, time.time() - start_time)
@@ -469,7 +469,7 @@ class ExtractionAdapter(KnowledgeMoundAdapter):
             return promoted
 
         except (RuntimeError, ValueError, OSError, AttributeError) as e:
-            logger.error(f"Failed to promote claims: {e}")
+            logger.error("Failed to promote claims: %s", e)
             raise ExtractionAdapterError(f"Promotion failed: {e}") from e
 
     async def search_claims(

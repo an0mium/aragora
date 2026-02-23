@@ -228,14 +228,13 @@ class ControlPlaneAdapter(KnowledgeMoundAdapter):
             )
 
             logger.debug(
-                f"Stored task outcome: task={outcome.task_id} "
-                f"agent={outcome.agent_id} success={outcome.success}"
+                "Stored task outcome: task=%s agent=%s success=%s", outcome.task_id, outcome.agent_id, outcome.success
             )
 
             return item_id
 
         except (RuntimeError, ValueError, OSError, AttributeError) as e:
-            logger.error(f"Failed to store task outcome: {e}")
+            logger.error("Failed to store task outcome: %s", e)
             return None
 
     async def store_capability_record(
@@ -263,7 +262,7 @@ class ControlPlaneAdapter(KnowledgeMoundAdapter):
 
             total_tasks = record.success_count + record.failure_count
             if total_tasks < self._min_capability_sample_size:
-                logger.debug(f"Capability record below sample threshold: {total_tasks}")
+                logger.debug("Capability record below sample threshold: %s", total_tasks)
                 return None
 
             success_rate = record.success_count / total_tasks if total_tasks > 0 else 0
@@ -312,7 +311,7 @@ class ControlPlaneAdapter(KnowledgeMoundAdapter):
             return item_id
 
         except (RuntimeError, ValueError, OSError, AttributeError) as e:
-            logger.error(f"Failed to store capability record: {e}")
+            logger.error("Failed to store capability record: %s", e)
             return None
 
     # =========================================================================
@@ -399,7 +398,7 @@ class ControlPlaneAdapter(KnowledgeMoundAdapter):
             return records[:limit]
 
         except (OSError, ConnectionError, RuntimeError) as e:
-            logger.error(f"Failed to get capability recommendations: {e}")
+            logger.error("Failed to get capability recommendations: %s", e)
             return []
 
     async def get_task_history(
@@ -450,7 +449,7 @@ class ControlPlaneAdapter(KnowledgeMoundAdapter):
             return outcomes
 
         except (RuntimeError, ValueError, OSError, AttributeError) as e:
-            logger.error(f"Failed to get task history: {e}")
+            logger.error("Failed to get task history: %s", e)
             return []
 
     # =========================================================================
@@ -524,7 +523,7 @@ class ControlPlaneAdapter(KnowledgeMoundAdapter):
             return True
 
         except (RuntimeError, ValueError, OSError, AttributeError) as e:
-            logger.error(f"Failed to share cross-workspace insight: {e}")
+            logger.error("Failed to share cross-workspace insight: %s", e)
             return False
 
     async def get_cross_workspace_insights(
@@ -586,7 +585,7 @@ class ControlPlaneAdapter(KnowledgeMoundAdapter):
             return insights
 
         except (RuntimeError, ValueError, OSError, AttributeError) as e:
-            logger.error(f"Failed to get cross-workspace insights: {e}")
+            logger.error("Failed to get cross-workspace insights: %s", e)
             return []
 
     # =========================================================================
@@ -672,12 +671,12 @@ class ControlPlaneAdapter(KnowledgeMoundAdapter):
                 reverse=True,
             )
 
-            logger.debug(f"Found {len(outcomes)} similar task outcomes for {task_type}")
+            logger.debug("Found %s similar task outcomes for %s", len(outcomes), task_type)
 
             return outcomes[:limit]
 
         except (RuntimeError, ValueError, OSError, AttributeError) as e:
-            logger.error(f"Failed to get similar task outcomes: {e}")
+            logger.error("Failed to get similar task outcomes: %s", e)
             return []
 
     async def get_agent_success_rates(
@@ -751,12 +750,12 @@ class ControlPlaneAdapter(KnowledgeMoundAdapter):
                 else:
                     success_rates[agent_id] = 0.5  # Default for no history
 
-            logger.debug(f"Success rates for {task_type}: {success_rates}")
+            logger.debug("Success rates for %s: %s", task_type, success_rates)
 
             return success_rates
 
         except (RuntimeError, ValueError, OSError, AttributeError) as e:
-            logger.error(f"Failed to get agent success rates: {e}")
+            logger.error("Failed to get agent success rates: %s", e)
             return {agent: 0.5 for agent in agents}
 
     async def get_agent_recommendations_for_task(

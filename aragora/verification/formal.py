@@ -412,7 +412,7 @@ class LeanBackend:
                     return result.lean_code
                 elif self._translation_model == TranslationModel.DEEPSEEK_PROVER:
                     # Explicit DeepSeek selection but failed
-                    logger.warning(f"DeepSeek-Prover translation failed: {result.error_message}")
+                    logger.warning("DeepSeek-Prover translation failed: %s", result.error_message)
                     return None
 
         # Fall back to Claude/OpenAI
@@ -478,14 +478,14 @@ theorem claim_1 : ∀ n : Nat, n + 0 = n := by simp
                 response = await client.post(url, json=payload, headers=headers, timeout=30)
                 if response.status_code != 200:
                     logger.warning(
-                        f"LLM API returned status {response.status_code} for Lean translation"
+                        "LLM API returned status %s for Lean translation", response.status_code
                     )
                     return None
 
                 try:
                     data = response.json()
                 except (json.JSONDecodeError, ValueError) as e:
-                    logger.warning(f"Failed to parse LLM API response as JSON: {e}")
+                    logger.warning("Failed to parse LLM API response as JSON: %s", e)
                     return None
 
                 try:
@@ -494,7 +494,7 @@ theorem claim_1 : ∀ n : Nat, n + 0 = n := by simp
                     else:
                         result = data["choices"][0]["message"]["content"].strip()
                 except (KeyError, IndexError, TypeError) as e:
-                    logger.warning(f"Unexpected LLM response format for Lean translation: {e}")
+                    logger.warning("Unexpected LLM response format for Lean translation: %s", e)
                     return None
 
                 if "UNTRANSLATABLE" in result:
@@ -509,13 +509,13 @@ theorem claim_1 : ∀ n : Nat, n + 0 = n := by simp
                 return result
 
         except (OSError, ConnectionError) as e:
-            logger.warning(f"Network error translating claim to Lean 4: {e}")
+            logger.warning("Network error translating claim to Lean 4: %s", e)
             return None
         except asyncio.TimeoutError:
             logger.warning("Timeout translating claim to Lean 4")
             return None
         except (ValueError, KeyError, TypeError, RuntimeError) as e:
-            logger.warning(f"Failed to translate claim to Lean 4: {type(e).__name__}: {e}")
+            logger.warning("Failed to translate claim to Lean 4: %s: %s", type(e).__name__, e)
             return None
 
     async def prove(
@@ -547,7 +547,7 @@ theorem claim_1 : ∀ n : Nat, n + 0 = n := by simp
         cache_key = hashlib.sha256(formal_statement.encode()).hexdigest()
         if cache_key in self._proof_cache:
             cached = self._proof_cache[cache_key]
-            logger.debug(f"Lean proof cache hit for {cache_key[:8]}")
+            logger.debug("Lean proof cache hit for %s", cache_key[:8])
             return cached
 
         start_time = time.time()
@@ -766,7 +766,7 @@ Examples of MATCHING:
                 return matches, min(1.0, max(0.0, confidence)), explanation
 
         except (ConnectionError, TimeoutError, OSError, ValueError, KeyError, TypeError) as e:
-            logger.warning(f"Semantic verification failed: {e}")
+            logger.warning("Semantic verification failed: %s", e)
             return False, 0.3, f"Verification error: {e}"
 
     async def verify_claim(
@@ -835,8 +835,7 @@ Examples of MATCHING:
                     f"WARNING: The proven theorem may not match the original claim. {explanation}"
                 )
                 logger.warning(
-                    f"Lean proof compiled but may not match claim: {explanation} "
-                    f"(claim: {claim[:50]}...)"
+                    "Lean proof compiled but may not match claim: %s (claim: %s...)", explanation, claim[:50]
                 )
             elif confidence < 0.8:
                 proof_result.confidence_warning = (
@@ -981,7 +980,7 @@ class Z3Backend:
             del self._proof_cache[key]
             return None
 
-        logger.debug(f"Z3 proof cache hit for key {key}")
+        logger.debug("Z3 proof cache hit for key %s", key)
         return result
 
     def _cache_result(self, formal_statement: str, result: FormalProofResult) -> None:
@@ -1020,11 +1019,11 @@ class Z3Backend:
             z3.parse_smt2_string(smtlib, ctx=ctx)
             return True
         except (RuntimeError, ValueError, TypeError) as e:
-            logger.debug(f"SMT-LIB2 validation failed: {type(e).__name__}: {e}")
+            logger.debug("SMT-LIB2 validation failed: %s: %s", type(e).__name__, e)
             return False
         except Exception as e:
             # Z3Exception and other Z3-specific errors
-            logger.debug(f"SMT-LIB2 validation failed (Z3 error): {type(e).__name__}: {e}")
+            logger.debug("SMT-LIB2 validation failed (Z3 error): %s: %s", type(e).__name__, e)
             return False
 
     def _simple_translate(self, claim: str) -> str | None:
@@ -1123,7 +1122,7 @@ Return ONLY the SMT-LIB2 code, no explanation."""
 
             except (ConnectionError, TimeoutError, OSError, ValueError, KeyError, TypeError, RuntimeError) as e:
                 # LLM translation failed, log and continue to return None
-                logger.debug(f"LLM translation to SMT-LIB2 failed: {e}")
+                logger.debug("LLM translation to SMT-LIB2 failed: %s", e)
 
         return None
 

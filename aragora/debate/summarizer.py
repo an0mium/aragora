@@ -110,7 +110,7 @@ class DebateSummarizer:
         elif isinstance(result, dict):
             data = _DictWrapper(result)
         else:
-            logger.warning(f"Unknown result type: {type(result)}")
+            logger.warning("Unknown result type: %s", type(result))
             return DebateSummary()
 
         summary = DebateSummary()

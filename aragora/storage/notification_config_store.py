@@ -120,12 +120,12 @@ def _encrypt_config(
         service = get_encryption_service()
         aad = f"{org_id}:{config_type}"
         encrypted = service.encrypt_fields(config, keys_to_encrypt, aad)
-        logger.debug(f"Encrypted {len(keys_to_encrypt)} sensitive fields for {config_type}")
+        logger.debug("Encrypted %s sensitive fields for %s", len(keys_to_encrypt), config_type)
         return encrypted
     except (ValueError, RuntimeError, OSError) as e:
         if is_encryption_required():
             raise EncryptionError("encrypt", str(e), "notification_config_store") from e
-        logger.warning(f"Encryption unavailable, storing unencrypted: {e}")
+        logger.warning("Encryption unavailable, storing unencrypted: %s", e)
         return config
 
 
@@ -150,10 +150,10 @@ def _decrypt_config(
         service = get_encryption_service()
         aad = f"{org_id}:{config_type}"
         decrypted = service.decrypt_fields(config, encrypted_keys, aad)
-        logger.debug(f"Decrypted {len(encrypted_keys)} fields for {config_type}")
+        logger.debug("Decrypted %s fields for %s", len(encrypted_keys), config_type)
         return decrypted
     except (ValueError, RuntimeError, OSError) as e:
-        logger.warning(f"Decryption failed for {config_type}: {e}")
+        logger.warning("Decryption failed for %s: %s", config_type, e)
         return config
 
 
@@ -291,7 +291,7 @@ class NotificationConfigStore:
             logger.info("NotificationConfigStore using PostgreSQL backend")
         else:
             self._backend = SQLiteBackend(db_path)
-            logger.info(f"NotificationConfigStore using SQLite backend: {db_path}")
+            logger.info("NotificationConfigStore using SQLite backend: %s", db_path)
 
         self._init_schema()
 
@@ -361,9 +361,9 @@ class NotificationConfigStore:
                     "CREATE INDEX IF NOT EXISTS idx_recipients_org ON email_recipients(org_id)"
                 )
             except (OSError, RuntimeError, sqlite3.Error) as e:
-                logger.debug(f"Index creation skipped: {e}")
+                logger.debug("Index creation skipped: %s", e)
 
-            logger.info(f"NotificationConfigStore initialized with {self.backend_type} backend")
+            logger.info("NotificationConfigStore initialized with %s backend", self.backend_type)
             return
 
         # Legacy SQLite path
@@ -407,7 +407,7 @@ class NotificationConfigStore:
         cursor.execute("CREATE INDEX IF NOT EXISTS idx_recipients_org ON email_recipients(org_id)")
 
         conn.commit()
-        logger.info(f"NotificationConfigStore initialized at {self._db_path}")
+        logger.info("NotificationConfigStore initialized at %s", self._db_path)
 
     # =========================================================================
     # Email Config Operations
@@ -434,7 +434,7 @@ class NotificationConfigStore:
                 """,
                 params,
             )
-            logger.debug(f"Saved email config for org {config.org_id}")
+            logger.debug("Saved email config for org %s", config.org_id)
             return
 
         # Legacy SQLite path
@@ -451,7 +451,7 @@ class NotificationConfigStore:
             params,
         )
         conn.commit()
-        logger.debug(f"Saved email config for org {config.org_id}")
+        logger.debug("Saved email config for org %s", config.org_id)
 
     async def get_email_config(self, org_id: str) -> StoredEmailConfig | None:
         """Get email configuration for an organization."""
@@ -528,7 +528,7 @@ class NotificationConfigStore:
                 """,
                 params,
             )
-            logger.debug(f"Saved telegram config for org {config.org_id}")
+            logger.debug("Saved telegram config for org %s", config.org_id)
             return
 
         # Legacy SQLite path
@@ -545,7 +545,7 @@ class NotificationConfigStore:
             params,
         )
         conn.commit()
-        logger.debug(f"Saved telegram config for org {config.org_id}")
+        logger.debug("Saved telegram config for org %s", config.org_id)
 
     async def get_telegram_config(self, org_id: str) -> StoredTelegramConfig | None:
         """Get telegram configuration for an organization."""
@@ -622,7 +622,7 @@ class NotificationConfigStore:
                 """,
                 params,
             )
-            logger.debug(f"Added recipient {recipient.email} for org {recipient.org_id}")
+            logger.debug("Added recipient %s for org %s", recipient.email, recipient.org_id)
             return
 
         # Legacy SQLite path
@@ -639,7 +639,7 @@ class NotificationConfigStore:
             params,
         )
         conn.commit()
-        logger.debug(f"Added recipient {recipient.email} for org {recipient.org_id}")
+        logger.debug("Added recipient %s for org %s", recipient.email, recipient.org_id)
 
     async def get_recipients(self, org_id: str) -> list[StoredEmailRecipient]:
         """Get all email recipients for an organization."""

@@ -135,8 +135,7 @@ class AudienceInbox:
                 self._overflow_count += 1
                 if self._overflow_count % 100 == 1:  # Log every 100 drops
                     logger.warning(
-                        f"[audience] Inbox overflow, dropping old messages "
-                        f"(total dropped: {self._overflow_count})"
+                        "[audience] Inbox overflow, dropping old messages (total dropped: %s)", self._overflow_count
                     )
 
     def get_all(self) -> list[AudienceMessage]:
@@ -294,8 +293,7 @@ class SyncEventEmitter:
         # Warn on TOKEN events with empty task_id (can cause text interleaving)
         if event.type.name.startswith("TOKEN") and not event.task_id:
             logger.warning(
-                f"[stream] TOKEN event for {event.agent} has empty task_id. "
-                "This may cause text interleaving between concurrent streams."
+                "[stream] TOKEN event for %s has empty task_id. This may cause text interleaving between concurrent streams.", event.agent
             )
 
         # Assign sequence numbers (thread-safe)
@@ -320,7 +318,7 @@ class SyncEventEmitter:
                     self._overflow_count += 1
                     if self._overflow_count % 1000 == 1:
                         logger.warning(
-                            f"[stream] Queue overflow, dropping old events (total: {self._overflow_count})"
+                            "[stream] Queue overflow, dropping old events (total: %s)", self._overflow_count
                         )
                 except queue.Empty:
                     break
@@ -337,7 +335,7 @@ class SyncEventEmitter:
             try:
                 sub(event)
             except (TypeError, ValueError, RuntimeError, AttributeError) as e:
-                logger.warning(f"[stream] Subscriber callback error: {e}")
+                logger.warning("[stream] Subscriber callback error: %s", e)
 
     def subscribe(self, callback: Callable[[StreamEvent], None]) -> None:
         """Add synchronous subscriber for immediate event handling."""
@@ -395,7 +393,7 @@ class SyncEventEmitter:
             if is_telemetry_event:
                 if config.is_diagnostic():
                     # Log only, don't broadcast
-                    logger.debug(f"[telemetry] {event_type.value}: {data}")
+                    logger.debug("[telemetry] %s: %s", event_type.value, data)
                     return False
 
                 # Apply redaction if in controlled mode
@@ -412,7 +410,7 @@ class SyncEventEmitter:
                             )
                         )
                     except (TypeError, ValueError, KeyError, AttributeError) as e:
-                        logger.warning(f"[telemetry] Redaction failed: {e}")
+                        logger.warning("[telemetry] Redaction failed: %s", e)
                         # On redaction failure, suppress the event for security
                         return False
 
@@ -439,7 +437,7 @@ class SyncEventEmitter:
             )
             return True
         except (TypeError, ValueError, KeyError, AttributeError, RuntimeError) as e:
-            logger.error(f"[telemetry] broadcast_event failed: {e}")
+            logger.error("[telemetry] broadcast_event failed: %s", e)
             return False
 
 

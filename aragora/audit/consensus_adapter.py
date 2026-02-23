@@ -364,7 +364,7 @@ class FindingVerifier:
             try:
                 agent = get_agent(agent_name)
                 if not agent:
-                    logger.warning(f"Agent not available: {agent_name}")
+                    logger.warning("Agent not available: %s", agent_name)
                     continue
 
                 # Get agent's verification
@@ -396,7 +396,7 @@ class FindingVerifier:
                     )
 
             except (ValueError, RuntimeError, OSError) as e:
-                logger.error(f"Error getting verification from {agent_name}: {e}")
+                logger.error("Error getting verification from %s: %s", agent_name, e)
                 # Add abstain vote on error
                 votes.append(
                     ConsensusVote(

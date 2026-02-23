@@ -59,7 +59,7 @@ class TreeSitterParser:
                     parser.language = ts_lang
                     self._parsers[lang] = parser
                 except (ImportError, RuntimeError, OSError) as e:
-                    logger.warning(f"Failed to init tree-sitter for {lang.value}: {e}")
+                    logger.warning("Failed to init tree-sitter for %s: %s", lang.value, e)
 
             # TypeScript shares JavaScript parser with different queries
             if Language.JAVASCRIPT in self._parsers:
@@ -71,12 +71,12 @@ class TreeSitterParser:
                     parser.language = ts_lang
                     self._parsers[Language.TYPESCRIPT] = parser
                 except (ImportError, RuntimeError, OSError) as e:
-                    logger.warning(f"Failed to init tree-sitter for TypeScript: {e}")
+                    logger.warning("Failed to init tree-sitter for TypeScript: %s", e)
 
-            logger.info(f"Tree-sitter initialized for: {list(self._parsers.keys())}")
+            logger.info("Tree-sitter initialized for: %s", list(self._parsers.keys()))
 
         except ImportError as e:
-            logger.info(f"Tree-sitter not available, using regex fallback: {e}")
+            logger.info("Tree-sitter not available, using regex fallback: %s", e)
             self._available = False
 
     @property
@@ -93,7 +93,7 @@ class TreeSitterParser:
         try:
             return parser.parse(source)
         except (RuntimeError, OSError, ValueError) as e:
-            logger.error(f"Tree-sitter parse error: {e}")
+            logger.error("Tree-sitter parse error: %s", e)
             return None
 
     def supports(self, language: Language) -> bool:

@@ -351,7 +351,7 @@ class PostgresBackend(AuditPersistenceBackend):
             try:
                 conn.close()
             except (OSError, RuntimeError) as e:
-                logger.warning(f"Failed to close PostgreSQL connection: {e}")
+                logger.warning("Failed to close PostgreSQL connection: %s", e)
         self._connections.clear()
         self._conn_var.set(None)
 

@@ -384,7 +384,7 @@ class SQLServerConnector(EnterpriseConnector):
                                 )
 
                     except (OSError, ConnectionError, ValueError, KeyError) as e:
-                        logger.debug(f"Search failed on {table}: {e}")
+                        logger.debug("Search failed on %s: %s", table, e)
                         continue
 
         return sorted(results, key=lambda x: float(x.get("rank") or 0), reverse=True)[:limit]
@@ -401,7 +401,7 @@ class SQLServerConnector(EnterpriseConnector):
             return None
 
         if parsed.get("is_legacy"):
-            logger.debug(f"[{self.name}] Cannot fetch legacy hash-based ID: {evidence_id}")
+            logger.debug("[%s] Cannot fetch legacy hash-based ID: %s", self.name, evidence_id)
             return None
 
         database = parsed["database"]
@@ -443,7 +443,7 @@ class SQLServerConnector(EnterpriseConnector):
                     return None
 
         except (OSError, ConnectionError, ValueError, KeyError) as e:
-            logger.error(f"[{self.name}] Fetch failed: {e}")
+            logger.error("[%s] Fetch failed: %s", self.name, e)
             return None
 
     async def _check_cdc_enabled(self, table: str) -> bool:
@@ -475,7 +475,7 @@ class SQLServerConnector(EnterpriseConnector):
             logger.warning("CDC not enabled for this connector")
             return
 
-        logger.info(f"[SQL Server CDC] Starting CDC polling for {self.database}")
+        logger.info("[SQL Server CDC] Starting CDC polling for %s", self.database)
         self._cdc_task = asyncio.create_task(self._poll_cdc_changes())
 
     async def _poll_cdc_changes(self) -> None:
@@ -489,7 +489,7 @@ class SQLServerConnector(EnterpriseConnector):
             if await self._check_cdc_enabled(table):
                 cdc_tables.append(table)
             else:
-                logger.debug(f"[SQL Server CDC] Table {table} not CDC-enabled, skipping")
+                logger.debug("[SQL Server CDC] Table %s not CDC-enabled, skipping", table)
 
         if not cdc_tables:
             logger.warning("[SQL Server CDC] No CDC-enabled tables found")
@@ -507,7 +507,7 @@ class SQLServerConnector(EnterpriseConnector):
         except asyncio.CancelledError:
             logger.info("[SQL Server CDC] Polling cancelled")
         except (OSError, ConnectionError, ValueError, RuntimeError) as e:
-            logger.error(f"[SQL Server CDC] Polling error: {e}")
+            logger.error("[SQL Server CDC] Polling error: %s", e)
             raise
 
     async def _process_table_cdc_changes(self, pool: Any, table: str) -> None:
@@ -542,7 +542,7 @@ class SQLServerConnector(EnterpriseConnector):
                 try:
                     await cursor.execute(cdc_query, from_lsn, max_lsn)
                 except (OSError, ConnectionError, ValueError) as e:
-                    logger.debug(f"[SQL Server CDC] No changes or error for {table}: {e}")
+                    logger.debug("[SQL Server CDC] No changes or error for %s: %s", table, e)
                     return
 
                 col_names = [desc[0] for desc in cursor.description]
@@ -596,7 +596,7 @@ class SQLServerConnector(EnterpriseConnector):
             logger.warning("Change Tracking not enabled for this connector")
             return
 
-        logger.info(f"[SQL Server CT] Starting Change Tracking polling for {self.database}")
+        logger.info("[SQL Server CT] Starting Change Tracking polling for %s", self.database)
         self._cdc_task = asyncio.create_task(self._poll_change_tracking())
 
     async def _poll_change_tracking(self) -> None:
@@ -616,7 +616,7 @@ class SQLServerConnector(EnterpriseConnector):
         except asyncio.CancelledError:
             logger.info("[SQL Server CT] Polling cancelled")
         except (OSError, ConnectionError, ValueError, RuntimeError) as e:
-            logger.error(f"[SQL Server CT] Polling error: {e}")
+            logger.error("[SQL Server CT] Polling error: %s", e)
             raise
 
     async def _process_table_ct_changes(self, pool: Any, table: str) -> None:
@@ -637,7 +637,7 @@ class SQLServerConnector(EnterpriseConnector):
                 min_version = min_version_row[0] if min_version_row else None
 
                 if min_version is None:
-                    logger.debug(f"[SQL Server CT] Change Tracking not enabled for {table}")
+                    logger.debug("[SQL Server CT] Change Tracking not enabled for %s", table)
                     return
 
                 # Get current version
@@ -661,7 +661,7 @@ class SQLServerConnector(EnterpriseConnector):
                 try:
                     await cursor.execute(ct_query, last_version)
                 except (OSError, ConnectionError, ValueError) as e:
-                    logger.debug(f"[SQL Server CT] No changes or error for {table}: {e}")
+                    logger.debug("[SQL Server CT] No changes or error for %s: %s", table, e)
                     return
 
                 col_names = [desc[0] for desc in cursor.description]
@@ -713,7 +713,7 @@ class SQLServerConnector(EnterpriseConnector):
                 pass
             self._cdc_task = None
 
-        logger.info(f"[SQL Server CDC/CT] Stopped polling for {self.database}")
+        logger.info("[SQL Server CDC/CT] Stopped polling for %s", self.database)
 
     async def close(self) -> None:
         """Close connections and cleanup resources."""

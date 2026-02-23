@@ -117,7 +117,7 @@ class StreamAPIHandlersMixin:
                 {"agents": agent_data, "count": len(agent_data)}, headers=self._cors_headers(origin)
             )
         except (AttributeError, TypeError, ValueError, RuntimeError) as e:
-            logger.error(f"Leaderboard error: {e}")
+            logger.error("Leaderboard error: %s", e)
             return web.json_response(
                 {"error": "Failed to fetch leaderboard"},
                 status=500,
@@ -141,7 +141,7 @@ class StreamAPIHandlersMixin:
                 {"matches": matches, "count": len(matches)}, headers=self._cors_headers(origin)
             )
         except (AttributeError, TypeError, ValueError) as e:
-            logger.error(f"Matches error: {e}")
+            logger.error("Matches error: %s", e)
             return web.json_response(
                 {"error": "Failed to fetch matches"}, status=500, headers=self._cors_headers(origin)
             )
@@ -171,7 +171,7 @@ class StreamAPIHandlersMixin:
                 headers=self._cors_headers(origin),
             )
         except (AttributeError, TypeError, ValueError, OSError) as e:
-            logger.error(f"Insights error: {e}")
+            logger.error("Insights error: %s", e)
             return web.json_response(
                 {"error": "Failed to fetch insights"},
                 status=500,
@@ -195,7 +195,7 @@ class StreamAPIHandlersMixin:
                 headers=self._cors_headers(origin),
             )
         except (AttributeError, TypeError, KeyError) as e:
-            logger.error(f"Flips summary error: {e}")
+            logger.error("Flips summary error: %s", e)
             return web.json_response(
                 {"error": "Failed to fetch flip summary"},
                 status=500,
@@ -217,7 +217,7 @@ class StreamAPIHandlersMixin:
                 {"flips": flips, "count": len(flips)}, headers=self._cors_headers(origin)
             )
         except (AttributeError, TypeError, ValueError) as e:
-            logger.error(f"Flips recent error: {e}")
+            logger.error("Flips recent error: %s", e)
             return web.json_response(
                 {"error": "Failed to fetch recent flips"},
                 status=500,
@@ -260,7 +260,7 @@ class StreamAPIHandlersMixin:
                             tournaments_list.append(tournament)
                     except (OSError, ValueError, AttributeError, KeyError) as e:
                         # SQLite/file errors, invalid data, or missing attributes
-                        logger.debug(f"Skipping corrupted tournament file: {e}")
+                        logger.debug("Skipping corrupted tournament file: %s", e)
                         continue
 
             return web.json_response(
@@ -268,7 +268,7 @@ class StreamAPIHandlersMixin:
                 headers=self._cors_headers(origin),
             )
         except OSError as e:
-            logger.error(f"Tournament list error: {e}")
+            logger.error("Tournament list error: %s", e)
             return web.json_response(
                 {"error": "Failed to fetch tournaments", "tournaments": [], "count": 0},
                 status=500,
@@ -348,7 +348,7 @@ class StreamAPIHandlersMixin:
                 headers=self._cors_headers(origin),
             )
         except (OSError, ValueError, AttributeError, KeyError) as e:
-            logger.error(f"Tournament details error: {e}")
+            logger.error("Tournament details error: %s", e)
             return web.json_response(
                 {"error": "Failed to fetch tournament details"},
                 status=500,
@@ -417,7 +417,7 @@ class StreamAPIHandlersMixin:
                     headers=self._cors_headers(origin),
                 )
         except (OSError, ValueError, AttributeError, KeyError) as e:
-            logger.error(f"Agent consistency error for {agent_name}: {e}")
+            logger.error("Agent consistency error for %s: %s", agent_name, e)
             return web.json_response(
                 {"error": "Failed to fetch agent consistency"},
                 status=500,
@@ -514,7 +514,7 @@ class StreamAPIHandlersMixin:
 
             return web.json_response(network_data, headers=self._cors_headers(origin))
         except (AttributeError, TypeError, KeyError) as e:
-            logger.error(f"Agent network error for {agent_name}: {e}")
+            logger.error("Agent network error for %s: %s", agent_name, e)
             return web.json_response(
                 {"error": "Failed to fetch agent network"},
                 status=500,
@@ -547,7 +547,7 @@ class StreamAPIHandlersMixin:
                 headers=self._cors_headers(origin),
             )
         except (AttributeError, TypeError, ValueError) as e:
-            logger.error(f"Memory tier stats error: {e}")
+            logger.error("Memory tier stats error: %s", e)
             return web.json_response(
                 {"error": "Failed to fetch memory stats"},
                 status=500,
@@ -576,7 +576,7 @@ class StreamAPIHandlersMixin:
                 {"traits": traits, "count": len(traits)}, headers=self._cors_headers(origin)
             )
         except (AttributeError, TypeError, ValueError) as e:
-            logger.error(f"Emergent traits error: {e}")
+            logger.error("Emergent traits error: %s", e)
             return web.json_response(
                 {"error": "Failed to fetch emergent traits"},
                 status=500,
@@ -604,7 +604,7 @@ class StreamAPIHandlersMixin:
                 headers=self._cors_headers(origin),
             )
         except (AttributeError, TypeError, ValueError) as e:
-            logger.error(f"Cross-pollinations error: {e}")
+            logger.error("Cross-pollinations error: %s", e)
             return web.json_response(
                 {"error": "Failed to fetch cross-pollination suggestions"},
                 status=500,
@@ -699,7 +699,7 @@ class StreamAPIHandlersMixin:
                 text=graph_json, content_type="application/json", headers=self._cors_headers(origin)
             )
         except (AttributeError, TypeError, ValueError, KeyError) as e:
-            logger.error(f"Graph JSON error for {loop_id}: {e}")
+            logger.error("Graph JSON error for %s: %s", loop_id, e)
             return web.json_response(
                 {"error": "Failed to export graph"}, status=500, headers=self._cors_headers(origin)
             )
@@ -738,7 +738,7 @@ class StreamAPIHandlersMixin:
                 text=mermaid, content_type="text/plain", headers=self._cors_headers(origin)
             )
         except (AttributeError, TypeError, ValueError) as e:
-            logger.error(f"Graph Mermaid error for {loop_id}: {e}")
+            logger.error("Graph Mermaid error for %s: %s", loop_id, e)
             return web.json_response(
                 {"error": "Failed to export Mermaid diagram"},
                 status=500,
@@ -773,7 +773,7 @@ class StreamAPIHandlersMixin:
             stats = cartographer.get_statistics()
             return web.json_response(stats, headers=self._cors_headers(origin))
         except (AttributeError, TypeError, KeyError) as e:
-            logger.error(f"Graph stats error for {loop_id}: {e}")
+            logger.error("Graph stats error for %s: %s", loop_id, e)
             return web.json_response(
                 {"error": "Failed to get graph statistics"},
                 status=500,
@@ -841,7 +841,7 @@ class StreamAPIHandlersMixin:
                 headers=self._cors_headers(origin),
             )
         except (AttributeError, TypeError, ValueError, KeyError) as e:
-            logger.error(f"Audience clusters error for {loop_id}: {e}")
+            logger.error("Audience clusters error for %s: %s", loop_id, e)
             return web.json_response(
                 {"error": "Failed to cluster audience suggestions"},
                 status=500,
@@ -908,7 +908,7 @@ class StreamAPIHandlersMixin:
                 headers=self._cors_headers(origin),
             )
         except OSError as e:
-            logger.error(f"Replays list error: {e}")
+            logger.error("Replays list error: %s", e)
             return web.json_response(
                 {"error": "Failed to list replays"}, status=500, headers=self._cors_headers(origin)
             )
@@ -1031,7 +1031,7 @@ class StreamAPIHandlersMixin:
                 text=html, content_type="text/html", headers=self._cors_headers(origin)
             )
         except (OSError, ValueError, KeyError, AttributeError) as e:
-            logger.error(f"Replay HTML error for {replay_id}: {e}")
+            logger.error("Replay HTML error for %s: %s", replay_id, e)
             return web.json_response(
                 {"error": "Failed to generate replay HTML"},
                 status=500,

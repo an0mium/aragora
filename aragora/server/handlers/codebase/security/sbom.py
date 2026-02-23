@@ -96,8 +96,7 @@ async def handle_generate_sbom(
             repo_results[sbom_id] = result
 
         logger.info(
-            f"[SBOM] Generated {format} for {repo_id}: "
-            f"{result.component_count} components, {result.vulnerability_count} vulnerabilities"
+            "[SBOM] Generated %s for %s: %s components, %s vulnerabilities", format, repo_id, result.component_count, result.vulnerability_count
         )
 
         return success_response(
@@ -116,7 +115,7 @@ async def handle_generate_sbom(
         )
 
     except (OSError, ValueError, TypeError, RuntimeError) as e:
-        logger.exception(f"Failed to generate SBOM: {e}")
+        logger.exception("Failed to generate SBOM: %s", e)
         return error_response("Internal server error", 500)
 
 
@@ -161,7 +160,7 @@ async def handle_get_sbom(
         )
 
     except (KeyError, ValueError, TypeError) as e:
-        logger.exception(f"Failed to get SBOM: {e}")
+        logger.exception("Failed to get SBOM: %s", e)
         return error_response("Internal server error", 500)
 
 
@@ -207,7 +206,7 @@ async def handle_list_sboms(
         )
 
     except (KeyError, ValueError, TypeError) as e:
-        logger.exception(f"Failed to list SBOMs: {e}")
+        logger.exception("Failed to list SBOMs: %s", e)
         return error_response("Internal server error", 500)
 
 
@@ -248,7 +247,7 @@ async def handle_download_sbom(
         )
 
     except (KeyError, ValueError, TypeError) as e:
-        logger.exception(f"Failed to download SBOM: {e}")
+        logger.exception("Failed to download SBOM: %s", e)
         return error_response("Internal server error", 500)
 
 
@@ -349,5 +348,5 @@ async def handle_compare_sboms(
         )
 
     except (KeyError, ValueError, TypeError, json.JSONDecodeError) as e:
-        logger.exception(f"Failed to compare SBOMs: {e}")
+        logger.exception("Failed to compare SBOMs: %s", e)
         return error_response("Internal server error", 500)

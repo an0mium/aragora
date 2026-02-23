@@ -76,7 +76,7 @@ class EmailWebhookHandler:
                 # Event webhook (delivery, open, click, etc.)
                 return await self._handle_sendgrid_event(request)
             else:
-                logger.warning(f"Unexpected SendGrid content type: {content_type}")
+                logger.warning("Unexpected SendGrid content type: %s", content_type)
                 return error_response("Unsupported content type", status=415)
 
         except (ValueError, KeyError, TypeError, RuntimeError, OSError, ConnectionError) as e:
@@ -145,7 +145,7 @@ class EmailWebhookHandler:
             )
 
         except (ValueError, KeyError, TypeError, RuntimeError, OSError, ConnectionError) as e:
-            logger.error(f"Failed to process SendGrid email: {e}")
+            logger.error("Failed to process SendGrid email: %s", e)
             self._error_count += 1
             return json_response(
                 {
@@ -183,7 +183,7 @@ class EmailWebhookHandler:
             event_type = event.get("event", "unknown")
             email = event.get("email", "")
 
-            logger.debug(f"SendGrid event: {event_type} for {email}")
+            logger.debug("SendGrid event: %s for %s", event_type, email)
 
             # Handle bounces and complaints for list hygiene
             if event_type in ("bounce", "dropped", "spamreport", "unsubscribe"):
@@ -296,7 +296,7 @@ class EmailWebhookHandler:
                 return await self._handle_ses_notification(message)
 
             else:
-                logger.warning(f"Unknown SES message type: {message_type}")
+                logger.warning("Unknown SES message type: %s", message_type)
                 return error_response("Unknown message type", status=400)
 
         except json.JSONDecodeError:
@@ -317,7 +317,7 @@ class EmailWebhookHandler:
 
         # Verify the URL is from AWS
         if not subscribe_url.startswith("https://sns."):
-            logger.warning(f"Suspicious SNS subscription URL: {subscribe_url}")
+            logger.warning("Suspicious SNS subscription URL: %s", subscribe_url)
             return error_response("Invalid subscription URL", status=400)
 
         # Confirm the subscription
@@ -328,10 +328,10 @@ class EmailWebhookHandler:
                         logger.info("SNS subscription confirmed")
                         return json_response({"status": "confirmed"})
                     else:
-                        logger.error(f"SNS subscription confirmation failed: {resp.status}")
+                        logger.error("SNS subscription confirmation failed: %s", resp.status)
                         return error_response("Confirmation failed", status=500)
         except (OSError, TimeoutError, ValueError) as e:
-            logger.error(f"SNS subscription confirmation error: {e}")
+            logger.error("SNS subscription confirmation error: %s", e)
             return error_response("Confirmation error", status=500)
 
     async def _handle_ses_notification(self, message: dict[str, Any]) -> HandlerResult:
@@ -363,7 +363,7 @@ class EmailWebhookHandler:
             return await self._handle_ses_email_receipt(notification)
 
         # Delivery notification or other
-        logger.debug(f"SES notification: {notification_type}")
+        logger.debug("SES notification: %s", notification_type)
         return json_response({"status": "acknowledged"})
 
     async def _handle_ses_email_receipt(self, notification: dict[str, Any]) -> HandlerResult:
@@ -418,14 +418,14 @@ class EmailWebhookHandler:
             for recipient in bounce.get("bouncedRecipients", []):
                 email = recipient.get("emailAddress", "")
                 bounce_type = bounce.get("bounceType", "")
-                logger.info(f"SES bounce: {email} ({bounce_type})")
+                logger.info("SES bounce: %s (%s)", email, bounce_type)
                 await self._handle_email_event("bounce", email, recipient)
 
         elif notification_type == "Complaint":
             complaint = notification.get("complaint", {})
             for recipient in complaint.get("complainedRecipients", []):
                 email = recipient.get("emailAddress", "")
-                logger.info(f"SES complaint: {email}")
+                logger.info("SES complaint: %s", email)
                 await self._handle_email_event("complaint", email, recipient)
 
     async def _handle_email_event(
@@ -441,7 +441,7 @@ class EmailWebhookHandler:
         """
         # This would integrate with recipient management
         # For now, just log the event
-        logger.info(f"Email event: {event_type} for {email}")
+        logger.info("Email event: %s for %s", event_type, email)
 
         # In a full implementation:
         # - Update recipient status in database

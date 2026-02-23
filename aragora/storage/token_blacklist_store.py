@@ -108,14 +108,14 @@ class InMemoryBlacklist(BlacklistBackend):
                     remove_count = max(1, len(expired) // 2)
                     for k in expired[:remove_count]:
                         del self._blacklist[k]
-                    logger.debug(f"InMemoryBlacklist evicted {remove_count} expired entries")
+                    logger.debug("InMemoryBlacklist evicted %s expired entries", remove_count)
                 else:
                     # No expired entries - remove oldest 10% by expiration time
                     sorted_items = sorted(self._blacklist.items(), key=lambda x: x[1])
                     remove_count = max(1, len(sorted_items) // 10)
                     for k, _ in sorted_items[:remove_count]:
                         del self._blacklist[k]
-                    logger.debug(f"InMemoryBlacklist evicted {remove_count} oldest entries")
+                    logger.debug("InMemoryBlacklist evicted %s oldest entries", remove_count)
 
             self._blacklist[token_jti] = expires_at
             self._maybe_cleanup()
@@ -134,7 +134,7 @@ class InMemoryBlacklist(BlacklistBackend):
                 del self._blacklist[k]
             self._last_cleanup = now
             if expired:
-                logger.debug(f"InMemoryBlacklist cleanup: removed {len(expired)}")
+                logger.debug("InMemoryBlacklist cleanup: removed %s", len(expired))
             return len(expired)
 
     def _maybe_cleanup(self) -> None:
@@ -182,7 +182,7 @@ class SQLiteBlacklist(BlacklistBackend):
         self._cleanup_interval = cleanup_interval
         self._last_cleanup = time.time()
         self._init_schema()
-        logger.info(f"SQLiteBlacklist initialized: {self.db_path}")
+        logger.info("SQLiteBlacklist initialized: %s", self.db_path)
 
     def _get_conn(self) -> sqlite3.Connection:
         """Get per-context database connection (async-safe)."""
@@ -243,7 +243,7 @@ class SQLiteBlacklist(BlacklistBackend):
         removed = cursor.rowcount
         self._last_cleanup = time.time()
         if removed > 0:
-            logger.debug(f"SQLiteBlacklist cleanup: removed {removed}")
+            logger.debug("SQLiteBlacklist cleanup: removed %s", removed)
         return removed
 
     def _maybe_cleanup(self) -> None:
@@ -297,7 +297,7 @@ try:
             self._prefix = key_prefix
             # Test connection
             self._client.ping()
-            logger.info(f"RedisBlacklist initialized: {redis_url}")
+            logger.info("RedisBlacklist initialized: %s", redis_url)
 
         def add(self, token_jti: str, expires_at: float) -> None:
             """Add token to blacklist with auto-expiration."""
@@ -369,7 +369,7 @@ class PostgresBlacklist(BlacklistBackend):
             await conn.execute(self.INITIAL_SCHEMA)
 
         self._initialized = True
-        logger.debug(f"[{self.SCHEMA_NAME}] Schema initialized")
+        logger.debug("[%s] Schema initialized", self.SCHEMA_NAME)
 
     def add(self, token_jti: str, expires_at: float) -> None:
         """Add token to blacklist (sync wrapper for async)."""
@@ -420,7 +420,7 @@ class PostgresBlacklist(BlacklistBackend):
                     logger.warning("Failed to parse numeric value: %s", e)
             self._last_cleanup = time.time()
             if removed > 0:
-                logger.debug(f"PostgresBlacklist cleanup: removed {removed}")
+                logger.debug("PostgresBlacklist cleanup: removed %s", removed)
             return removed
 
     def _maybe_cleanup(self) -> None:
@@ -490,7 +490,7 @@ def get_blacklist_backend() -> BlacklistBackend:
             try:
                 _blacklist_backend = RedisBlacklist(redis_url)
             except (ConnectionError, TimeoutError, OSError, RuntimeError) as e:
-                logger.warning(f"Redis connection failed: {e}. Falling back to SQLite.")
+                logger.warning("Redis connection failed: %s. Falling back to SQLite.", e)
                 _blacklist_backend = SQLiteBlacklist(fallback_db_path)
     else:
         from aragora.storage.connection_factory import create_persistent_store
@@ -518,7 +518,7 @@ def set_blacklist_backend(backend: BlacklistBackend) -> None:
     """
     global _blacklist_backend
     _blacklist_backend = backend
-    logger.info(f"Token blacklist backend set: {type(backend).__name__}")
+    logger.info("Token blacklist backend set: %s", type(backend).__name__)
 
 
 __all__ = [

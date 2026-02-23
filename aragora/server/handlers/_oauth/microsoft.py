@@ -91,7 +91,7 @@ class MicrosoftOAuthMixin:
         error = _get_param(query_params, "error")
         if error:
             error_desc = _get_param(query_params, "error_description", error)
-            logger.warning(f"Microsoft OAuth error: {error} - {error_desc}")
+            logger.warning("Microsoft OAuth error: %s - %s", error, error_desc)
             return self._redirect_with_error(f"OAuth error: {error_desc}")
 
         state = _get_param(query_params, "state")
@@ -111,7 +111,7 @@ class MicrosoftOAuthMixin:
             if inspect.isawaitable(token_data):
                 token_data = await token_data
         except (httpx.HTTPError, ConnectionError, TimeoutError, OSError, ValueError, json.JSONDecodeError) as e:
-            logger.error(f"Microsoft token exchange failed: {e}")
+            logger.error("Microsoft token exchange failed: %s", e)
             return self._redirect_with_error("Failed to exchange authorization code")
 
         access_token = token_data.get("access_token")
@@ -123,7 +123,7 @@ class MicrosoftOAuthMixin:
             if inspect.isawaitable(user_info):
                 user_info = await user_info
         except (httpx.HTTPError, ConnectionError, TimeoutError, OSError, ValueError, KeyError, json.JSONDecodeError) as e:
-            logger.error(f"Failed to get Microsoft user info: {e}")
+            logger.error("Failed to get Microsoft user info: %s", e)
             return self._redirect_with_error("Failed to get user info")
 
         return await _maybe_await(self._complete_oauth_flow(user_info, state_data))

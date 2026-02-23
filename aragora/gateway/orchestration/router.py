@@ -149,7 +149,7 @@ class TaskRouter:
             cost_per_request=cost_per_request,
             max_concurrent=max_concurrent,
         )
-        logger.info(f"Registered agent: {name} with {len(capabilities)} capabilities")
+        logger.info("Registered agent: %s with %s capabilities", name, len(capabilities))
 
     def unregister_agent(self, name: str) -> bool:
         """Unregister an agent from the router."""
@@ -158,7 +158,7 @@ class TaskRouter:
             del self._capabilities[name]
             del self._metrics[name]
             del self._priority[name]
-            logger.info(f"Unregistered agent: {name}")
+            logger.info("Unregistered agent: %s", name)
             return True
         return False
 

@@ -94,10 +94,10 @@ class EscalationStepExecutor(StepExecutor):
         # Find and execute handler
         handler = self._handlers.get(level.value)
         if handler is None:
-            logger.warning(f"No handler for escalation level: {level.value}")
+            logger.warning("No handler for escalation level: %s", level.value)
             return {"status": "no_handler", "level": level.value}
 
-        logger.info(f"Executing escalation: level={level.value} source={source}")
+        logger.info("Executing escalation: level=%s source=%s", level.value, source)
 
         try:
             if asyncio.iscoroutinefunction(handler):
@@ -116,7 +116,7 @@ class EscalationStepExecutor(StepExecutor):
                 else None,
             }
         except (RuntimeError, ValueError, OSError) as e:
-            logger.error(f"Escalation handler failed: {e}")
+            logger.error("Escalation handler failed: %s", e)
             raise
 
 

@@ -43,22 +43,21 @@ async def init_control_plane_coordinator() -> Any | None:
                 else 0
             )
             logger.info(
-                f"Control Plane coordinator initialized and connected "
-                f"(policies_loaded={policy_count})"
+                "Control Plane coordinator initialized and connected (policies_loaded=%s)", policy_count
             )
         else:
             logger.info("Control Plane coordinator initialized and connected (no policy manager)")
 
         return coordinator
     except ImportError as e:
-        logger.debug(f"Control Plane not available: {e}")
+        logger.debug("Control Plane not available: %s", e)
         return None
     except REDIS_CONNECTION_ERRORS as e:
         # Redis may not be available - this is OK for local development
-        logger.warning(f"Control Plane coordinator not started (Redis may be unavailable): {e}")
+        logger.warning("Control Plane coordinator not started (Redis may be unavailable): %s", e)
         return None
     except RuntimeError as e:
-        logger.warning(f"Control Plane coordinator not started: {e}")
+        logger.warning("Control Plane coordinator not started: %s", e)
         return None
 
 
@@ -82,13 +81,13 @@ async def init_shared_control_plane_state() -> bool:
             logger.info("Shared control plane state using in-memory fallback (single-instance)")
             return False
     except ImportError as e:
-        logger.debug(f"Shared control plane state not available: {e}")
+        logger.debug("Shared control plane state not available: %s", e)
         return False
     except REDIS_CONNECTION_ERRORS as e:
-        logger.warning(f"Shared control plane state initialization failed: {e}")
+        logger.warning("Shared control plane state initialization failed: %s", e)
         return False
     except RuntimeError as e:
-        logger.warning(f"Shared control plane state initialization failed: {e}")
+        logger.warning("Shared control plane state initialization failed: %s", e)
         return False
 
 
@@ -151,10 +150,10 @@ async def init_witness_patrol() -> bool:
         return True
 
     except ImportError as e:
-        logger.debug(f"Witness behavior not available: {e}")
+        logger.debug("Witness behavior not available: %s", e)
         return False
     except (RuntimeError, ValueError, OSError) as e:
-        logger.warning(f"Witness patrol initialization failed: {e}")
+        logger.warning("Witness patrol initialization failed: %s", e)
         return False
 
 
@@ -208,21 +207,20 @@ async def init_mayor_coordinator() -> bool:
             _mayor_coordinator = coordinator
             is_mayor = "yes" if coordinator.is_mayor else "no"
             logger.info(
-                f"Mayor coordinator started (node={coordinator.node_id}, "
-                f"is_mayor={is_mayor}, region={region or 'global'})"
+                "Mayor coordinator started (node=%s, is_mayor=%s, region=%s)", coordinator.node_id, is_mayor, region or 'global'
             )
             return True
 
         return False
 
     except ImportError as e:
-        logger.debug(f"Mayor coordinator not available: {e}")
+        logger.debug("Mayor coordinator not available: %s", e)
         return False
     except REDIS_CONNECTION_ERRORS as e:
-        logger.warning(f"Mayor coordinator initialization failed: {e}")
+        logger.warning("Mayor coordinator initialization failed: %s", e)
         return False
     except (RuntimeError, ValueError) as e:
-        logger.warning(f"Mayor coordinator initialization failed: {e}")
+        logger.warning("Mayor coordinator initialization failed: %s", e)
         return False
 
 
@@ -259,9 +257,9 @@ async def init_persistent_task_queue() -> int:
                 try:
                     deleted = queue.delete_completed_tasks(older_than_hours=24)
                     if deleted > 0:
-                        logger.debug(f"Cleaned up {deleted} old completed tasks")
+                        logger.debug("Cleaned up %s old completed tasks", deleted)
                 except (OSError, RuntimeError, ValueError) as e:
-                    logger.warning(f"Task cleanup failed: {e}")
+                    logger.warning("Task cleanup failed: %s", e)
 
         task = asyncio.create_task(cleanup_loop())
         task.add_done_callback(
@@ -273,15 +271,15 @@ async def init_persistent_task_queue() -> int:
         )
 
         if recovered > 0:
-            logger.info(f"Persistent task queue started, recovered {recovered} tasks")
+            logger.info("Persistent task queue started, recovered %s tasks", recovered)
         else:
             logger.info("Persistent task queue started")
 
         return recovered
 
     except ImportError as e:
-        logger.debug(f"Persistent task queue not available: {e}")
+        logger.debug("Persistent task queue not available: %s", e)
     except (RuntimeError, OSError, ValueError) as e:
-        logger.warning(f"Failed to initialize persistent task queue: {e}")
+        logger.warning("Failed to initialize persistent task queue: %s", e)
 
     return 0

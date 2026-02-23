@@ -207,7 +207,7 @@ Supports multiple output formats via the 'format' query parameter.""",
         # Rate limit check
         client_ip = get_client_ip(handler)
         if not _explain_limiter.is_allowed(client_ip):
-            logger.warning(f"Rate limit exceeded for explain endpoint: {client_ip}")
+            logger.warning("Rate limit exceeded for explain endpoint: %s", client_ip)
             return error_response("Rate limit exceeded. Please try again later.", 429)
 
         # RBAC: Require authentication and decision:read permission
@@ -217,7 +217,7 @@ Supports multiple output formats via the 'format' query parameter.""",
         except UnauthorizedError:
             return error_response("Authentication required to access decision explanations", 401)
         except ForbiddenError as e:
-            logger.warning(f"Decision explain access denied: {e}")
+            logger.warning("Decision explain access denied: %s", e)
             return error_response("Permission denied", 403)
 
         # Get nomic_dir from server context
@@ -296,7 +296,7 @@ Supports multiple output formats via the 'format' query parameter.""",
                 trace = DebateTrace.load(trace_path)
                 debate_result = trace.to_debate_result()
             except (ImportError, OSError, ValueError, KeyError, TypeError) as e:
-                logger.warning(f"Failed to load trace for {request_id}: {e}")
+                logger.warning("Failed to load trace for %s: %s", request_id, e)
 
         # Try to load from replays
         if debate_result is None:
@@ -387,7 +387,7 @@ Supports multiple output formats via the 'format' query parameter.""",
                 cruxes = analyzer.identify_debate_cruxes(top_k=5)
                 reasoning["crux_claims"] = cruxes
             except (ValueError, KeyError, TypeError, AttributeError, RuntimeError) as e:
-                logger.debug(f"Failed to build belief network: {e}")
+                logger.debug("Failed to build belief network: %s", e)
 
         return reasoning
 
@@ -563,7 +563,7 @@ Supports multiple output formats via the 'format' query parameter.""",
                     participants=list({m.agent for m in messages}),
                 )
         except (ImportError, OSError, json.JSONDecodeError, ValueError, KeyError, TypeError) as e:
-            logger.warning(f"Failed to load replay: {e}")
+            logger.warning("Failed to load replay: %s", e)
 
         return None
 

@@ -87,7 +87,7 @@ class DebateStep(BaseStep):
         topic = self._interpolate_text(topic_template, context)
 
         if not topic:
-            logger.warning(f"Empty topic for debate step '{self.name}'")
+            logger.warning("Empty topic for debate step '%s'", self.name)
             return {"success": False, "error": "Empty topic"}
 
         try:
@@ -105,7 +105,7 @@ class DebateStep(BaseStep):
                     agent = create_agent(agent_type)
                     agents.append(agent)
                 except (ImportError, RuntimeError, ValueError, TypeError, OSError, ConnectionError) as e:
-                    logger.warning(f"Failed to create agent {agent_type}: {e}")
+                    logger.warning("Failed to create agent %s: %s", agent_type, e)
 
             if not agents:
                 return {"success": False, "error": "No agents available"}
@@ -144,7 +144,7 @@ class DebateStep(BaseStep):
                     }
                     arena_config = ArenaConfig(**filtered_config)
                 except (ImportError, TypeError, ValueError, AttributeError, KeyError, RuntimeError) as e:
-                    logger.warning(f"Failed to build ArenaConfig: {e}")
+                    logger.warning("Failed to build ArenaConfig: %s", e)
 
             # Get memory systems from context if available
             knowledge_mound = context.state.get("knowledge_mound")
@@ -171,7 +171,7 @@ class DebateStep(BaseStep):
             arena = Arena(**arena_kwargs)
 
             # Execute debate
-            logger.info(f"Starting debate '{self.name}' on topic: {topic[:100]}...")
+            logger.info("Starting debate '%s' on topic: %s...", self.name, topic[:100])
             try:
                 from aragora.events.types import StreamEventType
 
@@ -241,15 +241,15 @@ class DebateStep(BaseStep):
             except (ImportError, AttributeError, TypeError) as exc:
                 logger.debug("Failed to emit debate complete event: %s", exc)
 
-            logger.info(f"Debate '{self.name}' completed. Consensus: {output['consensus_reached']}")
+            logger.info("Debate '%s' completed. Consensus: %s", self.name, output['consensus_reached'])
             return output
 
         except ImportError as e:
-            logger.warning(f"Aragora debate components not available: {e}")
+            logger.warning("Aragora debate components not available: %s", e)
             return {"success": False, "error": f"Debate components not available: {e}"}
 
         except (RuntimeError, ValueError, TypeError, OSError, ConnectionError, AttributeError, KeyError) as e:
-            logger.error(f"Debate execution failed: {e}")
+            logger.error("Debate execution failed: %s", e)
             return {"success": False, "error": "Debate execution failed"}
 
     def _interpolate_text(self, template: str, context: WorkflowContext) -> str:
@@ -348,7 +348,7 @@ class QuickDebateStep(BaseStep):
                     synth_prompt += "Provide a brief synthesis:"
                     synthesis = await synth_agent.generate(synth_prompt)
                 except (RuntimeError, TimeoutError, ConnectionError) as e:
-                    logger.warning(f"Synthesis generation failed: {e}")
+                    logger.warning("Synthesis generation failed: %s", e)
                     synthesis = None
 
             return {

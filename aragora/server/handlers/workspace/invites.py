@@ -309,8 +309,7 @@ class WorkspaceInvitesMixin:
         )
 
         logger.info(
-            f"Created workspace invite: workspace={workspace_id} email={email} "
-            f"role={role} by={auth_ctx.user_id}"
+            "Created workspace invite: workspace=%s email=%s role=%s by=%s", workspace_id, email, role, auth_ctx.user_id
         )
 
         # Return invite without token (token is sent via email)
@@ -460,8 +459,7 @@ class WorkspaceInvitesMixin:
         )
 
         logger.info(
-            f"Canceled workspace invite: workspace={workspace_id} invite={invite_id} "
-            f"by={auth_ctx.user_id}"
+            "Canceled workspace invite: workspace=%s invite=%s by=%s", workspace_id, invite_id, auth_ctx.user_id
         )
 
         return m.json_response({"message": "Invite canceled", "invite_id": invite_id})
@@ -511,8 +509,7 @@ class WorkspaceInvitesMixin:
 
         # In production, this would trigger email sending
         logger.info(
-            f"Resent workspace invite: workspace={workspace_id} invite={invite_id} "
-            f"to={invite.email}"
+            "Resent workspace invite: workspace=%s invite=%s to=%s", workspace_id, invite_id, invite.email
         )
 
         return m.json_response(
@@ -590,7 +587,7 @@ class WorkspaceInvitesMixin:
             logger.warning("Handler error: %s", e)
             return m.error_response("Permission denied", 403)
         except (ValueError, TypeError, KeyError, AttributeError, OSError, RuntimeError) as e:
-            logger.exception(f"Failed to add member via invite: {e}")
+            logger.exception("Failed to add member via invite: %s", e)
             return m.error_response("Failed to join workspace", 500)
 
         # Mark invite as accepted
@@ -617,8 +614,7 @@ class WorkspaceInvitesMixin:
         )
 
         logger.info(
-            f"Accepted workspace invite: workspace={invite.workspace_id} "
-            f"user={auth_ctx.user_id} role={invite.role}"
+            "Accepted workspace invite: workspace=%s user=%s role=%s", invite.workspace_id, auth_ctx.user_id, invite.role
         )
 
         emit_handler_event(

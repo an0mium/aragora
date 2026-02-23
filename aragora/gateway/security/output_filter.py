@@ -209,7 +209,7 @@ class OutputFilter:
                 try:
                     self._compiled[pattern.name] = re.compile(pattern.pattern)
                 except re.error as e:
-                    logger.error(f"Invalid pattern {pattern.name}: {e}")
+                    logger.error("Invalid pattern %s: %s", pattern.name, e)
 
     def add_pattern(self, pattern: SensitivePattern) -> None:
         """Add a custom pattern."""
@@ -219,7 +219,7 @@ class OutputFilter:
             try:
                 self._compiled[pattern.name] = re.compile(pattern.pattern)
             except re.error as e:
-                logger.error(f"Invalid pattern {pattern.name}: {e}")
+                logger.error("Invalid pattern %s: %s", pattern.name, e)
 
     def enable_pattern(self, name: str) -> bool:
         """Enable a pattern by name."""
@@ -282,7 +282,7 @@ class OutputFilter:
                     redacted_types.get(pattern.data_type.value, 0) + match_count
                 )
 
-                logger.debug(f"Redacted {match_count} matches for pattern {pattern.name}")
+                logger.debug("Redacted %s matches for pattern %s", match_count, pattern.name)
 
         result = RedactionResult(
             original_length=original_length,
@@ -292,7 +292,7 @@ class OutputFilter:
         )
 
         if redaction_count > 0:
-            logger.info(f"Redacted {redaction_count} sensitive items: {redacted_types}")
+            logger.info("Redacted %s sensitive items: %s", redaction_count, redacted_types)
 
         return result_text, result
 

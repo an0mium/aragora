@@ -1212,9 +1212,7 @@ class PayPalClient:
         # Check 2: Webhook ID must match
         if webhook_id != self.credentials.webhook_id:
             logger.warning(
-                f"SECURITY: PayPal webhook ID mismatch. "
-                f"Expected: {self.credentials.webhook_id[:8]}..., "
-                f"Got: {webhook_id[:8] if webhook_id else 'None'}..."
+                "SECURITY: PayPal webhook ID mismatch. Expected: %s..., Got: %s...", self.credentials.webhook_id[:8], webhook_id[:8] if webhook_id else 'None'
             )
             return False
 
@@ -1242,7 +1240,7 @@ class PayPalClient:
                 )
                 return False
         except (ValueError, TypeError) as e:
-            logger.warning(f"SECURITY: PayPal webhook timestamp invalid: {e}")
+            logger.warning("SECURITY: PayPal webhook timestamp invalid: %s", e)
             if is_production:
                 return False
 
@@ -1272,22 +1270,19 @@ class PayPalClient:
 
             if not is_valid:
                 logger.warning(
-                    f"SECURITY: PayPal webhook signature mismatch. "
-                    f"Transmission ID: {transmission_id}"
+                    "SECURITY: PayPal webhook signature mismatch. Transmission ID: %s", transmission_id
                 )
-                logger.debug(f"Signature verification failed. Input: {expected_sig_input[:50]}...")
+                logger.debug("Signature verification failed. Input: %s...", expected_sig_input[:50])
             else:
                 logger.debug(
-                    f"PayPal webhook signature verified successfully. "
-                    f"Transmission ID: {transmission_id}"
+                    "PayPal webhook signature verified successfully. Transmission ID: %s", transmission_id
                 )
 
             return is_valid
 
         except (ValueError, TypeError, UnicodeDecodeError, OverflowError) as e:
             logger.error(
-                f"SECURITY: PayPal webhook signature verification failed with error: {e}. "
-                f"Transmission ID: {transmission_id}"
+                "SECURITY: PayPal webhook signature verification failed with error: %s. Transmission ID: %s", e, transmission_id
             )
             return False
 

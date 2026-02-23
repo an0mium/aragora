@@ -187,7 +187,7 @@ class TokenManager:
             self._redis_available = False
             return None
         except (ConnectionError, TimeoutError, OSError, ValueError) as e:
-            logger.debug(f"Redis connection failed: {e}, using in-memory storage")
+            logger.debug("Redis connection failed: %s, using in-memory storage", e)
             self._redis_available = False
             return None
 
@@ -272,7 +272,7 @@ class TokenManager:
                 self._cleanup_expired()
 
         logger.debug(
-            f"Generated {token_type.value} token for session {session_id}, expires in {ttl}s"
+            "Generated %s token for session %s, expires in %ss", token_type.value, session_id, ttl
         )
 
         return token_data
@@ -305,7 +305,7 @@ class TokenManager:
             try:
                 token_data = TokenData.from_dict(json.loads(data_str))
             except (json.JSONDecodeError, KeyError, ValueError) as e:
-                logger.warning(f"Invalid token data: {e}")
+                logger.warning("Invalid token data: %s", e)
                 return None
         else:
             async with self._lock:
@@ -326,8 +326,7 @@ class TokenManager:
         # Check type if specified
         if expected_type and token_data.token_type != expected_type:
             logger.debug(
-                f"Token type mismatch: expected {expected_type.value}, "
-                f"got {token_data.token_type.value}"
+                "Token type mismatch: expected %s, got %s", expected_type.value, token_data.token_type.value
             )
             return None
 
@@ -374,7 +373,7 @@ class TokenManager:
             async with self._lock:
                 self._local_store[token] = token_data
 
-        logger.debug(f"Refreshed token, new TTL: {ttl}s")
+        logger.debug("Refreshed token, new TTL: %ss", ttl)
         return True
 
     async def revoke_token(self, token: str) -> bool:
@@ -453,7 +452,7 @@ class TokenManager:
                     del self._local_store[token]
                 revoked = len(to_revoke)
 
-        logger.debug(f"Revoked {revoked} tokens for session {session_id}")
+        logger.debug("Revoked %s tokens for session %s", revoked, session_id)
         return revoked
 
     def _cleanup_expired(self) -> None:
@@ -464,7 +463,7 @@ class TokenManager:
             del self._local_store[token]
 
         if expired:
-            logger.debug(f"Cleaned up {len(expired)} expired tokens")
+            logger.debug("Cleaned up %s expired tokens", len(expired))
 
     async def get_session_tokens(
         self,

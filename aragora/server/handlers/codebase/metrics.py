@@ -159,7 +159,7 @@ async def handle_analyze_metrics(
                 )
 
             except (ValueError, TypeError, KeyError, OSError, AttributeError, RuntimeError) as e:
-                logger.exception(f"Analysis {analysis_id} failed: {e}")
+                logger.exception("Analysis %s failed: %s", analysis_id, e)
                 # Store error state
                 error_report = MetricsReport(
                     repository=repo_id,
@@ -176,7 +176,7 @@ async def handle_analyze_metrics(
         task = asyncio.create_task(run_analysis())
         _running_analyses[repo_id] = task
 
-        logger.info(f"[Metrics] Started analysis {analysis_id} for {repo_id}")
+        logger.info("[Metrics] Started analysis %s for %s", analysis_id, repo_id)
 
         return {
             "success": True,
@@ -186,7 +186,7 @@ async def handle_analyze_metrics(
         }
 
     except (ValueError, TypeError, KeyError, OSError, AttributeError) as e:
-        logger.exception(f"Failed to start metrics analysis: {e}")
+        logger.exception("Failed to start metrics analysis: %s", e)
         return {
             "success": False,
             "error": "Internal server error",
@@ -228,7 +228,7 @@ async def handle_get_metrics(
             }
 
     except (KeyError, ValueError, TypeError, AttributeError) as e:
-        logger.exception(f"Failed to get metrics: {e}")
+        logger.exception("Failed to get metrics: %s", e)
         return {
             "success": False,
             "error": "Internal server error",
@@ -268,7 +268,7 @@ async def handle_get_hotspots(
         }
 
     except (KeyError, ValueError, TypeError, AttributeError) as e:
-        logger.exception(f"Failed to get hotspots: {e}")
+        logger.exception("Failed to get hotspots: %s", e)
         return {
             "success": False,
             "error": "Internal server error",
@@ -317,7 +317,7 @@ async def handle_get_duplicates(
         }
 
     except (KeyError, ValueError, TypeError, AttributeError) as e:
-        logger.exception(f"Failed to get duplicates: {e}")
+        logger.exception("Failed to get duplicates: %s", e)
         return {
             "success": False,
             "error": "Internal server error",
@@ -383,7 +383,7 @@ async def handle_get_file_metrics(
         }
 
     except (KeyError, ValueError, TypeError, AttributeError) as e:
-        logger.exception(f"Failed to get file metrics: {e}")
+        logger.exception("Failed to get file metrics: %s", e)
         return {
             "success": False,
             "error": "Internal server error",
@@ -436,7 +436,7 @@ async def handle_list_analyses(
         }
 
     except (KeyError, ValueError, TypeError, AttributeError) as e:
-        logger.exception(f"Failed to list analyses: {e}")
+        logger.exception("Failed to list analyses: %s", e)
         return {
             "success": False,
             "error": "Internal server error",

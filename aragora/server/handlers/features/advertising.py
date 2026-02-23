@@ -489,9 +489,9 @@ class AdvertisingHandler(SecureHandler):
             if connector:
                 _platform_connectors[platform] = connector
         except (ImportError, ConnectionError, TimeoutError, OSError, ValueError, TypeError) as e:
-            logger.warning(f"Could not initialize {platform} connector: {e}")
+            logger.warning("Could not initialize %s connector: %s", platform, e)
 
-        logger.info(f"Connected advertising platform: {platform}")
+        logger.info("Connected advertising platform: %s", platform)
 
         return self._json_response(
             200,
@@ -516,7 +516,7 @@ class AdvertisingHandler(SecureHandler):
 
         del _platform_credentials[platform]
 
-        logger.info(f"Disconnected advertising platform: {platform}")
+        logger.info("Disconnected advertising platform: %s", platform)
 
         return self._json_response(
             200,
@@ -543,7 +543,7 @@ class AdvertisingHandler(SecureHandler):
 
         for platform, result in zip(_platform_credentials.keys(), results):
             if isinstance(result, BaseException):
-                logger.error(f"Error fetching campaigns from {platform}: {result}")
+                logger.error("Error fetching campaigns from %s: %s", platform, result)
                 continue
             all_campaigns.extend(result)
 
@@ -588,7 +588,7 @@ class AdvertisingHandler(SecureHandler):
                 return [self._normalize_microsoft_campaign(c) for c in campaigns]
 
         except (ConnectionError, TimeoutError, OSError, AttributeError, ValueError) as e:
-            logger.error(f"Error fetching {platform} campaigns: {e}")
+            logger.error("Error fetching %s campaigns: %s", platform, e)
 
         return []
 
@@ -858,7 +858,7 @@ class AdvertisingHandler(SecureHandler):
 
         for platform, result in zip(_platform_credentials.keys(), results):
             if isinstance(result, BaseException):
-                logger.error(f"Error fetching performance from {platform}: {result}")
+                logger.error("Error fetching performance from %s: %s", platform, result)
                 continue
 
             perf_result: dict[str, Any] = result
@@ -929,7 +929,7 @@ class AdvertisingHandler(SecureHandler):
                 }
 
         except (ConnectionError, TimeoutError, OSError, AttributeError, ValueError) as e:
-            logger.error(f"Error fetching {platform} performance: {e}")
+            logger.error("Error fetching %s performance: %s", platform, e)
             return {"platform": platform, "error": "Failed to fetch platform performance"}
 
         return {"platform": platform}
@@ -1090,7 +1090,7 @@ class AdvertisingHandler(SecureHandler):
         # Check circuit breaker state before attempting connection
         cb = get_advertising_circuit_breaker()
         if not cb.can_execute():
-            logger.warning(f"Circuit breaker open for advertising service, skipping {platform}")
+            logger.warning("Circuit breaker open for advertising service, skipping %s", platform)
             return None
 
         creds = _platform_credentials[platform]["credentials"]
@@ -1137,7 +1137,7 @@ class AdvertisingHandler(SecureHandler):
             return connector
 
         except (ImportError, ConnectionError, TimeoutError, OSError, TypeError, ValueError) as e:
-            logger.error(f"Failed to create {platform} connector: {e}")
+            logger.error("Failed to create %s connector: %s", platform, e)
             cb.record_failure()
             return None
 

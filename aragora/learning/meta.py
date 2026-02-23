@@ -159,7 +159,7 @@ class MetaLearner(SQLiteStore):
                 if data:
                     return HyperparameterState.from_dict(data)
         except sqlite3.Error as e:
-            logger.warning(f"Failed to load hyperparameter state: {e}")
+            logger.warning("Failed to load hyperparameter state: %s", e)
             # Fall through to return defaults
 
         return HyperparameterState()  # Default state
@@ -187,7 +187,7 @@ class MetaLearner(SQLiteStore):
 
                 conn.commit()
         except sqlite3.Error as e:
-            logger.warning(f"Failed to save hyperparameter state: {e}")
+            logger.warning("Failed to save hyperparameter state: %s", e)
             # Continue with in-memory state - next save may succeed
 
     def get_current_hyperparams(self) -> dict[str, Any]:
@@ -237,7 +237,7 @@ class MetaLearner(SQLiteStore):
         try:
             cms_stats = cms.get_stats()
         except (RuntimeError, ValueError, TypeError, OSError) as e:
-            logger.warning(f"Failed to get CMS stats: {e}")
+            logger.warning("Failed to get CMS stats: %s", e)
             cms_stats = {}
         total_memories = cms_stats.get("total_memories", 0)
 
@@ -294,7 +294,7 @@ class MetaLearner(SQLiteStore):
                 row = cursor.fetchone()
                 metrics.learning_velocity = (row[0] if row else 0) or 0
         except sqlite3.Error as e:
-            logger.warning(f"Failed to query learning metrics from DB: {e}")
+            logger.warning("Failed to query learning metrics from DB: %s", e)
             # Continue with default values in metrics
 
         # Store cycle results for use in adjust_hyperparameters
@@ -321,7 +321,7 @@ class MetaLearner(SQLiteStore):
                 )
                 conn.commit()
         except sqlite3.Error as e:
-            logger.warning(f"Failed to log efficiency metrics to DB: {e}")
+            logger.warning("Failed to log efficiency metrics to DB: %s", e)
             # Continue - in-memory history is preserved
 
         return metrics
@@ -521,7 +521,7 @@ class MetaLearner(SQLiteStore):
 
             return history
         except sqlite3.Error as e:
-            logger.warning(f"Failed to get adjustment history: {e}")
+            logger.warning("Failed to get adjustment history: %s", e)
             return []
 
     def reset_to_defaults(self) -> None:

@@ -156,7 +156,7 @@ class AgentPool:
             result: bool = self._config.circuit_breaker.is_open(agent_name)
             return result
         except (KeyError, AttributeError, TypeError) as e:
-            logger.debug(f"Circuit breaker check failed for {agent_name}: {e}")
+            logger.debug("Circuit breaker check failed for %s: %s", agent_name, e)
             return False
 
     # =========================================================================
@@ -228,7 +228,7 @@ class AgentPool:
         selected = [agent for agent, _ in scores[:count]]
 
         logger.debug(
-            f"Selected team by performance: {[getattr(a, 'name', str(a)) for a in selected]}"
+            "Selected team by performance: %s", [getattr(a, 'name', str(a)) for a in selected]
         )
         return selected
 
@@ -258,7 +258,7 @@ class AgentPool:
                     # Extract the elo value from the AgentRating object
                     elo_score = getattr(rating, "elo", 1000.0)
             except (KeyError, AttributeError, TypeError, ValueError) as e:
-                logger.debug(f"ELO rating lookup failed for {agent_name}: {e}")
+                logger.debug("ELO rating lookup failed for %s: %s", agent_name, e)
 
         # Calibration weight
         calibration_weight = self._get_calibration_weight(agent_name)
@@ -273,7 +273,7 @@ class AgentPool:
                 if domain_rating:
                     composite = (composite + domain_rating) / 2
             except (KeyError, AttributeError, TypeError, ValueError) as e:
-                logger.debug(f"Domain rating lookup failed for {agent_name}/{domain}: {e}")
+                logger.debug("Domain rating lookup failed for %s/%s: %s", agent_name, domain, e)
 
         return composite
 
@@ -301,7 +301,7 @@ class AgentPool:
                     cal_float: float = float(calibration)
                     return 0.5 + cal_float
             except (KeyError, AttributeError, TypeError, ValueError) as e:
-                logger.debug(f"Calibration tracker lookup failed for {agent_name}: {e}")
+                logger.debug("Calibration tracker lookup failed for %s: %s", agent_name, e)
 
         # Fallback to elo_system's calibration_score
         if self._config.elo_system is not None:
@@ -312,7 +312,7 @@ class AgentPool:
                     # Map calibration_score (0-1) to weight (0.5-1.5)
                     return 0.5 + cal_score
             except (KeyError, AttributeError, TypeError, ValueError) as e:
-                logger.debug(f"ELO calibration lookup failed for {agent_name}: {e}")
+                logger.debug("ELO calibration lookup failed for %s: %s", agent_name, e)
 
         return 1.0
 
@@ -505,7 +505,7 @@ class AgentPool:
                     rating = self._config.elo_system.get_rating(name)
                     metrics.elo_rating = rating.elo
                 except (KeyError, AttributeError, TypeError, ValueError) as e:
-                    logger.debug(f"ELO rating refresh failed for {name}: {e}")
+                    logger.debug("ELO rating refresh failed for %s: %s", name, e)
 
             # Update calibration score
             if self._config.calibration_tracker:
@@ -514,7 +514,7 @@ class AgentPool:
                     if hasattr(cal, "brier_score"):
                         metrics.calibration_score = 1.0 - min(cal.brier_score, 1.0)
                 except (KeyError, AttributeError, TypeError, ValueError) as e:
-                    logger.debug(f"Calibration refresh failed for {name}: {e}")
+                    logger.debug("Calibration refresh failed for %s: %s", name, e)
 
     def get_pool_status(self) -> dict[str, Any]:
         """

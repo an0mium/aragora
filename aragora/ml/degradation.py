@@ -176,7 +176,7 @@ class MLDegradationManager:
                 self._degradation_history = self._degradation_history[-500:]
 
             logger.info(
-                f"ML degradation: {feature.value} {status.level.value} -> {level.value}: {reason}"
+                "ML degradation: %s %s -> %s: %s", feature.value, status.level.value, level.value, reason
             )
 
         status.level = level
@@ -228,7 +228,7 @@ class MLDegradationManager:
                     f"error_rate={status.error_rate:.2%}",
                 )
 
-        logger.warning(f"ML error in {feature.value}: {error}")
+        logger.warning("ML error in %s: %s", feature.value, error)
 
     def record_latency(
         self,

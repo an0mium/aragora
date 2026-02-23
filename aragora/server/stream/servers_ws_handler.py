@@ -287,7 +287,7 @@ class WebSocketHandlerMixin:
             await self._voice_handler.handle_websocket(request, ws, debate_id)
         except (OSError, ConnectionError, RuntimeError) as e:
             # WebSocket/network errors during voice streaming
-            logger.error(f"[voice] WebSocket error for debate {debate_id}: {e}")
+            logger.error("[voice] WebSocket error for debate %s: %s", debate_id, e)
         finally:
             if not ws.closed:
                 await ws.close()
@@ -392,8 +392,7 @@ class WebSocketHandlerMixin:
             self._rate_limiter_last_access[client_id] = time.time()
 
         logger.info(
-            f"[ws] Client {client_id[:8]}... connected from {client_ip} "
-            f"(authenticated={is_authenticated}, total_clients={len(self.clients)})"
+            "[ws] Client %s... connected from %s (authenticated=%s, total_clients=%s)", client_id[:8], client_ip, is_authenticated, len(self.clients)
         )
 
         # Send connection info including auth status
@@ -431,7 +430,7 @@ class WebSocketHandlerMixin:
                     msg_data = msg.data
                     if len(msg_data) > WS_MAX_MESSAGE_SIZE:
                         logger.warning(
-                            f"[ws] Message too large: {len(msg_data)} bytes (max {WS_MAX_MESSAGE_SIZE})"
+                            "[ws] Message too large: %s bytes (max %s)", len(msg_data), WS_MAX_MESSAGE_SIZE
                         )
                         await ws.send_json(
                             {
@@ -517,7 +516,7 @@ class WebSocketHandlerMixin:
                                         self._client_subscriptions[ws_id] = debate_id
                                     setattr(ws, "_bound_loop_id", debate_id)
                                     logger.info(
-                                        f"[ws] Client {client_id[:8]}... subscribed to {debate_id}"
+                                        "[ws] Client %s... subscribed to %s", client_id[:8], debate_id
                                     )
                                     # Send current debate state if available
                                     with self._debate_states_lock:
@@ -611,7 +610,7 @@ class WebSocketHandlerMixin:
                             )
 
                     except json.JSONDecodeError as e:
-                        logger.warning(f"[ws] Invalid JSON: {e.msg} at pos {e.pos}")
+                        logger.warning("[ws] Invalid JSON: %s at pos %s", e.msg, e.pos)
                         await ws.send_json(
                             {
                                 "type": "error",
@@ -623,15 +622,15 @@ class WebSocketHandlerMixin:
                         )
 
                 elif msg.type == aiohttp.WSMsgType.ERROR:
-                    logger.error(f"[ws] Error: {ws.exception()}")
+                    logger.error("[ws] Error: %s", ws.exception())
                     break
 
                 elif msg.type in (aiohttp.WSMsgType.CLOSE, aiohttp.WSMsgType.CLOSED):
-                    logger.debug(f"[ws] Client {client_id[:8]}... closed connection")
+                    logger.debug("[ws] Client %s... closed connection", client_id[:8])
                     break
 
                 elif msg.type == aiohttp.WSMsgType.BINARY:
-                    logger.warning(f"[ws] Binary message rejected from {client_id[:8]}...")
+                    logger.warning("[ws] Binary message rejected from %s...", client_id[:8])
                     await ws.send_json(
                         {
                             "type": "error",
@@ -647,7 +646,7 @@ class WebSocketHandlerMixin:
                     pass  # Handled by aiohttp automatically
 
                 else:
-                    logger.warning(f"[ws] Unhandled message type: {msg.type}")
+                    logger.warning("[ws] Unhandled message type: %s", msg.type)
 
         finally:
             self.clients.discard(ws)
@@ -662,8 +661,7 @@ class WebSocketHandlerMixin:
             # Clean up auth state
             self.remove_ws_auth_state(ws_id)
             logger.info(
-                f"[ws] Client {client_id[:8]}... disconnected from {client_ip} "
-                f"(remaining_clients={len(self.clients)})"
+                "[ws] Client %s... disconnected from %s (remaining_clients=%s)", client_id[:8], client_ip, len(self.clients)
             )
 
         return ws
@@ -738,5 +736,5 @@ class WebSocketHandlerMixin:
                 await asyncio.sleep(0.01)
             except (OSError, RuntimeError, ValueError) as e:
                 # Network/serialization errors during event processing
-                logger.error(f"[ws] Drain loop error: {e}")
+                logger.error("[ws] Drain loop error: %s", e)
                 await asyncio.sleep(0.1)

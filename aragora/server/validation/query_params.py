@@ -327,7 +327,7 @@ def validate_sort_param(
             if col.lower() == val:
                 return col
 
-        logger.warning(f"Invalid sort column '{raw}' not in whitelist, using default")
+        logger.warning("Invalid sort column '%s' not in whitelist, using default", raw)
         return default
     except (IndexError, TypeError, AttributeError):
         return default
@@ -438,12 +438,12 @@ def safe_query_string(
 
         # Truncate to max length
         if len(val) > max_length:
-            logger.debug(f"Query param '{key}' truncated from {len(val)} to {max_length} chars")
+            logger.debug("Query param '%s' truncated from %s to %s chars", key, len(val), max_length)
             val = val[:max_length]
 
         # Validate against pattern if provided
         if allowed_pattern is not None and val and not allowed_pattern.match(val):
-            logger.warning(f"Query param '{key}' doesn't match allowed pattern")
+            logger.warning("Query param '%s' doesn't match allowed pattern", key)
             return default
 
         return val

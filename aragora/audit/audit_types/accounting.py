@@ -540,7 +540,7 @@ class AccountingAuditor(BaseAuditor):
                         )
                     )
             except re.error as e:
-                logger.warning(f"Invalid regex pattern {pattern_def.name}: {e}")
+                logger.warning("Invalid regex pattern %s: %s", pattern_def.name, e)
 
         return findings
 

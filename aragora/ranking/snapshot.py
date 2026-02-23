@@ -66,7 +66,7 @@ def write_snapshot(
         temp_path.rename(snapshot_path)
     except (OSError, ValueError, TypeError) as e:
         # Snapshot is optional, don't fail on write errors
-        logger.debug(f"Failed to write ELO snapshot: {e}")
+        logger.debug("Failed to write ELO snapshot: %s", e)
         if temp_path.exists():
             temp_path.unlink()
 
@@ -92,10 +92,10 @@ def read_snapshot_leaderboard(
             data = json.load(f)
         return data.get("leaderboard", [])[:limit]
     except json.JSONDecodeError as e:
-        logger.debug(f"ELO snapshot corrupted: {e}")
+        logger.debug("ELO snapshot corrupted: %s", e)
         return None
     except (PermissionError, OSError) as e:
-        logger.warning(f"Cannot read ELO snapshot (I/O error): {e}")
+        logger.warning("Cannot read ELO snapshot (I/O error): %s", e)
         return None
 
 
@@ -120,10 +120,10 @@ def read_snapshot_matches(
             data = json.load(f)
         return data.get("recent_matches", [])[:limit]
     except json.JSONDecodeError as e:
-        logger.debug(f"Recent matches snapshot corrupted: {e}")
+        logger.debug("Recent matches snapshot corrupted: %s", e)
         return None
     except (PermissionError, OSError) as e:
-        logger.warning(f"Cannot read recent matches snapshot (I/O error): {e}")
+        logger.warning("Cannot read recent matches snapshot (I/O error): %s", e)
         return None
 
 

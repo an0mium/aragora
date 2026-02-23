@@ -553,7 +553,7 @@ class IntegrationsHandler(SecureHandler):
             )
 
         await store.save(config)
-        logger.info(f"Integration configured: {integration_type} for user {user_id}")
+        logger.info("Integration configured: %s for user %s", integration_type, user_id)
         return json_response({"integration": config.to_dict()}, status=201 if not existing else 200)
 
     async def update_integration(
@@ -605,7 +605,7 @@ class IntegrationsHandler(SecureHandler):
         config.updated_at = time.time()
         await store.save(config)
 
-        logger.info(f"Integration updated: {integration_type} for user {user_id}")
+        logger.info("Integration updated: %s for user %s", integration_type, user_id)
         return json_response({"integration": config.to_dict()})
 
     async def delete_integration(
@@ -636,7 +636,7 @@ class IntegrationsHandler(SecureHandler):
         if not deleted:
             return error_response(f"Integration not configured: {integration_type}", status=404)
 
-        logger.info(f"Integration deleted: {integration_type} for user {user_id}")
+        logger.info("Integration deleted: %s for user %s", integration_type, user_id)
         return json_response({"message": f"Integration {integration_type} deleted"})
 
     async def test_integration(
@@ -695,7 +695,7 @@ class IntegrationsHandler(SecureHandler):
             config.errors_24h += 1
             config.last_error = "Internal server error"
             await store.save(config)
-            logger.error(f"Integration test failed for {integration_type}: {e}")
+            logger.error("Integration test failed for %s: %s", integration_type, e)
             return json_response(
                 {
                     "success": False,
@@ -776,8 +776,7 @@ class IntegrationsHandler(SecureHandler):
             await store.save(config)
 
             logger.info(
-                f"Integration synced: {integration_type} for user {user_id}, "
-                f"{len(sync_result['changes'])} changes"
+                "Integration synced: %s for user %s, %s changes", integration_type, user_id, len(sync_result['changes'])
             )
 
             return json_response(
@@ -794,7 +793,7 @@ class IntegrationsHandler(SecureHandler):
             config.last_error = "Sync failed"
             config.status = "degraded"  # type: ignore[misc]
             await store.save(config)
-            logger.error(f"Integration sync failed for {integration_type}: {e}")
+            logger.error("Integration sync failed for %s: %s", integration_type, e)
             return json_response(
                 {
                     "success": False,
@@ -884,9 +883,9 @@ class IntegrationsHandler(SecureHandler):
                 )
 
         except ImportError as e:
-            logger.debug(f"Provider sync not available for {integration_type}: {e}")
+            logger.debug("Provider sync not available for %s: %s", integration_type, e)
         except (ConnectionError, TimeoutError, OSError, ValueError, RuntimeError, AttributeError) as e:
-            logger.warning(f"Provider-specific sync failed for {integration_type}: {e}")
+            logger.warning("Provider-specific sync failed for %s: %s", integration_type, e)
 
         return changes
 
@@ -973,10 +972,10 @@ class IntegrationsHandler(SecureHandler):
             return False
 
         except ImportError as e:
-            logger.warning(f"Integration module not available: {e}")
+            logger.warning("Integration module not available: %s", e)
             return False
         except (ConnectionError, TimeoutError, OSError, ValueError, RuntimeError) as e:
-            logger.error(f"Connection test error: {e}")
+            logger.error("Connection test error: %s", e)
             return False
 
 

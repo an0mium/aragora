@@ -222,7 +222,7 @@ class PostgresUserStore(
             await conn.execute(self.INITIAL_SCHEMA)
 
         self._initialized = True
-        logger.debug(f"[{self.SCHEMA_NAME}] Schema initialized")
+        logger.debug("[%s] Schema initialized", self.SCHEMA_NAME)
 
     def close(self) -> None:
         """Close is a no-op for pool-based stores (pool managed externally)."""

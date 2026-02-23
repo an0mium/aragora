@@ -259,8 +259,7 @@ class ChannelSubscriptionStore:
             )
             conn.commit()
             logger.info(
-                f"Created subscription {subscription.id} for org {subscription.org_id} "
-                f"to {channel_type_str}:{subscription.channel_id}"
+                "Created subscription %s for org %s to %s:%s", subscription.id, subscription.org_id, channel_type_str, subscription.channel_id
             )
             return subscription
         except sqlite3.IntegrityError as e:
@@ -405,7 +404,7 @@ class ChannelSubscriptionStore:
                 params,
             )
             conn.commit()
-            logger.info(f"Updated subscription {subscription_id}")
+            logger.info("Updated subscription %s", subscription_id)
 
         return subscription
 
@@ -426,7 +425,7 @@ class ChannelSubscriptionStore:
         conn.commit()
         deleted = cursor.rowcount > 0
         if deleted:
-            logger.info(f"Deleted subscription {subscription_id}")
+            logger.info("Deleted subscription %s", subscription_id)
         return deleted
 
     def deactivate(self, subscription_id: str) -> bool:

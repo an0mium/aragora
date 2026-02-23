@@ -187,7 +187,7 @@ class PromptContextBuilder:
             return "\n".join(lines)
 
         except (ImportError, AttributeError, KeyError) as e:
-            logger.debug(f"Vertical context error: {e}")
+            logger.debug("Vertical context error: %s", e)
             return ""
 
     def get_flip_context(self, agent: Agent) -> str:
@@ -248,7 +248,7 @@ class PromptContextBuilder:
             return "\n".join(lines) if len(lines) > 1 else ""
 
         except (AttributeError, TypeError, ValueError, KeyError, RuntimeError) as e:
-            logger.warning(f"Flip context error for {agent.name}: {e}")
+            logger.warning("Flip context error for %s: %s", agent.name, e)
             return ""
 
     def _notify_spectator(self, event_type: str, **kwargs: Any) -> None:
@@ -259,9 +259,9 @@ class PromptContextBuilder:
             try:
                 self.spectator.emit(event_type, **kwargs)
             except (TypeError, AttributeError) as e:
-                logger.debug(f"Spectator notification error: {e}")
+                logger.debug("Spectator notification error: %s", e)
             except (RuntimeError, ValueError, OSError, ConnectionError) as e:
-                logger.warning(f"Unexpected spectator notification error: {e}")
+                logger.warning("Unexpected spectator notification error: %s", e)
 
     def prepare_audience_context(self, emit_event: bool = False) -> str:
         """Prepare audience context for prompt building.

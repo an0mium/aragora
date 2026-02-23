@@ -132,7 +132,7 @@ class EpicAdapter(EHRAdapter):
         if mychart_status:
             patient["_epicMyChartStatus"] = mychart_status
 
-        logger.debug(f"Retrieved Epic patient: {patient_id}")
+        logger.debug("Retrieved Epic patient: %s", patient_id)
         return patient
 
     async def search_patients(
@@ -181,7 +181,7 @@ class EpicAdapter(EHRAdapter):
         entries = bundle.get("entry", [])
 
         patients = [entry.get("resource", {}) for entry in entries]
-        logger.debug(f"Found {len(patients)} Epic patients matching search")
+        logger.debug("Found %s Epic patients matching search", len(patients))
 
         return patients
 
@@ -280,7 +280,7 @@ class EpicAdapter(EHRAdapter):
         # Sort by match score descending
         matches.sort(key=lambda p: p.get("_matchScore", 0), reverse=True)
 
-        logger.info(f"Patient $match found {len(matches)} potential matches")
+        logger.info("Patient $match found %s potential matches", len(matches))
         return matches
 
     async def get_patient_records(  # type: ignore[override]  # Epic adds resource_types and date range kwargs to base signature
@@ -385,7 +385,7 @@ class EpicAdapter(EHRAdapter):
             for doc in documents:
                 await self._fetch_document_content(doc)
 
-        logger.debug(f"Retrieved {len(documents)} documents for patient {patient_id}")
+        logger.debug("Retrieved %s documents for patient %s", len(documents), patient_id)
         return documents
 
     async def _fetch_document_content(self, doc: dict[str, Any]) -> None:
@@ -409,7 +409,7 @@ class EpicAdapter(EHRAdapter):
                         attachment["data"] = base64.b64encode(response.content).decode()
 
                 except (OSError, RuntimeError, ValueError, TimeoutError) as e:
-                    logger.warning(f"Failed to fetch document content: {e}")
+                    logger.warning("Failed to fetch document content: %s", e)
 
     async def get_appointments(
         self,
@@ -456,7 +456,7 @@ class EpicAdapter(EHRAdapter):
             if apt_type:
                 apt["_epicAppointmentType"] = apt_type
 
-        logger.debug(f"Retrieved {len(appointments)} appointments for patient {patient_id}")
+        logger.debug("Retrieved %s appointments for patient %s", len(appointments), patient_id)
         return appointments
 
     async def query_care_everywhere(
@@ -490,10 +490,10 @@ class EpicAdapter(EHRAdapter):
                 "/CareEverywhere",  # Epic-specific endpoint
                 params={k: v for k, v in params.items() if v},
             )
-            logger.info(f"Care Everywhere query completed for patient {patient_id}")
+            logger.info("Care Everywhere query completed for patient %s", patient_id)
             return result
         except (OSError, RuntimeError, ValueError, TimeoutError, KeyError) as e:
-            logger.warning(f"Care Everywhere query failed: {e}")
+            logger.warning("Care Everywhere query failed: %s", e)
             return {"error": "Care Everywhere query failed", "available": False}
 
     async def get_mychart_status(self, patient_id: str) -> dict[str, Any]:
@@ -583,7 +583,7 @@ class EpicAdapter(EHRAdapter):
 
         if response.status_code == 202:
             content_location = response.headers.get("Content-Location")
-            logger.info(f"Bulk export initiated. Poll: {content_location}")
+            logger.info("Bulk export initiated. Poll: %s", content_location)
             return {
                 "status": "in-progress",
                 "poll_url": content_location,

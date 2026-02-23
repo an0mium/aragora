@@ -316,7 +316,7 @@ class ExternalAgentAdapter(ABC):
             try:
                 self._event_callback(event_type, data)
             except (RuntimeError, TypeError, ValueError) as e:
-                logger.warning(f"[{self.adapter_name}] Event emission failed: {e}")
+                logger.warning("[%s] Event emission failed: %s", self.adapter_name, e)
 
     def _record_success(self) -> None:
         """Record successful operation for circuit breaker."""

@@ -243,7 +243,7 @@ class RecoveryStrategy:
             # Check circuit breaker
             cb = self._get_circuit_breaker()
             if cb is not None and not cb.can_proceed():
-                logger.warning(f"[{self.connector_name}] Circuit open for {operation_name}")
+                logger.warning("[%s] Circuit open for %s", self.connector_name, operation_name)
                 raise ConnectorError(
                     f"Circuit breaker open for {operation_name}",
                     connector_name=self.connector_name,
@@ -284,8 +284,7 @@ class RecoveryStrategy:
                 # Determine recovery action
                 action = self._determine_recovery_action(e, attempt)
                 logger.info(
-                    f"[{self.connector_name}] {operation_name} failed "
-                    f"(attempt {attempt + 1}), action: {action.value}"
+                    "[%s] %s failed (attempt %s), action: %s", self.connector_name, operation_name, attempt + 1, action.value
                 )
 
                 if action == RecoveryAction.RETRY:
@@ -305,7 +304,7 @@ class RecoveryStrategy:
                     continue
 
                 elif action == RecoveryAction.REFRESH_TOKEN:
-                    logger.info(f"[{self.connector_name}] Refreshing auth token")
+                    logger.info("[%s] Refreshing auth token", self.connector_name)
                     try:
                         if asyncio.iscoroutinefunction(self._refresh_token_callback):
                             await self._refresh_token_callback()
@@ -316,20 +315,19 @@ class RecoveryStrategy:
                         continue
                     except (OSError, ValueError, RuntimeError, TypeError) as refresh_error:
                         logger.error(
-                            f"[{self.connector_name}] Token refresh failed: {refresh_error}"
+                            "[%s] Token refresh failed: %s", self.connector_name, refresh_error
                         )
                         raise classify_exception(e, self.connector_name) from e
 
                 elif action == RecoveryAction.ESCALATE:
                     logger.warning(
-                        f"[{self.connector_name}] Escalating after "
-                        f"{self._consecutive_failures} consecutive failures"
+                        "[%s] Escalating after %s consecutive failures", self.connector_name, self._consecutive_failures
                     )
                     if self.config.escalation_callback:
                         try:
                             self.config.escalation_callback(e, self._consecutive_failures)
                         except (OSError, ValueError, RuntimeError, TypeError) as cb_error:
-                            logger.error(f"Escalation callback failed: {cb_error}")
+                            logger.error("Escalation callback failed: %s", cb_error)
                     # Fall through to fail
 
                 elif action == RecoveryAction.OPEN_CIRCUIT:
@@ -342,14 +340,12 @@ class RecoveryStrategy:
                 # Give up
                 classified = classify_exception(e, self.connector_name)
                 logger.error(
-                    f"[{self.connector_name}] {operation_name} failed after "
-                    f"{attempt + 1} attempts: {classified}"
+                    "[%s] %s failed after %s attempts: %s", self.connector_name, operation_name, attempt + 1, classified
                 )
                 raise classified from e
         else:
             logger.warning(
-                f"[{self.connector_name}] Recovery retry cap ({_MAX_RETRIES}) "
-                f"reached for {operation_name}"
+                "[%s] Recovery retry cap (%s) reached for %s", self.connector_name, _MAX_RETRIES, operation_name
             )
 
         # Should never reach here under normal operation

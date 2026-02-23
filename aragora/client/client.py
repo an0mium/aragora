@@ -808,7 +808,7 @@ class AragoraClient:
             error_code = body.get("code", "HTTP_ERROR")
         except (ValueError, KeyError, AttributeError) as parse_err:
             # Failed to parse error response body - use raw error
-            logger.debug(f"Could not parse HTTP error body: {parse_err}")
+            logger.debug("Could not parse HTTP error body: %s", parse_err)
             error_msg = resp.text
             error_code = "HTTP_ERROR"
 

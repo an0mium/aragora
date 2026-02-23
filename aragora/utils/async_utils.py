@@ -287,7 +287,7 @@ def schedule_background_task(coro: Coroutine[Any, Any, T]) -> None:
             try:
                 asyncio.run(coro)
             except (OSError, RuntimeError, ValueError) as e:
-                logger.warning(f"Background task failed: {e}")
+                logger.warning("Background task failed: %s", e)
 
 
 def _log_task_exception(task: asyncio.Task) -> None:
@@ -296,7 +296,7 @@ def _log_task_exception(task: asyncio.Task) -> None:
         return
     exc = task.exception()
     if exc is not None:
-        logger.error(f"Background task failed: {exc}", exc_info=exc)
+        logger.error("Background task failed: %s", exc, exc_info=exc)
 
 
 # =============================================================================
@@ -352,7 +352,7 @@ class TaskRegistry:
             if log_exceptions and not t.cancelled():
                 exc = t.exception()
                 if exc is not None:
-                    logger.error(f"Task {name} failed: {exc}", exc_info=exc)
+                    logger.error("Task %s failed: %s", name, exc, exc_info=exc)
 
         task.add_done_callback(on_done)
         return name
@@ -395,7 +395,7 @@ class TaskRegistry:
                     timeout=timeout,
                 )
             except asyncio.TimeoutError:
-                logger.warning(f"Timeout waiting for {len(tasks)} tasks to cancel")
+                logger.warning("Timeout waiting for %s tasks to cancel", len(tasks))
 
         return cancelled
 
@@ -467,11 +467,11 @@ async def graceful_shutdown(
         logger.debug("No active tasks to shutdown")
         return
 
-    logger.info(f"Shutting down {count} active tasks...")
+    logger.info("Shutting down %s active tasks...", count)
 
     if cancel_tasks:
         cancelled = await registry.cancel_all(timeout=timeout)
-        logger.info(f"Cancelled {cancelled} tasks")
+        logger.info("Cancelled %s tasks", cancelled)
     else:
         await registry.wait_all(timeout=timeout)
         logger.info("All tasks completed")

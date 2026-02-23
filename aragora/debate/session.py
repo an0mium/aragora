@@ -178,7 +178,7 @@ class DebateSession:
         )
 
         logger.info(
-            f"session_created id={session.id} agents={len(agents)} rounds={protocol.rounds}"
+            "session_created id=%s agents=%s rounds=%s", session.id, len(agents), protocol.rounds
         )
 
         return session
@@ -219,7 +219,7 @@ class DebateSession:
         )
         session._checkpoint_manager = checkpoint_manager
 
-        logger.info(f"session_restored id={session.id} from_checkpoint={checkpoint.checkpoint_id}")
+        logger.info("session_restored id=%s from_checkpoint=%s", session.id, checkpoint.checkpoint_id)
 
         return session
 
@@ -244,7 +244,7 @@ class DebateSession:
             try:
                 handler(event)
             except (RuntimeError, ValueError, TypeError, OSError) as e:
-                logger.warning(f"Session event handler failed: {e}")
+                logger.warning("Session event handler failed: %s", e)
 
     def _transition_state(self, new_state: DebateSessionState) -> None:
         """Transition to a new state with validation."""
@@ -269,7 +269,7 @@ class DebateSession:
         }
 
         if new_state not in valid_transitions.get(self.state, set()):
-            logger.warning(f"Invalid state transition: {self.state.value} -> {new_state.value}")
+            logger.warning("Invalid state transition: %s -> %s", self.state.value, new_state.value)
             return
 
         previous_state = self.state
@@ -283,7 +283,7 @@ class DebateSession:
         )
 
         logger.debug(
-            f"session_state_change id={self.id} {previous_state.value} -> {new_state.value}"
+            "session_state_change id=%s %s -> %s", self.id, previous_state.value, new_state.value
         )
 
     def on_event(self, handler: Callable[[SessionEvent], None]) -> Callable[[], None]:
@@ -335,7 +335,7 @@ class DebateSession:
             data={"task": self.env.task[:200]},
         )
 
-        logger.info(f"session_started id={self.id}")
+        logger.info("session_started id=%s", self.id)
 
     async def _execute(self) -> None:
         """Internal execution loop with pause/cancel support."""
@@ -361,7 +361,7 @@ class DebateSession:
                     },
                 )
 
-            logger.info(f"session_completed id={self.id}")
+            logger.info("session_completed id=%s", self.id)
 
         except DebateCancelled as e:
             self._transition_state(DebateSessionState.CANCELLED)
@@ -369,7 +369,7 @@ class DebateSession:
                 SessionEventType.CANCELLED,
                 data={"reason": e.reason},
             )
-            logger.info(f"session_cancelled id={self.id} reason={e.reason}")
+            logger.info("session_cancelled id=%s reason=%s", self.id, e.reason)
 
         except Exception as e:  # noqa: BLE001 - session lifecycle must catch all failures to transition to FAILED state
             self._transition_state(DebateSessionState.FAILED)
@@ -378,7 +378,7 @@ class DebateSession:
                 SessionEventType.FAILED,
                 data={"error": f"session_failed:{type(e).__name__}"},
             )
-            logger.error(f"session_failed id={self.id} error={e}")
+            logger.error("session_failed id=%s error=%s", self.id, e)
 
     async def pause(self, reason: str = "User requested pause") -> str | None:
         """
@@ -422,7 +422,7 @@ class DebateSession:
                 )
 
             except (OSError, RuntimeError, ValueError, TypeError, ConnectionError) as e:
-                logger.warning(f"Failed to create checkpoint on pause: {e}")
+                logger.warning("Failed to create checkpoint on pause: %s", e)
 
         self._transition_state(DebateSessionState.PAUSED)
         self._emit_event(
@@ -430,7 +430,7 @@ class DebateSession:
             data={"reason": reason, "checkpoint_id": checkpoint_id},
         )
 
-        logger.info(f"session_paused id={self.id} checkpoint={checkpoint_id}")
+        logger.info("session_paused id=%s checkpoint=%s", self.id, checkpoint_id)
 
         return checkpoint_id
 
@@ -450,7 +450,7 @@ class DebateSession:
             if resumed:
                 self.current_round = resumed.checkpoint.current_round
                 logger.info(
-                    f"session_resumed_from_checkpoint id={self.id} checkpoint={checkpoint_id}"
+                    "session_resumed_from_checkpoint id=%s checkpoint=%s", self.id, checkpoint_id
                 )
 
         self._transition_state(DebateSessionState.RUNNING)
@@ -465,7 +465,7 @@ class DebateSession:
             data={"checkpoint_id": checkpoint_id},
         )
 
-        logger.info(f"session_resumed id={self.id}")
+        logger.info("session_resumed id=%s", self.id)
 
     async def cancel(self, reason: str = "User requested cancellation") -> None:
         """
@@ -498,7 +498,7 @@ class DebateSession:
             data={"reason": reason},
         )
 
-        logger.info(f"session_cancelled id={self.id} reason={reason}")
+        logger.info("session_cancelled id=%s reason=%s", self.id, reason)
 
     async def wait_for_completion(self, timeout: float | None = None) -> DebateResult | None:
         """
@@ -519,7 +519,7 @@ class DebateSession:
             else:
                 await self._task
         except asyncio.TimeoutError:
-            logger.warning(f"session_wait_timeout id={self.id} timeout={timeout}")
+            logger.warning("session_wait_timeout id=%s timeout=%s", self.id, timeout)
             return None
         except asyncio.CancelledError:
             return None
@@ -672,7 +672,7 @@ class SessionManager:
         for session_id in to_remove:
             del self._sessions[session_id]
 
-        logger.debug(f"Cleaned up {len(to_remove)} terminal sessions")
+        logger.debug("Cleaned up %s terminal sessions", len(to_remove))
         return len(to_remove)
 
     async def cleanup(self) -> None:

@@ -223,14 +223,14 @@ class TeamsIntegration:
                     elif response.status == 429:
                         # Rate limited by Teams - respect Retry-After header
                         retry_after = int(response.headers.get("Retry-After", "5"))
-                        logger.warning(f"Teams rate limited, retrying after {retry_after}s")
+                        logger.warning("Teams rate limited, retrying after %ss", retry_after)
                         await asyncio.sleep(retry_after)
                         continue
                     elif response.status >= 500:
                         # Server error - retry with backoff
                         text = await response.text()
                         logger.warning(
-                            f"Teams server error (attempt {attempt + 1}): {response.status} - {text}"
+                            "Teams server error (attempt %s): %s - %s", attempt + 1, response.status, text
                         )
                         if self._circuit_breaker is not None:
                             self._circuit_breaker.record_failure()
@@ -241,12 +241,12 @@ class TeamsIntegration:
                     else:
                         # Client error - don't retry
                         text = await response.text()
-                        logger.error(f"Teams API error: {response.status} - {text}")
+                        logger.error("Teams API error: %s - %s", response.status, text)
                         return False
 
             except aiohttp.ClientError as e:
                 last_error = e
-                logger.warning(f"Teams connection error (attempt {attempt + 1}): {e}")
+                logger.warning("Teams connection error (attempt %s): %s", attempt + 1, e)
                 if self._circuit_breaker is not None:
                     self._circuit_breaker.record_failure()
                 if attempt < max_retries - 1:
@@ -254,14 +254,14 @@ class TeamsIntegration:
                     continue
             except asyncio.TimeoutError:
                 last_error = asyncio.TimeoutError()
-                logger.warning(f"Teams request timed out (attempt {attempt + 1})")
+                logger.warning("Teams request timed out (attempt %s)", attempt + 1)
                 if self._circuit_breaker is not None:
                     self._circuit_breaker.record_failure()
                 if attempt < max_retries - 1:
                     await asyncio.sleep(2**attempt)
                     continue
 
-        logger.error(f"Teams message failed after {max_retries} attempts: {last_error}")
+        logger.error("Teams message failed after %s attempts: %s", max_retries, last_error)
         return False
 
     async def verify_webhook(self) -> bool:

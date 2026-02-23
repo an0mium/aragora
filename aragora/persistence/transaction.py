@@ -286,7 +286,7 @@ class TransactionManager:
             await conn.fetchval("SELECT 1")
             return True
         except (ConnectionError, OSError, RuntimeError) as e:
-            logger.warning(f"Connection validation failed: {e}")
+            logger.warning("Connection validation failed: %s", e)
             return False
 
     @asynccontextmanager
@@ -367,14 +367,14 @@ class TransactionManager:
                 await actual_conn.execute("COMMIT")
                 ctx.state = TransactionState.COMMITTED
                 self._stats.transactions_committed += 1
-                logger.debug(f"Transaction {txn_id} committed successfully")
+                logger.debug("Transaction %s committed successfully", txn_id)
 
             except asyncio.TimeoutError:
                 # Rollback on timeout
                 await actual_conn.execute("ROLLBACK")
                 ctx.state = TransactionState.ROLLED_BACK
                 self._stats.transactions_rolled_back += 1
-                logger.warning(f"Transaction {txn_id} rolled back: timeout")
+                logger.warning("Transaction %s rolled back: timeout", txn_id)
                 raise
 
             except asyncio.CancelledError:
@@ -389,7 +389,7 @@ class TransactionManager:
                 try:
                     await actual_conn.execute("ROLLBACK")
                 except Exception as rollback_error:  # noqa: BLE001 - Intentional: rollback before re-raising
-                    logger.error(f"Rollback failed: {rollback_error}")
+                    logger.error("Rollback failed: %s", rollback_error)
 
                 ctx.state = TransactionState.FAILED
                 self._stats.transactions_failed += 1
@@ -397,10 +397,10 @@ class TransactionManager:
                 # Check for deadlock and wrap in DeadlockError
                 if self._is_deadlock_error(e):
                     self._stats.deadlocks_detected += 1
-                    logger.warning(f"Deadlock detected in transaction {txn_id}")
+                    logger.warning("Deadlock detected in transaction %s", txn_id)
                     raise DeadlockError(str(e), retry_count=0) from e
 
-                logger.warning(f"Transaction {txn_id} rolled back: {e}")
+                logger.warning("Transaction %s rolled back: %s", txn_id, e)
                 raise
 
             finally:
@@ -451,7 +451,7 @@ class TransactionManager:
 
         try:
             await conn.execute(f"SAVEPOINT {name}")
-            logger.debug(f"Savepoint '{name}' created")
+            logger.debug("Savepoint '%s' created", name)
         except (OSError, ConnectionError, RuntimeError) as e:
             self._stats.savepoints_created -= 1  # Undo count
             raise SavepointError(f"Failed to create savepoint '{name}': {e}")
@@ -461,16 +461,16 @@ class TransactionManager:
             # Release savepoint on success
             await conn.execute(f"RELEASE SAVEPOINT {name}")
             self._stats.savepoints_released += 1
-            logger.debug(f"Savepoint '{name}' released")
+            logger.debug("Savepoint '%s' released", name)
 
         except BaseException:
             # Rollback to savepoint on error
             try:
                 await conn.execute(f"ROLLBACK TO SAVEPOINT {name}")
                 self._stats.savepoints_rolled_back += 1
-                logger.debug(f"Rolled back to savepoint '{name}'")
+                logger.debug("Rolled back to savepoint '%s'", name)
             except (ConnectionError, OSError, RuntimeError) as rollback_error:
-                logger.error(f"Failed to rollback savepoint '{name}': {rollback_error}")
+                logger.error("Failed to rollback savepoint '%s': %s", name, rollback_error)
             raise
 
     async def begin(self, conn: Any, isolation: TransactionIsolation | None = None) -> None:

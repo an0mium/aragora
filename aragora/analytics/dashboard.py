@@ -761,7 +761,7 @@ class AnalyticsDashboard:
             return findings
 
         except (ImportError, ValueError, TypeError, KeyError, AttributeError, OSError) as e:
-            logger.warning(f"Failed to get findings: {e}")
+            logger.warning("Failed to get findings: %s", e)
             return []
 
     async def _get_sessions(
@@ -805,7 +805,7 @@ class AnalyticsDashboard:
             return sessions
 
         except (ImportError, ValueError, TypeError, KeyError, AttributeError, OSError) as e:
-            logger.warning(f"Failed to get sessions: {e}")
+            logger.warning("Failed to get sessions: %s", e)
             return []
 
     async def _calculate_compliance_score(

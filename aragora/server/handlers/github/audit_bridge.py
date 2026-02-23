@@ -218,7 +218,7 @@ class GitHubAuditClient:
                 return {"success": False, "error": error}
 
         except (ConnectionError, TimeoutError, OSError, ValueError) as e:
-            logger.exception(f"Failed to create issue: {e}")
+            logger.exception("Failed to create issue: %s", e)
             return {"success": False, "error": "GitHub API request failed"}
 
     async def create_branch(
@@ -265,7 +265,7 @@ class GitHubAuditClient:
                     return {"success": False, "error": error}
 
         except (ConnectionError, TimeoutError, OSError, ValueError) as e:
-            logger.exception(f"Failed to create branch: {e}")
+            logger.exception("Failed to create branch: %s", e)
             return {"success": False, "error": "Branch creation failed"}
 
     async def create_pull_request(
@@ -321,7 +321,7 @@ class GitHubAuditClient:
                     return {"success": False, "error": error}
 
         except (ConnectionError, TimeoutError, OSError, ValueError) as e:
-            logger.exception(f"Failed to create PR: {e}")
+            logger.exception("Failed to create PR: %s", e)
             return {"success": False, "error": "Pull request creation failed"}
 
     async def get_issue(
@@ -355,7 +355,7 @@ class GitHubAuditClient:
                 return None
 
         except (ConnectionError, TimeoutError, OSError, ValueError) as e:
-            logger.exception(f"Failed to get issue: {e}")
+            logger.exception("Failed to get issue: %s", e)
             return None
 
     async def add_issue_comment(
@@ -390,7 +390,7 @@ class GitHubAuditClient:
                     return {"success": False, "error": error}
 
         except (ConnectionError, TimeoutError, OSError, ValueError) as e:
-            logger.exception(f"Failed to add comment: {e}")
+            logger.exception("Failed to add comment: %s", e)
             return {"success": False, "error": "Failed to add issue comment"}
 
     async def ensure_labels_exist(
@@ -446,14 +446,14 @@ class GitHubAuditClient:
                         }
                         response = await client.post(create_url, headers=headers, json=payload)
                         if response.status_code in (200, 201):
-                            logger.debug(f"Created label: {label}")
+                            logger.debug("Created label: %s", label)
                         # Ignore errors (label might already exist with different casing)
 
                     except (ConnectionError, TimeoutError, OSError, ValueError) as e:
-                        logger.warning(f"Could not ensure label {label}: {e}")
+                        logger.warning("Could not ensure label %s: %s", label, e)
 
         except (ConnectionError, TimeoutError, OSError, ValueError) as e:
-            logger.warning(f"Failed to ensure labels: {e}")
+            logger.warning("Failed to ensure labels: %s", e)
 
 
 # =============================================================================
@@ -648,7 +648,7 @@ async def handle_create_issue(
             return result
 
     except (ConnectionError, TimeoutError, OSError, ValueError, KeyError) as e:
-        logger.exception(f"Failed to create issue: {e}")
+        logger.exception("Failed to create issue: %s", e)
         return {"success": False, "error": "Issue creation failed"}
 
 
@@ -879,7 +879,7 @@ async def handle_create_fix_pr(
             return pr_result
 
     except (ConnectionError, TimeoutError, OSError, ValueError, KeyError) as e:
-        logger.exception(f"Failed to create fix PR: {e}")
+        logger.exception("Failed to create fix PR: %s", e)
         return {"success": False, "error": "Fix PR creation failed"}
 
 
@@ -993,7 +993,7 @@ async def handle_sync_session(
 
         sync_result.completed_at = datetime.now(timezone.utc)
 
-        logger.info(f"Completed sync {sync_id} for session {session_id}: {sync_result.status}")
+        logger.info("Completed sync %s for session %s: %s", sync_id, session_id, sync_result.status)
 
         return {
             "success": sync_result.status != SyncStatus.FAILED,
@@ -1001,7 +1001,7 @@ async def handle_sync_session(
         }
 
     except (ConnectionError, TimeoutError, OSError, ValueError, KeyError) as e:
-        logger.exception(f"Failed to sync session: {e}")
+        logger.exception("Failed to sync session: %s", e)
         return {"success": False, "error": "Session sync failed"}
 
 
@@ -1042,7 +1042,7 @@ async def handle_get_sync_status(
             }
 
     except (KeyError, ValueError, TypeError) as e:
-        logger.exception(f"Failed to get sync status: {e}")
+        logger.exception("Failed to get sync status: %s", e)
         return {"success": False, "error": "Failed to retrieve sync status"}
 
 
@@ -1079,7 +1079,7 @@ async def handle_get_finding_issues(
             }
 
     except (KeyError, ValueError, TypeError) as e:
-        logger.exception(f"Failed to get finding issues: {e}")
+        logger.exception("Failed to get finding issues: %s", e)
         return {"success": False, "error": "Failed to retrieve finding issues"}
 
 

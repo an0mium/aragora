@@ -282,7 +282,7 @@ class ToolPolicyChecker:
         }
 
         if self.policy.audit_all or (not allowed and self.policy.audit_denials):
-            logger.info(f"Policy check: {entry}")
+            logger.info("Policy check: %s", entry)
 
         self._audit_log.append(entry)
 

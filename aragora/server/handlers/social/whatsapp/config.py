@@ -65,10 +65,10 @@ if not WHATSAPP_APP_SECRET:
 def _handle_task_exception(task: asyncio.Task[Any], task_name: str) -> None:
     """Handle exceptions from fire-and-forget async tasks."""
     if task.cancelled():
-        logger.debug(f"Task {task_name} was cancelled")
+        logger.debug("Task %s was cancelled", task_name)
     elif task.exception():
         exc = task.exception()
-        logger.error(f"Task {task_name} failed with exception: {exc}", exc_info=exc)
+        logger.error("Task %s failed with exception: %s", task_name, exc, exc_info=exc)
 
 
 def create_tracked_task(coro: Coroutine[Any, Any, Any], name: str) -> asyncio.Task[Any]:

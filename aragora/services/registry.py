@@ -190,11 +190,11 @@ class ServiceRegistry:
         """
         with self._service_lock:
             if service_type in self._services:
-                logger.warning(f"Overwriting existing service: {service_type.__name__}")
+                logger.warning("Overwriting existing service: %s", service_type.__name__)
             self._services[service_type] = instance
             # Remove factory if we're providing direct instance
             self._factories.pop(service_type, None)
-            logger.debug(f"Registered service: {service_type.__name__}")
+            logger.debug("Registered service: %s", service_type.__name__)
 
     def register_factory(
         self,
@@ -222,7 +222,7 @@ class ServiceRegistry:
             self._factories[service_type] = factory
             # Remove cached instance to trigger factory on next resolve
             self._services.pop(service_type, None)
-            logger.debug(f"Registered factory: {service_type.__name__}")
+            logger.debug("Registered factory: %s", service_type.__name__)
 
     @overload
     def resolve(self, service_type: type[T]) -> T: ...
@@ -267,7 +267,7 @@ class ServiceRegistry:
                 factory = self._factories[service_type]
                 instance: T = factory()
                 self._services[service_type] = instance
-                logger.debug(f"Lazily initialized service: {service_type.__name__}")
+                logger.debug("Lazily initialized service: %s", service_type.__name__)
                 return instance
 
             # Not found - use default or raise
@@ -310,7 +310,7 @@ class ServiceRegistry:
                 del self._factories[service_type]
                 found = True
             if found:
-                logger.debug(f"Unregistered service: {service_type.__name__}")
+                logger.debug("Unregistered service: %s", service_type.__name__)
             return found
 
     def list_services(self) -> list[str]:
@@ -382,14 +382,14 @@ class ServiceRegistry:
                             if callable(method):
                                 method()
                                 hooks_called += 1
-                                logger.debug(f"Called {method_name}() on {service_type.__name__}")
+                                logger.debug("Called %s() on %s", method_name, service_type.__name__)
                                 break  # Only call one cleanup method
                         except (RuntimeError, TypeError, ValueError, OSError) as e:
                             logger.warning(
-                                f"Error calling {method_name}() on {service_type.__name__}: {e}"
+                                "Error calling %s() on %s: %s", method_name, service_type.__name__, e
                             )
 
-            logger.info(f"ServiceRegistry shutdown complete ({hooks_called} hooks called)")
+            logger.info("ServiceRegistry shutdown complete (%s hooks called)", hooks_called)
             return hooks_called
 
 

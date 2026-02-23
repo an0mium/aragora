@@ -465,7 +465,7 @@ def sanitize_query_params(params: dict[str, Any]) -> dict[str, str]:
 
     for key, value in params.items():
         if key not in allowed_keys:
-            logger.warning(f"Unknown query parameter ignored: {key}")
+            logger.warning("Unknown query parameter ignored: %s", key)
             continue
 
         # Convert value to string and truncate

@@ -182,7 +182,7 @@ class ImpersonationStore:
             resolved_path = resolve_db_path(db_path)
             self.db_path = Path(resolved_path)
             self._backend = SQLiteBackend(resolved_path)
-            logger.info(f"ImpersonationStore using SQLite backend: {resolved_path}")
+            logger.info("ImpersonationStore using SQLite backend: %s", resolved_path)
 
         self._init_db()
 
@@ -241,7 +241,7 @@ class ImpersonationStore:
             try:
                 self._backend.execute_write(idx)
             except (OSError, RuntimeError, ValueError) as e:
-                logger.debug(f"Index creation skipped: {e}")
+                logger.debug("Index creation skipped: %s", e)
 
     # =========================================================================
     # Session Management
@@ -318,7 +318,7 @@ class ImpersonationStore:
             ),
         )
 
-        logger.debug(f"Saved impersonation session: {session_id}")
+        logger.debug("Saved impersonation session: %s", session_id)
         return session_id
 
     def update_session_actions(self, session_id: str, actions_performed: int) -> bool:
@@ -357,7 +357,7 @@ class ImpersonationStore:
             (now, ended_by, actions_performed, session_id),
         )
 
-        logger.debug(f"Ended impersonation session: {session_id} by {ended_by}")
+        logger.debug("Ended impersonation session: %s by %s", session_id, ended_by)
         return True
 
     def get_session(self, session_id: str) -> SessionRecord | None:
@@ -530,7 +530,7 @@ class ImpersonationStore:
             ),
         )
 
-        logger.debug(f"Saved audit entry: {audit_id} ({event_type})")
+        logger.debug("Saved audit entry: %s (%s)", audit_id, event_type)
         return audit_id
 
     def get_audit_log(
@@ -640,7 +640,7 @@ class ImpersonationStore:
                 """,
                 (now, now),
             )
-            logger.info(f"Cleaned up {count} expired impersonation sessions")
+            logger.info("Cleaned up %s expired impersonation sessions", count)
 
         return count
 
@@ -701,7 +701,7 @@ class ImpersonationStore:
                 (f"-{audit_days}",),
             )
 
-        logger.info(f"Cleaned up impersonation records: {counts}")
+        logger.info("Cleaned up impersonation records: %s", counts)
         return counts
 
     def close(self) -> None:

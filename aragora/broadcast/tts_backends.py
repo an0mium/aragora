@@ -365,11 +365,11 @@ class ElevenLabsBackend(TTSBackend):
             result = await loop.run_in_executor(None, _generate)
 
             if result and result.exists():
-                logger.debug(f"ElevenLabs generated: {result}")
+                logger.debug("ElevenLabs generated: %s", result)
                 return result
 
         except (OSError, RuntimeError, ExternalServiceError) as e:
-            logger.warning(f"ElevenLabs synthesis failed: {e}")
+            logger.warning("ElevenLabs synthesis failed: %s", e)
 
         return None
 
@@ -432,7 +432,7 @@ class XTTSBackend(TTSBackend):
                 from TTS.api import TTS
 
                 device = self._get_device()
-                logger.info(f"Loading XTTS model on {device}...")
+                logger.info("Loading XTTS model on %s...", device)
 
                 # Use XTTS v2 model
                 model_name = (
@@ -442,7 +442,7 @@ class XTTSBackend(TTSBackend):
 
                 logger.info("XTTS model loaded successfully")
             except Exception as e:  # noqa: BLE001 - Logs and re-raises; model loading can fail in unpredictable ways
-                logger.error(f"Failed to load XTTS model: {e}")
+                logger.error("Failed to load XTTS model: %s", e)
                 raise
 
         return self._model
@@ -513,11 +513,11 @@ class XTTSBackend(TTSBackend):
             result = await loop.run_in_executor(None, _generate)
 
             if result and result.exists():
-                logger.debug(f"XTTS generated: {result}")
+                logger.debug("XTTS generated: %s", result)
                 return result
 
         except (OSError, RuntimeError) as e:
-            logger.warning(f"XTTS synthesis failed: {e}")
+            logger.warning("XTTS synthesis failed: %s", e)
 
         return None
 
@@ -606,18 +606,18 @@ class EdgeTTSBackend(TTSBackend):
             except asyncio.TimeoutError:
                 process.kill()
                 await process.wait()
-                logger.warning(f"Edge-TTS timed out after {timeout}s")
+                logger.warning("Edge-TTS timed out after %ss", timeout)
                 return None
 
             if process.returncode == 0 and output_path.exists():
-                logger.debug(f"Edge-TTS generated: {output_path}")
+                logger.debug("Edge-TTS generated: %s", output_path)
                 return output_path
 
             error_msg = stderr.decode("utf-8", errors="replace").strip()
-            logger.warning(f"Edge-TTS failed: {error_msg[:200]}")
+            logger.warning("Edge-TTS failed: %s", error_msg[:200])
 
         except (OSError, RuntimeError) as e:
-            logger.warning(f"Edge-TTS synthesis failed: {e}")
+            logger.warning("Edge-TTS synthesis failed: %s", e)
 
         return None
 
@@ -653,7 +653,7 @@ class PollyBackend(TTSBackend):
             if creds is None:
                 return False
         except (OSError, RuntimeError, ValueError) as e:
-            logger.debug(f"AWS credentials check failed: {e}")
+            logger.debug("AWS credentials check failed: %s", e)
             return False
         return True
 
@@ -726,11 +726,11 @@ class PollyBackend(TTSBackend):
             result = await loop.run_in_executor(None, _generate)
 
             if result and result.exists():
-                logger.debug(f"Polly generated: {result}")
+                logger.debug("Polly generated: %s", result)
                 return result
 
         except (OSError, RuntimeError, ExternalServiceError) as e:
-            logger.warning(f"Polly synthesis failed: {e}")
+            logger.warning("Polly synthesis failed: %s", e)
 
         return None
 
@@ -786,11 +786,11 @@ class Pyttsx3Backend(TTSBackend):
             result = await loop.run_in_executor(None, _generate)
 
             if result and result.exists():
-                logger.debug(f"pyttsx3 generated: {result}")
+                logger.debug("pyttsx3 generated: %s", result)
                 return result
 
         except (OSError, RuntimeError) as e:
-            logger.warning(f"pyttsx3 synthesis failed: {e}")
+            logger.warning("pyttsx3 synthesis failed: %s", e)
 
         return None
 
@@ -853,7 +853,7 @@ def get_tts_backend(
         backend = backend_cls(config)
 
         if backend.is_available():
-            logger.info(f"Selected TTS backend: {name}")
+            logger.info("Selected TTS backend: %s", name)
             return backend
 
     raise ConfigurationError(
@@ -887,10 +887,10 @@ class FallbackTTSBackend(TTSBackend):
 
             if backend.is_available():
                 self._backends.append(backend)
-                logger.debug(f"TTS backend available: {name}")
+                logger.debug("TTS backend available: %s", name)
 
         if self._backends:
-            logger.info(f"TTS fallback chain: {[b.name for b in self._backends]}")
+            logger.info("TTS fallback chain: %s", [b.name for b in self._backends])
 
     def is_available(self) -> bool:
         """Check if any backend is available."""
@@ -919,7 +919,7 @@ class FallbackTTSBackend(TTSBackend):
                 if result:
                     return result
             except Exception as e:  # noqa: BLE001 - Fallback chain must try all backends regardless of error type
-                logger.debug(f"{backend.name} failed, trying next: {e}")
+                logger.debug("%s failed, trying next: %s", backend.name, e)
                 continue
 
         logger.error("All TTS backends failed")

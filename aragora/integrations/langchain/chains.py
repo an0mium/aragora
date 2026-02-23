@@ -184,11 +184,11 @@ class AragoraDebateChain(_ChainBase):
                             reasoning_steps.append(f"Found {len(items)} relevant knowledge items")
                 except (ConnectionError, TimeoutError, OSError, httpx.HTTPError) as e:
                     logger.warning(
-                        f"[AragoraDebateChain] Research connection error: {type(e).__name__}: {e}"
+                        "[AragoraDebateChain] Research connection error: %s: %s", type(e).__name__, e
                     )
                     reasoning_steps.append(f"Research skipped (connection error): {e}")
                 except (RuntimeError, ValueError, TypeError) as e:
-                    logger.warning(f"[AragoraDebateChain] Research failed: {type(e).__name__}: {e}")
+                    logger.warning("[AragoraDebateChain] Research failed: %s: %s", type(e).__name__, e)
                     reasoning_steps.append(f"Research skipped: {e}")
 
             # Phase 2: Run debate
@@ -226,7 +226,7 @@ class AragoraDebateChain(_ChainBase):
 
             except (ConnectionError, TimeoutError, OSError, httpx.HTTPError) as e:
                 logger.error(
-                    f"[AragoraDebateChain] Debate connection error: {type(e).__name__}: {e}"
+                    "[AragoraDebateChain] Debate connection error: %s: %s", type(e).__name__, e
                 )
                 return {
                     "answer": f"Debate failed (connection error): {e}",
@@ -235,7 +235,7 @@ class AragoraDebateChain(_ChainBase):
                     "knowledge_context": knowledge_context,
                 }
             except (RuntimeError, ValueError, TypeError) as e:
-                logger.error(f"[AragoraDebateChain] Debate failed: {type(e).__name__}: {e}")
+                logger.error("[AragoraDebateChain] Debate failed: %s: %s", type(e).__name__, e)
                 return {
                     "answer": f"Debate failed: {e}",
                     "confidence": 0,
@@ -344,13 +344,11 @@ class AragoraResearchDebateChain(_ChainBase):
                                 )
                 except (ConnectionError, TimeoutError, OSError, httpx.HTTPError) as e:
                     logger.warning(
-                        f"[AragoraResearchDebateChain] {source} search connection error: "
-                        f"{type(e).__name__}: {e}"
+                        "[AragoraResearchDebateChain] %s search connection error: %s: %s", source, type(e).__name__, e
                     )
                 except (RuntimeError, ValueError, TypeError) as e:
                     logger.warning(
-                        f"[AragoraResearchDebateChain] {source} search failed: "
-                        f"{type(e).__name__}: {e}"
+                        "[AragoraResearchDebateChain] %s search failed: %s: %s", source, type(e).__name__, e
                     )
 
             # Debate phase

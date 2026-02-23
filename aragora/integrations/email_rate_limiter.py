@@ -236,11 +236,11 @@ class EmailRateLimiter:
             self._redis_checked = True
             logger.info("Redis connected for email rate limiter")
         except (ConnectionError, TimeoutError, OSError) as e:
-            logger.debug(f"Redis rate limiter connection failed: {type(e).__name__}: {e}")
+            logger.debug("Redis rate limiter connection failed: %s: %s", type(e).__name__, e)
             self._redis = None
             self._redis_checked = True
         except Exception as e:  # noqa: BLE001 - redis library custom exceptions may not be importable
-            logger.debug(f"Redis not available for rate limiter: {type(e).__name__}: {e}")
+            logger.debug("Redis not available for rate limiter: %s: %s", type(e).__name__, e)
             self._redis = None
             self._redis_checked = True
 
@@ -266,7 +266,7 @@ class EmailRateLimiter:
         if tenant_id not in self._tenant_limits:
             self._tenant_limits[tenant_id] = {}
         self._tenant_limits[tenant_id][provider] = limits
-        logger.debug(f"Set custom rate limits for {tenant_id}/{provider}")
+        logger.debug("Set custom rate limits for %s/%s", tenant_id, provider)
 
     def _key(self, tenant_id: str, provider: str, window: str) -> str:
         """Generate Redis key for rate limit counter."""
@@ -422,12 +422,12 @@ class EmailRateLimiter:
 
         except (ConnectionError, TimeoutError, OSError) as e:
             logger.warning(
-                f"Redis rate limit connection error, falling back to local: {type(e).__name__}: {e}"
+                "Redis rate limit connection error, falling back to local: %s: %s", type(e).__name__, e
             )
             return await self._acquire_local(tenant_id, provider, limits, count)
         except Exception as e:  # noqa: BLE001 - redis library custom exceptions may not be importable
             logger.warning(
-                f"Redis rate limit error, falling back to local: {type(e).__name__}: {e}"
+                "Redis rate limit error, falling back to local: %s: %s", type(e).__name__, e
             )
             return await self._acquire_local(tenant_id, provider, limits, count)
 
@@ -564,9 +564,9 @@ class EmailRateLimiter:
                     limits=limits,
                 )
             except (ConnectionError, TimeoutError, OSError) as e:
-                logger.warning(f"Redis usage fetch connection error: {type(e).__name__}: {e}")
+                logger.warning("Redis usage fetch connection error: %s: %s", type(e).__name__, e)
             except Exception as e:  # noqa: BLE001 - redis library custom exceptions may not be importable
-                logger.warning(f"Redis usage fetch failed: {type(e).__name__}: {e}")
+                logger.warning("Redis usage fetch failed: %s: %s", type(e).__name__, e)
 
         # Local fallback
         key = f"{tenant_id}:{provider}"
@@ -601,7 +601,7 @@ class EmailRateLimiter:
                 pipe.delete(self._bucket_key(tenant_id, provider))
                 pipe.execute()
             except (ConnectionError, TimeoutError, OSError) as e:
-                logger.warning(f"Redis reset connection error: {type(e).__name__}: {e}")
+                logger.warning("Redis reset connection error: %s: %s", type(e).__name__, e)
 
         # Also reset local state
         key = f"{tenant_id}:{provider}"

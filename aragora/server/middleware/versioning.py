@@ -162,7 +162,7 @@ def log_version_usage(version: APIVersion, path: str, client_ip: str = "") -> No
     import logging
 
     logger = logging.getLogger(__name__)
-    logger.debug(f"API {version.value} request: {path} from {client_ip}")
+    logger.debug("API %s request: %s from %s", version.value, path, client_ip)
 
 
 class APIVersionMiddleware:

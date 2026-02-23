@@ -59,12 +59,12 @@ class GmailStateMixin:
                 if data:
                     state = GmailSyncState.from_dict(json.loads(data))
                     self._gmail_state = state
-                    logger.info(f"[Gmail] Loaded state from Redis for {state_key}")
+                    logger.info("[Gmail] Loaded state from Redis for %s", state_key)
                     return state
             except ImportError:
                 logger.warning("[Gmail] redis package not installed, cannot use Redis backend")
             except (OSError, ValueError, TypeError, KeyError) as e:
-                logger.warning(f"[Gmail] Failed to load state from Redis: {e}")
+                logger.warning("[Gmail] Failed to load state from Redis: %s", e)
 
         elif backend == "postgres" and postgres_dsn:
             try:
@@ -79,15 +79,15 @@ class GmailStateMixin:
                 if row:
                     state = GmailSyncState.from_dict(json.loads(row["state"]))
                     self._gmail_state = state
-                    logger.info(f"[Gmail] Loaded state from Postgres for {state_key}")
+                    logger.info("[Gmail] Loaded state from Postgres for %s", state_key)
                     return state
             except ImportError:
                 logger.warning("[Gmail] asyncpg package not installed, cannot use Postgres backend")
             except (OSError, ValueError, TypeError, KeyError) as e:
-                logger.warning(f"[Gmail] Failed to load state from Postgres: {e}")
+                logger.warning("[Gmail] Failed to load state from Postgres: %s", e)
 
         # Memory backend or fallback
-        logger.debug(f"[Gmail] No persisted state found for {state_key}")
+        logger.debug("[Gmail] No persisted state found for %s", state_key)
         return None
 
     async def save_gmail_state(
@@ -127,12 +127,12 @@ class GmailStateMixin:
                 client = redis_client.from_url(redis_url)
                 await client.set(state_key, state_json)
                 await client.close()
-                logger.info(f"[Gmail] Saved state to Redis for {state_key}")
+                logger.info("[Gmail] Saved state to Redis for %s", state_key)
                 return True
             except ImportError:
                 logger.warning("[Gmail] redis package not installed, cannot use Redis backend")
             except (OSError, ValueError, TypeError) as e:
-                logger.warning(f"[Gmail] Failed to save state to Redis: {e}")
+                logger.warning("[Gmail] Failed to save state to Redis: %s", e)
                 return False
 
         elif backend == "postgres" and postgres_dsn:
@@ -150,16 +150,16 @@ class GmailStateMixin:
                     state_json,
                 )
                 await conn.close()
-                logger.info(f"[Gmail] Saved state to Postgres for {state_key}")
+                logger.info("[Gmail] Saved state to Postgres for %s", state_key)
                 return True
             except ImportError:
                 logger.warning("[Gmail] asyncpg package not installed, cannot use Postgres backend")
             except (OSError, ValueError, TypeError) as e:
-                logger.warning(f"[Gmail] Failed to save state to Postgres: {e}")
+                logger.warning("[Gmail] Failed to save state to Postgres: %s", e)
                 return False
 
         # Memory backend - state is already in self._gmail_state
-        logger.debug(f"[Gmail] State in memory for {state_key}")
+        logger.debug("[Gmail] State in memory for %s", state_key)
         return True
 
     def get_sync_stats(self) -> dict[str, Any]:

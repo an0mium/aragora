@@ -511,7 +511,7 @@ class PostDebateCoordinator:
             )
             from aragora.visualization.mapper import ArgumentCartographer
         except ImportError:
-            logger.debug(f"ArgumentStructureVerifier not available for debate {debate_id}")
+            logger.debug("ArgumentStructureVerifier not available for debate %s", debate_id)
             return None
 
         try:
@@ -537,15 +537,14 @@ class PostDebateCoordinator:
                         )
 
             if not graph.nodes:
-                logger.debug(f"No argument nodes to verify for debate {debate_id}")
+                logger.debug("No argument nodes to verify for debate %s", debate_id)
                 return None
 
             verifier = ArgumentStructureVerifier()
             verification_result = asyncio.run(verifier.verify(graph))
 
             logger.info(
-                f"Argument verification completed for {debate_id}: "
-                f"soundness={verification_result.soundness_score}"
+                "Argument verification completed for %s: soundness=%s", debate_id, verification_result.soundness_score
             )
             return {
                 "debate_id": debate_id,
@@ -554,7 +553,7 @@ class PostDebateCoordinator:
                 "soundness_score": verification_result.soundness_score,
             }
         except (ValueError, TypeError, AttributeError, RuntimeError, OSError) as e:
-            logger.warning(f"Argument verification failed for {debate_id}: {e}")
+            logger.warning("Argument verification failed for %s: %s", debate_id, e)
             return None
 
     def _step_queue_improvement(

@@ -174,8 +174,7 @@ class SemanticStore(SQLiteStore):
         self._embedding_model = type(self._provider).__name__
 
         logger.info(
-            f"SemanticStore initialized with {self._embedding_model} "
-            f"(dim={self._provider.dimension})"
+            "SemanticStore initialized with %s (dim=%s)", self._embedding_model, self._provider.dimension
         )
 
     def _auto_detect_provider(self) -> EmbeddingProvider:
@@ -267,7 +266,7 @@ class SemanticStore(SQLiteStore):
         if existing_id:
             # Update retrieval count as a proxy for importance
             await self._increment_retrieval_count(existing_id)
-            logger.debug(f"Dedup hit: returning existing {existing_id}")
+            logger.debug("Dedup hit: returning existing %s", existing_id)
             return existing_id
 
         # Generate embedding (mandatory - no fallback to no-embedding)
@@ -292,7 +291,7 @@ class SemanticStore(SQLiteStore):
             metadata or {},
         )
 
-        logger.debug(f"Indexed {source_type_str}:{source_id} as {km_id}")
+        logger.debug("Indexed %s:%s as %s", source_type_str, source_id, km_id)
         return km_id
 
     def _sync_insert(
@@ -704,7 +703,7 @@ class SemanticStore(SQLiteStore):
             )
             km_ids.append(km_id)
 
-        logger.info(f"Batch indexed {len(km_ids)} items")
+        logger.info("Batch indexed %s items", len(km_ids))
         return km_ids
 
     # =========================================================================

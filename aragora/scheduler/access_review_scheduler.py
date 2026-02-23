@@ -637,7 +637,7 @@ class AccessReviewScheduler:
         next_stale = next_stale.replace(hour=8, minute=0, second=0)
         self._storage.save_schedule("stale_check", "stale_credentials", next_stale)
 
-        logger.info(f"Initialized schedules: monthly={next_monthly}, stale_check={next_stale}")
+        logger.info("Initialized schedules: monthly=%s, stale_check=%s", next_monthly, next_stale)
 
     async def _run_loop(self) -> None:
         """Main scheduler loop."""
@@ -659,13 +659,13 @@ class AccessReviewScheduler:
             except asyncio.CancelledError:
                 break
             except (OSError, sqlite3.Error, RuntimeError) as e:
-                logger.error(f"Error in access review scheduler: {e}")
+                logger.error("Error in access review scheduler: %s", e)
                 await asyncio.sleep(60)
 
     async def _execute_scheduled_review(self, schedule: dict[str, Any]) -> None:
         """Execute a scheduled review."""
         review_type = ReviewType(schedule["review_type"])
-        logger.info(f"Executing scheduled review: {review_type.value}")
+        logger.info("Executing scheduled review: %s", review_type.value)
 
         # Create the review
         review = await self.create_review(review_type=review_type)
@@ -689,7 +689,7 @@ class AccessReviewScheduler:
 
     async def _handle_overdue_review(self, review: AccessReview) -> None:
         """Handle an overdue review."""
-        logger.warning(f"Review {review.review_id} is overdue")
+        logger.warning("Review %s is overdue", review.review_id)
 
         # Mark as expired if too old
         if review.due_date:
@@ -748,8 +748,7 @@ class AccessReviewScheduler:
         self._storage.save_review(review)
 
         logger.info(
-            f"Created access review {review.review_id}: "
-            f"type={review_type.value}, items={len(items)}"
+            "Created access review %s: type=%s, items=%s", review.review_id, review_type.value, len(items)
         )
 
         return review
@@ -765,7 +764,7 @@ class AccessReviewScheduler:
                 access_data = provider()
                 all_access.extend(access_data)
             except (OSError, RuntimeError, ValueError, KeyError) as e:
-                logger.error(f"Error getting access data from provider: {e}")
+                logger.error("Error getting access data from provider: %s", e)
 
         # If no providers, use mock data for demo
         if not all_access:
@@ -994,21 +993,20 @@ class AccessReviewScheduler:
         for item in revoked_items:
             await self._execute_revocation(item)
 
-        logger.info(f"Completed access review {review_id}")
+        logger.info("Completed access review %s", review_id)
         return review
 
     async def _execute_revocation(self, item: AccessReviewItem) -> None:
         """Execute access revocation."""
         logger.info(
-            f"Revoking access: user={item.user_id}, "
-            f"resource={item.resource_type}/{item.resource_id}"
+            "Revoking access: user=%s, resource=%s/%s", item.user_id, item.resource_type, item.resource_id
         )
 
         for handler in self._revocation_handlers:
             try:
                 handler(item.user_id, item.resource_type, item.resource_id)
             except (OSError, RuntimeError, ValueError) as e:
-                logger.error(f"Error executing revocation: {e}")
+                logger.error("Error executing revocation: %s", e)
 
     # =========================================================================
     # Notifications
@@ -1030,7 +1028,7 @@ class AccessReviewScheduler:
             try:
                 handler(notification)
             except (OSError, RuntimeError, ValueError) as e:
-                logger.error(f"Error sending notification: {e}")
+                logger.error("Error sending notification: %s", e)
 
     async def _notify_review_expired(self, review: AccessReview) -> None:
         """Send notification when review expires."""
@@ -1046,7 +1044,7 @@ class AccessReviewScheduler:
             try:
                 handler(notification)
             except (OSError, RuntimeError, ValueError) as e:
-                logger.error(f"Error sending notification: {e}")
+                logger.error("Error sending notification: %s", e)
 
     # =========================================================================
     # Registration

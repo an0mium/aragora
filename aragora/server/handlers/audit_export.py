@@ -221,8 +221,7 @@ async def handle_audit_export(request: web.Request) -> web.Response:
             content = f.read()
 
         logger.info(
-            f"audit_export format={export_format} events={count} "
-            f"period={start_date.date()}-{end_date.date()}"
+            "audit_export format=%s events=%s period=%s-%s", export_format, count, start_date.date(), end_date.date()
         )
 
         return web.Response(

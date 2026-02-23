@@ -252,21 +252,21 @@ class NewsAPIConnector(BaseConnector):
             data = response.json()
 
             if data.get("status") != "ok":
-                logger.error(f"NewsAPI error: {data.get('message', 'Unknown error')}")
+                logger.error("NewsAPI error: %s", data.get('message', 'Unknown error'))
                 return []
 
             results = self._parse_articles(data.get("articles", []))
-            logger.info(f"NewsAPI search '{query[:50]}...' returned {len(results)} results")
+            logger.info("NewsAPI search '%s...' returned %s results", query[:50], len(results))
             return results[:limit]
 
         except httpx.TimeoutException:
-            logger.warning(f"NewsAPI search timeout for query: {query}")
+            logger.warning("NewsAPI search timeout for query: %s", query)
             return []
         except httpx.HTTPStatusError as e:
-            logger.error(f"NewsAPI HTTP error: {e.response.status_code}")
+            logger.error("NewsAPI HTTP error: %s", e.response.status_code)
             return []
         except (httpx.RequestError, ValueError, KeyError) as e:
-            logger.error(f"NewsAPI search failed: {e}")
+            logger.error("NewsAPI search failed: %s", e)
             return []
 
     async def get_headlines(
@@ -325,7 +325,7 @@ class NewsAPIConnector(BaseConnector):
                 return []
 
             results = self._parse_articles(data.get("articles", []))
-            logger.info(f"NewsAPI headlines returned {len(results)} results")
+            logger.info("NewsAPI headlines returned %s results", len(results))
             return results
 
         except (
@@ -335,7 +335,7 @@ class NewsAPIConnector(BaseConnector):
             ValueError,
             KeyError,
         ) as e:
-            logger.error(f"NewsAPI headlines failed: {e}")
+            logger.error("NewsAPI headlines failed: %s", e)
             return []
 
     async def fetch(self, evidence_id: str) -> Evidence | None:
@@ -402,7 +402,7 @@ class NewsAPIConnector(BaseConnector):
             ValueError,
             KeyError,
         ) as e:
-            logger.error(f"NewsAPI get_sources failed: {e}")
+            logger.error("NewsAPI get_sources failed: %s", e)
             return []
 
     def _parse_articles(self, articles: list[dict]) -> list[Evidence]:
@@ -416,7 +416,7 @@ class NewsAPIConnector(BaseConnector):
                     results.append(evidence)
                     self._cache_put(evidence.id, evidence)
             except (ValueError, TypeError, KeyError, AttributeError) as e:
-                logger.debug(f"Error parsing article: {e}")
+                logger.debug("Error parsing article: %s", e)
                 continue
 
         return results

@@ -303,10 +303,10 @@ class ERC8004Connector(BaseConnector):
             provider = self._get_provider()
             return provider.is_connected()
         except (ImportError, RuntimeError, OSError, ConnectionError) as e:
-            logger.debug(f"Health check failed: {e}")
+            logger.debug("Health check failed: %s", e)
             return False
         except (ValueError, TypeError, AttributeError) as e:
-            logger.debug(f"Unexpected health check failure: {e}")
+            logger.debug("Unexpected health check failure: %s", e)
             return False
 
     def search(  # type: ignore[override]  # blockchain connector returns BlockchainSearchResult instead of Evidence
@@ -452,9 +452,9 @@ class ERC8004Connector(BaseConnector):
             OSError,
             ConnectionError,
         ) as e:
-            logger.error(f"Search error for query '{query}': {e}")
+            logger.error("Search error for query '%s': %s", query, e)
         except ImportError as e:
-            logger.error(f"Unexpected search error for query '{query}': {e}")
+            logger.error("Unexpected search error for query '%s': %s", query, e)
 
         return _AwaitableList(results[:max_results])
 
@@ -495,7 +495,7 @@ class ERC8004Connector(BaseConnector):
         try:
             chain_id = int(parts[1])
         except (ValueError, TypeError):
-            logger.warning(f"Parse error: invalid evidence ID format: {evidence_id}")
+            logger.warning("Parse error: invalid evidence ID format: %s", evidence_id)
             return _AwaitableValue(None)
 
         try:
@@ -614,13 +614,13 @@ class ERC8004Connector(BaseConnector):
                 return _AwaitableValue(evidence)
 
         except OSError as e:
-            logger.error(f"Network error fetching '{evidence_id}': {e}")
+            logger.error("Network error fetching '%s': %s", evidence_id, e)
         except RuntimeError as e:
-            logger.error(f"Runtime error fetching '{evidence_id}': {e}")
+            logger.error("Runtime error fetching '%s': %s", evidence_id, e)
         except (ValueError, TypeError, AttributeError, KeyError, ConnectionError) as e:
-            logger.error(f"Fetch error for '{evidence_id}': {e}")
+            logger.error("Fetch error for '%s': %s", evidence_id, e)
         except ImportError as e:
-            logger.error(f"Unexpected fetch error for '{evidence_id}': {e}")
+            logger.error("Unexpected fetch error for '%s': %s", evidence_id, e)
 
         return _AwaitableValue(None)
 
@@ -648,7 +648,7 @@ class ERC8004Connector(BaseConnector):
                     )
                 )
         except (AttributeError, RuntimeError, ValueError, TypeError, KeyError) as e:
-            logger.error(f"Search by owner error for '{owner}': {e}")
+            logger.error("Search by owner error for '%s': %s", owner, e)
         return _AwaitableList(results[:limit])
 
     async def search_async(
@@ -705,7 +705,7 @@ class ERC8004Connector(BaseConnector):
                     )
                 )
         except (ValueError, IndexError, AttributeError, RuntimeError, KeyError, TypeError) as e:
-            logger.error(f"Search error for query '{query}': {e}")
+            logger.error("Search error for query '%s': %s", query, e)
         return results[:max_results]
 
     async def search_by_owner_async(
@@ -723,7 +723,7 @@ class ERC8004Connector(BaseConnector):
         try:
             chain_id = int(parts[1])
         except (ValueError, TypeError):
-            logger.warning(f"Invalid evidence ID format: {evidence_id}")
+            logger.warning("Invalid evidence ID format: %s", evidence_id)
             return None
         try:
             if evidence_type == "identity":
@@ -764,7 +764,7 @@ class ERC8004Connector(BaseConnector):
                 self._cache_set(evidence_id, evidence)
                 return evidence
         except (ValueError, TypeError, AttributeError, RuntimeError, KeyError, OSError) as e:
-            logger.error(f"Fetch error for ID '{evidence_id}': {e}")
+            logger.error("Fetch error for ID '%s': %s", evidence_id, e)
         return None
 
     def _to_evidence(self, blockchain_evidence: BlockchainEvidence) -> Evidence:

@@ -173,7 +173,7 @@ class RLMHandler(BaseHandler):
                 return error_response("Permission denied", 403)
             return None
         except (TypeError, ValueError, KeyError, AttributeError) as e:
-            logger.error(f"RBAC check failed: {e}")
+            logger.error("RBAC check failed: %s", e)
             return error_response("Authorization check failed", 500)
 
     def handle(self, path: str, query_params: dict, handler) -> HandlerResult | None:
@@ -308,7 +308,7 @@ class RLMHandler(BaseHandler):
 
         except (RuntimeError, ValueError, OSError, TimeoutError, AttributeError) as e:
             circuit_breaker.record_failure()
-            logger.error(f"RLM query failed: {e}")
+            logger.error("RLM query failed: %s", e)
             return error_response(safe_error_message(e, "RLM query"), 500)
 
     async def _execute_rlm_query(
@@ -357,17 +357,17 @@ class RLMHandler(BaseHandler):
 
             pool = await get_postgres_pool()
             if pool is None:
-                logger.warning(f"No database pool available for debate {debate_id}")
+                logger.warning("No database pool available for debate %s", debate_id)
                 return None
 
             store = PostgresDebateStorage(pool)
             await store.initialize()
             return await store.get_by_id_async(debate_id)
         except ImportError:
-            logger.warning(f"PostgresDebateStorage not available for debate {debate_id}")
+            logger.warning("PostgresDebateStorage not available for debate %s", debate_id)
             return None
         except (RuntimeError, ValueError, OSError, TimeoutError, KeyError) as e:
-            logger.warning(f"Failed to get debate {debate_id}: {e}")
+            logger.warning("Failed to get debate %s: %s", debate_id, e)
             return None
 
     @rate_limit(requests_per_minute=20, limiter_name="rlm_compress")
@@ -454,7 +454,7 @@ class RLMHandler(BaseHandler):
 
         except (RuntimeError, ValueError, OSError, TimeoutError, AttributeError) as e:
             circuit_breaker.record_failure()
-            logger.error(f"RLM compression failed: {e}")
+            logger.error("RLM compression failed: %s", e)
             return error_response(safe_error_message(e, "Compression"), 500)
 
     async def _execute_compression(
@@ -541,7 +541,7 @@ class RLMHandler(BaseHandler):
             result = _run_async(self._get_level_content(debate_id, level_name))
             return json_response(result)
         except (RuntimeError, ValueError, OSError, TimeoutError, AttributeError) as e:
-            logger.error(f"Failed to get context level: {e}")
+            logger.error("Failed to get context level: %s", e)
             return error_response(safe_error_message(e, "Get context level"), 500)
 
     async def _get_level_content(self, debate_id: str, level_name: str) -> dict:
@@ -707,7 +707,7 @@ class RLMHandler(BaseHandler):
             return json_response(result)
         except (RuntimeError, ValueError, OSError, TimeoutError, AttributeError) as e:
             circuit_breaker.record_failure()
-            logger.error(f"Knowledge RLM query failed: {e}")
+            logger.error("Knowledge RLM query failed: %s", e)
             return error_response(safe_error_message(e, "Query"), 500)
 
     async def _execute_knowledge_query(
@@ -813,7 +813,7 @@ class RLMHandler(BaseHandler):
             )
 
         except (RuntimeError, ValueError, OSError, TypeError, AttributeError) as e:
-            logger.error(f"Failed to get RLM status: {e}")
+            logger.error("Failed to get RLM status: %s", e)
             return json_response(
                 {
                     "available": False,
@@ -932,7 +932,7 @@ class RLMHandler(BaseHandler):
             )
 
         except (RuntimeError, ValueError, OSError, TypeError, AttributeError) as e:
-            logger.error(f"Failed to get RLM metrics: {e}")
+            logger.error("Failed to get RLM metrics: %s", e)
             return error_response(safe_error_message(e, "Failed to get metrics"), 500)
 
     def _get_counter_value(self, counter) -> float:

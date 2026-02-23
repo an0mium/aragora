@@ -105,7 +105,7 @@ class DeliberationsHandler(BaseHandler):
                 org_id=getattr(auth_ctx, "org_id", None),
             )
         except (ValueError, TypeError, AttributeError, KeyError) as e:
-            logger.debug(f"Failed to extract auth context: {e}")
+            logger.debug("Failed to extract auth context: %s", e)
             return None
 
     def _check_rbac_permission(
@@ -130,8 +130,7 @@ class DeliberationsHandler(BaseHandler):
         decision = check_permission(rbac_ctx, permission_key)
         if not decision.allowed:
             logger.warning(
-                f"RBAC denied: user={rbac_ctx.user_id} permission={permission_key} "
-                f"reason={decision.reason}"
+                "RBAC denied: user=%s permission=%s reason=%s", rbac_ctx.user_id, permission_key, decision.reason
             )
             return (error_dict("Permission denied", code="FORBIDDEN"), 403)
 
@@ -183,7 +182,7 @@ class DeliberationsHandler(BaseHandler):
                 "timestamp": datetime.now(timezone.utc).isoformat(),
             }, 200
         except (KeyError, ValueError, TypeError, AttributeError, OSError) as e:
-            logger.error(f"Error fetching deliberations: {e}")
+            logger.error("Error fetching deliberations: %s", e)
             return (error_dict("Internal server error", code="INTERNAL_ERROR"), 500)
 
     async def _fetch_active_from_store(self) -> list[dict[str, Any]]:
@@ -288,7 +287,7 @@ class DeliberationsHandler(BaseHandler):
                 "timestamp": datetime.now(timezone.utc).isoformat(),
             }, 200
         except (KeyError, ValueError, TypeError, AttributeError, OSError) as e:
-            logger.error(f"Error fetching stats: {e}")
+            logger.error("Error fetching stats: %s", e)
             return (error_dict("Internal server error", code="INTERNAL_ERROR"), 500)
 
     async def _get_deliberation(
@@ -312,7 +311,7 @@ class DeliberationsHandler(BaseHandler):
 
             return (error_dict("Deliberation not found", code="NOT_FOUND"), 404)
         except (KeyError, ValueError, TypeError, AttributeError, OSError) as e:
-            logger.error(f"Error fetching deliberation {deliberation_id}: {e}")
+            logger.error("Error fetching deliberation %s: %s", deliberation_id, e)
             return (error_dict("Internal server error", code="INTERNAL_ERROR"), 500)
 
     async def _handle_stream(self, request: Any) -> Any:
@@ -339,7 +338,7 @@ async def broadcast_deliberation_event(event: dict[str, Any]) -> None:
         try:
             await queue.put(event)
         except (ValueError, TypeError, OSError) as e:
-            logger.debug(f"Failed to broadcast event to stream client: {e}")
+            logger.debug("Failed to broadcast event to stream client: %s", e)
 
 
 def register_deliberation(deliberation_id: str, data: dict[str, Any]) -> None:

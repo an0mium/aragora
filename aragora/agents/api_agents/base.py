@@ -189,8 +189,7 @@ class APIAgent(CritiqueMixin, Agent):
         self._complexity_governor = governor
         if governor:
             logger.debug(
-                f"adaptive_timeout_enabled agent={self.name} "
-                f"complexity={governor.task_complexity.value}"
+                "adaptive_timeout_enabled agent=%s complexity=%s", self.name, governor.task_complexity.value
             )
 
     def get_effective_timeout(self) -> float:

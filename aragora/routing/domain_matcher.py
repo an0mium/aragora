@@ -416,7 +416,7 @@ class DomainDetector:
 
                 self._client = anthropic.Anthropic()
             except (ImportError, ValueError, OSError, RuntimeError) as e:
-                logger.warning(f"Failed to create Anthropic client: {e}")
+                logger.warning("Failed to create Anthropic client: %s", e)
                 self.use_llm = False
         return self._client
 
@@ -433,7 +433,7 @@ class DomainDetector:
         if self._use_cache:
             cached = _domain_cache.get(task_text, top_n)
             if cached is not None:
-                logger.debug(f"Domain cache hit for: {task_text[:50]}...")
+                logger.debug("Domain cache hit for: %s...", task_text[:50])
                 return cached
 
         # Build domain descriptions for the prompt
@@ -504,7 +504,7 @@ Return up to {top_n} domains, sorted by confidence. Be conservative with technic
             return None
 
         except (ConnectionError, TimeoutError, OSError, ValueError, KeyError, TypeError, RuntimeError) as e:
-            logger.debug(f"LLM domain detection failed: {e}")
+            logger.debug("LLM domain detection failed: %s", e)
             return None
 
     @staticmethod
@@ -532,7 +532,7 @@ Return up to {top_n} domains, sorted by confidence. Be conservative with technic
         if self.use_llm:
             llm_result = self._detect_with_llm(task_text, top_n)
             if llm_result:
-                logger.debug(f"LLM domain detection: {llm_result}")
+                logger.debug("LLM domain detection: %s", llm_result)
                 return llm_result
 
         # Fall back to keyword matching

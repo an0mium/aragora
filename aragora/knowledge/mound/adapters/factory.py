@@ -702,7 +702,7 @@ class AdapterFactory:
                         spec=spec,
                         deps_used={},
                     )
-                    logger.debug(f"Using explicit adapter: {spec_name}")
+                    logger.debug("Using explicit adapter: %s", spec_name)
 
         # Auto-create remaining adapters
         available_deps = {k: v for k, v in deps.items() if v is not None}
@@ -737,7 +737,7 @@ class AdapterFactory:
             # (Empty required_deps means the adapter can work standalone)
             missing_deps = [d for d in spec.required_deps if d not in deps]
             if missing_deps:
-                logger.debug(f"Skipping adapter '{spec_name}': missing deps {missing_deps}")
+                logger.debug("Skipping adapter '%s': missing deps %s", spec_name, missing_deps)
                 continue
 
             try:
@@ -752,10 +752,10 @@ class AdapterFactory:
                         spec=spec,
                         deps_used=adapter_deps,
                     )
-                    logger.info(f"Created adapter: {spec_name}")
+                    logger.info("Created adapter: %s", spec_name)
 
             except (RuntimeError, ValueError, OSError, AttributeError) as e:
-                logger.warning(f"Failed to create adapter '{spec_name}': {e}")
+                logger.warning("Failed to create adapter '%s': %s", spec_name, e)
 
         return adapters
 
@@ -955,7 +955,7 @@ class AdapterFactory:
             return adapter
 
         except TypeError as e:
-            logger.warning(f"Constructor mismatch for {spec.name}: {e}")
+            logger.warning("Constructor mismatch for %s: %s", spec.name, e)
             # Try without event_callback
             try:
                 if spec.name == "continuum":
@@ -1046,7 +1046,7 @@ class AdapterFactory:
                 else:
                     return adapter_class(**deps)
             except (RuntimeError, ValueError, OSError, AttributeError) as e2:
-                logger.error(f"Failed to create {spec.name} adapter: {e2}")
+                logger.error("Failed to create %s adapter: %s", spec.name, e2)
                 return None
 
     def register_with_coordinator(
@@ -1089,7 +1089,7 @@ class AdapterFactory:
                     coordinator.disable_adapter(name)
                 registered += 1
 
-        logger.info(f"Registered {registered}/{len(adapters)} adapters with coordinator")
+        logger.info("Registered %s/%s adapters with coordinator", registered, len(adapters))
         return registered
 
     def get_available_adapter_specs(self) -> dict[str, AdapterSpec]:

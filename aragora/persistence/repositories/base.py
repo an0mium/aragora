@@ -121,7 +121,7 @@ def _validate_where_clause(where: str) -> str:
 
     for pattern in dangerous_patterns:
         if pattern in where_upper:
-            logger.warning(f"Potentially dangerous WHERE clause rejected: {where[:100]}")
+            logger.warning("Potentially dangerous WHERE clause rejected: %s", where[:100])
             raise ValueError("WHERE clause contains forbidden pattern")
 
     return where

@@ -232,7 +232,7 @@ class AgentHierarchy:
         self.hierarchy_dir.mkdir(parents=True, exist_ok=True)
         await self._load_hierarchy()
         self._initialized = True
-        logger.info(f"AgentHierarchy initialized with {len(self._assignments)} agents")
+        logger.info("AgentHierarchy initialized with %s agents", len(self._assignments))
 
     async def _load_hierarchy(self) -> None:
         """Load hierarchy from file."""
@@ -246,7 +246,7 @@ class AgentHierarchy:
                     assignment = RoleAssignment.from_dict(assignment_data)
                     self._assignments[assignment.agent_id] = assignment
         except OSError as e:
-            logger.error(f"Failed to load hierarchy: {e}")
+            logger.error("Failed to load hierarchy: %s", e)
 
     async def _save_hierarchy(self) -> None:
         """Save hierarchy to file."""
@@ -261,7 +261,7 @@ class AgentHierarchy:
                     indent=2,
                 )
         except OSError as e:
-            logger.error(f"Failed to save hierarchy: {e}")
+            logger.error("Failed to save hierarchy: %s", e)
 
     async def register_agent(
         self,
@@ -307,7 +307,7 @@ class AgentHierarchy:
             self._assignments[agent_id] = assignment
             await self._save_hierarchy()
 
-            logger.info(f"Registered agent {agent_id} as {role.value}")
+            logger.info("Registered agent %s as %s", agent_id, role.value)
             return assignment
 
     async def unregister_agent(self, agent_id: str) -> bool:
@@ -341,7 +341,7 @@ class AgentHierarchy:
             del self._assignments[agent_id]
             await self._save_hierarchy()
 
-            logger.info(f"Unregistered agent {agent_id}")
+            logger.info("Unregistered agent %s", agent_id)
             return True
 
     async def get_assignment(self, agent_id: str) -> RoleAssignment | None:
@@ -401,7 +401,7 @@ class AgentHierarchy:
         assignment.expires_at = expires_at
 
         await self._save_hierarchy()
-        logger.info(f"Spawned Polecat {agent_id} for task: {task_description[:50]}...")
+        logger.info("Spawned Polecat %s for task: %s...", agent_id, task_description[:50])
         return assignment
 
     async def cleanup_expired_polecats(self) -> int:
@@ -422,7 +422,7 @@ class AgentHierarchy:
             await self.unregister_agent(agent_id)
 
         if expired:
-            logger.info(f"Cleaned up {len(expired)} expired Polecats")
+            logger.info("Cleaned up %s expired Polecats", len(expired))
         return len(expired)
 
     async def get_statistics(self) -> dict[str, Any]:

@@ -285,7 +285,7 @@ class AutomationConnector(ABC):
 
         self._subscriptions[subscription.id] = subscription
         logger.info(
-            f"[{self.PLATFORM_NAME}] Created subscription {subscription.id} for {len(events)} events"
+            "[%s] Created subscription %s for %s events", self.PLATFORM_NAME, subscription.id, len(events)
         )
 
         return subscription
@@ -302,7 +302,7 @@ class AutomationConnector(ABC):
         """
         if subscription_id in self._subscriptions:
             del self._subscriptions[subscription_id]
-            logger.info(f"[{self.PLATFORM_NAME}] Removed subscription {subscription_id}")
+            logger.info("[%s] Removed subscription %s", self.PLATFORM_NAME, subscription_id)
             return True
         return False
 
@@ -377,8 +377,7 @@ class AutomationConnector(ABC):
             except (ValueError, OSError) as ssrf_err:
                 duration_ms = (time.time() - start_time) * 1000
                 logger.warning(
-                    f"[{self.PLATFORM_NAME}] Blocked SSRF attempt to "
-                    f"{subscription.webhook_url}: {ssrf_err}"
+                    "[%s] Blocked SSRF attempt to %s: %s", self.PLATFORM_NAME, subscription.webhook_url, ssrf_err
                 )
                 return WebhookDeliveryResult(
                     subscription_id=subscription.id,
@@ -421,7 +420,7 @@ class AutomationConnector(ABC):
             else:
                 # Dry run mode
                 logger.info(
-                    f"[{self.PLATFORM_NAME}] Dry run: would deliver to {subscription.webhook_url}"
+                    "[%s] Dry run: would deliver to %s", self.PLATFORM_NAME, subscription.webhook_url
                 )
                 status_code = 200
                 response_body = None
@@ -448,7 +447,7 @@ class AutomationConnector(ABC):
             duration_ms = (time.time() - start_time) * 1000
             subscription.failure_count += 1
 
-            logger.warning(f"[{self.PLATFORM_NAME}] Webhook delivery failed: {e}")
+            logger.warning("[%s] Webhook delivery failed: %s", self.PLATFORM_NAME, e)
 
             return WebhookDeliveryResult(
                 subscription_id=subscription.id,

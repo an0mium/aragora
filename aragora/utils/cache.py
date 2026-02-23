@@ -419,13 +419,13 @@ def ttl_cache(ttl_seconds: float = 60.0, key_prefix: str = "", skip_first: bool 
             # Check cache
             cached = _handler_cache.get(cache_key)
             if cached is not None:
-                logger.debug(f"Cache hit for {cache_key}")
+                logger.debug("Cache hit for %s", cache_key)
                 return cached
 
             # Cache miss - compute and store
             result = func(*args, **kwargs)
             _handler_cache.set(cache_key, result)
-            logger.debug(f"Cache miss, stored {cache_key}")
+            logger.debug("Cache miss, stored %s", cache_key)
             return result
 
         return wrapper
@@ -455,13 +455,13 @@ def async_ttl_cache(ttl_seconds: float = 60.0, key_prefix: str = "", skip_first:
             # Check cache
             cached = _handler_cache.get(cache_key)
             if cached is not None:
-                logger.debug(f"Cache hit for {cache_key}")
+                logger.debug("Cache hit for %s", cache_key)
                 return cached
 
             # Cache miss - compute and store
             result = await func(*args, **kwargs)
             _handler_cache.set(cache_key, result)
-            logger.debug(f"Cache miss, stored {cache_key}")
+            logger.debug("Cache miss, stored %s", cache_key)
             return result
 
         return cast(Callable[..., Awaitable[T]], wrapper)
@@ -516,10 +516,10 @@ def invalidate_cache(data_source: str) -> int:
         cleared = _handler_cache.clear_prefix(prefix)
         total_cleared += cleared
         if cleared > 0:
-            logger.debug(f"Cache invalidation: cleared {cleared} entries with prefix '{prefix}'")
+            logger.debug("Cache invalidation: cleared %s entries with prefix '%s'", cleared, prefix)
 
     if total_cleared > 0:
-        logger.info(f"Cache invalidated: source={data_source}, entries_cleared={total_cleared}")
+        logger.info("Cache invalidated: source=%s, entries_cleared=%s", data_source, total_cleared)
 
     return total_cleared
 
@@ -746,7 +746,7 @@ class CacheManager:
             for name, (ttl, maxsize, desc) in self.PRESET_CONFIGS.items():
                 self._presets[name] = CachePreset(name, ttl, maxsize, desc)
             self._initialized = True
-            logger.debug(f"CacheManager initialized with {len(self._presets)} presets")
+            logger.debug("CacheManager initialized with %s presets", len(self._presets))
 
     def get_preset(self, name: str) -> CachePreset:
         """
@@ -782,7 +782,7 @@ class CacheManager:
         self._ensure_initialized()
         if name not in self._presets:
             self._presets[name] = CachePreset(name, ttl_seconds, maxsize, description)
-            logger.debug(f"Created custom cache preset: {name}")
+            logger.debug("Created custom cache preset: %s", name)
         return self._presets[name]
 
     def invalidate_domain(self, domain: str) -> dict[str, int]:
@@ -804,11 +804,11 @@ class CacheManager:
                 cleared = self._presets[name].clear()
                 results[name] = cleared
                 if cleared > 0:
-                    logger.debug(f"Invalidated {cleared} entries from {name} cache")
+                    logger.debug("Invalidated %s entries from %s cache", cleared, name)
 
         total = sum(results.values())
         if total > 0:
-            logger.info(f"Domain '{domain}' invalidation: {total} total entries cleared")
+            logger.info("Domain '%s' invalidation: %s total entries cleared", domain, total)
 
         return results
 
@@ -819,7 +819,7 @@ class CacheManager:
         for name, preset in self._presets.items():
             results[name] = preset.clear()
         total = sum(results.values())
-        logger.info(f"All caches invalidated: {total} entries cleared")
+        logger.info("All caches invalidated: %s entries cleared", total)
         return results
 
     def get_all_stats(self) -> dict[str, dict[str, Any]]:

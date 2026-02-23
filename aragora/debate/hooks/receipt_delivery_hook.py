@@ -109,7 +109,7 @@ class ReceiptDeliveryHook:
         confidence = getattr(result, "confidence", 0.0)
         if confidence < self.min_confidence:
             logger.debug(
-                f"Skipping delivery: confidence {confidence} < threshold {self.min_confidence}"
+                "Skipping delivery: confidence %s < threshold %s", confidence, self.min_confidence
             )
             return
 
@@ -122,11 +122,11 @@ class ReceiptDeliveryHook:
         try:
             subscriptions = await self._get_receipt_subscriptions()
             if not subscriptions:
-                logger.debug(f"No receipt subscriptions for org {self.org_id}")
+                logger.debug("No receipt subscriptions for org %s", self.org_id)
                 return
 
             logger.info(
-                f"Delivering receipt for debate {result.debate_id} to {len(subscriptions)} channels"
+                "Delivering receipt for debate %s to %s channels", result.debate_id, len(subscriptions)
             )
 
             # Generate the receipt
@@ -146,11 +146,11 @@ class ReceiptDeliveryHook:
             # Log results
             success_count = sum(1 for r in results if isinstance(r, DeliveryResult) and r.success)
             logger.info(
-                f"Receipt delivery complete: {success_count}/{len(subscriptions)} successful"
+                "Receipt delivery complete: %s/%s successful", success_count, len(subscriptions)
             )
 
         except (RuntimeError, ValueError, TypeError, OSError, ConnectionError) as e:
-            logger.exception(f"Error in receipt delivery hook: {e}")
+            logger.exception("Error in receipt delivery hook: %s", e)
 
     async def _get_receipt_subscriptions(self) -> list[Any]:
         """Get channels subscribed to receipt events."""
@@ -177,7 +177,7 @@ class ReceiptDeliveryHook:
             logger.warning("Channel subscription store not available")
             return []
         except (RuntimeError, ValueError, TypeError, OSError, KeyError, AttributeError) as e:
-            logger.error(f"Failed to get subscriptions: {e}")
+            logger.error("Failed to get subscriptions: %s", e)
             return []
 
     async def _generate_receipt(
@@ -226,7 +226,7 @@ class ReceiptDeliveryHook:
                     },
                 }
             except (ImportError, RuntimeError, ValueError, TypeError) as e:
-                logger.debug(f"Explainability not available: {e}")
+                logger.debug("Explainability not available: %s", e)
 
             # Generate content hash for integrity
             import json
@@ -237,7 +237,7 @@ class ReceiptDeliveryHook:
             return receipt_data
 
         except (RuntimeError, ValueError, TypeError, KeyError, AttributeError, OSError) as e:
-            logger.error(f"Failed to generate receipt: {e}")
+            logger.error("Failed to generate receipt: %s", e)
             # Fallback to minimal receipt
             return {
                 "debate_id": getattr(result, "debate_id", getattr(result, "id", "")),

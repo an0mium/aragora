@@ -73,13 +73,13 @@ class AgentAnalyticsMixin:
             )
 
         except ValueError as e:
-            logger.warning(f"Invalid agent metrics parameter: {e}")
+            logger.warning("Invalid agent metrics parameter: %s", e)
             return error_response("Invalid parameter", 400, code="INVALID_PARAMETER")
         except (KeyError, TypeError, AttributeError) as e:
-            logger.warning(f"Data error in agent metrics: {e}")
+            logger.warning("Data error in agent metrics: %s", e)
             return error_response(safe_error_message(e, "agent metrics"), 400, code="DATA_ERROR")
         except (ImportError, RuntimeError, OSError) as e:
-            logger.exception(f"Unexpected error getting agent metrics: {e}")
+            logger.exception("Unexpected error getting agent metrics: %s", e)
             return error_response(
                 safe_error_message(e, "agent metrics"), 500, code="INTERNAL_ERROR"
             )
@@ -109,7 +109,7 @@ class AgentAnalyticsMixin:
             return json_response(summary)
 
         except (ImportError, RuntimeError, OSError, LookupError) as e:
-            logger.exception(f"Error getting flip summary: {e}")
+            logger.exception("Error getting flip summary: %s", e)
             return error_response(safe_error_message(e, "flip summary"), 500, code="INTERNAL_ERROR")
 
     @require_user_auth
@@ -148,7 +148,7 @@ class AgentAnalyticsMixin:
             return json_response({"flips": formatted, "count": len(formatted)})
 
         except (ImportError, RuntimeError, OSError, LookupError) as e:
-            logger.exception(f"Error getting recent flips: {e}")
+            logger.exception("Error getting recent flips: %s", e)
             return error_response(safe_error_message(e, "recent flips"), 500, code="INTERNAL_ERROR")
 
     @require_user_auth
@@ -190,7 +190,7 @@ class AgentAnalyticsMixin:
             return json_response({"agents": formatted, "count": len(formatted)})
 
         except (ImportError, RuntimeError, OSError, LookupError) as e:
-            logger.exception(f"Error getting agent consistency: {e}")
+            logger.exception("Error getting agent consistency: %s", e)
             return error_response(
                 safe_error_message(e, "agent consistency"), 500, code="INTERNAL_ERROR"
             )
@@ -299,5 +299,5 @@ class AgentAnalyticsMixin:
             )
 
         except (ImportError, RuntimeError, OSError, LookupError) as e:
-            logger.exception(f"Error getting flip trends: {e}")
+            logger.exception("Error getting flip trends: %s", e)
             return error_response(safe_error_message(e, "flip trends"), 500, code="INTERNAL_ERROR")

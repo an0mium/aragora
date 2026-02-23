@@ -132,7 +132,7 @@ class ReceiptShareStore:
             ),
         )
         conn.commit()
-        logger.debug(f"Saved share token for receipt {receipt_id}")
+        logger.debug("Saved share token for receipt %s", receipt_id)
 
     def get_by_token(self, token: str) -> dict[str, Any] | None:
         """
@@ -284,7 +284,7 @@ class ReceiptShareStore:
         conn.commit()
         count = cursor.rowcount
         if count > 0:
-            logger.info(f"Cleaned up {count} expired receipt share tokens")
+            logger.info("Cleaned up %s expired receipt share tokens", count)
         return count
 
 

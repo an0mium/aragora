@@ -808,7 +808,7 @@ class AutonomousOrchestrator:
                 if not preflight_result.passed:
                     duration = (datetime.now(timezone.utc) - start_time).total_seconds()
                     issues = "; ".join(preflight_result.blocking_issues)
-                    logger.warning(f"preflight_failed issues={issues}")
+                    logger.warning("preflight_failed issues=%s", issues)
                     return OrchestrationResult(
                         goal=goal,
                         total_subtasks=0,
@@ -822,11 +822,11 @@ class AutonomousOrchestrator:
                     )
                 if preflight_result.warnings:
                     for w in preflight_result.warnings:
-                        logger.info(f"preflight_warning: {w}")
+                        logger.info("preflight_warning: %s", w)
             except ImportError:
                 pass
             except (RuntimeError, OSError, ValueError, asyncio.TimeoutError) as e:
-                logger.debug(f"preflight_check_skipped: {e}")
+                logger.debug("preflight_check_skipped: %s", e)
 
         # Delegate to HierarchicalCoordinator if provided
         if self.hierarchical_coordinator is not None:
@@ -883,7 +883,7 @@ class AutonomousOrchestrator:
                         goal, file_scope=file_scope or None,
                     )
                 except (RuntimeError, OSError, ValueError, subprocess.SubprocessError) as e:
-                    logger.debug(f"metrics_baseline_collection_failed: {e}")
+                    logger.debug("metrics_baseline_collection_failed: %s", e)
 
             # Step 3: Execute assignments
             await self._execute_assignments(assignments, max_cycles)
@@ -968,7 +968,7 @@ class AutonomousOrchestrator:
                         )
                         result.success_criteria_met = met
                         if not met:
-                            logger.info(f"success_criteria_unmet: {'; '.join(unmet)}")
+                            logger.info("success_criteria_unmet: %s", '; '.join(unmet))
 
                     if _metrics_delta.improved:
                         logger.info(
@@ -981,7 +981,7 @@ class AutonomousOrchestrator:
                             f"summary={_metrics_delta.summary}"
                         )
                 except (RuntimeError, OSError, ValueError, subprocess.SubprocessError) as e:
-                    logger.debug(f"metrics_comparison_failed: {e}")
+                    logger.debug("metrics_comparison_failed: %s", e)
 
             self._checkpoint("completed", {"result": result.summary})
             self._emit_improvement_event("IMPROVEMENT_CYCLE_COMPLETE", {
@@ -1064,7 +1064,7 @@ class AutonomousOrchestrator:
 
             # Skip if track not in allowed list
             if track not in allowed_tracks:
-                logger.debug(f"Skipping subtask {subtask.id}: track {track} not allowed")
+                logger.debug("Skipping subtask %s: track %s not allowed", subtask.id, track)
                 continue
 
             agent_type = self.router.select_agent_type(subtask, track)
@@ -1103,7 +1103,7 @@ class AutonomousOrchestrator:
                 await self._stuck_detector.start_monitoring()
                 logger.info("stuck_detection_started")
             except (RuntimeError, OSError, ValueError, ConnectionError, asyncio.TimeoutError) as e:
-                logger.debug(f"stuck_detection_start_failed: {e}")
+                logger.debug("stuck_detection_start_failed: %s", e)
 
         pending = list(assignments)
         running: list[asyncio.Task] = []
@@ -1161,7 +1161,7 @@ class AutonomousOrchestrator:
                 try:
                     await task
                 except (RuntimeError, OSError, ValueError, ConnectionError, asyncio.TimeoutError) as e:
-                    logger.exception(f"Task failed: {e}")
+                    logger.exception("Task failed: %s", e)
 
         # Stop stuck detection monitoring
         if self.enable_stuck_detection and self._stuck_detector is not None:
@@ -1170,8 +1170,7 @@ class AutonomousOrchestrator:
                 health = await self._stuck_detector.get_health_summary()
                 if health.red_count > 0:
                     logger.warning(
-                        f"stuck_detection_summary red={health.red_count} "
-                        f"yellow={health.yellow_count} recovered={health.recovered_count}"
+                        "stuck_detection_summary red=%s yellow=%s recovered=%s", health.red_count, health.yellow_count, health.recovered_count
                     )
                 else:
                     logger.info(
@@ -1179,7 +1178,7 @@ class AutonomousOrchestrator:
                         f"health={health.health_percentage:.0f}%"
                     )
             except (RuntimeError, OSError, ValueError, ConnectionError, asyncio.TimeoutError) as e:
-                logger.debug(f"stuck_detection_shutdown_failed: {e}")
+                logger.debug("stuck_detection_shutdown_failed: %s", e)
 
         # Merge completed branches and cleanup worktrees
         if self.branch_coordinator is not None:
@@ -1552,9 +1551,9 @@ class AutonomousOrchestrator:
                 scores={agent_name: 1.0 if success else 0.0, "_baseline": 0.5},
                 domain=domain,
             )
-            logger.info(f"agent_outcome_elo agent={agent_name} success={success} domain={domain}")
+            logger.info("agent_outcome_elo agent=%s success=%s domain=%s", agent_name, success, domain)
         except (ImportError, RuntimeError, TypeError, ValueError) as e:
-            logger.debug(f"ELO recording failed for {agent_name}: {e}")
+            logger.debug("ELO recording failed for %s: %s", agent_name, e)
 
         # Record in Knowledge Mound
         try:
@@ -1571,7 +1570,7 @@ class AutonomousOrchestrator:
                     "attempt": assignment.attempt_count,
                 })
         except (ImportError, RuntimeError, TypeError, ValueError) as e:
-            logger.debug(f"KM recording failed for {agent_name}: {e}")
+            logger.debug("KM recording failed for %s: %s", agent_name, e)
 
     def _select_alternative_agent(self, assignment: AgentAssignment) -> str | None:
         """Select an alternative agent type for reassignment on failure.
@@ -1662,9 +1661,7 @@ class AutonomousOrchestrator:
         if coding_harness:
             implement_config["coding_harness"] = coding_harness
             logger.info(
-                f"subtask_using_kilocode agent={assignment.agent_type} "
-                f"provider={coding_harness['provider_id']} "
-                f"track={assignment.track.value}"
+                "subtask_using_kilocode agent=%s provider=%s track=%s", assignment.agent_type, coding_harness['provider_id'], assignment.track.value
             )
 
         # Derive test paths from file scope for verification
@@ -1950,11 +1947,10 @@ class AutonomousOrchestrator:
                 self.feedback_loop.apply_strategy_recommendations(recommendations)
 
             logger.info(
-                f"self_correction_applied outcomes={len(outcomes)} "
-                f"adjustments={len(adjustments)} recommendations={len(recommendations)}"
+                "self_correction_applied outcomes=%s adjustments=%s recommendations=%s", len(outcomes), len(adjustments), len(recommendations)
             )
         except (RuntimeError, ValueError, TypeError, AttributeError) as e:
-            logger.debug(f"Self-correction analysis failed: {e}")
+            logger.debug("Self-correction analysis failed: %s", e)
 
     def _store_priority_adjustments(self, adjustments: dict[str, float]) -> None:
         """Store priority adjustments for the next MetaPlanner cycle.
@@ -1985,7 +1981,7 @@ class AutonomousOrchestrator:
                     except RuntimeError:
                         pass
         except (ImportError, RuntimeError, TypeError, ValueError) as e:
-            logger.debug(f"Failed to persist priority adjustments: {e}")
+            logger.debug("Failed to persist priority adjustments: %s", e)
 
     def _checkpoint(self, phase: str, data: dict[str, Any]) -> None:
         """Create a checkpoint for the orchestration."""
@@ -2195,9 +2191,9 @@ class AutonomousOrchestrator:
                         violations = guard.check_files(changed, track=track_name)
                         if violations:
                             for v in violations[:5]:
-                                logger.info(f"scope_violation branch={branch} {v.message}")
+                                logger.info("scope_violation branch=%s %s", branch, v.message)
                 except (ImportError, OSError, ValueError) as e:
-                    logger.debug(f"scope_guard_skipped: {e}")
+                    logger.debug("scope_guard_skipped: %s", e)
 
                 # CI feedback: check latest CI result for the branch before merging
                 try:
@@ -2207,15 +2203,14 @@ class AutonomousOrchestrator:
                     ci_result = ci_collector.get_latest_result(branch)
                     if ci_result is not None:
                         if ci_result.conclusion == "success":
-                            logger.info(f"ci_check_passed branch={branch}")
+                            logger.info("ci_check_passed branch=%s", branch)
                         else:
                             logger.warning(
-                                f"ci_check_failed branch={branch} "
-                                f"conclusion={ci_result.conclusion}"
+                                "ci_check_failed branch=%s conclusion=%s", branch, ci_result.conclusion
                             )
                             # Don't block merge on CI — just warn
                 except (ImportError, OSError, RuntimeError) as e:
-                    logger.debug(f"ci_check_skipped: {e}")
+                    logger.debug("ci_check_skipped: %s", e)
 
                 merge_result = await self.branch_coordinator.safe_merge(branch)
                 if merge_result.success:
@@ -2350,7 +2345,7 @@ class AutonomousOrchestrator:
             logger.debug("DecisionPlanFactory not available, using standard workflow")
             return None
         except (RuntimeError, ValueError, KeyError) as e:
-            logger.warning(f"Failed to build DecisionPlan workflow: {e}")
+            logger.warning("Failed to build DecisionPlan workflow: %s", e)
             return None
 
     # =========================================================================
@@ -2412,7 +2407,7 @@ class AutonomousOrchestrator:
             )
 
         except (RuntimeError, OSError, ValueError, ConnectionError, asyncio.TimeoutError) as e:
-            logger.warning(f"Failed to create convoy: {e}")
+            logger.warning("Failed to create convoy: %s", e)
 
     async def _update_bead_status(
         self,
@@ -2436,7 +2431,7 @@ class AutonomousOrchestrator:
             elif status == "failed":
                 await self.workspace_manager.fail_bead(bead_id, error or "Unknown error")
         except (RuntimeError, OSError, ValueError, ConnectionError, asyncio.TimeoutError) as e:
-            logger.debug(f"Failed to update bead {bead_id}: {e}")
+            logger.debug("Failed to update bead %s: %s", bead_id, e)
 
     async def _complete_convoy(
         self,
@@ -2456,7 +2451,7 @@ class AutonomousOrchestrator:
                 tracker = self.workspace_manager._convoy_tracker
                 await tracker.fail_convoy(self._convoy_id, error or "Orchestration failed")
         except (RuntimeError, OSError, ValueError, ConnectionError, asyncio.TimeoutError) as e:
-            logger.debug(f"Failed to complete convoy: {e}")
+            logger.debug("Failed to complete convoy: %s", e)
 
     def _hierarchical_to_orchestration_result(
         self,

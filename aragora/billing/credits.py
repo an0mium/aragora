@@ -267,7 +267,7 @@ class CreditManager:
         )
         conn.commit()
 
-        logger.info(f"Issued {amount_cents} cents credit to org {org_id}: {description}")
+        logger.info("Issued %s cents credit to org %s: %s", amount_cents, org_id, description)
         return transaction
 
     async def deduct_credit(
@@ -349,8 +349,7 @@ class CreditManager:
 
         remaining = amount_cents - amount_to_deduct
         logger.info(
-            f"Deducted {amount_to_deduct} cents from org {org_id}, "
-            f"remaining to bill: {remaining} cents"
+            "Deducted %s cents from org %s, remaining to bill: %s cents", amount_to_deduct, org_id, remaining
         )
 
         return DeductionResult(
@@ -568,7 +567,7 @@ class CreditManager:
                 ),
             )
             expired_count += 1
-            logger.info(f"Expired {expired_amount} cents for org {org_id}")
+            logger.info("Expired %s cents for org %s", expired_amount, org_id)
 
         conn.commit()
         return expired_count
@@ -622,7 +621,7 @@ class CreditManager:
         )
         conn.commit()
 
-        logger.info(f"Adjusted balance for org {org_id} by {amount_cents} cents: {description}")
+        logger.info("Adjusted balance for org %s by %s cents: %s", org_id, amount_cents, description)
         return transaction
 
 

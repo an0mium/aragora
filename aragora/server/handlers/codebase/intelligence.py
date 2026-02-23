@@ -462,7 +462,7 @@ async def handle_analyze_codebase(repo_id: str, body: dict[str, Any]) -> Handler
         return success_response(result)
 
     except (OSError, ValueError, TypeError, KeyError, AttributeError) as e:
-        logger.error(f"Analysis failed: {e}")
+        logger.error("Analysis failed: %s", e)
         return error_response("Analysis operation failed", status=500)
 
 
@@ -554,7 +554,7 @@ async def handle_get_symbols(repo_id: str, params: dict[str, Any]) -> HandlerRes
         )
 
     except (OSError, ValueError, TypeError, KeyError, AttributeError) as e:
-        logger.error(f"Symbol extraction failed: {e}")
+        logger.error("Symbol extraction failed: %s", e)
         return error_response("Symbol extraction failed", status=500)
 
 
@@ -644,7 +644,7 @@ async def handle_get_callgraph(repo_id: str, params: dict[str, Any]) -> HandlerR
         return success_response(result)
 
     except (OSError, ValueError, TypeError, KeyError, AttributeError) as e:
-        logger.error(f"Call graph construction failed: {e}")
+        logger.error("Call graph construction failed: %s", e)
         return error_response("Call graph construction failed", status=500)
 
 
@@ -720,7 +720,7 @@ async def handle_find_deadcode(repo_id: str, params: dict[str, Any]) -> HandlerR
         return success_response(result)
 
     except (OSError, ValueError, TypeError, KeyError, AttributeError) as e:
-        logger.error(f"Dead code analysis failed: {e}")
+        logger.error("Dead code analysis failed: %s", e)
         return error_response("Dead code analysis failed", status=500)
 
 
@@ -793,7 +793,7 @@ async def handle_analyze_impact(repo_id: str, body: dict[str, Any]) -> HandlerRe
         return success_response(result)
 
     except (OSError, ValueError, TypeError, KeyError, AttributeError) as e:
-        logger.error(f"Impact analysis failed: {e}")
+        logger.error("Impact analysis failed: %s", e)
         return error_response("Impact analysis failed", status=500)
 
 
@@ -854,10 +854,10 @@ async def handle_understand(repo_id: str, body: dict[str, Any]) -> HandlerResult
         return success_response(understanding.to_dict())
 
     except ImportError as e:
-        logger.error(f"CodebaseUnderstandingAgent not available: {e}")
+        logger.error("CodebaseUnderstandingAgent not available: %s", e)
         return error_response("Codebase understanding not available", status=503)
     except (OSError, ValueError, TypeError, KeyError, AttributeError) as e:
-        logger.error(f"Understanding query failed: {e}")
+        logger.error("Understanding query failed: %s", e)
         return error_response("Understanding query failed", status=500)
 
 
@@ -944,7 +944,7 @@ async def handle_audit(repo_id: str, body: dict[str, Any]) -> HandlerResult:
                         result["files_analyzed"] = report.files_scanned
                         result["lines_analyzed"] = report.lines_scanned
                     except (OSError, ValueError, TypeError, AttributeError) as e:
-                        logger.warning(f"Security scan failed: {e}")
+                        logger.warning("Security scan failed: %s", e)
 
             # Bug detection
             if include_bugs:
@@ -957,7 +957,7 @@ async def handle_audit(repo_id: str, body: dict[str, Any]) -> HandlerResult:
                             result["files_analyzed"] = report.files_scanned
                             result["lines_analyzed"] = report.lines_scanned
                     except (OSError, ValueError, TypeError, AttributeError) as e:
-                        logger.warning(f"Bug detection failed: {e}")
+                        logger.warning("Bug detection failed: %s", e)
 
             # Dead code analysis
             if include_dead_code:
@@ -975,7 +975,7 @@ async def handle_audit(repo_id: str, body: dict[str, Any]) -> HandlerResult:
                             for n in dead_code.unreachable_functions[:30]
                         ]
                     except (OSError, ValueError, TypeError, AttributeError) as e:
-                        logger.warning(f"Dead code analysis failed: {e}")
+                        logger.warning("Dead code analysis failed: %s", e)
 
             # Calculate risk score
             security_weight = len(result["security_findings"]) * 2
@@ -996,7 +996,7 @@ async def handle_audit(repo_id: str, body: dict[str, Any]) -> HandlerResult:
         except (OSError, ValueError, TypeError, KeyError, AttributeError, ImportError) as e:
             result["status"] = "failed"
             result["error"] = "Audit failed"
-            logger.error(f"[{audit_id}] Audit failed: {e}")
+            logger.error("[%s] Audit failed: %s", audit_id, e)
 
         # Update stored result
         repo_audits[audit_id] = result

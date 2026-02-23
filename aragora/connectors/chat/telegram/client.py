@@ -184,8 +184,7 @@ class TelegramConnectorBase(ChatPlatformConnector):
 
                         if attempt < max_retries - 1:
                             logger.warning(
-                                f"[telegram] {operation} rate limited, "
-                                f"retry in {retry_after}s (attempt {attempt + 1}/{max_retries})"
+                                "[telegram] %s rate limited, retry in %ss (attempt %s/%s)", operation, retry_after, attempt + 1, max_retries
                             )
                             await asyncio.sleep(min(retry_after, 60))
                             continue
@@ -206,8 +205,7 @@ class TelegramConnectorBase(ChatPlatformConnector):
                             delay = min(1.0 * (2**attempt), 30.0)
                             jitter = random.uniform(0, delay * 0.1)
                             logger.warning(
-                                f"[telegram] {operation} server error {error_code} "
-                                f"(attempt {attempt + 1}/{max_retries})"
+                                "[telegram] %s server error %s (attempt %s/%s)", operation, error_code, attempt + 1, max_retries
                             )
                             await asyncio.sleep(delay + jitter)
                             continue
@@ -216,7 +214,7 @@ class TelegramConnectorBase(ChatPlatformConnector):
                             error_desc, "telegram", status_code=error_code
                         )
                         logger.error(
-                            f"[telegram] {operation} failed [{type(classified).__name__}]: {error_desc}"
+                            "[telegram] %s failed [%s]: %s", operation, type(classified).__name__, error_desc
                         )
                         self._record_failure(classified)
                         return False, data, error_desc
@@ -228,22 +226,22 @@ class TelegramConnectorBase(ChatPlatformConnector):
                 last_error = f"Request timeout after {request_timeout}s"
                 if attempt < max_retries - 1:
                     logger.warning(
-                        f"[telegram] {operation} timeout (attempt {attempt + 1}/{max_retries})"
+                        "[telegram] %s timeout (attempt %s/%s)", operation, attempt + 1, max_retries
                     )
                     await asyncio.sleep(1.0 * (attempt + 1))
                     continue
-                logger.error(f"[telegram] {operation} timeout after {max_retries} attempts")
+                logger.error("[telegram] %s timeout after %s attempts", operation, max_retries)
 
             except httpx.ConnectError as e:
                 last_error = f"Connection error: {e}"
                 if attempt < max_retries - 1:
                     logger.warning(
-                        f"[telegram] {operation} network error (attempt {attempt + 1}/{max_retries})"
+                        "[telegram] %s network error (attempt %s/%s)", operation, attempt + 1, max_retries
                     )
                     await asyncio.sleep(1.0 * (attempt + 1))
                     continue
                 logger.error(
-                    f"[telegram] {operation} network error after {max_retries} attempts: {e}"
+                    "[telegram] %s network error after %s attempts: %s", operation, max_retries, e
                 )
 
             except (httpx.RequestError, OSError, ValueError, RuntimeError, TypeError) as e:
@@ -251,7 +249,7 @@ class TelegramConnectorBase(ChatPlatformConnector):
                 last_error = f"Unexpected error: {e}"
                 classified = classify_connector_error(last_error, "telegram")
                 logger.exception(
-                    f"[telegram] {operation} unexpected error [{type(classified).__name__}]: {e}"
+                    "[telegram] %s unexpected error [%s]: %s", operation, type(classified).__name__, e
                 )
                 break
 

@@ -188,7 +188,7 @@ class DeviceHandler(SecureHandler):
         if normalized == "/api/devices/register" and method == "POST":
             # Apply registration rate limit
             if not _registration_limiter.is_allowed(client_ip):
-                logger.warning(f"Rate limit exceeded for device registration from {client_ip}")
+                logger.warning("Rate limit exceeded for device registration from %s", client_ip)
                 return error_response("Rate limit exceeded. Try again later.", 429)
             try:
                 self.check_permission(auth_context, "devices.write")
@@ -212,7 +212,7 @@ class DeviceHandler(SecureHandler):
             if len(segments) == 5 and segments[4] == "notify" and method == "POST":
                 # Apply notification rate limit
                 if not _notification_limiter.is_allowed(client_ip):
-                    logger.warning(f"Rate limit exceeded for user notification from {client_ip}")
+                    logger.warning("Rate limit exceeded for user notification from %s", client_ip)
                     return error_response("Rate limit exceeded. Try again later.", 429)
                 try:
                     self.check_permission(auth_context, "devices.notify")
@@ -243,7 +243,7 @@ class DeviceHandler(SecureHandler):
         if len(segments) == 4 and segments[3] == "notify" and method == "POST":
             # Apply notification rate limit
             if not _notification_limiter.is_allowed(client_ip):
-                logger.warning(f"Rate limit exceeded for device notification from {client_ip}")
+                logger.warning("Rate limit exceeded for device notification from %s", client_ip)
                 return error_response("Rate limit exceeded. Try again later.", 429)
             try:
                 self.check_permission(auth_context, "devices.notify")
@@ -275,7 +275,7 @@ class DeviceHandler(SecureHandler):
                 }
             )
         except (AttributeError, TypeError, RuntimeError, OSError) as e:
-            logger.error(f"Error getting device health: {e}")
+            logger.error("Error getting device health: %s", e)
             return error_response("Health check failed", 500)
 
     async def _register_device(
@@ -353,7 +353,7 @@ class DeviceHandler(SecureHandler):
             # Check circuit breaker before proceeding
             circuit_breaker = _get_circuit_breaker(platform)
             if not circuit_breaker.can_proceed():
-                logger.warning(f"Circuit breaker open for connector: {platform}")
+                logger.warning("Circuit breaker open for connector: %s", platform)
                 return error_response(
                     f"Service temporarily unavailable for {platform}. Please retry later.",
                     503,
@@ -371,7 +371,7 @@ class DeviceHandler(SecureHandler):
                 circuit_breaker.record_success()
             except (ConnectionError, TimeoutError, OSError) as conn_error:
                 circuit_breaker.record_failure()
-                logger.error(f"Connector error during registration: {conn_error}")
+                logger.error("Connector error during registration: %s", conn_error)
                 raise
 
             if device_token:
@@ -389,7 +389,7 @@ class DeviceHandler(SecureHandler):
         except ImportError:
             return error_response("Device connectors not available", 503)
         except (ConnectionError, TimeoutError, OSError, ValueError) as e:
-            logger.error(f"Error registering device: {e}")
+            logger.error("Error registering device: %s", e)
             return error_response("Error registering device. Please try again later.", 500)
 
     async def _unregister_device(
@@ -431,7 +431,7 @@ class DeviceHandler(SecureHandler):
         except ImportError:
             return error_response("Session store not available", 503)
         except (KeyError, ValueError, OSError, TypeError) as e:
-            logger.error(f"Error unregistering device: {e}")
+            logger.error("Error unregistering device: %s", e)
             return error_response("Device unregistration failed", 500)
 
     async def _get_device(
@@ -471,7 +471,7 @@ class DeviceHandler(SecureHandler):
         except ImportError:
             return error_response("Session store not available", 503)
         except (KeyError, ValueError, OSError, TypeError) as e:
-            logger.error(f"Error getting device: {e}")
+            logger.error("Error getting device: %s", e)
             return error_response("Failed to retrieve device", 500)
 
     async def _list_user_devices(
@@ -513,7 +513,7 @@ class DeviceHandler(SecureHandler):
         except ImportError:
             return error_response("Session store not available", 503)
         except (KeyError, ValueError, OSError, TypeError) as e:
-            logger.error(f"Error listing devices: {e}")
+            logger.error("Error listing devices: %s", e)
             return error_response("Failed to list devices", 500)
 
     async def _notify_device(
@@ -584,7 +584,7 @@ class DeviceHandler(SecureHandler):
             # Check circuit breaker before proceeding
             circuit_breaker = _get_circuit_breaker(platform)
             if not circuit_breaker.can_proceed():
-                logger.warning(f"Circuit breaker open for connector: {platform}")
+                logger.warning("Circuit breaker open for connector: %s", platform)
                 return error_response(
                     f"Service temporarily unavailable for {platform}. Please retry later.",
                     503,
@@ -612,7 +612,7 @@ class DeviceHandler(SecureHandler):
                 circuit_breaker.record_success()
             except (ConnectionError, TimeoutError, OSError) as conn_error:
                 circuit_breaker.record_failure()
-                logger.error(f"Connector error during notification: {conn_error}")
+                logger.error("Connector error during notification: %s", conn_error)
                 return error_response(
                     "Failed to send notification. Please try again later.",
                     503,
@@ -626,7 +626,7 @@ class DeviceHandler(SecureHandler):
             # Handle invalid tokens
             if result.should_unregister:
                 store.delete_device_session(device_id)
-                logger.info(f"Removed invalid device token: {device_id}")
+                logger.info("Removed invalid device token: %s", device_id)
 
             return json_response(
                 {
@@ -642,7 +642,7 @@ class DeviceHandler(SecureHandler):
             logger.warning("Handler error: %s", e)
             return error_response("Required module not available", 503)
         except (ConnectionError, TimeoutError, OSError, ValueError, TypeError) as e:
-            logger.error(f"Error sending notification: {e}")
+            logger.error("Error sending notification: %s", e)
             return error_response("Error sending notification. Please try again later.", 500)
 
     async def _notify_user(
@@ -727,7 +727,7 @@ class DeviceHandler(SecureHandler):
                 if not circuit_breaker.can_proceed():
                     if platform not in circuit_open_platforms:
                         circuit_open_platforms.append(platform)
-                        logger.warning(f"Circuit breaker open for connector: {platform}")
+                        logger.warning("Circuit breaker open for connector: %s", platform)
                     results.append(
                         {
                             "device_id": device.device_id,
@@ -765,7 +765,7 @@ class DeviceHandler(SecureHandler):
                     circuit_breaker.record_success()
                 except (ConnectionError, TimeoutError, OSError) as conn_error:
                     circuit_breaker.record_failure()
-                    logger.error(f"Connector error during notification: {conn_error}")
+                    logger.error("Connector error during notification: %s", conn_error)
                     results.append(
                         {
                             "device_id": device.device_id,
@@ -793,7 +793,7 @@ class DeviceHandler(SecureHandler):
             # Remove invalid tokens
             for device_id in tokens_to_remove:
                 store.delete_device_session(device_id)
-                logger.info(f"Removed invalid device token: {device_id}")
+                logger.info("Removed invalid device token: %s", device_id)
 
             success_count = sum(1 for r in results if r["success"])
 
@@ -812,7 +812,7 @@ class DeviceHandler(SecureHandler):
             logger.warning("Handler error: %s", e)
             return error_response("Required module not available", 503)
         except (ConnectionError, TimeoutError, OSError, ValueError, TypeError) as e:
-            logger.error(f"Error sending notifications: {e}")
+            logger.error("Error sending notifications: %s", e)
             return error_response("Notification delivery failed", 500)
 
     async def _handle_alexa_webhook(
@@ -858,7 +858,7 @@ class DeviceHandler(SecureHandler):
         except ImportError:
             return error_response("Alexa connector not available", 503)
         except (ConnectionError, TimeoutError, OSError, ValueError, TypeError) as e:
-            logger.error(f"Error handling Alexa webhook: {e}")
+            logger.error("Error handling Alexa webhook: %s", e)
             return error_response("Request processing failed", 500)
 
     async def _handle_google_webhook(
@@ -931,7 +931,7 @@ class DeviceHandler(SecureHandler):
         except ImportError:
             return error_response("Google Home connector not available", 503)
         except (ConnectionError, TimeoutError, OSError, ValueError, TypeError) as e:
-            logger.error(f"Error handling Google webhook: {e}")
+            logger.error("Error handling Google webhook: %s", e)
             return error_response("Request processing failed", 500)
 
 

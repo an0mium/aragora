@@ -369,7 +369,7 @@ class RedisDeliveryStore(WebhookDeliveryStore):
                 "redis package required for RedisDeliveryStore. Install with: pip install redis"
             )
         except (ConnectionError, TimeoutError, OSError, RuntimeError) as e:
-            logger.error(f"Redis connection failed: {e}")
+            logger.error("Redis connection failed: %s", e)
             raise
 
     def _delivery_key(self, delivery_id: str) -> str:
@@ -608,7 +608,7 @@ class WebhookRetryQueue:
         async with self._stats_lock:
             self._stats["enqueued"] += 1
 
-        logger.debug(f"Enqueued webhook delivery {delivery.id} to {delivery.url}")
+        logger.debug("Enqueued webhook delivery %s to %s", delivery.id, delivery.url)
         return delivery.id
 
     async def start(self) -> None:
@@ -670,7 +670,7 @@ class WebhookRetryQueue:
             except asyncio.CancelledError:
                 break
             except (ConnectionError, TimeoutError, OSError, RuntimeError, ValueError) as e:
-                logger.error(f"Error in retry queue process loop: {e}")
+                logger.error("Error in retry queue process loop: %s", e)
                 await asyncio.sleep(PROCESS_INTERVAL)
 
     async def _attempt_delivery(self, delivery: WebhookDelivery) -> None:
@@ -697,7 +697,7 @@ class WebhookRetryQueue:
                         self._stats["delivered"] += 1
 
                     logger.info(
-                        f"Webhook delivery {delivery.id} succeeded (attempt {delivery.attempts})"
+                        "Webhook delivery %s succeeded (attempt %s)", delivery.id, delivery.attempts
                     )
 
                     # Call success callback
@@ -705,7 +705,7 @@ class WebhookRetryQueue:
                         try:
                             await self._delivery_callback(delivery)
                         except (RuntimeError, TypeError, ValueError, OSError) as e:
-                            logger.error(f"Delivery callback error: {e}")
+                            logger.error("Delivery callback error: %s", e)
 
                 else:
                     delivery.last_error = error
@@ -719,8 +719,7 @@ class WebhookRetryQueue:
                             self._stats["dead_lettered"] += 1
 
                         logger.warning(
-                            f"Webhook delivery {delivery.id} moved to dead-letter "
-                            f"after {delivery.attempts} attempts: {error}"
+                            "Webhook delivery %s moved to dead-letter after %s attempts: %s", delivery.id, delivery.attempts, error
                         )
 
                         # Call dead-letter callback
@@ -728,7 +727,7 @@ class WebhookRetryQueue:
                             try:
                                 await self._dead_letter_callback(delivery)
                             except (RuntimeError, TypeError, ValueError, OSError) as e:
-                                logger.error(f"Dead-letter callback error: {e}")
+                                logger.error("Dead-letter callback error: %s", e)
                     else:
                         # Schedule retry
                         delivery.status = DeliveryStatus.PENDING
@@ -738,9 +737,7 @@ class WebhookRetryQueue:
                             self._stats["retries"] += 1
 
                         logger.info(
-                            f"Webhook delivery {delivery.id} failed, "
-                            f"scheduling retry {delivery.attempts + 1}/{delivery.max_attempts} "
-                            f"at {delivery.next_retry_at.isoformat()}"
+                            "Webhook delivery %s failed, scheduling retry %s/%s at %s", delivery.id, delivery.attempts + 1, delivery.max_attempts, delivery.next_retry_at.isoformat()
                         )
 
             except (ConnectionError, TimeoutError, OSError, RuntimeError, ValueError) as e:
@@ -757,7 +754,7 @@ class WebhookRetryQueue:
                     async with self._stats_lock:
                         self._stats["retries"] += 1
 
-                logger.error(f"Unexpected error delivering webhook {delivery.id}: {e}")
+                logger.error("Unexpected error delivering webhook %s: %s", delivery.id, e)
 
             # Save final state
             await self._store.save(delivery)
@@ -938,7 +935,7 @@ class WebhookRetryQueue:
         delivery.last_status_code = None
 
         await self._store.save(delivery)
-        logger.info(f"Dead-letter delivery {delivery_id} queued for retry")
+        logger.info("Dead-letter delivery %s queued for retry", delivery_id)
         return True
 
     async def get_dead_letters(self, limit: int = 100) -> list[WebhookDelivery]:
@@ -967,7 +964,7 @@ class WebhookRetryQueue:
             return False
 
         await self._store.delete(delivery_id)
-        logger.info(f"Delivery {delivery_id} cancelled")
+        logger.info("Delivery %s cancelled", delivery_id)
         return True
 
 

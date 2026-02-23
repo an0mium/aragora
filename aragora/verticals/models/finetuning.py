@@ -182,7 +182,7 @@ class VerticalFineTuningPipeline:
             from transformers import AutoModelForCausalLM, AutoTokenizer, BitsAndBytesConfig
             import torch
 
-            logger.info(f"Loading base model: {self.config.base_model_id}")
+            logger.info("Loading base model: %s", self.config.base_model_id)
 
             # Configure quantization for QLoRA
             bnb_config = None
@@ -226,7 +226,7 @@ class VerticalFineTuningPipeline:
             logger.info("Base model loaded successfully")
 
         except ImportError as e:
-            logger.error(f"Missing dependencies for fine-tuning: {e}")
+            logger.error("Missing dependencies for fine-tuning: %s", e)
             raise
 
     def prepare_lora_model(self) -> None:
@@ -262,7 +262,7 @@ class VerticalFineTuningPipeline:
             )
 
         except ImportError as e:
-            logger.error(f"peft library required for LoRA: {e}")
+            logger.error("peft library required for LoRA: %s", e)
             raise
 
     def add_training_example(self, example: TrainingExample) -> None:
@@ -317,7 +317,7 @@ class VerticalFineTuningPipeline:
                     self._training_examples.append(example)
                     count += 1
 
-        logger.info(f"Loaded {count} training examples from {file_path}")
+        logger.info("Loaded %s training examples from %s", count, file_path)
         return count
 
     def add_debate_transcript(
@@ -359,7 +359,7 @@ class VerticalFineTuningPipeline:
         )
 
         self._training_examples.append(example)
-        logger.debug(f"Added debate transcript: {debate_id}")
+        logger.debug("Added debate transcript: %s", debate_id)
 
     def prepare_dataset(
         self,
@@ -392,13 +392,13 @@ class VerticalFineTuningPipeline:
             split = dataset.train_test_split(test_size=1 - train_split, seed=42)
 
             logger.info(
-                f"Dataset prepared: {len(split['train'])} train, {len(split['test'])} eval examples"
+                "Dataset prepared: %s train, %s eval examples", len(split['train']), len(split['test'])
             )
 
             return split
 
         except ImportError as e:
-            logger.error(f"datasets library required: {e}")
+            logger.error("datasets library required: %s", e)
             raise
 
     def train(
@@ -477,7 +477,7 @@ class VerticalFineTuningPipeline:
             return metrics
 
         except ImportError as e:
-            logger.error(f"Missing dependencies for training: {e}")
+            logger.error("Missing dependencies for training: %s", e)
             raise
 
     def save_adapter(self, path: str | None = None) -> str:
@@ -506,7 +506,7 @@ class VerticalFineTuningPipeline:
         with open(config_path, "w") as f:
             json.dump(self.config.to_dict(), f, indent=2)
 
-        logger.info(f"Adapter saved to: {save_path}")
+        logger.info("Adapter saved to: %s", save_path)
         return save_path
 
     def get_training_stats(self) -> dict[str, Any]:

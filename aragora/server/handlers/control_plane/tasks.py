@@ -82,9 +82,9 @@ class TaskHandlerMixin:
     def _handle_coordinator_error(self, error: Exception, operation: str) -> HandlerResult:
         """Unified error handler for coordinator operations."""
         if isinstance(error, (ValueError, KeyError, AttributeError)):
-            logger.warning(f"Data error in {operation}: {type(error).__name__}: {error}")
+            logger.warning("Data error in %s: %s: %s", operation, type(error).__name__, error)
             return error_response(safe_error_message(error, "control plane"), 400)
-        logger.error(f"Error in {operation}: {error}")
+        logger.error("Error in %s: %s", operation, error)
         return error_response(safe_error_message(error, "control plane"), 500)
 
     def _get_stream(self) -> Any | None:
@@ -112,7 +112,7 @@ class TaskHandlerMixin:
             try:
                 _run_async(method(*args, **kwargs))
             except (RuntimeError, OSError, ValueError, AttributeError, TypeError) as e:
-                logger.warning(f"Stream emission failed for {emit_method}: {e}")
+                logger.warning("Stream emission failed for %s: %s", emit_method, e)
 
     def require_auth_or_error(self, handler: Any) -> tuple[Any, HandlerResult | None]:
         """Require authentication and return user or error."""
@@ -211,7 +211,7 @@ class TaskHandlerMixin:
         except KeyError:
             return error_response(f"Invalid priority: {priority}", 400)
         except (ValueError, TypeError, AttributeError, RuntimeError, OSError) as e:
-            logger.error(f"Error submitting task: {e}")
+            logger.error("Error submitting task: %s", e)
             return error_response(safe_error_message(e, "control plane"), 500)
 
     async def _handle_submit_task_async(self, body: dict[str, Any], handler: Any) -> HandlerResult:
@@ -267,7 +267,7 @@ class TaskHandlerMixin:
         except KeyError:
             return error_response(f"Invalid priority: {priority}", 400)
         except (ValueError, TypeError, AttributeError, RuntimeError, OSError) as e:
-            logger.error(f"Error submitting task: {e}")
+            logger.error("Error submitting task: %s", e)
             return error_response(safe_error_message(e, "control plane"), 500)
 
     @api_endpoint(
@@ -322,7 +322,7 @@ class TaskHandlerMixin:
 
             return json_response({"task": task.to_dict()})
         except (ValueError, KeyError, TypeError, AttributeError, RuntimeError, OSError) as e:
-            logger.error(f"Error claiming task: {e}")
+            logger.error("Error claiming task: %s", e)
             return error_response(safe_error_message(e, "control plane"), 500)
 
     async def _handle_claim_task_async(self, body: dict[str, Any], handler: Any) -> HandlerResult:
@@ -367,7 +367,7 @@ class TaskHandlerMixin:
 
             return json_response({"task": task.to_dict()})
         except (ValueError, KeyError, TypeError, AttributeError, RuntimeError, OSError) as e:
-            logger.error(f"Error claiming task: {e}")
+            logger.error("Error claiming task: %s", e)
             return error_response(safe_error_message(e, "control plane"), 500)
 
     @api_endpoint(
@@ -423,7 +423,7 @@ class TaskHandlerMixin:
 
             return json_response({"completed": True})
         except (ValueError, KeyError, TypeError, AttributeError, RuntimeError, OSError) as e:
-            logger.error(f"Error completing task: {e}")
+            logger.error("Error completing task: %s", e)
             return error_response(safe_error_message(e, "control plane"), 500)
 
     async def _handle_complete_task_async(
@@ -469,7 +469,7 @@ class TaskHandlerMixin:
 
             return json_response({"completed": True})
         except (ValueError, KeyError, TypeError, AttributeError, RuntimeError, OSError) as e:
-            logger.error(f"Error completing task: {e}")
+            logger.error("Error completing task: %s", e)
             return error_response(safe_error_message(e, "control plane"), 500)
 
     @api_endpoint(
@@ -526,7 +526,7 @@ class TaskHandlerMixin:
 
             return json_response({"failed": True})
         except (ValueError, KeyError, TypeError, AttributeError, RuntimeError, OSError) as e:
-            logger.error(f"Error failing task: {e}")
+            logger.error("Error failing task: %s", e)
             return error_response(safe_error_message(e, "control plane"), 500)
 
     async def _handle_fail_task_async(
@@ -575,7 +575,7 @@ class TaskHandlerMixin:
 
             return json_response({"failed": True})
         except (ValueError, KeyError, TypeError, AttributeError, RuntimeError, OSError) as e:
-            logger.error(f"Error failing task: {e}")
+            logger.error("Error failing task: %s", e)
             return error_response(safe_error_message(e, "control plane"), 500)
 
     @api_endpoint(
@@ -610,7 +610,7 @@ class TaskHandlerMixin:
 
             return json_response({"cancelled": True})
         except (ValueError, KeyError, TypeError, AttributeError, RuntimeError, OSError) as e:
-            logger.error(f"Error cancelling task: {e}")
+            logger.error("Error cancelling task: %s", e)
             return error_response(safe_error_message(e, "control plane"), 500)
 
     async def _handle_cancel_task_async(self, task_id: str, handler: Any) -> HandlerResult:
@@ -636,7 +636,7 @@ class TaskHandlerMixin:
 
             return json_response({"cancelled": True})
         except (ValueError, KeyError, TypeError, AttributeError, RuntimeError, OSError) as e:
-            logger.error(f"Error cancelling task: {e}")
+            logger.error("Error cancelling task: %s", e)
             return error_response(safe_error_message(e, "control plane"), 500)
 
     @api_endpoint(
@@ -706,7 +706,7 @@ class TaskHandlerMixin:
                 }
             )
         except (ValueError, KeyError, TypeError, AttributeError, RuntimeError, OSError, ImportError) as e:
-            logger.error(f"Error getting queue: {e}")
+            logger.error("Error getting queue: %s", e)
             return error_response(safe_error_message(e, "control plane"), 500)
 
     @api_endpoint(
@@ -747,7 +747,7 @@ class TaskHandlerMixin:
 
             return json_response(stats)
         except (ValueError, KeyError, TypeError, AttributeError, RuntimeError, OSError) as e:
-            logger.error(f"Error getting queue metrics: {e}")
+            logger.error("Error getting queue metrics: %s", e)
             return error_response(safe_error_message(e, "control plane"), 500)
 
     @api_endpoint(
@@ -876,7 +876,7 @@ class TaskHandlerMixin:
                 }
             )
         except (ValueError, KeyError, TypeError, AttributeError, RuntimeError, OSError, ImportError) as e:
-            logger.error(f"Error getting task history: {e}")
+            logger.error("Error getting task history: %s", e)
             return error_response(safe_error_message(e, "control plane"), 500)
 
     # =========================================================================
@@ -974,7 +974,7 @@ class TaskHandlerMixin:
             logger.warning("Handler error: %s", e)
             return error_response("Invalid request", 400)
         except (TypeError, KeyError, AttributeError, ImportError) as e:
-            logger.warning(f"Failed to parse deliberation request: {e}")
+            logger.warning("Failed to parse deliberation request: %s", e)
             return error_response("Failed to parse request", 400)
 
         async_mode = bool(body.get("async", False)) or body.get("mode") == "async"
@@ -1018,7 +1018,7 @@ class TaskHandlerMixin:
             except KeyError:
                 return error_response(f"Invalid priority: {priority}", 400)
             except (ValueError, TypeError, AttributeError, RuntimeError, OSError) as e:
-                logger.error(f"Error submitting deliberation: {e}")
+                logger.error("Error submitting deliberation: %s", e)
                 return error_response(safe_error_message(e, "control plane"), 500)
 
         try:
@@ -1047,6 +1047,6 @@ class TaskHandlerMixin:
             record_deliberation_error(request.request_id, "Deliberation timed out", "timeout")
             return error_response("Deliberation request timed out", 408)
         except (ValueError, TypeError, KeyError, AttributeError, RuntimeError, OSError, ImportError) as e:  # broad catch: last-resort handler
-            logger.exception(f"Deliberation failed: {e}")
+            logger.exception("Deliberation failed: %s", e)
             record_deliberation_error(request.request_id, "Deliberation failed")
             return error_response("Deliberation failed", 500)

@@ -208,17 +208,17 @@ async def queue_code_review_debate(
         result = await router.route(request)
 
         if result and result.success:
-            logger.info(f"Queued code review debate {debate_id} for PR #{pr_number}")
+            logger.info("Queued code review debate %s for PR #%s", debate_id, pr_number)
             return debate_id
         else:
-            logger.warning(f"Failed to route code review debate for PR #{pr_number}")
+            logger.warning("Failed to route code review debate for PR #%s", pr_number)
             return None
 
     except ImportError:
         logger.debug("DecisionRouter not available for GitHub code review")
         return None
     except (RuntimeError, ValueError, TypeError, KeyError, AttributeError, OSError) as e:
-        logger.error(f"Error queuing code review debate: {e}")
+        logger.error("Error queuing code review debate: %s", e)
         return None
 
 
@@ -307,17 +307,17 @@ async def queue_issue_triage_debate(
         result = await router.route(request)
 
         if result and result.success:
-            logger.info(f"Queued issue triage debate {debate_id} for issue #{issue_number}")
+            logger.info("Queued issue triage debate %s for issue #%s", debate_id, issue_number)
             return debate_id
         else:
-            logger.warning(f"Failed to route issue triage debate for issue #{issue_number}")
+            logger.warning("Failed to route issue triage debate for issue #%s", issue_number)
             return None
 
     except ImportError:
         logger.debug("DecisionRouter not available for GitHub issue triage")
         return None
     except (RuntimeError, ValueError, TypeError, KeyError, AttributeError, OSError) as e:
-        logger.error(f"Error queuing issue triage debate: {e}")
+        logger.error("Error queuing issue triage debate: %s", e)
         return None
 
 
@@ -338,7 +338,7 @@ def register_event_handler(event_type: GitHubEventType):
 @register_event_handler(GitHubEventType.PING)
 async def handle_ping(event: GitHubWebhookEvent) -> dict[str, Any]:
     """Handle GitHub ping event (webhook test)."""
-    logger.info(f"GitHub App ping received: zen='{event.payload.get('zen')}'")
+    logger.info("GitHub App ping received: zen='%s'", event.payload.get('zen'))
     return {
         "status": "ok",
         "message": "pong",
@@ -361,8 +361,7 @@ async def handle_pull_request(event: GitHubWebhookEvent) -> dict[str, Any]:
     repo = event.repository
 
     logger.info(
-        f"PR event: {repo.get('full_name')}#{pr.get('number')} "
-        f"action={action} by {event.sender.get('login')}"
+        "PR event: %s#%s action=%s by %s", repo.get('full_name'), pr.get('number'), action, event.sender.get('login')
     )
 
     result = {
@@ -381,9 +380,9 @@ async def handle_pull_request(event: GitHubWebhookEvent) -> dict[str, Any]:
         result["debate_type"] = "code_review"
         if debate_id:
             result["debate_id"] = debate_id
-            logger.info(f"Queued code review debate {debate_id} for PR #{pr.get('number')}")
+            logger.info("Queued code review debate %s for PR #%s", debate_id, pr.get('number'))
         else:
-            logger.warning(f"Failed to queue code review debate for PR #{pr.get('number')}")
+            logger.warning("Failed to queue code review debate for PR #%s", pr.get('number'))
 
     return result
 
@@ -401,7 +400,7 @@ async def handle_issues(event: GitHubWebhookEvent) -> dict[str, Any]:
     action = event.action
     repo = event.repository
 
-    logger.info(f"Issue event: {repo.get('full_name')}#{issue.get('number')} action={action}")
+    logger.info("Issue event: %s#%s action=%s", repo.get('full_name'), issue.get('number'), action)
 
     result = {
         "event": "issues",
@@ -418,9 +417,9 @@ async def handle_issues(event: GitHubWebhookEvent) -> dict[str, Any]:
         result["triage_queued"] = debate_id is not None
         if debate_id:
             result["debate_id"] = debate_id
-            logger.info(f"Queued triage debate {debate_id} for issue #{issue.get('number')}")
+            logger.info("Queued triage debate %s for issue #%s", debate_id, issue.get('number'))
         else:
-            logger.warning(f"Failed to queue triage debate for issue #{issue.get('number')}")
+            logger.warning("Failed to queue triage debate for issue #%s", issue.get('number'))
 
     return result
 
@@ -436,7 +435,7 @@ async def handle_push(event: GitHubWebhookEvent) -> dict[str, Any]:
     ref = event.payload.get("ref", "")
     commits = event.payload.get("commits", [])
 
-    logger.info(f"Push event: {repo.get('full_name')} ref={ref} commits={len(commits)}")
+    logger.info("Push event: %s ref=%s commits=%s", repo.get('full_name'), ref, len(commits))
 
     return {
         "event": "push",
@@ -458,8 +457,7 @@ async def handle_installation(event: GitHubWebhookEvent) -> dict[str, Any]:
     installation = event.payload.get("installation", {})
 
     logger.info(
-        f"Installation event: action={action} "
-        f"account={installation.get('account', {}).get('login')}"
+        "Installation event: action=%s account=%s", action, installation.get('account', {}).get('login')
     )
 
     return {
@@ -509,21 +507,21 @@ async def handle_github_webhook(ctx: dict[str, Any]) -> HandlerResult:
     else:
         raw_body = ctx.get("raw_body", b"")
         if not verify_signature(raw_body, signature, webhook_secret):
-            logger.warning(f"Invalid webhook signature for delivery {delivery_id}")
+            logger.warning("Invalid webhook signature for delivery %s", delivery_id)
             return error_response("Invalid signature", status=401)
 
     # Parse payload
     try:
         payload = ctx.get("body", {})
     except (ValueError, KeyError, TypeError) as e:
-        logger.error(f"Failed to parse webhook payload: {e}")
+        logger.error("Failed to parse webhook payload: %s", e)
         return error_response("Invalid JSON payload", status=400)
 
     # Create event object
     event = GitHubWebhookEvent.from_request(event_type, delivery_id, payload)
 
     logger.info(
-        f"GitHub webhook received: event={event_type} delivery={delivery_id} action={event.action}"
+        "GitHub webhook received: event=%s delivery=%s action=%s", event_type, delivery_id, event.action
     )
 
     # Dispatch to event handler
@@ -540,11 +538,11 @@ async def handle_github_webhook(ctx: dict[str, Any]) -> HandlerResult:
                 }
             )
         except (RuntimeError, ValueError, TypeError, KeyError, AttributeError, OSError) as e:
-            logger.error(f"Error handling {event_type} event: {e}")
+            logger.error("Error handling %s event: %s", event_type, e)
             return error_response("Request processing failed", status=500)
     else:
         # Unknown event type - acknowledge but don't process
-        logger.debug(f"Unhandled event type: {event_type}")
+        logger.debug("Unhandled event type: %s", event_type)
         return json_response(
             {
                 "success": True,

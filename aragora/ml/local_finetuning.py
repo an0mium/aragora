@@ -270,8 +270,7 @@ class LocalFineTuner:
             return True
         except ImportError as e:
             logger.error(
-                f"Missing dependency: {e}. "
-                "Install with: pip install peft transformers accelerate bitsandbytes"
+                "Missing dependency: %s. Install with: pip install peft transformers accelerate bitsandbytes", e
             )
             return False
 
@@ -290,7 +289,7 @@ class LocalFineTuner:
             BitsAndBytesConfig,
         )
 
-        logger.info(f"Loading base model: {self.config.base_model}")
+        logger.info("Loading base model: %s", self.config.base_model)
 
         # Configure quantization
         if self.config.use_4bit:
@@ -324,7 +323,7 @@ class LocalFineTuner:
                 self._model.gradient_checkpointing_enable()
 
         self._is_loaded = True
-        logger.info(f"Model loaded: {self.config.base_model}")
+        logger.info("Model loaded: %s", self.config.base_model)
 
     def _prepare_peft_model(self) -> None:
         """Prepare model for PEFT training."""
@@ -469,7 +468,7 @@ class LocalFineTuner:
             )
 
         except Exception as e:
-            logger.error(f"Training failed: {e}")
+            logger.error("Training failed: %s", e)
             return FineTuneResult(
                 success=False,
                 model_path="",
@@ -529,7 +528,7 @@ class LocalFineTuner:
         )
 
         self._is_loaded = True
-        logger.info(f"Loaded fine-tuned model from {model_path}")
+        logger.info("Loaded fine-tuned model from %s", model_path)
 
     def generate(
         self,
@@ -713,7 +712,7 @@ class DPOFineTuner(LocalFineTuner):
             logger.warning("TRL not installed, falling back to SFT")
             return super().train(data)
         except Exception as e:
-            logger.error(f"DPO training failed: {e}")
+            logger.error("DPO training failed: %s", e)
             return FineTuneResult(
                 success=False,
                 model_path="",

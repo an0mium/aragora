@@ -183,7 +183,7 @@ class EvidenceAdapter(FusionMixin, SemanticSearchMixin, KnowledgeMoundAdapter):
             )
             return True
         except (RuntimeError, ValueError, OSError, AttributeError) as e:
-            logger.warning(f"Failed to apply fusion result to evidence: {e}")
+            logger.warning("Failed to apply fusion result to evidence: %s", e)
             return False
 
     def __init__(
@@ -322,7 +322,7 @@ class EvidenceAdapter(FusionMixin, SemanticSearchMixin, KnowledgeMoundAdapter):
         except EvidenceStoreUnavailableError:
             raise
         except (RuntimeError, ValueError, OSError, AttributeError) as e:
-            logger.error(f"Evidence search failed for query '{query}': {e}")
+            logger.error("Evidence search failed for query '%s': %s", query, e)
             raise EvidenceAdapterError(f"Search failed: {e}") from e
         finally:
             self._record_metric("search", success, time.time() - start)
@@ -369,7 +369,7 @@ class EvidenceAdapter(FusionMixin, SemanticSearchMixin, KnowledgeMoundAdapter):
                         return [existing]
                 except (RuntimeError, ValueError, AttributeError, KeyError) as e:  # noqa: BLE001 - adapter isolation
                     # Log but don't fail - fall back to text search
-                    logger.warning(f"Hash lookup failed, falling back to text search: {e}")
+                    logger.warning("Hash lookup failed, falling back to text search: %s", e)
             else:
                 # Store doesn't support hash lookup, fall through to text search
                 logger.debug("Evidence store does not support hash lookup, using text search")
@@ -386,7 +386,7 @@ class EvidenceAdapter(FusionMixin, SemanticSearchMixin, KnowledgeMoundAdapter):
         except EvidenceAdapterError:
             raise
         except (RuntimeError, ValueError, OSError, AttributeError) as e:
-            logger.error(f"Similar evidence search failed: {e}")
+            logger.error("Similar evidence search failed: %s", e)
             raise EvidenceAdapterError(f"Similar search failed: {e}") from e
 
     def get(self, evidence_id: str) -> dict[str, Any] | None:
@@ -412,7 +412,7 @@ class EvidenceAdapter(FusionMixin, SemanticSearchMixin, KnowledgeMoundAdapter):
         try:
             return store.get_evidence(evidence_id)
         except (RuntimeError, ValueError, OSError, AttributeError) as e:
-            logger.error(f"Failed to get evidence {evidence_id}: {e}")
+            logger.error("Failed to get evidence %s: %s", evidence_id, e)
             raise EvidenceAdapterError(f"Failed to get evidence: {e}") from e
 
     def to_knowledge_item(self, evidence: dict[str, Any]) -> KnowledgeItem:
@@ -453,11 +453,11 @@ class EvidenceAdapter(FusionMixin, SemanticSearchMixin, KnowledgeMoundAdapter):
                 quality_scores = json.loads(evidence["quality_scores_json"])
             except json.JSONDecodeError as e:
                 logger.warning(
-                    f"Failed to parse quality_scores_json for evidence {evidence.get('id')}: {e}"
+                    "Failed to parse quality_scores_json for evidence %s: %s", evidence.get('id'), e
                 )
             except TypeError as e:
                 logger.warning(
-                    f"Invalid quality_scores_json type for evidence {evidence.get('id')}: {e}"
+                    "Invalid quality_scores_json type for evidence %s: %s", evidence.get('id'), e
                 )
 
         # Parse enriched metadata if available
@@ -469,11 +469,11 @@ class EvidenceAdapter(FusionMixin, SemanticSearchMixin, KnowledgeMoundAdapter):
                 enriched_metadata = json.loads(evidence["enriched_metadata_json"])
             except json.JSONDecodeError as e:
                 logger.warning(
-                    f"Failed to parse enriched_metadata_json for evidence {evidence.get('id')}: {e}"
+                    "Failed to parse enriched_metadata_json for evidence %s: %s", evidence.get('id'), e
                 )
             except TypeError as e:
                 logger.warning(
-                    f"Invalid enriched_metadata_json type for evidence {evidence.get('id')}: {e}"
+                    "Invalid enriched_metadata_json type for evidence %s: %s", evidence.get('id'), e
                 )
 
         # Build metadata
@@ -630,7 +630,7 @@ class EvidenceAdapter(FusionMixin, SemanticSearchMixin, KnowledgeMoundAdapter):
         except EvidenceStoreUnavailableError:
             raise
         except (RuntimeError, ValueError, OSError, AttributeError) as e:
-            logger.error(f"Failed to store evidence {evidence_id}: {e}")
+            logger.error("Failed to store evidence %s: %s", evidence_id, e)
             raise EvidenceAdapterError(f"Storage failed: {e}") from e
         finally:
             self._record_metric("store", success, time.time() - start)
@@ -657,10 +657,10 @@ class EvidenceAdapter(FusionMixin, SemanticSearchMixin, KnowledgeMoundAdapter):
             try:
                 store.mark_used_in_consensus(str(debate_id), [str(evidence_id)])
                 logger.debug(
-                    f"Marked evidence {evidence_id} as used in consensus for debate {debate_id}"
+                    "Marked evidence %s as used in consensus for debate %s", evidence_id, debate_id
                 )
             except (RuntimeError, ValueError, OSError, AttributeError) as e:
-                logger.error(f"Failed to mark evidence {evidence_id} in consensus: {e}")
+                logger.error("Failed to mark evidence %s in consensus: %s", evidence_id, e)
                 raise EvidenceAdapterError(f"Failed to mark consensus usage: {e}") from e
         else:
             # Store doesn't support this method
@@ -721,12 +721,12 @@ class EvidenceAdapter(FusionMixin, SemanticSearchMixin, KnowledgeMoundAdapter):
             )
 
         except EvidenceNotFoundError:
-            logger.warning(f"Evidence not found for KM validation: {evidence_id}")
+            logger.warning("Evidence not found for KM validation: %s", evidence_id)
             raise
         except EvidenceStoreUnavailableError:
             raise
         except (RuntimeError, ValueError, OSError, AttributeError) as e:
-            logger.error(f"Failed to update reliability for evidence {evidence_id}: {e}")
+            logger.error("Failed to update reliability for evidence %s: %s", evidence_id, e)
             raise EvidenceAdapterError(f"Reliability update failed: {e}") from e
 
     def get_stats(self) -> dict[str, Any]:
@@ -745,7 +745,7 @@ class EvidenceAdapter(FusionMixin, SemanticSearchMixin, KnowledgeMoundAdapter):
             try:
                 return store.get_stats()
             except (RuntimeError, ValueError, OSError, AttributeError) as e:
-                logger.error(f"Failed to get evidence store stats: {e}")
+                logger.error("Failed to get evidence store stats: %s", e)
                 raise EvidenceAdapterError(f"Stats retrieval failed: {e}") from e
         else:
             # Store doesn't support get_stats
@@ -780,7 +780,7 @@ class EvidenceAdapter(FusionMixin, SemanticSearchMixin, KnowledgeMoundAdapter):
             logger.debug("Evidence store does not support get_debate_evidence")
             return []
         except (RuntimeError, ValueError, OSError, AttributeError) as e:
-            logger.error(f"Failed to get debate evidence for {debate_id}: {e}")
+            logger.error("Failed to get debate evidence for %s: %s", debate_id, e)
             raise EvidenceAdapterError(f"Debate evidence retrieval failed: {e}") from e
 
 

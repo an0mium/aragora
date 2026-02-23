@@ -108,8 +108,7 @@ class OpenClawActionStep(BaseStep):
         cfg = self._step_config
         if cfg.action_type not in VALID_ACTION_TYPES:
             logger.error(
-                f"Invalid action_type '{cfg.action_type}'. "
-                f"Valid types: {', '.join(sorted(VALID_ACTION_TYPES))}"
+                "Invalid action_type '%s'. Valid types: %s", cfg.action_type, ', '.join(sorted(VALID_ACTION_TYPES))
             )
             return False
 
@@ -118,7 +117,7 @@ class OpenClawActionStep(BaseStep):
             return False
 
         if cfg.action_type in ("file_read", "file_write", "file_delete") and not cfg.path:
-            logger.error(f"File action '{cfg.action_type}' requires 'path' config")
+            logger.error("File action '%s' requires 'path' config", cfg.action_type)
             return False
 
         if cfg.action_type == "browser" and not cfg.url:
@@ -236,7 +235,7 @@ class OpenClawActionStep(BaseStep):
 
             success = result_data.get("success", True)
             if not success and cfg.on_failure == "skip":
-                logger.warning(f"Action failed but on_failure=skip: {result_data.get('error')}")
+                logger.warning("Action failed but on_failure=skip: %s", result_data.get('error'))
                 return {
                     "success": False,
                     "skipped": True,
@@ -261,7 +260,7 @@ class OpenClawActionStep(BaseStep):
                 "action_type": action_type,
             }
         except (RuntimeError, ValueError, TypeError, OSError, ConnectionError, AttributeError) as e:
-            logger.error(f"OpenClaw action failed: {e}")
+            logger.error("OpenClaw action failed: %s", e)
             if cfg.on_failure == "skip":
                 return {
                     "success": False,
@@ -348,7 +347,7 @@ class OpenClawSessionStep(BaseStep):
         """Validate session step configuration."""
         operation = self._config.get("operation", "create")
         if operation not in ("create", "end"):
-            logger.error(f"Invalid operation '{operation}'. Must be 'create' or 'end'.")
+            logger.error("Invalid operation '%s'. Must be 'create' or 'end'.", operation)
             return False
         if operation == "end" and not self._config.get("session_id"):
             logger.error("End operation requires 'session_id' config")
@@ -377,7 +376,7 @@ class OpenClawSessionStep(BaseStep):
                 "operation": operation,
             }
         except (RuntimeError, ValueError, TypeError, OSError, ConnectionError, AttributeError) as e:
-            logger.error(f"OpenClaw session operation failed: {e}")
+            logger.error("OpenClaw session operation failed: %s", e)
             return {"success": False, "error": "OpenClaw session operation failed", "operation": operation}
 
     async def _create_session(
@@ -398,7 +397,7 @@ class OpenClawSessionStep(BaseStep):
 
         session_id = session.session_id if hasattr(session, "session_id") else str(session)
 
-        logger.info(f"Created OpenClaw session {session_id} for workflow {context.workflow_id}")
+        logger.info("Created OpenClaw session %s for workflow %s", session_id, context.workflow_id)
         return {
             "success": True,
             "operation": "create",
@@ -424,7 +423,7 @@ class OpenClawSessionStep(BaseStep):
 
         await proxy.end_session(session_id)
 
-        logger.info(f"Ended OpenClaw session {session_id}")
+        logger.info("Ended OpenClaw session %s", session_id)
         return {
             "success": True,
             "operation": "end",

@@ -297,7 +297,7 @@ class FileAnalysisSkill(Skill):
             return SkillResult.create_success(result)
 
         except (RuntimeError, ValueError, OSError) as e:
-            logger.exception(f"File analysis failed: {e}")
+            logger.exception("File analysis failed: %s", e)
             return SkillResult.create_failure(f"Analysis failed: {e}")
 
     def _detect_encoding(self, path: Path) -> str:
@@ -312,7 +312,7 @@ class FileAnalysisSkill(Skill):
         except ImportError:
             return "utf-8"
         except (RuntimeError, ValueError, OSError) as e:
-            logger.debug(f"Encoding detection failed for {path}: {type(e).__name__}: {e}")
+            logger.debug("Encoding detection failed for %s: %s: %s", path, type(e).__name__, e)
             return "utf-8"
 
     def _analyze_code(

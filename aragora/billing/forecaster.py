@@ -314,7 +314,7 @@ class CostForecaster:
         )
 
         if len(daily_costs) < 3:
-            logger.warning(f"Insufficient data for forecast: {len(daily_costs)} points")
+            logger.warning("Insufficient data for forecast: %s points", len(daily_costs))
             return report
 
         # Analyze trend
@@ -858,9 +858,9 @@ async def run_budget_runway_check(
                         metadata=result.to_dict(),
                     )
                 except (ImportError, RuntimeError, OSError, ConnectionError, ValueError) as notify_err:
-                    logger.warning(f"Failed to send budget alert for {ws_id}: {notify_err}")
+                    logger.warning("Failed to send budget alert for %s: %s", ws_id, notify_err)
         except (RuntimeError, OSError, ConnectionError, ValueError, TypeError, KeyError) as e:
-            logger.error(f"Budget runway check failed for {ws_id}: {e}")
+            logger.error("Budget runway check failed for %s: %s", ws_id, e)
 
     return results
 

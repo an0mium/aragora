@@ -83,7 +83,7 @@ def command_status() -> str:
         agents = store.get_all_ratings()
         return f"*Aragora Status*\n\nStatus: Online\nAgents: {len(agents)} registered"
     except (ImportError, KeyError, TypeError, AttributeError, ValueError) as e:
-        logger.warning(f"Failed to get status: {e}")
+        logger.warning("Failed to get status: %s", e)
         return "*Aragora Status*\n\nStatus: Online"
 
 
@@ -109,7 +109,7 @@ def command_agents() -> str:
 
         return "\n".join(lines)
     except (ImportError, KeyError, TypeError, AttributeError, ValueError) as e:
-        logger.warning(f"Failed to list agents: {e}")
+        logger.warning("Failed to list agents: %s", e)
         return "Could not fetch agent list."
 
 
@@ -219,7 +219,7 @@ async def run_debate_async(
                 user_id=from_number,
                 metadata={"profile_name": profile_name, "topic": topic},
             )
-            logger.debug(f"Registered WhatsApp debate origin: {debate_id}")
+            logger.debug("Registered WhatsApp debate origin: %s", debate_id)
         except ImportError:
             logger.debug("Debate origin tracking not available")
 
@@ -256,8 +256,7 @@ async def run_debate_async(
 
             if resolution.matched and resolution.binding:
                 logger.debug(
-                    f"Binding resolved: {resolution.agent_binding} "
-                    f"type={resolution.binding_type} reason={resolution.match_reason}"
+                    "Binding resolved: %s type=%s reason=%s", resolution.agent_binding, resolution.binding_type, resolution.match_reason
                 )
 
                 # Apply agent binding
@@ -277,7 +276,7 @@ async def run_debate_async(
         except ImportError:
             logger.debug("Binding router not available, using default agents")
         except (KeyError, ValueError, TypeError, AttributeError) as e:
-            logger.debug(f"Binding resolution failed: {e}, using default agents")
+            logger.debug("Binding resolution failed: %s, using default agents", e)
 
         agents = get_agents_by_names(agent_names)
         protocol = DebateProtocol(
@@ -372,7 +371,7 @@ async def run_debate_async(
         )
 
     except (ValueError, KeyError, TypeError, RuntimeError, OSError, ConnectionError) as e:
-        logger.error(f"WhatsApp debate failed: {e}", exc_info=True)
+        logger.error("WhatsApp debate failed: %s", e, exc_info=True)
         record_debate_failed("whatsapp")
         await send_text_message(
             from_number,
@@ -534,7 +533,7 @@ async def run_gauntlet_async(
             record_gauntlet_completed("whatsapp", passed)
 
     except (ConnectionError, TimeoutError, OSError, ValueError, KeyError) as e:
-        logger.error(f"WhatsApp gauntlet failed: {e}", exc_info=True)
+        logger.error("WhatsApp gauntlet failed: %s", e, exc_info=True)
         record_gauntlet_failed("whatsapp")
         await send_text_message(
             from_number,
@@ -601,7 +600,7 @@ def command_search(query: str) -> str:
         logger.warning("Storage not available for search")
         return "Search service temporarily unavailable."
     except (KeyError, TypeError, AttributeError, ValueError, RuntimeError) as e:
-        logger.exception(f"Unexpected search error: {e}")
+        logger.exception("Unexpected search error: %s", e)
         return "Sorry, an error occurred while processing your request."
 
 
@@ -642,7 +641,7 @@ def command_recent() -> str:
         logger.warning("Storage not available for recent debates")
         return "Recent debates service temporarily unavailable."
     except (KeyError, TypeError, AttributeError, ValueError, RuntimeError) as e:
-        logger.exception(f"Unexpected recent debates error: {e}")
+        logger.exception("Unexpected recent debates error: %s", e)
         return "Sorry, an error occurred while processing your request."
 
 
@@ -699,7 +698,7 @@ def command_receipt(debate_id: str) -> str:
             return _format_debate_as_receipt(debate)
 
     except (ImportError, KeyError, TypeError, AttributeError, ValueError, OSError) as e:
-        logger.exception(f"Unexpected receipt error: {e}")
+        logger.exception("Unexpected receipt error: %s", e)
         return "Sorry, an error occurred while processing your request."
 
 

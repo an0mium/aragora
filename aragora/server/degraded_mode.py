@@ -175,10 +175,10 @@ def set_degraded(
 
     if not was_degraded:
         logger.error(
-            f"[DEGRADED MODE] Server entering degraded mode: {reason} (code: {error_code.value})"
+            "[DEGRADED MODE] Server entering degraded mode: %s (code: %s)", reason, error_code.value
         )
         if recovery_hint or _degraded_state.recovery_hint:
-            logger.info(f"[DEGRADED MODE] Recovery hint: {_degraded_state.recovery_hint}")
+            logger.info("[DEGRADED MODE] Recovery hint: %s", _degraded_state.recovery_hint)
 
 
 def clear_degraded() -> None:
@@ -398,7 +398,7 @@ async def attempt_recovery() -> bool:
                 clear_degraded()
                 return True
         except (ConnectionError, TimeoutError, OSError, RuntimeError, ValueError) as e:
-            logger.debug(f"Recovery callback failed: {e}")
+            logger.debug("Recovery callback failed: %s", e)
 
     return False
 

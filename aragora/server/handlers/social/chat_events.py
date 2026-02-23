@@ -35,11 +35,11 @@ def _dispatch_chat_event(event_type: str, data: dict[str, Any]) -> None:
         from aragora.events import dispatch_event
 
         dispatch_event(event_type, data)
-        logger.debug(f"Dispatched chat event: {event_type}")
+        logger.debug("Dispatched chat event: %s", event_type)
     except ImportError:
         logger.debug("Event dispatcher not available")
     except (RuntimeError, OSError, ValueError, TypeError) as e:
-        logger.warning(f"Failed to dispatch chat event {event_type}: {e}")
+        logger.warning("Failed to dispatch chat event %s: %s", event_type, e)
 
 
 def emit_message_received(

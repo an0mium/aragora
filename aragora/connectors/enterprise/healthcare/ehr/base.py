@@ -231,7 +231,7 @@ class EHRAdapter(ABC):
         # Authenticate
         await self._authenticate()
 
-        logger.info(f"Connected to {self.vendor.value} EHR at {self.config.base_url}")
+        logger.info("Connected to %s EHR at %s", self.vendor.value, self.config.base_url)
 
     async def disconnect(self) -> None:
         """Close connection."""
@@ -239,7 +239,7 @@ class EHRAdapter(ABC):
             await self._http_client.aclose()
             self._http_client = None
         self._token = None
-        logger.info(f"Disconnected from {self.vendor.value} EHR")
+        logger.info("Disconnected from %s EHR", self.vendor.value)
 
     async def _discover_smart_config(self) -> None:
         """Discover SMART on FHIR configuration from well-known endpoint."""
@@ -253,10 +253,10 @@ class EHRAdapter(ABC):
             response = await self._http_client.get(discovery_url)
             if response.status_code == 200:
                 self._smart_config = SMARTConfiguration.from_dict(response.json())
-                logger.debug(f"Discovered SMART configuration from {discovery_url}")
+                logger.debug("Discovered SMART configuration from %s", discovery_url)
                 return
         except (OSError, ValueError, TypeError, KeyError) as e:
-            logger.debug(f"SMART discovery failed: {e}")
+            logger.debug("SMART discovery failed: %s", e)
 
         # Fallback: try FHIR metadata endpoint
         metadata_url = f"{self.config.base_url}/metadata"
@@ -273,7 +273,7 @@ class EHRAdapter(ABC):
                     logger.debug("Extracted SMART config from FHIR metadata")
                     return
         except (OSError, ValueError, TypeError, KeyError) as e:
-            logger.debug(f"FHIR metadata fetch failed: {e}")
+            logger.debug("FHIR metadata fetch failed: %s", e)
 
         # Use configured endpoints as fallback
         if self.config.token_endpoint:
@@ -303,7 +303,7 @@ class EHRAdapter(ABC):
                         token_endpoint=extensions.get("token", ""),
                     )
         except (KeyError, IndexError, TypeError, AttributeError) as e:
-            logger.warning(f"Failed to parse SMART configuration from capability statement: {e}")
+            logger.warning("Failed to parse SMART configuration from capability statement: %s", e)
         return None
 
     async def _authenticate(self) -> None:
@@ -349,7 +349,7 @@ class EHRAdapter(ABC):
             raise RuntimeError(f"Authentication failed: {response.status_code} {response.text}")
 
         self._token = TokenResponse.from_dict(response.json())
-        logger.debug(f"Obtained access token (expires in {self._token.expires_in}s)")
+        logger.debug("Obtained access token (expires in %ss)", self._token.expires_in)
 
     async def _authenticate_backend_services(self) -> None:
         """Authenticate using SMART Backend Services (JWT Bearer)."""
@@ -406,7 +406,7 @@ class EHRAdapter(ABC):
             )
 
         self._token = TokenResponse.from_dict(response.json())
-        logger.debug(f"Obtained backend services token (expires in {self._token.expires_in}s)")
+        logger.debug("Obtained backend services token (expires in %ss)", self._token.expires_in)
 
     async def _ensure_authenticated(self) -> str:
         """Ensure we have a valid access token, refreshing if needed."""
@@ -460,7 +460,7 @@ class EHRAdapter(ABC):
             return
 
         self._token = TokenResponse.from_dict(response.json())
-        logger.debug(f"Refreshed access token (expires in {self._token.expires_in}s)")
+        logger.debug("Refreshed access token (expires in %ss)", self._token.expires_in)
 
     def _get_headers(self, access_token: str) -> dict[str, str]:
         """Get standard headers for FHIR requests."""
@@ -514,7 +514,7 @@ class EHRAdapter(ABC):
 
         except (OSError, ValueError, RuntimeError) as e:
             self._errors_count += 1
-            logger.error(f"EHR request failed: {method} {path}: {e}")
+            logger.error("EHR request failed: %s %s: %s", method, path, e)
             raise
 
     # Abstract methods for vendor-specific implementations

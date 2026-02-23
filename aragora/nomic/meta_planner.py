@@ -167,7 +167,7 @@ class MetaPlanner:
             return await self._scan_prioritize(None, available_tracks)
 
         logger.info(
-            f"meta_planner_started objective={objective[:100]} tracks={[t.value for t in available_tracks]}"
+            "meta_planner_started objective=%s tracks=%s", objective[:100], [t.value for t in available_tracks]
         )
 
         # Quick mode: skip debate entirely, use heuristic
@@ -238,7 +238,7 @@ class MetaPlanner:
         except ImportError:
             pass
         except (OSError, RuntimeError, ValueError) as e:
-            logger.debug(f"NextStepsRunner scan skipped: {e}")
+            logger.debug("NextStepsRunner scan skipped: %s", e)
 
         try:
             from aragora.debate.orchestrator import Arena, DebateProtocol
@@ -262,7 +262,7 @@ class MetaPlanner:
                     if agent is not None:
                         agents.append(agent)
                 except (RuntimeError, OSError, ConnectionError, TimeoutError, ValueError) as e:
-                    logger.warning(f"Could not create agent {agent_type}: {e}")
+                    logger.warning("Could not create agent %s: %s", agent_type, e)
 
             if not agents:
                 logger.warning("No agents available, using heuristic prioritization")
@@ -295,16 +295,16 @@ class MetaPlanner:
             self._explain_planning_decision(result, goals)
 
             logger.info(
-                f"meta_planner_completed goal_count={len(goals)} objectives={[g.description[:50] for g in goals]}"
+                "meta_planner_completed goal_count=%s objectives=%s", len(goals), [g.description[:50] for g in goals]
             )
 
             return goals
 
         except ImportError as e:
-            logger.warning(f"Debate infrastructure not available: {e}")
+            logger.warning("Debate infrastructure not available: %s", e)
             return self._heuristic_prioritize(objective, available_tracks)
         except (RuntimeError, OSError, ValueError) as e:
-            logger.exception(f"Meta-planning failed: {e}")
+            logger.exception("Meta-planning failed: %s", e)
             return self._heuristic_prioritize(objective, available_tracks)
 
     def _enrich_context_with_metrics(self, context: PlanningContext) -> PlanningContext:
@@ -405,8 +405,7 @@ class MetaPlanner:
 
             if similar_cycles:
                 logger.info(
-                    f"cross_cycle_learning found={len(similar_cycles)} cycles "
-                    f"for objective={objective[:50]}"
+                    "cross_cycle_learning found=%s cycles for objective=%s", len(similar_cycles), objective[:50]
                 )
 
             for cycle in similar_cycles:
@@ -473,7 +472,7 @@ class MetaPlanner:
         except ImportError:
             logger.debug("Nomic cycle adapter not available, skipping history enrichment")
         except (RuntimeError, ValueError, OSError) as e:
-            logger.warning(f"Failed to enrich context with history: {e}")
+            logger.warning("Failed to enrich context with history: %s", e)
 
         # Also query PlanStore for recent pipeline outcomes
         try:
@@ -501,13 +500,12 @@ class MetaPlanner:
 
             if outcomes:
                 logger.info(
-                    f"pipeline_feedback loaded={len(outcomes)} outcomes "
-                    f"for planning"
+                    "pipeline_feedback loaded=%s outcomes for planning", len(outcomes)
                 )
         except ImportError:
             logger.debug("PlanStore not available, skipping pipeline feedback")
         except (RuntimeError, ValueError, OSError) as e:
-            logger.warning(f"Failed to load pipeline outcomes: {e}")
+            logger.warning("Failed to load pipeline outcomes: %s", e)
 
         # Outcome tracker feedback: inject regression data from past cycles
         try:
@@ -525,7 +523,7 @@ class MetaPlanner:
         except ImportError:
             logger.debug("OutcomeTracker not available, skipping regression feedback")
         except (RuntimeError, ValueError, OSError) as e:
-            logger.warning(f"Failed to load outcome regressions: {e}")
+            logger.warning("Failed to load outcome regressions: %s", e)
 
         # --- Calibration data enrichment ---
         try:
@@ -572,7 +570,7 @@ class MetaPlanner:
         except ImportError:
             logger.debug("Calibration subsystems not available")
         except (RuntimeError, ValueError, OSError, AttributeError) as e:
-            logger.warning(f"Failed to enrich with calibration data: {e}")
+            logger.warning("Failed to enrich with calibration data: %s", e)
 
         # Strategic memory: query past strategic assessments for this objective
         try:
@@ -702,12 +700,12 @@ class MetaPlanner:
             }
             required_key = key_map.get(agent_type)
             if required_key and not get_secret(required_key):
-                logger.debug(f"No API key for {agent_type}, skipping")
+                logger.debug("No API key for %s, skipping", agent_type)
                 return None
         except ImportError:
             pass
 
-        logger.debug(f"Could not create agent {agent_type} via any path")
+        logger.debug("Could not create agent %s via any path", agent_type)
         return None
 
     def _select_agents_by_introspection(self, domain: str) -> list[str]:

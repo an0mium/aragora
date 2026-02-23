@@ -102,13 +102,13 @@ class LeaderboardViewHandler(SecureHandler):
         # Rate limit check
         client_ip = get_client_ip(handler)
         if not _leaderboard_limiter.is_allowed(client_ip):
-            logger.warning(f"Rate limit exceeded for leaderboard endpoint: {client_ip}")
+            logger.warning("Rate limit exceeded for leaderboard endpoint: %s", client_ip)
             return error_response("Rate limit exceeded. Please try again later.", 429)
 
         # Note: leaderboard-view is a public endpoint (listed in AUTH_EXEMPT_PATHS)
         # No authentication required for read-only leaderboard data
 
-        logger.debug(f"Leaderboard request: {path} params={query_params}")
+        logger.debug("Leaderboard request: %s params=%s", path, query_params)
         if path == "/api/leaderboard-view":
             limit = get_int_param(query_params, "limit", 10)
             domain = get_string_param(query_params, "domain")
@@ -181,7 +181,7 @@ class LeaderboardViewHandler(SecureHandler):
         )
 
         logger.info(
-            f"Leaderboard view: {len(errors)} failed sections, {len(data.get('rankings', {}).get('agents', []))} agents"
+            "Leaderboard view: %s failed sections, %s agents", len(errors), len(data.get('rankings', {}).get('agents', []))
         )
         return json_response(
             {

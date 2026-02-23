@@ -210,8 +210,7 @@ def decode_jwt(token: str) -> JWTPayload | None:
 
             secret_fingerprint = _hashlib.sha256(secret).hexdigest()[:8]
             logger.warning(
-                f"[JWT_DEBUG] jwt_decode_failed: signature mismatch "
-                f"(secret_fingerprint={secret_fingerprint})"
+                "[JWT_DEBUG] jwt_decode_failed: signature mismatch (secret_fingerprint=%s)", secret_fingerprint
             )
             return None
 
@@ -238,7 +237,7 @@ def decode_jwt(token: str) -> JWTPayload | None:
 
     except (ValueError, TypeError, KeyError, AttributeError, UnicodeDecodeError) as e:
         # Catch remaining decoding/validation errors not handled by inner try blocks
-        logger.warning(f"jwt_decode_failed: unexpected error - {type(e).__name__}")
+        logger.warning("jwt_decode_failed: unexpected error - %s", type(e).__name__)
         return None
 
 
@@ -270,7 +269,7 @@ def create_access_token(
     # Enforce expiry bounds
     if expiry_hours > MAX_ACCESS_TOKEN_HOURS:
         logger.warning(
-            f"Token expiry {expiry_hours}h exceeds max {MAX_ACCESS_TOKEN_HOURS}h, capping"
+            "Token expiry %sh exceeds max %sh, capping", expiry_hours, MAX_ACCESS_TOKEN_HOURS
         )
         expiry_hours = MAX_ACCESS_TOKEN_HOURS
     if expiry_hours < 1:
@@ -315,7 +314,7 @@ def create_refresh_token(
     # Enforce expiry bounds
     if expiry_days > MAX_REFRESH_TOKEN_DAYS:
         logger.warning(
-            f"Refresh token expiry {expiry_days}d exceeds max {MAX_REFRESH_TOKEN_DAYS}d, capping"
+            "Refresh token expiry %sd exceeds max %sd, capping", expiry_days, MAX_REFRESH_TOKEN_DAYS
         )
         expiry_days = MAX_REFRESH_TOKEN_DAYS
     if expiry_days < 1:
@@ -394,7 +393,7 @@ def validate_access_token(
             user = user_store.get_user_by_id(payload.user_id)
         except Exception as e:  # noqa: BLE001 - Fail closed: any user_store error must deny token validation for security
             logger.warning(
-                f"jwt_validate_failed: error checking token version - {type(e).__name__}"
+                "jwt_validate_failed: error checking token version - %s", type(e).__name__
             )
             return None
 
@@ -467,7 +466,7 @@ def validate_refresh_token(
             user = user_store.get_user_by_id(payload.user_id)
         except Exception as e:  # noqa: BLE001 - Fail closed: any user_store error must deny token validation for security
             logger.warning(
-                f"jwt_validate_failed: error checking token version - {type(e).__name__}"
+                "jwt_validate_failed: error checking token version - %s", type(e).__name__
             )
             return None
 

@@ -100,8 +100,7 @@ class RequestValidationMiddleware(BaseHTTPMiddleware):
                 length = int(content_length)
                 if length > self.limits.max_body_size:
                     logger.warning(
-                        f"Request body too large: {length} bytes "
-                        f"(max {self.limits.max_body_size}) for {request.method} {request.url.path}"
+                        "Request body too large: %s bytes (max %s) for %s %s", length, self.limits.max_body_size, request.method, request.url.path
                     )
                     if self.limits.blocking_mode:
                         return JSONResponse(
@@ -127,8 +126,7 @@ class RequestValidationMiddleware(BaseHTTPMiddleware):
                 # Check actual body size
                 if len(body) > self.limits.max_body_size:
                     logger.warning(
-                        f"Request body too large: {len(body)} bytes for "
-                        f"{request.method} {request.url.path}"
+                        "Request body too large: %s bytes for %s %s", len(body), request.method, request.url.path
                     )
                     if self.limits.blocking_mode:
                         return JSONResponse(
@@ -149,8 +147,7 @@ class RequestValidationMiddleware(BaseHTTPMiddleware):
                     )
                     if error:
                         logger.warning(
-                            f"JSON structure validation failed for "
-                            f"{request.method} {request.url.path}: {error}"
+                            "JSON structure validation failed for %s %s: %s", request.method, request.url.path, error
                         )
                         if self.limits.blocking_mode:
                             return JSONResponse(
@@ -165,7 +162,7 @@ class RequestValidationMiddleware(BaseHTTPMiddleware):
                 # Let FastAPI handle JSON decode errors downstream
                 pass
             except (ValueError, TypeError, KeyError, RuntimeError) as e:
-                logger.error(f"Validation middleware error: {e}")
+                logger.error("Validation middleware error: %s", e)
                 # Don't block on unexpected errors in validation itself
 
         return await call_next(request)

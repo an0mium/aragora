@@ -229,7 +229,7 @@ class RegionalEventBus:
             await self._pubsub.subscribe(self._config.get_global_channel())
             await self._pubsub.subscribe(self._config.get_region_channel(self._config.local_region))
 
-            logger.info(f"RegionalEventBus connected to Redis, region={self._config.local_region}")
+            logger.info("RegionalEventBus connected to Redis, region=%s", self._config.local_region)
 
             # Start background tasks
             self._running = True
@@ -255,12 +255,12 @@ class RegionalEventBus:
             logger.warning("redis package not installed, regional sync disabled")
             return False
         except (OSError, ConnectionError, TimeoutError) as e:
-            logger.error(f"Failed to connect RegionalEventBus: {e}")
+            logger.error("Failed to connect RegionalEventBus: %s", e)
             return False
         except Exception as e:  # noqa: BLE001 - redis.exceptions.ConnectionError inherits directly from Exception, not builtin ConnectionError
             error_name = type(e).__name__
             if "ConnectionError" in error_name or "TimeoutError" in error_name or "RedisError" in error_name:
-                logger.error(f"Failed to connect RegionalEventBus: {e}")
+                logger.error("Failed to connect RegionalEventBus: %s", e)
                 return False
             raise
 
@@ -283,7 +283,7 @@ class RegionalEventBus:
                 raise
             except (ConnectionError, TimeoutError, OSError) as e:
                 # Connection issues during shutdown are expected
-                logger.debug(f"Could not announce region leaving: {e}")
+                logger.debug("Could not announce region leaving: %s", e)
 
         # Cancel background tasks
         if self._listener_task:
@@ -391,7 +391,7 @@ class RegionalEventBus:
             return True
 
         except (OSError, ConnectionError, RuntimeError) as e:
-            logger.warning(f"Failed to publish regional event: {e}")
+            logger.warning("Failed to publish regional event: %s", e)
             # Buffer on failure
             if len(self._event_buffer) < self._config.max_event_buffer:
                 self._event_buffer.append(event)
@@ -467,7 +467,7 @@ class RegionalEventBus:
             except asyncio.CancelledError:
                 break
             except (OSError, ConnectionError, RuntimeError) as e:
-                logger.warning(f"Error in regional event listener: {e}")
+                logger.warning("Error in regional event listener: %s", e)
                 await asyncio.sleep(1.0)
 
     async def _handle_message(self, data: str) -> None:
@@ -487,9 +487,9 @@ class RegionalEventBus:
             await self._dispatch_event(event)
 
         except json.JSONDecodeError as e:
-            logger.warning(f"Invalid JSON in regional event: {e}")
+            logger.warning("Invalid JSON in regional event: %s", e)
         except (RuntimeError, ValueError, KeyError) as e:
-            logger.warning(f"Error handling regional event: {e}")
+            logger.warning("Error handling regional event: %s", e)
 
     async def _dispatch_event(self, event: RegionalEvent) -> None:
         """Dispatch event to registered handlers."""
@@ -499,14 +499,14 @@ class RegionalEventBus:
                 try:
                     await handler(event)
                 except (RuntimeError, ValueError, TypeError) as e:  # noqa: BLE001 - user-provided event handler callback
-                    logger.error(f"Error in regional event handler: {e}")
+                    logger.error("Error in regional event handler: %s", e)
 
         # Call global handlers
         for handler in self._global_handlers:
             try:
                 await handler(event)
             except (RuntimeError, ValueError, TypeError) as e:  # noqa: BLE001 - user-provided event handler callback
-                logger.error(f"Error in global regional event handler: {e}")
+                logger.error("Error in global regional event handler: %s", e)
 
     async def _heartbeat_loop(self) -> None:
         """Background task to send periodic region heartbeats."""
@@ -528,7 +528,7 @@ class RegionalEventBus:
             except asyncio.CancelledError:
                 break
             except (OSError, ConnectionError, RuntimeError) as e:
-                logger.warning(f"Error sending region heartbeat: {e}")
+                logger.warning("Error sending region heartbeat: %s", e)
                 await asyncio.sleep(self._config.heartbeat_interval)
 
     async def _flush_buffer(self) -> None:
@@ -536,7 +536,7 @@ class RegionalEventBus:
         if not self._event_buffer:
             return
 
-        logger.info(f"Flushing {len(self._event_buffer)} buffered regional events")
+        logger.info("Flushing %s buffered regional events", len(self._event_buffer))
         events = self._event_buffer.copy()
         self._event_buffer.clear()
 
@@ -608,7 +608,7 @@ class RegionalStateManager:
             return
 
         self._entity_versions[event.entity_id] = event.timestamp
-        logger.debug(f"Syncing agent {event.entity_id} from region {event.source_region}")
+        logger.debug("Syncing agent %s from region %s", event.entity_id, event.source_region)
 
         # Update local state
         # Note: This would call state_store methods when integrated
@@ -619,7 +619,7 @@ class RegionalStateManager:
             return
 
         self._entity_versions[event.entity_id] = event.timestamp
-        logger.debug(f"Syncing agent update {event.entity_id} from region {event.source_region}")
+        logger.debug("Syncing agent update %s from region %s", event.entity_id, event.source_region)
 
     async def _handle_agent_unregistered(self, event: RegionalEvent) -> None:
         """Handle agent unregistration from another region."""
@@ -627,7 +627,7 @@ class RegionalStateManager:
             return
 
         self._entity_versions[event.entity_id] = event.timestamp
-        logger.debug(f"Syncing agent removal {event.entity_id} from region {event.source_region}")
+        logger.debug("Syncing agent removal %s from region %s", event.entity_id, event.source_region)
 
     async def _handle_task_submitted(self, event: RegionalEvent) -> None:
         """Handle task submission from another region."""
@@ -635,7 +635,7 @@ class RegionalStateManager:
             return
 
         self._entity_versions[event.entity_id] = event.timestamp
-        logger.debug(f"Syncing task {event.entity_id} from region {event.source_region}")
+        logger.debug("Syncing task %s from region %s", event.entity_id, event.source_region)
 
     async def _handle_task_completed(self, event: RegionalEvent) -> None:
         """Handle task completion from another region."""
@@ -643,7 +643,7 @@ class RegionalStateManager:
             return
 
         self._entity_versions[event.entity_id] = event.timestamp
-        logger.debug(f"Syncing task completion {event.entity_id} from region {event.source_region}")
+        logger.debug("Syncing task completion %s from region %s", event.entity_id, event.source_region)
 
     def _is_newer(self, entity_id: str, timestamp: float) -> bool:
         """Check if an event timestamp is newer than our version."""

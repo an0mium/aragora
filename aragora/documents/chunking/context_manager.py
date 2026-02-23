@@ -248,7 +248,7 @@ class ContextManager:
         strategy = self.select_strategy(total_tokens, config.model, config)
 
         logger.info(
-            f"Building context: {total_tokens} tokens, strategy={strategy.value}, model={config.model}"
+            "Building context: %s tokens, strategy=%s, model=%s", total_tokens, strategy.value, config.model
         )
 
         if strategy == ContextStrategy.FULL:

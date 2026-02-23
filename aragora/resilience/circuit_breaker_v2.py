@@ -251,7 +251,7 @@ class BaseCircuitBreaker:
         """
         # Check if exception should be excluded
         if exception and isinstance(exception, self.config.excluded_exceptions):
-            logger.debug(f"[{self.name}] Excluded exception, not counting as failure: {exception}")
+            logger.debug("[%s] Excluded exception, not counting as failure: %s", self.name, exception)
             return
 
         with self._lock:
@@ -271,7 +271,7 @@ class BaseCircuitBreaker:
             if self._consecutive_failures >= self.config.failure_threshold:
                 should_open = True
                 logger.warning(
-                    f"[{self.name}] Opening circuit after {self._consecutive_failures} consecutive failures"
+                    "[%s] Opening circuit after %s consecutive failures", self.name, self._consecutive_failures
                 )
 
             # Rate-based (if configured)
@@ -300,7 +300,7 @@ class BaseCircuitBreaker:
             self._recent_results.clear()
 
             if old_state != CircuitState.CLOSED:
-                logger.info(f"[{self.name}] Circuit reset from {old_state.value} to closed")
+                logger.info("[%s] Circuit reset from %s to closed", self.name, old_state.value)
                 self._notify_state_change(old_state, CircuitState.CLOSED)
 
     def get_stats(self) -> CircuitBreakerStats:
@@ -338,7 +338,7 @@ class BaseCircuitBreaker:
             return
 
         self._state = new_state
-        logger.info(f"[{self.name}] Circuit state: {old_state.value} -> {new_state.value}")
+        logger.info("[%s] Circuit state: %s -> %s", self.name, old_state.value, new_state.value)
 
         if new_state == CircuitState.OPEN:
             self._opened_at = time.time()
@@ -358,7 +358,7 @@ class BaseCircuitBreaker:
             try:
                 self.config.on_state_change(self.name, old_state, new_state)
             except Exception as e:  # noqa: BLE001 - callback must not break state transitions
-                logger.warning(f"[{self.name}] State change callback error: {e}")
+                logger.warning("[%s] State change callback error: %s", self.name, e)
 
     def _add_result(self, success: bool) -> None:
         """Add a result to the sliding window (must hold lock)."""
@@ -509,7 +509,7 @@ def get_circuit_breaker(
                 )
 
             _circuit_breakers[name] = BaseCircuitBreaker(name, resolved_config)
-            logger.debug(f"Created circuit breaker: {name}")
+            logger.debug("Created circuit breaker: %s", name)
 
         return _circuit_breakers[name]
 
@@ -520,7 +520,7 @@ def reset_all_circuit_breakers() -> None:
         for cb in _circuit_breakers.values():
             cb.reset()
         count = len(_circuit_breakers)
-    logger.info(f"Reset {count} circuit breakers")
+    logger.info("Reset %s circuit breakers", count)
 
 
 def get_all_circuit_breakers() -> dict[str, BaseCircuitBreaker]:

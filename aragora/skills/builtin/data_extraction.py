@@ -189,7 +189,7 @@ class DataExtractionSkill(Skill):
                             self._extract_custom(text, pattern, name), include_positions
                         )
                     except re.error as e:
-                        logger.warning(f"Invalid regex pattern '{name}': {e}")
+                        logger.warning("Invalid regex pattern '%s': %s", name, e)
 
             # Calculate summary
             total_extractions = sum(len(v) for v in extractions.values())
@@ -203,7 +203,7 @@ class DataExtractionSkill(Skill):
             )
 
         except (RuntimeError, ValueError, TypeError, KeyError) as e:
-            logger.exception(f"Data extraction failed: {e}")
+            logger.exception("Data extraction failed: %s", e)
             return SkillResult.create_failure(f"Extraction failed: {e}")
 
     def _format_results(

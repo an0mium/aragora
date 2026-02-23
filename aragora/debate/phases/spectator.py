@@ -107,7 +107,7 @@ class SpectatorMixin:
             )
             self.event_emitter.emit(stream_event)
         except (RuntimeError, AttributeError, TypeError) as e:  # noqa: BLE001
-            logger.warning(f"Event emission error (non-fatal): {e}")
+            logger.warning("Event emission error (non-fatal): %s", e)
 
         # Update ArgumentCartographer with this event
         self._update_cartographer(event_type, **kwargs)
@@ -186,4 +186,4 @@ class SpectatorMixin:
                         metadata={"target_agent": choice},
                     )
         except (ValueError, KeyError, TypeError) as e:  # noqa: BLE001
-            logger.debug(f"Cartographer update error: {e}")
+            logger.debug("Cartographer update error: %s", e)

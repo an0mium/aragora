@@ -88,7 +88,7 @@ async def get_pipeline(workspace_id: str = "default") -> KnowledgePipeline:
             pipeline = KnowledgePipeline(config)
             await pipeline.start()
             _pipelines[workspace_id] = pipeline
-            logger.info(f"Knowledge pipeline initialized for workspace {workspace_id}")
+            logger.info("Knowledge pipeline initialized for workspace %s", workspace_id)
 
         return pipeline
 
@@ -151,13 +151,13 @@ async def process_document_async(
         try:
             config.on_complete(result)
         except (RuntimeError, ValueError, TypeError, AttributeError) as e:  # noqa: BLE001 - adapter isolation
-            logger.warning(f"on_complete callback failed: {e}")
+            logger.warning("on_complete callback failed: %s", e)
 
     if config.on_error and not result.success:
         try:
             config.on_error(result.document_id, Exception(result.error or "Unknown error"))
         except (RuntimeError, ValueError, TypeError, AttributeError) as e:  # noqa: BLE001 - adapter isolation
-            logger.warning(f"on_error callback failed: {e}")
+            logger.warning("on_error callback failed: %s", e)
 
     return result
 
@@ -242,13 +242,13 @@ async def process_text_async(
         try:
             config.on_complete(result)
         except (RuntimeError, ValueError, TypeError, AttributeError) as e:  # noqa: BLE001 - adapter isolation
-            logger.warning(f"on_complete callback failed: {e}")
+            logger.warning("on_complete callback failed: %s", e)
 
     if config.on_error and not result.success:
         try:
             config.on_error(result.document_id, Exception(result.error or "Unknown error"))
         except (RuntimeError, ValueError, TypeError, AttributeError) as e:  # noqa: BLE001 - adapter isolation
-            logger.warning(f"on_error callback failed: {e}")
+            logger.warning("on_error callback failed: %s", e)
 
     return result
 
@@ -329,8 +329,7 @@ def queue_text_processing(
             job.completed_at = datetime.now(timezone.utc)
 
             logger.info(
-                f"Knowledge processing completed: {job_id} "
-                f"chunks={result.chunk_count} facts={result.fact_count}"
+                "Knowledge processing completed: %s chunks=%s facts=%s", job_id, result.chunk_count, result.fact_count
             )
 
         except (OSError, RuntimeError, ValueError, ConnectionError, KeyError) as e:  # noqa: BLE001 - adapter isolation
@@ -341,7 +340,7 @@ def queue_text_processing(
 
     _executor.submit(run_processing)
 
-    logger.info(f"Queued knowledge processing: {job_id} for {filename}")
+    logger.info("Queued knowledge processing: %s for %s", job_id, filename)
     return job_id
 
 
@@ -401,8 +400,7 @@ def queue_document_processing(
             job.completed_at = datetime.now(timezone.utc)
 
             logger.info(
-                f"Knowledge processing completed: {job_id} "
-                f"chunks={result.chunk_count} facts={result.fact_count}"
+                "Knowledge processing completed: %s chunks=%s facts=%s", job_id, result.chunk_count, result.fact_count
             )
 
         except (OSError, RuntimeError, ValueError, ConnectionError, KeyError) as e:  # noqa: BLE001 - adapter isolation
@@ -413,7 +411,7 @@ def queue_document_processing(
 
     _executor.submit(run_processing)
 
-    logger.info(f"Queued knowledge processing: {job_id} for {filename}")
+    logger.info("Queued knowledge processing: %s for %s", job_id, filename)
     return job_id
 
 

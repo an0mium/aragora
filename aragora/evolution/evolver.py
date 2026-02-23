@@ -569,9 +569,9 @@ Return ONLY the refined prompt, no explanations."""
                             ValueError,
                             TypeError,
                         ) as e:
-                            logger.warning(f"Failed to parse Anthropic response: {e}")
+                            logger.warning("Failed to parse Anthropic response: %s", e)
                     else:
-                        logger.warning(f"Anthropic API returned status {response.status_code}")
+                        logger.warning("Anthropic API returned status %s", response.status_code)
                 elif openai_key:
                     response = client.post(
                         "https://api.openai.com/v1/chat/completions",
@@ -596,13 +596,13 @@ Return ONLY the refined prompt, no explanations."""
                             ValueError,
                             TypeError,
                         ) as e:
-                            logger.warning(f"Failed to parse OpenAI response: {e}")
+                            logger.warning("Failed to parse OpenAI response: %s", e)
                     else:
-                        logger.warning(f"OpenAI API returned status {response.status_code}")
+                        logger.warning("OpenAI API returned status %s", response.status_code)
                 # No API key available - fall through to append fallback
 
         except httpx.RequestError as e:
-            logger.warning(f"LLM API request failed: {e}")
+            logger.warning("LLM API request failed: %s", e)
 
         # Fall back to append if LLM call fails
         return self._evolve_append(current_prompt, patterns)
@@ -798,7 +798,7 @@ Return ONLY the refined prompt, no explanations."""
 
             conn.commit()
 
-        logger.info(f"Recorded vulnerability pattern for {agent_name}: {vulnerability.category}")
+        logger.info("Recorded vulnerability pattern for %s: %s", agent_name, vulnerability.category)
 
     def _suggest_mitigation(self, category: str, severity: str) -> str:
         """
@@ -990,8 +990,7 @@ Return ONLY the refined prompt, no explanations."""
 
         if len(patterns) < min_vulnerability_count:
             logger.info(
-                f"Agent {agent.name} has {len(patterns)} vulnerability patterns, "
-                f"need {min_vulnerability_count} to evolve"
+                "Agent %s has %s vulnerability patterns, need %s to evolve", agent.name, len(patterns), min_vulnerability_count
             )
             return None
 
@@ -1074,7 +1073,7 @@ Return ONLY the refined prompt, no explanations."""
             )
             conn.commit()
 
-        logger.info(f"Evolved {agent.name}: applied {len(robustness_instructions)} mitigations")
+        logger.info("Evolved %s: applied %s mitigations", agent.name, len(robustness_instructions))
 
         return new_prompt
 

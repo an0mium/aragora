@@ -80,8 +80,7 @@ async def init_postgres_pool() -> dict[str, Any]:
         if pool:
             info = get_pool_info()
             logger.warning(
-                f"[startup/db] PostgreSQL pool initialized "
-                f"(backend: {backend.value}, size: {info.get('pool_size', 'unknown')})"
+                "[startup/db] PostgreSQL pool initialized (backend: %s, size: %s)", backend.value, info.get('pool_size', 'unknown')
             )
             return {
                 "enabled": True,
@@ -94,7 +93,7 @@ async def init_postgres_pool() -> dict[str, Any]:
             return {"enabled": False, "backend": "sqlite", "reason": "pool_init_returned_none"}
 
     except (OSError, RuntimeError, ValueError, ConnectionError, TimeoutError) as e:
-        logger.error(f"[startup/db] PostgreSQL pool initialization failed: {e}")
+        logger.error("[startup/db] PostgreSQL pool initialization failed: %s", e)
         return {
             "enabled": False,
             "backend": "sqlite",
@@ -117,7 +116,7 @@ async def close_postgres_pool() -> None:
     except ImportError:
         pass  # pool_manager not available
     except (OSError, RuntimeError, ConnectionError) as e:
-        logger.warning(f"[startup/db] Error closing PostgreSQL pool: {e}")
+        logger.warning("[startup/db] Error closing PostgreSQL pool: %s", e)
 
 
 __all__ = ["init_postgres_pool", "close_postgres_pool"]

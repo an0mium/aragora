@@ -257,7 +257,7 @@ class UserStore:
             # Create indexes
             self._create_indexes(cursor)
 
-        logger.info(f"UserStore initialized: {self.db_path}")
+        logger.info("UserStore initialized: %s", self.db_path)
 
     def _create_indexes(self, cursor: sqlite3.Cursor) -> None:
         """Create database indexes."""
@@ -312,7 +312,7 @@ class UserStore:
         for col_name, sql in migrations:
             if col_name not in existing_columns:
                 cursor.execute(sql)
-                logger.info(f"Migration: Added {col_name} column")
+                logger.info("Migration: Added %s column", col_name)
 
     def migrate_plaintext_api_keys(self) -> int:
         """Migrate existing plaintext API keys to hashed storage."""
@@ -339,9 +339,9 @@ class UserStore:
                     (key_hash, prefix, expires_at, datetime.now(timezone.utc).isoformat(), user_id),
                 )
                 migrated += 1
-                logger.info(f"Migrated API key for user {user_id}")
+                logger.info("Migrated API key for user %s", user_id)
 
-        logger.info(f"API key migration complete: {migrated} keys migrated")
+        logger.info("API key migration complete: %s keys migrated", migrated)
         return migrated
 
     # =========================================================================
@@ -385,13 +385,13 @@ class UserStore:
                         user.api_key_expires_at.replace("Z", "+00:00")
                     )
                     if expires_at < datetime.now(timezone.utc):
-                        logger.warning(f"Attempted use of expired API key for user {user.id}")
+                        logger.warning("Attempted use of expired API key for user %s", user.id)
                         return None
                 except (ValueError, AttributeError):
                     pass  # If we can't parse the date, allow the key
             elif isinstance(user.api_key_expires_at, datetime):
                 if user.api_key_expires_at < datetime.now(timezone.utc):
-                    logger.warning(f"Attempted use of expired API key for user {user.id}")
+                    logger.warning("Attempted use of expired API key for user %s", user.id)
                     return None
         return user
 

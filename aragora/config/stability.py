@@ -119,13 +119,12 @@ def stability_marker(
         def wrapper(*args: Any, **kwargs: Any) -> Any:
             # Log warning for non-stable features
             if stability == Stability.EXPERIMENTAL:
-                logger.debug(f"Using experimental feature: {func_name}")
+                logger.debug("Using experimental feature: %s", func_name)
             elif stability == Stability.PREVIEW:
-                logger.info(f"Using preview feature: {func_name}")
+                logger.info("Using preview feature: %s", func_name)
             elif stability == Stability.DEPRECATED:
                 logger.warning(
-                    f"Using deprecated feature: {func_name}. "
-                    f"Use {alternative or 'alternative'} instead."
+                    "Using deprecated feature: %s. Use %s instead.", func_name, alternative or 'alternative'
                 )
             return func(*args, **kwargs)
 

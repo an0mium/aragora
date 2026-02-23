@@ -390,7 +390,7 @@ class NomicCycleAdapter(KnowledgeMoundAdapter):
             try:
                 self._on_event(event, data)
             except (RuntimeError, ValueError, TypeError, AttributeError) as e:  # noqa: BLE001 - adapter isolation
-                logger.warning(f"Event emission failed: {e}")
+                logger.warning("Event emission failed: %s", e)
 
     def _generate_cycle_id(self, outcome: NomicCycleOutcome) -> str:
         """Generate a unique ID for a cycle outcome."""
@@ -780,7 +780,7 @@ class NomicCycleAdapter(KnowledgeMoundAdapter):
             return similar_curricula[:limit]
 
         except (RuntimeError, ValueError, OSError, AttributeError) as e:
-            logger.warning(f"Failed to find similar curricula: {e}")
+            logger.warning("Failed to find similar curricula: %s", e)
             return []
 
     async def find_high_roi_goal_types(
@@ -1065,7 +1065,7 @@ class NomicCycleAdapter(KnowledgeMoundAdapter):
             return similar_cycles[:limit]
 
         except (RuntimeError, ValueError, OSError, AttributeError) as e:
-            logger.warning(f"Failed to find similar cycles: {e}")
+            logger.warning("Failed to find similar cycles: %s", e)
             return []
 
     async def _get_learnings(
@@ -1104,7 +1104,7 @@ class NomicCycleAdapter(KnowledgeMoundAdapter):
             return learnings
 
         except (RuntimeError, ValueError, OSError, AttributeError) as e:
-            logger.debug(f"Failed to get learnings: {e}")
+            logger.debug("Failed to get learnings: %s", e)
             return []
 
     async def _get_recommendations(
@@ -1139,7 +1139,7 @@ class NomicCycleAdapter(KnowledgeMoundAdapter):
             return recommendations
 
         except (RuntimeError, ValueError, OSError, AttributeError) as e:
-            logger.debug(f"Failed to get recommendations: {e}")
+            logger.debug("Failed to get recommendations: %s", e)
             return []
 
     async def get_cycle_outcome(
@@ -1193,7 +1193,7 @@ class NomicCycleAdapter(KnowledgeMoundAdapter):
             )
 
         except (RuntimeError, ValueError, OSError, AttributeError) as e:
-            logger.warning(f"Failed to get cycle outcome: {e}")
+            logger.warning("Failed to get cycle outcome: %s", e)
             return None
 
 

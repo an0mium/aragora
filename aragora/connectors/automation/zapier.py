@@ -207,7 +207,7 @@ class ZapierConnector(AutomationConnector):
             if result.subscription_id == subscription.id:
                 if result.success:
                     subscription.verified = True
-                    logger.info(f"[Zapier] Subscription {subscription.id} verified")
+                    logger.info("[Zapier] Subscription %s verified", subscription.id)
                 return result.success
 
         return False

@@ -228,7 +228,7 @@ class QuotaEnforcer:
             if self._redis:
                 logger.info("Quota enforcer using Redis persistence")
         except REDIS_CONNECTION_ERRORS as e:
-            logger.warning(f"Redis not available for quota persistence: {e}")
+            logger.warning("Redis not available for quota persistence: %s", e)
             self._redis = None
 
         return self._redis
@@ -257,7 +257,7 @@ class QuotaEnforcer:
             # Set TTL of 90 days on the key
             redis.expire(redis_key, 90 * 24 * 3600)
         except (OSError, ConnectionError, TimeoutError, TypeError) as e:
-            logger.warning(f"Failed to persist quota usage to Redis: {e}")
+            logger.warning("Failed to persist quota usage to Redis: %s", e)
 
     def _load_from_persistence(self) -> None:
         """Load usage records from Redis on startup."""
@@ -291,15 +291,15 @@ class QuotaEnforcer:
                                 self._usage[usage_key].append(record)
                                 loaded_count += 1
                             except (ValueError, TypeError, KeyError) as e:
-                                logger.warning(f"Failed to parse quota record: {e}")
+                                logger.warning("Failed to parse quota record: %s", e)
 
                 if cursor == 0:
                     break
 
             if loaded_count > 0:
-                logger.info(f"Loaded {loaded_count} quota usage records from Redis")
+                logger.info("Loaded %s quota usage records from Redis", loaded_count)
         except (OSError, ConnectionError, TimeoutError, ValueError) as e:
-            logger.warning(f"Failed to load quota usage from Redis: {e}")
+            logger.warning("Failed to load quota usage from Redis: %s", e)
 
     def set_policy(
         self,
@@ -321,8 +321,7 @@ class QuotaEnforcer:
             self._policies[policy.resource_type] = policy
 
         logger.info(
-            f"Quota policy set: resource={policy.resource_type}, "
-            f"limit={policy.limit}/{policy.period.value}, org={org_id}"
+            "Quota policy set: resource=%s, limit=%s/%s, org=%s", policy.resource_type, policy.limit, policy.period.value, org_id
         )
 
     def get_policy(
@@ -392,12 +391,11 @@ class QuotaEnforcer:
             # Hard limit or soft limit?
             if policy.hard_limit:
                 logger.warning(
-                    f"Quota exceeded: user={user_id}, resource={resource_type}, "
-                    f"current={current}, limit={policy.limit}"
+                    "Quota exceeded: user=%s, resource=%s, current=%s, limit=%s", user_id, resource_type, current, policy.limit
                 )
                 return False
             else:
-                logger.info(f"Quota soft limit exceeded: user={user_id}, resource={resource_type}")
+                logger.info("Quota soft limit exceeded: user=%s, resource=%s", user_id, resource_type)
                 return True  # Allow but warn
 
         return True
@@ -454,8 +452,7 @@ class QuotaEnforcer:
         self._persist_usage(key, record)
 
         logger.debug(
-            f"Usage recorded: user={user_id}, resource={resource_type}, "
-            f"amount={amount}, cost={cost}"
+            "Usage recorded: user=%s, resource=%s, amount=%s, cost=%s", user_id, resource_type, amount, cost
         )
 
         return record
@@ -622,7 +619,7 @@ class QuotaEnforcer:
                 del self._usage[key]
 
         if count > 0:
-            logger.info(f"Cleaned up {count} old usage records")
+            logger.info("Cleaned up %s old usage records", count)
 
         return count
 

@@ -169,7 +169,7 @@ class OpenClawClient:
                         result = await response.json()
                     except (ValueError, aiohttp.ContentTypeError) as e:
                         logger.debug(
-                            f"JSON parse failed, falling back to text: {type(e).__name__}: {e}"
+                            "JSON parse failed, falling back to text: %s: %s", type(e).__name__, e
                         )
                         result = await response.text()
 
@@ -194,7 +194,7 @@ class OpenClawClient:
             except (aiohttp.ClientError, OSError) as e:
                 if attempt < self._config.max_retries - 1:
                     logger.debug(
-                        f"OpenClaw connection error (attempt {attempt + 1}): {type(e).__name__}: {e}"
+                        "OpenClaw connection error (attempt %s): %s: %s", attempt + 1, type(e).__name__, e
                     )
                     await asyncio.sleep(self._config.retry_delay * (attempt + 1))
                     continue

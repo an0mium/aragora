@@ -118,7 +118,7 @@ def apply_minimal_mode(config: MinimalModeConfig | None = None) -> dict[str, Any
         os.environ.setdefault("ARAGORA_TRACING_ENABLED", "false")
         applied["ARAGORA_TRACING_ENABLED"] = "false"
 
-    logger.info(f"Applied minimal mode configuration: {applied}")
+    logger.info("Applied minimal mode configuration: %s", applied)
     return applied
 
 

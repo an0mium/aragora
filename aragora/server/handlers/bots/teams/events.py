@@ -90,7 +90,7 @@ class TeamsEventProcessor:
         elif activity_type == "installationUpdate":
             return await self._handle_installation_update(activity)
         else:
-            logger.debug(f"Unhandled activity type: {activity_type}")
+            logger.debug("Unhandled activity type: %s", activity_type)
             return {}
 
     # =========================================================================
@@ -118,7 +118,7 @@ class TeamsEventProcessor:
         user_id = from_user.get("id", "")
         user_name = from_user.get("name", "unknown")
 
-        logger.info(f"Teams message from {user_name}: {text[:100]}...")
+        logger.info("Teams message from %s: %s...", user_name, text[:100])
 
         # Send typing indicator for better UX
         await self.bot.send_typing(activity)
@@ -189,7 +189,7 @@ class TeamsEventProcessor:
         activity: dict[str, Any],
     ) -> dict[str, Any]:
         """Handle a bot command from @mention or personal message."""
-        logger.info(f"Teams command: {command} {args[:50]}...")
+        logger.info("Teams command: %s %s...", command, args[:50])
         thread_id = activity.get("replyToId")
 
         if command in ("debate", "ask", "plan", "implement"):
@@ -285,7 +285,7 @@ class TeamsEventProcessor:
             label = "implementation plan"
         await self.bot.send_card(activity, card, f"Starting {label} on: {topic[:100]}...")
 
-        logger.info(f"Started debate {debate_id} from Teams user {user_id}")
+        logger.info("Started debate %s from Teams user %s", debate_id, user_id)
         audit_data(
             user_id=f"teams:{user_id}",
             resource_type="debate",
@@ -407,7 +407,7 @@ Aragora orchestrates 15+ AI models to debate and deliver defensible decisions.""
                     for r in sorted_ratings[:10]
                 ]
         except (ImportError, AttributeError, RuntimeError) as e:
-            logger.debug(f"ELO store not available: {e}")
+            logger.debug("ELO store not available: %s", e)
 
         if standings:
             try:
@@ -543,22 +543,22 @@ Each debate uses a dynamic team selected based on task requirements and agent pe
 
         for reaction in reactions_added:
             reaction_type = reaction.get("type", "")
-            logger.debug(f"Reaction added by {user_id}: {reaction_type}")
+            logger.debug("Reaction added by %s: %s", user_id, reaction_type)
 
             if reaction_type in ("like", "heart"):
                 reply_to = activity.get("replyToId", "")
                 if reply_to:
-                    logger.debug(f"Positive reaction on message {reply_to} from {user_id}")
+                    logger.debug("Positive reaction on message %s from %s", reply_to, user_id)
 
         for reaction in reactions_removed:
-            logger.debug(f"Reaction removed by {user_id}: {reaction.get('type')}")
+            logger.debug("Reaction removed by %s: %s", user_id, reaction.get('type'))
 
         return {}
 
     async def _handle_installation_update(self, activity: dict[str, Any]) -> dict[str, Any]:
         """Handle installation update (app installed/uninstalled)."""
         action = activity.get("action", "")
-        logger.info(f"Teams installation update: {action}")
+        logger.info("Teams installation update: %s", action)
 
         conversation_id = activity.get("conversation", {}).get("id", "")
 

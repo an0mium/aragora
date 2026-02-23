@@ -323,7 +323,7 @@ async def handle_get_invoice(
         logger.warning("Handler error: %s", e)
         return error_response("AP service temporarily unavailable", status=503)
     except (ValueError, TypeError, KeyError, AttributeError) as e:
-        logger.exception(f"Error getting invoice {invoice_id}")
+        logger.exception("Error getting invoice %s", invoice_id)
         return error_response("Failed to retrieve invoice", status=500)
 
 
@@ -404,7 +404,7 @@ async def handle_record_payment(
         logger.warning("Handler error: %s", e)
         return error_response("AP service temporarily unavailable", status=503)
     except (ValueError, TypeError, KeyError, AttributeError) as e:
-        logger.exception(f"Error recording payment for invoice {invoice_id}")
+        logger.exception("Error recording payment for invoice %s", invoice_id)
         return error_response("Payment recording failed", status=500)
 
 

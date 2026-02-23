@@ -222,7 +222,7 @@ class ProtocolMessageStore:
         self._pool = ConnectionPool(self.db_path, max_connections=max_connections)
         self._executor = None  # Uses default ThreadPoolExecutor
         self._init_schema()
-        logger.info(f"ProtocolMessageStore initialized: {self.db_path}")
+        logger.info("ProtocolMessageStore initialized: %s", self.db_path)
 
     def _get_connection(self) -> sqlite3.Connection:
         """Get a connection from the pool."""
@@ -554,7 +554,7 @@ class ProtocolMessageStore:
             return len(messages)
 
         count = await self._run_in_executor(functools.partial(_write_sync))
-        logger.info(f"Exported {count} messages to {output_path}")
+        logger.info("Exported %s messages to %s", count, output_path)
         return count
 
     async def delete_debate(self, debate_id: str) -> int:
@@ -570,7 +570,7 @@ class ProtocolMessageStore:
             Number of messages deleted.
         """
         count = await self._run_in_executor(functools.partial(self._delete_debate_sync, debate_id))
-        logger.info(f"Deleted {count} messages for debate {debate_id[:8]}...")
+        logger.info("Deleted %s messages for debate %s...", count, debate_id[:8])
         return count
 
     def _delete_debate_sync(self, debate_id: str) -> int:
@@ -595,7 +595,7 @@ class ProtocolMessageStore:
             Number of messages deleted.
         """
         count = await self._run_in_executor(functools.partial(self._cleanup_old_sync, days))
-        logger.info(f"Cleaned up {count} messages older than {days} days")
+        logger.info("Cleaned up %s messages older than %s days", count, days)
         return count
 
     def _cleanup_old_sync(self, days: int = 30) -> int:
@@ -624,7 +624,7 @@ class ProtocolMessageStore:
             try:
                 metadata = json.loads(row["metadata"])
             except json.JSONDecodeError as e:
-                logger.debug(f"Failed to parse message metadata: {e}")
+                logger.debug("Failed to parse message metadata: %s", e)
 
         timestamp = row["timestamp"]
         if isinstance(timestamp, str):
@@ -826,7 +826,7 @@ class AsyncProtocolMessageStore:
             return len(messages)
 
         count = await self._run_in_executor(functools.partial(_write_sync))
-        logger.info(f"Exported {count} messages to {output_path}")
+        logger.info("Exported %s messages to %s", count, output_path)
         return count
 
     async def delete_debate(self, debate_id: str) -> int:
@@ -848,7 +848,7 @@ class AsyncProtocolMessageStore:
                 return cursor.rowcount
 
         count = await self._run_in_executor(functools.partial(_delete_sync))
-        logger.info(f"Deleted {count} messages for debate {debate_id[:8]}...")
+        logger.info("Deleted %s messages for debate %s...", count, debate_id[:8])
         return count
 
     async def cleanup_old(self, days: int = 30) -> int:
@@ -873,7 +873,7 @@ class AsyncProtocolMessageStore:
                 return cursor.rowcount
 
         count = await self._run_in_executor(functools.partial(_cleanup_sync))
-        logger.info(f"Cleaned up {count} messages older than {days} days")
+        logger.info("Cleaned up %s messages older than %s days", count, days)
         return count
 
     def close(self) -> None:

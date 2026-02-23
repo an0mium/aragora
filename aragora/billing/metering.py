@@ -306,7 +306,7 @@ class UsageMeter:
             conn.commit()
 
         self._db_initialized = True
-        logger.debug(f"Billing database initialized at {self.config.db_path}")
+        logger.debug("Billing database initialized at %s", self.config.db_path)
 
     def _persist_events(self, events: list[BillingEvent]) -> None:
         """Persist events to database."""
@@ -349,7 +349,7 @@ class UsageMeter:
                 )
             conn.commit()
 
-        logger.debug(f"Persisted {len(events)} billing events to database")
+        logger.debug("Persisted %s billing events to database", len(events))
 
     def _query_events(
         self,
@@ -447,7 +447,7 @@ class UsageMeter:
             except asyncio.CancelledError:
                 break
             except (OSError, ConnectionError, TimeoutError, RuntimeError, ValueError) as e:
-                logger.error(f"Error in flush loop: {e}")
+                logger.error("Error in flush loop: %s", e)
 
     async def _flush_events(self) -> None:
         """Flush buffered events to persistent storage."""
@@ -459,11 +459,11 @@ class UsageMeter:
             self._events.clear()
 
         # Persist events to database
-        logger.debug(f"Flushing {len(events_to_flush)} billing events")
+        logger.debug("Flushing %s billing events", len(events_to_flush))
         try:
             self._persist_events(events_to_flush)
         except (OSError, ConnectionError, TimeoutError, RuntimeError, ValueError) as e:
-            logger.error(f"Failed to persist billing events: {e}")
+            logger.error("Failed to persist billing events: %s", e)
             # Re-add events to buffer on failure so they aren't lost
             async with self._lock:
                 self._events = events_to_flush + self._events

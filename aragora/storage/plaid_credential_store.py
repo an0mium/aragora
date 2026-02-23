@@ -112,7 +112,7 @@ def _encrypt_token(token: str, aad: str = "") -> str:
                 str(e),
                 "plaid_credential_store",
             ) from e
-        logger.warning(f"Plaid token encryption failed, storing unencrypted: {e}")
+        logger.warning("Plaid token encryption failed, storing unencrypted: %s", e)
         return token
 
 
@@ -136,7 +136,7 @@ def _decrypt_token(encrypted_token: str, aad: str = "") -> str:
         return service.decrypt_string(encrypted_token, associated_data=aad if aad else None)
     except (ValueError, RuntimeError, OSError) as e:
         # Could be a legacy plain token that happens to start with "A"
-        logger.warning(f"Plaid token decryption failed (may be legacy token): {e}")
+        logger.warning("Plaid token decryption failed (may be legacy token): %s", e)
         return encrypted_token
 
 
@@ -291,7 +291,7 @@ class SQLitePlaidCredentialStore(PlaidCredentialStore):
         )
         conn.commit()
         logger.info(
-            f"[PlaidStore] Saved credentials for {institution_name} (item: {item_id[:8]}...)"
+            "[PlaidStore] Saved credentials for %s (item: %s...)", institution_name, item_id[:8]
         )
 
     async def get_credentials(
@@ -347,7 +347,7 @@ class SQLitePlaidCredentialStore(PlaidCredentialStore):
 
         deleted = cursor.rowcount > 0
         if deleted:
-            logger.info(f"[PlaidStore] Deleted credentials for item: {item_id[:8]}...")
+            logger.info("[PlaidStore] Deleted credentials for item: %s...", item_id[:8])
         return deleted
 
     async def list_credentials(

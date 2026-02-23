@@ -329,7 +329,7 @@ class GlobalWorkQueue:
         self.storage_dir.mkdir(parents=True, exist_ok=True)
         await self._load_queue()
         self._initialized = True
-        logger.info(f"GlobalWorkQueue initialized with {len(self._items)} items")
+        logger.info("GlobalWorkQueue initialized with %s items", len(self._items))
 
     async def _load_queue(self) -> None:
         """Load queue from storage."""
@@ -352,9 +352,9 @@ class GlobalWorkQueue:
                         elif work.status in (WorkStatus.PENDING, WorkStatus.READY):
                             self._add_to_heap(work)
                     except (json.JSONDecodeError, KeyError) as e:
-                        logger.warning(f"Invalid queue data: {e}")
+                        logger.warning("Invalid queue data: %s", e)
         except OSError as e:
-            logger.error(f"Failed to load queue: {e}")
+            logger.error("Failed to load queue: %s", e)
 
     async def _save_queue(self) -> None:
         """Save queue to storage."""
@@ -369,7 +369,7 @@ class GlobalWorkQueue:
         except OSError as e:
             if temp_file.exists():
                 temp_file.unlink()
-            logger.error(f"Failed to save queue: {e}")
+            logger.error("Failed to save queue: %s", e)
 
     def _add_to_heap(self, work: WorkItem) -> None:
         """Add work item to the priority heap."""
@@ -414,7 +414,7 @@ class GlobalWorkQueue:
             self._add_to_heap(work)
             await self._save_queue()
 
-            logger.debug(f"Pushed work {work.id} with priority {work.computed_priority}")
+            logger.debug("Pushed work %s with priority %s", work.id, work.computed_priority)
 
             # Notify callbacks
             for callback in self._callbacks:
@@ -424,7 +424,7 @@ class GlobalWorkQueue:
                     else:
                         callback("push", work)
                 except Exception as e:  # noqa: BLE001 - callback errors must not break queue operations
-                    logger.error(f"Callback error: {e}")
+                    logger.error("Callback error: %s", e)
 
             return work
 
@@ -474,7 +474,7 @@ class GlobalWorkQueue:
                 current.updated_at = datetime.now(timezone.utc)
                 await self._save_queue()
 
-                logger.debug(f"Popped work {current.id} with priority {current.computed_priority}")
+                logger.debug("Popped work %s with priority %s", current.id, current.computed_priority)
                 return current
 
             return None
@@ -534,7 +534,7 @@ class GlobalWorkQueue:
             await self._check_unblocked()
             await self._save_queue()
 
-            logger.info(f"Completed work {work_id}")
+            logger.info("Completed work %s", work_id)
             return work
 
     async def fail(
@@ -564,7 +564,7 @@ class GlobalWorkQueue:
 
             await self._save_queue()
 
-            logger.warning(f"Failed work {work_id}: {error}")
+            logger.warning("Failed work %s: %s", work_id, error)
             return work
 
     async def _check_unblocked(self) -> list[WorkItem]:
@@ -578,7 +578,7 @@ class GlobalWorkQueue:
                     work.updated_at = datetime.now(timezone.utc)
                     self._add_to_heap(work)
                     unblocked.append(work)
-                    logger.debug(f"Work {work.id} unblocked")
+                    logger.debug("Work %s unblocked", work.id)
 
         return unblocked
 
@@ -622,7 +622,7 @@ class GlobalWorkQueue:
             self._heap = new_heap
             await self._save_queue()
 
-            logger.info(f"Reprioritized {count} work items")
+            logger.info("Reprioritized %s work items", count)
             return count
 
     async def import_from_beads(self) -> int:
@@ -668,7 +668,7 @@ class GlobalWorkQueue:
 
             if count > 0:
                 await self._save_queue()
-                logger.info(f"Imported {count} beads into queue")
+                logger.info("Imported %s beads into queue", count)
 
             return count
 
@@ -715,7 +715,7 @@ class GlobalWorkQueue:
 
             if count > 0:
                 await self._save_queue()
-                logger.info(f"Imported {count} convoys into queue")
+                logger.info("Imported %s convoys into queue", count)
 
             return count
 

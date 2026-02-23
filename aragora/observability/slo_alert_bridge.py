@@ -228,13 +228,13 @@ class SLOAlertBridge:
             if self._pagerduty_client is None:
                 raise RuntimeError("PagerDuty client not initialized")
             incident = await self._pagerduty_client.create_incident(request)
-            logger.info(f"Created PagerDuty incident {incident.id} for {violation.operation}")
+            logger.info("Created PagerDuty incident %s for %s", incident.id, violation.operation)
             return incident.id
 
         except ImportError:
             logger.debug("PagerDuty connector not available")
         except (OSError, ConnectionError, RuntimeError, ValueError) as e:
-            logger.error(f"Failed to create PagerDuty incident: {e}")
+            logger.error("Failed to create PagerDuty incident: %s", e)
 
         return None
 
@@ -322,13 +322,13 @@ class SLOAlertBridge:
                 },
             )
 
-            logger.info(f"Sent Slack alert for {violation.operation}")
+            logger.info("Sent Slack alert for %s", violation.operation)
             return True
 
         except ImportError:
             logger.debug("Notification manager not available")
         except (OSError, ConnectionError, RuntimeError, ValueError) as e:
-            logger.error(f"Failed to send Slack alert: {e}")
+            logger.error("Failed to send Slack alert: %s", e)
 
         return False
 
@@ -432,9 +432,9 @@ class SLOAlertBridge:
                         f"Duration: {time.time() - violation.first_seen:.0f}s, "
                         f"Occurrences: {violation.count}",
                     )
-                    logger.info(f"Resolved PagerDuty incident {violation.pagerduty_incident_id}")
+                    logger.info("Resolved PagerDuty incident %s", violation.pagerduty_incident_id)
                 except (OSError, ConnectionError, RuntimeError) as e:
-                    logger.error(f"Failed to resolve PagerDuty incident: {e}")
+                    logger.error("Failed to resolve PagerDuty incident: %s", e)
 
             # Send recovery notification to Slack
             if "slack" in violation.notified_channels and self._notification_manager:
@@ -457,7 +457,7 @@ class SLOAlertBridge:
                         },
                     )
                 except (ImportError, OSError, ConnectionError, RuntimeError) as e:
-                    logger.error(f"Failed to send recovery notification: {e}")
+                    logger.error("Failed to send recovery notification: %s", e)
 
             # Clean up
             del self._active_violations[incident_key]
@@ -574,10 +574,7 @@ def init_slo_alerting(
         register_recovery_callback(recovery_callback)
 
         logger.info(
-            f"SLO alerting initialized: "
-            f"pagerduty={config.pagerduty_enabled}, "
-            f"slack={config.slack_enabled}, "
-            f"teams={config.teams_enabled}"
+            "SLO alerting initialized: pagerduty=%s, slack=%s, teams=%s", config.pagerduty_enabled, config.slack_enabled, config.teams_enabled
         )
 
     except ImportError:

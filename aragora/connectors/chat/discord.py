@@ -180,7 +180,7 @@ class DiscordConnector(ChatPlatformConnector):
 
         except (httpx.HTTPError, httpx.TimeoutException, OSError, KeyError, ValueError) as e:
             self._record_failure(e)
-            logger.error(f"Discord send_message error: {e}")
+            logger.error("Discord send_message error: %s", e)
             return SendMessageResponse(success=False, error="Message send failed")
 
     async def update_message(
@@ -232,7 +232,7 @@ class DiscordConnector(ChatPlatformConnector):
 
         except (httpx.HTTPError, httpx.TimeoutException, OSError, KeyError, ValueError) as e:
             self._record_failure(e)
-            logger.error(f"Discord update_message error: {e}")
+            logger.error("Discord update_message error: %s", e)
             return SendMessageResponse(success=False, error="Message update failed")
 
     async def delete_message(
@@ -258,7 +258,7 @@ class DiscordConnector(ChatPlatformConnector):
 
         except (httpx.HTTPError, httpx.TimeoutException, OSError) as e:
             self._record_failure(e)
-            logger.error(f"Discord delete_message error: {e}")
+            logger.error("Discord delete_message error: %s", e)
             return False
 
     async def send_typing_indicator(
@@ -285,7 +285,7 @@ class DiscordConnector(ChatPlatformConnector):
             return result
 
         except (httpx.HTTPError, httpx.TimeoutException, OSError) as e:
-            logger.debug(f"Discord typing indicator error: {e}")
+            logger.debug("Discord typing indicator error: %s", e)
             return False
 
     async def send_ephemeral(
@@ -400,7 +400,7 @@ class DiscordConnector(ChatPlatformConnector):
 
         except (httpx.HTTPError, httpx.TimeoutException, OSError, KeyError, ValueError) as e:
             self._record_failure(e)
-            logger.error(f"Discord interaction response error: {e}")
+            logger.error("Discord interaction response error: %s", e)
             return SendMessageResponse(success=False, error="Interaction response failed")
 
     async def upload_file(
@@ -453,7 +453,7 @@ class DiscordConnector(ChatPlatformConnector):
                         url=att.get("url"),
                     )
 
-            logger.warning(f"Discord upload_file failed: {error}")
+            logger.warning("Discord upload_file failed: %s", error)
             return FileAttachment(
                 id="",
                 filename=filename,
@@ -463,7 +463,7 @@ class DiscordConnector(ChatPlatformConnector):
 
         except (httpx.HTTPError, httpx.TimeoutException, OSError, KeyError, ValueError) as e:
             self._record_failure(e)
-            logger.error(f"Discord upload_file error: {e}")
+            logger.error("Discord upload_file error: %s", e)
             return FileAttachment(
                 id="",
                 filename=filename,
@@ -525,7 +525,7 @@ class DiscordConnector(ChatPlatformConnector):
                         content=response.content,
                     )
 
-            logger.warning(f"Discord download_file failed: {error}")
+            logger.warning("Discord download_file failed: %s", error)
             return FileAttachment(
                 id=file_id,
                 filename="",
@@ -535,7 +535,7 @@ class DiscordConnector(ChatPlatformConnector):
 
         except (httpx.HTTPError, httpx.TimeoutException, OSError) as e:
             self._record_failure(e)
-            logger.error(f"Discord download_file error: {e}")
+            logger.error("Discord download_file error: %s", e)
             return FileAttachment(
                 id=file_id,
                 filename="",
@@ -621,7 +621,7 @@ class DiscordConnector(ChatPlatformConnector):
         result = verifier.verify(headers, body)
 
         if not result.verified and result.error:
-            logger.warning(f"Discord webhook verification failed: {result.error}")
+            logger.warning("Discord webhook verification failed: %s", result.error)
 
         return result.verified
 
@@ -801,7 +801,7 @@ class DiscordConnector(ChatPlatformConnector):
             )
 
             if not success or not data:
-                logger.error(f"Discord API error: {error}")
+                logger.error("Discord API error: %s", error)
                 return []
 
             # Handle case where response is a list (normal) vs dict (error)
@@ -810,10 +810,10 @@ class DiscordConnector(ChatPlatformConnector):
                 try:
                     data = json.loads(data["text"])
                 except (json.JSONDecodeError, KeyError):
-                    logger.error(f"Could not parse Discord response: {data}")
+                    logger.error("Could not parse Discord response: %s", data)
                     return []
             elif not isinstance(data, list):
-                logger.error(f"Unexpected Discord response type: {type(data)}")
+                logger.error("Unexpected Discord response type: %s", type(data))
                 return []
 
             messages: list[ChatMessage] = []
@@ -876,7 +876,7 @@ class DiscordConnector(ChatPlatformConnector):
             ValueError,
         ) as e:
             self._record_failure(e)
-            logger.error(f"Error getting Discord channel history: {e}")
+            logger.error("Error getting Discord channel history: %s", e)
             return []
 
     async def collect_evidence(
@@ -934,7 +934,7 @@ class DiscordConnector(ChatPlatformConnector):
         evidence_list.sort(key=lambda e: e.relevance_score, reverse=True)
 
         logger.info(
-            f"Collected {len(evidence_list)} evidence items from Discord channel {channel_id}"
+            "Collected %s evidence items from Discord channel %s", len(evidence_list), channel_id
         )
 
         return evidence_list
@@ -963,7 +963,7 @@ class DiscordConnector(ChatPlatformConnector):
         # Check circuit breaker
         can_proceed, cb_error = self._check_circuit_breaker()
         if not can_proceed:
-            logger.debug(f"Circuit breaker open: {cb_error}")
+            logger.debug("Circuit breaker open: %s", cb_error)
             return None
 
         try:
@@ -975,7 +975,7 @@ class DiscordConnector(ChatPlatformConnector):
             )
 
             if not success or not data or not isinstance(data, dict):
-                logger.debug(f"Failed to get channel info: {error}")
+                logger.debug("Failed to get channel info: %s", error)
                 return None
 
             # Channel type mapping
@@ -1005,7 +1005,7 @@ class DiscordConnector(ChatPlatformConnector):
             )
 
         except (httpx.HTTPError, httpx.TimeoutException, OSError, KeyError) as e:
-            logger.debug(f"Discord get_channel_info error: {e}")
+            logger.debug("Discord get_channel_info error: %s", e)
             return None
 
     async def get_user_info(
@@ -1032,7 +1032,7 @@ class DiscordConnector(ChatPlatformConnector):
         # Check circuit breaker
         can_proceed, cb_error = self._check_circuit_breaker()
         if not can_proceed:
-            logger.debug(f"Circuit breaker open: {cb_error}")
+            logger.debug("Circuit breaker open: %s", cb_error)
             return None
 
         try:
@@ -1044,7 +1044,7 @@ class DiscordConnector(ChatPlatformConnector):
             )
 
             if not success or not data or not isinstance(data, dict):
-                logger.debug(f"Failed to get user info: {error}")
+                logger.debug("Failed to get user info: %s", error)
                 return None
 
             # Build avatar URL
@@ -1073,5 +1073,5 @@ class DiscordConnector(ChatPlatformConnector):
             )
 
         except (httpx.HTTPError, httpx.TimeoutException, OSError, KeyError) as e:
-            logger.debug(f"Discord get_user_info error: {e}")
+            logger.debug("Discord get_user_info error: %s", e)
             return None

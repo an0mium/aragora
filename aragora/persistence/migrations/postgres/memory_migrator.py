@@ -479,7 +479,7 @@ class MemoryMigrator:
         try:
             # Check if tables exist
             if not self._table_exists_sqlite(sqlite_conn, table):
-                logger.info(f"Table {table} not found in SQLite, skipping")
+                logger.info("Table %s not found in SQLite, skipping", table)
                 return stats
 
             if not await self._table_exists_pg(pool, table):
@@ -554,12 +554,12 @@ class MemoryMigrator:
                         stats.rows_skipped += len(batch)
 
             logger.info(
-                f"Migrated {stats.rows_migrated} rows to {table} ({stats.rows_skipped} skipped)"
+                "Migrated %s rows to %s (%s skipped)", stats.rows_migrated, table, stats.rows_skipped
             )
 
         except (OSError, ConnectionError, RuntimeError, ValueError) as e:
             stats.errors.append(f"Migration error: {e}")
-            logger.exception(f"Error migrating table {table}")
+            logger.exception("Error migrating table %s", table)
 
         finally:
             sqlite_conn.close()
@@ -570,7 +570,7 @@ class MemoryMigrator:
         """Migrate ConsensusMemory tables."""
         results = []
         for table, config in self.CONSENSUS_TABLES.items():
-            logger.info(f"Migrating ConsensusMemory table: {table}")
+            logger.info("Migrating ConsensusMemory table: %s", table)
             stats = await self.migrate_table(table, config)
             results.append(stats)
         return results
@@ -579,7 +579,7 @@ class MemoryMigrator:
         """Migrate CritiqueStore tables."""
         results = []
         for table, config in self.CRITIQUE_TABLES.items():
-            logger.info(f"Migrating CritiqueStore table: {table}")
+            logger.info("Migrating CritiqueStore table: %s", table)
             stats = await self.migrate_table(table, config)
             results.append(stats)
         return results

@@ -270,7 +270,7 @@ class JiraConnector(EnterpriseConnector):
             start += max_results
         else:
             logger.warning(
-                f"[{self.name}] Pagination limit reached ({_MAX_PAGES} pages) for projects"
+                "[%s] Pagination limit reached (%s pages) for projects", self.name, _MAX_PAGES
             )
 
         return projects
@@ -428,7 +428,7 @@ class JiraConnector(EnterpriseConnector):
             start_at += max_results
         else:
             logger.warning(
-                f"[{self.name}] Pagination limit reached ({_MAX_PAGES} pages) for issues"
+                "[%s] Pagination limit reached (%s pages) for issues", self.name, _MAX_PAGES
             )
 
     async def _get_issue_comments(self, issue_key: str) -> list[JiraComment]:
@@ -491,7 +491,7 @@ class JiraConnector(EnterpriseConnector):
                 start_at += max_results
 
             except (RuntimeError, ValueError, KeyError, OSError, Exception) as e:
-                logger.warning(f"[{self.name}] Failed to get comments for {issue_key}: {e}")
+                logger.warning("[%s] Failed to get comments for %s: %s", self.name, issue_key, e)
                 break
 
         return comments
@@ -565,7 +565,7 @@ class JiraConnector(EnterpriseConnector):
         items_yielded = 0
 
         for project in projects:
-            logger.info(f"[{self.name}] Syncing project: {project.key}")
+            logger.info("[%s] Syncing project: %s", self.name, project.key)
 
             async for issue in self._get_issues(project.key, modified_since):
                 # Get comments
@@ -693,7 +693,7 @@ class JiraConnector(EnterpriseConnector):
             return results
 
         except (RuntimeError, ValueError, KeyError, OSError) as e:
-            logger.error(f"[{self.name}] Search failed: {e}")
+            logger.error("[%s] Search failed: %s", self.name, e)
             return []
 
     async def fetch(self, evidence_id: str) -> Any | None:
@@ -753,7 +753,7 @@ class JiraConnector(EnterpriseConnector):
             )
 
         except (RuntimeError, ValueError, KeyError, OSError) as e:
-            logger.error(f"[{self.name}] Fetch failed: {e}")
+            logger.error("[%s] Fetch failed: %s", self.name, e)
             return None
 
     async def handle_webhook(self, payload: dict[str, Any]) -> bool:
@@ -761,7 +761,7 @@ class JiraConnector(EnterpriseConnector):
         event = payload.get("webhookEvent", "")
         issue = payload.get("issue", {})
 
-        logger.info(f"[{self.name}] Webhook: {event} on issue {issue.get('key', 'unknown')}")
+        logger.info("[%s] Webhook: %s on issue %s", self.name, event, issue.get('key', 'unknown'))
 
         # Handle issue events
         if event.startswith("jira:issue_"):

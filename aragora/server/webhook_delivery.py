@@ -277,7 +277,7 @@ class DeliveryPersistence:
             """)
             conn.commit()
             self._initialized = True
-            logger.info(f"Webhook delivery persistence initialized at {self._db_path}")
+            logger.info("Webhook delivery persistence initialized at %s", self._db_path)
 
     def save_delivery(self, delivery: WebhookDelivery, url: str, secret: str | None = None) -> None:
         """Save or update a delivery record."""
@@ -541,10 +541,10 @@ class WebhookDeliveryManager:
                 recovered += 1
 
             if recovered > 0:
-                logger.info(f"Recovered {recovered} pending webhook deliveries from database")
+                logger.info("Recovered %s pending webhook deliveries from database", recovered)
 
         except (sqlite3.Error, OSError, KeyError, json.JSONDecodeError) as e:
-            logger.error(f"Failed to recover pending deliveries: {e}")
+            logger.error("Failed to recover pending deliveries: %s", e)
 
     async def stop(self) -> None:
         """Stop the background retry processor."""
@@ -812,8 +812,7 @@ class WebhookDeliveryManager:
 
         self._metrics.dead_lettered += 1
         logger.warning(
-            f"Moved delivery {delivery.delivery_id} to dead-letter queue "
-            f"after {delivery.attempts} attempts: {delivery.last_error}"
+            "Moved delivery %s to dead-letter queue after %s attempts: %s", delivery.delivery_id, delivery.attempts, delivery.last_error
         )
 
     async def _process_retries(self) -> None:
@@ -874,7 +873,7 @@ class WebhookDeliveryManager:
                             self._schedule_retry(delivery, url, secret)
 
             except (RuntimeError, KeyError, asyncio.CancelledError) as e:
-                logger.error(f"Error processing retries: {e}")
+                logger.error("Error processing retries: %s", e)
 
             await asyncio.sleep(1.0)  # Check every second
 
@@ -896,7 +895,7 @@ class WebhookDeliveryManager:
             # Open circuit for 30 seconds * failure count (max 5 minutes)
             timeout = min(30 * self._circuit_failures[url], 300)
             self._circuit_open_until[url] = datetime.now(timezone.utc) + timedelta(seconds=timeout)
-            logger.warning(f"Circuit breaker opened for {url} for {timeout}s")
+            logger.warning("Circuit breaker opened for %s for %ss", url, timeout)
 
     def _reset_circuit(self, url: str) -> None:
         """Reset circuit breaker on success."""
@@ -959,7 +958,7 @@ class WebhookDeliveryManager:
             self._persistence.save_delivery(delivery, url, secret)
 
         self._metrics.dead_lettered -= 1
-        logger.info(f"Retrying dead-lettered delivery {delivery_id}")
+        logger.info("Retrying dead-lettered delivery %s", delivery_id)
         return True
 
     async def get_metrics(self) -> dict[str, Any]:

@@ -96,7 +96,7 @@ class WalletSigner:
         from eth_account import Account
 
         account = Account.from_key(private_key)
-        logger.info(f"Wallet signer initialized: {account.address}")
+        logger.info("Wallet signer initialized: %s", account.address)
         return cls(
             signer_type=SignerType.PRIVATE_KEY,
             address=account.address,
@@ -127,7 +127,7 @@ class WalletSigner:
         keystore_json = json.loads(path.read_text())
         private_key = Account.decrypt(keystore_json, password)
         account = Account.from_key(private_key)
-        logger.info(f"Wallet signer initialized from keystore: {account.address}")
+        logger.info("Wallet signer initialized from keystore: %s", account.address)
         return cls(
             signer_type=SignerType.KEYSTORE,
             address=account.address,

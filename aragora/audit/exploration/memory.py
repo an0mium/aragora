@@ -106,7 +106,7 @@ class ExplorationMemory:
 
                 db_path = str(self._db_path) if self._db_path else ":memory:"
                 self._continuum = ContinuumMemory(db_path)
-                logger.info(f"Initialized ContinuumMemory at {db_path}")
+                logger.info("Initialized ContinuumMemory at %s", db_path)
             except ImportError:
                 logger.warning("ContinuumMemory not available, using in-memory storage only")
         return self._continuum
@@ -159,7 +159,7 @@ class ExplorationMemory:
             try:
                 stored.embedding = await embed_fn(f"{insight.title}: {insight.description}")
             except (ValueError, RuntimeError, OSError) as e:
-                logger.warning(f"Failed to compute embedding: {e}")
+                logger.warning("Failed to compute embedding: %s", e)
 
         # Store in tier
         self._insights[tier][insight.id] = stored
@@ -191,7 +191,7 @@ class ExplorationMemory:
                     },
                 )
             except (ValueError, RuntimeError, OSError) as e:
-                logger.warning(f"Failed to store in ContinuumMemory: {e}")
+                logger.warning("Failed to store in ContinuumMemory: %s", e)
 
         return stored
 
@@ -288,7 +288,7 @@ class ExplorationMemory:
             stored.tier = target_tier
             stored.updated_at = datetime.now(timezone.utc)
             self._insights[target_tier][insight_id] = stored
-            logger.info(f"Promoted insight {insight_id} from {source_tier} to {target_tier}")
+            logger.info("Promoted insight %s from %s to %s", insight_id, source_tier, target_tier)
 
         return stored
 

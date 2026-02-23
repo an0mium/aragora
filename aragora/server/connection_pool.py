@@ -193,7 +193,7 @@ class ConnectionPoolManager:
 
             # Mask password for logging
             safe_url = url.split("@")[-1] if "@" in url else url
-            logger.info(f"Connection pool created: {safe_url}")
+            logger.info("Connection pool created: %s", safe_url)
 
             return pool
 
@@ -201,7 +201,7 @@ class ConnectionPoolManager:
             logger.error("redis package not installed")
             return None
         except (ConnectionError, TimeoutError, OSError, ValueError) as e:
-            logger.error(f"Failed to create connection pool: {e}")
+            logger.error("Failed to create connection pool: %s", e)
             return None
 
     def get_pool(self) -> Any | None:
@@ -279,7 +279,7 @@ class ConnectionPoolManager:
 
         except (ConnectionError, TimeoutError, OSError) as e:
             self.metrics.health_check_failures += 1
-            logger.warning(f"Health check failed: {e}")
+            logger.warning("Health check failed: %s", e)
 
             # Attempt reconnection if too many failures
             if self.metrics.health_check_failures > 3:
@@ -295,7 +295,7 @@ class ConnectionPoolManager:
                 try:
                     self._pool.disconnect()
                 except (ConnectionError, OSError, RuntimeError) as e:
-                    logger.debug(f"Error disconnecting pool during reconnect: {type(e).__name__}")
+                    logger.debug("Error disconnecting pool during reconnect: %s", type(e).__name__)
                 self._pool = None
                 self._client = None
                 self.metrics.connections_closed += 1
@@ -368,7 +368,7 @@ class ConnectionPoolManager:
                     self._pool.disconnect()
                     logger.info("Connection pool closed")
                 except (ConnectionError, OSError, RuntimeError) as e:
-                    logger.error(f"Error closing pool: {e}")
+                    logger.error("Error closing pool: %s", e)
                 finally:
                     self._pool = None
                     self._client = None

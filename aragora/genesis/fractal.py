@@ -288,7 +288,7 @@ class FractalOrchestrator:
                 specialist_agents.append(agent)
             except (RuntimeError, ValueError, TypeError, KeyError) as e:
                 # Fall back to generic agents if creation fails
-                logger.debug(f"Failed to create specialist agent {genome.name}: {e}")
+                logger.debug("Failed to create specialist agent %s: %s", genome.name, e)
 
         # If no specialists, use agents from population
         if not specialist_agents:
@@ -302,7 +302,7 @@ class FractalOrchestrator:
                     )
                     specialist_agents.append(agent)
                 except (RuntimeError, ValueError, TypeError, KeyError) as e:
-                    logger.debug(f"Failed to create agent from genome {genome.name}: {e}")
+                    logger.debug("Failed to create agent from genome %s: %s", genome.name, e)
 
         # Build focused task from tension
         focused_task = self._build_sub_task(tension)

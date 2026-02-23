@@ -97,7 +97,7 @@ class ExtractionOperationsMixin:
 
             return json_response(result.to_dict())
         except (KeyError, ValueError, OSError, TypeError, RuntimeError, AttributeError) as e:
-            logger.error(f"Error extracting from debate: {e}")
+            logger.error("Error extracting from debate: %s", e)
             return error_response(safe_error_message(e), status=500)
 
     @require_permission("extraction:create")
@@ -153,7 +153,7 @@ class ExtractionOperationsMixin:
                 }
             )
         except (KeyError, ValueError, OSError, TypeError, RuntimeError, AttributeError) as e:
-            logger.error(f"Error promoting extracted knowledge: {e}")
+            logger.error("Error promoting extracted knowledge: %s", e)
             return error_response(safe_error_message(e), status=500)
 
     @require_permission("extraction:create")
@@ -175,5 +175,5 @@ class ExtractionOperationsMixin:
             stats = mound.get_extraction_stats()
             return json_response(stats)
         except (KeyError, ValueError, OSError, TypeError, RuntimeError, AttributeError) as e:
-            logger.error(f"Error getting extraction stats: {e}")
+            logger.error("Error getting extraction stats: %s", e)
             return error_response(safe_error_message(e), status=500)

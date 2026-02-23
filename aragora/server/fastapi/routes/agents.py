@@ -104,7 +104,7 @@ async def get_elo_system(request: Request):
 
         return EloSystem()
     except (ImportError, RuntimeError, ValueError) as e:
-        logger.warning(f"ELO system not available: {e}")
+        logger.warning("ELO system not available: %s", e)
         return None
 
 
@@ -177,7 +177,7 @@ async def list_agents(
                     else:
                         agents.append(AgentSummary(name=name))
             except (RuntimeError, ValueError, TypeError, AttributeError) as e:
-                logger.warning(f"Could not get agents from ELO: {e}")
+                logger.warning("Could not get agents from ELO: %s", e)
 
         # Fallback to known agent types if no ELO data
         if not agents:
@@ -190,7 +190,7 @@ async def list_agents(
         )
 
     except (RuntimeError, ValueError, TypeError, OSError, KeyError, AttributeError) as e:
-        logger.exception(f"Error listing agents: {e}")
+        logger.exception("Error listing agents: %s", e)
         raise HTTPException(status_code=500, detail="Failed to list agents")
 
 
@@ -234,7 +234,7 @@ async def get_leaderboard(
                         )
                     )
             except (RuntimeError, ValueError, TypeError, AttributeError) as e:
-                logger.warning(f"Could not get leaderboard from ELO: {e}")
+                logger.warning("Could not get leaderboard from ELO: %s", e)
 
         return LeaderboardResponse(
             leaderboard=leaderboard,
@@ -243,7 +243,7 @@ async def get_leaderboard(
         )
 
     except (RuntimeError, ValueError, TypeError, OSError, KeyError, AttributeError) as e:
-        logger.exception(f"Error getting leaderboard: {e}")
+        logger.exception("Error getting leaderboard: %s", e)
         raise HTTPException(status_code=500, detail="Failed to get leaderboard")
 
 
@@ -278,7 +278,7 @@ async def get_agent(
                             agent_data = d
                             break
             except (RuntimeError, ValueError, TypeError, AttributeError) as e:
-                logger.debug(f"Could not get agent {agent_id} from ELO: {e}")
+                logger.debug("Could not get agent %s from ELO: %s", agent_id, e)
 
         # Check if the agent ID is in known agent types
         known_agents = _get_known_agents()
@@ -317,5 +317,5 @@ async def get_agent(
     except NotFoundError:
         raise
     except (RuntimeError, ValueError, TypeError, OSError, KeyError, AttributeError) as e:
-        logger.exception(f"Error getting agent {agent_id}: {e}")
+        logger.exception("Error getting agent %s: %s", agent_id, e)
         raise HTTPException(status_code=500, detail="Failed to get agent")

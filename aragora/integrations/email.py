@@ -94,7 +94,7 @@ def _get_email_circuit_breaker(provider: str, threshold: int = 5, cooldown: floa
                     failure_threshold=threshold,
                     cooldown_seconds=cooldown,
                 )
-                logger.debug(f"Circuit breaker initialized for email provider: {provider}")
+                logger.debug("Circuit breaker initialized for email provider: %s", provider)
             except ImportError:
                 logger.debug("Circuit breaker module not available for email")
                 breakers[provider] = None
@@ -507,7 +507,7 @@ class EmailIntegration:
             status = cb.get_status()
             if status == "open":
                 logger.warning(
-                    f"Email circuit breaker OPENED for {self.config.provider} after repeated failures"
+                    "Email circuit breaker OPENED for %s after repeated failures", self.config.provider
                 )
 
     def get_health_status(self) -> dict[str, Any]:
@@ -549,7 +549,7 @@ class EmailIntegration:
         # Check circuit breaker first
         can_proceed, error_msg = self._check_circuit_breaker()
         if not can_proceed:
-            logger.warning(f"Email send blocked: {error_msg}")
+            logger.warning("Email send blocked: %s", error_msg)
             return False
 
         if not await self._check_rate_limit():
@@ -571,7 +571,7 @@ class EmailIntegration:
 
                 if success:
                     self._record_success()
-                    logger.debug(f"Email sent to {recipient.email} via {provider.value}")
+                    logger.debug("Email sent to %s via %s", recipient.email, provider.value)
                     return True
 
                 # If not successful but no exception, record failure and retry
@@ -582,21 +582,21 @@ class EmailIntegration:
                 return False
 
             except aiohttp.ClientError as e:
-                logger.error(f"Email network error via {provider.value}: {e}")
+                logger.error("Email network error via %s: %s", provider.value, e)
                 self._record_failure(e)
                 if attempt < self.config.max_retries - 1:
                     await asyncio.sleep(self.config.retry_delay * (2**attempt))
                     continue
                 return False
             except asyncio.TimeoutError as e:
-                logger.error(f"Email request timed out via {provider.value}")
+                logger.error("Email request timed out via %s", provider.value)
                 self._record_failure(e)
                 if attempt < self.config.max_retries - 1:
                     await asyncio.sleep(self.config.retry_delay * (2**attempt))
                     continue
                 return False
             except smtplib.SMTPException as e:
-                logger.error(f"SMTP error via {provider.value}: {e}")
+                logger.error("SMTP error via %s: %s", provider.value, e)
                 self._record_failure(e)
                 if attempt < self.config.max_retries - 1:
                     await asyncio.sleep(self.config.retry_delay * (2**attempt))
@@ -604,7 +604,7 @@ class EmailIntegration:
                 return False
             except OSError as e:
                 # Network/socket errors
-                logger.error(f"Email connection error via {provider.value}: {e}")
+                logger.error("Email connection error via %s: %s", provider.value, e)
                 self._record_failure(e)
                 if attempt < self.config.max_retries - 1:
                     await asyncio.sleep(self.config.retry_delay * (2**attempt))
@@ -710,10 +710,10 @@ class EmailIntegration:
                     return True
                 else:
                     text = await response.text()
-                    logger.error(f"SendGrid API error: {response.status} - {text}")
+                    logger.error("SendGrid API error: %s - %s", response.status, text)
                     return False
         except aiohttp.ClientError as e:
-            logger.error(f"SendGrid connection error: {e}")
+            logger.error("SendGrid connection error: %s", e)
             return False
 
     async def _send_via_ses(
@@ -774,7 +774,7 @@ class EmailIntegration:
 
             message_id = response.get("MessageId")
             if message_id:
-                logger.debug(f"SES message sent: {message_id}")
+                logger.debug("SES message sent: %s", message_id)
                 return True
             return False
 
@@ -784,9 +784,9 @@ class EmailIntegration:
         except Exception as e:  # noqa: BLE001 - botocore exceptions (ClientError, etc.) may not be importable
             error_name = type(e).__name__
             if "ClientError" in error_name or "Botocore" in error_name:
-                logger.error(f"SES AWS error: {e}")
+                logger.error("SES AWS error: %s", e)
             else:
-                logger.error(f"SES send error: {e}", exc_info=True)
+                logger.error("SES send error: %s", e, exc_info=True)
             return False
 
     def _smtp_send(self, msg: MIMEMultipart, to_email: str) -> None:

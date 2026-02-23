@@ -129,8 +129,7 @@ class AmazonConnector(EnterpriseConnector):
         try:
             if self.use_mock:
                 logger.info(
-                    f"Amazon SP-API connector initialized in mock mode "
-                    f"(marketplace: {self.amazon_credentials.marketplace_id})"
+                    "Amazon SP-API connector initialized in mock mode (marketplace: %s)", self.amazon_credentials.marketplace_id
                 )
                 return True
 
@@ -159,13 +158,13 @@ class AmazonConnector(EnterpriseConnector):
                 self._marketplace = marketplace
 
                 logger.info(
-                    f"Connecting to Amazon SP-API (marketplace: {self.amazon_credentials.marketplace_id})"
+                    "Connecting to Amazon SP-API (marketplace: %s)", self.amazon_credentials.marketplace_id
                 )
                 return True
 
             return False
         except (ImportError, KeyError, ValueError, RuntimeError) as e:
-            logger.error(f"Failed to connect to Amazon SP-API: {e}")
+            logger.error("Failed to connect to Amazon SP-API: %s", e)
             return False
 
     async def disconnect(self) -> None:
@@ -192,7 +191,7 @@ class AmazonConnector(EnterpriseConnector):
         Yields:
             AmazonOrder objects
         """
-        logger.info(f"Syncing Amazon orders since {since}")
+        logger.info("Syncing Amazon orders since %s", since)
 
         if self.use_mock:
             # Return mock data for testing
@@ -293,7 +292,7 @@ class AmazonConnector(EnterpriseConnector):
             AmazonOrder or None if not found
         """
         # Would call Orders.getOrder(orderId)
-        logger.info(f"Getting Amazon order {order_id}")
+        logger.info("Getting Amazon order %s", order_id)
         return None
 
     async def get_order_items(self, order_id: str) -> list[AmazonOrderItem]:
@@ -327,7 +326,7 @@ class AmazonConnector(EnterpriseConnector):
             True if successful
         """
         # Would call Orders.confirmShipment()
-        logger.info(f"Confirming shipment for order {order_id}")
+        logger.info("Confirming shipment for order %s", order_id)
         return True
 
     # =========================================================================
@@ -382,7 +381,7 @@ class AmazonConnector(EnterpriseConnector):
             Shipment ID if successful
         """
         # Would use FulfillmentInbound API
-        logger.info(f"Creating inbound shipment: {shipment_name}")
+        logger.info("Creating inbound shipment: %s", shipment_name)
         return None
 
     # =========================================================================
@@ -399,7 +398,7 @@ class AmazonConnector(EnterpriseConnector):
             Product details or None
         """
         # Would call CatalogItems.getCatalogItem()
-        logger.info(f"Getting catalog item {asin}")
+        logger.info("Getting catalog item %s", asin)
         return None
 
     async def search_catalog(
@@ -416,7 +415,7 @@ class AmazonConnector(EnterpriseConnector):
         Returns:
             List of matching products
         """
-        logger.info(f"Searching catalog: {keywords}")
+        logger.info("Searching catalog: %s", keywords)
 
         if self.use_mock:
             # Stubbed in mock mode unless explicitly integrated with catalog mocks.
@@ -443,7 +442,7 @@ class AmazonConnector(EnterpriseConnector):
 
                 return products
             except (OSError, RuntimeError, ValueError, KeyError, AttributeError) as e:
-                logger.warning(f"Catalog search failed: {e}")
+                logger.warning("Catalog search failed: %s", e)
                 return []
 
         return []
@@ -504,7 +503,7 @@ class AmazonConnector(EnterpriseConnector):
             Report ID if request accepted
         """
         # Would call Reports.createReport()
-        logger.info(f"Requesting report: {report_type}")
+        logger.info("Requesting report: %s", report_type)
         return None
 
     async def get_report(self, report_id: str) -> bytes | None:

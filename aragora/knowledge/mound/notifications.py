@@ -309,7 +309,7 @@ class SharingNotifier:
             )
             self.store.add_notification(notification)
             results["in_app"] = True
-            logger.info(f"Created in-app notification for {to_user_id}: item shared")
+            logger.info("Created in-app notification for %s: item shared", to_user_id)
 
         # Send email notification
         if prefs.email_on_share and to_user_email:
@@ -504,7 +504,7 @@ class SharingNotifier:
             logger.debug("Email integration not available")
             return False
         except (RuntimeError, ValueError, OSError, AttributeError) as e:
-            logger.error(f"Failed to send email notification: {e}")
+            logger.error("Failed to send email notification: %s", e)
             return False
 
     async def _send_webhook_notification(
@@ -530,7 +530,7 @@ class SharingNotifier:
                 response.read()
             return True
         except (URLError, TimeoutError) as e:
-            logger.error(f"Failed to send webhook notification: {e}")
+            logger.error("Failed to send webhook notification: %s", e)
             return False
 
     def _build_email_html(

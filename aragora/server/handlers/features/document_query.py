@@ -124,7 +124,7 @@ class DocumentQueryHandler(BaseHandler):
             )
             return json_response(result)
         except (RuntimeError, ValueError, TypeError, OSError, KeyError) as e:
-            logger.error(f"Query failed: {e}")
+            logger.error("Query failed: %s", e)
             return error_response(safe_error_message(e, "Query"), 500)
 
     async def _run_query(
@@ -195,7 +195,7 @@ class DocumentQueryHandler(BaseHandler):
             )
             return json_response(result)
         except (RuntimeError, ValueError, TypeError, OSError, KeyError) as e:
-            logger.error(f"Summarize failed: {e}")
+            logger.error("Summarize failed: %s", e)
             return error_response(safe_error_message(e, "Summarize"), 500)
 
     async def _run_summarize(
@@ -258,7 +258,7 @@ class DocumentQueryHandler(BaseHandler):
             )
             return json_response(result)
         except (RuntimeError, ValueError, TypeError, OSError, KeyError) as e:
-            logger.error(f"Compare failed: {e}")
+            logger.error("Compare failed: %s", e)
             return error_response(safe_error_message(e, "Compare"), 500)
 
     async def _run_compare(
@@ -331,7 +331,7 @@ class DocumentQueryHandler(BaseHandler):
             )
             return json_response(result)
         except (RuntimeError, ValueError, TypeError, OSError, KeyError) as e:
-            logger.error(f"Extract failed: {e}")
+            logger.error("Extract failed: %s", e)
             return error_response(safe_error_message(e, "Extract"), 500)
 
     async def _run_extract(

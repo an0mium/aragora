@@ -225,7 +225,7 @@ class RBACManager:
         async with self._lock:
             self._roles[role.id] = role
 
-        logger.info(f"Created role: {role.name} ({role.id})")
+        logger.info("Created role: %s (%s)", role.name, role.id)
         return role
 
     async def assign_role(
@@ -269,7 +269,7 @@ class RBACManager:
                 self._user_roles[user_id] = set()
             self._user_roles[user_id].add(role_id)
 
-        logger.info(f"Assigned role {role_id} to user {user_id}")
+        logger.info("Assigned role %s to user %s", role_id, user_id)
         return assignment
 
     async def revoke_role(
@@ -304,7 +304,7 @@ class RBACManager:
                 del self._assignments[to_remove]
                 if user_id in self._user_roles:
                     self._user_roles[user_id].discard(role_id)
-                logger.info(f"Revoked role {role_id} from user {user_id}")
+                logger.info("Revoked role %s from user %s", role_id, user_id)
                 return True
 
             return False
@@ -535,12 +535,12 @@ class AuditTrail:
                 await db.commit()
 
             self._db_initialized = True
-            logger.debug(f"Initialized KM audit database at {self._db_path}")
+            logger.debug("Initialized KM audit database at %s", self._db_path)
         except ImportError:
             logger.warning("aiosqlite not available, falling back to in-memory audit storage")
             self._enable_persistence = False
         except (RuntimeError, ValueError, OSError) as e:
-            logger.warning(f"Failed to initialize audit database: {e}")
+            logger.warning("Failed to initialize audit database: %s", e)
             self._enable_persistence = False
 
     async def _persist_entry(self, entry: AuditEntry) -> None:
@@ -586,7 +586,7 @@ class AuditTrail:
             logger.warning("aiosqlite not available, disabling persistence")
             self._enable_persistence = False
         except (ValueError, KeyError, TypeError, OSError) as e:
-            logger.warning(f"Failed to persist audit entry: {e}")
+            logger.warning("Failed to persist audit entry: %s", e)
 
     async def log(
         self,
@@ -641,7 +641,7 @@ class AuditTrail:
             if len(self._entries) > self._max_entries:
                 self._entries = self._entries[-self._max_entries :]
 
-        logger.debug(f"Audit: {action.value} by {actor_id} on {resource_type}/{resource_id}")
+        logger.debug("Audit: %s by %s on %s/%s", action.value, actor_id, resource_type, resource_id)
 
         # Persist to database asynchronously
         await self._persist_entry(entry)
@@ -817,7 +817,7 @@ class AuditTrail:
             self._enable_persistence = False
             return None
         except (RuntimeError, ValueError, OSError) as e:
-            logger.warning(f"Database query failed, falling back to in-memory: {e}")
+            logger.warning("Database query failed, falling back to in-memory: %s", e)
             return None
 
     async def get_user_activity(

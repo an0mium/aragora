@@ -106,7 +106,7 @@ class WeaviateVectorStore(BaseVectorStore):
             if not await self.collection_exists(self.config.collection_name):
                 await self.create_collection(self.config.collection_name)
 
-            logger.info(f"Connected to Weaviate at {url}")
+            logger.info("Connected to Weaviate at %s", url)
 
         except (OSError, ConnectionError, TimeoutError, RuntimeError) as e:
             self._connected = False
@@ -118,7 +118,7 @@ class WeaviateVectorStore(BaseVectorStore):
             try:
                 self._client.close()
             except (OSError, ConnectionError, TimeoutError, RuntimeError) as e:
-                logger.warning(f"Error closing Weaviate connection: {e}")
+                logger.warning("Error closing Weaviate connection: %s", e)
             finally:
                 self._client = None
                 self._collections.clear()
@@ -160,7 +160,7 @@ class WeaviateVectorStore(BaseVectorStore):
             vectorizer_config=Configure.Vectorizer.none(),  # We provide our own embeddings
         )
 
-        logger.info(f"Created Weaviate collection: {name}")
+        logger.info("Created Weaviate collection: %s", name)
 
     async def delete_collection(self, name: str) -> bool:
         """Delete a collection."""
@@ -224,7 +224,7 @@ class WeaviateVectorStore(BaseVectorStore):
                 )
         except (KeyError, RuntimeError) as e:
             # Insert if fetch failed
-            logger.debug(f"Vector fetch failed, inserting new: {e}")
+            logger.debug("Vector fetch failed, inserting new: %s", e)
             collection.data.insert(
                 uuid=id,
                 properties=properties,
@@ -273,7 +273,7 @@ class WeaviateVectorStore(BaseVectorStore):
                 collection.data.delete_by_id(id)
                 deleted += 1
             except (KeyError, RuntimeError, ValueError) as e:
-                logger.debug(f"Error deleting vector {id}: {e}")
+                logger.debug("Error deleting vector %s: %s", id, e)
 
         return deleted
 
@@ -419,7 +419,7 @@ class WeaviateVectorStore(BaseVectorStore):
                     embedding=obj.vector.get("default") if obj.vector else None,
                 )
         except (OSError, ConnectionError, RuntimeError) as e:
-            logger.debug(f"Error retrieving vector by ID: {e}")
+            logger.debug("Error retrieving vector by ID: %s", e)
 
         return None
 

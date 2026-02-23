@@ -59,7 +59,7 @@ async def rotate_elevenlabs_key(
 
     svc_config = config.services.get(service)
     if not svc_config:
-        logger.error(f"No config for service: {service}")
+        logger.error("No config for service: %s", service)
         return None
 
     # Step 1: Get current key
@@ -77,8 +77,7 @@ async def rotate_elevenlabs_key(
     new_key_id = new_key_data.get("xi_api_key_id", "unknown")
 
     logger.info(
-        f"Created new ElevenLabs key: {new_key[:8]}...{new_key[-4:]} "
-        f"(id={new_key_id})"
+        "Created new ElevenLabs key: %s...%s (id=%s)", new_key[:8], new_key[-4:], new_key_id
     )
 
     # Step 3: Update AWS Secrets Manager (production secret)
@@ -191,12 +190,12 @@ async def _create_elevenlabs_key(current_key: str) -> dict[str, Any] | None:
                 }
             else:
                 logger.error(
-                    f"ElevenLabs key creation failed: {resp.status_code} {resp.text}"
+                    "ElevenLabs key creation failed: %s %s", resp.status_code, resp.text
                 )
                 return None
 
     except Exception as e:
-        logger.error(f"ElevenLabs key creation request failed: {e}")
+        logger.error("ElevenLabs key creation request failed: %s", e)
         return None
 
 
@@ -233,7 +232,7 @@ async def _get_key_id_by_value(
             return None
 
     except Exception as e:
-        logger.error(f"Failed to list ElevenLabs keys: {e}")
+        logger.error("Failed to list ElevenLabs keys: %s", e)
         return None
 
 
@@ -254,17 +253,16 @@ async def _delete_elevenlabs_key(auth_key: str, key_id: str) -> bool:
             )
 
             if resp.status_code in (200, 204):
-                logger.info(f"Deleted old ElevenLabs key: {key_id}")
+                logger.info("Deleted old ElevenLabs key: %s", key_id)
                 return True
             else:
                 logger.warning(
-                    f"Failed to delete ElevenLabs key {key_id}: "
-                    f"{resp.status_code} {resp.text}"
+                    "Failed to delete ElevenLabs key %s: %s %s", key_id, resp.status_code, resp.text
                 )
                 return False
 
     except Exception as e:
-        logger.error(f"Failed to delete ElevenLabs key: {e}")
+        logger.error("Failed to delete ElevenLabs key: %s", e)
         return False
 
 
@@ -295,8 +293,7 @@ async def _update_secrets_manager(
         )
 
         logger.info(
-            f"Updated {key_name} in {secret_id}: "
-            f"{old_value[:8]}... -> {new_value[:8]}..."
+            "Updated %s in %s: %s... -> %s...", key_name, secret_id, old_value[:8], new_value[:8]
         )
         return True
 
@@ -304,7 +301,7 @@ async def _update_secrets_manager(
         logger.error("boto3 required for Secrets Manager updates")
         return False
     except Exception as e:
-        logger.error(f"Failed to update {secret_id}: {e}")
+        logger.error("Failed to update %s: %s", secret_id, e)
         return False
 
 
@@ -322,11 +319,11 @@ async def _update_standalone_secret(
             SecretId=secret_id,
             SecretString=new_value,
         )
-        logger.info(f"Updated standalone secret {secret_id}")
+        logger.info("Updated standalone secret %s", secret_id)
         return True
 
     except Exception as e:
-        logger.error(f"Failed to update standalone secret {secret_id}: {e}")
+        logger.error("Failed to update standalone secret %s: %s", secret_id, e)
         return False
 
 
@@ -358,10 +355,10 @@ def _update_local_env(key_name: str, new_value: str) -> None:
             if updated:
                 with open(env_path, "w") as f:
                     f.writelines(new_lines)
-                logger.info(f"Updated {key_name} in {env_path}")
+                logger.info("Updated %s in %s", key_name, env_path)
 
         except Exception as e:
-            logger.warning(f"Could not update {env_path}: {e}")
+            logger.warning("Could not update %s: %s", env_path, e)
 
     # Also update the running process's env
     os.environ[key_name] = new_value

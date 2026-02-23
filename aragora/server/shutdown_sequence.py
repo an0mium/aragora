@@ -81,7 +81,7 @@ class ShutdownSequence:
             Dict with 'completed', 'failed', and 'elapsed' keys
         """
         start_time = time.time()
-        logger.info(f"Starting graceful shutdown ({len(self._phases)} phases)...")
+        logger.info("Starting graceful shutdown (%s phases)...", len(self._phases))
 
         for phase in self._phases:
             elapsed = time.time() - start_time
@@ -119,29 +119,29 @@ class ShutdownSequence:
         try:
             await asyncio.wait_for(phase.execute(), timeout=timeout)
             self._completed.append(phase.name)
-            logger.debug(f"Shutdown phase completed: {phase.name}")
+            logger.debug("Shutdown phase completed: %s", phase.name)
             return True
 
         except asyncio.TimeoutError:
             self._failed.append(phase.name)
             if phase.critical:
-                logger.warning(f"Shutdown phase timed out: {phase.name}")
+                logger.warning("Shutdown phase timed out: %s", phase.name)
             else:
-                logger.debug(f"Shutdown phase timed out: {phase.name}")
+                logger.debug("Shutdown phase timed out: %s", phase.name)
             return False
 
         except asyncio.CancelledError:
             self._failed.append(phase.name)
-            logger.debug(f"Shutdown phase cancelled: {phase.name}")
+            logger.debug("Shutdown phase cancelled: %s", phase.name)
             return False
 
         except Exception as e:  # noqa: BLE001 - Shutdown must continue despite individual phase failures
             # Broad catch intentional: shutdown must continue despite individual phase failures
             self._failed.append(phase.name)
             if phase.critical:
-                logger.warning(f"Shutdown phase failed: {phase.name}: {e}")
+                logger.warning("Shutdown phase failed: %s: %s", phase.name, e)
             else:
-                logger.debug(f"Shutdown phase failed: {phase.name}: {e}")
+                logger.debug("Shutdown phase failed: %s: %s", phase.name, e)
             return False
 
 
@@ -195,7 +195,7 @@ class ShutdownPhaseBuilder:
             tracker = get_request_tracker()
             active = tracker.active_count
             if active > 0:
-                logger.info(f"Draining {active} in-flight HTTP request(s)")
+                logger.info("Draining %s in-flight HTTP request(s)", active)
             success = await tracker.start_drain(timeout=14.0)
             if not success:
                 logger.warning("Some HTTP requests still active after drain timeout")
@@ -222,7 +222,7 @@ class ShutdownPhaseBuilder:
             if not in_progress:
                 return
 
-            logger.info(f"Waiting for {len(in_progress)} in-flight debate(s)")
+            logger.info("Waiting for %s in-flight debate(s)", len(in_progress))
             wait_start = time.time()
             while time.time() - wait_start < 11.0:  # Leave buffer for other phases
                 still_running = sum(
@@ -259,7 +259,7 @@ class ShutdownPhaseBuilder:
 
             count = persist_all_circuit_breakers()
             if count > 0:
-                logger.info(f"Persisted {count} circuit breaker state(s)")
+                logger.info("Persisted %s circuit breaker state(s)", count)
 
         sequence.add_phase(
             ShutdownPhase(
@@ -285,7 +285,7 @@ class ShutdownPhaseBuilder:
                 # Flush event batches first
                 flushed = manager.flush_all_batches()
                 if flushed > 0:
-                    logger.info(f"Flushed {flushed} batched events")
+                    logger.info("Flushed %s batched events", flushed)
 
                 # Sync RankingAdapter state
                 try:
@@ -294,7 +294,7 @@ class ShutdownPhaseBuilder:
                         stats = ranking_adapter.get_stats()
                         if stats.get("total_expertise_records", 0) > 0:
                             logger.debug(
-                                f"RankingAdapter has {stats['total_expertise_records']} expertise records"
+                                "RankingAdapter has %s expertise records", stats['total_expertise_records']
                             )
                 except ImportError:
                     pass
@@ -308,7 +308,7 @@ class ShutdownPhaseBuilder:
                         stats = rlm_adapter.get_stats()
                         if stats.get("total_patterns", 0) > 0:
                             logger.debug(
-                                f"RlmAdapter has {stats['total_patterns']} compression patterns"
+                                "RlmAdapter has %s compression patterns", stats['total_patterns']
                             )
                 except ImportError:
                     pass
@@ -319,7 +319,7 @@ class ShutdownPhaseBuilder:
                 pass  # Cross-subscriber module not available
             except (RuntimeError, OSError, AttributeError) as e:
                 # Shutdown handler - log and continue
-                logger.warning(f"KM adapter flush failed: {e}")
+                logger.warning("KM adapter flush failed: %s", e)
 
         sequence.add_phase(
             ShutdownPhase(
@@ -552,7 +552,7 @@ class ShutdownPhaseBuilder:
                 pass  # HTTP client pool module not available
             except RuntimeError as e:
                 # Pool already closed or not initialized
-                logger.debug(f"HTTP client pool close skipped: {e}")
+                logger.debug("HTTP client pool close skipped: %s", e)
 
         sequence.add_phase(
             ShutdownPhase(
@@ -585,7 +585,7 @@ class ShutdownPhaseBuilder:
                 pass  # RBAC module not available
             except (RuntimeError, OSError, ConnectionError) as e:
                 # Shutdown handler - log and continue
-                logger.debug(f"RBAC cache stop skipped: {e}")
+                logger.debug("RBAC cache stop skipped: %s", e)
 
         sequence.add_phase(
             ShutdownPhase(
@@ -618,7 +618,7 @@ class ShutdownPhaseBuilder:
                 pass
             except (RuntimeError, OSError, asyncio.CancelledError) as e:
                 # Shutdown handler - log and continue
-                logger.debug(f"Gauntlet worker stop skipped: {e}")
+                logger.debug("Gauntlet worker stop skipped: %s", e)
 
         sequence.add_phase(
             ShutdownPhase(
@@ -677,7 +677,7 @@ class ShutdownPhaseBuilder:
                 pass  # pool_manager not available
             except (RuntimeError, OSError, ConnectionError) as e:
                 # Shutdown handler - log and continue
-                logger.warning(f"Error closing shared pool: {e}")
+                logger.warning("Error closing shared pool: %s", e)
 
             try:
                 from aragora.storage.connection_factory import close_all_pools
@@ -687,7 +687,7 @@ class ShutdownPhaseBuilder:
                 pass
             except (RuntimeError, OSError, ConnectionError) as e:
                 # Shutdown handler - log and continue
-                logger.warning(f"Error closing connection factory pools: {e}")
+                logger.warning("Error closing connection factory pools: %s", e)
 
             logger.info("PostgreSQL connection pools closed")
 
@@ -739,7 +739,7 @@ class ShutdownPhaseBuilder:
                     server._http_server.shutdown()
                     logger.info("HTTP server shutdown complete")
                 except (OSError, RuntimeError) as e:
-                    logger.debug(f"HTTP server shutdown error (expected if not running): {e}")
+                    logger.debug("HTTP server shutdown error (expected if not running): %s", e)
 
         sequence.add_phase(
             ShutdownPhase(
@@ -757,7 +757,7 @@ class ShutdownPhaseBuilder:
                     server._uvicorn_server.should_exit = True
                     logger.info("Uvicorn server signaled for shutdown")
                 except (OSError, RuntimeError, AttributeError) as e:
-                    logger.debug(f"Uvicorn shutdown error: {e}")
+                    logger.debug("Uvicorn shutdown error: %s", e)
 
         sequence.add_phase(
             ShutdownPhase(
@@ -893,7 +893,7 @@ class ShutdownPhaseBuilder:
                 registry = get_thread_registry()
                 results = registry.shutdown_all(timeout=8.0)
                 stopped = sum(1 for v in results.values() if v)
-                logger.info(f"ThreadRegistry shutdown: {stopped}/{len(results)} threads stopped")
+                logger.info("ThreadRegistry shutdown: %s/%s threads stopped", stopped, len(results))
             except ImportError:
                 pass
 

@@ -87,7 +87,7 @@ class AuditKnowledgeAdapter:
             return True
 
         except ImportError as e:
-            logger.warning(f"Knowledge pipeline not available: {e}")
+            logger.warning("Knowledge pipeline not available: %s", e)
             self._initialized = False
             return False
 
@@ -177,7 +177,7 @@ class AuditKnowledgeAdapter:
                 enriched.append(enriched_chunk)
 
             except (ValueError, RuntimeError, OSError) as e:
-                logger.warning(f"Failed to enrich chunk {chunk_id}: {e}")
+                logger.warning("Failed to enrich chunk %s: %s", chunk_id, e)
                 enriched.append(
                     EnrichedChunk(
                         chunk_id=chunk_id,
@@ -187,7 +187,7 @@ class AuditKnowledgeAdapter:
                     )
                 )
 
-        logger.info(f"Enriched {len(enriched)} chunks with facts")
+        logger.info("Enriched %s chunks with facts", len(enriched))
         return enriched
 
     async def store_finding_as_fact(
@@ -255,11 +255,11 @@ class AuditKnowledgeAdapter:
                 topics=fact.topics,
             )
 
-            logger.debug(f"Stored finding {finding.id} as fact {fact.id}")
+            logger.debug("Stored finding %s as fact %s", finding.id, fact.id)
             return fact.id
 
         except (ValueError, RuntimeError, OSError) as e:
-            logger.warning(f"Failed to store finding as fact: {e}")
+            logger.warning("Failed to store finding as fact: %s", e)
             return None
 
     async def store_session_findings(
@@ -282,7 +282,7 @@ class AuditKnowledgeAdapter:
             if fact_id:
                 stored_count += 1
 
-        logger.info(f"Stored {stored_count}/{len(session.findings)} findings as facts")
+        logger.info("Stored %s/%s findings as facts", stored_count, len(session.findings))
         return stored_count
 
     async def query_for_cross_references(
@@ -355,7 +355,7 @@ class AuditKnowledgeAdapter:
                     )
 
         except (ValueError, RuntimeError, OSError) as e:
-            logger.warning(f"Cross-reference query failed: {e}")
+            logger.warning("Cross-reference query failed: %s", e)
 
         return references
 
@@ -423,7 +423,7 @@ class AuditKnowledgeAdapter:
             }
 
         except (ValueError, RuntimeError, OSError) as e:
-            logger.warning(f"Knowledge validation failed: {e}")
+            logger.warning("Knowledge validation failed: %s", e)
             return {"validated": False, "reason": str(e)}
 
 

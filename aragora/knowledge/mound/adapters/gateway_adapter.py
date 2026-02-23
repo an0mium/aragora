@@ -250,7 +250,7 @@ class GatewayAdapter(KnowledgeMoundAdapter):
                 return item_id
 
             except (RuntimeError, ValueError, OSError, AttributeError) as e:
-                logger.error(f"Failed to store routing record: {e}")
+                logger.error("Failed to store routing record: %s", e)
                 return None
 
     async def store_channel_snapshot(
@@ -331,7 +331,7 @@ class GatewayAdapter(KnowledgeMoundAdapter):
                 return item_id
 
             except (RuntimeError, ValueError, OSError, AttributeError) as e:
-                logger.error(f"Failed to store channel snapshot: {e}")
+                logger.error("Failed to store channel snapshot: %s", e)
                 return None
 
     async def store_device_registration(
@@ -404,7 +404,7 @@ class GatewayAdapter(KnowledgeMoundAdapter):
                 return item_id
 
             except (RuntimeError, ValueError, OSError, AttributeError) as e:
-                logger.error(f"Failed to store device registration: {e}")
+                logger.error("Failed to store device registration: %s", e)
                 return None
 
     async def store_routing_decision(
@@ -470,7 +470,7 @@ class GatewayAdapter(KnowledgeMoundAdapter):
                 return item_id
 
             except (RuntimeError, ValueError, OSError, AttributeError) as e:
-                logger.error(f"Failed to store routing decision: {e}")
+                logger.error("Failed to store routing decision: %s", e)
                 return None
 
     # =========================================================================
@@ -542,7 +542,7 @@ class GatewayAdapter(KnowledgeMoundAdapter):
                 return snapshots[:limit]
 
             except (RuntimeError, ValueError, OSError, AttributeError) as e:
-                logger.error(f"Failed to get channel performance history: {e}")
+                logger.error("Failed to get channel performance history: %s", e)
                 return []
 
     async def get_routing_patterns(
@@ -614,7 +614,7 @@ class GatewayAdapter(KnowledgeMoundAdapter):
                 return records[:limit]
 
             except (RuntimeError, ValueError, OSError, AttributeError) as e:
-                logger.error(f"Failed to get routing patterns: {e}")
+                logger.error("Failed to get routing patterns: %s", e)
                 return []
 
     async def get_routing_recommendations(
@@ -856,7 +856,7 @@ class GatewayAdapter(KnowledgeMoundAdapter):
                     if await self.store_device_registration(record):
                         synced["devices"] += 1
 
-                logger.info(f"Synced from gateway: {synced}")
+                logger.info("Synced from gateway: %s", synced)
                 return synced
 
             except (RuntimeError, ValueError, OSError, AttributeError) as e:

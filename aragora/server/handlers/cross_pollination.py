@@ -84,7 +84,7 @@ class CrossPollinationStatsHandler(BaseHandler):
                 status=503,
             )
         except (KeyError, ValueError, TypeError, AttributeError, OSError) as e:
-            logger.exception(f"Failed to get cross-pollination stats: {e}")
+            logger.exception("Failed to get cross-pollination stats: %s", e)
             return error_response("Internal server error", status=500)
 
 
@@ -132,7 +132,7 @@ class CrossPollinationSubscribersHandler(BaseHandler):
                 status=503,
             )
         except (KeyError, ValueError, TypeError, AttributeError) as e:
-            logger.exception(f"Failed to list subscribers: {e}")
+            logger.exception("Failed to list subscribers: %s", e)
             return error_response("Internal server error", status=500)
 
 
@@ -174,7 +174,7 @@ class CrossPollinationBridgeHandler(BaseHandler):
                 status=503,
             )
         except (KeyError, ValueError, TypeError, AttributeError) as e:
-            logger.exception(f"Failed to get bridge status: {e}")
+            logger.exception("Failed to get bridge status: %s", e)
             return error_response("Internal server error", status=500)
 
 
@@ -214,7 +214,7 @@ class CrossPollinationMetricsHandler(BaseHandler):
                 status=503,
             )
         except (KeyError, ValueError, TypeError, AttributeError, OSError) as e:
-            logger.exception(f"Failed to get metrics: {e}")
+            logger.exception("Failed to get metrics: %s", e)
             return error_response("Internal server error", status=500)
 
 
@@ -249,7 +249,7 @@ class CrossPollinationResetHandler(BaseHandler):
                 status=503,
             )
         except (KeyError, ValueError, TypeError, AttributeError) as e:
-            logger.exception(f"Failed to reset stats: {e}")
+            logger.exception("Failed to reset stats: %s", e)
             return error_response("Internal server error", status=500)
 
 
@@ -343,7 +343,7 @@ class CrossPollinationKMHandler(BaseHandler):
                 status=503,
             )
         except (KeyError, ValueError, TypeError, AttributeError, OSError) as e:
-            logger.exception(f"Failed to get KM status: {e}")
+            logger.exception("Failed to get KM status: %s", e)
             return error_response("Internal server error", status=500)
 
 
@@ -462,7 +462,7 @@ class CrossPollinationKMSyncHandler(BaseHandler):
                 status=503,
             )
         except (KeyError, ValueError, TypeError, AttributeError, OSError) as e:
-            logger.exception(f"Failed to sync KM adapters: {e}")
+            logger.exception("Failed to sync KM adapters: %s", e)
             return error_response("Internal server error", status=500)
 
 
@@ -548,7 +548,7 @@ class CrossPollinationKMStalenessHandler(BaseHandler):
                 )
 
         except (KeyError, ValueError, TypeError, AttributeError, OSError) as e:
-            logger.exception(f"Failed to run staleness check: {e}")
+            logger.exception("Failed to run staleness check: %s", e)
             return error_response("Internal server error", status=500)
 
 
@@ -618,7 +618,7 @@ class CrossPollinationKMCultureHandler(BaseHandler):
                 )
 
         except (KeyError, ValueError, TypeError, AttributeError, OSError) as e:
-            logger.exception(f"Failed to get culture patterns: {e}")
+            logger.exception("Failed to get culture patterns: %s", e)
             return error_response("Internal server error", status=500)
 
 
@@ -661,7 +661,7 @@ def register_routes(router: Any, server_context: dict[str, Any] | None = None) -
             elif hasattr(router, "add_api_route"):
                 router.add_api_route(path, handler, methods=[method])
         except (ValueError, TypeError, AttributeError, OSError) as e:
-            logger.debug(f"Could not register route {path}: {e}")
+            logger.debug("Could not register route %s: %s", path, e)
 
 
 __all__ = [

@@ -149,7 +149,7 @@ class OpenClawSkill(Skill):
                 return SkillResult.create_failure(f"Unhandled action: {action}")
 
         except (RuntimeError, ValueError, OSError, ConnectionError) as e:
-            logger.exception(f"OpenClaw action failed: {e}")
+            logger.exception("OpenClaw action failed: %s", e)
             return SkillResult.create_failure(f"Action failed: {e}")
 
     async def _get_proxy(self) -> Any:

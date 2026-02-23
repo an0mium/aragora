@@ -127,7 +127,7 @@ class MilvusVectorStore(BaseVectorStore):
             self._collection.load()
 
             self._connected = True
-            logger.info(f"Connected to Milvus at {host}:{port}")
+            logger.info("Connected to Milvus at %s:%s", host, port)
 
         except (OSError, ConnectionError, TimeoutError, RuntimeError) as e:
             self._connected = False
@@ -139,12 +139,12 @@ class MilvusVectorStore(BaseVectorStore):
             try:
                 self._collection.release()
             except (OSError, ConnectionError, TimeoutError, RuntimeError) as e:
-                logger.warning(f"Error releasing Milvus collection: {e}")
+                logger.warning("Error releasing Milvus collection: %s", e)
 
         try:
             connections.disconnect(self._alias)
         except (OSError, ConnectionError, TimeoutError, RuntimeError) as e:
-            logger.warning(f"Error disconnecting from Milvus: {e}")
+            logger.warning("Error disconnecting from Milvus: %s", e)
         finally:
             self._collection = None
             self._connected = False
@@ -223,7 +223,7 @@ class MilvusVectorStore(BaseVectorStore):
             index_params=index_params,
         )
 
-        logger.info(f"Created Milvus collection: {name}")
+        logger.info("Created Milvus collection: %s", name)
 
     async def delete_collection(self, name: str) -> bool:
         """Delete a collection."""
@@ -233,7 +233,7 @@ class MilvusVectorStore(BaseVectorStore):
                 return True
             return False
         except (OSError, ConnectionError, RuntimeError, ValueError) as e:
-            logger.warning(f"Failed to delete Milvus collection {name}: {e}")
+            logger.warning("Failed to delete Milvus collection %s: %s", name, e)
             return False
 
     async def collection_exists(self, name: str) -> bool:

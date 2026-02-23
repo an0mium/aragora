@@ -131,7 +131,7 @@ class EventEmitterBridge:
             )
             self.event_emitter.emit(stream_event)
         except Exception as e:  # noqa: BLE001 - graceful degradation, event emission is non-critical
-            logger.warning(f"Event emission error (non-fatal): {type(e).__name__}: {e}")
+            logger.warning("Event emission error (non-fatal): %s: %s", type(e).__name__, e)
 
         # Update cartographer with this event
         self._update_cartographer(event_type, **kwargs)
@@ -185,7 +185,7 @@ class EventEmitterBridge:
             if updated:
                 self._emit_graph_update()
         except Exception as e:  # noqa: BLE001 - graceful degradation, cartographer update is non-critical
-            logger.warning(f"Cartographer error (non-fatal): {e}")
+            logger.warning("Cartographer error (non-fatal): %s", e)
 
     def _emit_graph_update(self) -> None:
         """Emit a graph_update event with the current cartographer state."""
@@ -204,7 +204,7 @@ class EventEmitterBridge:
                 )
             )
         except Exception as e:  # noqa: BLE001 - graceful degradation, graph update is non-critical
-            logger.warning(f"Graph update emission error (non-fatal): {e}")
+            logger.warning("Graph update emission error (non-fatal): %s", e)
 
     @staticmethod
     def _extract_critique_target(details: str) -> str:

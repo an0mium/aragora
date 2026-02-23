@@ -353,8 +353,7 @@ class AdaptiveComplexityGovernor:
 
         self._evaluate_stress_level()
         logger.warning(
-            f"governor_timeout agent={agent_name} timeout_s={timeout_seconds} "
-            f"consecutive={self.consecutive_failures}"
+            "governor_timeout agent=%s timeout_s=%s consecutive=%s", agent_name, timeout_seconds, self.consecutive_failures
         )
 
     def record_round_complete(
@@ -447,13 +446,13 @@ class AdaptiveComplexityGovernor:
         self.current_constraints = self.CONSTRAINT_PRESETS[new_level]
         self.last_adjustment_time = time.time()
 
-        logger.info(f"governor_stress_change old={old_level.value} new={new_level.value}")
+        logger.info("governor_stress_change old=%s new=%s", old_level.value, new_level.value)
 
         if self.stress_callback:
             try:
                 self.stress_callback(new_level)
             except (TypeError, ValueError, AttributeError, RuntimeError, OSError) as e:
-                logger.error(f"governor_callback_failed error={e}")
+                logger.error("governor_callback_failed error=%s", e)
 
     def get_constraints(self) -> GovernorConstraints:
         """Get current constraints for the debate system."""
@@ -525,7 +524,7 @@ class AdaptiveComplexityGovernor:
             complexity: The classified task complexity
         """
         self.task_complexity = complexity
-        logger.info(f"governor_task_complexity complexity={complexity.value}")
+        logger.info("governor_task_complexity complexity=%s", complexity.value)
 
     def get_scaled_timeout(self, base_timeout: float = 180.0) -> float:
         """Get timeout scaled by both stress level and task complexity.

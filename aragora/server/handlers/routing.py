@@ -80,7 +80,7 @@ class RoutingHandler(BaseHandler):
         # Rate limit check
         client_ip = get_client_ip(handler)
         if not _routing_limiter.is_allowed(client_ip):
-            logger.warning(f"Rate limit exceeded for routing endpoint: {client_ip}")
+            logger.warning("Rate limit exceeded for routing endpoint: %s", client_ip)
             return error_response("Rate limit exceeded. Please try again later.", 429)
 
         if path == "/api/routing/best-teams":

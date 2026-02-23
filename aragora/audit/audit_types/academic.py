@@ -438,7 +438,7 @@ If no issues, respond with: []"""
                     logger.debug("Failed to parse JSON data: %s", e)
 
         except (ImportError, AttributeError, ValueError, OSError, RuntimeError) as e:
-            logger.debug(f"Academic LLM analysis skipped: {e}")
+            logger.debug("Academic LLM analysis skipped: %s", e)
 
         return findings
 

@@ -185,7 +185,7 @@ async def context_handler(
             }
 
     except (RuntimeError, OSError, ValueError) as e:
-        logger.error(f"Context phase error: {e}")
+        logger.error("Context phase error: %s", e)
         raise
 
 
@@ -224,7 +224,7 @@ async def debate_handler(
             try:
                 learning = learning_context_builder()
             except (RuntimeError, ValueError, KeyError) as e:
-                logger.warning(f"Failed to build learning context: {e}")
+                logger.warning("Failed to build learning context: %s", e)
 
         result = await debate_phase.execute(
             codebase_context=codebase_context,
@@ -258,7 +258,7 @@ async def debate_handler(
             }
 
     except (RuntimeError, OSError, ValueError) as e:
-        logger.error(f"Debate phase error: {e}")
+        logger.error("Debate phase error: %s", e)
         raise
 
 
@@ -301,7 +301,7 @@ async def design_handler(
             try:
                 belief = belief_context_builder()
             except (RuntimeError, ValueError, KeyError) as e:
-                logger.warning(f"Failed to build belief context: {e}")
+                logger.warning("Failed to build belief context: %s", e)
 
         result = await design_phase.execute(
             improvement=improvement,
@@ -317,14 +317,14 @@ async def design_handler(
             }
         else:
             # Design failed - attempt recovery
-            logger.warning(f"Design phase failed: {result.get('error')}")
+            logger.warning("Design phase failed: %s", result.get('error'))
             return NomicState.RECOVERY, {
                 "error": result.get("error"),
                 "phase": "design",
             }
 
     except (RuntimeError, OSError, ValueError) as e:
-        logger.error(f"Design phase error: {e}")
+        logger.error("Design phase error: %s", e)
         raise
 
 
@@ -370,7 +370,7 @@ async def implement_handler(
         else:
             # Implementation failed
             error = result.get("error", "Unknown error")
-            logger.warning(f"Implementation failed: {error}")
+            logger.warning("Implementation failed: %s", error)
 
             # Check if it's a scope issue
             if "scope" in str(error).lower():
@@ -387,7 +387,7 @@ async def implement_handler(
                 }
 
     except (RuntimeError, OSError, ValueError) as e:
-        logger.error(f"Implement phase error: {e}")
+        logger.error("Implement phase error: %s", e)
         raise
 
 
@@ -446,7 +446,7 @@ async def verify_handler(
         checks = result.get("data", {}).get("checks", [])
         failed_checks = [c for c in checks if not c.get("passed")]
 
-        logger.warning(f"Verification failed: {len(failed_checks)} checks failed")
+        logger.warning("Verification failed: %s checks failed", len(failed_checks))
         return NomicState.RECOVERY, {
             "error": "verification_failed",
             "phase": "verify",
@@ -456,7 +456,7 @@ async def verify_handler(
         }
 
     except (RuntimeError, OSError, ValueError) as e:
-        logger.error(f"Verify phase error: {e}")
+        logger.error("Verify phase error: %s", e)
         raise
 
 
@@ -539,14 +539,14 @@ async def commit_handler(
         else:
             # Commit failed or declined
             reason = result.get("data", {}).get("reason", "unknown")
-            logger.info(f"Commit not made: {reason}")
+            logger.info("Commit not made: %s", reason)
             return NomicState.COMPLETED, {
                 "committed": False,
                 "reason": reason,
             }
 
     except (RuntimeError, OSError, ValueError) as e:
-        logger.error(f"Commit phase error: {e}")
+        logger.error("Commit phase error: %s", e)
         raise
 
 

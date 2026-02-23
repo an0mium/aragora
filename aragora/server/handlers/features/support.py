@@ -336,9 +336,9 @@ class SupportHandler(SecureHandler):
             if connector:
                 _platform_connectors[platform] = connector
         except (ImportError, ConnectionError, TimeoutError, OSError, TypeError, ValueError) as e:
-            logger.warning(f"Could not initialize {platform} connector: {e}")
+            logger.warning("Could not initialize %s connector: %s", platform, e)
 
-        logger.info(f"Connected support platform: {platform}")
+        logger.info("Connected support platform: %s", platform)
 
         return self._json_response(
             200,
@@ -362,7 +362,7 @@ class SupportHandler(SecureHandler):
 
         del _platform_credentials[platform]
 
-        logger.info(f"Disconnected support platform: {platform}")
+        logger.info("Disconnected support platform: %s", platform)
 
         return self._json_response(
             200,
@@ -390,7 +390,7 @@ class SupportHandler(SecureHandler):
 
         for platform, result in zip(_platform_credentials.keys(), results):
             if isinstance(result, BaseException):
-                logger.error(f"Error fetching tickets from {platform}: {result}")
+                logger.error("Error fetching tickets from %s: %s", platform, result)
                 continue
             all_tickets.extend(result)
 
@@ -436,7 +436,7 @@ class SupportHandler(SecureHandler):
                 return [self._normalize_helpscout_conversation(c) for c in conversations]
 
         except (ConnectionError, TimeoutError, OSError, ValueError, AttributeError) as e:
-            logger.error(f"Error fetching {platform} tickets: {e}")
+            logger.error("Error fetching %s tickets: %s", platform, e)
 
         return []
 
@@ -761,7 +761,7 @@ class SupportHandler(SecureHandler):
                 metrics["totals"]["resolved_tickets"] += platform_metrics.get("resolved_tickets", 0)
 
             except (ConnectionError, TimeoutError, OSError, ValueError, AttributeError) as e:
-                logger.error(f"Error fetching {platform} metrics: {e}")
+                logger.error("Error fetching %s metrics: %s", platform, e)
                 metrics["platforms"][platform] = {"error": "Failed to fetch platform metrics"}
 
         return self._json_response(200, metrics)
@@ -824,7 +824,7 @@ class SupportHandler(SecureHandler):
                             ticket = await connector.get_ticket(int(tid))
                             tickets_to_triage.append(self._normalize_zendesk_ticket(ticket))
                     except (ValueError, ConnectionError, TimeoutError) as e:
-                        logger.debug(f"Failed to fetch ticket {tid}: {e}")
+                        logger.debug("Failed to fetch ticket %s: %s", tid, e)
                         continue
 
         # Perform triage analysis
@@ -964,7 +964,7 @@ class SupportHandler(SecureHandler):
                     results.extend([self._normalize_freshdesk_ticket(t) for t in tickets])
 
             except (ConnectionError, TimeoutError, OSError, ValueError, AttributeError) as e:
-                logger.error(f"Error searching {platform}: {e}")
+                logger.error("Error searching %s: %s", platform, e)
 
         return self._json_response(
             200,
@@ -1038,7 +1038,7 @@ class SupportHandler(SecureHandler):
             return connector
 
         except (ImportError, ConnectionError, TimeoutError, OSError, TypeError, ValueError) as e:
-            logger.error(f"Failed to create {platform} connector: {e}")
+            logger.error("Failed to create %s connector: %s", platform, e)
             return None
 
     def _normalize_zendesk_ticket(self, ticket: Any) -> dict[str, Any]:

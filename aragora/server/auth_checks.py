@@ -345,14 +345,14 @@ class AuthChecksMixin:
         from aragora.billing.auth import extract_user_from_request
         from aragora.rbac import AuthorizationContext, get_role_permissions
 
-        logger.debug(f"RBAC auth check: {method} {path}")
+        logger.debug("RBAC auth check: %s %s", method, path)
 
         # Build authorization context from JWT
         auth_ctx = None
         try:
             user_ctx = extract_user_from_request(self, self.user_store)
             logger.debug(
-                f"RBAC user context: authenticated={user_ctx.authenticated}, user_id={user_ctx.user_id}"
+                "RBAC user context: authenticated=%s, user_id=%s", user_ctx.authenticated, user_ctx.user_id
             )
             if user_ctx.authenticated and user_ctx.user_id:
                 roles = {user_ctx.role} if user_ctx.role else {"member"}
@@ -367,9 +367,9 @@ class AuthChecksMixin:
                     permissions=permissions,
                     ip_address=user_ctx.client_ip,
                 )
-                logger.debug(f"RBAC auth context created for user {user_ctx.user_id}")
+                logger.debug("RBAC auth context created for user %s", user_ctx.user_id)
         except (ValueError, KeyError, AttributeError, TypeError) as e:
-            logger.debug(f"RBAC context extraction failed: {e}")
+            logger.debug("RBAC context extraction failed: %s", e)
 
         # Check permission
         allowed, reason, permission_key = self.rbac.check_request(path, method, auth_ctx)

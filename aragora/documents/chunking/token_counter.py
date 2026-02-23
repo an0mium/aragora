@@ -99,7 +99,7 @@ def _get_tiktoken_encoding(encoding_name: str):
     try:
         return tiktoken.get_encoding(encoding_name)
     except (ValueError, RuntimeError, OSError) as e:
-        logger.warning(f"Failed to load tiktoken encoding {encoding_name}: {e}")
+        logger.warning("Failed to load tiktoken encoding %s: %s", encoding_name, e)
         return None
 
 
@@ -162,7 +162,7 @@ class TokenCounter:
         try:
             return len(encoding.encode(text))
         except (ValueError, RuntimeError, UnicodeEncodeError) as e:
-            logger.warning(f"tiktoken encoding failed: {e}")
+            logger.warning("tiktoken encoding failed: %s", e)
             return self._count_approximate(text, "openai")
 
     def _count_approximate(self, text: str, family: ModelFamily) -> int:

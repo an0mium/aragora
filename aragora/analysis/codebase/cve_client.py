@@ -149,7 +149,7 @@ class CVEClient:
             self._circuit_breaker_open_until[source] = datetime.now(timezone.utc) + timedelta(
                 seconds=self._cooldown_seconds
             )
-            logger.warning(f"[CVEClient] Circuit breaker opened for {source}")
+            logger.warning("[CVEClient] Circuit breaker opened for %s", source)
 
     async def get_cve(self, cve_id: str) -> VulnerabilityFinding | None:
         """
@@ -295,7 +295,7 @@ class CVEClient:
 
         except (OSError, ValueError, KeyError, TimeoutError) as e:
             self._record_failure("nvd")
-            logger.error(f"[CVEClient] NVD query failed: {e}")
+            logger.error("[CVEClient] NVD query failed: %s", e)
             return None
 
     def _parse_nvd_cve(self, cve_data: dict[str, Any]) -> VulnerabilityFinding:
@@ -399,7 +399,7 @@ class CVEClient:
 
         except (OSError, ValueError, KeyError, TimeoutError) as e:
             self._record_failure("osv")
-            logger.error(f"[CVEClient] OSV query failed: {e}")
+            logger.error("[CVEClient] OSV query failed: %s", e)
             return None
 
     async def _query_osv_package(
@@ -450,7 +450,7 @@ class CVEClient:
 
         except (OSError, ValueError, KeyError, TimeoutError) as e:
             self._record_failure("osv")
-            logger.error(f"[CVEClient] OSV package query failed: {e}")
+            logger.error("[CVEClient] OSV package query failed: %s", e)
             return []
 
     def _parse_osv_vuln(self, data: dict[str, Any]) -> VulnerabilityFinding:
@@ -631,7 +631,7 @@ class CVEClient:
 
         except (OSError, ValueError, KeyError, TimeoutError) as e:
             self._record_failure("github")
-            logger.error(f"[CVEClient] GitHub advisory query failed: {e}")
+            logger.error("[CVEClient] GitHub advisory query failed: %s", e)
             return []
 
     def _parse_github_advisory(

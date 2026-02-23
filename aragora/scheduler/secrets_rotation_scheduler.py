@@ -618,7 +618,7 @@ class SecretsRotationScheduler:
             except asyncio.CancelledError:
                 break
             except (OSError, sqlite3.Error, RuntimeError) as e:
-                logger.error(f"Error in secrets rotation scheduler: {e}")
+                logger.error("Error in secrets rotation scheduler: %s", e)
                 await asyncio.sleep(300)
 
     # =========================================================================
@@ -671,7 +671,7 @@ class SecretsRotationScheduler:
 
         self._storage.save_secret(metadata)
         logger.info(
-            f"Registered secret {secret_id} for rotation every {rotation_interval_days} days"
+            "Registered secret %s for rotation every %s days", secret_id, rotation_interval_days
         )
 
         return metadata
@@ -744,7 +744,7 @@ class SecretsRotationScheduler:
             else:
                 # Simulate rotation if no handler
                 rotation.new_version = self._generate_version_hash()
-                logger.warning(f"No rotation handler for {secret_type.value}, simulating rotation")
+                logger.warning("No rotation handler for %s, simulating rotation", secret_type.value)
 
             # Set grace period
             grace_hours = self._get_grace_period(secret_type)
@@ -779,7 +779,7 @@ class SecretsRotationScheduler:
         except (ConnectionError, TimeoutError, OSError, RuntimeError, ValueError) as e:
             rotation.status = RotationStatus.FAILED
             rotation.error_message = "Secret rotation failed"
-            logger.error(f"Secret rotation failed: {e}")
+            logger.error("Secret rotation failed: %s", e)
 
         # Finalize
         rotation.completed_at = datetime.now(timezone.utc)
@@ -802,8 +802,7 @@ class SecretsRotationScheduler:
         await self._notify_rotation_completed(rotation)
 
         logger.info(
-            f"Secret rotation {rotation.rotation_id}: "
-            f"secret={secret_id}, status={rotation.status.value}"
+            "Secret rotation %s: secret=%s, status=%s", rotation.rotation_id, secret_id, rotation.status.value
         )
 
         return rotation
@@ -816,7 +815,7 @@ class SecretsRotationScheduler:
                 success = handler(rotation.secret_id, rotation.old_version)
                 rotation.rolled_back = success
             except (OSError, RuntimeError, ValueError) as e:
-                logger.error(f"Rollback failed: {e}")
+                logger.error("Rollback failed: %s", e)
                 rotation.rolled_back = False
         else:
             logger.warning("No rollback handler, cannot rollback")
@@ -853,7 +852,7 @@ class SecretsRotationScheduler:
             try:
                 handler(notification)
             except (OSError, RuntimeError, ValueError) as e:
-                logger.error(f"Error sending notification: {e}")
+                logger.error("Error sending notification: %s", e)
 
     async def _notify_rotation_completed(self, rotation: RotationResult) -> None:
         """Send notification when rotation completes."""
@@ -873,7 +872,7 @@ class SecretsRotationScheduler:
             try:
                 handler(notification)
             except (OSError, RuntimeError, ValueError) as e:
-                logger.error(f"Error sending notification: {e}")
+                logger.error("Error sending notification: %s", e)
 
     # =========================================================================
     # Registration

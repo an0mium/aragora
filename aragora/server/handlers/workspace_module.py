@@ -396,7 +396,7 @@ class WorkspaceHandler(
         cache_key = f"perm:user:{rbac_ctx.user_id}:{permission_key}"
         cached_decision = _permission_cache.get(cache_key)
         if cached_decision is not None:
-            logger.debug(f"Permission cache hit: {cache_key}")
+            logger.debug("Permission cache hit: %s", cache_key)
             allowed, reason = cached_decision
             if not allowed:
                 logger.warning("Permission denied: %s", reason)
@@ -407,12 +407,11 @@ class WorkspaceHandler(
 
         # Cache the decision
         _permission_cache.set(cache_key, (decision.allowed, decision.reason))
-        logger.debug(f"Cached permission decision: {cache_key} -> {decision.allowed}")
+        logger.debug("Cached permission decision: %s -> %s", cache_key, decision.allowed)
 
         if not decision.allowed:
             logger.warning(
-                f"RBAC denied: user={rbac_ctx.user_id} permission={permission_key} "
-                f"reason={decision.reason}"
+                "RBAC denied: user=%s permission=%s reason=%s", rbac_ctx.user_id, permission_key, decision.reason
             )
             return error_response(
                 "Permission denied",

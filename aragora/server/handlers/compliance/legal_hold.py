@@ -111,7 +111,7 @@ class LegalHoldMixin:
             )
 
         except (RuntimeError, AttributeError, KeyError) as e:
-            logger.exception(f"Error listing legal holds: {e}")
+            logger.exception("Error listing legal holds: %s", e)
             return error_response("Failed to list legal holds", 500)
 
     @track_handler("compliance/legal-hold-create", method="POST")
@@ -174,7 +174,7 @@ class LegalHoldMixin:
                     },
                 )
             except (RuntimeError, OSError, ValueError) as log_err:
-                logger.warning(f"Failed to log legal hold creation: {log_err}")
+                logger.warning("Failed to log legal hold creation: %s", log_err)
 
             return json_response(
                 {
@@ -185,7 +185,7 @@ class LegalHoldMixin:
             )
 
         except (RuntimeError, ValueError, TypeError) as e:
-            logger.exception(f"Error creating legal hold: {e}")
+            logger.exception("Error creating legal hold: %s", e)
             return error_response("Legal hold creation failed", 500)
 
     @require_permission("compliance:legal")
@@ -228,7 +228,7 @@ class LegalHoldMixin:
                     },
                 )
             except (RuntimeError, OSError, ValueError) as log_err:
-                logger.warning(f"Failed to log legal hold release: {log_err}")
+                logger.warning("Failed to log legal hold release: %s", log_err)
 
             return json_response(
                 {
@@ -238,5 +238,5 @@ class LegalHoldMixin:
             )
 
         except (RuntimeError, ValueError, KeyError) as e:
-            logger.exception(f"Error releasing legal hold: {e}")
+            logger.exception("Error releasing legal hold: %s", e)
             return error_response("Legal hold release failed", 500)

@@ -38,7 +38,7 @@ def _get_evidence_linker_module():
 
             _evidence_linker_module = _module
         except ImportError as e:
-            logger.debug(f"evidence_linker module not available: {e}")
+            logger.debug("evidence_linker module not available: %s", e)
             return None
     return _evidence_linker_module
 

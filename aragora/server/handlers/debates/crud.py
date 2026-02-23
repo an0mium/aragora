@@ -462,8 +462,7 @@ class CrudOperationsMixin:
 
                 if not access_decision.allowed:
                     logger.warning(
-                        f"ABAC denied WRITE access to debate {debate_id} for user {user.user_id}: "
-                        f"{access_decision.reason}"
+                        "ABAC denied WRITE access to debate %s for user %s: %s", debate_id, user.user_id, access_decision.reason
                     )
                     return error_response(
                         "You do not have permission to update this debate",
@@ -503,7 +502,7 @@ class CrudOperationsMixin:
             if hasattr(storage, "save_debate"):
                 storage.save_debate(debate_id, debate)
 
-            logger.info(f"Debate {debate_id} updated: {list(updates.keys())}")
+            logger.info("Debate %s updated: %s", debate_id, list(updates.keys()))
 
             # Return normalized status for SDK compatibility
             return json_response(
@@ -599,8 +598,7 @@ class CrudOperationsMixin:
 
                 if not access_decision.allowed:
                     logger.warning(
-                        f"ABAC denied DELETE access to debate {debate_id} for user {user.user_id}: "
-                        f"{access_decision.reason}"
+                        "ABAC denied DELETE access to debate %s for user %s: %s", debate_id, user.user_id, access_decision.reason
                     )
                     return error_response(
                         "You do not have permission to delete this debate",
@@ -619,7 +617,7 @@ class CrudOperationsMixin:
             if not deleted:
                 return error_response(f"Debate not found: {debate_id}", 404)
 
-            logger.info(f"Debate {debate_id} permanently deleted")
+            logger.info("Debate %s permanently deleted", debate_id)
             return json_response({"deleted": True, "id": debate_id})
 
         except RecordNotFoundError:

@@ -77,7 +77,7 @@ class VoiceBridge:
 
         if content is None and connector is not None:
             # Download the file
-            logger.info(f"Downloading voice file: {voice_message.file.id}")
+            logger.info("Downloading voice file: %s", voice_message.file.id)
             attachment = await connector.download_file(
                 voice_message.file.id,
                 url=voice_message.file.url,
@@ -99,7 +99,7 @@ class VoiceBridge:
         lang = language or self.default_language
 
         logger.info(
-            f"Transcribing {len(content)} bytes from {voice_message.platform} (language: {lang})"
+            "Transcribing %s bytes from %s (language: %s)", len(content), voice_message.platform, lang
         )
 
         # Call Whisper transcription

@@ -90,7 +90,7 @@ class GeminiBackend(EmbeddingBackend):
                     ) as response:
                         if response.status == 429:
                             delay = self.config.base_delay * (2**attempt)
-                            logger.warning(f"Gemini rate limited, retrying in {delay}s")
+                            logger.warning("Gemini rate limited, retrying in %ss", delay)
                             last_error = EmbeddingRateLimitError(
                                 "Gemini rate limit exceeded",
                                 provider=self.provider_name,
@@ -143,7 +143,7 @@ class GeminiBackend(EmbeddingBackend):
                 )
                 if attempt < self.config.max_retries - 1:
                     delay = self.config.base_delay * (2**attempt)
-                    logger.warning(f"Gemini timeout, retrying in {delay}s")
+                    logger.warning("Gemini timeout, retrying in %ss", delay)
                     await asyncio.sleep(delay)
                     continue
                 raise last_error
@@ -158,7 +158,7 @@ class GeminiBackend(EmbeddingBackend):
                 )
                 if attempt < self.config.max_retries - 1:
                     delay = self.config.base_delay * (2**attempt)
-                    logger.warning(f"Gemini connection error, retrying in {delay}s: {e}")
+                    logger.warning("Gemini connection error, retrying in %ss: %s", delay, e)
                     await asyncio.sleep(delay)
                     continue
                 raise last_error
@@ -167,7 +167,7 @@ class GeminiBackend(EmbeddingBackend):
                 self._record_failure()
                 if attempt < self.config.max_retries - 1:
                     delay = self.config.base_delay * (2**attempt)
-                    logger.warning(f"Gemini API error, retrying in {delay}s: {e}")
+                    logger.warning("Gemini API error, retrying in %ss: %s", delay, e)
                     await asyncio.sleep(delay)
                     continue
                 raise EmbeddingError(

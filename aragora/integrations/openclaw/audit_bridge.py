@@ -151,7 +151,7 @@ class OpenClawAuditBridge:
             try:
                 self._event_callback(record)
             except (RuntimeError, ValueError, TypeError, AttributeError) as e:
-                logger.warning(f"Event callback failed: {e}")
+                logger.warning("Event callback failed: %s", e)
 
         # Check if we should flush
         should_flush = (
@@ -212,7 +212,7 @@ class OpenClawAuditBridge:
                 self._store_record_sync(record)
                 self._stats["events_stored"] += 1
             except (RuntimeError, ValueError, ConnectionError, TimeoutError, OSError) as e:
-                logger.error(f"Failed to store audit record: {e}")
+                logger.error("Failed to store audit record: %s", e)
                 self._stats["events_failed"] += 1
 
         self._stats["batches_flushed"] += 1
@@ -272,7 +272,7 @@ class OpenClawAuditBridge:
                 self._stats["events_stored"] += 1
                 count += 1
             except (RuntimeError, ValueError, ConnectionError, TimeoutError, OSError) as e:
-                logger.error(f"Failed to store audit record: {e}")
+                logger.error("Failed to store audit record: %s", e)
                 self._stats["events_failed"] += 1
 
         self._stats["batches_flushed"] += 1
@@ -352,7 +352,7 @@ class OpenClawAuditBridge:
             results = await self._km.query(filters, limit=limit)
             return [self._result_to_record(r) for r in results]
         except (RuntimeError, ValueError, ConnectionError, TimeoutError, OSError) as e:
-            logger.error(f"Audit trail query failed: {e}")
+            logger.error("Audit trail query failed: %s", e)
             return []
 
     def _result_to_record(self, result: dict[str, Any]) -> AuditRecord:

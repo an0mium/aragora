@@ -169,9 +169,9 @@ def get_pulse_scheduler() -> Any:
                                 }
                                 type_map.get(event_type, StreamEventType.MOUND_UPDATED)
                                 # Note: Event will be emitted when event_emitter is available
-                                logger.debug(f"KM event: {event_type}")
+                                logger.debug("KM event: %s", event_type)
                             except (RuntimeError, ValueError, TypeError, AttributeError) as e:
-                                logger.debug(f"Failed to emit KM event {event_type}: {e}")
+                                logger.debug("Failed to emit KM event %s: %s", event_type, e)
 
                         adapter.set_event_callback(emit_km_event)
                         _shared_scheduler.set_km_adapter(adapter)
@@ -181,10 +181,10 @@ def get_pulse_scheduler() -> Any:
                             "KM PulseAdapter not available, scheduler will run without KM sync"
                         )
                     except (RuntimeError, ValueError, TypeError, AttributeError, OSError) as km_e:
-                        logger.warning(f"Failed to wire KM PulseAdapter: {km_e}")
+                        logger.warning("Failed to wire KM PulseAdapter: %s", km_e)
 
                 except (ImportError, OSError, sqlite3.Error, RuntimeError) as e:
-                    logger.warning(f"Failed to initialize PulseDebateScheduler: {e}")
+                    logger.warning("Failed to initialize PulseDebateScheduler: %s", e)
                     return None
     return _shared_scheduler
 
@@ -223,7 +223,7 @@ class PulseHandler(BaseHandler):
     @require_permission("pulse:read")
     def handle(self, path: str, query_params: dict[str, Any], handler: Any) -> HandlerResult | None:
         """Route pulse requests to appropriate methods."""
-        logger.debug(f"Pulse request: {path} params={query_params}")
+        logger.debug("Pulse request: %s params=%s", path, query_params)
         if path == "/api/v1/pulse/trending":
             limit = get_int_param(query_params, "limit", 10)
             return self._get_trending_topics(min(limit, 50))
@@ -326,7 +326,7 @@ class PulseHandler(BaseHandler):
             max_volume = max((t.volume for t in topics), default=1) or 1
 
             logger.info(
-                f"Retrieved {len(topics)} trending topics from {len(manager.ingestors)} sources"
+                "Retrieved %s trending topics from %s sources", len(topics), len(manager.ingestors)
             )
             return json_response(
                 {
@@ -395,7 +395,7 @@ class PulseHandler(BaseHandler):
                     status=404,
                 )
 
-            logger.info(f"Suggested debate topic: '{selected.topic}' from {selected.platform}")
+            logger.info("Suggested debate topic: '%s' from %s", selected.topic, selected.platform)
             return json_response(
                 {
                     "topic": selected.topic,
@@ -512,7 +512,7 @@ class PulseHandler(BaseHandler):
                         }
                     )
             except (sqlite3.Error, AttributeError, TypeError) as e:
-                logger.debug(f"Store lookup failed for topic {topic_id}: {e}")
+                logger.debug("Store lookup failed for topic %s: %s", topic_id, e)
 
         # Fall back to in-memory PulseManager outcomes
         manager = get_pulse_manager()
@@ -689,7 +689,7 @@ class PulseHandler(BaseHandler):
                     )
                     manager.record_debate_outcome(tracking_topic, result)
                 except (ValueError, TypeError, AttributeError) as e:
-                    logger.warning(f"Failed to record debate outcome: {e}")
+                    logger.warning("Failed to record debate outcome: %s", e)
 
             return json_response(
                 {
@@ -705,7 +705,7 @@ class PulseHandler(BaseHandler):
             )
 
         except (RuntimeError, asyncio.TimeoutError, ValueError, KeyError) as e:
-            logger.error(f"Failed to run debate on topic: {e}")
+            logger.error("Failed to run debate on topic: %s", e)
             return error_response(safe_error_message(e, "start debate"), 500)
 
     # ==================== Scheduler Endpoints ====================
@@ -779,7 +779,7 @@ class PulseHandler(BaseHandler):
                         "rounds_used": result.rounds_used,
                     }
                 except (ImportError, RuntimeError, asyncio.TimeoutError) as e:
-                    logger.error(f"Scheduled debate creation failed: {e}")
+                    logger.error("Scheduled debate creation failed: %s", e)
                     return None
 
             scheduler.set_debate_creator(create_debate)
@@ -826,7 +826,7 @@ class PulseHandler(BaseHandler):
                 graceful = data.get("graceful", True)
         except (ValueError, json_module.JSONDecodeError, UnicodeDecodeError) as e:
             # Failed to parse body, use default graceful=True
-            logger.debug(f"Failed to parse stop request body, using graceful=True: {e}")
+            logger.debug("Failed to parse stop request body, using graceful=True: %s", e)
 
         async def stop() -> None:
             await scheduler.stop(graceful=graceful)

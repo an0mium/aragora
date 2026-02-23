@@ -173,7 +173,7 @@ class KnowledgeFederationMixin:
         except ImportError:
             logger.debug("Federation registry store not available")
         except (OSError, RuntimeError, ValueError) as e:
-            logger.warning(f"Failed to persist federation registry: {e}")
+            logger.warning("Failed to persist federation registry: %s", e)
 
         # Also register with CrossWorkspaceCoordinator if available
         await self._register_with_coordinator(region)
@@ -181,7 +181,7 @@ class KnowledgeFederationMixin:
         # Cache in class-level dict for backward compatibility
         KnowledgeFederationMixin._federated_regions[region_id] = region
 
-        logger.info(f"Registered federated region {region_id} at {endpoint_url}")
+        logger.info("Registered federated region %s at %s", region_id, endpoint_url)
         return region
 
     async def unregister_federated_region(
@@ -209,18 +209,18 @@ class KnowledgeFederationMixin:
             store = get_federation_registry_store()
             result = await store.delete(region_id, self._proto.workspace_id)
             if result or was_in_cache:
-                logger.info(f"Unregistered federated region {region_id}")
+                logger.info("Unregistered federated region %s", region_id)
                 return True
             return False
         except ImportError:
             logger.debug("Federation registry store not available")
             # Return True if we removed from cache
             if was_in_cache:
-                logger.info(f"Unregistered federated region {region_id}")
+                logger.info("Unregistered federated region %s", region_id)
                 return True
             return False
         except (OSError, RuntimeError, ValueError) as e:
-            logger.warning(f"Failed to unregister federated region: {e}")
+            logger.warning("Failed to unregister federated region: %s", e)
             # Return True if we removed from cache
             return was_in_cache
 
@@ -418,7 +418,7 @@ class KnowledgeFederationMixin:
                     await self._proto.store(request)
                     nodes_synced += 1
                 except (RuntimeError, ValueError, KeyError, AttributeError) as e:  # noqa: BLE001 - adapter isolation
-                    logger.warning(f"Failed to ingest item from {region_id}: {e}")
+                    logger.warning("Failed to ingest item from %s: %s", region_id, e)
                     nodes_failed += 1
 
             duration_ms = (time.time() - start_time) * 1000
@@ -538,7 +538,7 @@ class KnowledgeFederationMixin:
         except ImportError:
             logger.debug("Federation registry store not available")
         except (OSError, RuntimeError, ValueError) as e:
-            logger.warning(f"Failed to get region from store: {e}")
+            logger.warning("Failed to get region from store: %s", e)
 
         # Fall back to class-level cache
         return KnowledgeFederationMixin._federated_regions.get(region_id)
@@ -570,7 +570,7 @@ class KnowledgeFederationMixin:
         except ImportError:
             logger.debug("Federation registry store not available")
         except (OSError, RuntimeError, ValueError) as e:
-            logger.warning(f"Failed to list enabled regions: {e}")
+            logger.warning("Failed to list enabled regions: %s", e)
 
         # Fall back to class-level cache - return only enabled regions
         return [
@@ -606,7 +606,7 @@ class KnowledgeFederationMixin:
         except ImportError:
             logger.debug("Federation registry store not available")
         except (OSError, RuntimeError, ValueError) as e:
-            logger.warning(f"Failed to list all regions: {e}")
+            logger.warning("Failed to list all regions: %s", e)
 
         # Fall back to class-level cache
         return list(KnowledgeFederationMixin._federated_regions.values())
@@ -640,7 +640,7 @@ class KnowledgeFederationMixin:
         except ImportError:
             logger.debug("Federation registry store not available")
         except (OSError, RuntimeError, ValueError) as e:
-            logger.warning(f"Failed to update region sync status: {e}")
+            logger.warning("Failed to update region sync status: %s", e)
 
     def _apply_sync_scope(
         self,
@@ -704,7 +704,7 @@ class KnowledgeFederationMixin:
         except ImportError:
             logger.debug("CrossWorkspaceCoordinator not available")
         except (OSError, RuntimeError, ValueError, AttributeError) as e:
-            logger.warning(f"Failed to register with coordinator: {e}")
+            logger.warning("Failed to register with coordinator: %s", e)
 
     async def _push_to_region(
         self,
@@ -734,7 +734,7 @@ class KnowledgeFederationMixin:
             logger.debug("CrossWorkspaceCoordinator not available, simulating sync")
             return len(items)
         except (OSError, ConnectionError, RuntimeError, TimeoutError, ValueError) as e:
-            logger.warning(f"Push to region failed: {e}")
+            logger.warning("Push to region failed: %s", e)
             raise
 
     async def _fetch_from_region(
@@ -765,5 +765,5 @@ class KnowledgeFederationMixin:
             logger.debug("CrossWorkspaceCoordinator not available")
             return []
         except (OSError, ConnectionError, RuntimeError, TimeoutError, ValueError) as e:
-            logger.warning(f"Fetch from region failed: {e}")
+            logger.warning("Fetch from region failed: %s", e)
             raise

@@ -114,8 +114,7 @@ class AgentRouter:
         for rule in sorted_rules:
             if self._matches(rule, channel, message):
                 logger.debug(
-                    f"Routed message {message.message_id} to {rule.agent_id} "
-                    f"via rule {rule.rule_id}"
+                    "Routed message %s to %s via rule %s", message.message_id, rule.agent_id, rule.rule_id
                 )
                 return rule.agent_id
 

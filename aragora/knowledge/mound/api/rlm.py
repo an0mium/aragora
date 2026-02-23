@@ -154,7 +154,7 @@ class RLMOperationsMixin:
             config = RLMConfig() if RLMConfig else None
             rlm = get_rlm(config=config)
         except (RuntimeError, ValueError, OSError) as e:
-            logger.warning(f"Failed to get RLM instance: {e}")
+            logger.warning("Failed to get RLM instance: %s", e)
             return None
 
         # Query using AragoraRLM (routes to TRUE RLM if available)
@@ -185,7 +185,7 @@ class RLMOperationsMixin:
             return None
 
         except (RuntimeError, ValueError, OSError, AttributeError) as e:
-            logger.error(f"RLM query failed: {e}")
+            logger.error("RLM query failed: %s", e)
             return None
 
     def is_rlm_available(self) -> bool:
@@ -297,10 +297,10 @@ class RLMOperationsMixin:
             rlm = get_rlm(config=config, mode=mode)
         except RuntimeError as e:
             # TRUE RLM required but not available
-            logger.error(f"[rlm] TRUE RLM initialization failed: {e}")
+            logger.error("[rlm] TRUE RLM initialization failed: %s", e)
             return None
         except (RuntimeError, ValueError, OSError) as e:
-            logger.warning(f"[rlm] Failed to get RLM instance: {e}")
+            logger.warning("[rlm] Failed to get RLM instance: %s", e)
             return None
 
         # Try TRUE RLM query first (if available)
@@ -320,7 +320,7 @@ class RLMOperationsMixin:
                     )
                     return result.answer
             except (RuntimeError, ValueError, OSError) as e:
-                logger.debug(f"[rlm] TRUE RLM query failed, trying compress_and_query: {e}")
+                logger.debug("[rlm] TRUE RLM query failed, trying compress_and_query: %s", e)
 
         # Fall back to compress_and_query
         try:
@@ -342,7 +342,7 @@ class RLMOperationsMixin:
             return None
 
         except (RuntimeError, ValueError, OSError, AttributeError) as e:
-            logger.error(f"[rlm] Knowledge query failed: {e}")
+            logger.error("[rlm] Knowledge query failed: %s", e)
             return None
 
     async def create_knowledge_repl(
@@ -402,5 +402,5 @@ class RLMOperationsMixin:
             logger.debug("[rlm] REPL adapter not available")
             return None
         except (RuntimeError, ValueError, OSError, AttributeError) as e:
-            logger.warning(f"[rlm] Failed to create knowledge REPL: {e}")
+            logger.warning("[rlm] Failed to create knowledge REPL: %s", e)
             return None

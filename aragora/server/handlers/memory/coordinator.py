@@ -75,7 +75,7 @@ class CoordinatorHandler(SecureHandler):
 
         # Rate limit all coordinator endpoints
         if not _coordinator_limiter.is_allowed(client_ip):
-            logger.warning(f"Rate limit exceeded for coordinator endpoint: {client_ip}")
+            logger.warning("Rate limit exceeded for coordinator endpoint: %s", client_ip)
             return error_response("Rate limit exceeded. Please try again later.", 429)
 
         # RBAC: Require authentication and memory:read permission
@@ -85,7 +85,7 @@ class CoordinatorHandler(SecureHandler):
         except UnauthorizedError:
             return error_response("Authentication required to access coordinator data", 401)
         except ForbiddenError as e:
-            logger.warning(f"Coordinator access denied: {e}")
+            logger.warning("Coordinator access denied: %s", e)
             return error_response("Permission denied", 403)
 
         if not COORDINATOR_AVAILABLE:
@@ -95,7 +95,7 @@ class CoordinatorHandler(SecureHandler):
             )
 
         # Debug: Log path matching for troubleshooting
-        logger.debug(f"Coordinator handler path: {path!r}")
+        logger.debug("Coordinator handler path: %r", path)
 
         if path == "/api/v1/memory/coordinator/metrics":
             return self._get_metrics()

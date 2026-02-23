@@ -221,7 +221,7 @@ class FollowUpTracker:
             self._by_recipient[recipient_lower] = set()
         self._by_recipient[recipient_lower].add(followup_id)
 
-        logger.info(f"Created follow-up {followup_id} for email to {recipient}")
+        logger.info("Created follow-up %s for email to %s", followup_id, recipient)
         return item
 
     async def get_pending_followups(
@@ -321,11 +321,11 @@ class FollowUpTracker:
                             item.reply_received_at = msg_date
                             item.updated_at = datetime.now()
                             received_replies.append(item)
-                            logger.info(f"Reply received for follow-up {followup_id}")
+                            logger.info("Reply received for follow-up %s", followup_id)
                             break
 
             except (ValueError, OSError, ConnectionError, RuntimeError) as e:
-                logger.error(f"Error checking thread {thread_id}: {e}")
+                logger.error("Error checking thread %s: %s", thread_id, e)
 
         return received_replies
 
@@ -402,12 +402,12 @@ class FollowUpTracker:
                         created.append(item)
 
                 except (ValueError, KeyError, TypeError) as e:
-                    logger.debug(f"Error processing message {msg_id}: {e}")
+                    logger.debug("Error processing message %s: %s", msg_id, e)
 
         except (ValueError, OSError, ConnectionError, RuntimeError) as e:
-            logger.error(f"Error auto-detecting sent emails: {e}")
+            logger.error("Error auto-detecting sent emails: %s", e)
 
-        logger.info(f"Auto-detected {len(created)} emails needing follow-up")
+        logger.info("Auto-detected %s emails needing follow-up", len(created))
         return created
 
     async def resolve_followup(

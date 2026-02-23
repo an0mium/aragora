@@ -93,7 +93,7 @@ class FrameworkCircuitBreaker:
             if self._open_at is not None:
                 self._successes += 1
                 if self._successes >= self.settings.success_threshold:
-                    logger.info(f"Circuit breaker CLOSED for {self.framework}")
+                    logger.info("Circuit breaker CLOSED for %s", self.framework)
                     self._open_at = None
                     self._successes = 0
                     self._half_open_calls = 0
@@ -109,7 +109,7 @@ class FrameworkCircuitBreaker:
                     self._open_at = time.time()
                     self._half_open_calls = 0
                     logger.warning(
-                        f"Circuit breaker OPEN for {self.framework} after {self._failures} failures"
+                        "Circuit breaker OPEN for %s after %s failures", self.framework, self._failures
                     )
                     return True
 
@@ -122,7 +122,7 @@ class FrameworkCircuitBreaker:
             self._successes = 0
             self._open_at = None
             self._half_open_calls = 0
-            logger.info(f"Circuit breaker reset for {self.framework}")
+            logger.info("Circuit breaker reset for %s", self.framework)
 
     def to_dict(self) -> dict[str, Any]:
         """Serialize state for monitoring."""

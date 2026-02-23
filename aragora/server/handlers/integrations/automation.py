@@ -137,14 +137,13 @@ class AutomationHandler(SecureHandler):
             decision = rbac.check_permission(rbac_context, permission, resource_id)
             if not decision.allowed:
                 logger.warning(
-                    f"Permission denied: user={auth_ctx.user_id} permission={permission} "
-                    f"reason={decision.reason}"
+                    "Permission denied: user=%s permission=%s reason=%s", auth_ctx.user_id, permission, decision.reason
                 )
                 return error_response("Permission denied", status=403)
 
             return None  # Allowed
         except (ImportError, AttributeError, KeyError, ValueError, TypeError) as e:
-            logger.warning(f"RBAC check failed: {e}")
+            logger.warning("RBAC check failed: %s", e)
             return error_response("Authentication required", status=401)
 
     def handle_get(
@@ -392,7 +391,7 @@ class AutomationHandler(SecureHandler):
                 name=name,
             )
 
-            logger.info(f"[AutomationHandler] Created subscription {subscription.id}")
+            logger.info("[AutomationHandler] Created subscription %s", subscription.id)
 
             return json_response(
                 {
@@ -404,7 +403,7 @@ class AutomationHandler(SecureHandler):
             )
 
         except (ValueError, KeyError, TypeError, RuntimeError, OSError, ConnectionError) as e:
-            logger.error(f"[AutomationHandler] Subscribe failed: {e}")
+            logger.error("[AutomationHandler] Subscribe failed: %s", e)
             return error_response("Subscription creation failed", status=500)
 
     def _unsubscribe(self, webhook_id: str) -> HandlerResult:
@@ -418,7 +417,7 @@ class AutomationHandler(SecureHandler):
                 loop.close()
 
             if removed:
-                logger.info(f"[AutomationHandler] Removed subscription {webhook_id}")
+                logger.info("[AutomationHandler] Removed subscription %s", webhook_id)
                 return success_response(
                     {
                         "message": f"Webhook {webhook_id} removed successfully",

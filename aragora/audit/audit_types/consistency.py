@@ -363,7 +363,7 @@ class ConsistencyAuditor:
                 except ValueError:
                     continue
         except (ValueError, TypeError, AttributeError) as e:
-            logger.warning(f"Date comparison failed for '{d1}' vs '{d2}': {e}")
+            logger.warning("Date comparison failed for '%s' vs '%s': %s", d1, d2, e)
         return d1 != d2
 
     def _numbers_differ(self, n1: str, n2: str) -> bool:
@@ -494,7 +494,7 @@ class ConsistencyAuditor:
                         except ValueError:
                             continue
                 except (ValueError, TypeError, AttributeError) as e:
-                    logger.warning(f"Date extraction failed for '{stmt.value}': {e}")
+                    logger.warning("Date extraction failed for '%s': %s", stmt.value, e)
 
         return findings
 
@@ -560,13 +560,13 @@ If no issues found, respond with empty array: []"""
                     logger.debug("Failed to parse JSON data: %s", e)
 
         except (ImportError, AttributeError) as e:
-            logger.warning(f"LLM consistency analysis unavailable: {e}")
+            logger.warning("LLM consistency analysis unavailable: %s", e)
         except (ValueError, KeyError, TypeError) as e:
-            logger.warning(f"LLM consistency analysis failed to parse response: {e}")
+            logger.warning("LLM consistency analysis failed to parse response: %s", e)
         except OSError as e:
-            logger.exception(f"LLM consistency analysis failed due to I/O error: {e}")
+            logger.exception("LLM consistency analysis failed due to I/O error: %s", e)
         except AgentAPIError as e:
-            logger.warning(f"LLM consistency analysis unavailable: {e}")
+            logger.warning("LLM consistency analysis unavailable: %s", e)
 
         return findings
 

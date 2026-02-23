@@ -36,7 +36,7 @@ def _emit_metrics(circuit_name: str, state: int) -> None:
         try:
             _metrics_callback(circuit_name, state)
         except Exception as e:  # noqa: BLE001 - metrics emission must never break callers
-            logger.debug(f"Error emitting circuit breaker metrics: {e}")
+            logger.debug("Error emitting circuit breaker metrics: %s", e)
 
 
 class CircuitOpenError(Exception):
@@ -208,7 +208,7 @@ class CircuitBreaker:
         if self._single_failures >= self.failure_threshold:
             if self._single_open_at == 0.0:
                 self._single_open_at = time.time()
-                logger.warning(f"Circuit breaker OPEN after {self._single_failures} failures")
+                logger.warning("Circuit breaker OPEN after %s failures", self._single_failures)
                 _emit_metrics(self.name, 1)  # 1 = open
                 return True
         return False
@@ -222,7 +222,7 @@ class CircuitBreaker:
             if entity not in self._circuit_open_at:
                 self._circuit_open_at[entity] = time.time()
                 logger.warning(
-                    f"Circuit breaker OPEN for {entity} after {self._failures[entity]} failures"
+                    "Circuit breaker OPEN for %s after %s failures", entity, self._failures[entity]
                 )
                 _emit_metrics(f"{self.name}:{entity}", 1)  # 1 = open
                 return True
@@ -260,7 +260,7 @@ class CircuitBreaker:
                 del self._circuit_open_at[entity]
                 self._failures[entity] = 0
                 self._half_open_successes[entity] = 0
-                logger.info(f"Circuit breaker CLOSED for {entity}")
+                logger.info("Circuit breaker CLOSED for %s", entity)
                 _emit_metrics(f"{self.name}:{entity}", 0)  # 0 = closed
         else:
             self._failures[entity] = 0
@@ -346,8 +346,7 @@ class CircuitBreaker:
         elapsed = time.time() - self._circuit_open_at[entity]
         if elapsed >= self.cooldown_seconds:
             logger.debug(
-                f"Circuit breaker HALF-OPEN for {entity} "
-                f"(cooldown {self.cooldown_seconds}s elapsed)"
+                "Circuit breaker HALF-OPEN for %s (cooldown %ss elapsed)", entity, self.cooldown_seconds
             )
             return True
 
@@ -432,7 +431,7 @@ class CircuitBreaker:
             self._circuit_open_at.pop(entity, None)
             self._half_open_successes.pop(entity, None)
             self._half_open_calls.pop(entity, None)
-            logger.info(f"Circuit breaker reset state for {entity}")
+            logger.info("Circuit breaker reset state for %s", entity)
 
     def get_all_status(self) -> dict[str, dict]:
         """Get status for all tracked entities."""
@@ -515,7 +514,7 @@ class CircuitBreaker:
             raise
         except Exception as e:  # noqa: BLE001 - circuit breaker must catch all failures
             # Record all other exceptions as failures
-            logger.debug(f"Circuit breaker recorded failure for {name}: {type(e).__name__}: {e}")
+            logger.debug("Circuit breaker recorded failure for %s: %s: %s", name, type(e).__name__, e)
             self.record_failure(entity)
             raise
 
@@ -553,7 +552,7 @@ class CircuitBreaker:
         except Exception as e:  # noqa: BLE001 - circuit breaker must catch all failures
             # Record all exceptions as failures
             logger.debug(
-                f"Circuit breaker (sync) recorded failure for {name}: {type(e).__name__}: {e}"
+                "Circuit breaker (sync) recorded failure for %s: %s: %s", name, type(e).__name__, e
             )
             self.record_failure(entity)
             raise

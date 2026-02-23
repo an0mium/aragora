@@ -82,7 +82,7 @@ class LifecycleManager:
                 if self.is_arena_task(task):
                     await self.cancel_task(task)
         except (RuntimeError, OSError) as e:
-            logger.debug(f"Error cancelling tasks during cleanup: {e}")
+            logger.debug("Error cancelling tasks during cleanup: %s", e)
 
     async def close_checkpoint_manager(self) -> None:
         """Close the checkpoint manager if it exists and has a close method."""
@@ -93,7 +93,7 @@ class LifecycleManager:
             if asyncio.iscoroutine(close_result):
                 await close_result
         except (RuntimeError, OSError, AttributeError) as e:
-            logger.debug(f"Error closing checkpoint manager: {e}")
+            logger.debug("Error closing checkpoint manager: %s", e)
 
     def count_open_circuit_breakers(self) -> int:
         """Count the number of open circuit breakers across all agents."""
@@ -113,7 +113,7 @@ class LifecycleManager:
             return
         error_phases = [p.phase_name for p in execution_result.phases if p.status.value == "failed"]
         if error_phases:
-            logger.warning(f"Phase failures: {error_phases}")
+            logger.warning("Phase failures: %s", error_phases)
 
     def clear_cache(self) -> None:
         """Clear the state cache if it exists."""

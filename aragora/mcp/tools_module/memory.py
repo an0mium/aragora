@@ -68,7 +68,7 @@ async def query_memory_tool(
     except ImportError:
         logger.warning("Continuum memory not available")
     except (RuntimeError, ValueError, OSError) as e:
-        logger.warning(f"Memory query failed: {e}")
+        logger.warning("Memory query failed: %s", e)
 
     return {
         "memories": memories,

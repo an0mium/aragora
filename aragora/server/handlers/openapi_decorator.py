@@ -60,10 +60,10 @@ def _extract_pydantic_schema(model: type[Any]) -> dict[str, Any]:
         elif hasattr(model, "schema"):
             return model.schema()
         else:
-            logger.warning(f"Model {model} does not have schema method")
+            logger.warning("Model %s does not have schema method", model)
             return {"type": "object"}
     except (ValueError, TypeError, KeyError, AttributeError, RuntimeError) as e:
-        logger.warning(f"Failed to extract schema from {model}: {e}")
+        logger.warning("Failed to extract schema from %s: %s", model, e)
         return {"type": "object"}
 
 

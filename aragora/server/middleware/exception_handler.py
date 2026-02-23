@@ -344,7 +344,7 @@ class ExceptionHandler:
         """Mark operation as successful."""
         self.result = result
         duration_ms = round((time.time() - self.start_time) * 1000, 2)
-        logger.debug(f"[{self.trace_id}] {self.context}: success in {duration_ms}ms")
+        logger.debug("[%s] %s: success in %sms", self.trace_id, self.context, duration_ms)
 
     @property
     def error_response(self) -> dict[str, Any] | None:

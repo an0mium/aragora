@@ -475,7 +475,7 @@ class PlaidConnector:
             tenant_id=tenant_id,
         )
 
-        logger.info(f"[Plaid] Linked account for user {user_id}: {institution_name}")
+        logger.info("[Plaid] Linked account for user %s: %s", user_id, institution_name)
 
         return credentials
 
@@ -597,7 +597,7 @@ class PlaidConnector:
         total = response.get("total_transactions", len(transactions))
 
         logger.info(
-            f"[Plaid] Fetched {len(transactions)} transactions for {credentials.institution_name}"
+            "[Plaid] Fetched %s transactions for %s", len(transactions), credentials.institution_name
         )
 
         return transactions, total
@@ -645,7 +645,7 @@ class PlaidConnector:
 
         credentials.last_sync = datetime.now(timezone.utc)
 
-        logger.info(f"[Plaid] Synced {len(added)} added, {len(removed)} removed transactions")
+        logger.info("[Plaid] Synced %s added, %s removed transactions", len(added), len(removed))
 
         return added, removed, new_cursor
 
@@ -885,13 +885,13 @@ Provide:
                     txn.categorization_source = "agent"
 
                     logger.debug(
-                        f"[Plaid] Agent categorized {txn.name}: {txn.accounting_category.value}"
+                        "[Plaid] Agent categorized %s: %s", txn.name, txn.accounting_category.value
                     )
 
         except ImportError:
             logger.warning("[Plaid] Debate arena not available for categorization")
         except (ValueError, RuntimeError, TypeError, KeyError) as e:
-            logger.error(f"[Plaid] Agent categorization failed: {e}")
+            logger.error("[Plaid] Agent categorization failed: %s", e)
 
         return transactions
 
@@ -915,11 +915,11 @@ Provide:
                 {"access_token": credentials.access_token},
             )
             logger.info(
-                f"[Plaid] Removed item {credentials.item_id} for user {credentials.user_id}"
+                "[Plaid] Removed item %s for user %s", credentials.item_id, credentials.user_id
             )
             return True
         except PlaidError as e:
-            logger.error(f"[Plaid] Failed to remove item: {e}")
+            logger.error("[Plaid] Failed to remove item: %s", e)
             return False
 
     async def get_item_status(

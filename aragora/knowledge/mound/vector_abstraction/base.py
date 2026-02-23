@@ -84,7 +84,7 @@ class VectorStoreConfig:
         try:
             backend = VectorBackend(backend_str)
         except ValueError:
-            logger.warning(f"Unknown backend '{backend_str}', falling back to memory")
+            logger.warning("Unknown backend '%s', falling back to memory", backend_str)
             backend = VectorBackend.MEMORY
 
         return cls(
@@ -437,5 +437,5 @@ class BaseVectorStore(ABC):
             health = await self.health_check()
             return health.get("status") == "healthy"
         except (ConnectionError, TimeoutError, RuntimeError) as e:
-            logger.debug(f"Ping failed: {e}")
+            logger.debug("Ping failed: %s", e)
             return False

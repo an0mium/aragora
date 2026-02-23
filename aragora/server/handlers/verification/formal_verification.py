@@ -139,9 +139,9 @@ def _add_to_history(
                 confidence=result.get("confidence", 0.0) if isinstance(result, dict) else 0.0,
                 proof_tree=proof_tree,
             )
-            logger.debug(f"Persisted verification {entry_id} to GovernanceStore")
+            logger.debug("Persisted verification %s to GovernanceStore", entry_id)
         except (OSError, ValueError, TypeError, KeyError, RuntimeError) as e:
-            logger.warning(f"Failed to persist verification to GovernanceStore: {e}")
+            logger.warning("Failed to persist verification to GovernanceStore: %s", e)
 
     return entry_id
 
@@ -289,7 +289,7 @@ class FormalVerificationHandler(BaseHandler):
                 return error_response("Permission denied", 403)
             return None
         except (AttributeError, TypeError, ValueError, RuntimeError) as e:
-            logger.warning(f"Auth check failed for verification: {e}")
+            logger.warning("Auth check failed for verification: %s", e)
             return error_response("Authentication required", 401)
 
     def _get_manager(self) -> Any:
@@ -710,7 +710,7 @@ class FormalVerificationHandler(BaseHandler):
                 )
             except (OSError, ValueError, TypeError, KeyError, RuntimeError, AttributeError) as e:
                 logger.warning(
-                    f"Failed to load from GovernanceStore, falling back to in-memory: {e}"
+                    "Failed to load from GovernanceStore, falling back to in-memory: %s", e
                 )
 
         # Fallback to in-memory cache
@@ -793,7 +793,7 @@ class FormalVerificationHandler(BaseHandler):
                         # Cache in memory for future lookups
                         _verification_history[entry_id] = entry
                 except (OSError, ValueError, TypeError, KeyError, RuntimeError, AttributeError) as e:
-                    logger.warning(f"Failed to load verification from store: {e}")
+                    logger.warning("Failed to load verification from store: %s", e)
 
         if not entry:
             return error_response(f"Entry not found: {entry_id}", 404)

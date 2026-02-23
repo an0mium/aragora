@@ -241,7 +241,7 @@ def register_connector(
 ) -> None:
     """Register a connector type for use in workflows."""
     _CONNECTOR_REGISTRY[name] = metadata
-    logger.debug(f"Registered connector type: {name}")
+    logger.debug("Registered connector type: %s", name)
 
 
 def get_connector_metadata(name: str) -> ConnectorMetadata | None:
@@ -283,7 +283,7 @@ async def create_connector(
         module = importlib.import_module(metadata.module_path)
         connector_class = getattr(module, metadata.class_name)
     except (ImportError, AttributeError) as e:
-        logger.error(f"Failed to load connector {connector_type}: {e}")
+        logger.error("Failed to load connector %s: %s", connector_type, e)
         raise ImportError(f"Connector {connector_type} not available: {e}")
 
     # Instantiate connector
@@ -407,7 +407,7 @@ class ConnectorStep(BaseStep):
                     self._execute_operation(connector, operation, interpolated_params),
                     timeout=timeout,
                 )
-                logger.info(f"[ConnectorStep] {self._name}: {connector_type}.{operation} succeeded")
+                logger.info("[ConnectorStep] %s: %s.%s succeeded", self._name, connector_type, operation)
                 return self._format_result(result)
 
             except asyncio.TimeoutError:
@@ -415,7 +415,7 @@ class ConnectorStep(BaseStep):
                 if not retry_on_error or attempt >= max_retries:
                     raise last_error
                 delay = get_retry_delay(last_error)
-                logger.warning(f"[ConnectorStep] {self._name}: Timeout, retrying in {delay}s...")
+                logger.warning("[ConnectorStep] %s: Timeout, retrying in %ss...", self._name, delay)
                 await asyncio.sleep(delay)
 
             except ConnectorError as e:
@@ -423,11 +423,11 @@ class ConnectorStep(BaseStep):
                 if not retry_on_error or not is_retryable_error(e) or attempt >= max_retries:
                     raise
                 delay = get_retry_delay(e)
-                logger.warning(f"[ConnectorStep] {self._name}: {e}, retrying in {delay}s...")
+                logger.warning("[ConnectorStep] %s: %s, retrying in %ss...", self._name, e, delay)
                 await asyncio.sleep(delay)
 
             except (RuntimeError, ValueError, TypeError, OSError, ConnectionError, AttributeError, KeyError) as e:
-                logger.error(f"[ConnectorStep] {self._name}: Unexpected error: {e}")
+                logger.error("[ConnectorStep] %s: Unexpected error: %s", self._name, e)
                 raise
 
         raise last_error or RuntimeError("Connector operation failed")

@@ -325,7 +325,7 @@ class PostgresEmailReplyStore:
             await conn.execute(self.INITIAL_SCHEMA)
 
         self._initialized = True
-        logger.debug(f"[{self.SCHEMA_NAME}] Schema initialized")
+        logger.debug("[%s] Schema initialized", self.SCHEMA_NAME)
 
     async def save(self, origin: EmailReplyOrigin) -> None:
         """Save an email reply origin to PostgreSQL."""
@@ -429,11 +429,11 @@ async def _get_postgres_email_store() -> PostgresEmailReplyStore | None:
             return _postgres_email_store
         except (ConnectionError, TimeoutError, OSError) as e:
             logger.warning(
-                f"PostgreSQL email reply store connection failed: {type(e).__name__}: {e}"
+                "PostgreSQL email reply store connection failed: %s: %s", type(e).__name__, e
             )
             return None
         except Exception as e:  # noqa: BLE001 - asyncpg/psycopg custom exception hierarchies
-            logger.warning(f"PostgreSQL email reply store not available: {type(e).__name__}: {e}")
+            logger.warning("PostgreSQL email reply store not available: %s: %s", type(e).__name__, e)
             return None
 
 
@@ -463,7 +463,7 @@ def _store_email_origin_redis(origin: EmailReplyOrigin) -> None:
     except ImportError:
         raise
     except (ConnectionError, TimeoutError, OSError, RuntimeError, ValueError) as e:
-        logger.debug(f"Redis email origin store failed: {e}")
+        logger.debug("Redis email origin store failed: %s", e)
         raise
 
 
@@ -481,7 +481,7 @@ def _load_email_origin_redis(message_id: str) -> EmailReplyOrigin | None:
     except ImportError:
         raise
     except (ConnectionError, TimeoutError, OSError, RuntimeError, ValueError) as e:
-        logger.debug(f"Redis email origin load failed: {e}")
+        logger.debug("Redis email origin load failed: %s", e)
         raise
 
 
@@ -532,16 +532,16 @@ def register_email_origin(
                 asyncio.run(pg_store.save(origin))
         except (ConnectionError, TimeoutError, OSError) as e:
             logger.warning(
-                f"PostgreSQL email origin storage connection error: {type(e).__name__}: {e}"
+                "PostgreSQL email origin storage connection error: %s: %s", type(e).__name__, e
             )
         except Exception as e:  # noqa: BLE001 - asyncpg/psycopg custom exception hierarchies
-            logger.warning(f"PostgreSQL email origin storage failed: {type(e).__name__}: {e}")
+            logger.warning("PostgreSQL email origin storage failed: %s: %s", type(e).__name__, e)
     else:
         # Persist to SQLite for durability (always available)
         try:
             _get_sqlite_email_store().save(origin)
         except sqlite3.Error as e:
-            logger.warning(f"SQLite email origin storage failed: {type(e).__name__}: {e}")
+            logger.warning("SQLite email origin storage failed: %s: %s", type(e).__name__, e)
 
     # Persist to Redis for distributed deployments
     redis_success = False
@@ -561,10 +561,10 @@ def register_email_origin(
                 "email_reply_loop",
                 f"Redis connection failed: {e}",
             )
-        logger.debug(f"Redis email origin storage not available: {e}")
+        logger.debug("Redis email origin storage not available: %s", e)
 
     logger.debug(
-        f"Registered email origin for debate {debate_id}: {message_id} (redis={redis_success})"
+        "Registered email origin for debate %s: %s (redis=%s)", debate_id, message_id, redis_success
     )
     return origin
 
@@ -587,9 +587,9 @@ async def get_origin_by_reply(in_reply_to: str) -> EmailReplyOrigin | None:
                 _reply_origins[in_reply_to] = origin  # Cache locally
                 return origin
         except (ConnectionError, TimeoutError, OSError) as e:
-            logger.debug(f"Redis email origin lookup connection error: {type(e).__name__}: {e}")
+            logger.debug("Redis email origin lookup connection error: %s: %s", type(e).__name__, e)
         except (RuntimeError, ValueError) as e:
-            logger.debug(f"Redis email origin lookup not available: {type(e).__name__}: {e}")
+            logger.debug("Redis email origin lookup not available: %s: %s", type(e).__name__, e)
 
         # Try PostgreSQL if configured
         pg_store = await _get_postgres_email_store()
@@ -601,10 +601,10 @@ async def get_origin_by_reply(in_reply_to: str) -> EmailReplyOrigin | None:
                     return origin
             except (ConnectionError, TimeoutError, OSError) as e:
                 logger.debug(
-                    f"PostgreSQL email origin lookup connection error: {type(e).__name__}: {e}"
+                    "PostgreSQL email origin lookup connection error: %s: %s", type(e).__name__, e
                 )
             except Exception as e:  # noqa: BLE001 - asyncpg/psycopg custom exception hierarchies
-                logger.debug(f"PostgreSQL email origin lookup failed: {type(e).__name__}: {e}")
+                logger.debug("PostgreSQL email origin lookup failed: %s: %s", type(e).__name__, e)
         else:
             # Fall back to SQLite
             try:
@@ -613,7 +613,7 @@ async def get_origin_by_reply(in_reply_to: str) -> EmailReplyOrigin | None:
                     _reply_origins[in_reply_to] = origin  # Cache locally
                     return origin
             except sqlite3.Error as e:
-                logger.debug(f"SQLite email origin lookup failed: {type(e).__name__}: {e}")
+                logger.debug("SQLite email origin lookup failed: %s: %s", type(e).__name__, e)
 
         return None
 
@@ -852,7 +852,7 @@ async def _try_start_new_debate(email_data: InboundEmail) -> bool:
     if not topic:
         return False
 
-    logger.info(f"Starting new debate from email: {topic[:80]}...")
+    logger.info("Starting new debate from email: %s...", topic[:80])
 
     try:
         from aragora.server.middleware.decision_routing import (
@@ -889,8 +889,7 @@ async def _try_start_new_debate(email_data: InboundEmail) -> bool:
 
         if result.get("success"):
             logger.info(
-                f"Email debate started: {result.get('request_id', 'unknown')} "
-                f"from {email_data.from_email}"
+                "Email debate started: %s from %s", result.get('request_id', 'unknown'), email_data.from_email
             )
 
             # Register origin for bidirectional routing
@@ -914,17 +913,17 @@ async def _try_start_new_debate(email_data: InboundEmail) -> bool:
 
             return True
         else:
-            logger.warning(f"Email debate failed: {result.get('error', 'unknown error')}")
+            logger.warning("Email debate failed: %s", result.get('error', 'unknown error'))
             return False
 
     except ImportError as e:
-        logger.debug(f"DecisionRouter middleware not available: {e}")
+        logger.debug("DecisionRouter middleware not available: %s", e)
         return False
     except (ConnectionError, TimeoutError, OSError) as e:
-        logger.error(f"Email debate connection error: {type(e).__name__}: {e}")
+        logger.error("Email debate connection error: %s: %s", type(e).__name__, e)
         return False
     except (RuntimeError, ValueError, TypeError) as e:
-        logger.error(f"Failed to start email debate: {type(e).__name__}: {e}")
+        logger.error("Failed to start email debate: %s: %s", type(e).__name__, e)
         return False
 
 
@@ -947,7 +946,7 @@ async def process_inbound_email(email_data: InboundEmail) -> bool:
         # Check if this is a request to start a new debate
         if await _try_start_new_debate(email_data):
             return True
-        logger.debug(f"No debate_id found in email from {email_data.from_email}")
+        logger.debug("No debate_id found in email from %s", email_data.from_email)
         return False
 
     # Check if we have an origin for this reply
@@ -959,12 +958,11 @@ async def process_inbound_email(email_data: InboundEmail) -> bool:
     # Get the cleaned reply content
     content = email_data.cleaned_body
     if not content:
-        logger.debug(f"Empty reply content from {email_data.from_email}")
+        logger.debug("Empty reply content from %s", email_data.from_email)
         return False
 
     logger.info(
-        f"Processing email reply for debate {debate_id} from {email_data.from_email}: "
-        f"{len(content)} chars"
+        "Processing email reply for debate %s from %s: %s chars", debate_id, email_data.from_email, len(content)
     )
 
     # Route the reply to the debate system
@@ -1004,15 +1002,15 @@ async def process_inbound_email(email_data: InboundEmail) -> bool:
                 "subject": email_data.subject,
             },
         )
-        logger.info(f"Email reply routed to debate {debate_id}")
+        logger.info("Email reply routed to debate %s", debate_id)
         return True
 
     except ImportError:
         logger.warning("Event bus not available for email reply routing")
     except (ConnectionError, TimeoutError, OSError) as e:
-        logger.error(f"Email reply routing connection error: {type(e).__name__}: {e}")
+        logger.error("Email reply routing connection error: %s: %s", type(e).__name__, e)
     except (RuntimeError, ValueError) as e:
-        logger.error(f"Failed to route email reply: {type(e).__name__}: {e}")
+        logger.error("Failed to route email reply: %s: %s", type(e).__name__, e)
 
     # Alternative: Try queue-based submission
     try:
@@ -1043,9 +1041,9 @@ async def process_inbound_email(email_data: InboundEmail) -> bool:
     except ImportError:
         logger.debug("Queue system not available for email routing")
     except (ConnectionError, TimeoutError, OSError) as e:
-        logger.error(f"Email queue connection error: {type(e).__name__}: {e}")
+        logger.error("Email queue connection error: %s: %s", type(e).__name__, e)
     except (RuntimeError, ValueError) as e:
-        logger.error(f"Failed to queue email input: {type(e).__name__}: {e}")
+        logger.error("Failed to queue email input: %s: %s", type(e).__name__, e)
 
     return False
 
@@ -1221,7 +1219,7 @@ async def handle_email_reply(email_data: InboundEmail) -> bool:
             if handler(email_data):
                 return True
         except (RuntimeError, ValueError, TypeError, ConnectionError, TimeoutError, OSError) as e:
-            logger.warning(f"Reply handler error ({type(e).__name__}): {e}")
+            logger.warning("Reply handler error (%s): %s", type(e).__name__, e)
 
     # Default processing
     return await process_inbound_email(email_data)
@@ -1279,10 +1277,10 @@ async def send_debate_result_email(
         return None
 
     except (ConnectionError, TimeoutError, OSError) as e:
-        logger.error(f"Debate result email connection error: {type(e).__name__}: {e}")
+        logger.error("Debate result email connection error: %s: %s", type(e).__name__, e)
         return None
     except (RuntimeError, ValueError) as e:
-        logger.error(f"Failed to send debate result email: {type(e).__name__}: {e}")
+        logger.error("Failed to send debate result email: %s: %s", type(e).__name__, e)
         return None
 
 
@@ -1345,7 +1343,7 @@ Reply to this email to continue the discussion.
         if response.status_code in (200, 202):
             return {"status": "sent", "provider": "sendgrid"}
         else:
-            logger.error(f"SendGrid error: {response.status_code} {response.text}")
+            logger.error("SendGrid error: %s %s", response.status_code, response.text)
             return None
 
 
@@ -1396,10 +1394,10 @@ Reply to this email to continue the discussion.
         )
         return {"status": "sent", "provider": "ses", "message_id": response["MessageId"]}
     except (ConnectionError, TimeoutError, OSError) as e:
-        logger.error(f"SES connection error: {type(e).__name__}: {e}")
+        logger.error("SES connection error: %s: %s", type(e).__name__, e)
         return None
     except Exception as e:  # noqa: BLE001 - botocore exceptions (ClientError, etc.) may not be importable
-        logger.error(f"SES error ({type(e).__name__}): {e}")
+        logger.error("SES error (%s): %s", type(e).__name__, e)
         return None
 
 
@@ -1453,11 +1451,11 @@ Reply to this email to continue the discussion.
 
         return {"status": "sent", "provider": "smtp"}
     except smtplib.SMTPAuthenticationError as e:
-        logger.error(f"SMTP authentication error: {e}")
+        logger.error("SMTP authentication error: %s", e)
     except smtplib.SMTPException as e:
-        logger.error(f"SMTP protocol error: {type(e).__name__}: {e}")
+        logger.error("SMTP protocol error: %s: %s", type(e).__name__, e)
     except (ConnectionError, TimeoutError, OSError) as e:
-        logger.error(f"SMTP connection error: {type(e).__name__}: {e}")
+        logger.error("SMTP connection error: %s: %s", type(e).__name__, e)
         return None
 
 

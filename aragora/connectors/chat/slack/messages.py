@@ -246,7 +246,7 @@ class SlackMessagesMixin:
                 last_error = "Request timeout"
                 if attempt < self._max_retries - 1:
                     logger.warning(
-                        f"[slack] send_ephemeral timeout (attempt {attempt + 1}/{self._max_retries})"
+                        "[slack] send_ephemeral timeout (attempt %s/%s)", attempt + 1, self._max_retries
                     )
                     await _exponential_backoff(attempt)
                     continue
@@ -256,15 +256,15 @@ class SlackMessagesMixin:
                 last_error = f"Connection error: {e}"
                 if attempt < self._max_retries - 1:
                     logger.warning(
-                        f"[slack] send_ephemeral network error (attempt {attempt + 1}/{self._max_retries})"
+                        "[slack] send_ephemeral network error (attempt %s/%s)", attempt + 1, self._max_retries
                     )
                     await _exponential_backoff(attempt)
                     continue
-                logger.error(f"[slack] send_ephemeral network error after all retries: {e}")
+                logger.error("[slack] send_ephemeral network error after all retries: %s", e)
 
             except (RuntimeError, OSError, ValueError, TypeError) as e:
                 last_error = "Unexpected error"
-                logger.exception(f"[slack] send_ephemeral unexpected error: {e}")
+                logger.exception("[slack] send_ephemeral unexpected error: %s", e)
                 # Don't retry unexpected errors
                 break
 
@@ -396,11 +396,11 @@ class SlackMessagesMixin:
                     logger.warning("[slack] response_url network error, retrying")
                     await _exponential_backoff(0, base=0.5)
                     continue
-                logger.error(f"[slack] response_url network error: {e}")
+                logger.error("[slack] response_url network error: %s", e)
                 return SendMessageResponse(success=False, error="Connection error")
 
             except (RuntimeError, OSError, ValueError, TypeError) as e:
-                logger.exception(f"[slack] response_url unexpected error: {e}")
+                logger.exception("[slack] response_url unexpected error: %s", e)
                 return SendMessageResponse(success=False, error="Unexpected error")
 
         return SendMessageResponse(success=False, error="Request failed")
@@ -550,7 +550,7 @@ class SlackMessagesMixin:
             )
 
         if error:
-            logger.debug(f"get_channel_info failed: {error}")
+            logger.debug("get_channel_info failed: %s", error)
         return None
 
     async def get_user_info(self, user_id: str, **kwargs: Any) -> ChatUser | None:
@@ -580,7 +580,7 @@ class SlackMessagesMixin:
             )
 
         if error:
-            logger.debug(f"get_user_info failed: {error}")
+            logger.debug("get_user_info failed: %s", error)
         return None
 
     def format_blocks(
@@ -803,7 +803,7 @@ class SlackMessagesMixin:
 
         if not success or not data:
             if error:
-                logger.error(f"Slack list_channels error: {error}")
+                logger.error("Slack list_channels error: %s", error)
             return []
 
         channels = []
@@ -863,7 +863,7 @@ class SlackMessagesMixin:
 
             if not success or not data:
                 if error:
-                    logger.error(f"Slack list_users (channel members) error: {error}")
+                    logger.error("Slack list_users (channel members) error: %s", error)
                 return [], None
 
             # Get user info for each member
@@ -893,7 +893,7 @@ class SlackMessagesMixin:
 
         if not success or not data:
             if error:
-                logger.error(f"Slack list_users error: {error}")
+                logger.error("Slack list_users error: %s", error)
             return [], None
 
         users = []
@@ -990,7 +990,7 @@ class SlackMessagesMixin:
             return view_id
 
         if error:
-            logger.error(f"Slack open_modal error: {error}")
+            logger.error("Slack open_modal error: %s", error)
         return None
 
     async def update_modal(
@@ -1027,7 +1027,7 @@ class SlackMessagesMixin:
         )
 
         if not success and error:
-            logger.error(f"Slack update_modal error: {error}")
+            logger.error("Slack update_modal error: %s", error)
         return success
 
     # =========================================================================
@@ -1125,7 +1125,7 @@ class SlackMessagesMixin:
 
         if not success or not data:
             if error:
-                logger.error(f"Slack get_pinned_messages error: {error}")
+                logger.error("Slack get_pinned_messages error: %s", error)
             return []
 
         messages = []
@@ -1204,7 +1204,7 @@ class SlackMessagesMixin:
 
         if not success or not data:
             if error:
-                logger.error(f"Slack API error: {error}")
+                logger.error("Slack API error: %s", error)
             return []
 
         messages: list[ChatMessage] = []
@@ -1306,7 +1306,7 @@ class SlackMessagesMixin:
             await self._enrich_with_threads(evidence_list, limit=5, **kwargs)
 
         logger.info(
-            f"Collected {len(evidence_list)} evidence items from Slack channel {channel_id}"
+            "Collected %s evidence items from Slack channel %s", len(evidence_list), channel_id
         )
 
         return evidence_list
@@ -1388,7 +1388,7 @@ class SlackMessagesMixin:
 
         if not success or not data:
             if error:
-                logger.error(f"Slack search error: {error}")
+                logger.error("Slack search error: %s", error)
             return []
 
         matches = data.get("messages", {}).get("matches", [])

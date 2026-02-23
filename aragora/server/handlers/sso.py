@@ -339,19 +339,19 @@ class SSOHandler(SecureHandler):
                 )
 
         except ConfigurationError as e:
-            logger.warning(f"SSO login configuration error: {e}")
+            logger.warning("SSO login configuration error: %s", e)
             return self._format_response(
                 handler,
                 error_response(safe_error_message(e, "SSO login"), 503, code="SSO_CONFIG_ERROR"),
             )
         except (ValueError, KeyError, TypeError) as e:
-            logger.warning(f"Invalid SSO login request data: {e}")
+            logger.warning("Invalid SSO login request data: %s", e)
             return self._format_response(
                 handler,
                 error_response(safe_error_message(e, "SSO login"), 400, code="SSO_INVALID_REQUEST"),
             )
         except (ConnectionError, TimeoutError, OSError, RuntimeError) as e:  # broad catch: last-resort handler
-            logger.exception(f"Unexpected SSO login error: {e}")
+            logger.exception("Unexpected SSO login error: %s", e)
             return self._format_response(
                 handler,
                 error_response(safe_error_message(e, "SSO login"), 500, code="SSO_LOGIN_ERROR"),
@@ -393,7 +393,7 @@ class SSOHandler(SecureHandler):
         if os.getenv("ARAGORA_ENV") == "production":
             callback_url = provider.config.callback_url
             if callback_url and not callback_url.startswith("https://"):
-                logger.error(f"SSO callback URL must use HTTPS in production: {callback_url}")
+                logger.error("SSO callback URL must use HTTPS in production: %s", callback_url)
                 return self._format_response(
                     handler,
                     error_response(
@@ -467,7 +467,7 @@ class SSOHandler(SecureHandler):
             if relay_state and relay_state.startswith(("http://", "https://")):
                 # SECURITY: Validate redirect URL before redirecting
                 if not self._validate_redirect_url(relay_state):
-                    logger.warning(f"SSO callback: blocked unsafe redirect to {relay_state}")
+                    logger.warning("SSO callback: blocked unsafe redirect to %s", relay_state)
                     return self._format_response(
                         handler,
                         error_response(
@@ -497,7 +497,7 @@ class SSOHandler(SecureHandler):
             return self._format_response(handler, json_response(response_data))
 
         except ConfigurationError as e:
-            logger.warning(f"SSO callback configuration error: {e}")
+            logger.warning("SSO callback configuration error: %s", e)
             return self._format_response(
                 handler,
                 error_response(safe_error_message(e, "SSO callback"), 503, code="SSO_CONFIG_ERROR"),
@@ -611,7 +611,7 @@ class SSOHandler(SecureHandler):
             )
 
         except ConfigurationError as e:
-            logger.warning(f"SSO logout configuration error: {e}")
+            logger.warning("SSO logout configuration error: %s", e)
             return self._format_response(
                 handler,
                 json_response(
@@ -622,7 +622,7 @@ class SSOHandler(SecureHandler):
                 ),
             )
         except (ValueError, KeyError, TypeError) as e:
-            logger.warning(f"Invalid SSO logout request data: {e}")
+            logger.warning("Invalid SSO logout request data: %s", e)
             return self._format_response(
                 handler,
                 json_response(
@@ -633,7 +633,7 @@ class SSOHandler(SecureHandler):
                 ),
             )
         except (ConnectionError, TimeoutError, OSError, RuntimeError, AttributeError) as e:  # broad catch: last-resort handler
-            logger.exception(f"Unexpected SSO logout error: {e}")
+            logger.exception("Unexpected SSO logout error: %s", e)
             return self._format_response(
                 handler,
                 json_response(
@@ -702,7 +702,7 @@ class SSOHandler(SecureHandler):
                 )
 
         except (ValueError, KeyError, TypeError) as e:
-            logger.warning(f"Data error generating SSO metadata: {e}")
+            logger.warning("Data error generating SSO metadata: %s", e)
             return self._format_response(
                 handler,
                 error_response(
@@ -710,7 +710,7 @@ class SSOHandler(SecureHandler):
                 ),
             )
         except (ConnectionError, TimeoutError, OSError, RuntimeError, AttributeError) as e:  # broad catch: last-resort handler
-            logger.exception(f"Unexpected metadata generation error: {e}")
+            logger.exception("Unexpected metadata generation error: %s", e)
             return self._format_response(
                 handler,
                 error_response(safe_error_message(e, "SAML metadata"), 500, code="METADATA_ERROR"),
@@ -792,7 +792,7 @@ class SSOHandler(SecureHandler):
 
             # Must be http or https
             if parsed.scheme not in ("http", "https"):
-                logger.warning(f"SSO redirect blocked: invalid scheme {parsed.scheme}")
+                logger.warning("SSO redirect blocked: invalid scheme %s", parsed.scheme)
                 return False
 
             # Check for dangerous patterns
@@ -807,7 +807,7 @@ class SSOHandler(SecureHandler):
                 host = parsed.netloc.lower().split(":")[0]  # Remove port
 
                 if host not in allowed_hosts:
-                    logger.warning(f"SSO redirect blocked: host {host} not in allowlist")
+                    logger.warning("SSO redirect blocked: host %s not in allowlist", host)
                     return False
 
             # In production, require HTTPS for redirects
@@ -818,7 +818,7 @@ class SSOHandler(SecureHandler):
             return True
 
         except (ValueError, TypeError) as e:
-            logger.warning(f"SSO redirect validation error: {e}")
+            logger.warning("SSO redirect validation error: %s", e)
             return False
 
 

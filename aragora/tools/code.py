@@ -230,7 +230,7 @@ class CodeReader:
                         if regex.search(line):
                             results.append(self.read_span(str(path), i, i, context_lines=2))
                 except (OSError, UnicodeDecodeError) as e:
-                    logger.debug(f"Failed to search in {path}: {e}")
+                    logger.debug("Failed to search in %s: %s", path, e)
                     continue
 
         return results
@@ -252,7 +252,7 @@ class CodeReader:
                     else:
                         result[item.name] = item.stat().st_size
             except PermissionError:
-                logger.debug(f"Permission denied accessing {path}")
+                logger.debug("Permission denied accessing %s", path)
             return result
 
         return build_tree(self.root, 0)
@@ -478,7 +478,7 @@ class CodeWriter:
         except FileNotFoundError:
             warnings.append("pytest not found - could not run tests")
         except OSError as e:
-            logger.debug(f"Test run failed: {e}")
+            logger.debug("Test run failed: %s", e)
             warnings.append("Could not run tests due to system error")
 
         # Try syntax check - batch files to avoid "Argument list too long" errors
@@ -503,7 +503,7 @@ class CodeWriter:
         except FileNotFoundError:
             logger.debug("Python not found - syntax check skipped")
         except OSError as e:
-            logger.debug(f"Syntax check skipped due to OS error: {e}")
+            logger.debug("Syntax check skipped due to OS error: %s", e)
 
         return {"errors": errors, "warnings": warnings}
 
@@ -532,7 +532,7 @@ class CodeWriter:
                 shell=False,
             )
         except subprocess.CalledProcessError as e:
-            logger.error(f"Git commit failed: {e.stderr.decode() if e.stderr else e}")
+            logger.error("Git commit failed: %s", e.stderr.decode() if e.stderr else e)
             raise
 
     def rollback(self) -> bool:
@@ -611,7 +611,7 @@ class SelfImprover:
                     )
 
             except (OSError, UnicodeDecodeError, ValueError) as e:
-                logger.debug(f"[code] Failed to analyze {py_file}: {e}")
+                logger.debug("[code] Failed to analyze %s: %s", py_file, e)
                 continue
 
         return analysis

@@ -165,7 +165,7 @@ class MongoDBConnector(EnterpriseConnector):
                 # Log a masked version for debugging
                 conn_str = self.connection_string
                 logger.debug(
-                    f"Using custom connection string: {self._mask_connection_string(conn_str)}"
+                    "Using custom connection string: %s", self._mask_connection_string(conn_str)
                 )
             else:
                 # Build connection string WITHOUT credentials embedded
@@ -181,9 +181,9 @@ class MongoDBConnector(EnterpriseConnector):
                         "password": password,
                         "authSource": self.database_name,
                     }
-                    logger.debug(f"Connecting to MongoDB at {conn_str} with authentication")
+                    logger.debug("Connecting to MongoDB at %s with authentication", conn_str)
                 else:
-                    logger.debug(f"Connecting to MongoDB at {conn_str} without authentication")
+                    logger.debug("Connecting to MongoDB at %s without authentication", conn_str)
 
             self._client = AsyncIOMotorClient(conn_str, **auth_kwargs)
             self._db = self._client[self.database_name]  # type: ignore[index]
@@ -294,7 +294,7 @@ class MongoDBConnector(EnterpriseConnector):
 
                             query["_id"] = {"$gt": ObjectId(cursor_data["last_id"])}
                     except (json.JSONDecodeError, KeyError, TypeError, ValueError) as e:
-                        logger.debug(f"Failed to parse cursor, starting from beginning: {e}")
+                        logger.debug("Failed to parse cursor, starting from beginning: %s", e)
 
                 # Sort by timestamp or _id
                 sort_field = self.timestamp_field if state.last_item_timestamp else "_id"
@@ -355,7 +355,7 @@ class MongoDBConnector(EnterpriseConnector):
                     )
 
             except (OSError, ConnectionError, ValueError, KeyError, RuntimeError) as e:
-                logger.warning(f"Failed to sync collection {collection_name}: {e}")
+                logger.warning("Failed to sync collection %s: %s", collection_name, e)
                 state.errors.append(f"{collection_name}: sync failed")
                 continue
 
@@ -401,7 +401,7 @@ class MongoDBConnector(EnterpriseConnector):
                         )
                     continue
                 except (OSError, ConnectionError, ValueError, KeyError) as e:
-                    logger.debug(f"Text search not available, falling back to regex: {e}")
+                    logger.debug("Text search not available, falling back to regex: %s", e)
 
                 # Fallback to regex search on string fields
                 # Get a sample document to find string fields
@@ -436,7 +436,7 @@ class MongoDBConnector(EnterpriseConnector):
                         )
 
             except (OSError, ConnectionError, ValueError, KeyError) as e:
-                logger.debug(f"Search failed on {collection_name}: {e}")
+                logger.debug("Search failed on %s: %s", collection_name, e)
                 continue
 
         return sorted(results, key=lambda x: x.get("score", 0), reverse=True)[:limit]
@@ -455,7 +455,7 @@ class MongoDBConnector(EnterpriseConnector):
             return None
 
         if parsed.get("is_legacy"):
-            logger.debug(f"[{self.name}] Cannot fetch legacy hash-based ID: {evidence_id}")
+            logger.debug("[%s] Cannot fetch legacy hash-based ID: %s", self.name, evidence_id)
             return None
 
         database = parsed["database"]
@@ -496,7 +496,7 @@ class MongoDBConnector(EnterpriseConnector):
             return None
 
         except (OSError, ConnectionError, ValueError, KeyError) as e:
-            logger.error(f"[{self.name}] Fetch failed: {e}")
+            logger.error("[%s] Fetch failed: %s", self.name, e)
             return None
 
     async def start_change_stream(self) -> None:
@@ -525,9 +525,9 @@ class MongoDBConnector(EnterpriseConnector):
                 if resume_token:
                     try:
                         resume_after = json.loads(resume_token)
-                        logger.info(f"[{self.name}] Resuming change stream from token")
+                        logger.info("[%s] Resuming change stream from token", self.name)
                     except json.JSONDecodeError:
-                        logger.warning(f"[{self.name}] Invalid resume token, starting fresh")
+                        logger.warning("[%s] Invalid resume token, starting fresh", self.name)
 
                 # Start change stream with resume support
                 watch_kwargs: dict[str, Any] = {"pipeline": pipeline}
@@ -537,11 +537,11 @@ class MongoDBConnector(EnterpriseConnector):
                 if self._db is None:
                     raise RuntimeError("Database not initialized")
                 async with self._db.watch(**watch_kwargs) as stream:
-                    logger.info(f"[{self.name}] Change stream started")
+                    logger.info("[%s] Change stream started", self.name)
                     async for change in stream:
                         await self._handle_change(change)
             except (OSError, ConnectionError, asyncio.TimeoutError, RuntimeError) as e:
-                logger.error(f"[{self.name}] Change stream error: {e}")
+                logger.error("[%s] Change stream error: %s", self.name, e)
                 self.cdc_manager.stop()
 
         self._change_stream_task = asyncio.create_task(change_stream_loop())
@@ -555,7 +555,7 @@ class MongoDBConnector(EnterpriseConnector):
                 connector_id=self.connector_id,
             )
 
-            logger.info(f"[{self.name}] CDC event: {event.operation.value} on {event.table}")
+            logger.info("[%s] CDC event: %s on %s", self.name, event.operation.value, event.table)
 
             # Process through CDC manager if handlers are configured
             if self._change_handlers:
@@ -565,7 +565,7 @@ class MongoDBConnector(EnterpriseConnector):
                 asyncio.create_task(self.sync(max_items=10))
 
         except (ValueError, KeyError, TypeError) as e:
-            logger.warning(f"[{self.name}] Change handler error: {e}")
+            logger.warning("[%s] Change handler error: %s", self.name, e)
 
     async def stop_change_stream(self) -> None:
         """Stop the change stream."""
@@ -611,7 +611,7 @@ class MongoDBConnector(EnterpriseConnector):
             connector_id=self.connector_id,
         )
 
-        logger.info(f"[{self.name}] Webhook CDC event: {event.operation.value} on {event.table}")
+        logger.info("[%s] Webhook CDC event: %s on %s", self.name, event.operation.value, event.table)
 
         # Process through CDC manager if handlers are configured
         if self._change_handlers:

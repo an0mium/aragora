@@ -111,7 +111,7 @@ class PostgresCheckpointStore:
 
             if current_version == 0:
                 # New database - run initial schema
-                logger.info(f"[{self.SCHEMA_NAME}] Creating initial schema v{self.SCHEMA_VERSION}")
+                logger.info("[%s] Creating initial schema v%s", self.SCHEMA_NAME, self.SCHEMA_VERSION)
                 await conn.execute(self.INITIAL_SCHEMA)
                 await conn.execute(
                     """
@@ -124,7 +124,7 @@ class PostgresCheckpointStore:
                 )
 
         self._initialized = True
-        logger.info(f"[{self.SCHEMA_NAME}] Schema initialized")
+        logger.info("[%s] Schema initialized", self.SCHEMA_NAME)
 
     async def save(self, checkpoint: WorkflowCheckpoint) -> str:
         """
@@ -177,7 +177,7 @@ class PostgresCheckpointStore:
             )
 
         logger.info(
-            f"Saved checkpoint to PostgreSQL: workflow={checkpoint.workflow_id}, id={checkpoint_id}"
+            "Saved checkpoint to PostgreSQL: workflow=%s, id=%s", checkpoint.workflow_id, checkpoint_id
         )
         return checkpoint_id
 
@@ -211,18 +211,17 @@ class PostgresCheckpointStore:
                         expected_checksum = self._compute_checksum(checkpoint)
                         if checkpoint.checksum != expected_checksum:
                             logger.warning(
-                                f"Checkpoint {checkpoint_id} checksum mismatch: "
-                                f"expected={expected_checksum}, got={checkpoint.checksum}"
+                                "Checkpoint %s checksum mismatch: expected=%s, got=%s", checkpoint_id, expected_checksum, checkpoint.checksum
                             )
                             # Don't fail, just log warning - checksum may be from different serialization
 
                     return checkpoint
 
         except asyncio.TimeoutError:
-            logger.error(f"Timeout loading checkpoint {checkpoint_id}")
+            logger.error("Timeout loading checkpoint %s", checkpoint_id)
             return None
         except (OSError, RuntimeError, ConnectionError, ValueError, TypeError) as e:
-            logger.error(f"Failed to load checkpoint {checkpoint_id}: {e}")
+            logger.error("Failed to load checkpoint %s: %s", checkpoint_id, e)
             return None
 
     async def load_latest(self, workflow_id: str) -> WorkflowCheckpoint | None:
@@ -256,10 +255,10 @@ class PostgresCheckpointStore:
                     return self._row_to_checkpoint(row)
 
         except asyncio.TimeoutError:
-            logger.error(f"Timeout loading latest checkpoint for {workflow_id}")
+            logger.error("Timeout loading latest checkpoint for %s", workflow_id)
             return None
         except (OSError, RuntimeError, ConnectionError, ValueError, TypeError) as e:
-            logger.error(f"Failed to load latest checkpoint for {workflow_id}: {e}")
+            logger.error("Failed to load latest checkpoint for %s: %s", workflow_id, e)
             return None
 
     async def list_checkpoints(self, workflow_id: str) -> list[str]:
@@ -285,7 +284,7 @@ class PostgresCheckpointStore:
                 return [row["id"] for row in rows]
 
         except (OSError, RuntimeError, ConnectionError, ValueError, TypeError) as e:
-            logger.error(f"Failed to list checkpoints for {workflow_id}: {e}")
+            logger.error("Failed to list checkpoints for %s: %s", workflow_id, e)
             return []
 
     async def delete(self, checkpoint_id: str) -> bool:
@@ -307,7 +306,7 @@ class PostgresCheckpointStore:
                 return "DELETE 0" not in result
 
         except (OSError, RuntimeError, ConnectionError, ValueError, TypeError) as e:
-            logger.error(f"Failed to delete checkpoint {checkpoint_id}: {e}")
+            logger.error("Failed to delete checkpoint %s: %s", checkpoint_id, e)
             return False
 
     async def cleanup_old_checkpoints(
@@ -348,7 +347,7 @@ class PostgresCheckpointStore:
                 return 0
 
         except (OSError, RuntimeError, ConnectionError, ValueError, TypeError) as e:
-            logger.error(f"Failed to cleanup checkpoints for {workflow_id}: {e}")
+            logger.error("Failed to cleanup checkpoints for %s: %s", workflow_id, e)
             return 0
 
     def _checkpoint_to_dict(self, checkpoint: WorkflowCheckpoint) -> dict[str, Any]:

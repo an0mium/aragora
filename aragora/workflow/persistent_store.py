@@ -148,7 +148,7 @@ class PersistentWorkflowStore:
         # Initialize database
         self._init_db()
 
-        logger.info(f"Initialized workflow store at {self._db_path}")
+        logger.info("Initialized workflow store at %s", self._db_path)
 
     def _init_db(self) -> None:
         """Initialize database schema."""
@@ -271,7 +271,7 @@ class PersistentWorkflowStore:
                 )
 
             conn.commit()
-            logger.debug(f"Saved workflow {workflow.id}")
+            logger.debug("Saved workflow %s", workflow.id)
 
             event_name = "WORKFLOW_UPDATED" if exists else "WORKFLOW_CREATED"
             self._emit_workflow_event(event_name, {
@@ -404,7 +404,7 @@ class PersistentWorkflowStore:
             conn.commit()
 
             if deleted:
-                logger.info(f"Deleted workflow {workflow_id}")
+                logger.info("Deleted workflow %s", workflow_id)
                 self._emit_workflow_event("WORKFLOW_DELETED", {
                     "workflow_id": workflow_id,
                     "tenant_id": tenant_id,
@@ -818,7 +818,7 @@ def get_workflow_store(
                 _workflow_store_instance = run_async(create_postgres_workflow_store())
             except (ImportError, RuntimeError, ConnectionError, OSError, ValueError, TypeError) as e:
                 logger.warning(
-                    f"PostgreSQL workflow store initialization failed, falling back to SQLite: {e}",
+                    "PostgreSQL workflow store initialization failed, falling back to SQLite: %s", e,
                 )
                 _workflow_store_instance = PersistentWorkflowStore(db_path)
     else:

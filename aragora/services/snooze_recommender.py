@@ -302,7 +302,7 @@ class SnoozeRecommender:
                 )
 
         except (ValueError, OSError, ConnectionError, RuntimeError) as e:
-            logger.debug(f"Calendar lookup failed: {e}")
+            logger.debug("Calendar lookup failed: %s", e)
 
         return suggestions
 
@@ -386,7 +386,7 @@ class SnoozeRecommender:
                 )
 
         except (ValueError, OSError, ConnectionError, RuntimeError) as e:
-            logger.debug(f"Sender pattern lookup failed: {e}")
+            logger.debug("Sender pattern lookup failed: %s", e)
 
         return suggestions
 

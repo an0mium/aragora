@@ -530,7 +530,7 @@ class CrossSubscriberManager(
         self._subscribers[event_type].append((name, handler))
         self._stats[name] = SubscriberStats(name=name)
 
-        logger.debug(f"Registered subscriber '{name}' for {event_type.value}")
+        logger.debug("Registered subscriber '%s' for %s", name, event_type.value)
 
     def subscribe(
         self,

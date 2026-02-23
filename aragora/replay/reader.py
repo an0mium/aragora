@@ -109,10 +109,10 @@ class ReplayReader:
                     try:
                         yield ReplayEvent.from_jsonl(line)
                     except (json.JSONDecodeError, ValueError, TypeError) as e:
-                        logger.warning(f"Skipping corrupted event at line {line_num}: {e}")
+                        logger.warning("Skipping corrupted event at line %s: %s", line_num, e)
                         continue
         except OSError as e:
-            logger.error(f"Failed to read events file: {type(e).__name__}: {e}")
+            logger.error("Failed to read events file: %s: %s", type(e).__name__, e)
 
     def filter_by_type(self, event_type: str) -> Iterator[ReplayEvent]:
         """
@@ -401,7 +401,7 @@ class ReplayReader:
                     hasher.update(chunk)
             return hasher.hexdigest()
         except OSError as e:
-            logger.error(f"Failed to compute checksum: {e}")
+            logger.error("Failed to compute checksum: %s", e)
             return ""
 
     def to_bundle(self) -> dict[str, Any]:

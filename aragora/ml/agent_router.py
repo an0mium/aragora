@@ -231,7 +231,7 @@ class AgentRouter:
 
                 self._embedding_service = get_embedding_service()
             except (ImportError, RuntimeError, OSError, ValueError) as e:
-                logger.warning(f"Could not load embedding service: {e}")
+                logger.warning("Could not load embedding service: %s", e)
                 self.config.use_embeddings = False
         return self._embedding_service
 
@@ -242,7 +242,7 @@ class AgentRouter:
             capabilities: Agent capability profile
         """
         self._capabilities[capabilities.agent_id] = capabilities
-        logger.debug(f"Registered agent: {capabilities.agent_id}")
+        logger.debug("Registered agent: %s", capabilities.agent_id)
 
     def _classify_task(self, task: str) -> tuple[TaskType, float]:
         """Classify task type from description.
@@ -565,7 +565,7 @@ class AgentRouter:
         if len(history) > 500:
             self._historical_performance[agent_id][task_type] = history[-500:]
 
-        logger.debug(f"Recorded performance: {agent_id} on {task_type} = {success}")
+        logger.debug("Recorded performance: %s on %s = %s", agent_id, task_type, success)
 
     def update_elo(
         self,

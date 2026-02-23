@@ -187,8 +187,7 @@ class EmailWebhookHandler(BotHandlerMixin, SecureHandler):
             email_data = parse_sendgrid_webhook(form_data)
 
             logger.info(
-                f"SendGrid inbound email from {email_data.from_email}: "
-                f"subject='{email_data.subject[:50]}'"
+                "SendGrid inbound email from %s: subject='%s'", email_data.from_email, email_data.subject[:50]
             )
 
             audit_data(
@@ -216,7 +215,7 @@ class EmailWebhookHandler(BotHandlerMixin, SecureHandler):
             return json_response({"status": "ok", "message_id": email_data.message_id})
 
         except ImportError as e:
-            logger.error(f"Email reply loop module not available: {e}")
+            logger.error("Email reply loop module not available: %s", e)
             return error_response("Email processing not available", 503)
         except (ValueError, KeyError, TypeError, RuntimeError, OSError) as e:
             logger.exception("SendGrid webhook error: %s", e)
@@ -268,7 +267,7 @@ class EmailWebhookHandler(BotHandlerMixin, SecureHandler):
                 try:
                     payload = json.loads(body.decode("utf-8"))
                 except json.JSONDecodeError as e:
-                    logger.error(f"Invalid JSON in Mailgun webhook: {e}")
+                    logger.error("Invalid JSON in Mailgun webhook: %s", e)
                     return error_response("Invalid JSON", 400)
             else:
                 # Parse form data (multipart or urlencoded)
@@ -355,8 +354,7 @@ class EmailWebhookHandler(BotHandlerMixin, SecureHandler):
             )
 
             logger.info(
-                f"Mailgun inbound email from {email_data.from_email}: "
-                f"subject='{email_data.subject[:50]}'"
+                "Mailgun inbound email from %s: subject='%s'", email_data.from_email, email_data.subject[:50]
             )
 
             audit_data(
@@ -384,7 +382,7 @@ class EmailWebhookHandler(BotHandlerMixin, SecureHandler):
             return json_response({"status": "ok", "message_id": email_data.message_id})
 
         except ImportError as e:
-            logger.error(f"Email reply loop module not available: {e}")
+            logger.error("Email reply loop module not available: %s", e)
             return error_response("Email processing not available", 503)
         except (ValueError, KeyError, TypeError, RuntimeError, OSError) as e:
             logger.exception("Mailgun webhook error: %s", e)
@@ -417,7 +415,7 @@ class EmailWebhookHandler(BotHandlerMixin, SecureHandler):
             try:
                 notification = json.loads(body.decode("utf-8"))
             except json.JSONDecodeError as e:
-                logger.error(f"Invalid JSON in SES webhook: {e}")
+                logger.error("Invalid JSON in SES webhook: %s", e)
                 return error_response("Invalid JSON", 400)
 
             # Verify signature
@@ -437,7 +435,7 @@ class EmailWebhookHandler(BotHandlerMixin, SecureHandler):
             if msg_type == "SubscriptionConfirmation":
                 subscribe_url = notification.get("SubscribeURL")
                 if subscribe_url:
-                    logger.info(f"SES subscription confirmation needed: {subscribe_url}")
+                    logger.info("SES subscription confirmation needed: %s", subscribe_url)
                     # In production, auto-confirm by fetching the URL
                     return json_response(
                         {
@@ -453,8 +451,7 @@ class EmailWebhookHandler(BotHandlerMixin, SecureHandler):
                 return json_response({"status": "ignored"})
 
             logger.info(
-                f"SES inbound email from {email_data.from_email}: "
-                f"subject='{email_data.subject[:50]}'"
+                "SES inbound email from %s: subject='%s'", email_data.from_email, email_data.subject[:50]
             )
 
             audit_data(
@@ -482,7 +479,7 @@ class EmailWebhookHandler(BotHandlerMixin, SecureHandler):
             return json_response({"status": "ok", "message_id": email_data.message_id})
 
         except ImportError as e:
-            logger.error(f"Email reply loop module not available: {e}")
+            logger.error("Email reply loop module not available: %s", e)
             return error_response("Email processing not available", 503)
         except (ValueError, KeyError, TypeError, RuntimeError, OSError) as e:
             logger.exception("SES webhook error: %s", e)
@@ -517,7 +514,7 @@ class EmailWebhookHandler(BotHandlerMixin, SecureHandler):
                                 if isinstance(payload, bytes):
                                     form_data[param] = payload.decode("utf-8", errors="replace")
                 except (ValueError, KeyError, TypeError, UnicodeDecodeError) as e:
-                    logger.warning(f"Multipart parse error: {e}")
+                    logger.warning("Multipart parse error: %s", e)
 
         elif "application/x-www-form-urlencoded" in content_type:
             from urllib.parse import parse_qs

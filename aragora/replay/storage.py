@@ -44,7 +44,7 @@ class ReplayStorage:
         try:
             dir_entries = list(self.storage_dir.iterdir())
         except OSError as e:
-            logger.warning(f"Failed to list replay directory {self.storage_dir}: {e}")
+            logger.warning("Failed to list replay directory %s: %s", self.storage_dir, e)
             return []
 
         for session_dir in dir_entries:
@@ -66,7 +66,7 @@ class ReplayStorage:
                     }
                 )
             except (OSError, json.JSONDecodeError) as e:
-                logger.debug(f"Skipping invalid replay {session_dir}: {e}")
+                logger.debug("Skipping invalid replay %s: %s", session_dir, e)
         recordings.sort(key=lambda x: x.get("started_at", ""), reverse=True)
         return recordings[:limit]
 
@@ -94,5 +94,5 @@ class ReplayStorage:
                     shutil.rmtree(session_dir)
                     removed += 1
             except OSError as e:
-                logger.warning(f"Failed to remove replay {rec_id}: {e}")
+                logger.warning("Failed to remove replay %s: %s", rec_id, e)
         return removed

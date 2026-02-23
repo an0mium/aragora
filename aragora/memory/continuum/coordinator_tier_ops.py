@@ -288,13 +288,13 @@ class CoordinatorTierOpsMixin:
 
                 cursor.execute("COMMIT")
             except sqlite3.Error as e:
-                logger.error(f"Database error updating surprise score: {e}", exc_info=True)
+                logger.error("Database error updating surprise score: %s", e, exc_info=True)
                 cursor.execute("ROLLBACK")
                 raise
             except (ValueError, TypeError, ArithmeticError, RuntimeError) as e:
                 # Rollback on non-database exceptions, then re-raise unchanged
                 logger.warning(
-                    f"Non-database exception during surprise update, rolling back: {type(e).__name__}: {e}"
+                    "Non-database exception during surprise update, rolling back: %s: %s", type(e).__name__, e
                 )
                 cursor.execute("ROLLBACK")
                 raise
@@ -348,7 +348,7 @@ class CoordinatorTierOpsMixin:
             tm_new: MemoryTier | None = self._tier_manager.get_next_tier(tm_current, "faster")
             if tm_new is None:
                 logger.debug(
-                    f"[memory] No faster tier available for {id} (already at {current_tier.value})"
+                    "[memory] No faster tier available for %s (already at %s)", id, current_tier.value
                 )
                 return None
 
@@ -426,7 +426,7 @@ class CoordinatorTierOpsMixin:
             tm_new: MemoryTier | None = self._tier_manager.get_next_tier(tm_current, "slower")
             if tm_new is None:
                 logger.debug(
-                    f"[memory] No slower tier available for {id} (already at {current_tier.value})"
+                    "[memory] No slower tier available for %s (already at %s)", id, current_tier.value
                 )
                 return None
 

@@ -109,22 +109,21 @@ async def init_redis_ha() -> dict[str, Any]:
             if client:
                 result["enabled"] = True
                 logger.info(
-                    f"Redis HA initialized: {config.get_mode_description()} "
-                    f"(latency={health.get('latency_ms', 'unknown')}ms)"
+                    "Redis HA initialized: %s (latency=%sms)", config.get_mode_description(), health.get('latency_ms', 'unknown')
                 )
             else:
                 result["error"] = "Failed to create Redis client"
                 logger.warning("Redis HA client creation failed")
         else:
             result["error"] = health.get("error", "Unknown error")
-            logger.warning(f"Redis HA health check failed: {result['error']}")
+            logger.warning("Redis HA health check failed: %s", result['error'])
 
     except ImportError as e:
         result["error"] = f"Redis package not installed: {e}"
-        logger.debug(f"Redis HA not available: {e}")
+        logger.debug("Redis HA not available: %s", e)
     except REDIS_CONNECTION_ERRORS as e:
         result["error"] = str(e)
-        logger.warning(f"Redis HA initialization failed: {e}")
+        logger.warning("Redis HA initialization failed: %s", e)
 
     return result
 
@@ -164,10 +163,10 @@ async def init_redis_state_backend() -> bool:
             return False
 
     except ImportError as e:
-        logger.debug(f"Redis state backend not available: {e}")
+        logger.debug("Redis state backend not available: %s", e)
     except REDIS_CONNECTION_ERRORS as e:
-        logger.warning(f"Failed to initialize Redis state backend: {e}")
+        logger.warning("Failed to initialize Redis state backend: %s", e)
     except RuntimeError as e:
-        logger.warning(f"Failed to initialize Redis state backend: {e}")
+        logger.warning("Failed to initialize Redis state backend: %s", e)
 
     return False

@@ -68,7 +68,7 @@ class HookConfigLoader:
         """
         file_path = Path(file_path)
         if not file_path.exists():
-            logger.warning(f"Hook file not found: {file_path}")
+            logger.warning("Hook file not found: %s", file_path)
             return []
 
         try:
@@ -87,17 +87,17 @@ class HookConfigLoader:
                     config = HookConfig.from_dict(hook_data, source_file=str(file_path))
                     self._configs[config.name] = config
                     loaded.append(config)
-                    logger.debug(f"Loaded hook '{config.name}' from {file_path}")
+                    logger.debug("Loaded hook '%s' from %s", config.name, file_path)
                 except (ValueError, KeyError, TypeError) as e:
-                    logger.error(f"Failed to parse hook in {file_path}: {e}")
+                    logger.error("Failed to parse hook in %s: %s", file_path, e)
 
             return loaded
 
         except yaml.YAMLError as e:
-            logger.error(f"YAML parse error in {file_path}: {e}")
+            logger.error("YAML parse error in %s: %s", file_path, e)
             return []
         except (OSError, ValueError, TypeError) as e:
-            logger.error(f"Failed to load hooks from {file_path}: {e}")
+            logger.error("Failed to load hooks from %s: %s", file_path, e)
             return []
 
     def discover_and_load(
@@ -119,7 +119,7 @@ class HookConfigLoader:
         """
         directory = Path(directory)
         if not directory.exists():
-            logger.debug(f"Hooks directory not found: {directory}")
+            logger.debug("Hooks directory not found: %s", directory)
             return []
 
         loaded = []
@@ -146,7 +146,7 @@ class HookConfigLoader:
                 configs = self.load_file(file_path)
                 loaded.extend(configs)
 
-        logger.info(f"Discovered {len(loaded)} hooks from {directory}")
+        logger.info("Discovered %s hooks from %s", len(loaded), directory)
         return loaded
 
     def load_from_string(self, yaml_content: str, source: str = "inline") -> list[HookConfig]:
@@ -174,12 +174,12 @@ class HookConfigLoader:
                     self._configs[config.name] = config
                     loaded.append(config)
                 except (ValueError, KeyError, TypeError) as e:
-                    logger.error(f"Failed to parse hook from {source}: {e}")
+                    logger.error("Failed to parse hook from %s: %s", source, e)
 
             return loaded
 
         except yaml.YAMLError as e:
-            logger.error(f"YAML parse error from {source}: {e}")
+            logger.error("YAML parse error from %s: %s", source, e)
             return []
 
     def get_config(self, name: str) -> HookConfig | None:
@@ -211,7 +211,7 @@ class HookConfigLoader:
             # Split module and attribute
             parts = handler_path.rsplit(".", 1)
             if len(parts) != 2:
-                logger.error(f"Invalid handler path: {handler_path}")
+                logger.error("Invalid handler path: %s", handler_path)
                 return None
 
             module_path, attr_name = parts
@@ -222,7 +222,7 @@ class HookConfigLoader:
             # Get attribute
             handler = getattr(module, attr_name, None)
             if handler is None:
-                logger.error(f"Handler not found: {handler_path}")
+                logger.error("Handler not found: %s", handler_path)
                 return None
 
             # Cache and return
@@ -230,10 +230,10 @@ class HookConfigLoader:
             return handler
 
         except ImportError as e:
-            logger.error(f"Failed to import handler module: {handler_path} - {e}")
+            logger.error("Failed to import handler module: %s - %s", handler_path, e)
             return None
         except (AttributeError, ValueError, RuntimeError) as e:
-            logger.error(f"Failed to resolve handler: {handler_path} - {e}")
+            logger.error("Failed to resolve handler: %s - %s", handler_path, e)
             return None
 
     def apply_to_manager(
@@ -277,7 +277,7 @@ class HookConfigLoader:
             # Resolve handler
             handler = self.resolve_handler(config.action.handler)
             if handler is None:
-                logger.warning(f"Skipping hook '{config.name}': handler not found")
+                logger.warning("Skipping hook '%s': handler not found", config.name)
                 continue
 
             # Get priority
@@ -297,11 +297,11 @@ class HookConfigLoader:
                 )
                 self._registered_hooks.append((config.name, unregister))
                 registered += 1
-                logger.debug(f"Registered hook '{config.name}' for trigger '{config.trigger}'")
+                logger.debug("Registered hook '%s' for trigger '%s'", config.name, config.trigger)
             except (ValueError, TypeError, RuntimeError) as e:
-                logger.error(f"Failed to register hook '{config.name}': {e}")
+                logger.error("Failed to register hook '%s': %s", config.name, e)
 
-        logger.info(f"Applied {registered}/{len(configs)} hooks to manager")
+        logger.info("Applied %s/%s hooks to manager", registered, len(configs))
         return registered
 
     def _create_hook_wrapper(
@@ -325,7 +325,7 @@ class HookConfigLoader:
             # Evaluate conditions
             if config.conditions:
                 if not self._condition_evaluator.evaluate_all(config.conditions, kwargs):
-                    logger.debug(f"Hook '{config.name}' conditions not met, skipping")
+                    logger.debug("Hook '%s' conditions not met, skipping", config.name)
                     return None
 
             # Merge configured args with trigger kwargs
@@ -338,14 +338,14 @@ class HookConfigLoader:
                 else:
                     return handler(**call_args)
             except Exception as e:  # noqa: BLE001 - hook execution boundary, re-raises
-                logger.error(f"Hook '{config.name}' handler error: {e}")
+                logger.error("Hook '%s' handler error: %s", config.name, e)
                 raise
 
         def sync_wrapper(**kwargs: Any) -> Any:
             # Evaluate conditions
             if config.conditions:
                 if not self._condition_evaluator.evaluate_all(config.conditions, kwargs):
-                    logger.debug(f"Hook '{config.name}' conditions not met, skipping")
+                    logger.debug("Hook '%s' conditions not met, skipping", config.name)
                     return None
 
             # Merge configured args with trigger kwargs
@@ -355,7 +355,7 @@ class HookConfigLoader:
             try:
                 return handler(**call_args)
             except Exception as e:  # noqa: BLE001 - hook execution boundary, re-raises
-                logger.error(f"Hook '{config.name}' handler error: {e}")
+                logger.error("Hook '%s' handler error: %s", config.name, e)
                 raise
 
         # Return appropriate wrapper based on handler type
@@ -375,9 +375,9 @@ class HookConfigLoader:
             try:
                 unregister_fn()
                 count += 1
-                logger.debug(f"Unregistered hook '{name}'")
+                logger.debug("Unregistered hook '%s'", name)
             except (RuntimeError, ValueError) as e:
-                logger.warning(f"Failed to unregister hook '{name}': {e}")
+                logger.warning("Failed to unregister hook '%s': %s", name, e)
 
         self._registered_hooks.clear()
         return count
@@ -509,7 +509,7 @@ def setup_arena_hooks(
     )
 
     if not configs:
-        logger.debug(f"No hook definitions found in {hooks_dir}")
+        logger.debug("No hook definitions found in %s", hooks_dir)
         return 0
 
     # Validate if requested
@@ -518,7 +518,7 @@ def setup_arena_hooks(
         for config in configs:
             errors = loader.validate_config(config)
             if errors:
-                logger.warning(f"Hook '{config.name}' validation failed: {'; '.join(errors)}")
+                logger.warning("Hook '%s' validation failed: %s", config.name, '; '.join(errors))
             else:
                 valid_configs.append(config)
         configs = valid_configs
@@ -527,7 +527,7 @@ def setup_arena_hooks(
     registered = loader.apply_to_manager(hook_manager, configs)
 
     logger.info(
-        f"setup_arena_hooks dir={hooks_dir} discovered={len(configs)} registered={registered}"
+        "setup_arena_hooks dir=%s discovered=%s registered=%s", hooks_dir, len(configs), registered
     )
 
     return registered

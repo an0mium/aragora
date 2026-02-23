@@ -243,7 +243,7 @@ class ObsidianNote:
         try:
             raw_content = file_path.read_text(encoding="utf-8")
         except (OSError, UnicodeDecodeError) as e:
-            logger.warning(f"Failed to read {file_path}: {e}")
+            logger.warning("Failed to read %s: %s", file_path, e)
             return cls(
                 path=rel_path,
                 name=name,
@@ -644,7 +644,7 @@ class ObsidianConnector(BaseConnector):
             file_path = self._vault_path / f"{path}.md"
 
         if file_path.exists() and not overwrite:
-            logger.warning(f"Note already exists: {path}")
+            logger.warning("Note already exists: %s", path)
             return None
 
         # Ensure parent directory exists
@@ -658,10 +658,10 @@ class ObsidianConnector(BaseConnector):
 
         try:
             file_path.write_text(full_content, encoding="utf-8")
-            logger.info(f"Wrote note: {path}")
+            logger.info("Wrote note: %s", path)
             return ObsidianNote.from_file(self._vault_path, file_path)
         except OSError as e:
-            logger.error(f"Failed to write note {path}: {e}")
+            logger.error("Failed to write note %s: %s", path, e)
             return None
 
     async def write_decision_receipt(

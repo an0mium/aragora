@@ -135,7 +135,7 @@ async def _wait_for_rate_limit(
         try:
             # Slack sends Retry-After in seconds
             delay = min(int(retry_after), max_delay)
-            logger.info(f"Rate limited by Slack, waiting {delay}s (Retry-After header)")
+            logger.info("Rate limited by Slack, waiting %ss (Retry-After header)", delay)
             await asyncio.sleep(delay)
             return
         except (ValueError, TypeError):

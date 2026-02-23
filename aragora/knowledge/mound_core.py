@@ -128,10 +128,10 @@ class KnowledgeMound:
             except ImportError:
                 logger.warning("Weaviate not available - using SQLite-only mode")
             except (ConnectionError, OSError, RuntimeError, ValueError) as e:
-                logger.warning(f"Failed to connect to Weaviate: {e} - using SQLite-only mode")
+                logger.warning("Failed to connect to Weaviate: %s - using SQLite-only mode", e)
 
         self._initialized = True
-        logger.info(f"Knowledge Mound initialized for workspace: {self.workspace_id}")
+        logger.info("Knowledge Mound initialized for workspace: %s", self.workspace_id)
 
     def _ensure_initialized(self) -> None:
         """Ensure the mound is initialized."""
@@ -191,9 +191,9 @@ class KnowledgeMound:
                     namespace=node.workspace_id,
                 )
             except (OSError, RuntimeError, ValueError) as e:
-                logger.warning(f"Failed to save embedding to vector store: {e}")
+                logger.warning("Failed to save embedding to vector store: %s", e)
 
-        logger.debug(f"Added knowledge node: {node.id} ({node.node_type})")
+        logger.debug("Added knowledge node: %s (%s)", node.id, node.node_type)
         return node.id
 
     async def get_node(self, node_id: str) -> KnowledgeNode | None:
@@ -308,7 +308,7 @@ class KnowledgeMound:
                     processing_time_ms=elapsed_ms,
                 )
             except (OSError, RuntimeError, ValueError) as e:
-                logger.warning(f"Vector search failed, falling back to keyword: {e}")
+                logger.warning("Vector search failed, falling back to keyword: %s", e)
 
         # Fall back to keyword-based search
         nodes = self._meta_store.query_nodes(
@@ -454,7 +454,7 @@ class KnowledgeMound:
             try:
                 await self._vector_store.delete(node_id)
             except (OSError, RuntimeError, ValueError) as e:
-                logger.warning(f"Failed to delete node from vector store: {e}")
+                logger.warning("Failed to delete node from vector store: %s", e)
 
         return self._meta_store.delete_node(node_id)
 
@@ -748,7 +748,7 @@ class KnowledgeMound:
             try:
                 await self._vector_store.close()
             except (OSError, RuntimeError) as e:
-                logger.debug(f"Error closing vector store: {e}")
+                logger.debug("Error closing vector store: %s", e)
         self._initialized = False
 
 

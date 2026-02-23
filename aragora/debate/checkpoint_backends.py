@@ -89,13 +89,13 @@ class FileCheckpointStore(CheckpointStore):
             return DebateCheckpoint.from_dict(data)
 
         except (json.JSONDecodeError, gzip.BadGzipFile) as e:
-            logger.warning(f"Corrupted checkpoint data {checkpoint_id}: {e}")
+            logger.warning("Corrupted checkpoint data %s: %s", checkpoint_id, e)
             return None
         except (KeyError, ValueError, TypeError) as e:
-            logger.warning(f"Invalid checkpoint structure {checkpoint_id}: {e}")
+            logger.warning("Invalid checkpoint structure %s: %s", checkpoint_id, e)
             return None
         except OSError as e:
-            logger.debug(f"Cannot read checkpoint file {checkpoint_id}: {e}")
+            logger.debug("Cannot read checkpoint file %s: %s", checkpoint_id, e)
             return None
 
     async def list_checkpoints(
@@ -128,7 +128,7 @@ class FileCheckpointStore(CheckpointStore):
                 TypeError,
                 OSError,
             ) as e:
-                logger.debug(f"Skipping invalid checkpoint file {path}: {e}")
+                logger.debug("Skipping invalid checkpoint file %s: %s", path, e)
                 continue
 
         return checkpoints
@@ -197,16 +197,16 @@ class S3CheckpointStore(CheckpointStore):
             return DebateCheckpoint.from_dict(data)
 
         except (json.JSONDecodeError, gzip.BadGzipFile) as e:
-            logger.warning(f"Corrupted S3 checkpoint data {checkpoint_id}: {e}")
+            logger.warning("Corrupted S3 checkpoint data %s: %s", checkpoint_id, e)
             return None
         except (KeyError, ValueError, TypeError) as e:
-            logger.warning(f"Invalid S3 checkpoint structure {checkpoint_id}: {e}")
+            logger.warning("Invalid S3 checkpoint structure %s: %s", checkpoint_id, e)
             return None
         except ImportError:
             logger.error("boto3 required for S3CheckpointStore")
             return None
         except OSError as e:
-            logger.warning(f"S3 connection error for {checkpoint_id}: {e}")
+            logger.warning("S3 connection error for %s: %s", checkpoint_id, e)
             return None
 
     async def list_checkpoints(
@@ -249,7 +249,7 @@ class S3CheckpointStore(CheckpointStore):
             logger.error("boto3 required for S3CheckpointStore")
             return False
         except OSError as e:
-            logger.warning(f"S3 connection error deleting {checkpoint_id}: {e}")
+            logger.warning("S3 connection error deleting %s: %s", checkpoint_id, e)
             return False
 
 
@@ -307,10 +307,10 @@ class GitCheckpointStore(CheckpointStore):
         except FileNotFoundError:
             return False, "git not found in PATH"
         except (OSError, PermissionError) as e:
-            logger.warning(f"Git command OS error: {e}")
+            logger.warning("Git command OS error: %s", e)
             return False, f"git_os_error:{type(e).__name__}"
         except (RuntimeError, ValueError, TypeError) as e:
-            logger.exception(f"Unexpected git command error: {e}")
+            logger.exception("Unexpected git command error: %s", e)
             return False, f"git_error:{type(e).__name__}"
 
     async def save(self, checkpoint: DebateCheckpoint) -> str:
@@ -334,7 +334,7 @@ class GitCheckpointStore(CheckpointStore):
     async def load(self, checkpoint_id: str) -> DebateCheckpoint | None:
         # Validate checkpoint ID for git safety
         if not SAFE_CHECKPOINT_ID.match(checkpoint_id):
-            logger.warning(f"Invalid checkpoint ID format rejected: {checkpoint_id[:50]}")
+            logger.warning("Invalid checkpoint ID format rejected: %s", checkpoint_id[:50])
             return None
 
         path = self.checkpoint_dir / f"{checkpoint_id}.json"
@@ -792,10 +792,10 @@ class DatabaseCheckpointStore(CheckpointStore):
             return DebateCheckpoint.from_dict(json.loads(data))
 
         except (json.JSONDecodeError, gzip.BadGzipFile, UnicodeDecodeError) as e:
-            logger.warning(f"Corrupted checkpoint data {checkpoint_id}: {e}")
+            logger.warning("Corrupted checkpoint data %s: %s", checkpoint_id, e)
             return None
         except (KeyError, ValueError, TypeError) as e:
-            logger.warning(f"Invalid checkpoint structure {checkpoint_id}: {e}")
+            logger.warning("Invalid checkpoint structure %s: %s", checkpoint_id, e)
             return None
 
     async def list_checkpoints(

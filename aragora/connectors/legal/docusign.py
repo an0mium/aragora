@@ -572,7 +572,7 @@ class DocuSignConnector:
                 ),
             )
         except (aiohttp.ClientError, OSError, RuntimeError, ValueError, KeyError) as e:
-            logger.error(f"Failed to get envelope {envelope_id}: {e}")
+            logger.error("Failed to get envelope %s: %s", envelope_id, e)
             return None
 
     async def list_envelopes(
@@ -657,7 +657,7 @@ class DocuSignConnector:
             )
             return True
         except (OSError, ValueError, RuntimeError) as e:
-            logger.error(f"Failed to void envelope {envelope_id}: {e}")
+            logger.error("Failed to void envelope %s: %s", envelope_id, e)
             return False
 
     async def resend_envelope(self, envelope_id: str) -> bool:
@@ -678,7 +678,7 @@ class DocuSignConnector:
             )
             return True
         except (OSError, ValueError, RuntimeError) as e:
-            logger.error(f"Failed to resend envelope {envelope_id}: {e}")
+            logger.error("Failed to resend envelope %s: %s", envelope_id, e)
             return False
 
     # =========================================================================

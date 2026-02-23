@@ -171,7 +171,7 @@ class CLIAgent(CritiqueMixin, Agent):
             api_key = os.environ.get("OPENROUTER_API_KEY")
             if not api_key:
                 logger.warning(
-                    f"[{self.name}] No OPENROUTER_API_KEY set, fallback disabled - rate limit errors will not have a fallback"
+                    "[%s] No OPENROUTER_API_KEY set, fallback disabled - rate limit errors will not have a fallback", self.name
                 )
                 return None
 
@@ -200,7 +200,7 @@ class CLIAgent(CritiqueMixin, Agent):
             if self.system_prompt:
                 self._fallback_agent.system_prompt = self.system_prompt
             logger.info(
-                f"[{self.name}] Created OpenRouter fallback agent with model {openrouter_model}"
+                "[%s] Created OpenRouter fallback agent with model %s", self.name, openrouter_model
             )
 
         return self._fallback_agent
@@ -216,7 +216,7 @@ class CLIAgent(CritiqueMixin, Agent):
         """
         should_fallback, category = ErrorClassifier.classify_error(error)
         if should_fallback:
-            logger.debug(f"[{self.name}] Detected fallback error ({category}): {str(error)[:100]}")
+            logger.debug("[%s] Detected fallback error (%s): %s", self.name, category, str(error)[:100])
         return should_fallback
 
     def _sanitize_cli_arg(self, arg: str) -> str:
@@ -331,7 +331,7 @@ class CLIAgent(CritiqueMixin, Agent):
                 if self._circuit_breaker is not None:
                     self._circuit_breaker.record_failure()
                 if proc and proc.returncode is None:
-                    logger.debug(f"[cleanup] Killing subprocess after error: {e}")
+                    logger.debug("[cleanup] Killing subprocess after error: %s", e)
                     proc.kill()
                     await proc.wait()  # Cleanup zombie processes
                 raise
@@ -402,7 +402,7 @@ class CLIAgent(CritiqueMixin, Agent):
         if self.prefer_api:
             fallback = self._get_fallback_agent()
             if fallback:
-                logger.debug(f"[{self.name}] prefer_api=True, using OpenRouter directly")
+                logger.debug("[%s] prefer_api=True, using OpenRouter directly", self.name)
                 self._fallback_used = True
                 return await fallback.generate(prompt, context)
             # If no fallback available, fall through to CLI
@@ -426,8 +426,7 @@ class CLIAgent(CritiqueMixin, Agent):
                 fallback = self._get_fallback_agent()
                 if fallback:
                     logger.warning(
-                        f"[{self.name}] CLI failed ({type(e).__name__}: {str(e)[:100]}), "
-                        f"falling back to OpenRouter"
+                        "[%s] CLI failed (%s: %s), falling back to OpenRouter", self.name, type(e).__name__, str(e)[:100]
                     )
                     self._fallback_used = True
                     try:
@@ -603,7 +602,7 @@ class GeminiCLIAgent(CLIAgent):
         full_prompt = self._build_full_prompt(prompt, context)
         # Use stdin for large prompts to avoid E2BIG (arg list too long)
         if self._is_prompt_too_large_for_argv(full_prompt):
-            logger.debug(f"[{self.name}] Using stdin for large prompt ({len(full_prompt)} chars)")
+            logger.debug("[%s] Using stdin for large prompt (%s chars)", self.name, len(full_prompt))
             return await self._generate_with_fallback(
                 ["gemini", "--yolo", "-o", "text", "-"],
                 prompt,
@@ -720,7 +719,7 @@ class KiloCodeAgent(CLIAgent):
         # Use a file attachment for very large prompts to avoid E2BIG errors
         if self._is_prompt_too_large_for_argv(full_prompt):
             logger.debug(
-                f"[{self.name}] Using file attachment for large prompt ({len(full_prompt)} chars)"
+                "[%s] Using file attachment for large prompt (%s chars)", self.name, len(full_prompt)
             )
             tmp_path = None
             try:
@@ -789,7 +788,7 @@ class GrokCLIAgent(CLIAgent):
         full_prompt = self._build_full_prompt(prompt, context)
         # Use stdin for large prompts to avoid E2BIG (arg list too long)
         if self._is_prompt_too_large_for_argv(full_prompt):
-            logger.debug(f"[{self.name}] Using stdin for large prompt ({len(full_prompt)} chars)")
+            logger.debug("[%s] Using stdin for large prompt (%s chars)", self.name, len(full_prompt))
             return await self._generate_with_fallback(
                 ["grok", "-p", "-"],
                 prompt,
@@ -825,7 +824,7 @@ class QwenCLIAgent(CLIAgent):
         full_prompt = self._build_full_prompt(prompt, context)
         # Use stdin for large prompts to avoid E2BIG (arg list too long)
         if self._is_prompt_too_large_for_argv(full_prompt):
-            logger.debug(f"[{self.name}] Using stdin for large prompt ({len(full_prompt)} chars)")
+            logger.debug("[%s] Using stdin for large prompt (%s chars)", self.name, len(full_prompt))
             return await self._generate_with_fallback(
                 ["qwen", "-p", "-"],
                 prompt,
@@ -860,7 +859,7 @@ class DeepseekCLIAgent(CLIAgent):
         full_prompt = self._build_full_prompt(prompt, context)
         # Use stdin for large prompts to avoid E2BIG (arg list too long)
         if self._is_prompt_too_large_for_argv(full_prompt):
-            logger.debug(f"[{self.name}] Using stdin for large prompt ({len(full_prompt)} chars)")
+            logger.debug("[%s] Using stdin for large prompt (%s chars)", self.name, len(full_prompt))
             return await self._generate_with_fallback(
                 ["deepseek", "-p", "-"],
                 prompt,
@@ -911,7 +910,7 @@ class OpenAIAgent(CLIAgent):
         full_prompt = self._build_full_prompt(prompt, context)
         # Use stdin for large prompts to avoid E2BIG (arg list too long)
         if self._is_prompt_too_large_for_argv(full_prompt):
-            logger.debug(f"[{self.name}] Using stdin for large prompt ({len(full_prompt)} chars)")
+            logger.debug("[%s] Using stdin for large prompt (%s chars)", self.name, len(full_prompt))
             return await self._generate_with_fallback(
                 [
                     "openai",

@@ -103,7 +103,7 @@ def init_memory_metrics() -> None:
         _init_noop_metrics()
         _initialized = True
     except (RuntimeError, TypeError) as e:
-        logger.warning(f"Failed to initialize memory metrics: {e}")
+        logger.warning("Failed to initialize memory metrics: %s", e)
         _init_noop_metrics()
         _initialized = True
 

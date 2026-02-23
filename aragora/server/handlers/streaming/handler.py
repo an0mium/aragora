@@ -319,7 +319,7 @@ class StreamingConnectorHandler(BaseHandler):
         current_config.update(body)
         self._configs[connector_type] = current_config
 
-        logger.info(f"Updated {connector_type} configuration")
+        logger.info("Updated %s configuration", connector_type)
 
         return json_response(
             {
@@ -364,7 +364,7 @@ class StreamingConnectorHandler(BaseHandler):
 
         except (ImportError, ConnectionError, TimeoutError, OSError, ValueError, RuntimeError) as e:
             self._statuses[connector_type] = "error"
-            logger.error(f"Error connecting to {connector_type}: {e}")
+            logger.error("Error connecting to %s: %s", connector_type, e)
             return error_response("Internal server error", 500)
 
     def _handle_disconnect(self, connector_type: str) -> HandlerResult:
@@ -395,7 +395,7 @@ class StreamingConnectorHandler(BaseHandler):
             )
 
         except (ConnectionError, TimeoutError, OSError, RuntimeError) as e:
-            logger.error(f"Error disconnecting from {connector_type}: {e}")
+            logger.error("Error disconnecting from %s: %s", connector_type, e)
             return error_response("Internal server error", 500)
 
     def _handle_test(self, connector_type: str) -> HandlerResult:
@@ -415,7 +415,7 @@ class StreamingConnectorHandler(BaseHandler):
             )
 
         except (ImportError, ConnectionError, TimeoutError, OSError, ValueError, RuntimeError) as e:
-            logger.error(f"Error testing {connector_type} connection: {e}")
+            logger.error("Error testing %s connection: %s", connector_type, e)
             return json_response(
                 {
                     "success": False,
@@ -507,7 +507,7 @@ class StreamingConnectorHandler(BaseHandler):
             logger.debug("Kafka dependencies not installed")
             return True  # Allow connection in demo mode
         except (ConnectionError, TimeoutError, OSError, ValueError, RuntimeError) as e:
-            logger.error(f"Kafka connection error: {e}")
+            logger.error("Kafka connection error: %s", e)
             return False
 
     def _connect_rabbitmq(self, config: dict) -> bool:
@@ -529,7 +529,7 @@ class StreamingConnectorHandler(BaseHandler):
             logger.debug("RabbitMQ dependencies not installed")
             return True  # Allow connection in demo mode
         except (ConnectionError, TimeoutError, OSError, ValueError, RuntimeError) as e:
-            logger.error(f"RabbitMQ connection error: {e}")
+            logger.error("RabbitMQ connection error: %s", e)
             return False
 
     def _connect_snssqs(self, config: dict) -> bool:
@@ -551,7 +551,7 @@ class StreamingConnectorHandler(BaseHandler):
             logger.debug("AWS dependencies not installed")
             return True  # Allow connection in demo mode
         except (ConnectionError, TimeoutError, OSError, ValueError, RuntimeError) as e:
-            logger.error(f"SNS/SQS connection error: {e}")
+            logger.error("SNS/SQS connection error: %s", e)
             return False
 
     def _test_kafka(self, config: dict) -> tuple[bool, str]:

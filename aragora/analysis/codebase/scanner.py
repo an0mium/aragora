@@ -116,7 +116,7 @@ class DependencyScanner:
         try:
             # Find lock files
             lock_files = self._find_lock_files(repo_path)
-            logger.info(f"[Scanner] Found {len(lock_files)} lock files in {repo_path}")
+            logger.info("[Scanner] Found %s lock files in %s", len(lock_files), repo_path)
 
             if not lock_files:
                 result.status = "completed"
@@ -137,7 +137,7 @@ class DependencyScanner:
                     unique_deps[key] = dep
 
             all_dependencies = list(unique_deps.values())
-            logger.info(f"[Scanner] Found {len(all_dependencies)} unique dependencies")
+            logger.info("[Scanner] Found %s unique dependencies", len(all_dependencies))
 
             # Query vulnerabilities for each dependency
             all_dependencies = await self._query_vulnerabilities(all_dependencies)
@@ -154,15 +154,14 @@ class DependencyScanner:
             result.completed_at = datetime.now(timezone.utc)
 
             logger.info(
-                f"[Scanner] Scan complete: {result.vulnerable_dependencies} vulnerable packages, "
-                f"{result.critical_count} critical, {result.high_count} high"
+                "[Scanner] Scan complete: %s vulnerable packages, %s critical, %s high", result.vulnerable_dependencies, result.critical_count, result.high_count
             )
 
         except (OSError, json.JSONDecodeError, ValueError, KeyError) as e:
             result.status = "failed"
             result.error = str(e)
             result.completed_at = datetime.now(timezone.utc)
-            logger.exception(f"[Scanner] Scan failed: {e}")
+            logger.exception("[Scanner] Scan failed: %s", e)
 
         return result
 
@@ -248,7 +247,7 @@ class DependencyScanner:
         parser = self._parsers.get(filename)
 
         if not parser:
-            logger.warning(f"[Scanner] No parser for {filename}")
+            logger.warning("[Scanner] No parser for %s", filename)
             return []
 
         try:
@@ -257,7 +256,7 @@ class DependencyScanner:
 
             return parser(content, file_path)
         except (OSError, json.JSONDecodeError, ValueError, KeyError, IndexError) as e:
-            logger.error(f"[Scanner] Failed to parse {file_path}: {e}")
+            logger.error("[Scanner] Failed to parse %s: %s", file_path, e)
             return []
 
     async def _query_vulnerabilities(
@@ -277,7 +276,7 @@ class DependencyScanner:
                     )
                     dep.vulnerabilities = vulns
                 except (OSError, ValueError, KeyError, TimeoutError) as e:
-                    logger.warning(f"[Scanner] Failed to query {dep.name}: {e}")
+                    logger.warning("[Scanner] Failed to query %s: %s", dep.name, e)
 
         await asyncio.gather(
             *[query_one(dep) for dep in dependencies],
@@ -329,7 +328,7 @@ class DependencyScanner:
                 self._parse_npm_deps_recursive(dependencies, deps, file_path, True)
 
         except json.JSONDecodeError as e:
-            logger.error(f"[Scanner] Invalid JSON in {file_path}: {e}")
+            logger.error("[Scanner] Invalid JSON in %s: %s", file_path, e)
 
         return deps
 

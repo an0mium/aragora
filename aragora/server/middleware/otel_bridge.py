@@ -152,8 +152,7 @@ class OTelBridgeConfig:
             sampler_type = SamplerType(sampler_str)
         except ValueError:
             logger.warning(
-                f"Unknown sampler type: {sampler_str}, using parentbased_always_on. "
-                f"Valid options: {[s.value for s in SamplerType]}"
+                "Unknown sampler type: %s, using parentbased_always_on. Valid options: %s", sampler_str, [s.value for s in SamplerType]
             )
             sampler_type = SamplerType.PARENT_BASED_ALWAYS_ON
 
@@ -167,7 +166,7 @@ class OTelBridgeConfig:
             if not 0.0 <= sampler_arg <= 1.0:
                 raise ValueError("Sampler arg must be between 0.0 and 1.0")
         except ValueError:
-            logger.warning(f"Invalid sampler arg: {sampler_arg_str}, using 1.0")
+            logger.warning("Invalid sampler arg: %s, using 1.0", sampler_arg_str)
             sampler_arg = 1.0
 
         # Propagator format
@@ -182,7 +181,7 @@ class OTelBridgeConfig:
 
                 headers = json.loads(headers_json)
             except (json.JSONDecodeError, ValueError) as e:
-                logger.warning(f"Failed to parse ARAGORA_OTLP_HEADERS: {e}")
+                logger.warning("Failed to parse ARAGORA_OTLP_HEADERS: %s", e)
 
         # Insecure mode
         insecure = os.environ.get("ARAGORA_OTLP_INSECURE", "false").lower() in (
@@ -442,7 +441,7 @@ def export_span_to_otel(span: Any) -> None:
                 otel_span.set_status(Status(StatusCode.OK))
 
     except (RuntimeError, ValueError, TypeError, AttributeError, OSError) as e:
-        logger.debug(f"Failed to export span to OTEL: {e}")
+        logger.debug("Failed to export span to OTEL: %s", e)
 
 
 def inject_trace_context(headers: dict[str, str]) -> dict[str, str]:
@@ -479,7 +478,7 @@ def inject_trace_context(headers: dict[str, str]) -> dict[str, str]:
 
         _propagator.inject(headers, context.get_current())
     except (RuntimeError, ValueError, TypeError, AttributeError) as e:
-        logger.debug(f"Failed to inject trace context: {e}")
+        logger.debug("Failed to inject trace context: %s", e)
 
     return headers
 
@@ -502,7 +501,7 @@ def extract_trace_context(headers: dict[str, str]) -> Any:
         ctx = _propagator.extract(headers)
         return ctx
     except (RuntimeError, ValueError, TypeError, AttributeError) as e:
-        logger.debug(f"Failed to extract trace context: {e}")
+        logger.debug("Failed to extract trace context: %s", e)
         return None
 
 
@@ -527,7 +526,7 @@ def get_current_trace_id() -> str | None:
         if span and span.get_span_context().is_valid:
             return format(span.get_span_context().trace_id, "032x")
     except (RuntimeError, ValueError, TypeError, AttributeError) as e:
-        logger.debug(f"Failed to get trace ID: {type(e).__name__}: {e}")
+        logger.debug("Failed to get trace ID: %s: %s", type(e).__name__, e)
 
     return None
 
@@ -553,7 +552,7 @@ def get_current_span_id() -> str | None:
         if span and span.get_span_context().is_valid:
             return format(span.get_span_context().span_id, "016x")
     except (RuntimeError, ValueError, TypeError, AttributeError) as e:
-        logger.debug(f"Failed to get span ID: {type(e).__name__}: {e}")
+        logger.debug("Failed to get span ID: %s: %s", type(e).__name__, e)
 
     return None
 
@@ -590,7 +589,7 @@ def create_span_context(
 
         return _tracer.start_as_current_span(operation)
     except (RuntimeError, ValueError, TypeError, AttributeError) as e:
-        logger.debug(f"Failed to create span context: {e}")
+        logger.debug("Failed to create span context: %s", e)
         from contextlib import nullcontext
 
         return nullcontext()
@@ -614,7 +613,7 @@ def shutdown_otel_bridge() -> None:
             provider.shutdown()
         logger.info("OpenTelemetry bridge shutdown complete")
     except (RuntimeError, ValueError, TypeError, OSError) as e:
-        logger.error(f"Error shutting down OpenTelemetry bridge: {e}")
+        logger.error("Error shutting down OpenTelemetry bridge: %s", e)
     finally:
         _otel_available = False
         _tracer = None

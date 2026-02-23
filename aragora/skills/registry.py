@@ -353,12 +353,11 @@ class SkillRegistry:
         if all_warnings:
             self._validation_warnings[name] = all_warnings
             for warning in all_warnings:
-                logger.warning(f"Skill validation: {warning}")
+                logger.warning("Skill validation: %s", warning)
 
         self._skills[name] = skill
         logger.info(
-            f"Registered skill: {name} v{skill.manifest.version} "
-            f"with capabilities: {[c.value for c in skill.manifest.capabilities]}"
+            "Registered skill: %s v%s with capabilities: %s", name, skill.manifest.version, [c.value for c in skill.manifest.capabilities]
         )
 
     def unregister(self, name: str) -> bool:
@@ -373,7 +372,7 @@ class SkillRegistry:
         """
         if name in self._skills:
             del self._skills[name]
-            logger.info(f"Unregistered skill: {name}")
+            logger.info("Unregistered skill: %s", name)
             return True
         return False
 
@@ -444,7 +443,7 @@ class SkillRegistry:
         # Get skill
         skill = self._skills.get(skill_name)
         if not skill:
-            logger.warning(f"Skill not found: {skill_name}")
+            logger.warning("Skill not found: %s", skill_name)
             return SkillResult.create_failure(
                 f"Skill '{skill_name}' not found",
                 error_code="skill_not_found",
@@ -465,7 +464,7 @@ class SkillRegistry:
             try:
                 hook(skill_name, input_data, context)
             except Exception as e:  # noqa: BLE001 - user-provided hook isolation
-                logger.warning(f"Pre-invoke hook error: {e}")
+                logger.warning("Pre-invoke hook error: %s", e)
 
         try:
             # Check rate limit
@@ -605,12 +604,12 @@ class SkillRegistry:
                 try:
                     hook(skill_name, result, context)
                 except Exception as e:  # noqa: BLE001 - user-provided hook isolation
-                    logger.warning(f"Post-invoke hook error: {e}")
+                    logger.warning("Post-invoke hook error: %s", e)
 
             return result
 
         except Exception as e:  # noqa: BLE001 - skill plugin execution boundary
-            logger.exception(f"Skill execution failed: {skill_name}")
+            logger.exception("Skill execution failed: %s", skill_name)
             result = SkillResult.create_failure(str(e))
             self._record_metrics(skill_name, result, start_time)
 
@@ -637,7 +636,7 @@ class SkillRegistry:
                 try:
                     hook(skill_name, e, context)
                 except Exception as hook_error:  # noqa: BLE001 - user-provided hook isolation
-                    logger.warning(f"Error hook failed: {hook_error}")
+                    logger.warning("Error hook failed: %s", hook_error)
 
             return result
 
@@ -715,7 +714,7 @@ class SkillRegistry:
                     if not await self._check_rbac_permission(context, permission):
                         return False, permission
             except (RuntimeError, ValueError, AttributeError) as e:
-                logger.warning(f"RBAC check failed, falling back to context: {e}")
+                logger.warning("RBAC check failed, falling back to context: %s", e)
                 # Fall back to context permissions
                 for permission in manifest.required_permissions:
                     if not context.has_permission(permission):
@@ -743,7 +742,7 @@ class SkillRegistry:
                 return await check_result
             return check_result
         except (RuntimeError, ValueError, AttributeError) as e:
-            logger.warning(f"RBAC check error: {e}")
+            logger.warning("RBAC check error: %s", e)
             return False
 
     def _check_rate_limit(

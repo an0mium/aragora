@@ -123,8 +123,7 @@ class KMSubscriptionManager:
             self._subscriptions[client_id] = subscription
 
         logger.debug(
-            f"[km_subscriptions] Client {client_id} subscribed to "
-            f"types={event_types or 'all'}, sources={sources or 'all'}"
+            "[km_subscriptions] Client %s subscribed to types=%s, sources=%s", client_id, event_types or 'all', sources or 'all'
         )
         return subscription
 
@@ -141,7 +140,7 @@ class KMSubscriptionManager:
         with self._lock:
             if client_id in self._subscriptions:
                 del self._subscriptions[client_id]
-                logger.debug(f"[km_subscriptions] Client {client_id} unsubscribed")
+                logger.debug("[km_subscriptions] Client %s unsubscribed", client_id)
                 return True
         return False
 
@@ -417,7 +416,7 @@ class KMWebSocketBridge:
                 logger.debug("[km_websocket] No event loop available, event not broadcast")
 
         except (OSError, ConnectionError, RuntimeError) as e:
-            logger.warning(f"[km_websocket] Failed to emit event: {e}")
+            logger.warning("[km_websocket] Failed to emit event: %s", e)
 
     def get_stats(self) -> dict[str, Any]:
         """Get batching and subscription statistics."""

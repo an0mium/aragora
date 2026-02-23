@@ -179,7 +179,7 @@ def cleanup_stale_debates() -> None:
         manager.unregister_debate(debate_id)
 
     if stale_ids:
-        logger.debug(f"Cleaned up {len(stale_ids)} stale debate entries")
+        logger.debug("Cleaned up %s stale debate entries", len(stale_ids))
 
 
 def increment_cleanup_counter() -> bool:
@@ -300,7 +300,7 @@ async def watchdog_stuck_debates(check_interval: float = 60.0) -> None:
                         try:
                             task.cancel()
                         except (RuntimeError, ValueError, AttributeError) as e:
-                            logger.debug(f"[watchdog] Task cancel failed for {debate_id}: {e}")
+                            logger.debug("[watchdog] Task cancel failed for %s: %s", debate_id, e)
 
                 # Emit timeout event
                 try:
@@ -321,16 +321,16 @@ async def watchdog_stuck_debates(check_interval: float = 60.0) -> None:
                             )
                         )
                 except (ValueError, TypeError, AttributeError, RuntimeError, ImportError) as e:
-                    logger.debug(f"[watchdog] Event emission failed for {debate_id}: {e}")
+                    logger.debug("[watchdog] Event emission failed for %s: %s", debate_id, e)
 
             if stuck_debates:
-                logger.info(f"[watchdog] Cleaned up {len(stuck_debates)} stuck debate(s)")
+                logger.info("[watchdog] Cleaned up %s stuck debate(s)", len(stuck_debates))
 
         except asyncio.CancelledError:
             logger.info("[watchdog] Stuck debate watchdog cancelled")
             break
         except (ValueError, TypeError, KeyError, AttributeError, RuntimeError, OSError) as e:
-            logger.error(f"[watchdog] Error in stuck debate watchdog: {e}")
+            logger.error("[watchdog] Error in stuck debate watchdog: %s", e)
             # Continue running despite errors
 
 

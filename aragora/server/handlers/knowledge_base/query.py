@@ -133,7 +133,7 @@ class QueryOperationsMixin:
         try:
             result = _run_async(engine.query(question, workspace_id, options))
         except (KeyError, ValueError, OSError, TypeError, RuntimeError) as e:
-            logger.error(f"Query execution failed: {e}")
+            logger.error("Query execution failed: %s", e)
             return error_response("Query execution failed", 500)
 
         return json_response(result.to_dict())

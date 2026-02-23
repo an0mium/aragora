@@ -123,7 +123,7 @@ class BaseCDCHandler(ABC):
         Returns True if successfully processed.
         """
         if not self._should_process_event(event):
-            logger.debug(f"Skipping filtered event: {event.table}/{event.operation.value}")
+            logger.debug("Skipping filtered event: %s/%s", event.table, event.operation.value)
             return True
 
         try:
@@ -131,7 +131,7 @@ class BaseCDCHandler(ABC):
                 success = await self.event_handler.handle(event)
             else:
                 # No handler configured - just log
-                logger.info(f"CDC event: {event.operation.value} on {event.qualified_table}")
+                logger.info("CDC event: %s on %s", event.operation.value, event.qualified_table)
                 success = True
 
             if success:
@@ -174,7 +174,7 @@ class BaseCDCHandler(ABC):
 
             except (OSError, ConnectionError, asyncio.TimeoutError) as e:
                 if attempt == self.config.max_retries:
-                    logger.error(f"{operation_name} failed after {attempt + 1} attempts: {e}")
+                    logger.error("%s failed after %s attempts: %s", operation_name, attempt + 1, e)
                     raise
 
                 logger.warning(
@@ -207,10 +207,10 @@ class BaseCDCHandler(ABC):
     async def start(self) -> None:
         """Start the CDC handler."""
         if self._running:
-            logger.warning(f"CDC handler {self.connector_id} is already running")
+            logger.warning("CDC handler %s is already running", self.connector_id)
             return
 
-        logger.info(f"Starting CDC handler: {self.connector_id}")
+        logger.info("Starting CDC handler: %s", self.connector_id)
         self._running = True
         self._stop_event.clear()
 
@@ -220,7 +220,7 @@ class BaseCDCHandler(ABC):
             self._task = asyncio.create_task(self._run_loop())
         except (OSError, ConnectionError, RuntimeError) as e:
             self._running = False
-            logger.error(f"Failed to start CDC handler {self.connector_id}: {e}")
+            logger.error("Failed to start CDC handler %s: %s", self.connector_id, e)
             raise
 
     async def _run_loop(self) -> None:
@@ -229,17 +229,17 @@ class BaseCDCHandler(ABC):
             try:
                 await self._listen_loop()
             except asyncio.CancelledError:
-                logger.info(f"CDC handler {self.connector_id} cancelled")
+                logger.info("CDC handler %s cancelled", self.connector_id)
                 break
             except (OSError, ConnectionError) as e:
                 if self._running:
-                    logger.warning(f"CDC connection lost: {e}. Reconnecting...")
+                    logger.warning("CDC connection lost: %s. Reconnecting...", e)
                     self._connected = False
                     try:
                         await self._retry_with_backoff(self._connect, "Reconnection")
                         self._connected = True
                     except (OSError, ConnectionError) as e2:
-                        logger.error(f"Reconnection failed: {e2}")
+                        logger.error("Reconnection failed: %s", e2)
                         break
 
     async def stop(self) -> None:
@@ -247,7 +247,7 @@ class BaseCDCHandler(ABC):
         if not self._running:
             return
 
-        logger.info(f"Stopping CDC handler: {self.connector_id}")
+        logger.info("Stopping CDC handler: %s", self.connector_id)
         self._running = False
         self._stop_event.set()
 
@@ -369,7 +369,7 @@ class PostgresCDCHandler(BaseCDCHandler):
         # Subscribe to channels
         for channel in self.channels:
             await self._conn.add_listener(channel, notification_handler)
-            logger.info(f"[PostgresCDC] Listening on channel: {channel}")
+            logger.info("[PostgresCDC] Listening on channel: %s", channel)
 
     async def _disconnect(self) -> None:
         """Close asyncpg connection."""
@@ -406,7 +406,7 @@ class PostgresCDCHandler(BaseCDCHandler):
                 # Check for stop event
                 continue
             except (ValueError, json.JSONDecodeError) as e:
-                logger.warning(f"[PostgresCDC] Failed to parse notification: {e}")
+                logger.warning("[PostgresCDC] Failed to parse notification: %s", e)
 
     async def execute_query(self, query: str, *args: Any) -> list[Any]:
         """Execute a query on the connection (for setup/maintenance)."""
@@ -515,7 +515,7 @@ class MySQLCDCHandler(BaseCDCHandler):
                 token_data = json.loads(resume_token)
                 log_file = token_data.get("log_file")
                 log_pos = token_data.get("log_pos")
-                logger.info(f"[MySQLCDC] Resuming from {log_file}:{log_pos}")
+                logger.info("[MySQLCDC] Resuming from %s:%s", log_file, log_pos)
             except json.JSONDecodeError as e:
                 logger.debug("Failed to parse JSON data: %s", e)
 
@@ -538,7 +538,7 @@ class MySQLCDCHandler(BaseCDCHandler):
 
         # Create stream in a thread-safe way
         self._stream = BinLogStreamReader(**stream_kwargs)
-        logger.info(f"[MySQLCDC] Connected to binlog stream on {self.host}")
+        logger.info("[MySQLCDC] Connected to binlog stream on %s", self.host)
 
     async def _disconnect(self) -> None:
         """Close binlog stream."""
@@ -639,7 +639,7 @@ class MySQLCDCHandler(BaseCDCHandler):
                 # Allow checking stop event
                 continue
             except (OSError, ConnectionError) as e:
-                logger.error(f"[MySQLCDC] Binlog error: {e}")
+                logger.error("[MySQLCDC] Binlog error: %s", e)
                 raise
 
 
@@ -726,7 +726,7 @@ class MongoDBCDCHandler(BaseCDCHandler):
 
         # Verify connection
         await self._client.admin.command("ping")
-        logger.info(f"[MongoDBCDC] Connected to {self.host}:{self.port}/{self.database_name}")
+        logger.info("[MongoDBCDC] Connected to %s:%s/%s", self.host, self.port, self.database_name)
 
     async def _disconnect(self) -> None:
         """Close MongoDB connection."""
@@ -799,7 +799,7 @@ class MongoDBCDCHandler(BaseCDCHandler):
         except asyncio.CancelledError:
             raise
         except (OSError, ConnectionError) as e:
-            logger.error(f"[MongoDBCDC] Change stream error: {e}")
+            logger.error("[MongoDBCDC] Change stream error: %s", e)
             raise
 
 

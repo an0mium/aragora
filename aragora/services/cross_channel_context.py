@@ -351,7 +351,7 @@ class CrossChannelContextService:
                 signal.is_online = presence.get("presence") == "active"
                 signal.activity_score += 0.2 if signal.is_online else 0.0
             except (ValueError, OSError, ConnectionError, RuntimeError) as e:
-                logger.debug(f"Failed to get Slack presence: {e}")
+                logger.debug("Failed to get Slack presence: %s", e)
 
             # Get recent messages from user
             try:
@@ -385,7 +385,7 @@ class CrossChannelContextService:
                         signal.activity_score += min(0.2, urgent_count * 0.05)
 
             except (ValueError, OSError, ConnectionError, RuntimeError) as e:
-                logger.debug(f"Failed to search Slack messages: {e}")
+                logger.debug("Failed to search Slack messages: %s", e)
 
             # Get mentions of this user
             try:
@@ -396,7 +396,7 @@ class CrossChannelContextService:
                 signal.recent_mentions = len(mentions) if mentions else 0
                 signal.activity_score += min(0.2, signal.recent_mentions * 0.02)
             except (ValueError, OSError, ConnectionError, RuntimeError) as e:
-                logger.debug(f"Failed to search Slack mentions: {e}")
+                logger.debug("Failed to search Slack mentions: %s", e)
 
             signal.activity_score = min(1.0, signal.activity_score)
             signal.last_activity = datetime.now()
@@ -404,7 +404,7 @@ class CrossChannelContextService:
             return signal
 
         except (ValueError, OSError, ConnectionError, RuntimeError) as e:
-            logger.warning(f"Failed to get Slack signal for {user_email}: {e}")
+            logger.warning("Failed to get Slack signal for %s: %s", user_email, e)
             return signal
 
     async def _resolve_slack_user(self, email: str) -> str | None:
@@ -422,7 +422,7 @@ class CrossChannelContextService:
                     self._email_to_slack_id[email] = mapping.platform_user_id
                     return mapping.platform_user_id
             except (ValueError, OSError, ConnectionError, RuntimeError) as e:
-                logger.debug(f"Failed to load mapping from store: {e}")
+                logger.debug("Failed to load mapping from store: %s", e)
 
         if not self.slack:
             return None
@@ -450,13 +450,13 @@ class CrossChannelContextService:
                             user_id=self._user_id,
                         )
                         await self._store.save_user_mapping(mapping)
-                        logger.debug(f"Persisted Slack mapping: {email} -> {slack_user_id}")
+                        logger.debug("Persisted Slack mapping: %s -> %s", email, slack_user_id)
                     except (ValueError, OSError, ConnectionError, RuntimeError) as e:
-                        logger.debug(f"Failed to persist mapping: {e}")
+                        logger.debug("Failed to persist mapping: %s", e)
 
                 return slack_user_id
         except (ValueError, OSError, ConnectionError, RuntimeError) as e:
-            logger.debug(f"Failed to resolve Slack user for {email}: {e}")
+            logger.debug("Failed to resolve Slack user for %s: %s", email, e)
 
         return None
 
@@ -601,7 +601,7 @@ class CrossChannelContextService:
                             boost.drive_reason = f"Related to recent document: {item.metadata.get('title', 'Unknown')}"
 
         except (ValueError, OSError, ConnectionError, RuntimeError) as e:
-            logger.debug(f"Failed to query knowledge mound: {e}")
+            logger.debug("Failed to query knowledge mound: %s", e)
 
     def _calculate_derived_signals(self, context: ChannelContext) -> ChannelContext:
         """Calculate derived signals from raw channel data."""
@@ -663,10 +663,10 @@ class CrossChannelContextService:
             for mapping in mappings:
                 self._email_to_slack_id[mapping.email] = mapping.platform_user_id
 
-            logger.info(f"Loaded {len(mappings)} Slack user mappings from store")
+            logger.info("Loaded %s Slack user mappings from store", len(mappings))
             return len(mappings)
         except (ValueError, OSError, ConnectionError, RuntimeError) as e:
-            logger.warning(f"Failed to load mappings from store: {e}")
+            logger.warning("Failed to load mappings from store: %s", e)
             return 0
 
 
@@ -703,13 +703,13 @@ async def create_context_service(
 
         integration_store = get_integration_store()
     except (ImportError, ModuleNotFoundError) as e:
-        logger.debug(f"Integration store module not available: {e}")
+        logger.debug("Integration store module not available: %s", e)
         integration_store = None
     except (RuntimeError, ConnectionError) as e:
-        logger.warning(f"Integration store unavailable: {e}")
+        logger.warning("Integration store unavailable: %s", e)
         integration_store = None
     except (ValueError, TypeError, OSError) as e:
-        logger.exception(f"Unexpected error getting integration store: {e}")
+        logger.exception("Unexpected error getting integration store: %s", e)
         integration_store = None
 
     service = CrossChannelContextService(

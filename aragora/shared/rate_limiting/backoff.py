@@ -78,7 +78,7 @@ class ExponentialBackoff:
         """
         with self._lock:
             if self.failure_count > 0:
-                logger.debug(f"backoff_reset previous_failures={self.failure_count}")
+                logger.debug("backoff_reset previous_failures=%s", self.failure_count)
                 self.failure_count = 0
 
     @property

@@ -377,7 +377,7 @@ Format as JSON array. If no issues found, respond with empty array: []"""
                     logger.debug("Failed to parse JSON data: %s", e)
 
         except (ImportError, AttributeError, ValueError, OSError, RuntimeError) as e:
-            logger.debug(f"LLM compliance analysis skipped: {e}")
+            logger.debug("LLM compliance analysis skipped: %s", e)
 
         return findings
 

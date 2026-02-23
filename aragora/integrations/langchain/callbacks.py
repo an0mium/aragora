@@ -119,7 +119,7 @@ class AragoraCallbackHandler(BaseCallbackHandler):
 
         # In production, this would send to Aragora's event endpoint
         # For now, just log the event
-        logger.debug(f"[AragoraCallback] {event_type}: {data}")
+        logger.debug("[AragoraCallback] %s: %s", event_type, data)
 
     def on_llm_start(
         self,

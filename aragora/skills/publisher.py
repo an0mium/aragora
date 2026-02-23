@@ -501,11 +501,11 @@ class SkillPublisher:
                 **kwargs,
             )
 
-            logger.info(f"Published skill: {listing.skill_id} v{listing.current_version}")
+            logger.info("Published skill: %s v%s", listing.skill_id, listing.current_version)
             return True, listing, validation.issues
 
         except (RuntimeError, ValueError, OSError, TypeError) as e:
-            logger.error(f"Failed to publish skill: {e}")
+            logger.error("Failed to publish skill: %s", e)
             return (
                 False,
                 None,
@@ -598,11 +598,11 @@ class SkillPublisher:
                 changelog=changelog,
             )
 
-            logger.info(f"Published new version: {skill_id} v{new_version}")
+            logger.info("Published new version: %s v%s", skill_id, new_version)
             return True, listing, validation.issues
 
         except (RuntimeError, ValueError, OSError, TypeError) as e:
-            logger.error(f"Failed to publish version: {e}")
+            logger.error("Failed to publish version: %s", e)
             return (
                 False,
                 None,
@@ -661,9 +661,9 @@ class SkillPublisher:
             return False
 
         if existing.author_id != author_id:
-            logger.warning(f"Unauthorized deprecation attempt for {skill_id}")
+            logger.warning("Unauthorized deprecation attempt for %s", skill_id)
             return False
 
         # Update in database (would need to add this to marketplace)
-        logger.info(f"Deprecated skill: {skill_id}")
+        logger.info("Deprecated skill: %s", skill_id)
         return True

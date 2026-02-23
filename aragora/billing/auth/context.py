@@ -97,8 +97,7 @@ def extract_user_from_request(handler: Any, user_store=None) -> UserAuthContext:
         token = auth_header[7:]
         token_fingerprint = hashlib.sha256(token.encode()).hexdigest()[:8]
         logger.info(
-            "[AUTH_DEBUG] extract_user_from_request: Bearer token found, "
-            f"length={len(token)}, fingerprint={token_fingerprint}"
+            "[AUTH_DEBUG] extract_user_from_request: Bearer token found, length=%s, fingerprint=%s", len(token), token_fingerprint
         )
 
         # Check if it's an API key
@@ -111,7 +110,7 @@ def extract_user_from_request(handler: Any, user_store=None) -> UserAuthContext:
         payload = validate_access_token(token)
         if payload:
             logger.info(
-                f"[AUTH_DEBUG] JWT validated successfully: user_id={payload.user_id}, email={payload.email}"
+                "[AUTH_DEBUG] JWT validated successfully: user_id=%s, email=%s", payload.user_id, payload.email
             )
             context.authenticated = True
             context.user_id = payload.user_id
@@ -146,7 +145,7 @@ def _validate_api_key(api_key: str, context: UserAuthContext, user_store=None) -
     """
     # Format validation (basic security check)
     if not api_key.startswith("ara_") or len(api_key) < 15:
-        logger.warning(f"api_key_invalid_format key_prefix={api_key[:8]}...")
+        logger.warning("api_key_invalid_format key_prefix=%s...", api_key[:8])
         context.authenticated = False
         return context
 
@@ -156,13 +155,13 @@ def _validate_api_key(api_key: str, context: UserAuthContext, user_store=None) -
             # Look up user by API key
             user = user_store.get_user_by_api_key(api_key)
             if user is None:
-                logger.warning(f"api_key_not_found key_prefix={api_key[:8]}...")
+                logger.warning("api_key_not_found key_prefix=%s...", api_key[:8])
                 context.authenticated = False
                 return context
 
             # Check if user is active
             if not user.is_active:
-                logger.warning(f"api_key_user_inactive user_id={user.id}")
+                logger.warning("api_key_user_inactive user_id=%s", user.id)
                 context.authenticated = False
                 return context
 
@@ -173,11 +172,11 @@ def _validate_api_key(api_key: str, context: UserAuthContext, user_store=None) -
             context.org_id = user.org_id
             context.role = user.role
             context.token_type = "api_key"
-            logger.debug(f"api_key_validated user_id={user.id}")
+            logger.debug("api_key_validated user_id=%s", user.id)
             return context
 
         except (OSError, ConnectionError, TimeoutError, RuntimeError, KeyError, ValueError) as e:
-            logger.error(f"api_key_validation_error: {e}")
+            logger.error("api_key_validation_error: %s", e)
             context.authenticated = False
             return context
 

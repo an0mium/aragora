@@ -202,7 +202,7 @@ class AnthropicAPIAgent(QuotaFallbackMixin, APIAgent):
 
         # Add beta header for web search if enabled
         if use_web_search:
-            logger.info(f"[{self.name}] Enabling web search tool for web content")
+            logger.info("[%s] Enabling web search tool for web content", self.name)
             headers["anthropic-beta"] = "web-search-2025-03-05"
 
         payload = {
@@ -442,7 +442,7 @@ class AnthropicAPIAgent(QuotaFallbackMixin, APIAgent):
 
         # Add beta header for web search if enabled
         if use_web_search:
-            logger.info(f"[{self.name}] Enabling web search tool for streaming")
+            logger.info("[%s] Enabling web search tool for streaming", self.name)
             headers["anthropic-beta"] = "web-search-2025-03-05"
 
         payload = {

@@ -89,7 +89,7 @@ class PostgresIntegrationStore(IntegrationStoreBackend):
             await conn.execute(self.INITIAL_SCHEMA)
 
         self._initialized = True
-        logger.debug(f"[{self.SCHEMA_NAME}] Schema initialized")
+        logger.debug("[%s] Schema initialized", self.SCHEMA_NAME)
 
     def _row_to_config(self, row: Any) -> IntegrationConfig:
         """Convert database row to IntegrationConfig (settings decryption done at store level)."""
@@ -209,7 +209,7 @@ class PostgresIntegrationStore(IntegrationStoreBackend):
                 config.last_error,
                 config.workspace_id,
             )
-        logger.debug(f"Saved integration: {config.type} for user {user_id}")
+        logger.debug("Saved integration: %s for user %s", config.type, user_id)
 
     def save_sync(self, config: IntegrationConfig) -> None:
         """Save integration configuration (sync wrapper for async)."""
@@ -229,7 +229,7 @@ class PostgresIntegrationStore(IntegrationStoreBackend):
             )
             deleted = result != "DELETE 0"
             if deleted:
-                logger.debug(f"Deleted integration: {integration_type} for user {user_id}")
+                logger.debug("Deleted integration: %s for user %s", integration_type, user_id)
             return deleted
 
     def delete_sync(self, integration_type: str, user_id: str = "default") -> bool:
@@ -360,7 +360,7 @@ class PostgresIntegrationStore(IntegrationStoreBackend):
                 mapping.user_id,
             )
         _record_user_mapping_operation("save", mapping.platform, True)
-        logger.debug(f"Saved user mapping: {mapping.email} -> {mapping.platform}")
+        logger.debug("Saved user mapping: %s -> %s", mapping.email, mapping.platform)
 
     def save_user_mapping_sync(self, mapping: UserIdMapping) -> None:
         """Save user ID mapping (sync wrapper for async)."""

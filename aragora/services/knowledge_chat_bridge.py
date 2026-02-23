@@ -243,7 +243,7 @@ class KnowledgeChatBridge:
                     suggestions = self._generate_suggestions(query, results)
 
             except (ValueError, OSError, ConnectionError, RuntimeError) as e:
-                logger.warning(f"Knowledge search failed: {e}")
+                logger.warning("Knowledge search failed: %s", e)
 
         elapsed_ms = (time.time() - start_time) * 1000
 
@@ -395,11 +395,11 @@ class KnowledgeChatBridge:
 
             # Store in mound
             node_id = await mound.add_node(node, workspace_id=workspace_id)
-            logger.info(f"Stored chat knowledge: {node_id} ({len(messages)} messages)")
+            logger.info("Stored chat knowledge: %s (%s messages)", node_id, len(messages))
             return node_id
 
         except (ValueError, OSError, ConnectionError, RuntimeError) as e:
-            logger.warning(f"Failed to store chat as knowledge: {e}")
+            logger.warning("Failed to store chat as knowledge: %s", e)
             return None
 
     async def get_channel_knowledge_summary(

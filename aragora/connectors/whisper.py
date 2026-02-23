@@ -355,7 +355,7 @@ class WhisperConnector(BaseConnector):
             ConnectorConfigError,
             OSError,
         ) as e:
-            logger.error(f"[Whisper] Transcription failed: {e}")
+            logger.error("[Whisper] Transcription failed: %s", e)
             raise
 
         # Parse response
@@ -463,7 +463,7 @@ class WhisperConnector(BaseConnector):
                     ConnectorConfigError,
                     OSError,
                 ) as e:
-                    logger.warning(f"[Whisper] Stream chunk {chunk_count} failed: {e}")
+                    logger.warning("[Whisper] Stream chunk %s failed: %s", chunk_count, e)
 
                 buffer = b""
 
@@ -490,7 +490,7 @@ class WhisperConnector(BaseConnector):
                 ConnectorConfigError,
                 OSError,
             ) as e:
-                logger.warning(f"[Whisper] Final stream chunk failed: {e}")
+                logger.warning("[Whisper] Final stream chunk failed: %s", e)
 
     async def search(
         self,

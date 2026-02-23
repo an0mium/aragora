@@ -403,7 +403,7 @@ class StructuralAnalyzer:
                             end = min(len(content), match.end() + 50)
                             matched_excerpt = content[start:end].strip()
                 except re.error as e:
-                    logger.debug(f"Invalid fallacy regex '{regex}': {e}")
+                    logger.debug("Invalid fallacy regex '%s': %s", regex, e)
 
             confidence = min(1.0, score)
             if confidence >= 0.3:
@@ -969,7 +969,7 @@ class RhetoricalAnalysisObserver:
                 )
                 self._structural_results.append(structural_result)
             except (RuntimeError, ValueError, TypeError, AttributeError, OSError) as e:
-                logger.warning(f"structural_analysis_failed error={e}")
+                logger.warning("structural_analysis_failed error=%s", e)
 
         observations = []
 
@@ -1023,7 +1023,7 @@ class RhetoricalAnalysisObserver:
                     }
                 )
             except (TypeError, ValueError, AttributeError, RuntimeError, OSError, ConnectionError) as e:
-                logger.warning(f"rhetorical_broadcast_failed error={e}")
+                logger.warning("rhetorical_broadcast_failed error=%s", e)
 
         return observations
 
@@ -1048,7 +1048,7 @@ class RhetoricalAnalysisObserver:
                     if re.search(regex, content_lower):
                         score += 0.3
                 except re.error as e:
-                    logger.debug(f"Invalid regex pattern '{regex}': {e}")
+                    logger.debug("Invalid regex pattern '%s': %s", regex, e)
 
             # Normalize score
             confidence = min(1.0, score)
@@ -1078,7 +1078,7 @@ class RhetoricalAnalysisObserver:
                     if re.search(regex, sentence_lower):
                         return sentence.strip()[:150]
                 except re.error as e:
-                    logger.debug(f"Invalid regex pattern '{regex}': {e}")
+                    logger.debug("Invalid regex pattern '%s': %s", regex, e)
 
         # Fallback to first sentence
         if sentences:

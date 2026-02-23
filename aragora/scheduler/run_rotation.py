@@ -51,7 +51,7 @@ async def load_config(config_path: str | None = None) -> dict[str, Any]:
         if path_obj.exists():
             with path_obj.open() as f:
                 config = yaml.safe_load(f)
-                logger.info(f"Loaded config from {path}")
+                logger.info("Loaded config from %s", path)
                 return config.get("rotation", {})
 
     # Return default config if no file found
@@ -114,7 +114,7 @@ async def get_rotation_history(secret_id: str) -> datetime | None:
     except ImportError:
         pass
     except (OSError, RuntimeError, AttributeError) as e:
-        logger.warning(f"Could not get rotation history for {secret_id}: {e}")
+        logger.warning("Could not get rotation history for %s: %s", secret_id, e)
 
     return None
 
@@ -126,7 +126,7 @@ async def get_current_secret_value(secret_id: str) -> str | None:
 
         return get_secret(secret_id)
     except (ImportError, OSError, KeyError, RuntimeError) as e:
-        logger.warning(f"Could not get current value for {secret_id}: {e}")
+        logger.warning("Could not get current value for %s: %s", secret_id, e)
         return None
 
 
@@ -151,7 +151,7 @@ async def store_new_secret(
                 SecretId=secret_id,
                 SecretString=new_value,
             )
-            logger.info(f"Updated secret {secret_id} in AWS Secrets Manager")
+            logger.info("Updated secret %s in AWS Secrets Manager", secret_id)
             return True
         except client.exceptions.ResourceNotFoundException:
             # Create new secret
@@ -163,14 +163,14 @@ async def store_new_secret(
                     {"Key": "managed_by", "Value": "aragora-rotation"},
                 ],
             )
-            logger.info(f"Created secret {secret_id} in AWS Secrets Manager")
+            logger.info("Created secret %s in AWS Secrets Manager", secret_id)
             return True
 
     except ImportError:
         logger.warning("boto3 not installed, skipping AWS Secrets Manager update")
         return True
     except (OSError, RuntimeError, ValueError) as e:
-        logger.error(f"Failed to store secret {secret_id}: {e}")
+        logger.error("Failed to store secret %s: %s", secret_id, e)
         return False
 
 
@@ -266,10 +266,10 @@ async def send_notification(
                 pool = get_http_pool()
                 async with pool.get_session("slack") as client:
                     await client.post(webhook_url, json=payload, timeout=10.0)
-                    logger.info(f"Sent Slack notification for {secret_id}")
+                    logger.info("Sent Slack notification for %s", secret_id)
 
             except (ImportError, OSError, RuntimeError, ValueError) as e:
-                logger.error(f"Failed to send Slack notification: {e}")
+                logger.error("Failed to send Slack notification: %s", e)
 
 
 async def rotate_secret(
@@ -298,13 +298,13 @@ async def rotate_secret(
         if not needs_rotation and not force:
             result["status"] = "skipped"
             result["message"] = f"Not due for rotation (last: {last_rotation})"
-            logger.info(f"Skipping {secret_id}: not due for rotation")
+            logger.info("Skipping %s: not due for rotation", secret_id)
             return result
 
         if dry_run:
             result["status"] = "would_rotate"
             result["message"] = "Dry run - would rotate"
-            logger.info(f"[DRY RUN] Would rotate {secret_id}")
+            logger.info("[DRY RUN] Would rotate %s", secret_id)
             return result
 
         # Get handler and current value
@@ -312,7 +312,7 @@ async def rotate_secret(
         current_value = await get_current_secret_value(secret_id)
 
         # Perform rotation
-        logger.info(f"Rotating {secret_id} ({secret_type})")
+        logger.info("Rotating %s (%s)", secret_id, secret_type)
         rotation_result = await handler.rotate(secret_id, current_value, metadata)
 
         if rotation_result.status.value == "success":
@@ -344,7 +344,7 @@ async def rotate_secret(
             await send_notification(secret_id, "failure", result["message"], config)
 
     except (OSError, RuntimeError, ValueError, KeyError, AttributeError) as e:
-        logger.exception(f"Error rotating {secret_id}: {e}")
+        logger.exception("Error rotating %s: %s", secret_id, e)
         result["status"] = "error"
         result["message"] = "Secret rotation failed"
 
@@ -371,7 +371,7 @@ async def main(args: argparse.Namespace) -> int:
     if args.secret_id:
         secrets = [s for s in secrets if s["id"] == args.secret_id]
         if not secrets:
-            logger.error(f"Secret {args.secret_id} not found in config")
+            logger.error("Secret %s not found in config", args.secret_id)
             return 1
 
     # Override dry_run if specified
@@ -397,8 +397,7 @@ async def main(args: argparse.Namespace) -> int:
     skipped_count = sum(1 for r in results if r["status"] in ("skipped", "would_rotate"))
 
     logger.info(
-        f"Rotation complete: {success_count} succeeded, "
-        f"{failed_count} failed, {skipped_count} skipped"
+        "Rotation complete: %s succeeded, %s failed, %s skipped", success_count, failed_count, skipped_count
     )
 
     # Print results

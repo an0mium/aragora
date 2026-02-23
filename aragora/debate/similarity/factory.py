@@ -158,7 +158,7 @@ class SimilarityFactory:
             accuracy=accuracy,
             speed=speed,
         )
-        logger.debug(f"Registered similarity backend: {name}")
+        logger.debug("Registered similarity backend: %s", name)
 
     @classmethod
     def unregister(cls, name: str) -> bool:
@@ -195,7 +195,7 @@ class SimilarityFactory:
         except ImportError:
             return False
         except (RuntimeError, ValueError, TypeError, AttributeError, OSError) as e:
-            logger.debug(f"Backend {name} not available: {e}")
+            logger.debug("Backend %s not available: %s", name, e)
             return False
 
     @classmethod

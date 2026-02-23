@@ -200,7 +200,7 @@ class ComputerUseHandler(BaseHandler):
         decision = check_permission(rbac_ctx, permission_key)
         if not decision.allowed:
             user_id = getattr(rbac_ctx, "user_id", "unknown")
-            logger.warning(f"RBAC denied: user={user_id} permission={permission_key}")
+            logger.warning("RBAC denied: user=%s permission=%s", user_id, permission_key)
             return error_response("Permission denied", 403)
 
         return None
@@ -427,7 +427,7 @@ class ComputerUseHandler(BaseHandler):
                 task["error"] = "Task execution failed"
                 storage.save_task(task)
 
-        logger.info(f"Created computer use task: {task_id} - {goal}")
+        logger.info("Created computer use task: %s - %s", task_id, goal)
         emit_handler_event("computer_use", CREATED, {"task_id": task_id})
 
         return json_response(
@@ -457,7 +457,7 @@ class ComputerUseHandler(BaseHandler):
 
         storage.update_task_status(task_id, "cancelled")
 
-        logger.info(f"Cancelled computer use task: {task_id}")
+        logger.info("Cancelled computer use task: %s", task_id)
 
         return json_response({"message": "Task cancelled"})
 
@@ -551,7 +551,7 @@ class ComputerUseHandler(BaseHandler):
         storage = self._get_storage()
         storage.save_policy(policy_data)
 
-        logger.info(f"Created computer use policy: {policy_id} - {name}")
+        logger.info("Created computer use policy: %s - %s", policy_id, name)
 
         return json_response(
             {

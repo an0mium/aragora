@@ -181,7 +181,7 @@ class ComplianceMonitor:
 
         self._running = True
         self._task = asyncio.create_task(self._monitoring_loop())
-        logger.info(f"Compliance monitor started (interval={self.config.check_interval_seconds}s)")
+        logger.info("Compliance monitor started (interval=%ss)", self.config.check_interval_seconds)
 
     async def stop(self) -> None:
         """Stop the monitoring loop."""
@@ -215,7 +215,7 @@ class ComplianceMonitor:
             except asyncio.CancelledError:
                 break
             except (RuntimeError, OSError, ValueError, ConnectionError, TimeoutError) as e:
-                logger.error(f"Compliance monitoring error: {e}")
+                logger.error("Compliance monitoring error: %s", e)
                 await asyncio.sleep(60)  # Wait before retry
 
     async def _run_quick_check(self) -> ComplianceStatus:
@@ -233,7 +233,7 @@ class ComplianceMonitor:
         except ImportError:
             logger.debug("Policy store not available for compliance check")
         except (RuntimeError, OSError, ValueError, ConnectionError) as e:
-            logger.warning(f"Error checking policy store: {e}")
+            logger.warning("Error checking policy store: %s", e)
 
         # Calculate overall health
         status.overall_health = self._calculate_overall_health(status)
@@ -301,7 +301,7 @@ class ComplianceMonitor:
                 fs.last_check = datetime.now(timezone.utc)
 
         except (RuntimeError, OSError, ValueError, KeyError, AttributeError, TypeError) as e:
-            logger.warning(f"Error updating from policy store: {e}")
+            logger.warning("Error updating from policy store: %s", e)
 
     def _fetch_audit_context(self, status: ComplianceStatus) -> dict[str, Any] | None:
         """Fetch recent audit findings relevant to compliance scope.
@@ -366,7 +366,7 @@ class ComplianceMonitor:
             }
 
         except (ImportError, AttributeError, TypeError) as e:
-            logger.debug(f"Audit cross-pollination skipped: {e}")
+            logger.debug("Audit cross-pollination skipped: %s", e)
             return None
 
     async def _run_full_scan(self) -> None:
@@ -389,7 +389,7 @@ class ComplianceMonitor:
         except ImportError:
             logger.debug("Compliance framework not available")
         except (RuntimeError, OSError, ValueError, ConnectionError) as e:
-            logger.warning(f"Error during full scan: {e}")
+            logger.warning("Error during full scan: %s", e)
 
     async def _verify_audit_trail(self) -> bool:
         """Verify audit trail integrity via hash chain."""
@@ -415,7 +415,7 @@ class ComplianceMonitor:
         except ImportError:
             logger.debug("Audit log not available for verification")
         except (RuntimeError, OSError, ValueError) as e:
-            logger.warning(f"Error verifying audit trail: {e}")
+            logger.warning("Error verifying audit trail: %s", e)
 
         return True
 
@@ -549,7 +549,7 @@ class ComplianceMonitor:
                 else:
                     callback(alert_data)
             except (RuntimeError, TypeError, ValueError, OSError) as e:
-                logger.warning(f"Alert callback failed: {e}")
+                logger.warning("Alert callback failed: %s", e)
 
         # Also try SLO alert bridge if available
         try:
@@ -569,7 +569,7 @@ class ComplianceMonitor:
         except ImportError:
             pass
         except (RuntimeError, ValueError, TypeError, AttributeError) as e:
-            logger.debug(f"Could not route to SLO alert bridge: {e}")
+            logger.debug("Could not route to SLO alert bridge: %s", e)
 
     async def _alert_audit_tamper(self) -> None:
         """Alert on audit trail tampering detection."""
@@ -715,7 +715,7 @@ class ComplianceMonitor:
                 else:
                     callback(event)
             except (RuntimeError, TypeError, ValueError, OSError) as e:
-                logger.warning(f"Drift callback failed: {e}")
+                logger.warning("Drift callback failed: %s", e)
 
 
 # Global monitor instance
@@ -758,9 +758,7 @@ def init_compliance_monitoring(
 
     _monitor = ComplianceMonitor(config)
     logger.info(
-        f"Compliance monitoring initialized: "
-        f"interval={check_interval_seconds}s, "
-        f"frameworks={config.enabled_frameworks}"
+        "Compliance monitoring initialized: interval=%ss, frameworks=%s", check_interval_seconds, config.enabled_frameworks
     )
 
     return _monitor

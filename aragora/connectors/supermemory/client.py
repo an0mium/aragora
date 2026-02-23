@@ -100,14 +100,14 @@ def with_retry(
                 except SupermemoryRateLimitError as e:
                     wait_time = e.retry_after or (delay * (2**attempt))
                     logger.warning(
-                        f"Rate limited, waiting {wait_time}s (attempt {attempt + 1}/{max_retries})"
+                        "Rate limited, waiting %ss (attempt %s/%s)", wait_time, attempt + 1, max_retries
                     )
                     await asyncio.sleep(wait_time)
                     last_error = e
                 except SupermemoryConnectionError as e:
                     wait_time = delay * (2**attempt)
                     logger.warning(
-                        f"Connection error, retrying in {wait_time}s (attempt {attempt + 1}/{max_retries}): {e}"
+                        "Connection error, retrying in %ss (attempt %s/%s): %s", wait_time, attempt + 1, max_retries, e
                     )
                     await asyncio.sleep(wait_time)
                     last_error = e
@@ -233,7 +233,7 @@ class SupermemoryClient:
             # Extract memory ID from response
             memory_id = getattr(response, "id", None) or str(response)
 
-            logger.debug(f"Added memory to Supermemory: {memory_id[:20]}...")
+            logger.debug("Added memory to Supermemory: %s...", memory_id[:20])
             return MemoryAddResult(
                 memory_id=memory_id,
                 container_tag=tag,
@@ -249,7 +249,7 @@ class SupermemoryClient:
             elif "unauthorized" in error_msg or "401" in error_msg:
                 raise SupermemoryError("Invalid API key", recoverable=False)
             else:
-                logger.error(f"Failed to add memory: {e}")
+                logger.error("Failed to add memory: %s", e)
                 return MemoryAddResult(
                     memory_id="",
                     container_tag=tag,
@@ -310,7 +310,7 @@ class SupermemoryClient:
 
             search_time_ms = int((time.time() - start_time) * 1000)
 
-            logger.debug(f"Search returned {len(results)} results in {search_time_ms}ms")
+            logger.debug("Search returned %s results in %sms", len(results), search_time_ms)
             return SearchResponse(
                 results=results,
                 query=query,
@@ -325,7 +325,7 @@ class SupermemoryClient:
             if "rate limit" in error_msg or "429" in error_msg:
                 raise SupermemoryRateLimitError("Rate limit exceeded") from e
             else:
-                logger.error(f"Search failed: {e}")
+                logger.error("Search failed: %s", e)
                 return SearchResponse(
                     results=[],
                     query=query,

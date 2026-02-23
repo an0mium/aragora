@@ -150,7 +150,7 @@ class GauntletResultsMixin:
                     }
                 )
         except (OSError, RuntimeError, ValueError) as e:
-            logger.warning(f"Storage lookup failed for {gauntlet_id}: {e}")
+            logger.warning("Storage lookup failed for %s: %s", gauntlet_id, e)
 
         return error_response(f"Gauntlet run not found: {gauntlet_id}", 404)
 
@@ -228,7 +228,7 @@ class GauntletResultsMixin:
                 }
             )
         except (OSError, RuntimeError, ValueError, TypeError) as e:
-            logger.error(f"Failed to list results: {e}")
+            logger.error("Failed to list results: %s", e)
             return error_response(safe_error_message(e, "list results"), 500)
 
     @api_endpoint(
@@ -260,7 +260,7 @@ class GauntletResultsMixin:
 
             return json_response(comparison)
         except (OSError, RuntimeError, ValueError, TypeError) as e:
-            logger.error(f"Failed to compare results: {e}")
+            logger.error("Failed to compare results: %s", e)
             return error_response(safe_error_message(e, "compare results"), 500)
 
     @api_endpoint(
@@ -298,7 +298,7 @@ class GauntletResultsMixin:
             else:
                 return error_response(f"Gauntlet run not found: {gauntlet_id}", 404)
         except (OSError, RuntimeError, ValueError, KeyError) as e:
-            logger.error(f"Failed to delete result: {e}")
+            logger.error("Failed to delete result: %s", e)
             return error_response(safe_error_message(e, "delete result"), 500)
 
     @api_endpoint(
@@ -368,7 +368,7 @@ class GauntletResultsMixin:
                 else:
                     return error_response(f"Gauntlet run not found: {gauntlet_id}", 404)
             except (OSError, RuntimeError, ValueError) as e:
-                logger.warning(f"Storage lookup failed for {gauntlet_id}: {e}")
+                logger.warning("Storage lookup failed for %s: %s", gauntlet_id, e)
                 return error_response(f"Gauntlet run not found: {gauntlet_id}", 404)
 
         # Parse options

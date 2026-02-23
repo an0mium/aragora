@@ -191,7 +191,7 @@ class AuditTrailStore:
         else:
             self.db_path.parent.mkdir(parents=True, exist_ok=True)
             self._backend = SQLiteBackend(str(self.db_path))
-            logger.info(f"AuditTrailStore using SQLite backend: {self.db_path}")
+            logger.info("AuditTrailStore using SQLite backend: %s", self.db_path)
 
         self._init_schema()
 
@@ -204,7 +204,7 @@ class AuditTrailStore:
             try:
                 self._backend.execute_write(statement)
             except (OSError, RuntimeError, ValueError) as e:
-                logger.debug(f"Schema statement skipped: {e}")
+                logger.debug("Schema statement skipped: %s", e)
 
     # =========================================================================
     # Audit Trail Methods
@@ -251,7 +251,7 @@ class AuditTrailStore:
                 json.dumps(trail_dict),
             ),
         )
-        logger.debug(f"Saved audit trail: {trail_id}")
+        logger.debug("Saved audit trail: %s", trail_id)
 
     def get_trail(self, trail_id: str) -> dict[str, Any] | None:
         """
@@ -414,7 +414,7 @@ class AuditTrailStore:
                 json.dumps(receipt_dict),
             ),
         )
-        logger.debug(f"Saved decision receipt: {receipt_id}")
+        logger.debug("Saved decision receipt: %s", receipt_id)
 
     def get_receipt(self, receipt_id: str) -> dict[str, Any] | None:
         """
@@ -593,8 +593,7 @@ class AuditTrailStore:
 
         if total_removed > 0:
             logger.info(
-                f"Cleaned up {total_removed} audit trail entries "
-                f"older than {self.retention_days} days"
+                "Cleaned up %s audit trail entries older than %s days", total_removed, self.retention_days
             )
 
         return total_removed

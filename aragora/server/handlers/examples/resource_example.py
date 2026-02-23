@@ -180,7 +180,7 @@ class ExampleResourceHandler(ResourceHandler):
         }
 
         self._storage[article_id] = article
-        logger.info(f"Created article {article_id}")
+        logger.info("Created article %s", article_id)
 
         return json_response(article, status=201)
 
@@ -223,7 +223,7 @@ class ExampleResourceHandler(ResourceHandler):
         }
 
         self._storage[resource_id] = article
-        logger.info(f"Updated article {resource_id}")
+        logger.info("Updated article %s", resource_id)
 
         return json_response(article)
 
@@ -265,7 +265,7 @@ class ExampleResourceHandler(ResourceHandler):
         article["updated_at"] = now
 
         self._storage[resource_id] = article
-        logger.info(f"Patched article {resource_id}: {list(body.keys())}")
+        logger.info("Patched article %s: %s", resource_id, list(body.keys()))
 
         return json_response(article)
 
@@ -286,7 +286,7 @@ class ExampleResourceHandler(ResourceHandler):
             return error_response(f"Article not found: {resource_id}", 404)
 
         del self._storage[resource_id]
-        logger.info(f"Deleted article {resource_id}")
+        logger.info("Deleted article %s", resource_id)
 
         return json_response(
             {

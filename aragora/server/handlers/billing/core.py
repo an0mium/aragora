@@ -134,7 +134,7 @@ class BillingHandler(WebhookMixin, ReportingMixin, SecureHandler):
             if test_name:
                 client_ip = f"{client_ip}:{test_name}"
             if not _get_billing_limiter().is_allowed(client_ip):
-                logger.warning(f"Rate limit exceeded for billing endpoint: {client_ip}")
+                logger.warning("Rate limit exceeded for billing endpoint: %s", client_ip)
                 return error_response("Rate limit exceeded. Please try again later.", 429)
 
         # Determine HTTP method from handler if not provided
@@ -353,7 +353,7 @@ class BillingHandler(WebhookMixin, ReportingMixin, SecureHandler):
                 except StripeError as e:
                     # Log Stripe errors but continue with partial subscription data
                     # This allows the endpoint to degrade gracefully when Stripe is unavailable
-                    logger.warning(f"Failed to get Stripe subscription: {type(e).__name__}: {e}")
+                    logger.warning("Failed to get Stripe subscription: %s: %s", type(e).__name__, e)
 
         return json_response({"subscription": subscription_data})
 
@@ -485,7 +485,7 @@ class BillingHandler(WebhookMixin, ReportingMixin, SecureHandler):
         trial_mgr = TrialManager(user_store=user_store)
         status = trial_mgr.start_trial(org)
 
-        logger.info(f"Started trial for org {org.id} (user: {db_user.email})")
+        logger.info("Started trial for org %s (user: %s)", org.id, db_user.email)
         audit_data(
             user_id=db_user.id,
             resource_type="trial",
@@ -576,7 +576,7 @@ class BillingHandler(WebhookMixin, ReportingMixin, SecureHandler):
                 },
             )
 
-            logger.info(f"Created checkout session {session.id} for user {db_user.email}")
+            logger.info("Created checkout session %s for user %s", session.id, db_user.email)
             audit_data(
                 user_id=db_user.id,
                 resource_type="checkout_session",
@@ -595,13 +595,13 @@ class BillingHandler(WebhookMixin, ReportingMixin, SecureHandler):
             return json_response({"checkout": session.to_dict()})
 
         except StripeConfigError as e:
-            logger.error(f"Stripe checkout failed: {type(e).__name__}: {e}")
+            logger.error("Stripe checkout failed: %s: %s", type(e).__name__, e)
             return error_response("Payment service unavailable", 503)
         except StripeAPIError as e:
-            logger.error(f"Stripe API error during checkout: {type(e).__name__}: {e}")
+            logger.error("Stripe API error during checkout: %s: %s", type(e).__name__, e)
             return error_response("Failed to create checkout session with payment provider", 502)
         except StripeError as e:
-            logger.error(f"Stripe error during checkout: {type(e).__name__}: {e}")
+            logger.error("Stripe error during checkout: %s: %s", type(e).__name__, e)
             return error_response("Payment service error", 500)
 
     @handle_errors("create portal")
@@ -646,13 +646,13 @@ class BillingHandler(WebhookMixin, ReportingMixin, SecureHandler):
             return json_response({"portal": session.to_dict()})
 
         except StripeConfigError as e:
-            logger.error(f"Stripe portal failed: {type(e).__name__}: {e}")
+            logger.error("Stripe portal failed: %s: %s", type(e).__name__, e)
             return error_response("Payment service unavailable", 503)
         except StripeAPIError as e:
-            logger.error(f"Stripe API error creating portal: {type(e).__name__}: {e}")
+            logger.error("Stripe API error creating portal: %s: %s", type(e).__name__, e)
             return error_response("Failed to create billing portal with payment provider", 502)
         except StripeError as e:
-            logger.error(f"Stripe error creating portal: {type(e).__name__}: {e}")
+            logger.error("Stripe error creating portal: %s: %s", type(e).__name__, e)
             return error_response("Payment service error", 500)
 
     def _log_audit(
@@ -696,7 +696,7 @@ class BillingHandler(WebhookMixin, ReportingMixin, SecureHandler):
                 user_agent=user_agent,
             )
         except (AttributeError, OSError) as e:
-            logger.warning(f"Failed to log audit event: {e}")
+            logger.warning("Failed to log audit event: %s", e)
 
     @handle_errors("cancel subscription")
     @log_request("cancel subscription")
@@ -727,7 +727,7 @@ class BillingHandler(WebhookMixin, ReportingMixin, SecureHandler):
                 at_period_end=True,  # Cancel at end of period, not immediately
             )
 
-            logger.info(f"Subscription canceled for org {org.id} (user: {db_user.email})")
+            logger.info("Subscription canceled for org %s (user: %s)", org.id, db_user.email)
             audit_admin(
                 admin_id=user.user_id,
                 action="cancel_subscription",
@@ -761,13 +761,13 @@ class BillingHandler(WebhookMixin, ReportingMixin, SecureHandler):
             )
 
         except StripeConfigError as e:
-            logger.error(f"Stripe config error canceling subscription: {type(e).__name__}: {e}")
+            logger.error("Stripe config error canceling subscription: %s: %s", type(e).__name__, e)
             return error_response("Payment service unavailable", 503)
         except StripeAPIError as e:
-            logger.error(f"Stripe API error canceling subscription: {type(e).__name__}: {e}")
+            logger.error("Stripe API error canceling subscription: %s: %s", type(e).__name__, e)
             return error_response("Failed to cancel subscription with payment provider", 502)
         except StripeError as e:
-            logger.error(f"Stripe error canceling subscription: {type(e).__name__}: {e}")
+            logger.error("Stripe error canceling subscription: %s: %s", type(e).__name__, e)
             return error_response("Failed to cancel subscription", 500)
 
     @handle_errors("resume subscription")
@@ -795,7 +795,7 @@ class BillingHandler(WebhookMixin, ReportingMixin, SecureHandler):
             stripe = get_stripe_client()
             subscription = stripe.resume_subscription(org.stripe_subscription_id)
 
-            logger.info(f"Subscription resumed for org {org.id} (user: {db_user.email})")
+            logger.info("Subscription resumed for org %s (user: %s)", org.id, db_user.email)
             audit_admin(
                 admin_id=user.user_id,
                 action="resume_subscription",
@@ -812,13 +812,13 @@ class BillingHandler(WebhookMixin, ReportingMixin, SecureHandler):
             )
 
         except StripeConfigError as e:
-            logger.error(f"Stripe config error resuming subscription: {type(e).__name__}: {e}")
+            logger.error("Stripe config error resuming subscription: %s: %s", type(e).__name__, e)
             return error_response("Payment service unavailable", 503)
         except StripeAPIError as e:
-            logger.error(f"Stripe API error resuming subscription: {type(e).__name__}: {e}")
+            logger.error("Stripe API error resuming subscription: %s: %s", type(e).__name__, e)
             return error_response("Failed to resume subscription with payment provider", 502)
         except StripeError as e:
-            logger.error(f"Stripe error resuming subscription: {type(e).__name__}: {e}")
+            logger.error("Stripe error resuming subscription: %s: %s", type(e).__name__, e)
             return error_response("Failed to resume subscription", 500)
 
 

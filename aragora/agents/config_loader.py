@@ -235,7 +235,7 @@ class AgentConfigLoader:
         if not path.exists():
             raise FileNotFoundError(f"Config file not found: {path}")
 
-        logger.debug(f"Loading agent config from {path}")
+        logger.debug("Loading agent config from %s", path)
 
         with open(path) as f:
             data = _yaml.safe_load(f)
@@ -247,7 +247,7 @@ class AgentConfigLoader:
         self._configs[config.name] = config
         self._config_paths[config.name] = path
 
-        logger.info(f"Loaded agent config: {config.name} ({config.model_type})")
+        logger.info("Loaded agent config: %s (%s)", config.name, config.model_type)
         return config
 
     def load_directory(self, directory: str | Path) -> dict[str, AgentConfig]:
@@ -262,7 +262,7 @@ class AgentConfigLoader:
         """
         directory = Path(directory)
         if not directory.exists():
-            logger.warning(f"Config directory not found: {directory}")
+            logger.warning("Config directory not found: %s", directory)
             return {}
 
         configs: dict[str, AgentConfig] = {}
@@ -272,7 +272,7 @@ class AgentConfigLoader:
                 config = self.load_yaml(yaml_file)
                 configs[config.name] = config
             except (ConfigValidationError, ValueError, OSError, TypeError) as e:
-                logger.error(f"Failed to load config {yaml_file}: {e}")
+                logger.error("Failed to load config %s: %s", yaml_file, e)
                 continue
 
         for yml_file in directory.glob("*.yml"):
@@ -280,10 +280,10 @@ class AgentConfigLoader:
                 config = self.load_yaml(yml_file)
                 configs[config.name] = config
             except (ConfigValidationError, ValueError, OSError, TypeError) as e:
-                logger.error(f"Failed to load config {yml_file}: {e}")
+                logger.error("Failed to load config %s: %s", yml_file, e)
                 continue
 
-        logger.info(f"Loaded {len(configs)} agent configs from {directory}")
+        logger.info("Loaded %s agent configs from %s", len(configs), directory)
         return configs
 
     def reload_config(self, name: str) -> AgentConfig | None:
@@ -297,12 +297,12 @@ class AgentConfigLoader:
             Updated AgentConfig or None if not found
         """
         if name not in self._config_paths:
-            logger.warning(f"No config path recorded for {name}")
+            logger.warning("No config path recorded for %s", name)
             return None
 
         path = self._config_paths[name]
         if not path.exists():
-            logger.warning(f"Config file no longer exists: {path}")
+            logger.warning("Config file no longer exists: %s", path)
             del self._config_paths[name]
             if name in self._configs:
                 del self._configs[name]
@@ -377,7 +377,7 @@ class AgentConfigLoader:
         if hasattr(agent, "_config"):
             agent._config = config
 
-        logger.debug(f"Created agent from config: {config.name}")
+        logger.debug("Created agent from config: %s", config.name)
         return agent
 
     def create_agents(self, configs: list[str | AgentConfig | None] = None) -> list[Agent]:
@@ -400,7 +400,7 @@ class AgentConfigLoader:
                 agent = self.create_agent(config)
                 agents.append(agent)
             except (ValueError, TypeError, RuntimeError, KeyError) as e:
-                logger.error(f"Failed to create agent from config: {e}")
+                logger.error("Failed to create agent from config: %s", e)
 
         return agents
 

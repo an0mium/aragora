@@ -71,7 +71,7 @@ def _check_permission(ctx: dict[str, Any], permission: str) -> HandlerResult | N
     decision = checker.check_permission(auth_context, permission)
 
     if not decision.allowed:
-        logger.warning(f"Permission denied: {permission} for user {user_id}")
+        logger.warning("Permission denied: %s for user %s", permission, user_id)
         return error_response("Permission denied", status=403)
 
     return None
@@ -254,7 +254,7 @@ async def handle_submit_nps(ctx: dict[str, Any]) -> HandlerResult:
         store = get_feedback_store()
         store.save(entry)
 
-        logger.info(f"NPS feedback submitted: score={score}, user={user_id}")
+        logger.info("NPS feedback submitted: score=%s, user=%s", score, user_id)
 
         return json_response(
             {
@@ -265,7 +265,7 @@ async def handle_submit_nps(ctx: dict[str, Any]) -> HandlerResult:
         )
 
     except (KeyError, TypeError, ValueError, sqlite3.Error) as e:
-        logger.error(f"Error submitting NPS feedback: {e}")
+        logger.error("Error submitting NPS feedback: %s", e)
         return error_response("Internal server error", status=500)
 
 
@@ -317,7 +317,7 @@ async def handle_submit_feedback(ctx: dict[str, Any]) -> HandlerResult:
         store = get_feedback_store()
         store.save(entry)
 
-        logger.info(f"Feedback submitted: type={feedback_type.value}, user={user_id}")
+        logger.info("Feedback submitted: type=%s, user=%s", feedback_type.value, user_id)
 
         return json_response(
             {
@@ -328,7 +328,7 @@ async def handle_submit_feedback(ctx: dict[str, Any]) -> HandlerResult:
         )
 
     except (KeyError, TypeError, ValueError, sqlite3.Error) as e:
-        logger.error(f"Error submitting feedback: {e}")
+        logger.error("Error submitting feedback: %s", e)
         return error_response("Internal server error", status=500)
 
 
@@ -359,7 +359,7 @@ async def handle_get_nps_summary(ctx: dict[str, Any]) -> HandlerResult:
         return json_response(summary)
 
     except (TypeError, ValueError, sqlite3.Error) as e:
-        logger.error(f"Error getting NPS summary: {e}")
+        logger.error("Error getting NPS summary: %s", e)
         return error_response("Internal server error", status=500)
 
 

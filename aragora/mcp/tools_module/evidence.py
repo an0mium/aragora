@@ -64,7 +64,7 @@ async def search_evidence_tool(
     except ImportError:
         logger.warning("Evidence collector not available")
     except (RuntimeError, ValueError, OSError) as e:
-        logger.warning(f"Evidence search failed: {e}")
+        logger.warning("Evidence search failed: %s", e)
 
     return {
         "query": query,

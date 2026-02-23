@@ -96,10 +96,10 @@ async def _get_queue() -> Any | None:
             logger.warning("Redis package not available for queue")
             return None
         except REDIS_CONNECTION_ERRORS as e:
-            logger.warning(f"Failed to connect to Redis for queue: {e}")
+            logger.warning("Failed to connect to Redis for queue: %s", e)
             return None
         except RuntimeError as e:
-            logger.warning(f"Runtime error creating queue: {e}")
+            logger.warning("Runtime error creating queue: %s", e)
             return None
 
 
@@ -201,7 +201,7 @@ class QueueHandler(SecureEndpointMixin, SecureHandler, PaginatedHandlerMixin):  
         try:
             self.check_permission(auth_context, permission)
         except ForbiddenError:
-            logger.warning(f"Queue permission denied: {permission} for user {auth_context.user_id}")
+            logger.warning("Queue permission denied: %s for user %s", permission, auth_context.user_id)
             return error_response("Permission denied", 403)
 
         query_params: dict[str, Any] = {}
@@ -320,10 +320,10 @@ class QueueHandler(SecureEndpointMixin, SecureHandler, PaginatedHandlerMixin):  
                 }
             )
         except REDIS_CONNECTION_ERRORS as e:
-            logger.error(f"Failed to get queue stats due to connection error: {e}")
+            logger.error("Failed to get queue stats due to connection error: %s", e)
             return error_response(safe_error_message(e, "get queue stats"), 503)
         except (AttributeError, KeyError) as e:
-            logger.error(f"Data structure error getting queue stats: {e}")
+            logger.error("Data structure error getting queue stats: %s", e)
             return error_response("Internal data error", 500)
 
     async def _get_workers(self) -> HandlerResult:
@@ -368,9 +368,9 @@ class QueueHandler(SecureEndpointMixin, SecureHandler, PaginatedHandlerMixin):  
                                     }
                                 )
                     except REDIS_CONNECTION_ERRORS as ce:
-                        logger.debug(f"Could not get consumers due to connection error: {ce}")
+                        logger.debug("Could not get consumers due to connection error: %s", ce)
                     except (KeyError, TypeError, AttributeError) as ce:
-                        logger.debug(f"Consumer data parsing error: {ce}")
+                        logger.debug("Consumer data parsing error: %s", ce)
 
             return json_response(
                 {
@@ -389,7 +389,7 @@ class QueueHandler(SecureEndpointMixin, SecureHandler, PaginatedHandlerMixin):  
                 }
             )
         except (KeyError, TypeError, AttributeError) as e:
-            logger.error(f"Data structure error getting worker status: {e}")
+            logger.error("Data structure error getting worker status: %s", e)
             return json_response(
                 {
                     "workers": [],
@@ -455,13 +455,13 @@ class QueueHandler(SecureEndpointMixin, SecureHandler, PaginatedHandlerMixin):  
             )
 
         except (ValueError, KeyError, TypeError) as e:
-            logger.warning(f"Invalid job submission data: {e}")
+            logger.warning("Invalid job submission data: %s", e)
             return error_response(safe_error_message(e, "submit job"), 400)
         except REDIS_CONNECTION_ERRORS as e:
-            logger.error(f"Failed to submit job due to connection error: {e}")
+            logger.error("Failed to submit job due to connection error: %s", e)
             return error_response(safe_error_message(e, "submit job"), 503)
         except AttributeError as e:
-            logger.error(f"Queue interface error: {e}")
+            logger.error("Queue interface error: %s", e)
             return error_response("Queue configuration error", 500)
 
     async def _list_jobs(self, query_params: dict[str, Any]) -> HandlerResult:
@@ -550,10 +550,10 @@ class QueueHandler(SecureEndpointMixin, SecureHandler, PaginatedHandlerMixin):  
             )
 
         except REDIS_CONNECTION_ERRORS as e:
-            logger.error(f"Failed to list jobs due to connection error: {e}")
+            logger.error("Failed to list jobs due to connection error: %s", e)
             return error_response(safe_error_message(e, "list jobs"), 503)
         except (AttributeError, KeyError, TypeError) as e:
-            logger.error(f"Data structure error listing jobs: {e}")
+            logger.error("Data structure error listing jobs: %s", e)
             return error_response("Internal data error", 500)
 
     async def _get_job(self, job_id: str) -> HandlerResult:
@@ -594,10 +594,10 @@ class QueueHandler(SecureEndpointMixin, SecureHandler, PaginatedHandlerMixin):  
             )
 
         except REDIS_CONNECTION_ERRORS as e:
-            logger.error(f"Failed to get job {job_id} due to connection error: {e}")
+            logger.error("Failed to get job %s due to connection error: %s", job_id, e)
             return error_response(safe_error_message(e, "get job"), 503)
         except (AttributeError, KeyError, TypeError) as e:
-            logger.error(f"Data structure error getting job {job_id}: {e}")
+            logger.error("Data structure error getting job %s: %s", job_id, e)
             return error_response("Internal data error", 500)
 
     async def _retry_job(self, job_id: str) -> HandlerResult:
@@ -649,10 +649,10 @@ class QueueHandler(SecureEndpointMixin, SecureHandler, PaginatedHandlerMixin):  
             )
 
         except REDIS_CONNECTION_ERRORS as e:
-            logger.error(f"Failed to retry job {job_id} due to connection error: {e}")
+            logger.error("Failed to retry job %s due to connection error: %s", job_id, e)
             return error_response(safe_error_message(e, "retry job"), 503)
         except (AttributeError, KeyError) as e:
-            logger.error(f"Data structure error retrying job {job_id}: {e}")
+            logger.error("Data structure error retrying job %s: %s", job_id, e)
             return error_response("Internal data error", 500)
 
     async def _cancel_job(self, job_id: str) -> HandlerResult:
@@ -691,10 +691,10 @@ class QueueHandler(SecureEndpointMixin, SecureHandler, PaginatedHandlerMixin):  
             )
 
         except REDIS_CONNECTION_ERRORS as e:
-            logger.error(f"Failed to cancel job {job_id} due to connection error: {e}")
+            logger.error("Failed to cancel job %s due to connection error: %s", job_id, e)
             return error_response(safe_error_message(e, "cancel job"), 503)
         except (AttributeError, KeyError) as e:
-            logger.error(f"Data structure error cancelling job {job_id}: {e}")
+            logger.error("Data structure error cancelling job %s: %s", job_id, e)
             return error_response("Internal data error", 500)
 
     async def _list_dlq(self, query_params: dict[str, Any]) -> HandlerResult:
@@ -778,10 +778,10 @@ class QueueHandler(SecureEndpointMixin, SecureHandler, PaginatedHandlerMixin):  
             )
 
         except REDIS_CONNECTION_ERRORS as e:
-            logger.error(f"Failed to list DLQ due to connection error: {e}")
+            logger.error("Failed to list DLQ due to connection error: %s", e)
             return error_response(safe_error_message(e, "list DLQ"), 503)
         except (AttributeError, KeyError, TypeError) as e:
-            logger.error(f"Data structure error listing DLQ: {e}")
+            logger.error("Data structure error listing DLQ: %s", e)
             return error_response("Internal data error", 500)
 
     async def _requeue_dlq_job(self, job_id: str) -> HandlerResult:
@@ -831,10 +831,10 @@ class QueueHandler(SecureEndpointMixin, SecureHandler, PaginatedHandlerMixin):  
             )
 
         except REDIS_CONNECTION_ERRORS as e:
-            logger.error(f"Failed to requeue DLQ job {job_id}: {e}")
+            logger.error("Failed to requeue DLQ job %s: %s", job_id, e)
             return error_response(safe_error_message(e, "requeue DLQ job"), 503)
         except (AttributeError, KeyError) as e:
-            logger.error(f"Data structure error requeuing DLQ job {job_id}: {e}")
+            logger.error("Data structure error requeuing DLQ job %s: %s", job_id, e)
             return error_response("Internal data error", 500)
 
     async def _requeue_all_dlq(self) -> HandlerResult:
@@ -893,10 +893,10 @@ class QueueHandler(SecureEndpointMixin, SecureHandler, PaginatedHandlerMixin):  
             )
 
         except REDIS_CONNECTION_ERRORS as e:
-            logger.error(f"Failed to requeue all DLQ: {e}")
+            logger.error("Failed to requeue all DLQ: %s", e)
             return error_response(safe_error_message(e, "requeue all DLQ"), 503)
         except (AttributeError, KeyError) as e:
-            logger.error(f"Data structure error requeuing all DLQ: {e}")
+            logger.error("Data structure error requeuing all DLQ: %s", e)
             return error_response("Internal data error", 500)
 
     async def _cleanup_jobs(self, query_params: dict[str, Any]) -> HandlerResult:
@@ -946,7 +946,7 @@ class QueueHandler(SecureEndpointMixin, SecureHandler, PaginatedHandlerMixin):  
                                 await queue.delete(job.id)
                                 deleted += 1
                             except REDIS_CONNECTION_ERRORS as e:
-                                logger.warning(f"Failed to delete job {job.id}: {e}")
+                                logger.warning("Failed to delete job %s: %s", job.id, e)
                         else:
                             deleted += 1
 
@@ -962,10 +962,10 @@ class QueueHandler(SecureEndpointMixin, SecureHandler, PaginatedHandlerMixin):  
             )
 
         except REDIS_CONNECTION_ERRORS as e:
-            logger.error(f"Failed to cleanup jobs: {e}")
+            logger.error("Failed to cleanup jobs: %s", e)
             return error_response(safe_error_message(e, "cleanup jobs"), 503)
         except (AttributeError, KeyError, TypeError) as e:
-            logger.error(f"Data structure error cleaning up jobs: {e}")
+            logger.error("Data structure error cleaning up jobs: %s", e)
             return error_response("Internal data error", 500)
 
     async def _list_stale_jobs(self, query_params: dict[str, Any]) -> HandlerResult:
@@ -1021,10 +1021,10 @@ class QueueHandler(SecureEndpointMixin, SecureHandler, PaginatedHandlerMixin):  
             )
 
         except REDIS_CONNECTION_ERRORS as e:
-            logger.error(f"Failed to list stale jobs: {e}")
+            logger.error("Failed to list stale jobs: %s", e)
             return error_response(safe_error_message(e, "list stale jobs"), 503)
         except (AttributeError, KeyError, TypeError) as e:
-            logger.error(f"Data structure error listing stale jobs: {e}")
+            logger.error("Data structure error listing stale jobs: %s", e)
             return error_response("Internal data error", 500)
 
 

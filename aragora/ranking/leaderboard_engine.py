@@ -157,12 +157,12 @@ class LeaderboardEngine:
         cache_key = f"leaderboard:{limit}:{domain or 'global'}"
         cached = self._leaderboard_cache.get(cache_key)
         if cached is not None:
-            logger.debug(f"Leaderboard cache hit for {cache_key}")
+            logger.debug("Leaderboard cache hit for %s", cache_key)
             return cached
 
         result = self.get_leaderboard(limit=limit, domain=domain)
         self._leaderboard_cache.set(cache_key, result)
-        logger.debug(f"Leaderboard cache miss, stored {cache_key}")
+        logger.debug("Leaderboard cache miss, stored %s", cache_key)
         return result
 
     def invalidate_leaderboard_cache(self) -> int:

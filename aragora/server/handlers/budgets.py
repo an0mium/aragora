@@ -167,7 +167,7 @@ class BudgetHandler(BaseHandler):
                 decision = checker.check_permission(auth_ctx, permission)
                 if not decision.allowed:
                     logger.warning(
-                        f"User {user_ctx.user_id} denied {permission}: {decision.reason}"
+                        "User %s denied %s: %s", user_ctx.user_id, permission, decision.reason
                     )
                     return error_response("Permission denied", 403)
             else:
@@ -175,7 +175,7 @@ class BudgetHandler(BaseHandler):
                 decision = checker.check_permission(auth_ctx, BUDGET_READ_PERMISSION)
                 if not decision.allowed:
                     logger.warning(
-                        f"User {user_ctx.user_id} denied {BUDGET_READ_PERMISSION}: {decision.reason}"
+                        "User %s denied %s: %s", user_ctx.user_id, BUDGET_READ_PERMISSION, decision.reason
                     )
                     return error_response("Permission denied", 403)
 
@@ -324,7 +324,7 @@ class BudgetHandler(BaseHandler):
             raise
         except (ValueError, TypeError, RuntimeError, OSError, AttributeError) as e:
             self._circuit_breaker.record_failure()
-            logger.error(f"Error loading budget manager: {e}")
+            logger.error("Error loading budget manager: %s", e)
             raise
 
     def get_circuit_breaker_status(self) -> dict[str, Any]:
@@ -360,7 +360,7 @@ class BudgetHandler(BaseHandler):
             )
 
         except (KeyError, ValueError, TypeError, AttributeError, RuntimeError, OSError, ImportError) as e:
-            logger.error(f"Failed to list budgets: {e}")
+            logger.error("Failed to list budgets: %s", e)
             return error_response("Failed to list budgets", 500)
 
     async def _create_budget(self, org_id: str, user_id: str | None, handler: Any) -> HandlerResult:
@@ -439,7 +439,7 @@ class BudgetHandler(BaseHandler):
 
         except (KeyError, ValueError, TypeError, AttributeError, RuntimeError, OSError, ImportError) as e:
             self._circuit_breaker.record_failure()
-            logger.error(f"Failed to create budget: {e}")
+            logger.error("Failed to create budget: %s", e)
             return error_response("Budget creation failed", 500)
 
     def _get_budget(self, budget_id: str, org_id: str) -> HandlerResult:
@@ -457,7 +457,7 @@ class BudgetHandler(BaseHandler):
             return json_response(budget.to_dict())
 
         except (KeyError, ValueError, TypeError, AttributeError, RuntimeError, OSError, ImportError) as e:
-            logger.error(f"Failed to get budget: {e}")
+            logger.error("Failed to get budget: %s", e)
             return error_response("Failed to retrieve budget", 500)
 
     async def _update_budget(self, budget_id: str, org_id: str, handler: Any) -> HandlerResult:
@@ -553,7 +553,7 @@ class BudgetHandler(BaseHandler):
 
         except (KeyError, ValueError, TypeError, AttributeError, RuntimeError, OSError, ImportError) as e:
             self._circuit_breaker.record_failure()
-            logger.error(f"Failed to update budget: {e}")
+            logger.error("Failed to update budget: %s", e)
             return error_response("Budget update failed", 500)
 
     def _delete_budget(self, budget_id: str, org_id: str) -> HandlerResult:
@@ -573,7 +573,7 @@ class BudgetHandler(BaseHandler):
             return json_response({"deleted": True, "budget_id": budget_id})
 
         except (KeyError, ValueError, TypeError, AttributeError, RuntimeError, OSError, ImportError) as e:
-            logger.error(f"Failed to delete budget: {e}")
+            logger.error("Failed to delete budget: %s", e)
             return error_response("Budget deletion failed", 500)
 
     def _get_summary(self, org_id: str) -> HandlerResult:
@@ -584,7 +584,7 @@ class BudgetHandler(BaseHandler):
             return json_response(summary)
 
         except (KeyError, ValueError, TypeError, AttributeError, RuntimeError, OSError, ImportError) as e:
-            logger.error(f"Failed to get summary: {e}")
+            logger.error("Failed to get summary: %s", e)
             return error_response("Failed to retrieve summary", 500)
 
     async def _check_budget(self, org_id: str, user_id: str | None, handler: Any) -> HandlerResult:
@@ -619,7 +619,7 @@ class BudgetHandler(BaseHandler):
             )
 
         except (KeyError, ValueError, TypeError, AttributeError, RuntimeError, OSError, ImportError) as e:
-            logger.error(f"Failed to check budget: {e}")
+            logger.error("Failed to check budget: %s", e)
             return error_response("Budget check failed", 500)
 
     def _get_alerts(self, budget_id: str, org_id: str) -> HandlerResult:
@@ -645,7 +645,7 @@ class BudgetHandler(BaseHandler):
             )
 
         except (KeyError, ValueError, TypeError, AttributeError, RuntimeError, OSError, ImportError) as e:
-            logger.error(f"Failed to get alerts: {e}")
+            logger.error("Failed to get alerts: %s", e)
             return error_response("Failed to retrieve alerts", 500)
 
     def _acknowledge_alert(self, alert_id: str, user_id: str | None) -> HandlerResult:
@@ -660,7 +660,7 @@ class BudgetHandler(BaseHandler):
             return json_response({"acknowledged": True, "alert_id": alert_id})
 
         except (KeyError, ValueError, TypeError, AttributeError, RuntimeError, OSError, ImportError) as e:
-            logger.error(f"Failed to acknowledge alert: {e}")
+            logger.error("Failed to acknowledge alert: %s", e)
             return error_response("Alert acknowledgment failed", 500)
 
     async def _add_override(self, budget_id: str, org_id: str, handler: Any) -> HandlerResult:
@@ -707,7 +707,7 @@ class BudgetHandler(BaseHandler):
             )
 
         except (KeyError, ValueError, TypeError, AttributeError, RuntimeError, OSError, ImportError) as e:
-            logger.error(f"Failed to add override: {e}")
+            logger.error("Failed to add override: %s", e)
             return error_response("Override addition failed", 500)
 
     def _remove_override(self, budget_id: str, org_id: str, target_user_id: str) -> HandlerResult:
@@ -733,7 +733,7 @@ class BudgetHandler(BaseHandler):
             )
 
         except (KeyError, ValueError, TypeError, AttributeError, RuntimeError, OSError, ImportError) as e:
-            logger.error(f"Failed to remove override: {e}")
+            logger.error("Failed to remove override: %s", e)
             return error_response("Override removal failed", 500)
 
     def _reset_budget(self, budget_id: str, org_id: str) -> HandlerResult:
@@ -756,7 +756,7 @@ class BudgetHandler(BaseHandler):
             return json_response(updated.to_dict())
 
         except (KeyError, ValueError, TypeError, AttributeError, RuntimeError, OSError, ImportError) as e:
-            logger.error(f"Failed to reset budget: {e}")
+            logger.error("Failed to reset budget: %s", e)
             return error_response("Budget reset failed", 500)
 
     def _get_transactions(self, budget_id: str, org_id: str, handler: Any) -> HandlerResult:
@@ -826,7 +826,7 @@ class BudgetHandler(BaseHandler):
             )
 
         except (KeyError, ValueError, TypeError, AttributeError, RuntimeError, OSError, ImportError) as e:
-            logger.error(f"Failed to get transactions: {e}")
+            logger.error("Failed to get transactions: %s", e)
             return error_response("Failed to retrieve transactions", 500)
 
     def _get_budget_trends(self, budget_id: str, org_id: str, handler: Any) -> HandlerResult:
@@ -875,7 +875,7 @@ class BudgetHandler(BaseHandler):
             )
 
         except (KeyError, ValueError, TypeError, AttributeError, RuntimeError, OSError, ImportError) as e:
-            logger.error(f"Failed to get trends: {e}")
+            logger.error("Failed to get trends: %s", e)
             return error_response("Failed to retrieve trends", 500)
 
     def _get_org_trends(self, org_id: str, handler: Any) -> HandlerResult:
@@ -917,7 +917,7 @@ class BudgetHandler(BaseHandler):
             )
 
         except (KeyError, ValueError, TypeError, AttributeError, RuntimeError, OSError, ImportError) as e:
-            logger.error(f"Failed to get org trends: {e}")
+            logger.error("Failed to get org trends: %s", e)
             return error_response("Failed to retrieve trends", 500)
 
     # =========================================================================
@@ -955,7 +955,7 @@ class BudgetHandler(BaseHandler):
         except ImportError:
             return error_response("Cost tracking module not available", 503)
         except (KeyError, ValueError, TypeError, AttributeError, RuntimeError, OSError) as e:
-            logger.error(f"Failed to get agent costs: {e}")
+            logger.error("Failed to get agent costs: %s", e)
             return error_response("Failed to retrieve agent costs", 500)
 
     def _get_cost_anomalies(self, org_id: str, handler: Any) -> HandlerResult:
@@ -1000,7 +1000,7 @@ class BudgetHandler(BaseHandler):
         except ImportError:
             return error_response("Cost tracking module not available", 503)
         except (KeyError, ValueError, TypeError, AttributeError, RuntimeError, OSError) as e:
-            logger.error(f"Failed to get cost anomalies: {e}")
+            logger.error("Failed to get cost anomalies: %s", e)
             return error_response("Failed to retrieve cost anomalies", 500)
 
 

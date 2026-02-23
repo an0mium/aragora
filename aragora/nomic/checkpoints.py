@@ -120,11 +120,11 @@ def save_checkpoint(
         latest_path = checkpoint_path / LATEST_CHECKPOINT_NAME
         shutil.copy2(str(filepath), str(latest_path))
 
-        logger.debug(f"Saved checkpoint: {filepath}")
+        logger.debug("Saved checkpoint: %s", filepath)
         return str(filepath)
 
     except OSError as e:
-        logger.error(f"Failed to save checkpoint: {e}")
+        logger.error("Failed to save checkpoint: %s", e)
         # Clean up temp file if it exists
         if temp_path.exists():
             temp_path.unlink()
@@ -144,21 +144,21 @@ def load_checkpoint(checkpoint_path: str) -> dict[str, Any] | None:
     path = Path(checkpoint_path)
 
     if not path.exists():
-        logger.warning(f"Checkpoint not found: {checkpoint_path}")
+        logger.warning("Checkpoint not found: %s", checkpoint_path)
         return None
 
     try:
         with open(path) as f:
             data = json.load(f)
 
-        logger.debug(f"Loaded checkpoint: {checkpoint_path}")
+        logger.debug("Loaded checkpoint: %s", checkpoint_path)
         return data
 
     except json.JSONDecodeError as e:
-        logger.error(f"Invalid checkpoint JSON: {e}")
+        logger.error("Invalid checkpoint JSON: %s", e)
         return None
     except OSError as e:
-        logger.error(f"Failed to load checkpoint: {e}")
+        logger.error("Failed to load checkpoint: %s", e)
         return None
 
 
@@ -229,7 +229,7 @@ def list_checkpoints(checkpoint_dir: str) -> list[dict[str, Any]]:
                 }
             )
         except (OSError, json.JSONDecodeError, KeyError, ValueError) as e:
-            logger.warning(f"Could not read checkpoint {filepath}: {e}")
+            logger.warning("Could not read checkpoint %s: %s", filepath, e)
 
     # Sort by save time, most recent first
     checkpoints.sort(key=lambda c: c.get("saved_at", ""), reverse=True)
@@ -253,10 +253,10 @@ def delete_checkpoint(checkpoint_path: str) -> bool:
 
     try:
         path.unlink()
-        logger.debug(f"Deleted checkpoint: {checkpoint_path}")
+        logger.debug("Deleted checkpoint: %s", checkpoint_path)
         return True
     except OSError as e:
-        logger.error(f"Failed to delete checkpoint: {e}")
+        logger.error("Failed to delete checkpoint: %s", e)
         return False
 
 
@@ -301,9 +301,9 @@ def cleanup_old_checkpoints(
             try:
                 filepath.unlink()
                 deleted += 1
-                logger.debug(f"Cleaned up old checkpoint: {filepath}")
+                logger.debug("Cleaned up old checkpoint: %s", filepath)
             except OSError as e:
-                logger.warning(f"Could not delete checkpoint {filepath}: {e}")
+                logger.warning("Could not delete checkpoint %s: %s", filepath, e)
 
     return deleted
 

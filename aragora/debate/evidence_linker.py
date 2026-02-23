@@ -57,8 +57,7 @@ def _ensure_embeddings_checked() -> None:
         _EMBEDDINGS_AVAILABLE = True
     except (RuntimeError, ValueError, TypeError, OSError) as e:
         logger.debug(
-            f"sentence-transformers not available: {e}. "
-            "Using heuristic claim-evidence linking"
+            "sentence-transformers not available: %s. Using heuristic claim-evidence linking", e
         )
 
 
@@ -189,9 +188,9 @@ class EvidenceClaimLinker:
         ):
             try:
                 self._embedder = _SentenceTransformer(embedding_model)
-                logger.debug(f"Loaded embedding model: {embedding_model}")
+                logger.debug("Loaded embedding model: %s", embedding_model)
             except (RuntimeError, ValueError, TypeError, OSError, ImportError) as e:
-                logger.warning(f"Failed to load embedding model: {e}")
+                logger.warning("Failed to load embedding model: %s", e)
 
     @property
     def uses_embeddings(self) -> bool:
@@ -371,7 +370,7 @@ class EvidenceClaimLinker:
             try:
                 semantic_score = self._compute_semantic_similarity(claim, evidence.text)
             except (RuntimeError, ValueError, TypeError, OSError) as e:
-                logger.debug(f"Semantic similarity failed: {e}")
+                logger.debug("Semantic similarity failed: %s", e)
                 semantic_score = 0.5
         else:
             # Heuristic keyword overlap

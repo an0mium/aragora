@@ -104,9 +104,9 @@ class GauntletStreamEmitter:
             try:
                 self.broadcast_fn(event)
             except (ConnectionError, OSError, RuntimeError, ValueError) as e:
-                logger.debug(f"Failed to broadcast event: {e}")
+                logger.debug("Failed to broadcast event: %s", e)
 
-        logger.debug(f"Gauntlet event: {event_type.value} - {data.get('message', '')}")
+        logger.debug("Gauntlet event: %s - %s", event_type.value, data.get('message', ''))
 
     def set_gauntlet_id(self, gauntlet_id: str) -> None:
         """Set the Gauntlet ID for event correlation."""

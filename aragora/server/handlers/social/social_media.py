@@ -353,7 +353,7 @@ class SocialMediaHandler(BaseHandler):
         # Validate Host header against whitelist (prevent open redirect)
         host = get_host_header(handler)
         if host not in ALLOWED_OAUTH_HOSTS:
-            logger.warning(f"OAuth auth request with untrusted host: {host}")
+            logger.warning("OAuth auth request with untrusted host: %s", host)
             return error_response("Untrusted host for OAuth redirect", status=400)
 
         scheme = (
@@ -397,7 +397,7 @@ class SocialMediaHandler(BaseHandler):
         # Validate Host header against whitelist (prevent open redirect)
         host = get_host_header(handler)
         if host not in ALLOWED_OAUTH_HOSTS:
-            logger.warning(f"OAuth callback with untrusted host: {host}")
+            logger.warning("OAuth callback with untrusted host: %s", host)
             return error_response("Untrusted host for OAuth redirect", status=400)
 
         scheme = (
@@ -425,7 +425,7 @@ class SocialMediaHandler(BaseHandler):
                 )
 
         except (OSError, ConnectionError, TimeoutError, ValueError, RuntimeError, KeyError) as e:
-            logger.error(f"YouTube OAuth callback failed: {e}")
+            logger.error("YouTube OAuth callback failed: %s", e)
             return error_response(_safe_error_message(e, "youtube_callback"), status=500)
 
     def _get_youtube_status(self) -> HandlerResult:
@@ -540,7 +540,7 @@ class SocialMediaHandler(BaseHandler):
                 )
 
         except (ImportError, OSError, ConnectionError, TimeoutError, ValueError, RuntimeError, KeyError) as e:
-            logger.error(f"Failed to publish to Twitter: {e}")
+            logger.error("Failed to publish to Twitter: %s", e)
             return error_response(_safe_error_message(e, "twitter_publish"), status=500)
 
     def _publish_to_youtube(self, debate_id: str, handler: Any) -> HandlerResult:
@@ -612,7 +612,7 @@ class SocialMediaHandler(BaseHandler):
                 try:
                     video_path = _run_async(video_generator.generate_waveform_video(audio_path))
                 except Exception as e:  # noqa: BLE001 - graceful degradation, fall back to static video
-                    logger.debug(f"Waveform video generation failed, using static fallback: {e}")
+                    logger.debug("Waveform video generation failed, using static fallback: %s", e)
                     video_path = _run_async(
                         video_generator.generate_static_video(audio_path, task, agents)
                     )
@@ -632,7 +632,7 @@ class SocialMediaHandler(BaseHandler):
             if video_path is None:
                 return error_response("Video generation failed", status=500)
 
-            logger.info(f"Uploading video to YouTube: {metadata.title}")
+            logger.info("Uploading video to YouTube: %s", metadata.title)
             result = _run_async(youtube.upload(video_path, metadata))
 
             if result.get("success"):
@@ -655,5 +655,5 @@ class SocialMediaHandler(BaseHandler):
                 )
 
         except (ImportError, OSError, ConnectionError, TimeoutError, ValueError, RuntimeError, KeyError) as e:
-            logger.error(f"Failed to publish to YouTube: {e}")
+            logger.error("Failed to publish to YouTube: %s", e)
             return error_response(_safe_error_message(e, "youtube_publish"), status=500)

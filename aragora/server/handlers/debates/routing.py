@@ -230,7 +230,7 @@ class RoutingMixin:
                     return None  # JWT valid
                 logger.debug("JWT token validation failed")
             except (ImportError, ValueError, TypeError, AttributeError, KeyError) as e:
-                logger.debug(f"JWT validation error: {e}")
+                logger.debug("JWT validation error: %s", e)
 
         # Check for API tokens (ara_* prefix)
         if token.startswith("ara_"):

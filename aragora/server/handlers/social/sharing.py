@@ -151,7 +151,7 @@ class ShareStore:
                     del self._settings[debate_id_to_remove]
                     if s.share_token:
                         self._tokens.pop(s.share_token, None)
-                logger.debug(f"ShareStore evicted {remove_count} oldest entries")
+                logger.debug("ShareStore evicted %s oldest entries", remove_count)
 
             self._settings[settings.debate_id] = settings
             if settings.share_token:
@@ -267,10 +267,10 @@ def _create_share_store() -> Any:
 
         db_path = get_default_data_dir() / "share_links.db"
         store = ShareLinkStore(db_path)
-        logger.info(f"Using SQLite ShareLinkStore: {db_path}")
+        logger.info("Using SQLite ShareLinkStore: %s", db_path)
         return store
     except (ImportError, OSError, RuntimeError, ValueError) as e:
-        logger.warning(f"Failed to init ShareLinkStore, using in-memory: {e}")
+        logger.warning("Failed to init ShareLinkStore, using in-memory: %s", e)
         return ShareStore()
 
 
@@ -333,7 +333,7 @@ class SharingHandler(BaseHandler):
         if path.startswith("/api/v1/social/shares"):
             client_ip = get_client_ip(handler)
             if not _share_limiter.is_allowed(client_ip):
-                logger.warning(f"Rate limit exceeded for social shares: {client_ip}")
+                logger.warning("Rate limit exceeded for social shares: %s", client_ip)
                 return error_response("Rate limit exceeded. Please try again later.", 429)
 
             if path == "/api/v1/social/shares":
@@ -582,7 +582,7 @@ class SharingHandler(BaseHandler):
                     settings.share_token = None
 
                 logger.info(
-                    f"Debate {debate_id} visibility changed: {old_visibility.value} -> {new_visibility.value}"
+                    "Debate %s visibility changed: %s -> %s", debate_id, old_visibility.value, new_visibility.value
                 )
             except ValueError:
                 return error_response(
@@ -627,7 +627,7 @@ class SharingHandler(BaseHandler):
         if not settings:
             # Log failed lookups to detect potential enumeration attacks
             # Use debug level to avoid log spam from legitimate 404s
-            logger.debug(f"Share token not found: {token[:8]}...")
+            logger.debug("Share token not found: %s...", token[:8])
             return error_response("Share link not found", 404)
 
         if settings.is_expired:
@@ -684,7 +684,7 @@ class SharingHandler(BaseHandler):
         settings.visibility = DebateVisibility.PRIVATE
         self._store.save(settings)
 
-        logger.info(f"Share links revoked for debate {debate_id}")
+        logger.info("Share links revoked for debate %s", debate_id)
 
         return json_response(
             {
@@ -710,7 +710,7 @@ class SharingHandler(BaseHandler):
             if db:
                 return db.get(debate_id)
         except (ImportError, OSError, RuntimeError, KeyError, ValueError) as e:
-            logger.warning(f"Could not fetch debate {debate_id}: {e}")
+            logger.warning("Could not fetch debate %s: %s", debate_id, e)
 
         return None
 

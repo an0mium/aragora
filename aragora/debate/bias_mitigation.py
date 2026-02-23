@@ -270,8 +270,7 @@ def apply_self_vote_penalty(
             else:  # log_only
                 if config.log_self_votes:
                     logger.info(
-                        f"self_vote_detected agent={agent} "
-                        f"choice={vote.choice} (no penalty applied)"
+                        "self_vote_detected agent=%s choice=%s (no penalty applied)", agent, vote.choice
                     )
 
     return adjusted
@@ -684,9 +683,9 @@ Respond with ONLY a number from 0-10."""
         except asyncio.TimeoutError:
             logger.debug("LLM criterion evaluation timed out")
         except (ValueError, TypeError) as e:
-            logger.debug(f"LLM criterion evaluation failed to parse response: {e}")
+            logger.debug("LLM criterion evaluation failed to parse response: %s", e)
         except (RuntimeError, OSError, ConnectionError, KeyError, AttributeError) as e:
-            logger.warning(f"Unexpected error in LLM criterion evaluation: {e}")
+            logger.warning("Unexpected error in LLM criterion evaluation: %s", e)
 
         return 0.5
 
@@ -840,9 +839,5 @@ class BiasMitigationConfig:
     def log_summary(self) -> None:
         """Log summary of enabled bias mitigation features."""
         logger.info(
-            "bias_mitigation_config "
-            f"position_shuffling={self.enable_position_shuffling} "
-            f"self_vote={self.enable_self_vote_mitigation} "
-            f"verbosity={self.enable_verbosity_normalization} "
-            f"process_eval={self.enable_process_evaluation}"
+            "bias_mitigation_config position_shuffling=%s self_vote=%s verbosity=%s process_eval=%s", self.enable_position_shuffling, self.enable_self_vote_mitigation, self.enable_verbosity_normalization, self.enable_process_evaluation
         )

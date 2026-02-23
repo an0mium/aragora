@@ -267,12 +267,12 @@ class JWTSessionManager:
             while len(user_sessions) >= self.max_sessions_per_user:
                 oldest_id = next(iter(user_sessions))
                 del user_sessions[oldest_id]
-                logger.debug(f"Evicted oldest session {oldest_id[:8]}... for user {user_id}")
+                logger.debug("Evicted oldest session %s... for user %s", oldest_id[:8], user_id)
 
             user_sessions[token_jti] = session
 
         logger.info(
-            f"Created session {token_jti[:8]}... for user {user_id} from {ip_address or 'unknown'}"
+            "Created session %s... for user %s from %s", token_jti[:8], user_id, ip_address or 'unknown'
         )
         return session
 
@@ -313,7 +313,7 @@ class JWTSessionManager:
             if not session:
                 return False
             session.record_mfa_verification(methods)
-            logger.debug(f"MFA verification recorded for session {token_jti[:8]}...")
+            logger.debug("MFA verification recorded for session %s...", token_jti[:8])
             return True
 
     def get_mfa_freshness(self, user_id: str, token_jti: str) -> int | None:
@@ -423,7 +423,7 @@ class JWTSessionManager:
                 return False
 
             del user_sessions[token_jti]
-            logger.info(f"Revoked session {token_jti[:8]}... for user {user_id}")
+            logger.info("Revoked session %s... for user %s", token_jti[:8], user_id)
             return True
 
     def revoke_all_sessions(self, user_id: str, except_jti: str | None = None) -> int:
@@ -451,7 +451,7 @@ class JWTSessionManager:
                 count = len(user_sessions)
                 user_sessions.clear()
 
-            logger.info(f"Revoked {count} sessions for user {user_id}")
+            logger.info("Revoked %s sessions for user %s", count, user_id)
             return count
 
     def get_session_count(self, user_id: str) -> int:
@@ -484,7 +484,7 @@ class JWTSessionManager:
                 del self._sessions[user_id]
 
         if total_removed > 0:
-            logger.debug(f"Cleaned up {total_removed} expired/inactive sessions")
+            logger.debug("Cleaned up %s expired/inactive sessions", total_removed)
 
 
 # Singleton instance

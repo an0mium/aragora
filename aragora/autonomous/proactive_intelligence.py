@@ -184,7 +184,7 @@ class ScheduledTrigger:
         self._triggers[trigger_id] = trigger
         self._save_state()
 
-        logger.info(f"Added trigger: {trigger_id} - {name}")
+        logger.info("Added trigger: %s - %s", trigger_id, name)
 
         return trigger
 
@@ -251,7 +251,7 @@ class ScheduledTrigger:
 
     async def _execute_trigger(self, trigger: ScheduledTriggerConfig) -> None:
         """Execute a trigger."""
-        logger.info(f"Executing trigger: {trigger.id} - {trigger.name}")
+        logger.info("Executing trigger: %s - %s", trigger.id, trigger.name)
 
         trigger.last_run = datetime.now()
         trigger.run_count += 1
@@ -270,7 +270,7 @@ class ScheduledTrigger:
                 await self.debate_creator(topic, agents, rounds)
 
             except (RuntimeError, ValueError, OSError, TypeError) as e:
-                logger.error(f"Trigger {trigger.id} debate creation failed: {e}")
+                logger.error("Trigger %s debate creation failed: %s", trigger.id, e)
 
         self._save_state()
 
@@ -471,11 +471,11 @@ class AlertAnalyzer:
                     alert.debate_triggered = True
                     alert.debate_id = result.get("debate_id")
             except (RuntimeError, ValueError, OSError, TypeError) as e:
-                logger.error(f"Auto-debate for alert failed: {e}")
+                logger.error("Auto-debate for alert failed: %s", e)
 
         self._save_alerts()
 
-        logger.info(f"Alert created: [{severity.value}] {title}")
+        logger.info("Alert created: [%s] %s", severity.value, title)
 
         return alert
 
@@ -775,7 +775,7 @@ class AnomalyDetector:
             if self.alert_callback:
                 self.alert_callback(anomaly)
 
-            logger.info(f"Anomaly detected: {anomaly.description}")
+            logger.info("Anomaly detected: %s", anomaly.description)
 
             return anomaly
 

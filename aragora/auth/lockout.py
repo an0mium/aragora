@@ -192,7 +192,7 @@ class RedisLockoutBackend(LockoutBackend):
             logger.warning("redis-py not installed, Redis backend unavailable")
             self._available = False
         except (ConnectionError, TimeoutError, OSError) as e:
-            logger.warning(f"Redis connection failed: {e}")
+            logger.warning("Redis connection failed: %s", e)
             self._available = False
 
     def _make_key(self, key: str) -> str:
@@ -218,10 +218,10 @@ class RedisLockoutBackend(LockoutBackend):
                 last_attempt=parsed.get("last_attempt"),
             )
         except (json.JSONDecodeError, TypeError, KeyError) as e:
-            logger.warning(f"Redis get failed - data error: {e}")
+            logger.warning("Redis get failed - data error: %s", e)
             return None
         except (ConnectionError, TimeoutError, OSError) as e:
-            logger.warning(f"Redis get failed - connection error: {e}")
+            logger.warning("Redis get failed - connection error: %s", e)
             return None
 
     def set_entry(self, key: str, entry: LockoutEntry, ttl_seconds: int) -> None:
@@ -241,7 +241,7 @@ class RedisLockoutBackend(LockoutBackend):
             )
             self._client.setex(self._make_key(key), ttl_seconds, data)
         except (ConnectionError, TimeoutError, OSError) as e:
-            logger.warning(f"Redis set failed: {e}")
+            logger.warning("Redis set failed: %s", e)
 
     def delete_entry(self, key: str) -> None:
         """Delete lockout entry from Redis."""
@@ -251,7 +251,7 @@ class RedisLockoutBackend(LockoutBackend):
         try:
             self._client.delete(self._make_key(key))
         except (ConnectionError, TimeoutError, OSError) as e:
-            logger.warning(f"Redis delete failed: {e}")
+            logger.warning("Redis delete failed: %s", e)
 
     def is_available(self) -> bool:
         """Check if Redis is available."""
@@ -263,7 +263,7 @@ class RedisLockoutBackend(LockoutBackend):
             return True
         except (ConnectionError, TimeoutError, OSError, AttributeError, RuntimeError) as e:
             # Expected Redis connection issues or client misconfiguration
-            logger.debug(f"Redis ping failed: {e}")
+            logger.debug("Redis ping failed: %s", e)
             self._available = False
             return False
 
@@ -393,8 +393,7 @@ class LockoutTracker:
                 if lockout_duration is None or duration > lockout_duration:
                     lockout_duration = duration
                 logger.warning(
-                    f"Lockout triggered: key={key}, attempts={entry.failed_attempts}, "
-                    f"duration={duration}s"
+                    "Lockout triggered: key=%s, attempts=%s, duration=%ss", key, entry.failed_attempts, duration
                 )
 
             # Store with TTL
@@ -490,7 +489,7 @@ class LockoutTracker:
                 continue
 
             self._backend.delete_entry(key)
-            logger.debug(f"Lockout reset: key={key}")
+            logger.debug("Lockout reset: key=%s", key)
 
     def get_info(
         self,
@@ -573,7 +572,7 @@ class LockoutTracker:
             if entry:
                 self._backend.delete_entry(key)
                 cleared = True
-                logger.info(f"Admin unlock: key={key}, user_id={user_id}")
+                logger.info("Admin unlock: key=%s, user_id=%s", key, user_id)
 
         return cleared
 

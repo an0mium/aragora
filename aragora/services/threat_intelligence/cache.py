@@ -44,7 +44,7 @@ class ThreatCacheMixin:
                 logger.info("Threat intel using Redis cache")
                 return
             except (ValueError, OSError, ConnectionError, RuntimeError) as e:
-                logger.warning(f"Redis cache init failed, falling back to SQLite: {e}")
+                logger.warning("Redis cache init failed, falling back to SQLite: %s", e)
 
         await self._init_sqlite_cache()
 
@@ -63,7 +63,7 @@ class ThreatCacheMixin:
             logger.warning("redis package not installed")
             raise
         except (ValueError, OSError, ConnectionError, RuntimeError) as e:
-            logger.warning(f"Redis connection failed: {e}")
+            logger.warning("Redis connection failed: %s", e)
             raise
 
     async def _init_sqlite_cache(self) -> None:
@@ -92,10 +92,10 @@ class ThreatCacheMixin:
             """)
 
             self._cache_conn.commit()
-            logger.info(f"Threat intel cache initialized: {self.config.cache_db_path}")
+            logger.info("Threat intel cache initialized: %s", self.config.cache_db_path)
 
         except (ValueError, OSError, ConnectionError, RuntimeError, sqlite3.OperationalError) as e:
-            logger.warning(f"Failed to initialize threat cache: {e}")
+            logger.warning("Failed to initialize threat cache: %s", e)
 
     def _get_ttl_for_type(self, target_type: str) -> int:
         """Get TTL in seconds based on target type."""
@@ -182,7 +182,7 @@ class ThreatCacheMixin:
             if data:
                 return self._deserialize_threat_result(json.loads(data))
         except (ValueError, OSError, ConnectionError, RuntimeError) as e:
-            logger.debug(f"Redis cache get failed: {e}")
+            logger.debug("Redis cache get failed: %s", e)
         return None
 
     async def _set_redis_cached(self, result: ThreatResult) -> None:
@@ -196,7 +196,7 @@ class ThreatCacheMixin:
             data = json.dumps(self._serialize_threat_result(result))
             self._redis_client.setex(cache_key, ttl_seconds, data)
         except (ValueError, OSError, ConnectionError, RuntimeError) as e:
-            logger.debug(f"Redis cache set failed: {e}")
+            logger.debug("Redis cache set failed: %s", e)
 
     async def _get_sqlite_cached(self, target: str, target_type: str) -> ThreatResult | None:
         """Get from SQLite cache."""
@@ -221,7 +221,7 @@ class ThreatCacheMixin:
                 return self._deserialize_threat_result(data)
 
         except (ValueError, OSError, ConnectionError, RuntimeError) as e:
-            logger.warning(f"SQLite cache lookup failed: {e}")
+            logger.warning("SQLite cache lookup failed: %s", e)
 
         return None
 
@@ -305,7 +305,7 @@ class ThreatCacheMixin:
             self._cache_conn.commit()
 
         except (ValueError, OSError, ConnectionError, RuntimeError) as e:
-            logger.warning(f"Failed to cache result in SQLite: {e}")
+            logger.warning("Failed to cache result in SQLite: %s", e)
 
     async def cleanup_cache(self, older_than_hours: int = 168) -> int:
         """Clean up expired cache entries."""
@@ -323,9 +323,9 @@ class ThreatCacheMixin:
             deleted = cursor.rowcount
             self._cache_conn.commit()
 
-            logger.info(f"Cleaned up {deleted} expired cache entries")
+            logger.info("Cleaned up %s expired cache entries", deleted)
             return deleted
 
         except (ValueError, OSError, ConnectionError, RuntimeError) as e:
-            logger.warning(f"Cache cleanup failed: {e}")
+            logger.warning("Cache cleanup failed: %s", e)
             return 0

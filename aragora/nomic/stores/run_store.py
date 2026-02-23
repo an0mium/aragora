@@ -96,7 +96,7 @@ class SelfImproveRunStore:
                     run = SelfImproveRun.from_dict(d)
                     self._runs[run.run_id] = run
         except (json.JSONDecodeError, KeyError, TypeError) as e:
-            logger.warning(f"Error loading runs: {type(e).__name__}")
+            logger.warning("Error loading runs: %s", type(e).__name__)
 
     def _save_run(self, run: SelfImproveRun) -> None:
         """Append or rewrite a run to the JSONL file."""

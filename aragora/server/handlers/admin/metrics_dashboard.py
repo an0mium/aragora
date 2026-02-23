@@ -140,7 +140,7 @@ class MetricsDashboardMixin:
             try:
                 metrics["debates"] = debate_storage.get_statistics()
             except (KeyError, ValueError, OSError, TypeError, AttributeError) as e:
-                logger.warning(f"Failed to get debate stats: {e}")
+                logger.warning("Failed to get debate stats: %s", e)
                 metrics["debates"] = {"error": "unavailable"}
 
         # Get circuit breaker stats if available
@@ -151,7 +151,7 @@ class MetricsDashboardMixin:
         except ImportError:
             pass
         except (RuntimeError, ValueError, TypeError, AttributeError) as e:
-            logger.warning(f"Failed to get circuit breaker stats: {e}")
+            logger.warning("Failed to get circuit breaker stats: %s", e)
 
         # Get cache stats if available
         try:
@@ -159,7 +159,7 @@ class MetricsDashboardMixin:
 
             metrics["cache"] = get_cache_stats()
         except (ImportError, RuntimeError, ValueError, TypeError, AttributeError) as e:
-            logger.warning(f"Failed to get cache stats: {e}")
+            logger.warning("Failed to get cache stats: %s", e)
 
         # Get rate limit stats if available
         try:
@@ -169,7 +169,7 @@ class MetricsDashboardMixin:
             if limiter and hasattr(limiter, "get_stats"):
                 metrics["rate_limits"] = limiter.get_stats()
         except (ImportError, RuntimeError, ValueError, TypeError, AttributeError) as e:
-            logger.warning(f"Failed to get rate limit stats: {e}")
+            logger.warning("Failed to get rate limit stats: %s", e)
 
         return json_response({"metrics": metrics})
 

@@ -205,7 +205,7 @@ class DiscordGuildStore:
             logger.warning("cryptography not installed, storing token unencrypted")
             return token
         except (ValueError, TypeError, UnicodeDecodeError) as e:
-            logger.error(f"Token encryption failed: {e}")
+            logger.error("Token encryption failed: %s", e)
             return token
 
     def _decrypt_token(self, encrypted: str) -> str:
@@ -228,7 +228,7 @@ class DiscordGuildStore:
         except ImportError:
             return encrypted
         except (ValueError, TypeError, UnicodeDecodeError) as e:
-            logger.error(f"Token decryption failed: {e}")
+            logger.error("Token decryption failed: %s", e)
             return encrypted
 
     def save(self, guild: DiscordGuild) -> bool:
@@ -270,11 +270,11 @@ class DiscordGuildStore:
                 ),
             )
             conn.commit()
-            logger.info(f"Saved Discord guild: {guild.guild_id}")
+            logger.info("Saved Discord guild: %s", guild.guild_id)
             return True
 
         except sqlite3.Error as e:
-            logger.error(f"Failed to save guild: {e}")
+            logger.error("Failed to save guild: %s", e)
             return False
 
     def get(self, guild_id: str) -> DiscordGuild | None:
@@ -304,7 +304,7 @@ class DiscordGuildStore:
             return None
 
         except sqlite3.Error as e:
-            logger.error(f"Failed to get guild {guild_id}: {e}")
+            logger.error("Failed to get guild %s: %s", guild_id, e)
             return None
 
     def get_by_tenant(self, tenant_id: str) -> list[DiscordGuild]:
@@ -338,7 +338,7 @@ class DiscordGuildStore:
             return guilds
 
         except sqlite3.Error as e:
-            logger.error(f"Failed to get guilds for tenant {tenant_id}: {e}")
+            logger.error("Failed to get guilds for tenant %s: %s", tenant_id, e)
             return []
 
     def list_active(self, limit: int = 100, offset: int = 0) -> list[DiscordGuild]:
@@ -374,7 +374,7 @@ class DiscordGuildStore:
             return guilds
 
         except sqlite3.Error as e:
-            logger.error(f"Failed to list guilds: {e}")
+            logger.error("Failed to list guilds: %s", e)
             return []
 
     def list_expiring(self, within_seconds: int = 3600) -> list[DiscordGuild]:
@@ -411,7 +411,7 @@ class DiscordGuildStore:
             return guilds
 
         except sqlite3.Error as e:
-            logger.error(f"Failed to list expiring guilds: {e}")
+            logger.error("Failed to list expiring guilds: %s", e)
             return []
 
     def update_tokens(
@@ -457,11 +457,11 @@ class DiscordGuildStore:
                 )
 
             conn.commit()
-            logger.info(f"Updated tokens for Discord guild: {guild_id}")
+            logger.info("Updated tokens for Discord guild: %s", guild_id)
             return True
 
         except sqlite3.Error as e:
-            logger.error(f"Failed to update tokens for guild {guild_id}: {e}")
+            logger.error("Failed to update tokens for guild %s: %s", guild_id, e)
             return False
 
     def deactivate(self, guild_id: str) -> bool:
@@ -480,11 +480,11 @@ class DiscordGuildStore:
                 (guild_id,),
             )
             conn.commit()
-            logger.info(f"Deactivated Discord guild: {guild_id}")
+            logger.info("Deactivated Discord guild: %s", guild_id)
             return True
 
         except sqlite3.Error as e:
-            logger.error(f"Failed to deactivate guild {guild_id}: {e}")
+            logger.error("Failed to deactivate guild %s: %s", guild_id, e)
             return False
 
     def delete(self, guild_id: str) -> bool:
@@ -503,11 +503,11 @@ class DiscordGuildStore:
                 (guild_id,),
             )
             conn.commit()
-            logger.info(f"Deleted Discord guild: {guild_id}")
+            logger.info("Deleted Discord guild: %s", guild_id)
             return True
 
         except sqlite3.Error as e:
-            logger.error(f"Failed to delete guild {guild_id}: {e}")
+            logger.error("Failed to delete guild %s: %s", guild_id, e)
             return False
 
     def count(self, active_only: bool = True) -> int:
@@ -529,7 +529,7 @@ class DiscordGuildStore:
             return cursor.fetchone()[0]
 
         except sqlite3.Error as e:
-            logger.error(f"Failed to count guilds: {e}")
+            logger.error("Failed to count guilds: %s", e)
             return 0
 
     def get_stats(self) -> dict[str, Any]:
@@ -562,7 +562,7 @@ class DiscordGuildStore:
             }
 
         except sqlite3.Error as e:
-            logger.error(f"Failed to get stats: {e}")
+            logger.error("Failed to get stats: %s", e)
             return {"total_guilds": 0, "active_guilds": 0}
 
 

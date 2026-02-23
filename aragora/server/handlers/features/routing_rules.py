@@ -122,7 +122,7 @@ def _get_routing_engine():
             rule = RoutingRule.from_dict(rule_data)
             engine.add_rule(rule)
         except (KeyError, ValueError, TypeError, AttributeError) as e:
-            logger.error(f"Failed to load rule {rule_id}: {e}")
+            logger.error("Failed to load rule %s: %s", rule_id, e)
 
     return engine
 
@@ -551,7 +551,7 @@ class RoutingRulesHandler(SecureHandler):
 
                     rules.append(rule.to_dict())
                 except (KeyError, ValueError, TypeError, AttributeError) as e:
-                    logger.warning(f"Skipping invalid rule data: {e}")
+                    logger.warning("Skipping invalid rule data: %s", e)
                     continue
 
             # Sort by priority (descending)
@@ -563,7 +563,7 @@ class RoutingRulesHandler(SecureHandler):
                 "count": len(rules),
             }
         except (KeyError, ValueError, TypeError, AttributeError) as e:
-            logger.error(f"Failed to list rules: {e}")
+            logger.error("Failed to list rules: %s", e)
             return {
                 "status": "error",
                 "error": "Failed to list rules",
@@ -615,14 +615,14 @@ class RoutingRulesHandler(SecureHandler):
             # Audit log the creation
             self._audit_rule_change("create", rule.id, rule.name)
 
-            logger.info(f"Created routing rule: {rule.id} ({rule.name})")
+            logger.info("Created routing rule: %s (%s)", rule.id, rule.name)
 
             return {
                 "status": "success",
                 "rule": rule.to_dict(),
             }
         except (ImportError, KeyError, ValueError, TypeError, AttributeError) as e:
-            logger.error(f"Failed to create rule: {e}")
+            logger.error("Failed to create rule: %s", e)
             return {
                 "status": "error",
                 "error": "Failed to create rule",
@@ -640,7 +640,7 @@ class RoutingRulesHandler(SecureHandler):
                 "rule": _rules_store[rule_id],
             }
         except (KeyError, ValueError, TypeError) as e:
-            logger.error(f"Failed to get rule {rule_id}: {e}")
+            logger.error("Failed to get rule %s: %s", rule_id, e)
             return {
                 "status": "error",
                 "error": "Failed to get rule",
@@ -703,14 +703,14 @@ class RoutingRulesHandler(SecureHandler):
             # Audit log the update
             self._audit_rule_change("update", rule_id, existing.get("name", ""))
 
-            logger.info(f"Updated routing rule: {rule_id}")
+            logger.info("Updated routing rule: %s", rule_id)
 
             return {
                 "status": "success",
                 "rule": existing,
             }
         except (ImportError, KeyError, ValueError, TypeError, AttributeError) as e:
-            logger.error(f"Failed to update rule {rule_id}: {e}")
+            logger.error("Failed to update rule %s: %s", rule_id, e)
             return {
                 "status": "error",
                 "error": "Failed to update rule",
@@ -729,14 +729,14 @@ class RoutingRulesHandler(SecureHandler):
             # Audit log the deletion
             self._audit_rule_change("delete", rule_id, rule_name)
 
-            logger.info(f"Deleted routing rule: {rule_id}")
+            logger.info("Deleted routing rule: %s", rule_id)
 
             return {
                 "status": "success",
                 "message": f"Rule {rule_id} deleted",
             }
         except (KeyError, ValueError, TypeError) as e:
-            logger.error(f"Failed to delete rule {rule_id}: {e}")
+            logger.error("Failed to delete rule %s: %s", rule_id, e)
             return {
                 "status": "error",
                 "error": "Failed to delete rule",
@@ -767,14 +767,14 @@ class RoutingRulesHandler(SecureHandler):
             action = "enable" if existing["enabled"] else "disable"
             self._audit_rule_change(action, rule_id, existing.get("name", ""))
 
-            logger.info(f"Toggled rule {rule_id} to enabled={existing['enabled']}")
+            logger.info("Toggled rule %s to enabled=%s", rule_id, existing['enabled'])
 
             return {
                 "status": "success",
                 "rule": existing,
             }
         except (KeyError, ValueError, TypeError) as e:
-            logger.error(f"Failed to toggle rule {rule_id}: {e}")
+            logger.error("Failed to toggle rule %s: %s", rule_id, e)
             return {
                 "status": "error",
                 "error": "Failed to toggle rule",
@@ -844,7 +844,7 @@ class RoutingRulesHandler(SecureHandler):
                 "rules_matched": sum(1 for r in results if r.matched),
             }
         except (ImportError, KeyError, ValueError, TypeError, AttributeError) as e:
-            logger.error(f"Failed to evaluate rules: {e}")
+            logger.error("Failed to evaluate rules: %s", e)
             return {
                 "status": "error",
                 "error": "Failed to evaluate rules",
@@ -875,7 +875,7 @@ class RoutingRulesHandler(SecureHandler):
                 "code": 503,
             }
         except (KeyError, ValueError, TypeError, AttributeError) as e:
-            logger.error(f"Failed to get templates: {e}")
+            logger.error("Failed to get templates: %s", e)
             return {
                 "status": "error",
                 "error": "Failed to get templates",
@@ -925,7 +925,7 @@ class RoutingRulesHandler(SecureHandler):
             )
         except (KeyError, ValueError, TypeError, AttributeError, OSError) as e:
             # Don't fail the operation if audit logging fails
-            logger.warning(f"Failed to audit rule change: {e}")
+            logger.warning("Failed to audit rule change: %s", e)
 
 
 # Handler class (instantiated by server with context)

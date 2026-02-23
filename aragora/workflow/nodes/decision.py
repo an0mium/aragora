@@ -101,7 +101,7 @@ class DecisionStep(BaseStep):
                         break
 
             except (ValueError, TypeError, KeyError, AttributeError, RuntimeError, SafeEvalError) as e:
-                logger.warning(f"Condition evaluation failed for '{name}': {e}")
+                logger.warning("Condition evaluation failed for '%s': %s", name, e)
                 evaluation_results.append(
                     {
                         "name": name,
@@ -176,7 +176,7 @@ class DecisionStep(BaseStep):
         try:
             return safe_eval_bool(expression, namespace)
         except SafeEvalError as e:
-            logger.debug(f"Expression evaluation failed: {expression} -> {e}")
+            logger.debug("Expression evaluation failed: %s -> %s", expression, e)
             raise
 
     async def _ai_decision(
@@ -219,7 +219,7 @@ class DecisionStep(BaseStep):
             }
 
         except (ImportError, RuntimeError, ValueError, TypeError, OSError, ConnectionError) as e:
-            logger.warning(f"AI decision failed: {e}")
+            logger.warning("AI decision failed: %s", e)
             return {
                 "name": "error",
                 "next_step": config.get("default_branch", ""),
@@ -300,7 +300,7 @@ class SwitchStep(BaseStep):
             }
             value = safe_eval(value_expr, namespace)
         except SafeEvalError as e:
-            logger.warning(f"Value expression failed: {e}")
+            logger.warning("Value expression failed: %s", e)
             value = None
 
         # Find matching case

@@ -546,7 +546,7 @@ class SDPOLearner:
         """
         trajectory = self._active_trajectories.pop(trajectory_id, None)
         if not trajectory:
-            logger.warning(f"Trajectory not found: {trajectory_id}")
+            logger.warning("Trajectory not found: %s", trajectory_id)
             return None
 
         trajectory.set_outcome(
@@ -754,7 +754,7 @@ class SDPOLearner:
         min_t = min_trajectories or self.config.min_trajectories_for_update
 
         if len(self.buffer) < min_t:
-            logger.info(f"Not enough trajectories for batch update ({len(self.buffer)} < {min_t})")
+            logger.info("Not enough trajectories for batch update (%s < %s)", len(self.buffer), min_t)
             return 0
 
         # Evaluate recent trajectories

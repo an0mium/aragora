@@ -323,7 +323,7 @@ class TeamsEnterpriseConnector(EnterpriseConnector):
                     ValueError,
                     OSError,
                 ) as e:
-                    logger.warning(f"[{self.name}] Failed to fetch team {team_id}: {e}")
+                    logger.warning("[%s] Failed to fetch team %s: %s", self.name, team_id, e)
         else:
             # List all teams
             async for team in self._paginate("/teams"):
@@ -462,7 +462,7 @@ class TeamsEnterpriseConnector(EnterpriseConnector):
             KeyError,
             OSError,
         ) as e:
-            logger.debug(f"[{self.name}] Failed to get replies for {message_id}: {e}")
+            logger.debug("[%s] Failed to get replies for %s: %s", self.name, message_id, e)
 
     async def _get_channel_files(
         self,
@@ -498,7 +498,7 @@ class TeamsEnterpriseConnector(EnterpriseConnector):
             KeyError,
             OSError,
         ) as e:
-            logger.warning(f"[{self.name}] Failed to get files for channel {channel_id}: {e}")
+            logger.warning("[%s] Failed to get files for channel %s: %s", self.name, channel_id, e)
 
     def _parse_datetime(self, value: str | None) -> datetime | None:
         """Parse Microsoft Graph datetime string."""
@@ -569,10 +569,10 @@ class TeamsEnterpriseConnector(EnterpriseConnector):
                 logger.debug("Failed to parse datetime value: %s", e)
 
         async for team in self._list_teams():
-            logger.info(f"[{self.name}] Syncing team: {team.display_name}")
+            logger.info("[%s] Syncing team: %s", self.name, team.display_name)
 
             async for channel in self._list_channels(team.id):
-                logger.debug(f"[{self.name}] Syncing channel: {channel.display_name}")
+                logger.debug("[%s] Syncing channel: %s", self.name, channel.display_name)
 
                 # Sync messages
                 try:
@@ -617,7 +617,7 @@ class TeamsEnterpriseConnector(EnterpriseConnector):
                     OSError,
                 ) as e:
                     logger.error(
-                        f"[{self.name}] Failed to sync messages for {channel.display_name}: {e}"
+                        "[%s] Failed to sync messages for %s: %s", self.name, channel.display_name, e
                     )
 
                 # Sync files if configured
@@ -655,7 +655,7 @@ class TeamsEnterpriseConnector(EnterpriseConnector):
                         OSError,
                     ) as e:
                         logger.error(
-                            f"[{self.name}] Failed to sync files for {channel.display_name}: {e}"
+                            "[%s] Failed to sync files for %s: %s", self.name, channel.display_name, e
                         )
 
         # Update cursor for next sync
@@ -732,7 +732,7 @@ class TeamsEnterpriseConnector(EnterpriseConnector):
             ValueError,
             OSError,
         ) as e:
-            logger.error(f"[{self.name}] Search failed: {e}")
+            logger.error("[%s] Search failed: %s", self.name, e)
             return []
 
     async def fetch(self, evidence_id: str) -> Any | None:
@@ -745,7 +745,7 @@ class TeamsEnterpriseConnector(EnterpriseConnector):
         # Note: Fetching individual messages requires knowing team and channel IDs
         # which aren't encoded in the evidence_id. This would need enhancement
         # to support full fetch capability.
-        logger.warning(f"[{self.name}] Individual message fetch not fully implemented")
+        logger.warning("[%s] Individual message fetch not fully implemented", self.name)
         return None
 
 

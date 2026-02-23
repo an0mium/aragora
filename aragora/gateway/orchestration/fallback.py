@@ -96,7 +96,7 @@ class CircuitState:
         self.last_failure = datetime.now(timezone.utc)
         if self.failure_count >= self.opens_at_failures:
             self.state = "open"
-            logger.warning(f"Circuit opened for agent: {self.agent_name}")
+            logger.warning("Circuit opened for agent: %s", self.agent_name)
 
     def record_success(self) -> None:
         """Record a success."""
@@ -104,7 +104,7 @@ class CircuitState:
         if self.state == "half-open":
             self.state = "closed"
             self.failure_count = 0
-            logger.info(f"Circuit closed for agent: {self.agent_name}")
+            logger.info("Circuit closed for agent: %s", self.agent_name)
 
 
 class FallbackChain:
@@ -167,7 +167,7 @@ class FallbackChain:
             opens_at_failures=circuit_threshold,
             reset_after=circuit_reset or timedelta(minutes=1),
         )
-        logger.info(f"Added agent to fallback chain: {name} (priority={priority})")
+        logger.info("Added agent to fallback chain: %s (priority=%s)", name, priority)
 
     def remove_agent(self, name: str) -> bool:
         """Remove an agent from the chain."""
@@ -233,7 +233,7 @@ class FallbackChain:
         ]
 
         if not available:
-            logger.error(f"No agents available for task {task.task_id}")
+            logger.error("No agents available for task %s", task.task_id)
             if self._on_exhausted:
                 await self._on_exhausted(task)
             return FallbackResult(
@@ -295,7 +295,7 @@ class FallbackChain:
                     break  # Move to next agent
 
                 except (OSError, ConnectionError, RuntimeError, ValueError) as e:
-                    logger.warning(f"Agent {agent_name} failed on attempt {retry + 1}: {e}")
+                    logger.warning("Agent %s failed on attempt %s: %s", agent_name, retry + 1, e)
                     if retry < self._max_retries - 1:
                         await asyncio.sleep(self._retry_delay_ms / 1000)
                     else:
@@ -310,13 +310,13 @@ class FallbackChain:
                 next_agent = available[i + 1]
                 reason = fallback_reasons.get(agent_name, FallbackReason.ERROR)
                 logger.info(
-                    f"Falling back from {agent_name} to {next_agent} (reason={reason.value})"
+                    "Falling back from %s to %s (reason=%s)", agent_name, next_agent, reason.value
                 )
                 if self._on_fallback:
                     await self._on_fallback(agent_name, next_agent, reason)
 
         # All agents exhausted
-        logger.error(f"All agents exhausted for task {task.task_id}")
+        logger.error("All agents exhausted for task %s", task.task_id)
         if self._on_exhausted:
             await self._on_exhausted(task)
 
@@ -375,7 +375,7 @@ class FallbackChain:
             circuit = self._circuits[agent_name]
             circuit.state = "closed"
             circuit.failure_count = 0
-            logger.info(f"Manually reset circuit for agent: {agent_name}")
+            logger.info("Manually reset circuit for agent: %s", agent_name)
             return True
         return False
 

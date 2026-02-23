@@ -147,14 +147,14 @@ class LocalEmbeddingService:
                     "sentence-transformers is required for LocalEmbeddingService. "
                     "Install with: pip install sentence-transformers"
                 )
-            logger.info(f"Loading embedding model: {self.model_name}")
+            logger.info("Loading embedding model: %s", self.model_name)
             self._model = SentenceTransformer(
                 self.model_name,
                 device=self.config.device,
                 cache_folder=self.config.cache_folder,
             )
             self._dimension = self._model.get_sentence_embedding_dimension()
-            logger.info(f"Model loaded: {self.model_name} ({self._dimension} dimensions)")
+            logger.info("Model loaded: %s (%s dimensions)", self.model_name, self._dimension)
 
     def embed(self, text: str) -> list[float]:
         """Generate embedding for a single text.

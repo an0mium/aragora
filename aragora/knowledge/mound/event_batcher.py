@@ -235,7 +235,7 @@ class EventBatcher:
                     asyncio.ensure_future(result, loop=self._loop)
             self._total_events_emitted += 1
         except (RuntimeError, ValueError, TypeError, AttributeError) as e:  # noqa: BLE001 - adapter isolation
-            logger.warning(f"Failed to emit event: {e}")
+            logger.warning("Failed to emit event: %s", e)
 
     def _schedule_flush(self) -> None:
         """Schedule an immediate flush."""
@@ -254,7 +254,7 @@ class EventBatcher:
             except asyncio.CancelledError:
                 break
             except (RuntimeError, ValueError, OSError, AttributeError) as e:
-                logger.warning(f"Error in flush loop: {e}")
+                logger.warning("Error in flush loop: %s", e)
 
     async def flush(self) -> int:
         """
@@ -292,7 +292,7 @@ class EventBatcher:
             self._total_batches_emitted += 1
             return batch.count
         except (RuntimeError, ValueError, TypeError, AttributeError) as e:  # noqa: BLE001 - adapter isolation
-            logger.warning(f"Failed to emit batch: {e}")
+            logger.warning("Failed to emit batch: %s", e)
             return 0
 
     async def _emit_batch(self, batch: EventBatch) -> int:
@@ -310,11 +310,11 @@ class EventBatcher:
             self._total_events_emitted += batch.count
             self._total_batches_emitted += 1
 
-            logger.debug(f"Emitted batch with {batch.count} events")
+            logger.debug("Emitted batch with %s events", batch.count)
             return batch.count
 
         except (RuntimeError, ValueError, OSError, AttributeError) as e:
-            logger.warning(f"Failed to emit batch: {e}")
+            logger.warning("Failed to emit batch: %s", e)
             return 0
 
     def get_stats(self) -> dict[str, Any]:

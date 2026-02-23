@@ -196,7 +196,7 @@ def _encrypt_config(
                 "Config encryption failed",
                 "sync_store",
             ) from e
-        logger.warning(f"Config encryption unavailable for {connector_id}: {e}")
+        logger.warning("Config encryption unavailable for %s: %s", connector_id, e)
         return config
 
 
@@ -233,7 +233,7 @@ def _decrypt_config(
         record_encryption_operation("decrypt", True, latency)
         return result
     except (OSError, ValueError, TypeError, RuntimeError) as e:
-        logger.warning(f"Config decryption failed for {connector_id}: {e}")
+        logger.warning("Config decryption failed for %s: %s", connector_id, e)
         record_encryption_error("decrypt", type(e).__name__)
         return config
 
@@ -579,8 +579,7 @@ class SyncStore:
                 if recovered > 0:
                     await self._connection.commit()
                     logger.info(
-                        f"SyncStore: Recovered {recovered} interrupted sync jobs "
-                        "from previous server instance"
+                        "SyncStore: Recovered %s interrupted sync jobs from previous server instance", recovered
                     )
 
             elif self._database_url.startswith("postgresql"):
@@ -639,12 +638,11 @@ class SyncStore:
 
                 if recovered > 0:
                     logger.info(
-                        f"SyncStore: Recovered {recovered} interrupted sync jobs "
-                        "from previous server instance"
+                        "SyncStore: Recovered %s interrupted sync jobs from previous server instance", recovered
                     )
 
         except (OSError, ValueError, TypeError, RuntimeError, KeyError) as e:
-            logger.warning(f"SyncStore: Failed to recover running jobs: {e}")
+            logger.warning("SyncStore: Failed to recover running jobs: %s", e)
 
         return recovered
 

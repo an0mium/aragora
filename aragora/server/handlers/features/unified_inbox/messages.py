@@ -54,7 +54,7 @@ async def fetch_all_messages(
 
         except (ConnectionError, TimeoutError, OSError, ValueError, RuntimeError, KeyError) as e:
             logger.warning(
-                f"Error fetching messages for {account.provider.value} account {account.id}: {e}"
+                "Error fetching messages for %s account %s: %s", account.provider.value, account.id, e
             )
             await store.increment_account_counts(tenant_id, account.id, sync_error_delta=1)
 
@@ -81,8 +81,7 @@ async def fetch_gmail_messages(account: ConnectedAccount, tenant_id: str) -> lis
         if state and getattr(state, "initial_sync_complete", False):
             # Messages are already in cache via callbacks
             logger.debug(
-                f"[UnifiedInbox] Gmail sync active for {account.id}, "
-                f"messages synced: {getattr(state, 'total_messages_synced', 0)}"
+                "[UnifiedInbox] Gmail sync active for %s, messages synced: %s", account.id, getattr(state, 'total_messages_synced', 0)
             )
             return []  # Messages already in cache
 
@@ -107,8 +106,7 @@ async def fetch_outlook_messages(account: ConnectedAccount, tenant_id: str) -> l
         if state and getattr(state, "initial_sync_complete", False):
             # Messages are already in cache via callbacks
             logger.debug(
-                f"[UnifiedInbox] Outlook sync active for {account.id}, "
-                f"messages synced: {getattr(state, 'total_messages_synced', 0)}"
+                "[UnifiedInbox] Outlook sync active for %s, messages synced: %s", account.id, getattr(state, 'total_messages_synced', 0)
             )
             return []  # Messages already in cache
 

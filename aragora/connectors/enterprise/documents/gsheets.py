@@ -379,7 +379,7 @@ class GoogleSheetsConnector(EnterpriseConnector):
             )
 
         except (httpx.HTTPStatusError, httpx.RequestError, KeyError) as e:
-            logger.warning(f"[{self.name}] Failed to fetch sheet '{sheet_title}': {e}")
+            logger.warning("[%s] Failed to fetch sheet '%s': %s", self.name, sheet_title, e)
             return None
 
     def _col_index_to_letter(self, col: int) -> str:
@@ -499,7 +499,7 @@ class GoogleSheetsConnector(EnterpriseConnector):
                     await asyncio.sleep(0)
 
             except (httpx.HTTPStatusError, httpx.RequestError) as e:
-                logger.error(f"[{self.name}] Failed to sync spreadsheet {spreadsheet_id}: {e}")
+                logger.error("[%s] Failed to sync spreadsheet %s: %s", self.name, spreadsheet_id, e)
 
         # Process folder IDs
         for folder_id in self.folder_ids:
@@ -554,7 +554,7 @@ class GoogleSheetsConnector(EnterpriseConnector):
 
                     except (httpx.HTTPStatusError, httpx.RequestError) as e:
                         logger.error(
-                            f"[{self.name}] Failed to sync spreadsheet {spreadsheet_id}: {e}"
+                            "[%s] Failed to sync spreadsheet %s: %s", self.name, spreadsheet_id, e
                         )
 
                 if not page_token:
@@ -613,7 +613,7 @@ class GoogleSheetsConnector(EnterpriseConnector):
             return results
 
         except (httpx.HTTPError, ConnectionError, TimeoutError, OSError, ValueError, KeyError) as e:
-            logger.error(f"[{self.name}] Search failed: {e}")
+            logger.error("[%s] Search failed: %s", self.name, e)
             return []
 
     async def fetch(self, evidence_id: str) -> Any | None:
@@ -646,7 +646,7 @@ class GoogleSheetsConnector(EnterpriseConnector):
             )
 
         except (httpx.HTTPError, ConnectionError, TimeoutError, OSError, ValueError, KeyError) as e:
-            logger.error(f"[{self.name}] Fetch failed: {e}")
+            logger.error("[%s] Fetch failed: %s", self.name, e)
             return None
 
     async def get_sheet_as_dataframe(
@@ -682,7 +682,7 @@ class GoogleSheetsConnector(EnterpriseConnector):
             }
 
         except (httpx.HTTPStatusError, httpx.RequestError) as e:
-            logger.error(f"[{self.name}] DataFrame conversion failed: {e}")
+            logger.error("[%s] DataFrame conversion failed: %s", self.name, e)
             return None
 
 

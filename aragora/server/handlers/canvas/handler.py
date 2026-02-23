@@ -114,7 +114,7 @@ class CanvasHandler(SecureHandler):
                 user_id = user.user_id
                 workspace_id = user.org_id  # Use org_id as workspace identifier
         except (ValueError, AttributeError, KeyError) as e:
-            logger.warning(f"Authentication failed for canvas: {e}")
+            logger.warning("Authentication failed for canvas: %s", e)
             return error_response("Authentication required", 401)
 
         # Build authorization context for RBAC decorator enforcement
@@ -148,7 +148,7 @@ class CanvasHandler(SecureHandler):
                 if raw_body:
                     return json.loads(raw_body.decode("utf-8"))
         except (json.JSONDecodeError, UnicodeDecodeError) as e:
-            logger.debug(f"Failed to parse request body: {e}")
+            logger.debug("Failed to parse request body: %s", e)
         return {}
 
     def _route_request(
@@ -278,7 +278,7 @@ class CanvasHandler(SecureHandler):
                 }
             )
         except (ImportError, KeyError, ValueError, TypeError, OSError, RuntimeError) as e:
-            logger.error(f"Failed to list canvases: {e}")
+            logger.error("Failed to list canvases: %s", e)
             return error_response("Failed to list canvases", 500)
 
     @require_permission("canvas:create")
@@ -312,7 +312,7 @@ class CanvasHandler(SecureHandler):
 
             return json_response(canvas.to_dict(), status=201)
         except (ImportError, KeyError, ValueError, TypeError, OSError, RuntimeError) as e:
-            logger.error(f"Failed to create canvas: {e}")
+            logger.error("Failed to create canvas: %s", e)
             return error_response("Canvas creation failed", 500)
 
     @require_permission("canvas:read")
@@ -335,7 +335,7 @@ class CanvasHandler(SecureHandler):
 
             return json_response(canvas.to_dict())
         except (ImportError, KeyError, ValueError, TypeError, OSError, RuntimeError) as e:
-            logger.error(f"Failed to get canvas: {e}")
+            logger.error("Failed to get canvas: %s", e)
             return error_response("Failed to retrieve canvas", 500)
 
     @require_permission("canvas:update")
@@ -370,7 +370,7 @@ class CanvasHandler(SecureHandler):
 
             return json_response(canvas.to_dict())
         except (ImportError, KeyError, ValueError, TypeError, OSError, RuntimeError) as e:
-            logger.error(f"Failed to update canvas: {e}")
+            logger.error("Failed to update canvas: %s", e)
             return error_response("Canvas update failed", 500)
 
     @require_permission("canvas:delete")
@@ -393,7 +393,7 @@ class CanvasHandler(SecureHandler):
 
             return json_response({"deleted": True, "canvas_id": canvas_id})
         except (ImportError, KeyError, ValueError, TypeError, OSError, RuntimeError) as e:
-            logger.error(f"Failed to delete canvas: {e}")
+            logger.error("Failed to delete canvas: %s", e)
             return error_response("Canvas deletion failed", 500)
 
     # =========================================================================
@@ -450,7 +450,7 @@ class CanvasHandler(SecureHandler):
 
             return json_response(node.to_dict(), status=201)
         except (ImportError, KeyError, ValueError, TypeError, OSError, RuntimeError) as e:
-            logger.error(f"Failed to add node: {e}")
+            logger.error("Failed to add node: %s", e)
             return error_response("Node addition failed", 500)
 
     @require_permission("canvas:update")
@@ -498,7 +498,7 @@ class CanvasHandler(SecureHandler):
 
             return json_response(node.to_dict())
         except (ImportError, KeyError, ValueError, TypeError, OSError, RuntimeError) as e:
-            logger.error(f"Failed to update node: {e}")
+            logger.error("Failed to update node: %s", e)
             return error_response("Node update failed", 500)
 
     @require_permission("canvas:delete")
@@ -522,7 +522,7 @@ class CanvasHandler(SecureHandler):
 
             return json_response({"deleted": True, "node_id": node_id})
         except (ImportError, KeyError, ValueError, TypeError, OSError, RuntimeError) as e:
-            logger.error(f"Failed to delete node: {e}")
+            logger.error("Failed to delete node: %s", e)
             return error_response("Node deletion failed", 500)
 
     # =========================================================================
@@ -579,7 +579,7 @@ class CanvasHandler(SecureHandler):
 
             return json_response(edge.to_dict(), status=201)
         except (ImportError, KeyError, ValueError, TypeError, OSError, RuntimeError) as e:
-            logger.error(f"Failed to add edge: {e}")
+            logger.error("Failed to add edge: %s", e)
             return error_response("Edge addition failed", 500)
 
     @require_permission("canvas:delete")
@@ -603,7 +603,7 @@ class CanvasHandler(SecureHandler):
 
             return json_response({"deleted": True, "edge_id": edge_id})
         except (ImportError, KeyError, ValueError, TypeError, OSError, RuntimeError) as e:
-            logger.error(f"Failed to delete edge: {e}")
+            logger.error("Failed to delete edge: %s", e)
             return error_response("Edge deletion failed", 500)
 
     # =========================================================================
@@ -651,5 +651,5 @@ class CanvasHandler(SecureHandler):
                 }
             )
         except (ImportError, KeyError, ValueError, TypeError, OSError, RuntimeError) as e:
-            logger.error(f"Failed to execute action: {e}")
+            logger.error("Failed to execute action: %s", e)
             return error_response("Action execution failed", 500)

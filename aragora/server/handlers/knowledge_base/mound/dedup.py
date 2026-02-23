@@ -107,7 +107,7 @@ class DedupOperationsMixin:
                 }
             )
         except (KeyError, ValueError, OSError, TypeError) as e:
-            logger.error(f"Error finding duplicates: {e}")
+            logger.error("Error finding duplicates: %s", e)
             return error_response(safe_error_message(e), status=500)
 
     @rate_limit(requests_per_minute=10)
@@ -152,7 +152,7 @@ class DedupOperationsMixin:
                 }
             )
         except (KeyError, ValueError, OSError, TypeError) as e:
-            logger.error(f"Error generating dedup report: {e}")
+            logger.error("Error generating dedup report: %s", e)
             return error_response(safe_error_message(e), status=500)
 
     @rate_limit(requests_per_minute=20)
@@ -209,7 +209,7 @@ class DedupOperationsMixin:
                 }
             )
         except (KeyError, ValueError, OSError, TypeError) as e:
-            logger.error(f"Error merging duplicates: {e}")
+            logger.error("Error merging duplicates: %s", e)
             return error_response(safe_error_message(e), status=500)
 
     @rate_limit(requests_per_minute=5)
@@ -258,5 +258,5 @@ class DedupOperationsMixin:
                 }
             )
         except (KeyError, ValueError, OSError, TypeError) as e:
-            logger.error(f"Error in auto-merge: {e}")
+            logger.error("Error in auto-merge: %s", e)
             return error_response(safe_error_message(e), status=500)

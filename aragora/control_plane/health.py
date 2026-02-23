@@ -151,7 +151,7 @@ class HealthMonitor:
 
         self._running = True
         self._monitor_task = asyncio.create_task(self._monitor_loop())
-        logger.info(f"HealthMonitor started (interval={self._probe_interval}s)")
+        logger.info("HealthMonitor started (interval=%ss)", self._probe_interval)
 
     async def stop(self) -> None:
         """Stop the health monitoring loop."""
@@ -192,7 +192,7 @@ class HealthMonitor:
             cooldown_seconds=cb_config.get("cooldown_seconds", 60.0),
         )
 
-        logger.debug(f"Registered health probe for agent: {agent_id}")
+        logger.debug("Registered health probe for agent: %s", agent_id)
 
     def unregister_probe(self, agent_id: str) -> None:
         """
@@ -206,7 +206,7 @@ class HealthMonitor:
         self._success_counts.pop(agent_id, None)
         self._health_checks.pop(agent_id, None)
 
-        logger.debug(f"Unregistered health probe for agent: {agent_id}")
+        logger.debug("Unregistered health probe for agent: %s", agent_id)
 
     def get_agent_health(self, agent_id: str) -> HealthCheck | None:
         """
@@ -356,7 +356,7 @@ class HealthMonitor:
             except asyncio.CancelledError:
                 break
             except (OSError, ConnectionError, RuntimeError) as e:
-                logger.error(f"Error in health monitor loop: {e}")
+                logger.error("Error in health monitor loop: %s", e)
                 await asyncio.sleep(self._probe_interval)
 
     async def _probe_all_agents(self) -> None:
@@ -410,7 +410,7 @@ class HealthMonitor:
             if cb:
                 cb.record_failure()
         except (OSError, ConnectionError, RuntimeError) as e:
-            logger.warning(f"Health probe failed for agent: {e}")
+            logger.warning("Health probe failed for agent: %s", e)
             error_msg = "Health probe failed"
             if cb:
                 cb.record_failure()
@@ -452,7 +452,7 @@ class HealthMonitor:
             # Check recovery threshold
             if not was_healthy and self._success_counts[agent_id] >= self._recovery_threshold:
                 status = HealthStatus.HEALTHY
-                logger.info(f"Agent {agent_id} recovered")
+                logger.info("Agent %s recovered", agent_id)
 
                 # Notify recovery callbacks
                 check = HealthCheck(
@@ -464,7 +464,7 @@ class HealthMonitor:
                     try:
                         callback(agent_id, check)
                     except (RuntimeError, ValueError, TypeError) as e:  # noqa: BLE001 - user-provided recovery callback
-                        logger.error(f"Recovery callback error: {e}")
+                        logger.error("Recovery callback error: %s", e)
 
         else:
             self._success_counts[agent_id] = 0
@@ -479,7 +479,7 @@ class HealthMonitor:
 
             # Notify unhealthy callbacks
             if was_healthy and status in (HealthStatus.UNHEALTHY, HealthStatus.CRITICAL):
-                logger.warning(f"Agent {agent_id} became unhealthy: {error}")
+                logger.warning("Agent %s became unhealthy: %s", agent_id, error)
 
                 check = HealthCheck(
                     agent_id=agent_id,
@@ -491,7 +491,7 @@ class HealthMonitor:
                     try:
                         callback(agent_id, check)
                     except (RuntimeError, ValueError, TypeError) as e:  # noqa: BLE001 - user-provided unhealthy callback
-                        logger.error(f"Unhealthy callback error: {e}")
+                        logger.error("Unhealthy callback error: %s", e)
 
         # Store health check
         self._health_checks[agent_id] = HealthCheck(
@@ -521,4 +521,4 @@ class HealthMonitor:
                 elif status == HealthStatus.HEALTHY and was_healthy is False:
                     await self._registry.update_status(agent_id, AgentStatus.READY)
             except (OSError, ConnectionError, RuntimeError) as e:
-                logger.debug(f"Could not update registry for {agent_id}: {e}")
+                logger.debug("Could not update registry for %s: %s", agent_id, e)

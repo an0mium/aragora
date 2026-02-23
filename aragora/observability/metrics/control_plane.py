@@ -207,12 +207,12 @@ def _init_control_plane_metrics() -> bool:
         return True
 
     except ImportError as e:
-        logger.warning(f"prometheus_client not installed, control plane metrics disabled: {e}")
+        logger.warning("prometheus_client not installed, control plane metrics disabled: %s", e)
         _init_noop_metrics()
         _initialized = True
         return False
     except (RuntimeError, TypeError, ValueError) as e:
-        logger.error(f"Failed to initialize control plane metrics: {e}")
+        logger.error("Failed to initialize control plane metrics: %s", e)
         _init_noop_metrics()
         _initialized = True
         return False

@@ -244,7 +244,7 @@ class CalibrationFusionAdapter(FusionMixin, KnowledgeMoundAdapter):
         except (RuntimeError, ValueError, OSError, AttributeError) as e:
             latency = time.time() - start_time
             self._record_metric("calibration_fusion", success=False, latency=latency)
-            logger.error(f"Calibration fusion failed: {e}")
+            logger.error("Calibration fusion failed: %s", e)
             raise
 
     def _store_consensus(self, consensus: CalibrationConsensus) -> None:
@@ -508,7 +508,7 @@ class CalibrationFusionAdapter(FusionMixin, KnowledgeMoundAdapter):
             return True
 
         except (RuntimeError, ValueError, OSError, AttributeError) as e:
-            logger.warning(f"Failed to apply fusion result: {e}")
+            logger.warning("Failed to apply fusion result: %s", e)
             return False
 
     def _get_record_for_fusion(self, source_id: str) -> CalibrationConsensus | None:

@@ -453,7 +453,7 @@ class EmailCategorizer:
         final_results: list[CategorizationResult] = []
         for i, result in enumerate(results):
             if isinstance(result, BaseException):
-                logger.error(f"Categorization failed for email {i}: {result}")
+                logger.error("Categorization failed for email %s: %s", i, result)
                 final_results.append(
                     CategorizationResult(
                         email_id=str(i),
@@ -540,7 +540,7 @@ class EmailCategorizer:
                 return True
 
         except (ValueError, OSError, ConnectionError, RuntimeError) as e:
-            logger.error(f"Failed to apply label: {e}")
+            logger.error("Failed to apply label: %s", e)
 
         return False
 

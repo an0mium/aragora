@@ -66,16 +66,16 @@ def _check_email_permission(auth_context: Any | None, permission_key: str) -> Ha
         # Dev/test: fail closed for write operations only
         if permission_key in write_permissions:
             return error_response("RBAC unavailable", status=503)
-        logger.warning(f"RBAC unavailable for permission check: {permission_key}")
+        logger.warning("RBAC unavailable for permission check: %s", permission_key)
         return None
 
     try:
         decision = check_permission(auth_context, permission_key)
         if not decision.allowed:
-            logger.warning(f"RBAC denied: permission={permission_key} reason={decision.reason}")
+            logger.warning("RBAC denied: permission=%s reason=%s", permission_key, decision.reason)
             return error_response("Permission denied", status=403)
     except (TypeError, ValueError, AttributeError, RuntimeError) as e:
-        logger.warning(f"RBAC check failed: {e}")
+        logger.warning("RBAC check failed: %s", e)
         # Fail closed - deny access if RBAC check fails
         return error_response("Authorization check failed", status=503)
 
@@ -575,7 +575,7 @@ async def handle_apply_snooze(
                 if hasattr(gmail, "archive_message"):
                     await gmail.archive_message(email_id)
         except (ImportError, ConnectionError, TimeoutError, OSError, AttributeError, ValueError) as gmail_error:
-            logger.warning(f"Could not apply Gmail snooze: {gmail_error}")
+            logger.warning("Could not apply Gmail snooze: %s", gmail_error)
 
         return success_response(
             {
@@ -624,7 +624,7 @@ async def handle_cancel_snooze(
                 if hasattr(gmail, "unarchive_message"):
                     await gmail.unarchive_message(email_id)
         except (ImportError, ConnectionError, TimeoutError, OSError, AttributeError, ValueError) as gmail_error:
-            logger.warning(f"Could not remove Gmail snooze: {gmail_error}")
+            logger.warning("Could not remove Gmail snooze: %s", gmail_error)
 
         return success_response(
             {
@@ -725,7 +725,7 @@ async def handle_process_due_snoozes(
                     if hasattr(gmail, "remove_label"):
                         await gmail.remove_label(email_id, "Snoozed")
             except (ImportError, ConnectionError, TimeoutError, OSError, AttributeError, ValueError) as gmail_error:
-                logger.warning(f"Could not unsnooze {email_id} in Gmail: {gmail_error}")
+                logger.warning("Could not unsnooze %s in Gmail: %s", email_id, gmail_error)
 
         return success_response(
             {
@@ -971,7 +971,7 @@ class EmailServicesHandler(SecureHandler):
         try:
             self.check_permission(auth_context, permission)
         except ForbiddenError:
-            logger.warning(f"Email permission denied: {permission} for user {auth_context.user_id}")
+            logger.warning("Email permission denied: %s for user %s", permission, auth_context.user_id)
             return error_response("Permission denied", 403)
 
         user_id = auth_context.user_id
@@ -1021,7 +1021,7 @@ class EmailServicesHandler(SecureHandler):
         try:
             self.check_permission(auth_context, "email:read")
         except ForbiddenError:
-            logger.warning(f"Email read denied for user {auth_context.user_id}")
+            logger.warning("Email read denied for user %s", auth_context.user_id)
             return error_response("Permission denied", 403)
 
         user_id = auth_context.user_id
@@ -1061,7 +1061,7 @@ class EmailServicesHandler(SecureHandler):
         try:
             self.check_permission(auth_context, "email:update")
         except ForbiddenError:
-            logger.warning(f"Email update denied for user {auth_context.user_id}")
+            logger.warning("Email update denied for user %s", auth_context.user_id)
             return error_response("Permission denied", 403)
 
         user_id = auth_context.user_id

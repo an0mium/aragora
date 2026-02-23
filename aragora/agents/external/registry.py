@@ -109,7 +109,7 @@ class ExternalAgentRegistry:
                 env_vars=env_vars,
             )
             cls._registry[name] = spec
-            logger.info(f"Registered external agent adapter: {name}")
+            logger.info("Registered external agent adapter: %s", name)
             return adapter_cls
 
         return decorator
@@ -228,7 +228,7 @@ def register_all_adapters() -> None:
 
         logger.debug("Loaded OpenHands adapter")
     except ImportError as e:
-        logger.debug(f"OpenHands adapter not available: {e}")
+        logger.debug("OpenHands adapter not available: %s", e)
 
     # AutoGPT adapter (future - module does not exist yet)
     try:
@@ -237,7 +237,7 @@ def register_all_adapters() -> None:
 
         logger.debug("Loaded AutoGPT adapter")
     except ImportError as e:
-        logger.debug(f"AutoGPT adapter not available: {e}")
+        logger.debug("AutoGPT adapter not available: %s", e)
 
     # CrewAI adapter (future - module does not exist yet)
     try:
@@ -246,4 +246,4 @@ def register_all_adapters() -> None:
 
         logger.debug("Loaded CrewAI adapter")
     except ImportError as e:
-        logger.debug(f"CrewAI adapter not available: {e}")
+        logger.debug("CrewAI adapter not available: %s", e)

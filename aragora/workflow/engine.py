@@ -140,7 +140,7 @@ class WorkflowEngine:
             self._step_types["task"] = TaskStep
             self._step_types["connector"] = ConnectorStep
         except ImportError as e:
-            logger.debug(f"Some Phase 2 step types not available: {e}")
+            logger.debug("Some Phase 2 step types not available: %s", e)
 
         # Nomic loop step aliases
         try:
@@ -149,7 +149,7 @@ class WorkflowEngine:
             self._step_types["nomic"] = NomicLoopStep
             self._step_types["nomic_loop"] = NomicLoopStep
         except ImportError as e:
-            logger.debug(f"Nomic step type not available: {e}")
+            logger.debug("Nomic step type not available: %s", e)
 
         # Implementation pipeline steps (gold path)
         try:
@@ -161,7 +161,7 @@ class WorkflowEngine:
             self._step_types["implementation"] = ImplementationStep
             self._step_types["verification"] = VerificationStep
         except ImportError as e:
-            logger.debug(f"Implementation step types not available: {e}")
+            logger.debug("Implementation step types not available: %s", e)
 
         # OpenClaw Enterprise Gateway steps
         try:
@@ -173,7 +173,7 @@ class WorkflowEngine:
             self._step_types["openclaw_action"] = OpenClawActionStep
             self._step_types["openclaw_session"] = OpenClawSessionStep
         except ImportError as e:
-            logger.debug(f"OpenClaw step types not available: {e}")
+            logger.debug("OpenClaw step types not available: %s", e)
 
         # Computer-use step (Playwright + Claude)
         try:
@@ -181,7 +181,7 @@ class WorkflowEngine:
 
             self._step_types["computer_use_task"] = ComputerUseTaskStep
         except ImportError as e:
-            logger.debug(f"Computer-use step type not available: {e}")
+            logger.debug("Computer-use step type not available: %s", e)
 
         # Content extraction step
         try:
@@ -189,7 +189,7 @@ class WorkflowEngine:
 
             self._step_types["content_extraction"] = ContentExtractionStep
         except ImportError as e:
-            logger.debug(f"Content extraction step type not available: {e}")
+            logger.debug("Content extraction step type not available: %s", e)
 
     def register_step_type(self, type_name: str, step_class: type[WorkflowStep]) -> None:
         """
@@ -200,7 +200,7 @@ class WorkflowEngine:
             step_class: Class implementing WorkflowStep protocol
         """
         self._step_types[type_name] = step_class
-        logger.debug(f"Registered step type: {type_name}")
+        logger.debug("Registered step type: %s", type_name)
 
     def _check_timeout_progress(
         self,
@@ -299,13 +299,13 @@ class WorkflowEngine:
             try:
                 context.event_callback(event_name, payload)
             except (RuntimeError, ValueError, TypeError, OSError, AttributeError) as exc:
-                logger.debug(f"Workflow event callback failed: {exc}")
+                logger.debug("Workflow event callback failed: %s", exc)
 
         if self._config.trace_callback:
             try:
                 self._config.trace_callback(event_name, payload)
             except (RuntimeError, ValueError, TypeError, OSError, AttributeError) as exc:
-                logger.debug(f"Workflow trace callback failed: {exc}")
+                logger.debug("Workflow trace callback failed: %s", exc)
 
         # Bridge to webhook event dispatcher for external delivery
         self._dispatch_to_event_system(event_name, payload)
@@ -334,7 +334,7 @@ class WorkflowEngine:
 
             dispatch_event(event_name, payload)
         except (ImportError, RuntimeError, OSError) as exc:
-            logger.debug(f"Workflow event dispatch skipped: {exc}")
+            logger.debug("Workflow event dispatch skipped: %s", exc)
 
     # =========================================================================
     # Main Execution
@@ -511,7 +511,7 @@ class WorkflowEngine:
         Returns:
             WorkflowResult from resumed execution
         """
-        logger.info(f"Resuming workflow {workflow_id} from step {checkpoint.current_step}")
+        logger.info("Resuming workflow %s from step %s", workflow_id, checkpoint.current_step)
 
         metadata = self._merge_metadata(
             definition, metadata, checkpoint.context_state.get("metadata")
@@ -565,7 +565,7 @@ class WorkflowEngine:
             final_output = None
 
         except (RuntimeError, ValueError, TypeError, OSError, ConnectionError, KeyError, AttributeError) as e:
-            logger.exception(f"Workflow resume failed: {e}")
+            logger.exception("Workflow resume failed: %s", e)
             success = False
             error = "Workflow resume failed"
             final_output = None
@@ -636,7 +636,7 @@ class WorkflowEngine:
             )
             step_def = definition.get_step(current_step_id)
             if not step_def:
-                logger.error(f"Step '{current_step_id}' not found in definition")
+                logger.error("Step '%s' not found in definition", current_step_id)
                 break
 
             # Skip already completed steps
@@ -668,10 +668,10 @@ class WorkflowEngine:
             # Handle failure
             if not result.success:
                 if self._config.stop_on_failure and not step_def.optional:
-                    logger.error(f"Step '{current_step_id}' failed, stopping workflow")
+                    logger.error("Step '%s' failed, stopping workflow", current_step_id)
                     break
                 elif step_def.optional:
-                    logger.warning(f"Optional step '{current_step_id}' failed, continuing")
+                    logger.warning("Optional step '%s' failed, continuing", current_step_id)
 
             # Create checkpoint if enabled
             if (
@@ -941,7 +941,7 @@ class WorkflowEngine:
             self._step_instances[cache_key] = step
             return step
         except (TypeError, ValueError, AttributeError, RuntimeError, ImportError) as e:
-            logger.error(f"Failed to create step instance: {e}")
+            logger.error("Failed to create step instance: %s", e)
             return None
 
     def _get_next_step(
@@ -959,7 +959,7 @@ class WorkflowEngine:
         transitions = definition.get_transitions_from(current_step_id)
         for transition in transitions:
             if self._evaluate_transition(transition, context):
-                logger.debug(f"Taking transition {current_step_id} -> {transition.to_step}")
+                logger.debug("Taking transition %s -> %s", current_step_id, transition.to_step)
                 return transition.to_step
 
         # Fall back to default next steps
@@ -983,7 +983,7 @@ class WorkflowEngine:
             }
             return safe_eval_bool(transition.condition, namespace)
         except SafeEvalError as e:
-            logger.warning(f"Failed to evaluate transition condition: {e}")
+            logger.warning("Failed to evaluate transition condition: %s", e)
             return False
 
     # =========================================================================
@@ -1027,9 +1027,9 @@ class WorkflowEngine:
         # Persist checkpoint to storage
         try:
             await self._checkpoint_store.save(checkpoint)
-            logger.debug(f"Persisted checkpoint {checkpoint_id} at step {current_step}")
+            logger.debug("Persisted checkpoint %s at step %s", checkpoint_id, current_step)
         except (OSError, RuntimeError, ConnectionError, ValueError, TypeError) as e:
-            logger.warning(f"Failed to persist checkpoint {checkpoint_id}: {e}")
+            logger.warning("Failed to persist checkpoint %s: %s", checkpoint_id, e)
 
         # Also cache in memory for fast access during execution
         self._checkpoints_cache.put(checkpoint_id, checkpoint)
@@ -1061,7 +1061,7 @@ class WorkflowEngine:
                 self._checkpoints_cache.put(checkpoint_id, checkpoint)
             return checkpoint
         except (OSError, RuntimeError, ConnectionError, ValueError, TypeError) as e:
-            logger.warning(f"Failed to load checkpoint {checkpoint_id}: {e}")
+            logger.warning("Failed to load checkpoint %s: %s", checkpoint_id, e)
             return None
 
     async def get_latest_checkpoint(self, workflow_id: str) -> WorkflowCheckpoint | None:
@@ -1069,7 +1069,7 @@ class WorkflowEngine:
         try:
             return await self._checkpoint_store.load_latest(workflow_id)
         except (OSError, RuntimeError, ConnectionError, ValueError, TypeError) as e:
-            logger.warning(f"Failed to load latest checkpoint for {workflow_id}: {e}")
+            logger.warning("Failed to load latest checkpoint for %s: %s", workflow_id, e)
             return None
 
     async def list_checkpoints(self, workflow_id: str) -> list[str]:
@@ -1077,7 +1077,7 @@ class WorkflowEngine:
         try:
             return await self._checkpoint_store.list_checkpoints(workflow_id)
         except (OSError, RuntimeError, ConnectionError, ValueError, TypeError) as e:
-            logger.warning(f"Failed to list checkpoints for {workflow_id}: {e}")
+            logger.warning("Failed to list checkpoints for %s: %s", workflow_id, e)
             return []
 
     async def delete_checkpoint(self, checkpoint_id: str) -> bool:
@@ -1088,7 +1088,7 @@ class WorkflowEngine:
             # Remove from persistent storage
             return await self._checkpoint_store.delete(checkpoint_id)
         except (OSError, RuntimeError, ConnectionError, ValueError, TypeError) as e:
-            logger.warning(f"Failed to delete checkpoint {checkpoint_id}: {e}")
+            logger.warning("Failed to delete checkpoint %s: %s", checkpoint_id, e)
             return False
 
     # =========================================================================
@@ -1099,7 +1099,7 @@ class WorkflowEngine:
         """Request early termination of workflow execution."""
         self._should_terminate = True
         self._termination_reason = reason
-        logger.info(f"Workflow termination requested: {reason}")
+        logger.info("Workflow termination requested: %s", reason)
 
     def check_termination(self) -> tuple[bool, str | None]:
         """Check if termination has been requested."""

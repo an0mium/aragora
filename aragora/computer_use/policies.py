@@ -408,7 +408,7 @@ class ComputerPolicyChecker:
         }
 
         if self.policy.audit_all_actions or not allowed:
-            logger.info(f"Computer-use policy check: {entry}")
+            logger.info("Computer-use policy check: %s", entry)
 
         self._audit_log.append(entry)
 

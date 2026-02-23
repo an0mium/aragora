@@ -277,8 +277,7 @@ class DecisionRouter:
         _import_audit()
 
         logger.info(
-            f"Routing decision request {request.request_id} "
-            f"(type={request.decision_type.value}, source={request.source.value})"
+            "Routing decision request %s (type=%s, source=%s)", request.request_id, request.decision_type.value, request.source.value
         )
 
         # RBAC authorization check
@@ -310,12 +309,12 @@ class DecisionRouter:
                     isolation_ctx,
                 )
                 logger.debug(
-                    f"RBAC check passed for user {request.context.user_id} on {resource_type.value}"
+                    "RBAC check passed for user %s on %s", request.context.user_id, resource_type.value
                 )
             except ImportError:
                 logger.debug("RBAC module not available, skipping authorization")
             except (PermissionError, ValueError) as e:
-                logger.warning(f"RBAC check failed: {e}")
+                logger.warning("RBAC check failed: %s", e)
                 return DecisionResult(
                     request_id=request.request_id,
                     decision_type=request.decision_type,
@@ -348,14 +347,14 @@ class DecisionRouter:
                     content_preview=request.content[:200] if request.content else None,
                 )
             except (OSError, RuntimeError, TypeError, ValueError) as e:
-                logger.debug(f"Audit log (started) failed: {e}")
+                logger.debug("Audit log (started) failed: %s", e)
 
         # Check cache first
         cache_hit = False
         if self._enable_caching and _decision_cache:
             cached_result = await _decision_cache.get(request)
             if cached_result:
-                logger.info(f"Cache hit for request {request.request_id}")
+                logger.info("Cache hit for request %s", request.request_id)
                 cache_hit = True
                 # Record cache hit metric
                 if _record_decision_cache_hit:
@@ -378,7 +377,7 @@ class DecisionRouter:
         # Check for in-flight deduplication
         if self._enable_deduplication and _decision_cache:
             if await _decision_cache.is_in_flight(request):
-                logger.info(f"Waiting for in-flight request {request.request_id}")
+                logger.info("Waiting for in-flight request %s", request.request_id)
                 dedup_result = await _decision_cache.wait_for_result(request)
                 if dedup_result:
                     # Record dedup hit metric
@@ -423,7 +422,7 @@ class DecisionRouter:
                 if request.config and request.config.agents:
                     span.set_attribute("decision.agent_count", len(request.config.agents))
             except (ImportError, AttributeError, RuntimeError) as e:
-                logger.debug(f"Tracing not available: {e}")
+                logger.debug("Tracing not available: %s", e)
 
         try:
             if request.decision_type == DecisionType.DEBATE:
@@ -477,7 +476,7 @@ class DecisionRouter:
                         error=result.error,
                     )
                 except (OSError, RuntimeError, TypeError, ValueError) as audit_err:
-                    logger.debug(f"Audit log (completed) failed: {audit_err}")
+                    logger.debug("Audit log (completed) failed: %s", audit_err)
 
             # Cache the result
             if self._enable_caching and _decision_cache and result.success:
@@ -501,13 +500,13 @@ class DecisionRouter:
             OSError,
             TimeoutError,
         ) as e:
-            logger.error(f"Decision routing failed: {e}", exc_info=True)
+            logger.error("Decision routing failed: %s", e, exc_info=True)
             if span:
                 span.set_attribute("decision.error", str(e)[:200])
                 try:
                     span.record_exception(e)
                 except (AttributeError, RuntimeError, TypeError) as trace_err:
-                    logger.debug(f"Failed to record exception in span: {trace_err}")
+                    logger.debug("Failed to record exception in span: %s", trace_err)
 
             error_duration = (datetime.now(timezone.utc) - start_time).total_seconds()
 
@@ -545,7 +544,7 @@ class DecisionRouter:
                         error=str(e),
                     )
                 except (OSError, RuntimeError, TypeError, ValueError) as audit_err:
-                    logger.debug(f"Audit log (error) failed: {audit_err}")
+                    logger.debug("Audit log (error) failed: %s", audit_err)
 
             error_result = DecisionResult(
                 request_id=request.request_id,
@@ -569,14 +568,14 @@ class DecisionRouter:
                 try:
                     span_ctx.__exit__(None, None, None)
                 except (AttributeError, RuntimeError, TypeError) as e:
-                    logger.debug(f"Span context exit error: {e}")
+                    logger.debug("Span context exit error: %s", e)
 
             # Clean up in-flight status after a delay
             if self._enable_deduplication and _decision_cache:
                 try:
                     await _decision_cache.clear_in_flight(request)
                 except (OSError, RuntimeError, ConnectionError, TimeoutError) as e:
-                    logger.debug(f"Failed to clear in-flight cache: {e}")
+                    logger.debug("Failed to clear in-flight cache: %s", e)
 
     async def _route_to_debate(self, request: DecisionRequest) -> DecisionResult:
         """Route to debate engine."""
@@ -588,7 +587,7 @@ class DecisionRouter:
                 span_ctx = _trace_decision_engine("debate", request.request_id)
                 span = span_ctx.__enter__()
             except (ImportError, AttributeError, RuntimeError) as e:
-                logger.debug(f"Failed to create debate trace span: {e}")
+                logger.debug("Failed to create debate trace span: %s", e)
 
         try:
             if self._debate_engine is None:
@@ -725,7 +724,7 @@ class DecisionRouter:
                 try:
                     span_ctx.__exit__(None, None, None)
                 except (AttributeError, RuntimeError, TypeError) as e:
-                    logger.debug(f"Trace span cleanup error: {e}")
+                    logger.debug("Trace span cleanup error: %s", e)
 
     async def _maybe_build_decision_integrity(
         self,
@@ -1042,7 +1041,7 @@ class DecisionRouter:
                 span_ctx = _trace_decision_engine("workflow", request.request_id)
                 span = span_ctx.__enter__()
             except (ImportError, AttributeError, RuntimeError) as e:
-                logger.debug(f"Trace span error: {e}")
+                logger.debug("Trace span error: %s", e)
 
         try:
             if self._workflow_engine is None:
@@ -1112,7 +1111,7 @@ class DecisionRouter:
                 try:
                     span_ctx.__exit__(None, None, None)
                 except (AttributeError, RuntimeError, TypeError) as e:
-                    logger.debug(f"Trace span cleanup error: {e}")
+                    logger.debug("Trace span cleanup error: %s", e)
 
     async def _route_to_gauntlet(self, request: DecisionRequest) -> DecisionResult:
         """Route to gauntlet engine."""
@@ -1123,7 +1122,7 @@ class DecisionRouter:
                 span_ctx = _trace_decision_engine("gauntlet", request.request_id)
                 span = span_ctx.__enter__()
             except (ImportError, AttributeError, RuntimeError) as e:
-                logger.debug(f"Trace span error: {e}")
+                logger.debug("Trace span error: %s", e)
 
         try:
             from aragora.gauntlet.orchestrator import (
@@ -1173,7 +1172,7 @@ class DecisionRouter:
                 try:
                     span_ctx.__exit__(None, None, None)
                 except (AttributeError, RuntimeError, TypeError) as e:
-                    logger.debug(f"Trace span cleanup error: {e}")
+                    logger.debug("Trace span cleanup error: %s", e)
 
     async def _route_to_quick(self, request: DecisionRequest) -> DecisionResult:
         """Route to quick single-agent response."""
@@ -1184,7 +1183,7 @@ class DecisionRouter:
                 span_ctx = _trace_decision_engine("quick", request.request_id)
                 span = span_ctx.__enter__()
             except (ImportError, AttributeError, RuntimeError) as e:
-                logger.debug(f"Trace span error: {e}")
+                logger.debug("Trace span error: %s", e)
 
         # Use first configured agent for quick response
         agent_name = request.config.agents[0] if request.config.agents else "anthropic-api"
@@ -1212,7 +1211,7 @@ class DecisionRouter:
                 agent_contributions=[{"agent": agent_name, "response": response}],
             )
         except (ValueError, TypeError, KeyError, AttributeError, RuntimeError, OSError) as e:
-            logger.error(f"Quick response failed: {e}")
+            logger.error("Quick response failed: %s", e)
             if span:
                 span.set_attribute("quick.error", str(e)[:200])
             return DecisionResult(
@@ -1229,7 +1228,7 @@ class DecisionRouter:
                 try:
                     span_ctx.__exit__(None, None, None)
                 except (AttributeError, RuntimeError, TypeError) as e:
-                    logger.debug(f"Trace span cleanup error: {e}")
+                    logger.debug("Trace span cleanup error: %s", e)
 
     async def _gather_knowledge_context(
         self,
@@ -1290,7 +1289,7 @@ class DecisionRouter:
                         f"## Relevant Organizational Knowledge\n\n{context_string}\n\n---\n"
                     )
 
-                logger.info(f"Gathered {len(context_parts)} knowledge items for debate context")
+                logger.info("Gathered %s knowledge items for debate context", len(context_parts))
                 return context_string, list(set(document_ids))
 
             finally:
@@ -1300,7 +1299,7 @@ class DecisionRouter:
             logger.debug("Knowledge pipeline not available for context gathering")
             return "", []
         except (ValueError, TypeError, KeyError, AttributeError, RuntimeError, OSError) as e:
-            logger.warning(f"Failed to gather knowledge context: {e}")
+            logger.warning("Failed to gather knowledge context: %s", e)
             return "", []
 
     def _get_tts_bridge(self) -> Any | None:
@@ -1318,10 +1317,10 @@ class DecisionRouter:
             logger.info("TTS bridge initialized for voice responses")
             return self._tts_bridge
         except ImportError as e:
-            logger.warning(f"TTS bridge not available: {e}")
+            logger.warning("TTS bridge not available: %s", e)
             return None
         except (RuntimeError, OSError, AttributeError) as e:
-            logger.error(f"Failed to initialize TTS bridge: {e}")
+            logger.error("Failed to initialize TTS bridge: %s", e)
             return None
 
     async def synthesize_voice_response(
@@ -1358,10 +1357,10 @@ class DecisionRouter:
                 try:
                     audio_path.unlink()
                 except (OSError, PermissionError) as e:
-                    logger.debug(f"Failed to cleanup temp audio file: {e}")
+                    logger.debug("Failed to cleanup temp audio file: %s", e)
                 return audio_bytes
         except (RuntimeError, OSError, ValueError, TypeError) as e:
-            logger.error(f"Voice synthesis failed: {e}")
+            logger.error("Voice synthesis failed: %s", e)
 
         return None
 
@@ -1387,7 +1386,7 @@ class DecisionRouter:
                     await handler(result, channel)
 
             except (RuntimeError, OSError, ValueError, TypeError, ConnectionError) as e:
-                logger.error(f"Failed to deliver to {channel.platform}: {e}")
+                logger.error("Failed to deliver to %s: %s", channel.platform, e)
 
     async def _deliver_voice_response(
         self,
@@ -1421,7 +1420,7 @@ class DecisionRouter:
                 try:
                     await voice_handler(result, channel, audio_bytes)
                 except (RuntimeError, OSError, ValueError, TypeError, ConnectionError) as e:
-                    logger.error(f"Voice delivery failed for {channel.platform}: {e}")
+                    logger.error("Voice delivery failed for %s: %s", channel.platform, e)
 
         return audio_bytes
 

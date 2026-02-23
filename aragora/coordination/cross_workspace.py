@@ -426,7 +426,7 @@ class CrossWorkspaceCoordinator:
         self._workspaces[workspace.id] = workspace
         self._workspace_consents.setdefault(workspace.id, set())
 
-        logger.info(f"Registered workspace {workspace.id} for federation")
+        logger.info("Registered workspace %s for federation", workspace.id)
 
         self._audit(
             "workspace_registered",
@@ -444,7 +444,7 @@ class CrossWorkspaceCoordinator:
             if consent_id in self._consents:
                 self._consents[consent_id].revoke("system")
 
-        logger.info(f"Unregistered workspace {workspace_id}")
+        logger.info("Unregistered workspace %s", workspace_id)
 
         self._audit(
             "workspace_unregistered",
@@ -537,7 +537,7 @@ class CrossWorkspaceCoordinator:
         self._workspace_consents.setdefault(target_workspace_id, set()).add(consent.id)
 
         logger.info(
-            f"Granted consent {consent.id} from {source_workspace_id} to {target_workspace_id}"
+            "Granted consent %s from %s to %s", consent.id, source_workspace_id, target_workspace_id
         )
 
         self._audit(
@@ -750,7 +750,7 @@ class CrossWorkspaceCoordinator:
                 error_code="TIMEOUT",
             )
         except (RuntimeError, TypeError, ValueError) as e:
-            logger.error(f"Operation execution failed: {e}")
+            logger.error("Operation execution failed: %s", e)
             return CrossWorkspaceResult(
                 request_id=request.id,
                 success=False,
@@ -866,9 +866,9 @@ class CrossWorkspaceCoordinator:
                     }
                 )
             except (TypeError, ValueError, RuntimeError) as e:
-                logger.error(f"Audit callback failed: {e}")
+                logger.error("Audit callback failed: %s", e)
 
-        logger.debug(f"Audit: {event_type} {kwargs}")
+        logger.debug("Audit: %s %s", event_type, kwargs)
 
     def get_stats(self) -> dict[str, Any]:
         """Get coordinator statistics."""

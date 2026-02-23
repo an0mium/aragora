@@ -529,10 +529,10 @@ class MondayConnector(EnterpriseConnector):
         try:
             result = await self._graphql_request("query { me { id name } }")
             if result.get("me"):
-                logger.info(f"Monday.com authenticated as: {result['me'].get('name')}")
+                logger.info("Monday.com authenticated as: %s", result['me'].get('name'))
                 return True
         except (ValueError, OSError, KeyError) as e:
-            logger.error(f"Monday.com authentication failed: {e}")
+            logger.error("Monday.com authentication failed: %s", e)
 
         return False
 
@@ -1234,7 +1234,7 @@ class MondayConnector(EnterpriseConnector):
             items = [MondayItem.from_api(item) for item in items_page.get("items", [])]
             return items
         except (ValueError, KeyError, OSError) as e:
-            logger.warning(f"Monday.com search failed: {e}")
+            logger.warning("Monday.com search failed: %s", e)
             return []
 
     # =========================================================================

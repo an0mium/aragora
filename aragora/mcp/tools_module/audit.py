@@ -54,7 +54,7 @@ async def list_audit_presets_tool() -> dict[str, Any]:
             "count": len(presets),
         }
     except (RuntimeError, ValueError, OSError) as e:
-        logger.error(f"Failed to list audit presets: {e}")
+        logger.error("Failed to list audit presets: %s", e)
         return {"success": False, "error": str(e)}
 
 
@@ -92,7 +92,7 @@ async def list_audit_types_tool() -> dict[str, Any]:
             "count": len(types),
         }
     except (RuntimeError, ValueError, OSError) as e:
-        logger.error(f"Failed to list audit types: {e}")
+        logger.error("Failed to list audit types: %s", e)
         return {"success": False, "error": str(e)}
 
 
@@ -136,7 +136,7 @@ async def get_audit_preset_tool(preset_name: str) -> dict[str, Any]:
             },
         }
     except (RuntimeError, ValueError, OSError) as e:
-        logger.error(f"Failed to get preset: {e}")
+        logger.error("Failed to get preset: %s", e)
         return {"success": False, "error": str(e)}
 
 
@@ -198,7 +198,7 @@ async def create_audit_session_tool(
             },
         }
     except (RuntimeError, ValueError, OSError, ImportError) as e:
-        logger.error(f"Failed to create audit session: {e}")
+        logger.error("Failed to create audit session: %s", e)
         return {"success": False, "error": str(e)}
 
 
@@ -225,7 +225,7 @@ async def run_audit_tool(session_id: str) -> dict[str, Any]:
             "findings_count": len(result.findings) if hasattr(result, "findings") else 0,
         }
     except (RuntimeError, ValueError, OSError) as e:
-        logger.error(f"Failed to run audit: {e}")
+        logger.error("Failed to run audit: %s", e)
         return {"success": False, "error": str(e)}
 
 
@@ -262,7 +262,7 @@ async def get_audit_status_tool(session_id: str) -> dict[str, Any]:
             },
         }
     except (RuntimeError, ValueError, OSError) as e:
-        logger.error(f"Failed to get audit status: {e}")
+        logger.error("Failed to get audit status: %s", e)
         return {"success": False, "error": str(e)}
 
 
@@ -321,7 +321,7 @@ async def get_audit_findings_tool(
             "count": len(findings),
         }
     except (RuntimeError, ValueError, OSError, AttributeError) as e:
-        logger.error(f"Failed to get findings: {e}")
+        logger.error("Failed to get findings: %s", e)
         return {"success": False, "error": str(e)}
 
 
@@ -382,7 +382,7 @@ async def update_finding_status_tool(
             "comment": comment,
         }
     except (RuntimeError, ValueError, OSError, ImportError) as e:
-        logger.error(f"Failed to update finding status: {e}")
+        logger.error("Failed to update finding status: %s", e)
         return {"success": False, "error": str(e)}
 
 
@@ -449,7 +449,7 @@ async def run_quick_audit_tool(
             "high_findings": [f for f in findings if f.get("severity") == "high"][:5],  # Top 5 high
         }
     except (RuntimeError, ValueError, OSError) as e:
-        logger.error(f"Failed to run quick audit: {e}")
+        logger.error("Failed to run quick audit: %s", e)
         return {"success": False, "error": str(e)}
 
 

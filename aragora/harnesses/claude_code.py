@@ -163,7 +163,7 @@ class ClaudeCodeHarness(CodeAnalysisHarness):
             # Check if claude command exists
             claude_path = shutil.which(self.config.claude_code_path)
             if not claude_path:
-                logger.warning(f"Claude Code CLI not found at: {self.config.claude_code_path}")
+                logger.warning("Claude Code CLI not found at: %s", self.config.claude_code_path)
                 return False
 
             # Try to get version
@@ -183,15 +183,15 @@ class ClaudeCodeHarness(CodeAnalysisHarness):
 
             if proc.returncode == 0:
                 version = stdout.decode().strip()
-                logger.info(f"Claude Code CLI available: {version}")
+                logger.info("Claude Code CLI available: %s", version)
                 self._initialized = True
                 return True
             else:
-                logger.warning(f"Claude Code CLI check failed: {stderr.decode()}")
+                logger.warning("Claude Code CLI check failed: %s", stderr.decode())
                 return False
 
         except (OSError, ValueError, RuntimeError) as e:
-            logger.warning(f"Failed to initialize Claude Code harness: {e}")
+            logger.warning("Failed to initialize Claude Code harness: %s", e)
             return False
 
     async def analyze_repository(
@@ -273,7 +273,7 @@ Respond with a JSON array of findings. Each finding should have:
             logger.error(error_message)
         except HarnessError as e:
             error_message = str(e)
-            logger.error(f"Harness error: {e}")
+            logger.error("Harness error: %s", e)
         except (OSError, ValueError, TypeError, RuntimeError) as e:
             error_message = f"Unexpected error: {e}"
             logger.exception("Unexpected error in analyze_repository")
@@ -655,7 +655,7 @@ I'll ask you questions about the codebase. Provide helpful, accurate answers."""
                         if len(files) >= self.config.max_files:
                             break
         except (OSError, PermissionError) as e:
-            logger.warning(f"Error collecting files: {e}")
+            logger.warning("Error collecting files: %s", e)
 
         return files
 
@@ -677,7 +677,7 @@ I'll ask you questions about the codebase. Provide helpful, accurate answers."""
                 total_size += len(file_context)
 
             except (OSError, UnicodeDecodeError) as e:
-                logger.debug(f"Could not read file {file_path}: {e}")
+                logger.debug("Could not read file %s: %s", file_path, e)
 
         return "\n".join(context_parts)
 

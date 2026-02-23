@@ -202,8 +202,7 @@ class OAuthHandler(
             # The wrapper uses the new OAuthRateLimiter with exponential backoff
             if not impl._oauth_limiter.is_allowed(client_ip, endpoint_type):
                 logger.warning(
-                    f"OAuth rate limit exceeded: ip={client_ip}, endpoint={endpoint_type}, "
-                    f"provider={provider}"
+                    "OAuth rate limit exceeded: ip=%s, endpoint=%s, provider=%s", client_ip, endpoint_type, provider
                 )
                 _asa(span, {"oauth.rate_limited": True})
                 return error_response(
@@ -316,7 +315,7 @@ class OAuthHandler(
         decision = check_permission(rbac_context, permission_key, resource_id)
         if not decision.allowed:
             logger.warning(
-                f"Permission denied: user={auth_ctx.user_id} permission={permission_key} reason={decision.reason}"
+                "Permission denied: user=%s permission=%s reason=%s", auth_ctx.user_id, permission_key, decision.reason
             )
             return error_response("Permission denied", 403)
 
@@ -411,7 +410,7 @@ class OAuthHandler(
             role=user.role,
         )
 
-        logger.info(f"OAuth login: {user.email} via {user_info.provider}")
+        logger.info("OAuth login: %s via %s", user.email, user_info.provider)
 
         redirect_url = state_data.get("redirect_url", _impl()._get_oauth_success_url())
         return self._redirect_with_tokens(redirect_url, tokens)
@@ -464,7 +463,7 @@ class OAuthHandler(
                 try:
                     await self._try_refresh_user_store_pool(user_store)
                 except (ImportError, ConnectionError, OSError, RuntimeError, AttributeError) as refresh_err:
-                    logger.warning(f"Pool refresh failed: {refresh_err}")
+                    logger.warning("Pool refresh failed: %s", refresh_err)
 
                 await asyncio.sleep(delay)
 
@@ -577,7 +576,7 @@ class OAuthHandler(
                     name=user_info.name,
                 )
 
-            logger.debug(f"OAuth user created: id={user.id}, email={user_info.email}")
+            logger.debug("OAuth user created: id=%s, email=%s", user.id, user_info.email)
 
             # Link OAuth provider
             await self._link_oauth_to_user(user_store, user.id, user_info)  # type: ignore[misc]
@@ -601,15 +600,12 @@ class OAuthHandler(
 
             # Log auto-provisioning with default role for audit trail
             logger.info(
-                f"OAuth user auto-provisioned: email={user_info.email} "
-                f"provider={user_info.provider} user_id={user.id} "
-                f"role={getattr(user, 'role', 'member')} "
-                f"action=rbac_auto_provision"
+                "OAuth user auto-provisioned: email=%s provider=%s user_id=%s role=%s action=rbac_auto_provision", user_info.email, user_info.provider, user.id, getattr(user, 'role', 'member')
             )
             return user
 
         except ValueError as e:
-            logger.error(f"Failed to create OAuth user: {e}")
+            logger.error("Failed to create OAuth user: %s", e)
             return None
 
     def _handle_account_linking(
@@ -655,7 +651,7 @@ class OAuthHandler(
             self._link_oauth_to_user(user_store, user_id, user_info)
         )
         if not success:
-            logger.warning(f"OAuth linking fallback for user {user_id}")
+            logger.warning("OAuth linking fallback for user %s", user_id)
 
         redirect_url = state_data.get("redirect_url", _impl()._get_oauth_success_url())
         return HandlerResult(

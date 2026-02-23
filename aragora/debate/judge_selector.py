@@ -106,7 +106,7 @@ class JudgeScoringMixin:
             cal_score = rating.calibration_score
             return 0.5 + cal_score
         except (AttributeError, TypeError, KeyError, ValueError) as e:
-            logger.debug(f"Calibration weight lookup failed for {agent_name}: {e}")
+            logger.debug("Calibration weight lookup failed for %s: %s", agent_name, e)
             return 1.0
 
     def compute_composite_score(self, agent_name: str) -> float:
@@ -131,7 +131,7 @@ class JudgeScoringMixin:
             # Weighted combination: 70% ELO, 30% calibration
             return (elo_normalized * 0.7) + (cal_score * 0.3)
         except (AttributeError, TypeError, KeyError, ValueError) as e:
-            logger.debug(f"Composite score calculation failed for {agent_name}: {e}")
+            logger.debug("Composite score calculation failed for %s: %s", agent_name, e)
             return 0.0
 
     def get_all_scores(self, agents: Sequence[Agent]) -> list[JudgeScore]:
@@ -252,10 +252,10 @@ class EloRankedStrategy(JudgeSelectionStrategy, JudgeScoringMixin):
                 if entry_agent_name in agent_names:
                     judge = next((a for a in agents if a.name == entry_agent_name), None)
                     if judge:
-                        logger.debug(f"Selected {entry_agent_name} (ELO: {entry.elo}) as judge")
+                        logger.debug("Selected %s (ELO: %s) as judge", entry_agent_name, entry.elo)
                         return judge
         except (AttributeError, TypeError, KeyError, ValueError, RuntimeError) as e:
-            logger.warning(f"ELO query failed: {e}; falling back to random")
+            logger.warning("ELO query failed: %s; falling back to random", e)
 
         return random.choice(list(agents)) if agents else None
 
@@ -336,7 +336,7 @@ class CruxAwareStrategy(JudgeSelectionStrategy, JudgeScoringMixin):
                 ranked = self._rank_by_elo(dissenters)
                 if ranked:
                     logger.info(
-                        f"crux_aware_judge selected={ranked[0].name} reason=historical_dissenter"
+                        "crux_aware_judge selected=%s reason=historical_dissenter", ranked[0].name
                     )
                     return ranked[0]
 
@@ -399,7 +399,7 @@ class CruxAwareStrategy(JudgeSelectionStrategy, JudgeScoringMixin):
                             dissenters.add(agent_name)
 
         except (AttributeError, TypeError, KeyError, ValueError, RuntimeError) as e:
-            logger.debug(f"Historical dissent query failed: {e}")
+            logger.debug("Historical dissent query failed: %s", e)
 
         # Convert names back to agent objects
         return [a for a in agents if a.name in dissenters]
@@ -427,7 +427,7 @@ class CruxAwareStrategy(JudgeSelectionStrategy, JudgeScoringMixin):
             )
             return ranked
         except (AttributeError, TypeError, KeyError, ValueError, RuntimeError) as e:
-            logger.debug(f"ELO ranking failed: {e}")
+            logger.debug("ELO ranking failed: %s", e)
             return list(agents)
 
 
@@ -481,7 +481,7 @@ class VotedStrategy(JudgeSelectionStrategy):
                         vote_counts[other.name] = vote_counts.get(other.name, 0) + 1
                         break
             except (RuntimeError, ValueError, TypeError, TimeoutError, ConnectionError, OSError) as e:
-                logger.warning(f"Judge vote error for {agent.name}: {e}")
+                logger.warning("Judge vote error for %s: %s", agent.name, e)
 
         # Select agent with most votes, random tiebreaker
         if vote_counts:
@@ -591,14 +591,14 @@ class JudgeSelector(JudgeScoringMixin):
             if self._circuit_breaker.is_available(agent.name):
                 available.append(agent)
             else:
-                logger.debug(f"judge_filter_unavailable agent={agent.name}")
+                logger.debug("judge_filter_unavailable agent=%s", agent.name)
 
         if not available:
             # All agents unavailable - fall back to all agents with warning
-            logger.warning(f"judge_selection_all_unavailable count={len(agents)}, using all")
+            logger.warning("judge_selection_all_unavailable count=%s, using all", len(agents))
             return list(agents)
 
-        logger.debug(f"judge_filter_result available={len(available)}/{len(agents)}")
+        logger.debug("judge_filter_result available=%s/%s", len(available), len(agents))
         return available
 
     async def select_judge(
@@ -624,7 +624,7 @@ class JudgeSelector(JudgeScoringMixin):
         strategy = self._strategies.get(self._judge_selection)
 
         if not strategy:
-            logger.warning(f"Unknown judge selection '{self._judge_selection}', using random")
+            logger.warning("Unknown judge selection '%s', using random", self._judge_selection)
             strategy = self._strategies["random"]
 
         judge = await strategy.select(available_agents, proposals, context)
@@ -676,7 +676,7 @@ class JudgeSelector(JudgeScoringMixin):
             random.shuffle(candidates)
 
         logger.debug(
-            f"judge_candidates count={len(candidates)} agents={[a.name for a in candidates]}"
+            "judge_candidates count=%s agents=%s", len(candidates), [a.name for a in candidates]
         )
         return candidates
 
@@ -1029,7 +1029,7 @@ class JudgePanel:
             JudgingResult with votes informed by deliberation
         """
         logger.info(
-            f"judge_deliberation_start judges={len(self.judges)} rounds={deliberation_rounds}"
+            "judge_deliberation_start judges=%s rounds=%s", len(self.judges), deliberation_rounds
         )
 
         # Step 1: Collect initial assessments
@@ -1112,7 +1112,7 @@ class JudgePanel:
                     "confidence": 0.7,  # Default confidence
                 }
             except (RuntimeError, ValueError, TypeError, TimeoutError, ConnectionError, OSError) as e:
-                logger.warning(f"assessment_error judge={judge.name}: {e}")
+                logger.warning("assessment_error judge=%s: %s", judge.name, e)
                 return judge.name, None
 
         # Collect assessments in parallel
@@ -1124,8 +1124,7 @@ class JudgePanel:
                 name, assessment = result
                 assessments[name] = assessment
                 logger.debug(
-                    f"judge_initial_assessment judge={name} "
-                    f"recommendation={assessment['recommendation']}"
+                    "judge_initial_assessment judge=%s recommendation=%s", name, assessment['recommendation']
                 )
 
         return assessments
@@ -1154,7 +1153,7 @@ class JudgePanel:
         Returns:
             Updated assessments after deliberation
         """
-        logger.debug(f"judge_deliberation_round={round_num} judges={len(assessments)}")
+        logger.debug("judge_deliberation_round=%s judges=%s", round_num, len(assessments))
 
         import asyncio
 
@@ -1199,7 +1198,7 @@ class JudgePanel:
                     "deliberation_round": round_num,
                 }
             except (RuntimeError, ValueError, TypeError, TimeoutError, ConnectionError, OSError) as e:
-                logger.warning(f"deliberation_error judge={judge.name} round={round_num}: {e}")
+                logger.warning("deliberation_error judge=%s round=%s: %s", judge.name, round_num, e)
                 # Keep previous assessment
                 return judge.name, assessments.get(judge.name)
 
@@ -1360,8 +1359,7 @@ def create_judge_panel(
         weights = {}
 
     logger.info(
-        f"create_judge_panel domain={domain} count={len(judges)} "
-        f"excluded={len(participant_names)} participants"
+        "create_judge_panel domain=%s count=%s excluded=%s participants", domain, len(judges), len(participant_names)
     )
 
     return JudgePanel(judges=judges, strategy=strategy, judge_weights=weights)

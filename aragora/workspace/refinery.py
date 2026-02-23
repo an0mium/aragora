@@ -377,7 +377,7 @@ class Refinery:
             (return_code, stdout, stderr)
         """
         cmd = ["git"] + list(args)
-        logger.debug(f"Running: {' '.join(cmd)}")
+        logger.debug("Running: %s", ' '.join(cmd))
         proc = await asyncio.create_subprocess_exec(
             *cmd,
             stdout=asyncio.subprocess.PIPE,
@@ -399,7 +399,7 @@ class Refinery:
         if not self.config.test_command:
             return True
 
-        logger.info(f"Running tests for merge {request.request_id}")
+        logger.info("Running tests for merge %s", request.request_id)
         try:
             proc = await asyncio.create_subprocess_exec(
                 *self.config.test_command,
@@ -412,14 +412,14 @@ class Refinery:
             except asyncio.TimeoutError:
                 proc.kill()
                 await proc.wait()
-                logger.warning(f"Tests timed out for merge {request.request_id}")
+                logger.warning("Tests timed out for merge %s", request.request_id)
                 return False
             success = proc.returncode == 0
             if not success:
-                logger.warning(f"Tests failed for merge {request.request_id}")
+                logger.warning("Tests failed for merge %s", request.request_id)
             return success
         except FileNotFoundError:
-            logger.warning(f"Test command not found: {self.config.test_command[0]}")
+            logger.warning("Test command not found: %s", self.config.test_command[0])
             return True  # Don't block if test runner unavailable
 
     async def _check_approval(self, request: MergeRequest) -> bool:
@@ -431,7 +431,7 @@ class Refinery:
         # Check for .approved marker file on branch metadata
         approved = request.metadata.get("approved", False)
         if not approved:
-            logger.info(f"Merge {request.request_id} awaiting approval")
+            logger.info("Merge %s awaiting approval", request.request_id)
         return approved
 
     async def _rebase(self, request: MergeRequest) -> bool:
@@ -443,14 +443,14 @@ class Refinery:
         # Checkout source branch
         rc, _, stderr = await self._run_git("checkout", request.source_branch)
         if rc != 0:
-            logger.error(f"Failed to checkout {request.source_branch}: {stderr}")
+            logger.error("Failed to checkout %s: %s", request.source_branch, stderr)
             return False
 
         # Rebase onto target
         rc, _, stderr = await self._run_git("rebase", request.target_branch)
         if rc != 0:
             # Detect conflicts
-            logger.warning(f"Rebase conflict for {request.request_id}: {stderr}")
+            logger.warning("Rebase conflict for %s: %s", request.request_id, stderr)
             # Get conflicting files
             _, diff_out, _ = await self._run_git("diff", "--name-only", "--diff-filter=U")
             if diff_out:
@@ -470,7 +470,7 @@ class Refinery:
         # Checkout target branch
         rc, _, stderr = await self._run_git("checkout", request.target_branch)
         if rc != 0:
-            logger.error(f"Failed to checkout {request.target_branch}: {stderr}")
+            logger.error("Failed to checkout %s: %s", request.target_branch, stderr)
             return None
 
         # Merge with no-ff
@@ -483,7 +483,7 @@ class Refinery:
             merge_msg,
         )
         if rc != 0:
-            logger.error(f"Merge failed for {request.request_id}: {stderr}")
+            logger.error("Merge failed for %s: %s", request.request_id, stderr)
             # Get conflict files if merge failed
             _, diff_out, _ = await self._run_git("diff", "--name-only", "--diff-filter=U")
             if diff_out:
@@ -506,7 +506,7 @@ class Refinery:
         # Checkout target branch
         rc, _, stderr = await self._run_git("checkout", request.target_branch)
         if rc != 0:
-            logger.error(f"Failed to checkout {request.target_branch}: {stderr}")
+            logger.error("Failed to checkout %s: %s", request.target_branch, stderr)
             return False
 
         # Revert the merge commit (mainline 1 for merge commits)
@@ -518,7 +518,7 @@ class Refinery:
             request.merge_commit,
         )
         if rc != 0:
-            logger.error(f"Rollback failed for {request.request_id}: {stderr}")
+            logger.error("Rollback failed for %s: %s", request.request_id, stderr)
             return False
 
         return True

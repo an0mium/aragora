@@ -97,8 +97,7 @@ class PolicyHistory:
                 self._history[policy_id] = self._history[policy_id][-self._max_versions :]
 
             logger.info(
-                f"Policy version recorded: {policy.name} v{policy.version} "
-                f"by {changed_by or 'system'}"
+                "Policy version recorded: %s v%s by %s", policy.name, policy.version, changed_by or 'system'
             )
 
             return version
@@ -160,7 +159,7 @@ class PolicyHistory:
         """
         target_version = await self.get_version(policy_id, version)
         if not target_version:
-            logger.warning(f"Policy version not found: {policy_id} v{version}")
+            logger.warning("Policy version not found: %s v%s", policy_id, version)
             return None
 
         # Get current version number
@@ -185,8 +184,7 @@ class PolicyHistory:
         )
 
         logger.info(
-            f"Policy rolled back: {policy_id} from v{current_version} to v{version} "
-            f"(now v{restored_policy.version}) by {rolled_back_by or 'system'}"
+            "Policy rolled back: %s from v%s to v%s (now v%s) by %s", policy_id, current_version, version, restored_policy.version, rolled_back_by or 'system'
         )
 
         return restored_policy

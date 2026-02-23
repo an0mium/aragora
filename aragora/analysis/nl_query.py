@@ -288,7 +288,7 @@ class DocumentQueryEngine:
 
             searcher = await create_hybrid_searcher()
         except (ImportError, RuntimeError, OSError) as e:
-            logger.warning(f"Could not create hybrid searcher: {e}")
+            logger.warning("Could not create hybrid searcher: %s", e)
             searcher = None
 
         return cls(config=config, searcher=searcher)
@@ -545,7 +545,7 @@ class DocumentQueryEngine:
             )
             return results
         except (OSError, ValueError, RuntimeError) as e:
-            logger.error(f"Search failed: {e}")
+            logger.error("Search failed: %s", e)
             return []
 
     def _deduplicate_results(self, results: list[Any]) -> list[Any]:
@@ -585,7 +585,7 @@ class DocumentQueryEngine:
         try:
             answer, model_used = await self._call_llm(prompt, context_messages)
         except (ImportError, RuntimeError, OSError, ValueError) as e:
-            logger.error(f"LLM call failed: {e}")
+            logger.error("LLM call failed: %s", e)
             answer = "I encountered an error while generating the answer."
             model_used = "error"
 
@@ -660,7 +660,7 @@ ANSWER:"""
                 response = await agent.generate(full_prompt)
                 return response, self.config.model
         except (ImportError, RuntimeError, OSError, ValueError) as e:
-            logger.warning(f"Primary model failed: {e}, trying fallback")
+            logger.warning("Primary model failed: %s, trying fallback", e)
 
         # Try fallback model
         try:
@@ -672,7 +672,7 @@ ANSWER:"""
                 response = await agent.generate(prompt)
                 return response, self.config.fallback_model
         except (ImportError, RuntimeError, OSError, ValueError) as e:
-            logger.error(f"Fallback model also failed: {e}")
+            logger.error("Fallback model also failed: %s", e)
 
         # Last resort: return error message
         return "Unable to generate answer due to model unavailability.", "none"
@@ -704,7 +704,7 @@ ANSWER:"""
                 response = await agent.generate(prompt) if agent else "No model available."
                 yield response
         except (ImportError, RuntimeError, OSError, ValueError) as e:
-            logger.error(f"Streaming failed: {e}")
+            logger.error("Streaming failed: %s", e)
             yield f"Error generating answer: {str(e)}"
 
     def _build_citations(self, results: list[Any]) -> list[Citation]:

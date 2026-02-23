@@ -133,7 +133,7 @@ def encrypt_sensitive(
             associated_data=record_id,
         )
     except (ValueError, RuntimeError, OSError) as e:
-        logger.error(f"Failed to encrypt sensitive fields: {e}")
+        logger.error("Failed to encrypt sensitive fields: %s", e)
         # In case of encryption failure, don't store unencrypted
         raise EncryptionError(f"Failed to encrypt data: {e}") from e
 
@@ -188,10 +188,10 @@ def decrypt_sensitive(
             associated_data=record_id,
         )
     except (ValueError, RuntimeError, OSError) as e:
-        logger.error(f"Failed to decrypt sensitive fields: {e}")
+        logger.error("Failed to decrypt sensitive fields: %s", e)
         raise DecryptionError(f"Failed to decrypt data: {e}") from e
     except Exception as e:  # noqa: BLE001 - cryptography errors (InvalidTag) don't subclass standard types
-        logger.error(f"Failed to decrypt sensitive fields (crypto error): {e}")
+        logger.error("Failed to decrypt sensitive fields (crypto error): %s", e)
         raise DecryptionError(f"Failed to decrypt data: {e}") from e
 
 

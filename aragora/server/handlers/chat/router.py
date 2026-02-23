@@ -106,10 +106,10 @@ except ImportError:
 def _handle_task_exception(task: asyncio.Task[Any], task_name: str) -> None:
     """Handle exceptions from fire-and-forget async tasks."""
     if task.cancelled():
-        logger.debug(f"Task {task_name} was cancelled")
+        logger.debug("Task %s was cancelled", task_name)
     elif task.exception():
         exc = task.exception()
-        logger.error(f"Task {task_name} failed: {exc}", exc_info=exc)
+        logger.error("Task %s failed: %s", task_name, exc, exc_info=exc)
 
 
 def create_tracked_task(coro, name: str) -> asyncio.Task[Any]:
@@ -165,7 +165,7 @@ class ChatWebhookRouter:
             try:
                 self._decision_router = get_decision_router()
             except (ImportError, RuntimeError, ValueError, AttributeError) as e:
-                logger.debug(f"DecisionRouter not available: {e}")
+                logger.debug("DecisionRouter not available: %s", e)
 
     def get_connector(self, platform: str) -> ChatPlatformConnector | None:
         """Get or create connector for a platform."""
@@ -286,7 +286,7 @@ class ChatWebhookRouter:
         """Verify webhook signature for a platform."""
         connector = self.get_connector(platform)
         if connector is None:
-            logger.warning(f"No connector for platform: {platform}")
+            logger.warning("No connector for platform: %s", platform)
             return False
 
         return connector.verify_webhook(headers, body)
@@ -327,7 +327,7 @@ class ChatWebhookRouter:
         """
         # Verify signature
         if not self.verify_webhook(platform, headers, body):
-            logger.warning(f"Webhook verification failed for {platform}")
+            logger.warning("Webhook verification failed for %s", platform)
             return error_response("Invalid signature", code="UNAUTHORIZED", status=401)
 
         # Parse event
@@ -335,7 +335,7 @@ class ChatWebhookRouter:
 
         # Handle URL verification challenges
         if event.is_verification:
-            logger.info(f"Handling verification challenge for {platform}")
+            logger.info("Handling verification challenge for %s", platform)
             return self._handle_verification(platform, event)
 
         # Process the event
@@ -374,7 +374,7 @@ class ChatWebhookRouter:
 
     async def _process_event(self, event: WebhookEvent) -> dict[str, Any]:
         """Process a parsed webhook event."""
-        logger.info(f"Processing {event.platform} event: {event.event_type}")
+        logger.info("Processing %s event: %s", event.platform, event.event_type)
 
         # Handle commands (slash commands, bot mentions)
         if event.command:
@@ -397,7 +397,7 @@ class ChatWebhookRouter:
             try:
                 await self.event_handler(event)
             except (TypeError, ValueError, RuntimeError, ConnectionError, TimeoutError, OSError) as e:
-                logger.error(f"Event handler error: {e}")
+                logger.error("Event handler error: %s", e)
 
         return {"success": True}
 
@@ -407,7 +407,7 @@ class ChatWebhookRouter:
         if command is None:
             return {"success": True}
 
-        logger.info(f"Command from {event.platform}: /{command.name} {command.args}")
+        logger.info("Command from %s: /%s %s", event.platform, command.name, command.args)
 
         # Check for aragora-specific commands
         if command.name in ("aragora", "debate", "review", "gauntlet"):
@@ -418,7 +418,7 @@ class ChatWebhookRouter:
             try:
                 await self.event_handler(event)
             except (TypeError, ValueError, RuntimeError, ConnectionError, TimeoutError, OSError) as e:
-                logger.error(f"Command handler error: {e}")
+                logger.error("Command handler error: %s", e)
 
         return {"success": True}
 
@@ -471,7 +471,7 @@ class ChatWebhookRouter:
                     )
                     response_text = f"Starting debate on: {topic}\nDebate ID: {result.decision_id}"
                 except (ConnectionError, TimeoutError, OSError, ValueError, RuntimeError) as e:
-                    logger.error(f"DecisionRouter error: {e}")
+                    logger.error("DecisionRouter error: %s", e)
                     response_text = f"Failed to start debate: {e}"
             elif self.debate_starter:
                 # Fallback to legacy debate_starter
@@ -503,7 +503,7 @@ class ChatWebhookRouter:
                     )
                     response_text = f"Running gauntlet on: {topic}\nID: {result.decision_id}"
                 except (ConnectionError, TimeoutError, OSError, ValueError, RuntimeError) as e:
-                    logger.error(f"DecisionRouter error: {e}")
+                    logger.error("DecisionRouter error: %s", e)
                     response_text = f"Failed to run gauntlet: {e}"
             else:
                 response_text = "Gauntlet not available (DecisionRouter required)"
@@ -523,7 +523,7 @@ class ChatWebhookRouter:
                     )
                     response_text = f"Starting workflow: {workflow_name}\nID: {result.decision_id}"
                 except (ConnectionError, TimeoutError, OSError, ValueError, RuntimeError) as e:
-                    logger.error(f"DecisionRouter error: {e}")
+                    logger.error("DecisionRouter error: %s", e)
                     response_text = f"Failed to start workflow: {e}"
             else:
                 response_text = "Workflow not available (DecisionRouter required)"
@@ -542,7 +542,7 @@ class ChatWebhookRouter:
                 ephemeral=True,
             )
         except (ConnectionError, TimeoutError, OSError, ValueError, RuntimeError) as e:
-            logger.error(f"Failed to respond to command: {e}")
+            logger.error("Failed to respond to command: %s", e)
 
         return {"success": True}
 
@@ -552,7 +552,7 @@ class ChatWebhookRouter:
         if interaction is None:
             return {"success": True}
 
-        logger.info(f"Interaction from {event.platform}: {interaction.action_id}")
+        logger.info("Interaction from %s: %s", event.platform, interaction.action_id)
 
         # Route approval interactions first
         connector = self.get_connector(event.platform)
@@ -575,7 +575,7 @@ class ChatWebhookRouter:
             try:
                 await self.event_handler(event)
             except (TypeError, ValueError, RuntimeError, ConnectionError, TimeoutError, OSError) as e:
-                logger.error(f"Interaction handler error: {e}")
+                logger.error("Interaction handler error: %s", e)
 
         return {"success": True}
 
@@ -589,14 +589,14 @@ class ChatWebhookRouter:
         if message.author.is_bot:
             return {"success": True}
 
-        logger.debug(f"Message from {event.platform}: {message.content[:50]}...")
+        logger.debug("Message from %s: %s...", event.platform, message.content[:50])
 
         # Pass to event handler
         if self.event_handler:
             try:
                 await self.event_handler(event)
             except (TypeError, ValueError, RuntimeError, ConnectionError, TimeoutError, OSError) as e:
-                logger.error(f"Message handler error: {e}")
+                logger.error("Message handler error: %s", e)
 
         return {"success": True}
 
@@ -606,7 +606,7 @@ class ChatWebhookRouter:
         if voice is None:
             return {"success": True}
 
-        logger.info(f"Voice message from {event.platform}: {voice.duration_seconds}s")
+        logger.info("Voice message from %s: %ss", event.platform, voice.duration_seconds)
 
         # Transcribe using voice bridge
         try:
@@ -620,13 +620,13 @@ class ChatWebhookRouter:
                     voice,
                     connector=connector,
                 )
-                logger.info(f"Transcribed: {transcription[:100]}...")
+                logger.info("Transcribed: %s...", transcription[:100])
 
                 # Create a message event with transcription
                 event.message = event.voice_message = None
                 # Could trigger debate or pass to handler
         except (ImportError, ConnectionError, TimeoutError, OSError, ValueError, RuntimeError) as e:
-            logger.error(f"Voice transcription error: {e}")
+            logger.error("Voice transcription error: %s", e)
 
         return {"success": True}
 
@@ -768,7 +768,7 @@ if HANDLER_BASE_AVAILABLE:
             self, path: str, query_params: dict[str, Any], handler: Any
         ) -> HandlerResult | None:
             """Route chat requests."""
-            logger.debug(f"Chat request: {path}")
+            logger.debug("Chat request: %s", path)
 
             if path == "/api/v1/chat/status":
                 # Auth and permission check for status endpoint
@@ -795,7 +795,7 @@ if HANDLER_BASE_AVAILABLE:
             if _chat_limiter is not None:
                 client_ip = get_client_ip(handler)
                 if not _chat_limiter.is_allowed(client_ip):
-                    logger.warning(f"Rate limit exceeded for chat webhook: {client_ip}")
+                    logger.warning("Rate limit exceeded for chat webhook: %s", client_ip)
                     return error_response("Rate limit exceeded. Please try again later.", 429)
 
             # Get headers
@@ -834,7 +834,7 @@ if HANDLER_BASE_AVAILABLE:
                 if not platform:
                     platform = self.router.detect_platform_from_body(headers, raw_body)
                     if platform:
-                        logger.info(f"Detected platform '{platform}' from body structure")
+                        logger.info("Detected platform '%s' from body structure", platform)
 
             if not platform:
                 logger.warning(
@@ -954,7 +954,7 @@ def _create_decision_router_debate_starter():
             logger.debug("DecisionRouter not available, returning minimal response")
             return {"debate_id": "pending", "topic": topic}
         except (ConnectionError, TimeoutError, OSError, ValueError, RuntimeError) as e:
-            logger.error(f"DecisionRouter debate start failed: {e}")
+            logger.error("DecisionRouter debate start failed: %s", e)
             raise
 
     return debate_starter

@@ -392,7 +392,7 @@ class ConsensusMemory(SQLiteStore):
             _km_consensus_cache.set(cache_key, results)
             return results
         except (AttributeError, TypeError, RuntimeError) as e:
-            logger.warning(f"Failed to query KM for similar consensus: {e}")
+            logger.warning("Failed to query KM for similar consensus: %s", e)
             return []
 
     def _hash_topic(self, topic: str) -> str:
@@ -470,7 +470,7 @@ class ConsensusMemory(SQLiteStore):
             try:
                 self._km_adapter.store_consensus(record)
             except (ConnectionError, TimeoutError, OSError, RuntimeError, ValueError) as e:
-                logger.debug(f"Failed to sync consensus to KM: {e}")
+                logger.debug("Failed to sync consensus to KM: %s", e)
 
         return record
 
@@ -584,7 +584,7 @@ class ConsensusMemory(SQLiteStore):
             )
             conn.commit()
 
-        logger.debug(f"Updated consensus {consensus_id} with {len(cruxes[:5])} cruxes")
+        logger.debug("Updated consensus %s with %s cruxes", consensus_id, len(cruxes[:5]))
         return True
 
     def store_verified_proof(
@@ -642,8 +642,7 @@ class ConsensusMemory(SQLiteStore):
             conn.commit()
 
         logger.debug(
-            f"Stored verified proof {proof_id} for debate {debate_id} "
-            f"status={proof_result.get('status')} verified={proof_result.get('is_verified')}"
+            "Stored verified proof %s for debate %s status=%s verified=%s", proof_id, debate_id, proof_result.get('status'), proof_result.get('is_verified')
         )
 
         # Invalidate related caches
@@ -965,7 +964,7 @@ class ConsensusMemory(SQLiteStore):
                     if data and debate_id in result:
                         result[debate_id].append(DissentRecord.from_dict(data))
         except sqlite3.Error as e:
-            logger.exception(f"Failed to batch fetch dissents: {e}")
+            logger.exception("Failed to batch fetch dissents: %s", e)
 
         return result
 

@@ -42,7 +42,7 @@ class EventsMixin:
         channel = event.get("channel", "")
         user = event.get("user", "")
 
-        logger.info(f"App mention from {user} in {channel}: {text[:50]}...")
+        logger.info("App mention from %s in %s: %s...", user, channel, text[:50])
 
         # Parse the mention to extract command/question
         # Remove the bot mention from the text
@@ -137,15 +137,15 @@ class EventsMixin:
                 )
                 result = response.json()
                 if not result.get("ok"):
-                    logger.warning(f"Slack API error: {result.get('error')}")
+                    logger.warning("Slack API error: %s", result.get('error'))
                     return None
                 # Return message timestamp for thread tracking
                 return result.get("ts")
         except (ConnectionError, TimeoutError) as e:
-            logger.warning(f"Connection error posting Slack message: {e}")
+            logger.warning("Connection error posting Slack message: %s", e)
             return None
         except (RuntimeError, ValueError, TypeError, OSError) as e:
-            logger.exception(f"Unexpected error posting Slack message: {e}")
+            logger.exception("Unexpected error posting Slack message: %s", e)
             return None
 
     def handle_message_event(self, event: dict[str, Any]) -> HandlerResult:
@@ -172,7 +172,7 @@ class EventsMixin:
         user = event.get("user", "")
         channel = event.get("channel", "")
 
-        logger.info(f"DM from {user}: {text[:50]}...")
+        logger.info("DM from %s: %s...", user, text[:50])
 
         # Parse DM commands
         response_text = self._parse_dm_command(text)
@@ -259,7 +259,7 @@ class EventsMixin:
             agents = store.get_all_ratings()
             return f"*Aragora Status*\n• Status: Online\n• Agents: {len(agents)} registered"
         except (ImportError, AttributeError, RuntimeError) as e:
-            logger.debug(f"Failed to fetch status: {e}")
+            logger.debug("Failed to fetch status: %s", e)
             return "*Aragora Status*\n• Status: Online\n• Agents: Unknown"
 
     def _get_agents_response(self) -> str:
@@ -280,7 +280,7 @@ class EventsMixin:
             else:
                 return "No agents registered yet."
         except (ImportError, AttributeError, RuntimeError) as e:
-            logger.debug(f"Failed to fetch agents: {e}")
+            logger.debug("Failed to fetch agents: %s", e)
             return "Agent list temporarily unavailable."
 
 

@@ -421,7 +421,7 @@ class ConvoyTracker:
             metadata_updates=metadata,
             completed_at=completed_at,
         )
-        logger.info(f"Convoy {convoy_id} completed")
+        logger.info("Convoy %s completed", convoy_id)
         return self._from_nomic_convoy(nomic_convoy)
 
     async def fail_convoy(self, convoy_id: str, error: str) -> Convoy | None:
@@ -443,7 +443,7 @@ class ConvoyTracker:
             completed_at=completed_at,
             error_message=error,
         )
-        logger.error(f"Convoy {convoy_id} failed: {error}")
+        logger.error("Convoy %s failed: %s", convoy_id, error)
         return self._from_nomic_convoy(nomic_convoy)
 
     async def cancel_convoy(self, convoy_id: str) -> Convoy | None:

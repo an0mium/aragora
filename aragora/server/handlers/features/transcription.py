@@ -284,7 +284,7 @@ class TranscriptionHandler(BaseHandler):
 
             del TranscriptionHandler._jobs[job_id]
 
-        logger.info(f"Transcription job deleted: {job_id}")
+        logger.info("Transcription job deleted: %s", job_id)
         return json_response(
             {
                 "success": True,
@@ -509,7 +509,7 @@ class TranscriptionHandler(BaseHandler):
         )
 
         logger.info(
-            f"Transcription job created: {job.id} for {filename} ({len(file_content)} bytes)"
+            "Transcription job created: %s for %s (%s bytes)", job.id, filename, len(file_content)
         )
 
         return json_response(
@@ -593,7 +593,7 @@ class TranscriptionHandler(BaseHandler):
                         logger.warning("Transcript knowledge ingestion failed: %s", e)
 
         except (ValueError, KeyError, TypeError, RuntimeError, OSError) as e:
-            logger.error(f"Transcription failed for {job_id}: {e}")
+            logger.error("Transcription failed for %s: %s", job_id, e)
             self._update_job(
                 job_id,
                 TranscriptionStatus.FAILED,

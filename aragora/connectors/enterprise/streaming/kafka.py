@@ -234,7 +234,7 @@ class KafkaConnector(EnterpriseConnector):
                 value=message.to_json().encode("utf-8"),
                 key=message.original_key.encode("utf-8") if message.original_key else None,
             )
-            logger.info(f"[Kafka] Sent message to DLQ topic: {topic}")
+            logger.info("[Kafka] Sent message to DLQ topic: %s", topic)
 
     async def _create_producer(self) -> None:
         """Create a Kafka producer for DLQ messages."""
@@ -268,7 +268,7 @@ class KafkaConnector(EnterpriseConnector):
         except ImportError:
             logger.warning("[Kafka] aiokafka not installed, DLQ sender disabled")
         except (OSError, RuntimeError, ConnectionError, TimeoutError) as e:
-            logger.error(f"[Kafka] Failed to create producer: {e}")
+            logger.error("[Kafka] Failed to create producer: %s", e)
 
     async def connect(self) -> bool:
         """
@@ -307,7 +307,7 @@ class KafkaConnector(EnterpriseConnector):
                     await self._health_monitor.record_failure(e)
 
                 if attempt == self.config.resilience.max_retries:
-                    logger.error(f"[Kafka] Connection failed after {attempt + 1} attempts: {e}")
+                    logger.error("[Kafka] Connection failed after %s attempts: %s", attempt + 1, e)
                     return False
 
                 delay = backoff.get_delay(attempt)
@@ -354,8 +354,7 @@ class KafkaConnector(EnterpriseConnector):
         consumer = self._consumer
         await consumer.start()
         logger.info(
-            f"[Kafka] Connected to {self.config.bootstrap_servers}, "
-            f"topics={self.config.topics}, group={self.config.group_id}"
+            "[Kafka] Connected to %s, topics=%s, group=%s", self.config.bootstrap_servers, self.config.topics, self.config.group_id
         )
         return True
 
@@ -449,13 +448,13 @@ class KafkaConnector(EnterpriseConnector):
                         break
 
                 except CircuitBreakerOpenError as e:
-                    logger.warning(f"[Kafka] Circuit breaker open: {e}")
+                    logger.warning("[Kafka] Circuit breaker open: %s", e)
                     # Wait for recovery
                     await asyncio.sleep(e.recovery_time)
 
                 except (ValueError, RuntimeError, KeyError, json.JSONDecodeError) as e:
                     self._error_count += 1
-                    logger.warning(f"[Kafka] Error processing message: {e}")
+                    logger.warning("[Kafka] Error processing message: %s", e)
 
                     if self._health_monitor:
                         await self._health_monitor.record_failure(e)

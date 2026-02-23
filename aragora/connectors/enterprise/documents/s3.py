@@ -212,7 +212,7 @@ class S3Connector(EnterpriseConnector):
             return "[PDF extraction requires pypdf or PyPDF2]"
 
         except (OSError, ValueError) as e:
-            logger.warning(f"PDF extraction failed: {e}")
+            logger.warning("PDF extraction failed: %s", e)
             return f"[PDF extraction failed: {e}]"
 
     async def _extract_docx_text(self, content: bytes) -> str:
@@ -228,7 +228,7 @@ class S3Connector(EnterpriseConnector):
         except ImportError:
             return "[DOCX extraction requires python-docx]"
         except (OSError, ValueError, KeyError) as e:
-            logger.warning(f"DOCX extraction failed: {e}")
+            logger.warning("DOCX extraction failed: %s", e)
             return f"[DOCX extraction failed: {e}]"
 
     async def sync_items(
@@ -331,7 +331,7 @@ class S3Connector(EnterpriseConnector):
                         items_processed += 1
 
                     except (OSError, ValueError, KeyError) as e:
-                        logger.warning(f"Failed to process {key}: {e}")
+                        logger.warning("Failed to process %s: %s", key, e)
                         continue
 
                 # Check for more results
@@ -345,7 +345,7 @@ class S3Connector(EnterpriseConnector):
                 logger.warning("Pagination limit reached (%d pages)", _max_pages)
 
         except (OSError, ValueError, KeyError) as e:
-            logger.error(f"S3 sync failed: {e}")
+            logger.error("S3 sync failed: %s", e)
             state.errors.append("S3 sync operation failed")
 
     async def search(
@@ -355,7 +355,7 @@ class S3Connector(EnterpriseConnector):
         **kwargs: Any,
     ) -> list:
         """Search is not directly supported by S3. Returns empty list."""
-        logger.debug(f"[{self.name}] Search not supported, use Knowledge Mound")
+        logger.debug("[%s] Search not supported, use Knowledge Mound", self.name)
         return []
 
     async def fetch(self, evidence_id: str) -> Any:
@@ -371,7 +371,7 @@ class S3Connector(EnterpriseConnector):
         parts[2]
 
         # We can't reverse the hash, so this is mainly for verification
-        logger.debug(f"[{self.name}] Fetch not implemented for hash-based IDs")
+        logger.debug("[%s] Fetch not implemented for hash-based IDs", self.name)
         return None
 
     async def handle_webhook(self, payload: dict[str, Any]) -> bool:
@@ -385,7 +385,7 @@ class S3Connector(EnterpriseConnector):
             key = s3_info.get("object", {}).get("key", "")
 
             if bucket == self.bucket and "ObjectCreated" in event_name:
-                logger.info(f"[{self.name}] Webhook: new object {key}")
+                logger.info("[%s] Webhook: new object %s", self.name, key)
                 # Trigger sync for this specific file
                 asyncio.create_task(self.sync(max_items=1))
                 return True

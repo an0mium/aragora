@@ -821,7 +821,7 @@ class PermissionChecker:
             self._workspace_roles[workspace_id][user_id] = set()
 
         self._workspace_roles[workspace_id][user_id].add(role_name)
-        logger.info(f"Assigned role {role_name} to user {user_id} in workspace {workspace_id}")
+        logger.info("Assigned role %s to user %s in workspace %s", role_name, user_id, workspace_id)
 
     def remove_workspace_role(
         self,
@@ -836,7 +836,7 @@ class PermissionChecker:
             return False
 
         self._workspace_roles[workspace_id][user_id].discard(role_name)
-        logger.info(f"Removed role {role_name} from user {user_id} in workspace {workspace_id}")
+        logger.info("Removed role %s from user %s in workspace %s", role_name, user_id, workspace_id)
         return True
 
     def get_workspace_roles(self, user_id: str, workspace_id: str) -> set[str]:
@@ -1106,7 +1106,7 @@ class PermissionChecker:
                         users_with_permission.append(user_id)
                         break
 
-        logger.debug(f"Found {len(users_with_permission)} users with permission '{permission_key}'")
+        logger.debug("Found %s users with permission '%s'", len(users_with_permission), permission_key)
         return users_with_permission
 
     def get_cache_stats(self) -> dict[str, Any]:

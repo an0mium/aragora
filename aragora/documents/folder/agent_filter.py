@@ -170,7 +170,7 @@ class AgentFileFilter:
                 content += "..."
             return content
         except (OSError, UnicodeDecodeError, ValueError) as e:
-            logger.debug(f"Could not read preview for {file_info.path}: {e}")
+            logger.debug("Could not read preview for %s: %s", file_info.path, e)
             return None
 
     def _format_file_for_prompt(self, file_info: FileInfo, index: int) -> str:
@@ -294,7 +294,7 @@ Provide a decision for every file listed above."""
                     )
 
         except (json.JSONDecodeError, ValueError, KeyError) as e:
-            logger.warning(f"Failed to parse LLM response: {e}. Including all files.")
+            logger.warning("Failed to parse LLM response: %s. Including all files.", e)
             # Default to including all files on parse error
             for file_info in files:
                 decisions.append(
@@ -345,7 +345,7 @@ Provide a decision for every file listed above."""
                 batch_decisions = self._parse_response(response, batch)
                 all_decisions.extend(batch_decisions)
             except (ConnectionError, TimeoutError, OSError, ValueError, RuntimeError) as e:
-                logger.error(f"Agent filter batch {i // self.batch_size + 1} failed: {e}")
+                logger.error("Agent filter batch %s failed: %s", i // self.batch_size + 1, e)
                 # On error, default to including all files in this batch
                 for file_info in batch:
                     all_decisions.append(

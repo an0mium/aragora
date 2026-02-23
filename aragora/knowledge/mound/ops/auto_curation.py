@@ -177,7 +177,7 @@ class CurationPolicy:
             self.relationship_weight,
         ]
         if abs(sum(weights) - 1.0) > 0.001:
-            logger.warning(f"Policy weights don't sum to 1.0: {sum(weights)}")
+            logger.warning("Policy weights don't sum to 1.0: %s", sum(weights))
             return False
         return True
 
@@ -284,7 +284,7 @@ class AutoCurationMixin(_AutoCurationMixinBase):
             raise ValueError("Invalid curation policy: weights must sum to 1.0")
 
         self._curation_policies[policy.workspace_id] = policy
-        logger.info(f"Set curation policy '{policy.name}' for workspace {policy.workspace_id}")
+        logger.info("Set curation policy '%s' for workspace %s", policy.name, policy.workspace_id)
 
     async def get_curation_policy(
         self,
@@ -439,7 +439,7 @@ class AutoCurationMixin(_AutoCurationMixinBase):
                 candidates.append(candidate)
 
             except (RuntimeError, ValueError, OSError, AttributeError) as e:
-                logger.warning(f"Failed to score node {node.get('id')}: {e}")
+                logger.warning("Failed to score node %s: %s", node.get('id'), e)
                 continue
 
         # Sort by quality score (lowest first - most needing action)
@@ -575,7 +575,7 @@ class AutoCurationMixin(_AutoCurationMixinBase):
 
                 except (RuntimeError, ValueError, AttributeError, KeyError) as e:  # noqa: BLE001 - adapter isolation
                     result.errors.append(f"Action failed for {candidate.node_id}: {e}")
-                    logger.warning(f"Curation action failed: {e}")
+                    logger.warning("Curation action failed: %s", e)
 
             # Run dedup if enabled
             if policy.run_dedup:
@@ -594,7 +594,7 @@ class AutoCurationMixin(_AutoCurationMixinBase):
                             result.dedup_clusters_merged += 1
                 except (RuntimeError, ValueError, AttributeError, KeyError) as e:  # noqa: BLE001 - adapter isolation
                     result.errors.append(f"Dedup failed: {e}")
-                    logger.warning(f"Dedup during curation failed: {e}")
+                    logger.warning("Dedup during curation failed: %s", e)
 
             # Run pruning if enabled
             if policy.run_pruning and policy.prune_after_curation:
@@ -605,11 +605,11 @@ class AutoCurationMixin(_AutoCurationMixinBase):
                     result.items_pruned = prune_result.items_pruned
                 except (RuntimeError, ValueError, AttributeError, KeyError) as e:  # noqa: BLE001 - adapter isolation
                     result.errors.append(f"Pruning failed: {e}")
-                    logger.warning(f"Pruning during curation failed: {e}")
+                    logger.warning("Pruning during curation failed: %s", e)
 
         except (RuntimeError, ValueError, OSError, AttributeError) as e:
             result.errors.append(f"Curation failed: {e}")
-            logger.error(f"Curation run failed for {workspace_id}: {e}")
+            logger.error("Curation run failed for %s: %s", workspace_id, e)
 
         # Record timing
         end_time = datetime.now(timezone.utc)

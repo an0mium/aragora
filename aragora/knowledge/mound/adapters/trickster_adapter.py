@@ -213,7 +213,7 @@ class TricksterAdapter(KnowledgeMoundAdapter):
         )
 
         self._record_metric("persist", True, time.time() - start)
-        logger.info(f"Persisted {count} trickster interventions for debate {debate_id}")
+        logger.info("Persisted %s trickster interventions for debate %s", count, debate_id)
         return count
 
     async def search_by_topic(
@@ -510,7 +510,7 @@ class TricksterAdapter(KnowledgeMoundAdapter):
             },
         )
 
-        logger.debug(f"Recorded outcome '{outcome}' for intervention {record_id}")
+        logger.debug("Recorded outcome '%s' for intervention %s", outcome, record_id)
         return True
 
     def get_stats(self) -> dict[str, Any]:
@@ -566,7 +566,7 @@ class TricksterAdapter(KnowledgeMoundAdapter):
             result.duration_ms = (time.time() - start) * 1000
             return result
 
-        logger.info(f"Syncing {len(pending_records[:batch_size])} trickster records to KM")
+        logger.info("Syncing %s trickster records to KM", len(pending_records[:batch_size]))
 
         for record in pending_records[:batch_size]:
             try:
@@ -611,10 +611,7 @@ class TricksterAdapter(KnowledgeMoundAdapter):
         )
 
         logger.info(
-            f"Trickster KM sync complete: "
-            f"synced={result.records_synced}, "
-            f"skipped={result.records_skipped}, "
-            f"failed={result.records_failed}"
+            "Trickster KM sync complete: synced=%s, skipped=%s, failed=%s", result.records_synced, result.records_skipped, result.records_failed
         )
 
         return result

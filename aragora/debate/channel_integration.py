@@ -103,7 +103,7 @@ class ChannelIntegration:
             True if setup succeeded
         """
         if not self._enabled:
-            logger.debug(f"Channel integration disabled for debate {self._debate_id}")
+            logger.debug("Channel integration disabled for debate %s", self._debate_id)
             return False
 
         try:
@@ -119,13 +119,12 @@ class ChannelIntegration:
                 await self._channel.join(agent_name)
 
             logger.info(
-                f"Channel setup complete for debate {self._debate_id} "
-                f"with {len(self._agents)} agents"
+                "Channel setup complete for debate %s with %s agents", self._debate_id, len(self._agents)
             )
             return True
 
         except (RuntimeError, ValueError, TypeError, AttributeError, OSError, ConnectionError) as e:
-            logger.error(f"Failed to setup channel for {self._debate_id}: {e}")
+            logger.error("Failed to setup channel for %s: %s", self._debate_id, e)
             return False
 
     async def teardown(self) -> None:
@@ -133,7 +132,7 @@ class ChannelIntegration:
         if self._channel:
             await self._manager.close_channel(self._debate_id)
             self._channel = None
-            logger.debug(f"Channel teardown complete for debate {self._debate_id}")
+            logger.debug("Channel teardown complete for debate %s", self._debate_id)
 
     async def broadcast_proposal(
         self,

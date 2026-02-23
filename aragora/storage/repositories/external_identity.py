@@ -216,7 +216,7 @@ class ExternalIdentityRepository:
         conn.commit()
 
         logger.info(
-            f"Created external identity: {identity.provider}/{identity.external_id} -> {identity.user_id}"
+            "Created external identity: %s/%s -> %s", identity.provider, identity.external_id, identity.user_id
         )
         return identity
 

@@ -231,28 +231,28 @@ class MigrationRunner:
             self._backend.fetch_one(f"SELECT checksum FROM {self.MIGRATIONS_TABLE} LIMIT 1")
         except (sqlite3.Error, OSError, RuntimeError, ValueError) as e:
             # Column doesn't exist, add it
-            logger.debug(f"checksum column check failed (will add): {type(e).__name__}: {e}")
+            logger.debug("checksum column check failed (will add): %s: %s", type(e).__name__, e)
             try:
                 self._backend.execute_write(
                     f"ALTER TABLE {self.MIGRATIONS_TABLE} ADD COLUMN checksum TEXT DEFAULT NULL"
                 )
                 logger.info("Added checksum column to migrations table")
             except (sqlite3.Error, OSError, RuntimeError, ValueError) as e:
-                logger.debug(f"Could not add checksum column (may already exist): {e}")
+                logger.debug("Could not add checksum column (may already exist): %s", e)
 
         # Check for rollback_sql column
         try:
             self._backend.fetch_one(f"SELECT rollback_sql FROM {self.MIGRATIONS_TABLE} LIMIT 1")
         except (sqlite3.Error, OSError, RuntimeError, ValueError) as e:
             # Column doesn't exist, add it
-            logger.debug(f"rollback_sql column check failed (will add): {type(e).__name__}: {e}")
+            logger.debug("rollback_sql column check failed (will add): %s: %s", type(e).__name__, e)
             try:
                 self._backend.execute_write(
                     f"ALTER TABLE {self.MIGRATIONS_TABLE} ADD COLUMN rollback_sql TEXT DEFAULT NULL"
                 )
                 logger.info("Added rollback_sql column to migrations table")
             except (sqlite3.Error, OSError, RuntimeError, ValueError) as e:
-                logger.debug(f"Could not add rollback_sql column (may already exist): {e}")
+                logger.debug("Could not add rollback_sql column (may already exist): %s", e)
 
     def _init_rollback_history_table(self) -> None:
         """Create the rollback history table if it doesn't exist."""
@@ -271,7 +271,7 @@ class MigrationRunner:
             self._backend.execute_write(sql)
         except (sqlite3.Error, OSError, RuntimeError, ValueError) as e:
             # Non-fatal: rollback history is optional audit functionality
-            logger.debug(f"Could not create rollback history table: {e}")
+            logger.debug("Could not create rollback history table: %s", e)
 
     def _record_rollback(
         self,
@@ -300,7 +300,7 @@ class MigrationRunner:
             )
         except (sqlite3.Error, OSError, RuntimeError, ValueError) as e:
             # Non-fatal: don't let history tracking failures block rollback
-            logger.warning(f"Failed to record rollback history for v{migration.version}: {e}")
+            logger.warning("Failed to record rollback history for v%s: %s", migration.version, e)
 
     def _acquire_migration_lock(self, timeout_seconds: float = 30.0) -> bool:
         """
@@ -344,7 +344,7 @@ class MigrationRunner:
                     "Ensure no other migration is running and try again."
                 )
 
-            logger.debug(f"Migration lock held by another process, retrying in {poll_interval}s...")
+            logger.debug("Migration lock held by another process, retrying in %ss...", poll_interval)
             time.sleep(poll_interval)
 
     def _release_migration_lock(self) -> None:
@@ -361,7 +361,7 @@ class MigrationRunner:
             logger.info("Released migration advisory lock")
         except (RuntimeError, OSError) as e:
             # Log but don't raise - lock will be released on connection close anyway
-            logger.warning(f"Failed to release migration lock: {e}")
+            logger.warning("Failed to release migration lock: %s", e)
 
     def _get_applied_by(self) -> str:
         """Get identifier for who applied the migration."""
@@ -479,7 +479,7 @@ class MigrationRunner:
                     break
                 applied.append(migration)
                 logger.info(
-                    f"[DRY RUN] Would apply migration {migration.version}: {migration.name}"
+                    "[DRY RUN] Would apply migration %s: %s", migration.version, migration.name
                 )
             return applied
 
@@ -493,7 +493,7 @@ class MigrationRunner:
                 if target_version and migration.version > target_version:
                     break
 
-                logger.info(f"Applying migration {migration.version}: {migration.name}")
+                logger.info("Applying migration %s: %s", migration.version, migration.name)
 
                 try:
                     if migration.up_fn:
@@ -517,10 +517,10 @@ class MigrationRunner:
                         (migration.version, migration.name, applied_by, checksum, rollback_sql),
                     )
                     applied.append(migration)
-                    logger.info(f"Applied migration {migration.version}")
+                    logger.info("Applied migration %s", migration.version)
 
                 except (RuntimeError, OSError, ValueError) as e:
-                    logger.error(f"Failed to apply migration {migration.version}: {e}")
+                    logger.error("Failed to apply migration %s: %s", migration.version, e)
                     raise
         finally:
             # Always release lock
@@ -585,12 +585,11 @@ class MigrationRunner:
 
                 if not rollback_sql and not has_down_fn and not has_stored:
                     logger.info(
-                        f"[DRY RUN] Would SKIP migration {migration.version}: "
-                        f"{migration.name} (no rollback defined)"
+                        "[DRY RUN] Would SKIP migration %s: %s (no rollback defined)", migration.version, migration.name
                     )
                     break
                 logger.info(
-                    f"[DRY RUN] Would rollback migration {migration.version}: {migration.name}"
+                    "[DRY RUN] Would rollback migration %s: %s", migration.version, migration.name
                 )
                 rolled_back.append(migration)
             return rolled_back
@@ -605,15 +604,15 @@ class MigrationRunner:
                 if use_stored_rollback:
                     rollback_sql = self.get_stored_rollback_sql(migration.version)
                     if rollback_sql:
-                        logger.debug(f"Using stored rollback SQL for migration {migration.version}")
+                        logger.debug("Using stored rollback SQL for migration %s", migration.version)
                 if not rollback_sql:
                     rollback_sql = migration.down_sql
 
                 if not rollback_sql and not migration.down_fn:
-                    logger.warning(f"Migration {migration.version} has no rollback")
+                    logger.warning("Migration %s has no rollback", migration.version)
                     break
 
-                logger.info(f"Rolling back migration {migration.version}: {migration.name}")
+                logger.info("Rolling back migration %s: %s", migration.version, migration.name)
 
                 try:
                     if migration.down_fn and not use_stored_rollback:
@@ -624,7 +623,7 @@ class MigrationRunner:
                             if stmt:
                                 self._backend.execute_write(stmt)
                     else:
-                        logger.warning(f"No rollback available for migration {migration.version}")
+                        logger.warning("No rollback available for migration %s", migration.version)
                         break
 
                     # Remove migration record
@@ -635,10 +634,10 @@ class MigrationRunner:
                     # Record in rollback history
                     self._record_rollback(migration, reason=reason)
                     rolled_back.append(migration)
-                    logger.info(f"Rolled back migration {migration.version}")
+                    logger.info("Rolled back migration %s", migration.version)
 
                 except (RuntimeError, OSError, ValueError) as e:
-                    logger.error(f"Failed to rollback migration {migration.version}: {e}")
+                    logger.error("Failed to rollback migration %s: %s", migration.version, e)
                     raise
         finally:
             # Always release lock
@@ -834,7 +833,7 @@ class MigrationRunner:
                 for row in rows
             ]
         except (sqlite3.Error, OSError, RuntimeError, ValueError) as e:
-            logger.debug(f"Could not read rollback history: {e}")
+            logger.debug("Could not read rollback history: %s", e)
             return []
 
     def status(self, include_checksums: bool = False) -> dict:
@@ -910,7 +909,7 @@ def _load_migrations(runner: MigrationRunner) -> None:
                 module = importlib.import_module(f"aragora.migrations.versions.{name}")
                 if hasattr(module, "migration"):
                     runner.register(module.migration)
-                    logger.debug(f"Loaded migration: {name}")
+                    logger.debug("Loaded migration: %s", name)
     except ImportError:
         logger.debug("No migrations.versions package found")
 

@@ -183,7 +183,7 @@ async def list_debates(
         )
 
     except (RuntimeError, ValueError, TypeError, OSError, KeyError, AttributeError) as e:
-        logger.exception(f"Error listing debates: {e}")
+        logger.exception("Error listing debates: %s", e)
         raise HTTPException(status_code=500, detail="Failed to list debates")
 
 
@@ -253,7 +253,7 @@ async def get_debate(
     except NotFoundError:
         raise
     except (RuntimeError, ValueError, TypeError, OSError, KeyError, AttributeError) as e:
-        logger.exception(f"Error getting debate {debate_id}: {e}")
+        logger.exception("Error getting debate %s: %s", debate_id, e)
         raise HTTPException(status_code=500, detail="Failed to get debate")
 
 
@@ -316,7 +316,7 @@ async def get_debate_messages(
     except NotFoundError:
         raise
     except (RuntimeError, ValueError, TypeError, OSError, KeyError, AttributeError) as e:
-        logger.exception(f"Error getting messages for debate {debate_id}: {e}")
+        logger.exception("Error getting messages for debate %s: %s", debate_id, e)
         raise HTTPException(status_code=500, detail="Failed to get messages")
 
 
@@ -375,5 +375,5 @@ async def get_debate_convergence(
     except NotFoundError:
         raise
     except (RuntimeError, ValueError, TypeError, OSError, KeyError, AttributeError) as e:
-        logger.exception(f"Error getting convergence for debate {debate_id}: {e}")
+        logger.exception("Error getting convergence for debate %s: %s", debate_id, e)
         raise HTTPException(status_code=500, detail="Failed to get convergence")

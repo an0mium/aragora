@@ -51,8 +51,7 @@ def wrap_agent_for_streaming(agent: Any, emitter: SyncEventEmitter, debate_id: s
             # Use UUID for truly unique task_id (prevents collision in concurrent streams)
             task_id = f"{debate_id}:{agent.name}:{uuid.uuid4().hex[:8]}"
             logger.warning(
-                f"Missing task_id for {agent.name}, using fallback: {task_id}. "
-                "Consider wrapping the generate() call with streaming_task_context()."
+                "Missing task_id for %s, using fallback: %s. Consider wrapping the generate() call with streaming_task_context().", agent.name, task_id
             )
 
         # Emit start event
@@ -90,7 +89,7 @@ def wrap_agent_for_streaming(agent: Any, emitter: SyncEventEmitter, debate_id: s
 
             if not full_response.strip():
                 logger.warning(
-                    f"Empty streamed response for {agent.name}, falling back to non-streaming generate."
+                    "Empty streamed response for %s, falling back to non-streaming generate.", agent.name
                 )
                 fallback_response = await original_generate(prompt, context)
                 if fallback_response:
@@ -570,7 +569,7 @@ def create_hook_manager_from_emitter(
         """Bridge POST_ROUND - no direct event, but useful for logging."""
         round_num = kwargs.get("round_num", 0)
         proposals = kwargs.get("proposals", {})
-        logger.debug(f"Round {round_num} complete with {len(proposals)} proposals")
+        logger.debug("Round %s complete with %s proposals", round_num, len(proposals))
 
     def on_post_consensus(**kwargs: Any) -> None:
         """Bridge POST_CONSENSUS to CONSENSUS event."""
@@ -703,7 +702,7 @@ def create_hook_manager_from_emitter(
         name="ws_on_cancellation",
     )
 
-    logger.debug(f"Created HookManager with {len(manager.stats)} hook types bridged to WebSocket")
+    logger.debug("Created HookManager with %s hook types bridged to WebSocket", len(manager.stats))
     return manager
 
 

@@ -75,7 +75,7 @@ class CommandsMixin(BlocksMixin):
             channel_id = params.get("channel_id", [""])[0]
             response_url = params.get("response_url", [""])[0]
 
-            logger.info(f"Slack command from {user_id}: {command} {text}")
+            logger.info("Slack command from %s: %s %s", user_id, command, text)
 
             # Per-workspace rate limiting (team_id as key)
             workspace_limiter = _get_workspace_rate_limiter()
@@ -84,8 +84,7 @@ class CommandsMixin(BlocksMixin):
                 ws_rate_result = workspace_limiter.allow(workspace_key, "slack_workspace_command")
                 if not ws_rate_result.allowed:
                     logger.warning(
-                        f"Slack workspace rate limited: {workspace_key} "
-                        f"(retry_after={ws_rate_result.retry_after}s)"
+                        "Slack workspace rate limited: %s (retry_after=%ss)", workspace_key, ws_rate_result.retry_after
                     )
                     # Audit log workspace rate limit event
                     audit = _get_audit_logger()
@@ -110,8 +109,7 @@ class CommandsMixin(BlocksMixin):
                 rate_result = user_limiter.allow(user_key, "slack_command")
                 if not rate_result.allowed:
                     logger.warning(
-                        f"Slack user rate limited: {user_key} "
-                        f"(retry_after={rate_result.retry_after}s)"
+                        "Slack user rate limited: %s (retry_after=%ss)", user_key, rate_result.retry_after
                     )
                     # Audit log rate limit event
                     audit = _get_audit_logger()
@@ -224,7 +222,7 @@ class CommandsMixin(BlocksMixin):
             return result
 
         except (ValueError, KeyError, TypeError, RuntimeError, OSError, ConnectionError) as e:
-            logger.error(f"Slash command error: {e}", exc_info=True)
+            logger.error("Slash command error: %s", e, exc_info=True)
 
             # Audit log error
             audit = _get_audit_logger()
@@ -314,7 +312,7 @@ class CommandsMixin(BlocksMixin):
             )
 
         except ImportError as e:
-            logger.warning(f"ELO system not available for status: {e}")
+            logger.warning("ELO system not available for status: %s", e)
             return self._slack_response(
                 "Status service temporarily unavailable",
                 response_type="ephemeral",
@@ -360,7 +358,7 @@ class CommandsMixin(BlocksMixin):
             return self._slack_response(text, response_type="ephemeral")
 
         except ImportError as e:
-            logger.warning(f"ELO system not available for agents listing: {e}")
+            logger.warning("ELO system not available for agents listing: %s", e)
             return self._slack_response(
                 "Agents service temporarily unavailable",
                 response_type="ephemeral",
@@ -654,7 +652,7 @@ class CommandsMixin(BlocksMixin):
             )
 
         except ImportError as e:
-            logger.warning(f"Storage not available for search: {e}")
+            logger.warning("Storage not available for search: %s", e)
             return self._slack_response(
                 "Search service temporarily unavailable",
                 response_type="ephemeral",
@@ -738,7 +736,7 @@ class CommandsMixin(BlocksMixin):
             )
 
         except ImportError as e:
-            logger.warning(f"ELO system not available for leaderboard: {e}")
+            logger.warning("ELO system not available for leaderboard: %s", e)
             return self._slack_response(
                 "Leaderboard service temporarily unavailable",
                 response_type="ephemeral",
@@ -836,7 +834,7 @@ class CommandsMixin(BlocksMixin):
             )
 
         except ImportError as e:
-            logger.warning(f"Storage not available for recent debates: {e}")
+            logger.warning("Storage not available for recent debates: %s", e)
             return self._slack_response(
                 "Recent debates service temporarily unavailable",
                 response_type="ephemeral",
@@ -1181,7 +1179,7 @@ class CommandsMixin(BlocksMixin):
         except ImportError:
             logger.debug("Debate origin tracking not available")
         except (RuntimeError, OSError, ValueError, TypeError) as e:
-            logger.warning(f"Failed to register debate origin: {e}")
+            logger.warning("Failed to register debate origin: %s", e)
 
         try:
             from aragora import Arena, DebateProtocol, Environment
@@ -1209,7 +1207,7 @@ class CommandsMixin(BlocksMixin):
                     blocks=starting_blocks,
                 )
                 if thread_ts:
-                    logger.debug(f"Debate {debate_id} started thread: {thread_ts}")
+                    logger.debug("Debate %s started thread: %s", debate_id, thread_ts)
                     # Update origin with thread_ts for proper threaded routing
                     try:
                         from aragora.server.debate_origin import get_debate_origin

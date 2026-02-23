@@ -465,8 +465,7 @@ class WorkspaceMembersMixin:
         )
 
         logger.info(
-            f"Updated member role: workspace={workspace_id} user={user_id} "
-            f"role={new_role} by={auth_ctx.user_id}"
+            "Updated member role: workspace=%s user=%s role=%s by=%s", workspace_id, user_id, new_role, auth_ctx.user_id
         )
 
         return m.json_response(

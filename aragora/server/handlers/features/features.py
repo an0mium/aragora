@@ -671,7 +671,7 @@ class FeaturesHandler(BaseHandler):
         # Rate limit check
         client_ip = get_client_ip(handler)
         if not _features_limiter.is_allowed(client_ip):
-            logger.warning(f"Rate limit exceeded for features endpoint: {client_ip}")
+            logger.warning("Rate limit exceeded for features endpoint: %s", client_ip)
             return error_response("Rate limit exceeded. Please try again later.", 429)
 
         # Direct route match
@@ -1043,7 +1043,7 @@ class FeaturesHandler(BaseHandler):
                     # Merge with defaults (user prefs override)
                     preferences.update(user_prefs)
             except (KeyError, ValueError, TypeError, AttributeError, OSError) as e:
-                logger.warning(f"Failed to load user preferences: {e}")
+                logger.warning("Failed to load user preferences: %s", e)
 
         # Get feature availability for context
         features = get_all_features()
@@ -1114,9 +1114,9 @@ class FeaturesHandler(BaseHandler):
                 existing = user_store.get_user_preferences(user_ctx.user_id) or {}
                 existing.update(updates)
                 user_store.set_user_preferences(user_ctx.user_id, existing)
-                logger.info(f"Updated preferences for user {user_ctx.user_id}")
+                logger.info("Updated preferences for user %s", user_ctx.user_id)
             except (KeyError, ValueError, TypeError, AttributeError, OSError) as e:
-                logger.error(f"Failed to save user preferences: {e}")
+                logger.error("Failed to save user preferences: %s", e)
                 return error_response(
                     "Failed to save preferences",
                     status=500,

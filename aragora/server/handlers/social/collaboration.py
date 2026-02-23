@@ -53,11 +53,11 @@ def _check_permission(
         checker = get_permission_checker()
         decision = checker.check_permission(context, permission)
         if not decision.allowed:
-            logger.warning(f"RBAC denied {permission} for user {user_id}: {decision.reason}")
+            logger.warning("RBAC denied %s for user %s: %s", permission, user_id, decision.reason)
             return error_dict("Permission denied", code="FORBIDDEN", status=403)
         return None
     except (ValueError, TypeError, AttributeError, RuntimeError) as e:
-        logger.error(f"RBAC check failed: {e}")
+        logger.error("RBAC check failed: %s", e)
         return error_dict("Authorization check failed", code="INTERNAL_ERROR", status=500)
 
 
@@ -138,7 +138,7 @@ class CollaborationHandlers:
                 "session": session.to_dict(),
             }
         except (ValueError, TypeError, RuntimeError, OSError) as e:
-            logger.error(f"Failed to create session: {e}")
+            logger.error("Failed to create session: %s", e)
             return error_dict("Failed to create session", code="INTERNAL_ERROR")
 
     async def get_session(self, session_id: str, user_id: str = "") -> dict[str, Any]:
@@ -611,7 +611,7 @@ class CollaborationHandler:
 
         client_ip = get_client_ip(handler)
         if not _collab_limiter.is_allowed(client_ip):
-            logger.warning(f"Rate limit exceeded for collaboration: {client_ip}")
+            logger.warning("Rate limit exceeded for collaboration: %s", client_ip)
             return error_response("Rate limit exceeded. Please try again later.", 429)
 
         if path == "/api/v1/social/collaboration/sessions":

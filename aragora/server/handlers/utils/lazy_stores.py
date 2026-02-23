@@ -87,10 +87,10 @@ class LazyStore(Generic[T]):
 
             try:
                 self._store = self._factory()
-                logger.info(f"[{self.logger_context}] Initialized {self.store_name}")
+                logger.info("[%s] Initialized %s", self.logger_context, self.store_name)
             except (ImportError, OSError, RuntimeError, TypeError, ValueError, AttributeError) as e:
                 self._init_error = f"Init failed: {e}"
-                logger.warning(f"[{self.logger_context}] Failed to init {self.store_name}: {e}")
+                logger.warning("[%s] Failed to init %s: %s", self.logger_context, self.store_name, e)
 
             self._initialized = True
 
@@ -191,29 +191,29 @@ class LazyStoreFactory:
             module = importlib.import_module(self.import_path)
             factory: Callable[..., Any] = getattr(module, self.factory_name)
             store = factory(*self.factory_args, **self.factory_kwargs)
-            logger.info(f"[{self.logger_context}] Initialized {self.store_name}")
+            logger.info("[%s] Initialized %s", self.logger_context, self.store_name)
             return store
 
         except ImportError as e:
             self._init_error = f"Module not available: {e}"
-            logger.warning(f"[{self.logger_context}] {self.store_name} module not available: {e}")
+            logger.warning("[%s] %s module not available: %s", self.logger_context, self.store_name, e)
             return None
 
         except AttributeError as e:
             self._init_error = f"Factory function not found: {e}"
-            logger.warning(f"[{self.logger_context}] {self.store_name} factory not found: {e}")
+            logger.warning("[%s] %s factory not found: %s", self.logger_context, self.store_name, e)
             return None
 
         except (OSError, RuntimeError) as e:
             self._init_error = f"Init failed: {type(e).__name__}: {e}"
             logger.warning(
-                f"[{self.logger_context}] {self.store_name} init failed: {type(e).__name__}: {e}"
+                "[%s] %s init failed: %s: %s", self.logger_context, self.store_name, type(e).__name__, e
             )
             return None
 
         except (TypeError, ValueError, KeyError) as e:
             self._init_error = f"Unexpected error: {e}"
-            logger.warning(f"[{self.logger_context}] Failed to init {self.store_name}: {e}")
+            logger.warning("[%s] Failed to init %s: %s", self.logger_context, self.store_name, e)
             return None
 
     def reset(self) -> None:
@@ -307,7 +307,7 @@ class LazyStoreRegistry:
         """
         factory = self._factories.get(name)
         if factory is None:
-            logger.warning(f"Store '{name}' not registered")
+            logger.warning("Store '%s' not registered", name)
             return None
         return factory.get()
 

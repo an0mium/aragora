@@ -265,7 +265,7 @@ class KMMetrics:
         except ImportError:
             pass  # Prometheus not available
         except (RuntimeError, ValueError, OSError, AttributeError) as e:
-            logger.debug(f"Failed to export to Prometheus: {e}")
+            logger.debug("Failed to export to Prometheus: %s", e)
 
     @contextmanager
     def measure_operation(

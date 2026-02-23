@@ -267,7 +267,7 @@ class HTTPClientPool:
             }
         )
 
-        logger.debug(f"Created sync session for {provider} with pool_size={config['pool_size']}")
+        logger.debug("Created sync session for %s with pool_size=%s", provider, config['pool_size'])
         self.metrics.get_provider_metrics(provider).connections_created += 1
 
         return session
@@ -308,7 +308,7 @@ class HTTPClientPool:
             },
         )
 
-        logger.debug(f"Created async client for {provider} with pool_size={config['pool_size']}")
+        logger.debug("Created async client for %s with pool_size=%s", provider, config['pool_size'])
         self.metrics.get_provider_metrics(provider).connections_created += 1
 
         return client
@@ -503,9 +503,9 @@ class HTTPClientPool:
             try:
                 if session and hasattr(session, "close"):
                     session.close()
-                    logger.debug(f"Closed sync session for {provider}")
+                    logger.debug("Closed sync session for %s", provider)
             except OSError as e:
-                logger.warning(f"Error closing sync session for {provider}: {e}")
+                logger.warning("Error closing sync session for %s: %s", provider, e)
 
         self._sync_sessions.clear()
 
@@ -525,9 +525,9 @@ class HTTPClientPool:
             try:
                 if client and hasattr(client, "aclose"):
                     await client.aclose()
-                    logger.debug(f"Closed async client for {provider}")
+                    logger.debug("Closed async client for %s", provider)
             except OSError as e:
-                logger.warning(f"Error closing async client for {provider}: {e}")
+                logger.warning("Error closing async client for %s: %s", provider, e)
 
         self._async_clients.clear()
 

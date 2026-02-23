@@ -385,13 +385,13 @@ class AragoraRetriever(BaseRetriever):
                     result = response.json()
                     return self._convert_to_documents(result.get("nodes", []))
                 else:
-                    logger.warning(f"Knowledge search failed: {response.status_code}")
+                    logger.warning("Knowledge search failed: %s", response.status_code)
                     return []
         except (ConnectionError, TimeoutError, OSError) as e:
-            logger.error(f"Knowledge retrieval connection error: {type(e).__name__}: {e}")
+            logger.error("Knowledge retrieval connection error: %s: %s", type(e).__name__, e)
             return []
         except (RuntimeError, ValueError, TypeError) as e:
-            logger.error(f"Failed to retrieve documents: {type(e).__name__}: {e}")
+            logger.error("Failed to retrieve documents: %s: %s", type(e).__name__, e)
             return []
 
     def _convert_to_documents(self, nodes: list[dict[str, Any]]) -> list[Document]:
@@ -468,7 +468,7 @@ class AragoraCallbackHandler(BaseCallbackHandler):
         """Called when a tool starts running."""
         if serialized.get("name") == "aragora_debate":
             if self.verbose:
-                logger.info(f"Aragora debate starting: {input_str[:100]}...")
+                logger.info("Aragora debate starting: %s...", input_str[:100])
             if self._on_debate_start:
                 self._on_debate_start({"input": input_str})
 
@@ -479,7 +479,7 @@ class AragoraCallbackHandler(BaseCallbackHandler):
     ) -> None:
         """Called when a tool finishes running."""
         if self.verbose:
-            logger.info(f"Aragora debate completed: {output[:100]}...")
+            logger.info("Aragora debate completed: %s...", output[:100])
         if self._on_debate_end:
             try:
                 result = json.loads(output)
@@ -502,7 +502,7 @@ class AragoraCallbackHandler(BaseCallbackHandler):
             Any value (unused, for compatibility with base class).
         """
         if self.verbose:
-            logger.error(f"Aragora debate error: {error}")
+            logger.error("Aragora debate error: %s", error)
         if self._on_error:
             self._on_error(error)
 

@@ -111,7 +111,7 @@ def handle_generate_api_key(handler_instance: AuthHandler, handler) -> HandlerRe
         api_key_expires_at=user.api_key_expires_at,
     )
 
-    logger.info(f"API key generated for user_id={user.id} (prefix: {user.api_key_prefix})")
+    logger.info("API key generated for user_id=%s (prefix: %s)", user.id, user.api_key_prefix)
 
     # Audit log: API key generated
     if AUDIT_AVAILABLE and audit_admin:
@@ -188,7 +188,7 @@ def handle_revoke_api_key(handler_instance: AuthHandler, handler) -> HandlerResu
         api_key_expires_at=None,
     )
 
-    logger.info(f"API key revoked for user_id={user.id}")
+    logger.info("API key revoked for user_id=%s", user.id)
 
     # Audit log: API key revoked
     if AUDIT_AVAILABLE and audit_admin:
@@ -286,7 +286,7 @@ def handle_revoke_api_key_prefix(
         api_key_expires_at=None,
     )
 
-    logger.info(f"API key revoked for user_id={user.id} (prefix: {prefix})")
+    logger.info("API key revoked for user_id=%s (prefix: %s)", user.id, prefix)
 
     if AUDIT_AVAILABLE and audit_admin:
         audit_admin(

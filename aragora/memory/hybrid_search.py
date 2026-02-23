@@ -146,7 +146,7 @@ class KeywordIndex:
             """)
             conn.commit()
         except sqlite3.Error as e:
-            logger.warning(f"Failed to create FTS table: {e}")
+            logger.warning("Failed to create FTS table: %s", e)
 
     def rebuild_index(self) -> int:
         """
@@ -170,10 +170,10 @@ class KeywordIndex:
             # Get count
             cursor = conn.execute("SELECT COUNT(*) FROM memory_fts")
             count = cursor.fetchone()[0]
-            logger.info(f"Rebuilt FTS index with {count} entries")
+            logger.info("Rebuilt FTS index with %s entries", count)
             return count
         except sqlite3.Error as e:
-            logger.error(f"Failed to rebuild FTS index: {e}")
+            logger.error("Failed to rebuild FTS index: %s", e)
             return 0
 
     def search(
@@ -229,7 +229,7 @@ class KeywordIndex:
             cursor = conn.execute(sql, params)
             return cursor.fetchall()
         except sqlite3.Error as e:
-            logger.warning(f"FTS search failed: {e}")
+            logger.warning("FTS search failed: %s", e)
             return []
 
     def _escape_fts_query(self, query: str) -> str:
@@ -377,7 +377,7 @@ class HybridMemorySearch:
                             results.append((memory_id, content, score, tier, importance))
                 return results
             except (AttributeError, TypeError, RuntimeError) as e:
-                logger.debug(f"Vector search via KM failed: {e}")
+                logger.debug("Vector search via KM failed: %s", e)
 
         # Fallback: use embedder if available
         if self.embedder:
@@ -386,7 +386,7 @@ class HybridMemorySearch:
                 # For now, return empty and rely on keyword search
                 pass
             except (AttributeError, TypeError, RuntimeError) as e:
-                logger.debug(f"Vector search via embedder failed: {e}")
+                logger.debug("Vector search via embedder failed: %s", e)
 
         return []
 

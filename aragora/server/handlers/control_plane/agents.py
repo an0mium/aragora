@@ -77,9 +77,9 @@ class AgentHandlerMixin:
     def _handle_coordinator_error(self, error: Exception, operation: str) -> HandlerResult:
         """Unified error handler for coordinator operations."""
         if isinstance(error, (ValueError, KeyError, AttributeError)):
-            logger.warning(f"Data error in {operation}: {type(error).__name__}: {error}")
+            logger.warning("Data error in %s: %s: %s", operation, type(error).__name__, error)
             return error_response(safe_error_message(error, "control plane"), 400)
-        logger.error(f"Error in {operation}: {error}")
+        logger.error("Error in %s: %s", operation, error)
         return error_response(safe_error_message(error, "control plane"), 500)
 
     def _get_stream(self) -> Any | None:
@@ -107,7 +107,7 @@ class AgentHandlerMixin:
             try:
                 _run_async(method(*args, **kwargs))
             except (RuntimeError, OSError, TypeError, ValueError, AttributeError) as e:
-                logger.warning(f"Stream emission failed for {emit_method}: {e}")
+                logger.warning("Stream emission failed for %s: %s", emit_method, e)
 
     def require_auth_or_error(self, handler: Any) -> tuple[Any, HandlerResult | None]:
         """Require authentication and return user or error."""
@@ -152,7 +152,7 @@ class AgentHandlerMixin:
                 }
             )
         except (RuntimeError, TimeoutError) as e:
-            logger.error(f"Runtime error listing agents: {type(e).__name__}: {e}")
+            logger.error("Runtime error listing agents: %s: %s", type(e).__name__, e)
             return error_response(safe_error_message(e, "control plane"), 503)
         except (ValueError, KeyError, AttributeError, OSError, TypeError) as e:
             return self._handle_coordinator_error(e, "list_agents")
@@ -234,7 +234,7 @@ class AgentHandlerMixin:
 
             return json_response(agent.to_dict(), status=201)
         except (ValueError, KeyError, AttributeError, OSError, TypeError, RuntimeError) as e:
-            logger.error(f"Error registering agent: {e}")
+            logger.error("Error registering agent: %s", e)
             return error_response(safe_error_message(e, "control plane"), 500)
 
     async def _handle_register_agent_async(
@@ -284,7 +284,7 @@ class AgentHandlerMixin:
 
             return json_response(agent.to_dict(), status=201)
         except (ValueError, KeyError, AttributeError, OSError, TypeError, RuntimeError) as e:
-            logger.error(f"Error registering agent: {e}")
+            logger.error("Error registering agent: %s", e)
             return error_response(safe_error_message(e, "control plane"), 500)
 
     @api_endpoint(
@@ -324,7 +324,7 @@ class AgentHandlerMixin:
 
             return json_response({"acknowledged": True})
         except (ValueError, KeyError, AttributeError, OSError, TypeError, RuntimeError) as e:
-            logger.error(f"Error processing heartbeat: {e}")
+            logger.error("Error processing heartbeat: %s", e)
             return error_response(safe_error_message(e, "control plane"), 500)
 
     async def _handle_heartbeat_async(
@@ -358,7 +358,7 @@ class AgentHandlerMixin:
 
             return json_response({"acknowledged": True})
         except (ValueError, KeyError, AttributeError, OSError, TypeError, RuntimeError) as e:
-            logger.error(f"Error processing heartbeat: {e}")
+            logger.error("Error processing heartbeat: %s", e)
             return error_response(safe_error_message(e, "control plane"), 500)
 
     @api_endpoint(
@@ -399,5 +399,5 @@ class AgentHandlerMixin:
 
             return json_response({"unregistered": True})
         except (ValueError, KeyError, AttributeError, OSError, TypeError, RuntimeError) as e:
-            logger.error(f"Error unregistering agent: {e}")
+            logger.error("Error unregistering agent: %s", e)
             return error_response(safe_error_message(e, "control plane"), 500)

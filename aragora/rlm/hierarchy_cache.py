@@ -97,7 +97,7 @@ class RLMHierarchyCache:
         if task_hash in self._local_cache:
             self._cache_hits += 1
             _record_rlm_cache_hit()
-            logger.debug(f"[RLMHierarchyCache] Local cache hit for {task_hash[:8]}")
+            logger.debug("[RLMHierarchyCache] Local cache hit for %s", task_hash[:8])
             return self._local_cache[task_hash]
 
         # Check knowledge mound if available
@@ -125,12 +125,12 @@ class RLMHierarchyCache:
                                 self._cache_hits += 1
                                 _record_rlm_cache_hit()
                                 logger.debug(
-                                    f"[RLMHierarchyCache] Knowledge Mound hit for {task_hash[:8]}"
+                                    "[RLMHierarchyCache] Knowledge Mound hit for %s", task_hash[:8]
                                 )
                                 return result
 
             except (RuntimeError, ValueError, ConnectionError, TimeoutError, OSError) as e:
-                logger.debug(f"[RLMHierarchyCache] Mound query failed: {e}")
+                logger.debug("[RLMHierarchyCache] Mound query failed: %s", e)
 
         self._cache_misses += 1
         _record_rlm_cache_miss()
@@ -188,7 +188,7 @@ class RLMHierarchyCache:
                 )
 
             except (RuntimeError, ValueError, ConnectionError, TimeoutError, OSError) as e:
-                logger.debug(f"[RLMHierarchyCache] Mound storage failed: {e}")
+                logger.debug("[RLMHierarchyCache] Mound storage failed: %s", e)
 
     def _serialize_compression(self, compression: CompressionResult) -> dict:
         """Serialize compression result for storage."""
@@ -275,7 +275,7 @@ class RLMHierarchyCache:
             )
 
         except (KeyError, TypeError, ValueError) as e:
-            logger.warning(f"[RLMHierarchyCache] Deserialization failed: {e}")
+            logger.warning("[RLMHierarchyCache] Deserialization failed: %s", e)
             return None
 
     @property

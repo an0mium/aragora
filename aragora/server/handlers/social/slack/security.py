@@ -37,7 +37,7 @@ def validate_slack_url(url: str) -> bool:
             return False
         return True
     except (ValueError, TypeError) as e:
-        logger.debug(f"URL validation failed for slack: {e}")
+        logger.debug("URL validation failed for slack: %s", e)
         return False
 
 
@@ -71,8 +71,8 @@ class SignatureVerifierMixin:
                 signing_secret=signing_secret or "",
             )
             if not result.verified and result.error:
-                logger.warning(f"Slack signature verification failed: {result.error}")
+                logger.warning("Slack signature verification failed: %s", result.error)
             return result.verified
         except (ValueError, TypeError, AttributeError, RuntimeError) as e:
-            logger.exception(f"Unexpected signature verification error: {e}")
+            logger.exception("Unexpected signature verification error: %s", e)
             return False

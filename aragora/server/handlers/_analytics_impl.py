@@ -89,12 +89,12 @@ class AnalyticsHandler(SecureHandler):
     ) -> HandlerResult | None:
         """Route analytics requests to appropriate methods with RBAC."""
         path = strip_version_prefix(path)
-        logger.debug(f"Analytics request: {path}")
+        logger.debug("Analytics request: %s", path)
 
         # Rate limit check
         client_ip = get_client_ip(handler)
         if not _analytics_limiter.is_allowed(client_ip):
-            logger.warning(f"Rate limit exceeded for analytics endpoint: {client_ip}")
+            logger.warning("Rate limit exceeded for analytics endpoint: %s", client_ip)
             return error_response("Rate limit exceeded. Please try again later.", 429)
 
         # Root analytics endpoint is public (dashboard index)
@@ -120,7 +120,7 @@ class AnalyticsHandler(SecureHandler):
         except UnauthorizedError:
             return error_response("Authentication required", 401)
         except ForbiddenError as e:
-            logger.warning(f"Analytics access denied: {e}")
+            logger.warning("Analytics access denied: %s", e)
             return error_response("Permission denied", 403)
 
         if path == "/api/analytics/disagreements":
@@ -189,7 +189,7 @@ class AnalyticsHandler(SecureHandler):
                 stats["disagreement_types"][dtype] = stats["disagreement_types"].get(dtype, 0) + 1
 
         logger.info(
-            f"Disagreement stats: {stats['total_debates']} debates, {stats['with_disagreements']} with disagreements"
+            "Disagreement stats: %s debates, %s with disagreements", stats['total_debates'], stats['with_disagreements']
         )
         return json_response({"stats": stats})
 
@@ -217,7 +217,7 @@ class AnalyticsHandler(SecureHandler):
                 stats["role_assignments"][role] = stats["role_assignments"].get(role, 0) + 1
 
         logger.info(
-            f"Role rotation stats: {len(stats['role_assignments'])} roles across {stats['total_debates']} debates"
+            "Role rotation stats: %s roles across %s debates", len(stats['role_assignments']), stats['total_debates']
         )
         return json_response({"stats": stats})
 
@@ -254,7 +254,7 @@ class AnalyticsHandler(SecureHandler):
             stats["average_rounds"] = total_rounds / len(debates)
 
         logger.info(
-            f"Early stop stats: {stats['early_stopped']}/{stats['total_debates']} early stopped"
+            "Early stop stats: %s/%s early stopped", stats['early_stopped'], stats['total_debates']
         )
         return json_response({"stats": stats})
 

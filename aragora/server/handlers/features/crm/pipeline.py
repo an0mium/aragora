@@ -95,7 +95,7 @@ class PipelineOperationsMixin:
                         )
 
             except (ConnectionError, TimeoutError, OSError, ValueError) as e:
-                logger.error(f"Error fetching {p} pipelines: {e}")
+                logger.error("Error fetching %s pipelines: %s", p, e)
                 cb.record_failure()
 
         # Get deal summary by stage
@@ -166,7 +166,7 @@ class PipelineOperationsMixin:
                 existing = await connector.get_contact_by_email(lead_email)
             except (ConnectionError, TimeoutError, OSError) as e:
                 # Network errors - log and proceed with create (may cause duplicate)
-                logger.warning(f"Contact lookup failed, proceeding with create: {e}")
+                logger.warning("Contact lookup failed, proceeding with create: %s", e)
 
             if existing:
                 # Update existing contact
@@ -286,7 +286,7 @@ class PipelineOperationsMixin:
                 cb.record_success()
 
             except (ConnectionError, TimeoutError, OSError, ValueError) as e:
-                logger.error(f"Error searching {platform}: {e}")
+                logger.error("Error searching %s: %s", platform, e)
                 cb.record_failure()
 
         return self._json_response(

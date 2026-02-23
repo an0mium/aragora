@@ -144,7 +144,7 @@ class BotHandlerMixin:
         except UnauthorizedError:
             return error_response("Authentication required", 401, code=BotErrorCode.AUTH_REQUIRED)
         except ForbiddenError as e:
-            logger.warning(f"{self.bot_platform.title()} status access denied: {e}")
+            logger.warning("%s status access denied: %s", self.bot_platform.title(), e)
             return error_response("Permission denied", 403, code=BotErrorCode.PERMISSION_DENIED)
 
         return self._build_status_response(extra_status)
@@ -230,8 +230,7 @@ class BotHandlerMixin:
             return error_response("Authentication required", 401, code=BotErrorCode.AUTH_REQUIRED)
         except ForbiddenError as e:
             logger.warning(
-                f"{self.bot_platform.title()} operation access denied "
-                f"(permission={permission}): {e}"
+                "%s operation access denied (permission=%s): %s", self.bot_platform.title(), permission, e
             )
             logger.warning("Handler error: %s", e)
             return error_response("Permission denied", 403, code=BotErrorCode.PERMISSION_DENIED)
@@ -263,7 +262,7 @@ class BotHandlerMixin:
         Returns:
             HandlerResult with 401 status.
         """
-        logger.warning(f"{self.bot_platform.title()} webhook {method} verification failed")
+        logger.warning("%s webhook %s verification failed", self.bot_platform.title(), method)
 
         # Audit the failure if available
         try:
@@ -331,13 +330,13 @@ class BotHandlerMixin:
         if not body:
             if allow_empty:
                 return {}, None
-            logger.error(f"Empty body in {self.bot_platform} {context}")
+            logger.error("Empty body in %s %s", self.bot_platform, context)
             return None, error_response("Empty request body", 400, code=BotErrorCode.EMPTY_BODY)
 
         try:
             return json.loads(body.decode("utf-8")), None
         except json.JSONDecodeError as e:
-            logger.error(f"Invalid JSON in {self.bot_platform} {context}: {e}")
+            logger.error("Invalid JSON in %s %s: %s", self.bot_platform, context, e)
             return None, error_response("Invalid JSON", 400, code=BotErrorCode.INVALID_JSON)
 
     def _handle_webhook_exception(
@@ -363,11 +362,11 @@ class BotHandlerMixin:
         error_msg = str(exception)[:100]
 
         if isinstance(exception, json.JSONDecodeError):
-            logger.error(f"Invalid JSON in {self.bot_platform} {context}: {exception}")
+            logger.error("Invalid JSON in %s %s: %s", self.bot_platform, context, exception)
             return error_response("Invalid JSON payload", 400, code=BotErrorCode.INVALID_JSON)
 
         if isinstance(exception, (ValueError, KeyError, TypeError)):
-            logger.warning(f"Data error in {self.bot_platform} {context}: {exception}")
+            logger.warning("Data error in %s %s: %s", self.bot_platform, context, exception)
             if return_200_on_error:
                 return json_response(
                     {"ok": False, "error": error_msg, "code": BotErrorCode.VALIDATION_ERROR.value}
@@ -377,7 +376,7 @@ class BotHandlerMixin:
             )
 
         if isinstance(exception, (ConnectionError, OSError, TimeoutError)):
-            logger.error(f"Connection error in {self.bot_platform} {context}: {exception}")
+            logger.error("Connection error in %s %s: %s", self.bot_platform, context, exception)
             if return_200_on_error:
                 return json_response(
                     {
@@ -391,7 +390,7 @@ class BotHandlerMixin:
             )
 
         # Unexpected exception
-        logger.exception(f"Unexpected {self.bot_platform} {context} error: {exception}")
+        logger.exception("Unexpected %s %s error: %s", self.bot_platform, context, exception)
         if return_200_on_error:
             return json_response(
                 {"ok": False, "error": error_msg, "code": BotErrorCode.INTERNAL_ERROR.value}

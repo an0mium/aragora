@@ -121,7 +121,7 @@ async def run_startup_validation(
             result = await validate_deployment(strict=strict)
         except DeploymentNotReadyError as e:
             # When strict=True and validation fails, this is raised
-            logger.error(f"[STARTUP VALIDATION] FAILED: {e}")
+            logger.error("[STARTUP VALIDATION] FAILED: %s", e)
             raise StartupValidationError(str(e), result=e.result) from e
 
         # Log validation results
@@ -143,34 +143,33 @@ async def run_startup_validation(
                 )
         else:
             logger.warning(
-                f"[STARTUP VALIDATION] {critical_count} critical issue(s), "
-                f"{warning_count} warning(s). Server may not function correctly."
+                "[STARTUP VALIDATION] %s critical issue(s), %s warning(s). Server may not function correctly.", critical_count, warning_count
             )
 
         # Log warnings (always)
         for issue in result.issues:
             if issue.severity == Severity.WARNING:
-                logger.warning(f"[STARTUP VALIDATION] WARNING - {issue.component}: {issue.message}")
+                logger.warning("[STARTUP VALIDATION] WARNING - %s: %s", issue.component, issue.message)
                 if issue.suggestion:
-                    logger.warning(f"  Suggestion: {issue.suggestion}")
+                    logger.warning("  Suggestion: %s", issue.suggestion)
 
         # Log critical issues (always)
         for issue in result.issues:
             if issue.severity == Severity.CRITICAL:
-                logger.error(f"[STARTUP VALIDATION] CRITICAL - {issue.component}: {issue.message}")
+                logger.error("[STARTUP VALIDATION] CRITICAL - %s: %s", issue.component, issue.message)
                 if issue.suggestion:
-                    logger.error(f"  Suggestion: {issue.suggestion}")
+                    logger.error("  Suggestion: %s", issue.suggestion)
 
         return result
 
     except ImportError as e:
-        logger.debug(f"[STARTUP VALIDATION] Deployment validator not available: {e}")
+        logger.debug("[STARTUP VALIDATION] Deployment validator not available: %s", e)
         return None
     except StartupValidationError:
         # Re-raise our own error
         raise
     except (RuntimeError, OSError, ValueError) as e:
-        logger.warning(f"[STARTUP VALIDATION] Validation failed with error: {e}")
+        logger.warning("[STARTUP VALIDATION] Validation failed with error: %s", e)
         return None
 
 

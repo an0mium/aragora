@@ -83,12 +83,12 @@ class RedisCache:
             # Test connection
             await self._client.ping()
             self._connected = True
-            logger.info(f"Redis cache connected: {self._url}")
+            logger.info("Redis cache connected: %s", self._url)
 
         except ImportError:
             raise ImportError("redis required for caching. Install with: pip install redis")
         except (OSError, ConnectionError, RuntimeError) as e:
-            logger.error(f"Redis connection failed: {e}")
+            logger.error("Redis connection failed: %s", e)
             raise
 
     async def close(self) -> None:
@@ -121,7 +121,7 @@ class RedisCache:
                 await self._touch_entry(key)
                 return KnowledgeItem.from_dict(json.loads(data))
             except (ValueError, KeyError, json.JSONDecodeError, TypeError) as e:
-                logger.warning(f"Failed to deserialize cached node: {e}")
+                logger.warning("Failed to deserialize cached node: %s", e)
                 await self._client.delete(key)
                 await self._untrack_entry(key)
 
@@ -187,7 +187,7 @@ class RedisCache:
                     sources_queried=[],
                 )
             except (ValueError, KeyError, json.JSONDecodeError, TypeError) as e:
-                logger.warning(f"Failed to deserialize cached query: {e}")
+                logger.warning("Failed to deserialize cached query: %s", e)
                 await self._client.delete(key)
                 await self._untrack_entry(key)
 
@@ -276,7 +276,7 @@ class RedisCache:
                     dominant_traits=parsed.get("dominant_traits", {}),
                 )
             except (ValueError, KeyError, json.JSONDecodeError, TypeError) as e:
-                logger.warning(f"Failed to deserialize cached culture: {e}")
+                logger.warning("Failed to deserialize cached culture: %s", e)
                 await self._client.delete(key)
                 await self._untrack_entry(key)
 
@@ -440,7 +440,7 @@ class RedisCache:
                         await self.invalidate_node(event.item_id)
                     # Also invalidate related queries
                     await self.invalidate_queries(event.workspace_id)
-                    logger.debug(f"Cache invalidated: node {event.item_id} in {event.workspace_id}")
+                    logger.debug("Cache invalidated: node %s in %s", event.item_id, event.workspace_id)
 
                 elif event.event_type == "node_deleted":
                     if event.item_id:
@@ -448,22 +448,22 @@ class RedisCache:
                         await self.remove_stale_node(event.item_id)
                     await self.invalidate_queries(event.workspace_id)
                     logger.debug(
-                        f"Cache invalidated: deleted node {event.item_id} in {event.workspace_id}"
+                        "Cache invalidated: deleted node %s in %s", event.item_id, event.workspace_id
                     )
 
                 elif event.event_type == "query_invalidated":
                     await self.invalidate_queries(event.workspace_id)
-                    logger.debug(f"Cache invalidated: queries in {event.workspace_id}")
+                    logger.debug("Cache invalidated: queries in %s", event.workspace_id)
 
                 elif event.event_type == "culture_updated":
                     await self.invalidate_culture(event.workspace_id)
-                    logger.debug(f"Cache invalidated: culture in {event.workspace_id}")
+                    logger.debug("Cache invalidated: culture in %s", event.workspace_id)
 
                 # Emit KM_CACHE_INVALIDATED event
                 self._emit_cache_invalidated(event.event_type, event.workspace_id, event.item_id)
 
             except (OSError, ConnectionError, RuntimeError) as e:
-                logger.warning(f"Cache invalidation failed for event {event.event_type}: {e}")
+                logger.warning("Cache invalidation failed for event %s: %s", event.event_type, e)
 
         self._unsubscribe = bus.subscribe(handle_invalidation)
         logger.info("Redis cache subscribed to invalidation bus")
@@ -546,7 +546,7 @@ class RedisCache:
         await self._client.zremrangebyrank(self._tracker_key, 0, overage - 1)
 
         logger.debug(
-            f"LRU eviction: removed {len(victims)} entries (max_entries={self._max_entries})"
+            "LRU eviction: removed %s entries (max_entries=%s)", len(victims), self._max_entries
         )
         return len(victims)
 

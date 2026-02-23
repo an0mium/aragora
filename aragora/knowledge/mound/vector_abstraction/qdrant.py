@@ -105,14 +105,14 @@ class QdrantVectorStore(BaseVectorStore):
             if not await self.collection_exists(self.config.collection_name):
                 await self.create_collection(self.config.collection_name)
 
-            logger.info(f"Connected to Qdrant at {url}")
+            logger.info("Connected to Qdrant at %s", url)
 
         except (ConnectionError, TimeoutError, OSError) as e:
             self._connected = False
             raise ConnectionError(f"Failed to connect to Qdrant: {e}") from e
         except (OSError, ConnectionError, TimeoutError, RuntimeError) as e:
             self._connected = False
-            logger.exception(f"Unexpected Qdrant connection error: {e}")
+            logger.exception("Unexpected Qdrant connection error: %s", e)
             raise ConnectionError(f"Failed to connect to Qdrant: {e}") from e
 
     async def disconnect(self) -> None:
@@ -121,7 +121,7 @@ class QdrantVectorStore(BaseVectorStore):
             try:
                 await self._client.close()
             except (RuntimeError, ConnectionError, OSError) as e:
-                logger.warning(f"Error closing Qdrant connection: {e}")
+                logger.warning("Error closing Qdrant connection: %s", e)
             finally:
                 self._client = None
                 self._connected = False
@@ -161,7 +161,7 @@ class QdrantVectorStore(BaseVectorStore):
             ),
         )
 
-        logger.info(f"Created Qdrant collection: {name}")
+        logger.info("Created Qdrant collection: %s", name)
 
     async def delete_collection(self, name: str) -> bool:
         """Delete a collection."""
@@ -172,7 +172,7 @@ class QdrantVectorStore(BaseVectorStore):
             await self._client.delete_collection(name)
             return True
         except (RuntimeError, ConnectionError, KeyError) as e:
-            logger.debug(f"Delete collection failed: {e}")
+            logger.debug("Delete collection failed: %s", e)
             return False
 
     async def collection_exists(self, name: str) -> bool:
@@ -440,7 +440,7 @@ class QdrantVectorStore(BaseVectorStore):
                     embedding=point.vector if isinstance(point.vector, list) else None,
                 )
         except (RuntimeError, ConnectionError, KeyError) as e:
-            logger.debug(f"Error retrieving vector by ID: {e}")
+            logger.debug("Error retrieving vector by ID: %s", e)
 
         return None
 

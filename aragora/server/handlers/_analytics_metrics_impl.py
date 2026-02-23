@@ -262,7 +262,7 @@ class AnalyticsMetricsHandler(
         # Rate limit check
         client_ip = get_client_ip(handler)
         if not _analytics_metrics_limiter.is_allowed(client_ip):
-            logger.warning(f"Rate limit exceeded for analytics metrics: {client_ip}")
+            logger.warning("Rate limit exceeded for analytics metrics: %s", client_ip)
             return error_response(
                 "Rate limit exceeded. Please try again later.",
                 429,
@@ -275,7 +275,7 @@ class AnalyticsMetricsHandler(
         except UnauthorizedError:
             return error_response("Authentication required", 401, code="AUTH_REQUIRED")
         except ForbiddenError as e:
-            logger.warning(f"Analytics metrics access denied: {e}")
+            logger.warning("Analytics metrics access denied: %s", e)
             return error_response("Permission denied", 403, code="PERMISSION_DENIED")
 
         # Additional RBAC check via rbac.checker if available
@@ -285,7 +285,7 @@ class AnalyticsMetricsHandler(
         elif hasattr(handler, "auth_context"):
             decision = check_permission(handler.auth_context, ANALYTICS_METRICS_PERMISSION)
             if not decision.allowed:
-                logger.warning(f"RBAC denied analytics metrics access: {decision.reason}")
+                logger.warning("RBAC denied analytics metrics access: %s", decision.reason)
                 return error_response(
                     "Permission denied",
                     403,

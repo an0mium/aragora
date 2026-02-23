@@ -630,7 +630,7 @@ async def handle_execute_quick_action(
             result["new_emails"] = 3
             result["message"] = "Inbox synced, 3 new emails"
 
-        logger.info(f"Quick action executed: {action_id} by {user_id}")
+        logger.info("Quick action executed: %s by %s", action_id, user_id)
 
         return success_response(result)
 

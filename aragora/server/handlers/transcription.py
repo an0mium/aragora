@@ -281,7 +281,7 @@ def _save_job(job_id: str, job_data: dict[str, Any]) -> None:
                 # No event loop, create one
                 asyncio.run(store.enqueue(job))
         except (ImportError, RuntimeError, OSError, ConnectionError) as e:
-            logger.debug(f"Failed to persist transcription job: {e}")
+            logger.debug("Failed to persist transcription job: %s", e)
 
 
 def _get_job(job_id: str) -> dict[str, Any] | None:
@@ -316,7 +316,7 @@ def _get_job(job_id: str) -> dict[str, Any] | None:
                 _transcription_jobs[job_id] = job_data
                 return job_data
         except (RuntimeError, OSError, ConnectionError, AttributeError) as e:
-            logger.debug(f"Failed to load transcription job from store: {e}")
+            logger.debug("Failed to load transcription job from store: %s", e)
 
     return None
 
@@ -454,10 +454,10 @@ class TranscriptionHandler(BaseHandler):
                 }
             )
         except (ImportError, AttributeError) as e:
-            logger.warning(f"Transcription module not available: {e}")
+            logger.warning("Transcription module not available: %s", e)
             return error_response("Transcription service not fully configured", 503)
         except (RuntimeError, KeyError) as e:
-            logger.exception(f"Unexpected error getting transcription config: {e}")
+            logger.exception("Unexpected error getting transcription config: %s", e)
             return error_response("Failed to get configuration", 500)
 
     def _get_status(self, job_id: str) -> HandlerResult:
@@ -600,13 +600,13 @@ class TranscriptionHandler(BaseHandler):
                     temp_path.unlink()
 
         except (ValueError, KeyError, TypeError) as e:
-            logger.warning(f"Invalid transcription request data: {e}")
+            logger.warning("Invalid transcription request data: %s", e)
             return error_response(safe_error_message(e, "transcription"), 400)
         except OSError as e:
-            logger.error(f"File I/O error during transcription: {e}")
+            logger.error("File I/O error during transcription: %s", e)
             return error_response(safe_error_message(e, "transcription"), 500)
         except (RuntimeError, AttributeError, ImportError) as e:
-            logger.exception(f"Unexpected transcription error: {e}")
+            logger.exception("Unexpected transcription error: %s", e)
             return error_response(safe_error_message(e, "transcription"), 500)
 
     async def _handle_video_transcription(self, handler: Any) -> HandlerResult:
@@ -721,13 +721,13 @@ class TranscriptionHandler(BaseHandler):
                     temp_path.unlink()
 
         except (ValueError, KeyError, TypeError) as e:
-            logger.warning(f"Invalid video transcription request data: {e}")
+            logger.warning("Invalid video transcription request data: %s", e)
             return error_response(safe_error_message(e, "transcription"), 400)
         except OSError as e:
-            logger.error(f"File I/O error during video transcription: {e}")
+            logger.error("File I/O error during video transcription: %s", e)
             return error_response(safe_error_message(e, "transcription"), 500)
         except (RuntimeError, AttributeError, ImportError) as e:
-            logger.exception(f"Unexpected video transcription error: {e}")
+            logger.exception("Unexpected video transcription error: %s", e)
             return error_response(safe_error_message(e, "transcription"), 500)
 
     async def _handle_youtube_transcription(self, handler: Any) -> HandlerResult:
@@ -832,13 +832,13 @@ class TranscriptionHandler(BaseHandler):
                 raise
 
         except (KeyError, TypeError) as e:
-            logger.warning(f"Invalid YouTube transcription request data: {e}")
+            logger.warning("Invalid YouTube transcription request data: %s", e)
             return error_response(safe_error_message(e, "transcription"), 400)
         except OSError as e:
-            logger.error(f"File I/O error during YouTube transcription: {e}")
+            logger.error("File I/O error during YouTube transcription: %s", e)
             return error_response(safe_error_message(e, "transcription"), 500)
         except (RuntimeError, AttributeError, ImportError) as e:
-            logger.exception(f"Unexpected YouTube transcription error: {e}")
+            logger.exception("Unexpected YouTube transcription error: %s", e)
             return error_response(safe_error_message(e, "transcription"), 500)
 
     async def _handle_youtube_info(self, handler: Any) -> HandlerResult:
@@ -881,10 +881,10 @@ class TranscriptionHandler(BaseHandler):
             logger.warning("Handler error: %s", e)
             return error_response("Invalid request", 400)
         except (KeyError, TypeError) as e:
-            logger.warning(f"Invalid YouTube info request data: {e}")
+            logger.warning("Invalid YouTube info request data: %s", e)
             return error_response(safe_error_message(e, "video info"), 400)
         except (AttributeError, ImportError, OSError) as e:
-            logger.exception(f"Unexpected error getting YouTube info: {e}")
+            logger.exception("Unexpected error getting YouTube info: %s", e)
             return error_response(safe_error_message(e, "video info"), 500)
 
     def _parse_multipart(self, handler: Any, content_type: str) -> tuple[bytes | None, str, dict]:
@@ -937,11 +937,11 @@ class TranscriptionHandler(BaseHandler):
             return file_data, filename, params
 
         except (ValueError, KeyError) as e:
-            logger.warning(f"Invalid multipart form data: {e}")
+            logger.warning("Invalid multipart form data: %s", e)
             return None, "", {}
         except OSError as e:
-            logger.error(f"I/O error parsing multipart data: {e}")
+            logger.error("I/O error parsing multipart data: %s", e)
             return None, "", {}
         except (AttributeError, TypeError, RuntimeError) as e:
-            logger.exception(f"Unexpected error parsing multipart data: {e}")
+            logger.exception("Unexpected error parsing multipart data: %s", e)
             return None, "", {}

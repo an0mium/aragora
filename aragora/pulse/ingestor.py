@@ -121,7 +121,7 @@ class PulseIngestor(ABC):
 
         # All retries failed
         self.circuit_breaker.record_failure()
-        logger.error(f"All {self.max_retries} retries failed: {last_error}")
+        logger.error("All %s retries failed: %s", self.max_retries, last_error)
 
         if fallback_fn:
             return fallback_fn()
@@ -396,7 +396,7 @@ class RedditIngestor(PulseIngestor):
 
                         # Validate response
                         if "data" not in data or "children" not in data["data"]:
-                            logger.warning(f"Invalid Reddit response for r/{subreddit}")
+                            logger.warning("Invalid Reddit response for r/%s", subreddit)
                             continue
 
                         for post in data["data"]["children"][:per_sub_limit]:
@@ -416,7 +416,7 @@ class RedditIngestor(PulseIngestor):
                             )
                             all_topics.append(topic)
                     except (OSError, ValueError, TypeError, RuntimeError) as e:
-                        logger.warning(f"Error fetching r/{subreddit}: {e}")
+                        logger.warning("Error fetching r/%s: %s", subreddit, e)
                         continue
 
                 return all_topics[:limit]
@@ -513,7 +513,7 @@ class GitHubTrendingIngestor(PulseIngestor):
                     remaining = response.headers.get("X-RateLimit-Remaining", "0")
                     if remaining == "0":
                         reset_time = response.headers.get("X-RateLimit-Reset", "")
-                        logger.warning(f"GitHub rate limit exceeded. Reset at: {reset_time}")
+                        logger.warning("GitHub rate limit exceeded. Reset at: %s", reset_time)
                         raise ExternalServiceError(
                             service="GitHub API",
                             reason=f"Rate limit exceeded. Reset at: {reset_time}",
@@ -547,7 +547,7 @@ class GitHubTrendingIngestor(PulseIngestor):
                     )
                     topics.append(topic)
 
-                logger.info(f"[github] Fetched {len(topics)} real trending repositories")
+                logger.info("[github] Fetched %s real trending repositories", len(topics))
                 return topics
 
         return await self._retry_with_backoff(
@@ -674,17 +674,16 @@ class GoogleTrendsIngestor(PulseIngestor):
                         return await self._parse_rss(response.text, limit)
                     except httpx.HTTPStatusError as e:
                         last_error = e
-                        logger.debug(f"[google_trends] URL {url} failed: {e}")
+                        logger.debug("[google_trends] URL %s failed: %s", url, e)
                         continue
                     except (OSError, ValueError, TypeError, RuntimeError) as e:
                         last_error = e
-                        logger.debug(f"[google_trends] URL {url} error: {e}")
+                        logger.debug("[google_trends] URL %s error: %s", url, e)
                         continue
 
                 # All URLs failed - Google may have changed their API again
                 logger.warning(
-                    f"[google_trends] All Google Trends RSS URLs failed. "
-                    f"Google may have changed their API. Last error: {last_error}"
+                    "[google_trends] All Google Trends RSS URLs failed. Google may have changed their API. Last error: %s", last_error
                 )
                 raise last_error or Exception("All Google Trends URLs failed")
 
@@ -729,7 +728,7 @@ class GoogleTrendsIngestor(PulseIngestor):
                 )
                 topics.append(topic)
 
-        logger.info(f"[google_trends] Fetched {len(topics)} real trending searches from Google")
+        logger.info("[google_trends] Fetched %s real trending searches from Google", len(topics))
         return topics
 
     def _categorize_topic(self, topic: str) -> str:
@@ -833,7 +832,7 @@ class ArxivIngestor(PulseIngestor):
                         )
                         topics.append(topic)
 
-                logger.info(f"[arxiv] Fetched {len(topics)} recent papers")
+                logger.info("[arxiv] Fetched %s recent papers", len(topics))
                 return topics
 
         return await self._retry_with_backoff(_fetch, fallback_fn=lambda: [])
@@ -901,7 +900,7 @@ class LobstersIngestor(PulseIngestor):
                     )
                     topics.append(topic)
 
-                logger.info(f"[lobsters] Fetched {len(topics)} hottest stories")
+                logger.info("[lobsters] Fetched %s hottest stories", len(topics))
                 return topics
 
         return await self._retry_with_backoff(_fetch, fallback_fn=lambda: [])
@@ -963,7 +962,7 @@ class DevToIngestor(PulseIngestor):
                     )
                     topics.append(topic)
 
-                logger.info(f"[devto] Fetched {len(topics)} top articles")
+                logger.info("[devto] Fetched %s top articles", len(topics))
                 return topics
 
         return await self._retry_with_backoff(_fetch, fallback_fn=lambda: [])
@@ -1044,7 +1043,7 @@ class ProductHuntIngestor(PulseIngestor):
                         )
                         topics.append(topic)
 
-                logger.info(f"[producthunt] Fetched {len(topics)} products via RSS")
+                logger.info("[producthunt] Fetched %s products via RSS", len(topics))
                 return topics
 
         return await self._retry_with_backoff(_fetch, fallback_fn=lambda: [])
@@ -1115,7 +1114,7 @@ class ProductHuntIngestor(PulseIngestor):
                     )
                     topics.append(topic)
 
-                logger.info(f"[producthunt] Fetched {len(topics)} products via API")
+                logger.info("[producthunt] Fetched %s products via API", len(topics))
                 return topics
 
         return await self._retry_with_backoff(_fetch, fallback_fn=lambda: [])
@@ -1195,10 +1194,10 @@ class SubstackIngestor(PulseIngestor):
                                 )
                                 all_topics.append(topic)
                     except (OSError, ValueError, TypeError, RuntimeError) as e:
-                        logger.warning(f"Error fetching Substack feed {feed_url}: {e}")
+                        logger.warning("Error fetching Substack feed %s: %s", feed_url, e)
                         continue
 
-                logger.info(f"[substack] Fetched {len(all_topics)} articles from feeds")
+                logger.info("[substack] Fetched %s articles from feeds", len(all_topics))
                 return all_topics[:limit]
 
         return await self._retry_with_backoff(_fetch, fallback_fn=lambda: [])
@@ -1238,7 +1237,7 @@ class PulseManager:
 
             for result in results:
                 if isinstance(result, BaseException):
-                    logger.warning(f"Ingestor error: {result}")
+                    logger.warning("Ingestor error: %s", result)
                 else:
                     all_topics.extend(result)
 

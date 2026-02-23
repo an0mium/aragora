@@ -152,13 +152,13 @@ async def handle_charge(
         )
 
     except (ConnectionError, OSError) as e:
-        logger.error(f"Connection error processing charge: {e}")
+        logger.error("Connection error processing charge: %s", e)
         return web_error_response("Payment service temporarily unavailable", 503)
     except (ValueError, KeyError, TypeError) as e:
-        logger.error(f"Data error processing charge: {e}")
+        logger.error("Data error processing charge: %s", e)
         return web_error_response("Invalid payment data", 400)
     except (RuntimeError, TimeoutError, AttributeError) as e:
-        logger.exception(f"Unexpected error processing charge: {e}")
+        logger.exception("Unexpected error processing charge: %s", e)
         return web_error_response("Internal payment error", 500)
 
 
@@ -213,7 +213,7 @@ async def _charge_stripe(
         )
 
     except ConnectionError as e:
-        logger.error(f"Stripe connection error: {e}")
+        logger.error("Stripe connection error: %s", e)
         return PaymentResult(
             transaction_id="",
             provider=PaymentProvider.STRIPE,
@@ -223,7 +223,7 @@ async def _charge_stripe(
             message="Payment service temporarily unavailable",
         )
     except (ValueError, KeyError, TypeError) as e:
-        logger.error(f"Stripe data error: {e}")
+        logger.error("Stripe data error: %s", e)
         return PaymentResult(
             transaction_id="",
             provider=PaymentProvider.STRIPE,
@@ -233,7 +233,7 @@ async def _charge_stripe(
             message="Invalid payment request",
         )
     except (RuntimeError, TimeoutError, AttributeError) as e:
-        logger.exception(f"Unexpected Stripe error: {e}")
+        logger.exception("Unexpected Stripe error: %s", e)
         return PaymentResult(
             transaction_id="",
             provider=PaymentProvider.STRIPE,
@@ -320,7 +320,7 @@ async def _charge_authnet(
         )
 
     except ConnectionError as e:
-        logger.error(f"Authorize.net connection error: {e}")
+        logger.error("Authorize.net connection error: %s", e)
         return PaymentResult(
             transaction_id="",
             provider=PaymentProvider.AUTHORIZE_NET,
@@ -330,7 +330,7 @@ async def _charge_authnet(
             message="Payment service temporarily unavailable",
         )
     except (ValueError, KeyError, TypeError) as e:
-        logger.error(f"Authorize.net data error: {e}")
+        logger.error("Authorize.net data error: %s", e)
         return PaymentResult(
             transaction_id="",
             provider=PaymentProvider.AUTHORIZE_NET,
@@ -340,7 +340,7 @@ async def _charge_authnet(
             message="Invalid payment request",
         )
     except (RuntimeError, TimeoutError, AttributeError) as e:
-        logger.exception(f"Unexpected Authorize.net error: {e}")
+        logger.exception("Unexpected Authorize.net error: %s", e)
         return PaymentResult(
             transaction_id="",
             provider=PaymentProvider.AUTHORIZE_NET,
@@ -430,13 +430,13 @@ async def handle_authorize(request: web.Request) -> web.Response:
         return web_error_response("Invalid request", 400)
 
     except (ConnectionError, OSError) as e:
-        logger.error(f"Connection error authorizing payment: {e}")
+        logger.error("Connection error authorizing payment: %s", e)
         return web_error_response("Payment service temporarily unavailable", 503)
     except (ValueError, KeyError, TypeError) as e:
-        logger.error(f"Data error authorizing payment: {e}")
+        logger.error("Data error authorizing payment: %s", e)
         return web_error_response("Invalid authorization data", 400)
     except (RuntimeError, TimeoutError, AttributeError) as e:
-        logger.exception(f"Unexpected error authorizing payment: {e}")
+        logger.exception("Unexpected error authorizing payment: %s", e)
         return web_error_response("Internal payment error", 500)
 
 
@@ -510,13 +510,13 @@ async def handle_capture(request: web.Request) -> web.Response:
             )
 
     except (ConnectionError, OSError) as e:
-        logger.error(f"Connection error capturing payment: {e}")
+        logger.error("Connection error capturing payment: %s", e)
         return web_error_response("Payment service temporarily unavailable", 503)
     except (ValueError, KeyError, TypeError) as e:
-        logger.error(f"Data error capturing payment: {e}")
+        logger.error("Data error capturing payment: %s", e)
         return web_error_response("Invalid capture data", 400)
     except (RuntimeError, TimeoutError, AttributeError) as e:
-        logger.exception(f"Unexpected error capturing payment: {e}")
+        logger.exception("Unexpected error capturing payment: %s", e)
         return web_error_response("Internal payment error", 500)
 
 
@@ -630,13 +630,13 @@ async def handle_refund(
             )
 
     except (ConnectionError, OSError) as e:
-        logger.error(f"Connection error processing refund: {e}")
+        logger.error("Connection error processing refund: %s", e)
         return web_error_response("Payment service temporarily unavailable", 503)
     except (ValueError, KeyError, TypeError) as e:
-        logger.error(f"Data error processing refund: {e}")
+        logger.error("Data error processing refund: %s", e)
         return web_error_response("Invalid refund data", 400)
     except (RuntimeError, TimeoutError, AttributeError) as e:
-        logger.exception(f"Unexpected error processing refund: {e}")
+        logger.exception("Unexpected error processing refund: %s", e)
         _pkg().audit_security(
             event_type="refund_error",
             actor_id=request.get("user_id", "unknown"),
@@ -714,13 +714,13 @@ async def handle_void(
             )
 
     except (ConnectionError, OSError) as e:
-        logger.error(f"Connection error voiding transaction: {e}")
+        logger.error("Connection error voiding transaction: %s", e)
         return web_error_response("Payment service temporarily unavailable", 503)
     except (ValueError, KeyError, TypeError) as e:
-        logger.error(f"Data error voiding transaction: {e}")
+        logger.error("Data error voiding transaction: %s", e)
         return web_error_response("Invalid void request", 400)
     except (RuntimeError, TimeoutError, AttributeError) as e:
-        logger.exception(f"Unexpected error voiding transaction: {e}")
+        logger.exception("Unexpected error voiding transaction: %s", e)
         return web_error_response("Internal payment error", 500)
 
 
@@ -789,13 +789,13 @@ async def handle_get_transaction(
             )
 
     except (ConnectionError, OSError) as e:
-        logger.error(f"Connection error getting transaction: {e}")
+        logger.error("Connection error getting transaction: %s", e)
         return web_error_response("Payment service temporarily unavailable", 503)
     except (ValueError, KeyError, TypeError) as e:
-        logger.error(f"Data error getting transaction: {e}")
+        logger.error("Data error getting transaction: %s", e)
         return web_error_response("Invalid transaction request", 400)
     except (RuntimeError, TimeoutError, AttributeError) as e:
-        logger.exception(f"Unexpected error getting transaction: {e}")
+        logger.exception("Unexpected error getting transaction: %s", e)
         return web_error_response("Internal payment error", 500)
 
 
@@ -838,24 +838,24 @@ async def handle_stripe_webhook(request: web.Request) -> web.Response:
         if not event_id:
             logger.warning("Webhook event missing ID, cannot check idempotency")
         elif _pkg()._is_duplicate_webhook(event_id):
-            logger.info(f"Skipping duplicate Stripe webhook: {event_id}")
+            logger.info("Skipping duplicate Stripe webhook: %s", event_id)
             return web.json_response({"received": True, "duplicate": True})
 
         # Handle the event
         event_type = event.type
-        logger.info(f"Received Stripe webhook: {event_type} (id={event_id})")
+        logger.info("Received Stripe webhook: %s (id=%s)", event_type, event_id)
 
         # Process different event types
         if event_type == "payment_intent.succeeded":
-            logger.info(f"Payment succeeded: {event.data.object.id}")
+            logger.info("Payment succeeded: %s", event.data.object.id)
         elif event_type == "payment_intent.payment_failed":
-            logger.warning(f"Payment failed: {event.data.object.id}")
+            logger.warning("Payment failed: %s", event.data.object.id)
         elif event_type == "customer.subscription.created":
-            logger.info(f"Subscription created: {event.data.object.id}")
+            logger.info("Subscription created: %s", event.data.object.id)
         elif event_type == "customer.subscription.deleted":
-            logger.info(f"Subscription canceled: {event.data.object.id}")
+            logger.info("Subscription canceled: %s", event.data.object.id)
         elif event_type == "invoice.payment_failed":
-            logger.warning(f"Invoice payment failed: {event.data.object.id}")
+            logger.warning("Invoice payment failed: %s", event.data.object.id)
 
         # Mark as processed after successful handling
         if event_id:
@@ -864,10 +864,10 @@ async def handle_stripe_webhook(request: web.Request) -> web.Response:
         return web.json_response({"received": True})
 
     except (ValueError, KeyError, TypeError) as e:
-        logger.error(f"Data error in Stripe webhook: {e}")
+        logger.error("Data error in Stripe webhook: %s", e)
         return web_error_response("Invalid webhook data", 400)
     except (RuntimeError, TimeoutError, AttributeError, OSError) as e:
-        logger.exception(f"Unexpected error handling Stripe webhook: {e}")
+        logger.exception("Unexpected error handling Stripe webhook: %s", e)
         return web_error_response("Webhook processing error", 500)
 
 
@@ -909,22 +909,22 @@ async def handle_authnet_webhook(request: web.Request) -> web.Response:
             event_id = f"authnet_{hashlib.sha256(payload_str.encode()).hexdigest()[:16]}"
 
         if _pkg()._is_duplicate_webhook(event_id):
-            logger.info(f"Skipping duplicate Authorize.net webhook: {event_id}")
+            logger.info("Skipping duplicate Authorize.net webhook: %s", event_id)
             return web.json_response({"received": True, "duplicate": True})
 
         # Handle the event
         event_type = payload.get("eventType", "")
-        logger.info(f"Received Authorize.net webhook: {event_type} (id={event_id})")
+        logger.info("Received Authorize.net webhook: %s (id=%s)", event_type, event_id)
 
         # Process different event types
         if event_type == "net.authorize.payment.authcapture.created":
-            logger.info(f"Payment captured: {payload.get('payload', {}).get('id')}")
+            logger.info("Payment captured: %s", payload.get('payload', {}).get('id'))
         elif event_type == "net.authorize.payment.refund.created":
-            logger.info(f"Refund processed: {payload.get('payload', {}).get('id')}")
+            logger.info("Refund processed: %s", payload.get('payload', {}).get('id'))
         elif event_type == "net.authorize.customer.subscription.created":
-            logger.info(f"Subscription created: {payload.get('payload', {}).get('id')}")
+            logger.info("Subscription created: %s", payload.get('payload', {}).get('id'))
         elif event_type == "net.authorize.customer.subscription.cancelled":
-            logger.info(f"Subscription canceled: {payload.get('payload', {}).get('id')}")
+            logger.info("Subscription canceled: %s", payload.get('payload', {}).get('id'))
 
         # Mark as processed after successful handling
         _pkg()._mark_webhook_processed(event_id)
@@ -932,8 +932,8 @@ async def handle_authnet_webhook(request: web.Request) -> web.Response:
         return web.json_response({"received": True})
 
     except (ValueError, KeyError, TypeError) as e:
-        logger.error(f"Data error in Authorize.net webhook: {e}")
+        logger.error("Data error in Authorize.net webhook: %s", e)
         return web_error_response("Invalid webhook data", 400)
     except (RuntimeError, TimeoutError, AttributeError, OSError) as e:
-        logger.exception(f"Unexpected error handling Authorize.net webhook: {e}")
+        logger.exception("Unexpected error handling Authorize.net webhook: %s", e)
         return web_error_response("Webhook processing error", 500)

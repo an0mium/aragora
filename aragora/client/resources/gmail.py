@@ -106,7 +106,7 @@ class GmailAPI:
                 return self._parse_connection(response)
             return None
         except (ConnectionError, TimeoutError, OSError, ValueError, KeyError) as e:
-            logger.debug(f"Gmail connection status check failed: {type(e).__name__}: {e}")
+            logger.debug("Gmail connection status check failed: %s: %s", type(e).__name__, e)
             return None
 
     async def get_connection_async(self) -> GmailConnection | None:
@@ -117,7 +117,7 @@ class GmailAPI:
                 return self._parse_connection(response)
             return None
         except (ConnectionError, TimeoutError, OSError, ValueError, KeyError) as e:
-            logger.debug(f"Gmail async connection status check failed: {type(e).__name__}: {e}")
+            logger.debug("Gmail async connection status check failed: %s: %s", type(e).__name__, e)
             return None
 
     def initiate_connection(self, redirect_uri: str | None = None) -> dict[str, Any]:

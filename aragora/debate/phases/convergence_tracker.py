@@ -167,9 +167,7 @@ class DebateConvergenceTracker:
             )
             if intervention:
                 logger.info(
-                    f"trickster_intervention round={round_num} "
-                    f"type={intervention.intervention_type.value} "
-                    f"targets={intervention.target_agents}"
+                    "trickster_intervention round=%s type=%s targets=%s", round_num, intervention.intervention_type.value, intervention.target_agents
                 )
                 # Notify spectator about hollow consensus
                 if self._notify_spectator:
@@ -219,13 +217,13 @@ class DebateConvergenceTracker:
 
                 # Block convergence if hollow
                 if intervention.priority > 0.5:
-                    logger.info(f"hollow_consensus_blocked round={round_num}")
+                    logger.info("hollow_consensus_blocked round=%s", round_num)
                     record_convergence_check(status="blocked_hollow", blocked=True)
                     result.blocked_by_trickster = True
                     return result
 
         if convergence.converged:
-            logger.info(f"debate_converged round={round_num}")
+            logger.info("debate_converged round=%s", round_num)
             result.converged = True
 
         return result
@@ -295,7 +293,7 @@ class DebateConvergenceTracker:
                 )
                 if intervention:
                     logger.info(
-                        f"novelty_challenge round={round_num} targets={intervention.target_agents}"
+                        "novelty_challenge round=%s targets=%s", round_num, intervention.target_agents
                     )
                     if self._notify_spectator:
                         self._notify_spectator(

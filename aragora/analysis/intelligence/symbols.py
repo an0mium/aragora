@@ -116,7 +116,7 @@ def find_symbol_usages(
                         )
                     )
         except (OSError, UnicodeDecodeError) as e:
-            logger.debug(f"Error searching {path}: {e}")
+            logger.debug("Error searching %s: %s", path, e)
 
     return usages
 

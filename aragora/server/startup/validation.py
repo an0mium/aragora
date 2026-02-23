@@ -306,19 +306,17 @@ def check_production_requirements() -> list[str]:
 
     # Log all warnings
     for warning in warnings:
-        logger.warning(f"[PRODUCTION CONFIG] {warning}")
+        logger.warning("[PRODUCTION CONFIG] %s", warning)
 
     # Log summary
     if is_production:
         if missing:
             logger.error(
-                f"[PRODUCTION CONFIG] {len(missing)} critical requirement(s) missing. "
-                "Server startup will fail."
+                "[PRODUCTION CONFIG] %s critical requirement(s) missing. Server startup will fail.", len(missing)
             )
         elif warnings:
             logger.warning(
-                f"[PRODUCTION CONFIG] {len(warnings)} recommendation(s) not met. "
-                "Server will start but may have reduced durability."
+                "[PRODUCTION CONFIG] %s recommendation(s) not met. Server will start but may have reduced durability.", len(warnings)
             )
         else:
             logger.info("[PRODUCTION CONFIG] All production requirements met.")
@@ -466,7 +464,7 @@ async def validate_database_connectivity_with_retry(
         if success:
             if attempt > 0:
                 logger.info(
-                    f"[DB STARTUP] PostgreSQL connectivity validated after {attempt} retries"
+                    "[DB STARTUP] PostgreSQL connectivity validated after %s retries", attempt
                 )
             return True, message
 
@@ -481,7 +479,7 @@ async def validate_database_connectivity_with_retry(
             backoff = min(backoff * backoff_multiplier, max_backoff)
 
     logger.error(
-        f"[DB STARTUP] PostgreSQL connectivity failed after {max_retries + 1} attempts: {last_error}"
+        "[DB STARTUP] PostgreSQL connectivity failed after %s attempts: %s", max_retries + 1, last_error
     )
     return False, f"Failed after {max_retries + 1} attempts: {last_error}"
 
@@ -516,7 +514,7 @@ async def validate_redis_connectivity_with_retry(
 
         if success:
             if attempt > 0:
-                logger.info(f"[REDIS STARTUP] Redis connectivity validated after {attempt} retries")
+                logger.info("[REDIS STARTUP] Redis connectivity validated after %s retries", attempt)
             return True, message
 
         last_error = message
@@ -530,7 +528,7 @@ async def validate_redis_connectivity_with_retry(
             backoff = min(backoff * backoff_multiplier, max_backoff)
 
     logger.error(
-        f"[REDIS STARTUP] Redis connectivity failed after {max_retries + 1} attempts: {last_error}"
+        "[REDIS STARTUP] Redis connectivity failed after %s attempts: %s", max_retries + 1, last_error
     )
     return False, f"Failed after {max_retries + 1} attempts: {last_error}"
 
@@ -629,14 +627,14 @@ async def validate_backend_connectivity(
 
     # Log results
     if redis_ok and "connected" in redis_msg.lower():
-        logger.info(f"[BACKEND CHECK] {redis_msg}")
+        logger.info("[BACKEND CHECK] %s", redis_msg)
     elif not redis_ok:
-        logger.warning(f"[BACKEND CHECK] Redis: {redis_msg}")
+        logger.warning("[BACKEND CHECK] Redis: %s", redis_msg)
 
     if db_ok and "connected" in db_msg.lower():
-        logger.info(f"[BACKEND CHECK] {db_msg}")
+        logger.info("[BACKEND CHECK] %s", db_msg)
     elif not db_ok:
-        logger.warning(f"[BACKEND CHECK] PostgreSQL: {db_msg}")
+        logger.warning("[BACKEND CHECK] PostgreSQL: %s", db_msg)
 
     return {
         "valid": len(errors) == 0,
@@ -707,9 +705,9 @@ def validate_storage_backend() -> dict[str, Any]:
             logger.info("[STORAGE BACKEND] Using SQLite (development mode)")
 
     for warning in warnings:
-        logger.warning(f"[STORAGE BACKEND] {warning}")
+        logger.warning("[STORAGE BACKEND] %s", warning)
     for error in errors:
-        logger.error(f"[STORAGE BACKEND] {error}")
+        logger.error("[STORAGE BACKEND] %s", error)
 
     return {
         "valid": len(errors) == 0,

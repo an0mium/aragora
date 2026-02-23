@@ -197,7 +197,7 @@ class RulesStore:
                 """)
 
             self._initialized = True
-            logger.info(f"[RulesStore] Initialized database at {self.db_path}")
+            logger.info("[RulesStore] Initialized database at %s", self.db_path)
 
     # =========================================================================
     # Routing Rules CRUD
@@ -242,7 +242,7 @@ class RulesStore:
                 ),
             )
 
-        logger.info(f"[RulesStore] Created rule {rule_data['id']}: {rule_data['name']}")
+        logger.info("[RulesStore] Created rule %s: %s", rule_data['id'], rule_data['name'])
         return rule_data
 
     def get_rule(self, rule_id: str) -> dict[str, Any] | None:
@@ -303,7 +303,7 @@ class RulesStore:
                 ),
             )
 
-        logger.info(f"[RulesStore] Updated rule {rule_id}")
+        logger.info("[RulesStore] Updated rule %s", rule_id)
         return existing
 
     def delete_rule(self, rule_id: str) -> bool:
@@ -313,7 +313,7 @@ class RulesStore:
             deleted = cursor.rowcount > 0
 
         if deleted:
-            logger.info(f"[RulesStore] Deleted rule {rule_id}")
+            logger.info("[RulesStore] Deleted rule %s", rule_id)
         return deleted
 
     def list_rules(
@@ -451,7 +451,7 @@ class RulesStore:
                 ),
             )
 
-        logger.info(f"[RulesStore] Created inbox {inbox_data['id']}: {inbox_data['name']}")
+        logger.info("[RulesStore] Created inbox %s: %s", inbox_data['id'], inbox_data['name'])
         return inbox_data
 
     def get_inbox(self, inbox_id: str) -> dict[str, Any] | None:

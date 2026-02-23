@@ -236,11 +236,11 @@ class DataMigrator:
                         stats.errors.append(f"Final batch error: {e}")
                         stats.rows_skipped += len(batch)
 
-            logger.info(f"Migrated {stats.rows_migrated} rows to {table}")
+            logger.info("Migrated %s rows to %s", stats.rows_migrated, table)
 
         except (OSError, ConnectionError, RuntimeError, ValueError, sqlite3.Error) as e:
             stats.errors.append(f"Migration error: {e}")
-            logger.exception(f"Error migrating table {table}")
+            logger.exception("Error migrating table %s", table)
 
         finally:
             sqlite_conn.close()
@@ -257,12 +257,12 @@ class DataMigrator:
         results = []
 
         for table in self.TABLE_MAPPINGS:
-            logger.info(f"Migrating table: {table}")
+            logger.info("Migrating table: %s", table)
             stats = await self.migrate_table(table)
             results.append(stats)
 
             if stats.errors:
-                logger.warning(f"Table {table} had errors: {stats.errors}")
+                logger.warning("Table %s had errors: %s", table, stats.errors)
 
         return results
 

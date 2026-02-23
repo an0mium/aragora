@@ -92,7 +92,7 @@ class GraphOperationsMixin:
                 )
             )
         except (KeyError, ValueError, OSError, TypeError, RuntimeError) as e:
-            logger.error(f"Graph traversal failed: {e}")
+            logger.error("Graph traversal failed: %s", e)
             return error_response("Graph traversal failed", 500)
 
         return json_response(
@@ -133,7 +133,7 @@ class GraphOperationsMixin:
                 )
             )
         except (KeyError, ValueError, OSError, TypeError, RuntimeError) as e:
-            logger.error(f"Graph lineage failed: {e}")
+            logger.error("Graph lineage failed: %s", e)
             return error_response("Graph lineage failed", 500)
 
         return json_response(
@@ -186,7 +186,7 @@ class GraphOperationsMixin:
                 )
             )
         except (KeyError, ValueError, OSError, TypeError, RuntimeError) as e:
-            logger.error(f"Get related nodes failed: {e}")
+            logger.error("Get related nodes failed: %s", e)
             return error_response("Get related nodes failed", 500)
 
         return json_response(

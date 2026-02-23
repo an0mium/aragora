@@ -92,7 +92,7 @@ class GovernanceStore:
             resolved_path = resolve_db_path(db_path)
             self.db_path = Path(resolved_path)
             self._backend = SQLiteBackend(resolved_path)
-            logger.info(f"GovernanceStore using SQLite backend: {resolved_path}")
+            logger.info("GovernanceStore using SQLite backend: %s", resolved_path)
 
         self._init_db()
 
@@ -170,7 +170,7 @@ class GovernanceStore:
             try:
                 self._backend.execute_write(idx)
             except (OSError, RuntimeError, ValueError) as e:
-                logger.debug(f"Index creation skipped: {e}")
+                logger.debug("Index creation skipped: %s", e)
 
     # =========================================================================
     # Approval Management
@@ -255,7 +255,7 @@ class GovernanceStore:
         approval_type = "nomic" if "nomic" in title.lower() else "change"
         record_governance_approval(approval_type, status)
 
-        logger.debug(f"Saved approval: {approval_id}")
+        logger.debug("Saved approval: %s", approval_id)
         return approval_id
 
     def update_approval_status(
@@ -296,7 +296,7 @@ class GovernanceStore:
         sql = f"UPDATE governance_approvals SET {', '.join(updates)} WHERE approval_id = ?"
         self._backend.execute_write(sql, tuple(params))
 
-        logger.debug(f"Updated approval {approval_id} -> {status}")
+        logger.debug("Updated approval %s -> %s", approval_id, status)
         return True
 
     def get_approval(self, approval_id: str) -> ApprovalRecord | None:
@@ -474,7 +474,7 @@ class GovernanceStore:
         verification_result = "valid" if result.get("valid", False) else "invalid"
         record_governance_verification(verification_type, verification_result)
 
-        logger.debug(f"Saved verification: {verification_id}")
+        logger.debug("Saved verification: %s", verification_id)
         return verification_id
 
     def get_verification(self, verification_id: str) -> VerificationRecord | None:
@@ -630,7 +630,7 @@ class GovernanceStore:
         outcome = "approved" if consensus_reached else "rejected"
         record_governance_decision(decision_type, outcome)
 
-        logger.debug(f"Saved decision: {decision_id}")
+        logger.debug("Saved decision: %s", decision_id)
         return decision_id
 
     def get_decision(self, decision_id: str) -> DecisionRecord | None:
@@ -779,7 +779,7 @@ class GovernanceStore:
                 (f"-{verifications_days}",),
             )
 
-        logger.info(f"Cleaned up governance records: {counts}")
+        logger.info("Cleaned up governance records: %s", counts)
         return counts
 
     def close(self) -> None:

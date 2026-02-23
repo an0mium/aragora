@@ -80,12 +80,12 @@ class RedisStreamsQueue(JobQueue):
                 id="0",
                 mkstream=True,
             )
-            logger.info(f"Created consumer group {self.group_name} on {self.stream_key}")
+            logger.info("Created consumer group %s on %s", self.group_name, self.stream_key)
         except (OSError, ConnectionError, RuntimeError) as e:
             # Group already exists (BUSYGROUP error)
             if "BUSYGROUP" not in str(e):
                 raise
-            logger.debug(f"Consumer group {self.group_name} already exists")
+            logger.debug("Consumer group %s already exists", self.group_name)
 
         self._initialized = True
 
@@ -132,7 +132,7 @@ class RedisStreamsQueue(JobQueue):
         # Track job status
         await self._status_tracker.create(job)
 
-        logger.debug(f"Enqueued job {job.id}")
+        logger.debug("Enqueued job %s", job.id)
         return job.id
 
     async def dequeue(
@@ -207,11 +207,11 @@ class RedisStreamsQueue(JobQueue):
                 attempts=job.attempts,
             )
 
-            logger.debug(f"Dequeued job {job.id} for worker {worker_id}")
+            logger.debug("Dequeued job %s for worker %s", job.id, worker_id)
             return job
 
         except (OSError, ConnectionError, RuntimeError, ValueError) as e:
-            logger.error(f"Error dequeuing job: {e}")
+            logger.error("Error dequeuing job: %s", e)
             return None
 
     async def ack(self, job_id: str) -> bool:
@@ -236,7 +236,7 @@ class RedisStreamsQueue(JobQueue):
         # Update status
         await self._status_tracker.update_status(job_id, JobStatus.COMPLETED)
 
-        logger.debug(f"Acknowledged job {job_id}")
+        logger.debug("Acknowledged job %s", job_id)
         return True
 
     async def nack(self, job_id: str, requeue: bool = True) -> bool:
@@ -263,7 +263,7 @@ class RedisStreamsQueue(JobQueue):
                 JobStatus.RETRYING,
                 error=job.error,
             )
-            logger.debug(f"Job {job_id} marked for retry (attempt {job.attempts})")
+            logger.debug("Job %s marked for retry (attempt %s)", job_id, job.attempts)
         else:
             # Mark as failed and acknowledge to remove from pending
             await self._status_tracker.update_status(
@@ -273,7 +273,7 @@ class RedisStreamsQueue(JobQueue):
             )
             if message_id:
                 await self._redis.xack(self.stream_key, self.group_name, message_id)
-            logger.debug(f"Job {job_id} marked as failed")
+            logger.debug("Job %s marked as failed", job_id)
 
         return True
 
@@ -315,7 +315,7 @@ class RedisStreamsQueue(JobQueue):
         if message_id:
             await self._redis.xack(self.stream_key, self.group_name, message_id)
 
-        logger.info(f"Cancelled job {job_id}")
+        logger.info("Cancelled job %s", job_id)
         return True
 
     async def get_queue_stats(self) -> dict[str, int]:
@@ -336,7 +336,7 @@ class RedisStreamsQueue(JobQueue):
             pending_info = await self._redis.xpending(self.stream_key, self.group_name)
             pending_count = pending_info.get("pending", 0) if pending_info else 0
         except (OSError, ConnectionError, RuntimeError) as e:
-            logger.debug(f"Could not get pending count for {self.stream_key}: {e}")
+            logger.debug("Could not get pending count for %s: %s", self.stream_key, e)
             pending_count = 0
 
         return {
@@ -394,14 +394,14 @@ class RedisStreamsQueue(JobQueue):
                             message_ids=[message_id],
                         )
                         claimed += 1
-                        logger.info(f"Claimed stale message {message_id}")
+                        logger.info("Claimed stale message %s", message_id)
                     except (OSError, ConnectionError, RuntimeError) as e:
-                        logger.warning(f"Failed to claim message {message_id}: {e}")
+                        logger.warning("Failed to claim message %s: %s", message_id, e)
 
             return claimed
 
         except (OSError, ConnectionError, RuntimeError) as e:
-            logger.error(f"Error claiming stale jobs: {e}")
+            logger.error("Error claiming stale jobs: %s", e)
             return 0
 
     async def close(self) -> None:

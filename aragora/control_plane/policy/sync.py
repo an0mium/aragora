@@ -112,7 +112,7 @@ class PolicyStoreSync:
             logger.debug("Compliance policy store not available for sync")
             return 0
         except REDIS_CONNECTION_ERRORS as e:
-            logger.warning(f"Policy store sync failed: {e}")
+            logger.warning("Policy store sync failed: %s", e)
             return 0
 
     def _sync_policy(self, compliance_policy: Any) -> bool:
@@ -144,7 +144,7 @@ class PolicyStoreSync:
                 self._synced_policy_ids.add(control_policy.id)
                 return True
         except (KeyError, ValueError, TypeError, AttributeError) as e:
-            logger.debug(f"Failed to convert policy {compliance_policy.id}: {e}")
+            logger.debug("Failed to convert policy %s: %s", compliance_policy.id, e)
 
         return False
 

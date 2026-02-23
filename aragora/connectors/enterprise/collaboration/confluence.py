@@ -249,7 +249,7 @@ class ConfluenceConnector(EnterpriseConnector):
             start += limit
         else:
             logger.warning(
-                f"[{self.name}] Pagination limit reached ({_MAX_PAGES} pages) for spaces"
+                "[%s] Pagination limit reached (%s pages) for spaces", self.name, _MAX_PAGES
             )
 
         return spaces
@@ -288,7 +288,7 @@ class ConfluenceConnector(EnterpriseConnector):
                             history["createdDate"].replace("Z", "+00:00")
                         )
                     except ValueError as e:
-                        logger.debug(f"Invalid createdDate format: {e}")
+                        logger.debug("Invalid createdDate format: %s", e)
 
                 if history.get("lastUpdated", {}).get("when"):
                     try:
@@ -296,7 +296,7 @@ class ConfluenceConnector(EnterpriseConnector):
                             history["lastUpdated"]["when"].replace("Z", "+00:00")
                         )
                     except ValueError as e:
-                        logger.debug(f"Invalid lastUpdated format: {e}")
+                        logger.debug("Invalid lastUpdated format: %s", e)
 
                 # Skip if not modified since last sync
                 if modified_since and updated_at and updated_at < modified_since:
@@ -340,7 +340,7 @@ class ConfluenceConnector(EnterpriseConnector):
             start += limit
         else:
             logger.warning(
-                f"[{self.name}] Pagination limit reached ({_MAX_PAGES} pages) for space {space_key}"
+                "[%s] Pagination limit reached (%s pages) for space %s", self.name, _MAX_PAGES, space_key
             )
 
     async def _get_page_comments(self, page_id: str) -> list[dict[str, Any]]:
@@ -381,7 +381,7 @@ class ConfluenceConnector(EnterpriseConnector):
                 start += limit
 
             except (RuntimeError, ValueError, KeyError, OSError) as e:
-                logger.warning(f"[{self.name}] Failed to get comments for page {page_id}: {e}")
+                logger.warning("[%s] Failed to get comments for page %s: %s", self.name, page_id, e)
                 break
 
         return comments
@@ -418,7 +418,7 @@ class ConfluenceConnector(EnterpriseConnector):
             try:
                 modified_since = datetime.fromisoformat(state.cursor)
             except ValueError as e:
-                logger.debug(f"Invalid cursor timestamp, starting fresh sync: {e}")
+                logger.debug("Invalid cursor timestamp, starting fresh sync: %s", e)
 
         # Get all spaces
         spaces = await self._get_spaces()
@@ -427,7 +427,7 @@ class ConfluenceConnector(EnterpriseConnector):
         items_yielded = 0
 
         for space in spaces:
-            logger.info(f"[{self.name}] Syncing space: {space.key}")
+            logger.info("[%s] Syncing space: %s", self.name, space.key)
 
             async for page in self._get_pages(space.key, modified_since):
                 # Get comments
@@ -520,7 +520,7 @@ class ConfluenceConnector(EnterpriseConnector):
             return results
 
         except (RuntimeError, ValueError, KeyError, OSError) as e:
-            logger.error(f"[{self.name}] Search failed: {e}")
+            logger.error("[%s] Search failed: %s", self.name, e)
             return []
 
     async def fetch(self, evidence_id: str) -> Any | None:
@@ -563,7 +563,7 @@ class ConfluenceConnector(EnterpriseConnector):
             )
 
         except (RuntimeError, ValueError, KeyError, OSError) as e:
-            logger.error(f"[{self.name}] Fetch failed: {e}")
+            logger.error("[%s] Fetch failed: %s", self.name, e)
             return None
 
     async def handle_webhook(self, payload: dict[str, Any]) -> bool:
@@ -571,7 +571,7 @@ class ConfluenceConnector(EnterpriseConnector):
         event = payload.get("webhookEvent", "")
         page = payload.get("page", {})
 
-        logger.info(f"[{self.name}] Webhook: {event} on page {page.get('id', 'unknown')}")
+        logger.info("[%s] Webhook: %s on page %s", self.name, event, page.get('id', 'unknown'))
 
         if event in ["page_created", "page_updated", "page_removed"]:
             # Trigger incremental sync

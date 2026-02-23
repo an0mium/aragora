@@ -329,7 +329,7 @@ class MetadataEnricher:
                 if any(d in domain for d in self.CODE_DOMAINS):
                     return SourceType.CODE
             except (ValueError, TypeError) as e:
-                logger.debug(f"Could not parse URL for source type detection: {e}")
+                logger.debug("Could not parse URL for source type detection: %s", e)
 
         # Check source name
         if source:

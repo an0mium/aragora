@@ -98,7 +98,7 @@ class BudgetControlsHandler(SecureHandler):
         # Rate limit check
         client_ip = get_client_ip(handler)
         if not _budget_limiter.is_allowed(client_ip):
-            logger.warning(f"Rate limit exceeded for budget controls: {client_ip}")
+            logger.warning("Rate limit exceeded for budget controls: %s", client_ip)
             return error_response("Rate limit exceeded. Please try again later.", 429)
 
         # Determine HTTP method from handler if not provided
@@ -336,10 +336,10 @@ class BudgetControlsHandler(SecureHandler):
                 max_overage_usd=data.get("max_overage_usd"),
                 created_by=db_user.id,
             )
-            logger.info(f"Created budget {budget.budget_id} for org {org.id}")
+            logger.info("Created budget %s for org %s", budget.budget_id, org.id)
             return json_response({"budget": budget.to_dict()}, status=201)
         except (ValueError, TypeError, KeyError, RuntimeError, OSError) as e:
-            logger.error(f"Failed to create budget: {e}")
+            logger.error("Failed to create budget: %s", e)
             return error_response("Failed to create budget", 500)
 
     @api_endpoint(
@@ -435,10 +435,10 @@ class BudgetControlsHandler(SecureHandler):
             updated = manager.update_budget(budget_id, **update_kwargs)
             if not updated:
                 return error_response("Failed to update budget", 500)
-            logger.info(f"Updated budget {budget_id}")
+            logger.info("Updated budget %s", budget_id)
             return json_response({"budget": updated.to_dict()})
         except (ValueError, TypeError, KeyError, RuntimeError, OSError) as e:
-            logger.error(f"Failed to update budget: {e}")
+            logger.error("Failed to update budget: %s", e)
             return error_response("Failed to update budget", 500)
 
     @api_endpoint(
@@ -483,7 +483,7 @@ class BudgetControlsHandler(SecureHandler):
         if not success:
             return error_response("Failed to delete budget", 500)
 
-        logger.info(f"Deleted budget {budget_id} for org {org.id}")
+        logger.info("Deleted budget %s for org %s", budget_id, org.id)
 
         return json_response(
             {
@@ -601,7 +601,7 @@ class BudgetControlsHandler(SecureHandler):
         if not success:
             return error_response("Failed to acknowledge alert", 500)
 
-        logger.info(f"Acknowledged alert {alert_id} by user {db_user.id}")
+        logger.info("Acknowledged alert %s by user %s", alert_id, db_user.id)
 
         return json_response(
             {

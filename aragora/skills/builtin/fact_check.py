@@ -199,7 +199,7 @@ class FactCheckSkill(Skill):
             return SkillResult.create_success(response)
 
         except (RuntimeError, ValueError, OSError) as e:
-            logger.exception(f"Fact check failed: {e}")
+            logger.exception("Fact check failed: %s", e)
             return SkillResult.create_failure(f"Fact check failed: {e}")
 
     def _analyze_claim_type(self, claim: str) -> str:
@@ -312,7 +312,7 @@ class FactCheckSkill(Skill):
         except ImportError:
             logger.debug("Knowledge Mound not available")
         except (RuntimeError, ValueError, OSError, AttributeError) as e:
-            logger.warning(f"Knowledge Mound query error: {e}")
+            logger.warning("Knowledge Mound query error: %s", e)
 
         return evidence
 
@@ -351,7 +351,7 @@ class FactCheckSkill(Skill):
         except ImportError:
             logger.debug("Web search skill not available")
         except (RuntimeError, OSError, ConnectionError, TimeoutError) as e:
-            logger.warning(f"Web search error: {e}")
+            logger.warning("Web search error: %s", e)
 
         return evidence
 
@@ -390,7 +390,7 @@ class FactCheckSkill(Skill):
         except ImportError:
             logger.debug("Consensus memory not available")
         except (RuntimeError, ValueError, OSError) as e:
-            logger.warning(f"Debate history check error: {e}")
+            logger.warning("Debate history check error: %s", e)
 
         return evidence
 

@@ -119,7 +119,7 @@ class EvidenceHandler(BaseHandler, PaginatedHandlerMixin):
             event = StreamEvent(type=stream_type, data=data)
             event_emitter.emit(event)
         except (RuntimeError, ValueError, TypeError, AttributeError) as e:
-            logger.debug(f"Failed to emit KM event {event_type}: {e}")
+            logger.debug("Failed to emit KM event %s: %s", event_type, e)
 
     def _read_json_body_lenient(
         self, handler: Any
@@ -177,7 +177,7 @@ class EvidenceHandler(BaseHandler, PaginatedHandlerMixin):
             logger.debug("Knowledge Mound adapter not available")
             return None
         except (RuntimeError, ValueError, TypeError, AttributeError, OSError) as e:
-            logger.warning(f"Failed to initialize Evidence KM adapter: {e}")
+            logger.warning("Failed to initialize Evidence KM adapter: %s", e)
             return None
 
     def _get_evidence_store_raw(self) -> EvidenceStore:
@@ -232,7 +232,7 @@ class EvidenceHandler(BaseHandler, PaginatedHandlerMixin):
         if test_name:
             rate_key = f"{client_ip}:{test_name}"
         if not _evidence_read_limiter.is_allowed(rate_key):
-            logger.warning(f"Rate limit exceeded for evidence GET: {client_ip}")
+            logger.warning("Rate limit exceeded for evidence GET: %s", client_ip)
             return error_response("Rate limit exceeded. Please try again later.", 429)
 
         # GET /api/evidence/statistics
@@ -279,7 +279,7 @@ class EvidenceHandler(BaseHandler, PaginatedHandlerMixin):
         if test_name:
             rate_key = f"{client_ip}:{test_name}"
         if not _evidence_write_limiter.is_allowed(rate_key):
-            logger.warning(f"Rate limit exceeded for evidence POST: {client_ip}")
+            logger.warning("Rate limit exceeded for evidence POST: %s", client_ip)
             return error_response("Rate limit exceeded. Please try again later.", 429)
 
         # POST /api/evidence/search
@@ -323,7 +323,7 @@ class EvidenceHandler(BaseHandler, PaginatedHandlerMixin):
         if test_name:
             rate_key = f"{client_ip}:{test_name}"
         if not _evidence_write_limiter.is_allowed(rate_key):
-            logger.warning(f"Rate limit exceeded for evidence DELETE: {client_ip}")
+            logger.warning("Rate limit exceeded for evidence DELETE: %s", client_ip)
             return error_response("Rate limit exceeded. Please try again later.", 429)
 
         # DELETE /api/evidence/:id
@@ -349,7 +349,7 @@ class EvidenceHandler(BaseHandler, PaginatedHandlerMixin):
         try:
             store = self._get_evidence_store()
         except Exception as e:
-            logger.warning(f"Evidence store initialization failed: {e}")
+            logger.warning("Evidence store initialization failed: %s", e)
             return self.paginated_response(
                 items=[], total=0, limit=limit, offset=offset, items_key="evidence"
             )
@@ -359,7 +359,7 @@ class EvidenceHandler(BaseHandler, PaginatedHandlerMixin):
             stats = store.get_statistics()
             total = stats.get("total_evidence", 0)
         except Exception as e:
-            logger.debug(f"Evidence statistics failed: {e}")
+            logger.debug("Evidence statistics failed: %s", e)
             total = 0
 
         # For listing, use a broad search or direct query
@@ -376,7 +376,7 @@ class EvidenceHandler(BaseHandler, PaginatedHandlerMixin):
         except Exception as e:
             # FTS might not support * wildcard, or pysqlite3 OperationalError
             # for "unknown special query" — gracefully return empty list
-            logger.debug(f"Evidence search with wildcard failed, returning empty: {e}")
+            logger.debug("Evidence search with wildcard failed, returning empty: %s", e)
             results = []
 
         return self.paginated_response(
@@ -491,16 +491,16 @@ class EvidenceHandler(BaseHandler, PaginatedHandlerMixin):
         try:
             evidence_pack = await collector.collect_evidence(task, enabled_connectors)
         except (ValueError, TypeError) as e:
-            logger.warning(f"Evidence collection failed (invalid params): {e}")
+            logger.warning("Evidence collection failed (invalid params): %s", e)
             return error_response(safe_error_message(e, "Evidence collection"), 400)
         except (ConnectionError, TimeoutError, OSError) as e:
-            logger.exception(f"Evidence collection failed (network error): {e}")
+            logger.exception("Evidence collection failed (network error): %s", e)
             return error_response(safe_error_message(e, "Evidence collection"), 503)
         except RuntimeError as e:
-            logger.exception(f"Evidence collection failed: {e}")
+            logger.exception("Evidence collection failed: %s", e)
             return error_response(safe_error_message(e, "Evidence collection"), 500)
         except (ValueError, KeyError, TypeError, RuntimeError, OSError) as e:
-            logger.exception(f"Evidence collection failed (unexpected error): {e}")
+            logger.exception("Evidence collection failed (unexpected error): %s", e)
             return error_response(safe_error_message(e, "Evidence collection"), 500)
 
         # Save to store if debate_id provided

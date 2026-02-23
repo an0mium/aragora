@@ -181,9 +181,9 @@ def validate_all(strict: bool = False) -> dict[str, Any]:
         logger.info("Configuration validation passed")
     else:
         for error in errors:
-            logger.error(f"Configuration error: {error}")
+            logger.error("Configuration error: %s", error)
     for warning in warnings:
-        logger.warning(f"Configuration warning: {warning}")
+        logger.warning("Configuration warning: %s", warning)
 
     if strict and errors:
         raise ConfigurationError(f"Configuration validation failed: {'; '.join(errors)}")

@@ -81,7 +81,7 @@ def _build_server_context(nomic_dir: Path | None = None) -> dict[str, Any]:
         ctx["storage"] = storage
         logger.info("Initialized DebateStorage")
     except (OSError, RuntimeError) as e:
-        logger.warning(f"Failed to initialize DebateStorage: {e}")
+        logger.warning("Failed to initialize DebateStorage: %s", e)
         ctx["storage"] = None
 
     # Initialize ELO system
@@ -91,7 +91,7 @@ def _build_server_context(nomic_dir: Path | None = None) -> dict[str, Any]:
         ctx["elo_system"] = EloSystem()
         logger.info("Initialized EloSystem")
     except (ImportError, RuntimeError, ValueError) as e:
-        logger.warning(f"Failed to initialize EloSystem: {e}")
+        logger.warning("Failed to initialize EloSystem: %s", e)
         ctx["elo_system"] = None
 
     # Initialize user store (optional)
@@ -100,7 +100,7 @@ def _build_server_context(nomic_dir: Path | None = None) -> dict[str, Any]:
 
         ctx["user_store"] = get_user_store()
     except (ImportError, OSError, RuntimeError) as e:
-        logger.debug(f"User store not available: {e}")
+        logger.debug("User store not available: %s", e)
         ctx["user_store"] = None
 
     # Initialize ContinuumMemory (institutional memory)
@@ -110,7 +110,7 @@ def _build_server_context(nomic_dir: Path | None = None) -> dict[str, Any]:
         db_path = nomic_dir / "continuum_memory.db" if nomic_dir else None
         ctx["continuum_memory"] = get_continuum_memory(db_path=str(db_path) if db_path else None)
     except (ImportError, OSError, RuntimeError, ValueError) as e:
-        logger.debug(f"ContinuumMemory not available: {e}")
+        logger.debug("ContinuumMemory not available: %s", e)
         ctx["continuum_memory"] = None
 
     # Initialize CrossDebateMemory (institutional context)
@@ -122,7 +122,7 @@ def _build_server_context(nomic_dir: Path | None = None) -> dict[str, Any]:
             config.storage_path = nomic_dir / "cross_debate_memory.json"
         ctx["cross_debate_memory"] = CrossDebateMemory(config)
     except (ImportError, OSError, RuntimeError, ValueError) as e:
-        logger.debug(f"CrossDebateMemory not available: {e}")
+        logger.debug("CrossDebateMemory not available: %s", e)
         ctx["cross_debate_memory"] = None
 
     # Initialize Knowledge Mound (organizational memory)
@@ -132,7 +132,7 @@ def _build_server_context(nomic_dir: Path | None = None) -> dict[str, Any]:
         workspace_id = os.environ.get("KM_WORKSPACE_ID", "default")
         ctx["knowledge_mound"] = get_knowledge_mound(workspace_id=workspace_id)
     except (ImportError, OSError, RuntimeError, ValueError) as e:
-        logger.debug(f"Knowledge Mound not available: {e}")
+        logger.debug("Knowledge Mound not available: %s", e)
         ctx["knowledge_mound"] = None
 
     # Initialize RBAC checker
@@ -141,7 +141,7 @@ def _build_server_context(nomic_dir: Path | None = None) -> dict[str, Any]:
 
         ctx["rbac_checker"] = get_permission_checker()
     except (ImportError, RuntimeError, ValueError) as e:
-        logger.warning(f"Failed to initialize RBAC checker: {e}")
+        logger.warning("Failed to initialize RBAC checker: %s", e)
         ctx["rbac_checker"] = None
 
     # Initialize DecisionService
@@ -151,7 +151,7 @@ def _build_server_context(nomic_dir: Path | None = None) -> dict[str, Any]:
         ctx["decision_service"] = get_decision_service()
         logger.info("Initialized DecisionService")
     except (ImportError, RuntimeError, ValueError) as e:
-        logger.warning(f"Failed to initialize DecisionService: {e}")
+        logger.warning("Failed to initialize DecisionService: %s", e)
         ctx["decision_service"] = None
 
     return ctx
@@ -288,7 +288,7 @@ def create_app(
     async def root():
         return {"message": "Aragora API v2", "docs": "/api/v2/docs"}
 
-    logger.info(f"FastAPI app created: {title} v{version}")
+    logger.info("FastAPI app created: %s v%s", title, version)
 
     return app
 

@@ -104,7 +104,7 @@ class UsageMeter:
 
         await self._init_schema()
         self._initialized = True
-        logger.info(f"Usage metering initialized: {self.db_path}")
+        logger.info("Usage metering initialized: %s", self.db_path)
 
     async def _init_schema(self) -> None:
         """Initialize database schema."""
@@ -576,7 +576,7 @@ class UsageMeter:
                 ),
             )
         self._conn.commit()
-        logger.debug(f"Flushed {len(records)} token usage records")
+        logger.debug("Flushed %s token usage records", len(records))
 
     async def _flush_debate_buffer(self) -> None:
         """Flush debate usage buffer to database."""
@@ -610,7 +610,7 @@ class UsageMeter:
                 ),
             )
         self._conn.commit()
-        logger.debug(f"Flushed {len(records)} debate usage records")
+        logger.debug("Flushed %s debate usage records", len(records))
 
     async def _flush_api_buffer(self) -> None:
         """Flush API call buffer to database."""
@@ -642,7 +642,7 @@ class UsageMeter:
                 ),
             )
         self._conn.commit()
-        logger.debug(f"Flushed {len(records)} API call records")
+        logger.debug("Flushed %s API call records", len(records))
 
     async def flush_all(self) -> None:
         """Flush all buffers to database."""

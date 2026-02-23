@@ -321,9 +321,9 @@ class AnalyticsPlatformsHandler(SecureHandler):
             if connector:
                 _platform_connectors[platform] = connector
         except (ImportError, ConnectionError, TimeoutError, OSError, TypeError, ValueError) as e:
-            logger.warning(f"Could not initialize {platform} connector: {e}")
+            logger.warning("Could not initialize %s connector: %s", platform, e)
 
-        logger.info(f"Connected analytics platform: {platform}")
+        logger.info("Connected analytics platform: %s", platform)
 
         return self._json_response(
             200,
@@ -348,7 +348,7 @@ class AnalyticsPlatformsHandler(SecureHandler):
 
         del _platform_credentials[platform]
 
-        logger.info(f"Disconnected analytics platform: {platform}")
+        logger.info("Disconnected analytics platform: %s", platform)
 
         return self._json_response(
             200,
@@ -371,7 +371,7 @@ class AnalyticsPlatformsHandler(SecureHandler):
 
         for platform, result in zip(_platform_credentials.keys(), results):
             if isinstance(result, BaseException):
-                logger.error(f"Error fetching dashboards from {platform}: {result}")
+                logger.error("Error fetching dashboards from %s: %s", platform, result)
                 continue
             all_dashboards.extend(result)
 
@@ -405,7 +405,7 @@ class AnalyticsPlatformsHandler(SecureHandler):
                 return []
 
         except (ConnectionError, TimeoutError, OSError, ValueError, AttributeError) as e:
-            logger.error(f"Error fetching {platform} dashboards: {e}")
+            logger.error("Error fetching %s dashboards: %s", platform, e)
 
         return []
 
@@ -631,7 +631,7 @@ class AnalyticsPlatformsHandler(SecureHandler):
                 data = await self._fetch_report_data(platform, report_type, start_date, end_date)
                 report_data["platforms"][platform] = data
             except (ConnectionError, TimeoutError, OSError, ValueError, AttributeError) as e:
-                logger.error(f"Error fetching {platform} report data: {e}")
+                logger.error("Error fetching %s report data: %s", platform, e)
                 report_data["platforms"][platform] = {"error": "Failed to fetch report data"}
 
         return self._json_response(200, report_data)
@@ -735,7 +735,7 @@ class AnalyticsPlatformsHandler(SecureHandler):
                     metrics["platforms"]["mixpanel"] = mp_metrics
 
             except (ConnectionError, TimeoutError, OSError, ValueError, AttributeError) as e:
-                logger.error(f"Error fetching {platform} metrics: {e}")
+                logger.error("Error fetching %s metrics: %s", platform, e)
                 metrics["platforms"][platform] = {"error": "Failed to fetch platform metrics"}
 
         metrics["summary"] = {
@@ -921,7 +921,7 @@ class AnalyticsPlatformsHandler(SecureHandler):
         # Check circuit breaker state before attempting connection
         cb = get_analytics_circuit_breaker()
         if not cb.can_execute():
-            logger.warning(f"Circuit breaker open for analytics service, skipping {platform}")
+            logger.warning("Circuit breaker open for analytics service, skipping %s", platform)
             return None
 
         creds = _platform_credentials[platform]["credentials"]
@@ -960,7 +960,7 @@ class AnalyticsPlatformsHandler(SecureHandler):
             return connector
 
         except (ImportError, ConnectionError, TimeoutError, OSError, TypeError, ValueError) as e:
-            logger.error(f"Failed to create {platform} connector: {e}")
+            logger.error("Failed to create %s connector: %s", platform, e)
             cb.record_failure()
             return None
 

@@ -297,9 +297,9 @@ class BreakGlassAccess:
             redis.sadd(user_key, record.id)
             redis.expire(user_key, 86400 * 90)  # 90 days
 
-            logger.debug(f"Persisted break-glass record {record.id} to Redis")
+            logger.debug("Persisted break-glass record %s to Redis", record.id)
         except (OSError, ConnectionError, TimeoutError, TypeError) as e:
-            logger.warning(f"Failed to persist break-glass record to Redis: {e}")
+            logger.warning("Failed to persist break-glass record to Redis: %s", e)
 
     def _delete_from_persistence(self, access_id: str) -> None:
         """Remove a record from Redis active set (keep for audit)."""
@@ -341,18 +341,17 @@ class BreakGlassAccess:
 
                             loaded_count += 1
                     except (ValueError, TypeError, KeyError) as e:
-                        logger.warning(f"Failed to load break-glass record from {key}: {e}")
+                        logger.warning("Failed to load break-glass record from %s: %s", key, e)
 
                 if cursor == 0:
                     break
 
             if loaded_count > 0:
                 logger.info(
-                    f"Loaded {loaded_count} break-glass records from Redis "
-                    f"({len(self._active_records)} active)"
+                    "Loaded %s break-glass records from Redis (%s active)", loaded_count, len(self._active_records)
                 )
         except (OSError, ConnectionError, TimeoutError, ValueError) as e:
-            logger.warning(f"Failed to load break-glass records from Redis: {e}")
+            logger.warning("Failed to load break-glass records from Redis: %s", e)
 
     async def activate(
         self,
@@ -395,7 +394,7 @@ class BreakGlassAccess:
         # Check if user already has active access
         existing = await self.get_active_access(user_id)
         if existing:
-            logger.warning(f"User {user_id} already has active emergency access: {existing.id}")
+            logger.warning("User %s already has active emergency access: %s", user_id, existing.id)
             # Extend existing access instead of creating new
             existing.expires_at = datetime.now(timezone.utc) + timedelta(minutes=duration_minutes)
             return existing.id
@@ -426,8 +425,7 @@ class BreakGlassAccess:
         self._persist_record(record)
 
         logger.warning(
-            f"BREAK-GLASS ACTIVATED: user={user_id}, id={record.id}, "
-            f"duration={duration_minutes}min, reason={reason[:50]}..."
+            "BREAK-GLASS ACTIVATED: user=%s, id=%s, duration=%smin, reason=%s...", user_id, record.id, duration_minutes, reason[:50]
         )
 
         # Notify security team
@@ -479,8 +477,7 @@ class BreakGlassAccess:
         self._persist_record(record)
 
         logger.info(
-            f"BREAK-GLASS DEACTIVATED: id={access_id}, "
-            f"user={record.user_id}, by={record.deactivated_by}"
+            "BREAK-GLASS DEACTIVATED: id=%s, user=%s, by=%s", access_id, record.user_id, record.deactivated_by
         )
 
         # Notify security team
@@ -532,8 +529,7 @@ class BreakGlassAccess:
         self._persist_record(record)
 
         logger.warning(
-            f"BREAK-GLASS REVOKED: id={access_id}, "
-            f"user={record.user_id}, by={revoked_by}, reason={reason}"
+            "BREAK-GLASS REVOKED: id=%s, user=%s, by=%s, reason=%s", access_id, record.user_id, revoked_by, reason
         )
 
         # Audit log (critical severity)
@@ -641,7 +637,7 @@ class BreakGlassAccess:
                 to_remove.append(access_id)
                 count += 1
 
-                logger.info(f"BREAK-GLASS EXPIRED: id={access_id}, user={record.user_id}")
+                logger.info("BREAK-GLASS EXPIRED: id=%s, user=%s", access_id, record.user_id)
 
                 await self._audit_log(
                     "break_glass_expired",
@@ -713,7 +709,7 @@ class BreakGlassAccess:
         record.metadata["reviewed_by"] = reviewer_id
         record.metadata["reviewed_at"] = datetime.now(timezone.utc).isoformat()
 
-        logger.info(f"Break-glass review completed: id={access_id}, by={reviewer_id}")
+        logger.info("Break-glass review completed: id=%s, by=%s", access_id, reviewer_id)
 
         await self._audit_log(
             "break_glass_reviewed",
@@ -751,7 +747,7 @@ class BreakGlassAccess:
             )
         except ImportError:
             logger.info(
-                f"Security notification (not sent): break-glass {event} for {record.user_id}"
+                "Security notification (not sent): break-glass %s for %s", event, record.user_id
             )
 
     async def _audit_log(self, event_type: str, **kwargs) -> None:
@@ -766,7 +762,7 @@ class BreakGlassAccess:
                 category="break_glass",
             )
         except ImportError:
-            logger.info(f"Break-glass audit: {event_type} - {kwargs}")
+            logger.info("Break-glass audit: %s - %s", event_type, kwargs)
 
 
 # Singleton instance

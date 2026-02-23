@@ -199,7 +199,7 @@ class ExternalIntegrationsHandler(SecureHandler):
                 for role in roles:
                     permissions |= get_role_permissions(role, include_inherited=True)
             except (ImportError, Exception) as exc:
-                logger.debug(f"Could not resolve RBAC permissions: {exc}")
+                logger.debug("Could not resolve RBAC permissions: %s", exc)
 
             return AuthorizationContext(
                 user_id=user_info.user_id or "anonymous",
@@ -208,7 +208,7 @@ class ExternalIntegrationsHandler(SecureHandler):
                 org_id=user_info.org_id,
             )
         except (AttributeError, ValueError, TypeError, KeyError) as e:
-            logger.debug(f"Could not extract auth context: {e}")
+            logger.debug("Could not extract auth context: %s", e)
             return None
 
     def _check_permission(
@@ -228,7 +228,7 @@ class ExternalIntegrationsHandler(SecureHandler):
         if not RBAC_AVAILABLE:
             if rbac_fail_closed():
                 return error_response("Service unavailable: access control module not loaded", 503)
-            logger.debug(f"RBAC not available, allowing {permission_key}")
+            logger.debug("RBAC not available, allowing %s", permission_key)
             return None
 
         context = self._get_auth_context(handler)
@@ -240,13 +240,13 @@ class ExternalIntegrationsHandler(SecureHandler):
             decision = check_permission(context, permission_key, resource_id)
             if not decision.allowed:
                 logger.warning(
-                    f"Permission denied: {permission_key} for user {context.user_id}: {decision.reason}"
+                    "Permission denied: %s for user %s: %s", permission_key, context.user_id, decision.reason
                 )
                 record_rbac_check(permission_key, granted=False)
                 return error_response("Permission denied", 403)
             record_rbac_check(permission_key, granted=True)
         except PermissionDeniedError as e:
-            logger.warning(f"Permission denied: {permission_key} for user {context.user_id}: {e}")
+            logger.warning("Permission denied: %s for user %s: %s", permission_key, context.user_id, e)
             record_rbac_check(permission_key, granted=False)
             return error_response(safe_error_message(e, "integration permission"), 403)
 
@@ -280,7 +280,7 @@ class ExternalIntegrationsHandler(SecureHandler):
         # Rate limit check for list operations
         client_ip = get_client_ip(handler)
         if not _list_limiter.is_allowed(client_ip):
-            logger.warning(f"Rate limit exceeded for integrations list: {client_ip}")
+            logger.warning("Rate limit exceeded for integrations list: %s", client_ip)
             return error_response("Rate limit exceeded. Please try again later.", 429)
 
         # Zapier endpoints

@@ -120,11 +120,11 @@ async def _validate_config(graceful_degradation: bool) -> None:
         config_result = ConfigValidator.validate_all()
 
         for warning in config_result.warnings:
-            logger.warning(f"Configuration warning: {warning}")
+            logger.warning("Configuration warning: %s", warning)
 
         if config_result.errors:
             for error in config_result.errors:
-                logger.error(f"Configuration error: {error}")
+                logger.error("Configuration error: %s", error)
 
             if not graceful_degradation:
                 raise RuntimeError(
@@ -159,7 +159,7 @@ async def _validate_prerequisites(
     missing_requirements = check_production_requirements()
     if missing_requirements:
         for req in missing_requirements:
-            logger.error(f"Missing production requirement: {req}")
+            logger.error("Missing production requirement: %s", req)
 
         error_msg = f"Production requirements not met: {', '.join(missing_requirements)}"
 
@@ -188,7 +188,7 @@ async def _validate_prerequisites(
         oauth_missing = validate_oauth_config()
         if oauth_missing:
             logger.warning(
-                f"[STARTUP] OAuth configuration incomplete: {oauth_missing}. OAuth login may fail."
+                "[STARTUP] OAuth configuration incomplete: %s. OAuth login may fail.", oauth_missing
             )
     except ImportError:
         logger.debug("OAuth config module not available - skipping OAuth validation")
@@ -211,7 +211,7 @@ async def _validate_prerequisites(
 
     if not connectivity["valid"]:
         for error in connectivity["errors"]:
-            logger.error(f"Backend connectivity failure: {error}")
+            logger.error("Backend connectivity failure: %s", error)
 
         error_msg = f"Backend connectivity validation failed: {'; '.join(connectivity['errors'])}"
 
@@ -239,7 +239,7 @@ async def _validate_prerequisites(
     storage_backend = validate_storage_backend()
     if not storage_backend["valid"]:
         for error in storage_backend["errors"]:
-            logger.error(f"Storage backend error: {error}")
+            logger.error("Storage backend error: %s", error)
 
         error_msg = f"Storage backend validation failed: {'; '.join(storage_backend['errors'])}"
 
@@ -294,9 +294,9 @@ async def _run_migrations(os: Any) -> dict[str, Any]:
             if migration_results.get("success"):
                 logger.info("Auto-migrations completed successfully")
             elif not migration_results.get("skipped"):
-                logger.warning(f"Auto-migrations had issues: {migration_results}")
+                logger.warning("Auto-migrations had issues: %s", migration_results)
         except (ImportError, OSError, RuntimeError, ValueError) as e:
-            logger.error(f"Auto-migration failed: {e}")
+            logger.error("Auto-migration failed: %s", e)
             migration_results = {"error": "Auto-migration failed", "skipped": False}
     return migration_results
 
@@ -321,7 +321,7 @@ async def _validate_schema(
 
         if not schema_result.success:
             for error in schema_result.errors:
-                logger.error(f"Database schema validation error: {error}")
+                logger.error("Database schema validation error: %s", error)
 
             require_valid_schema = os.environ.get("ARAGORA_REQUIRE_VALID_SCHEMA", "").lower() in (
                 "true",
@@ -349,7 +349,7 @@ async def _validate_schema(
                 )
         else:
             for warning in schema_result.warnings:
-                logger.warning(f"Database schema: {warning}")
+                logger.warning("Database schema: %s", warning)
 
     except ImportError:
         logger.debug("Database validator not available - skipping schema validation")
@@ -487,7 +487,7 @@ async def _init_all_components(
         logger.debug("Ingestion DLQ module not available")
         status["ingestion_dlq"] = False
     except (OSError, RuntimeError, ValueError) as e:
-        logger.debug(f"Ingestion DLQ processing failed: {e}")
+        logger.debug("Ingestion DLQ processing failed: %s", e)
         status["ingestion_dlq"] = False
 
     # Cost tracking (after KM so it can wire the KM adapter)
@@ -504,7 +504,7 @@ async def _init_all_components(
         logger.debug("CostTracker not available")
         status["cost_tracker"] = False
     except (OSError, RuntimeError, ValueError) as e:
-        logger.warning(f"CostTracker initialization failed: {e}")
+        logger.warning("CostTracker initialization failed: %s", e)
         status["cost_tracker"] = False
 
     # Budget alert notifications (after cost tracking)
@@ -548,9 +548,9 @@ async def _init_all_components(
     status["secrets_validation"] = secrets_validation
     if not secrets_validation["valid"]:
         for error in secrets_validation["errors"]:
-            logger.error(f"Secrets validation: {error}")
+            logger.error("Secrets validation: %s", error)
     for warning in secrets_validation.get("warnings", []):
-        logger.warning(f"Secrets validation: {warning}")
+        logger.warning("Secrets validation: %s", warning)
 
     status["key_rotation_scheduler"] = await init_key_rotation_scheduler()
     status["secrets_rotation_scheduler"] = await init_secrets_rotation_scheduler()

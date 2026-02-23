@@ -127,7 +127,7 @@ class QuotaFallbackMixin:
             if self._fallback_agent:
                 name = getattr(self, "name", "unknown")
                 logger.info(
-                    f"[{name}] Created OpenRouter fallback agent with model {self._fallback_agent.model}"
+                    "[%s] Created OpenRouter fallback agent with model %s", name, self._fallback_agent.model
                 )
         return self._fallback_agent
 
@@ -207,7 +207,7 @@ class QuotaFallbackMixin:
             # ImportError: config module not available
             # KeyError: API key not in config
             # OSError: file-based config read failure
-            logger.debug(f"Config-based API key retrieval failed, using env var: {e}")
+            logger.debug("Config-based API key retrieval failed, using env var: %s", e)
             openrouter_key = os.environ.get("OPENROUTER_API_KEY")
         if not openrouter_key:
             return None
@@ -258,7 +258,7 @@ class QuotaFallbackMixin:
         if not fallback:
             name = getattr(self, "name", "unknown")
             logger.warning(
-                f"{name} quota exceeded but OPENROUTER_API_KEY not set - cannot fallback"
+                "%s quota exceeded but OPENROUTER_API_KEY not set - cannot fallback", name
             )
             return None
 
@@ -266,7 +266,7 @@ class QuotaFallbackMixin:
         status_info = f" (status {status_code})" if status_code else ""
         error_type = "rate_limit" if status_code == 429 else "quota"
         logger.warning(
-            f"API quota/rate limit error{status_info} for {name}, falling back to OpenRouter"
+            "API quota/rate limit error%s for %s, falling back to OpenRouter", status_info, name
         )
 
         # Record fallback activation telemetry
@@ -310,7 +310,7 @@ class QuotaFallbackMixin:
         if not fallback:
             name = getattr(self, "name", "unknown")
             logger.warning(
-                f"{name} quota exceeded but OPENROUTER_API_KEY not set - cannot fallback"
+                "%s quota exceeded but OPENROUTER_API_KEY not set - cannot fallback", name
             )
             return
 
@@ -318,7 +318,7 @@ class QuotaFallbackMixin:
         status_info = f" (status {status_code})" if status_code else ""
         error_type = "rate_limit" if status_code == 429 else "quota"
         logger.warning(
-            f"API quota/rate limit error{status_info} for {name}, falling back to OpenRouter streaming"
+            "API quota/rate limit error%s for %s, falling back to OpenRouter streaming", status_info, name
         )
 
         # Record fallback activation telemetry
@@ -491,7 +491,7 @@ class AgentFallbackChain:
             factory: Callable that returns an agent instance
         """
         if name not in self.providers:
-            logger.warning(f"Registering provider '{name}' not in chain: {self.providers}")
+            logger.warning("Registering provider '%s' not in chain: %s", name, self.providers)
         self._provider_factories[name] = factory
 
     def _get_agent(self, provider: Any) -> Any | None:
@@ -504,7 +504,7 @@ class AgentFallbackChain:
 
         factory = self._provider_factories.get(provider)
         if not factory:
-            logger.debug(f"No factory registered for provider '{provider}'")
+            logger.debug("No factory registered for provider '%s'", provider)
             return None
 
         try:
@@ -515,7 +515,7 @@ class AgentFallbackChain:
             # ValueError/TypeError: invalid factory arguments or return type
             # RuntimeError: factory execution failure
             # OSError: network/file access issues during agent creation
-            logger.warning(f"Failed to create agent for provider '{provider}': {e}")
+            logger.warning("Failed to create agent for provider '%s': %s", provider, e)
             return None
 
     def _is_available(self, provider: str) -> bool:
@@ -573,7 +573,7 @@ class AgentFallbackChain:
             provider_key = self._provider_key(provider)
             # Check retry limit
             if retry_count >= self.max_retries:
-                logger.warning(f"Max retries ({self.max_retries}) reached, stopping fallback chain")
+                logger.warning("Max retries (%s) reached, stopping fallback chain", self.max_retries)
                 break
 
             # Check time limit
@@ -583,7 +583,7 @@ class AgentFallbackChain:
 
             # Skip if circuit breaker has this provider tripped
             if not self._is_available(provider_key):
-                logger.debug(f"Skipping circuit-broken provider: {provider_key}")
+                logger.debug("Skipping circuit-broken provider: %s", provider_key)
                 continue
 
             agent = self._get_agent(provider)
@@ -627,7 +627,7 @@ class AgentFallbackChain:
                 if is_primary:
                     self.metrics.record_primary_attempt(success=False)
                     logger.warning(
-                        f"Primary provider '{provider_key}' failed: {e}, trying fallback"
+                        "Primary provider '%s' failed: %s, trying fallback", provider_key, e
                     )
                     # Record activation of fallback chain (next provider will be fallback)
                     if len(self.providers) > 1:
@@ -643,11 +643,11 @@ class AgentFallbackChain:
                     record_fallback_success(
                         provider_key, success=False, latency_seconds=call_latency
                     )
-                    logger.warning(f"Fallback provider '{provider_key}' failed: {e}")
+                    logger.warning("Fallback provider '%s' failed: %s", provider_key, e)
 
                 # Check if this looks like a rate limit error
                 if error_type == "rate_limit":
-                    logger.info(f"Rate limit detected for {provider_key}, moving to next")
+                    logger.info("Rate limit detected for %s, moving to next", provider_key)
 
                 continue
 
@@ -683,7 +683,7 @@ class AgentFallbackChain:
             provider_key = self._provider_key(provider)
             # Check retry limit
             if retry_count >= self.max_retries:
-                logger.warning(f"Max retries ({self.max_retries}) reached for stream, stopping")
+                logger.warning("Max retries (%s) reached for stream, stopping", self.max_retries)
                 break
 
             # Check time limit
@@ -692,7 +692,7 @@ class AgentFallbackChain:
                 raise FallbackTimeoutError(elapsed, self.max_fallback_time, tried_providers)
 
             if not self._is_available(provider_key):
-                logger.debug(f"Skipping circuit-broken provider: {provider_key}")
+                logger.debug("Skipping circuit-broken provider: %s", provider_key)
                 continue
 
             agent = self._get_agent(provider)
@@ -701,7 +701,7 @@ class AgentFallbackChain:
 
             # Check if agent supports streaming
             if not hasattr(agent, "generate_stream"):
-                logger.debug(f"Provider {provider_key} doesn't support streaming, skipping")
+                logger.debug("Provider %s doesn't support streaming, skipping", provider_key)
                 continue
 
             tried_providers.append(provider_key)
@@ -726,7 +726,7 @@ class AgentFallbackChain:
                             record_fallback_success(
                                 provider_key, success=True, latency_seconds=call_latency
                             )
-                            logger.info(f"fallback_stream_success provider={provider_key}")
+                            logger.info("fallback_stream_success provider=%s", provider_key)
                     yield token
 
                 # If we got here, stream completed successfully
@@ -742,7 +742,7 @@ class AgentFallbackChain:
 
                 if is_primary:
                     self.metrics.record_primary_attempt(success=False)
-                    logger.warning(f"Primary provider '{provider_key}' stream failed: {e}")
+                    logger.warning("Primary provider '%s' stream failed: %s", provider_key, e)
                     # Record activation of fallback chain
                     if len(self.providers) > 1:
                         next_provider = self._provider_key(self.providers[1])
@@ -757,7 +757,7 @@ class AgentFallbackChain:
                     record_fallback_success(
                         provider_key, success=False, latency_seconds=call_latency
                     )
-                    logger.warning(f"Fallback provider '{provider_key}' stream failed: {e}")
+                    logger.warning("Fallback provider '%s' stream failed: %s", provider_key, e)
 
                 continue
 
@@ -812,7 +812,7 @@ def get_local_fallback_providers() -> list[str]:
         # TypeError: unexpected return type from detect_local_agents
         # KeyError: missing expected keys in agent dict
         # OSError: network issues when probing local LLM servers
-        logger.debug(f"Could not detect local LLMs: {e}")
+        logger.debug("Could not detect local LLMs: %s", e)
         return []
 
 
@@ -899,7 +899,7 @@ def is_local_llm_available() -> bool:
         # TypeError: unexpected return type
         # KeyError: missing expected keys
         # OSError: network issues when probing local LLM servers
-        logger.warning(f"Failed to check local LLM availability: {e}")
+        logger.warning("Failed to check local LLM availability: %s", e)
         return False
 
 
@@ -928,11 +928,11 @@ def get_default_fallback_enabled() -> bool:
             return True
     except (ImportError, AttributeError, KeyError) as e:
         # Expected errors: module not installed, missing attribute, or config key
-        logger.debug(f"Settings not available for fallback config, defaulting to disabled: {e}")
+        logger.debug("Settings not available for fallback config, defaulting to disabled: %s", e)
     except (ValueError, TypeError, OSError) as e:
         # ValueError/TypeError: invalid config values
         # OSError: file-based config read failure
-        logger.warning(f"Unexpected error loading fallback settings, defaulting to disabled: {e}")
+        logger.warning("Unexpected error loading fallback settings, defaulting to disabled: %s", e)
     try:
         from aragora.config.secrets import get_secret
         from aragora.config.secrets import SecretsConfig
@@ -944,7 +944,7 @@ def get_default_fallback_enabled() -> bool:
         # KeyError: secret not found
         # OSError: file/network access issues
         # ValueError: invalid secret value
-        logger.debug(f"Could not load secrets config for fallback settings: {e}")
+        logger.debug("Could not load secrets config for fallback settings: %s", e)
         explicit_flag = None
         secrets_config = None
     if explicit_flag is None:
@@ -965,5 +965,5 @@ def get_default_fallback_enabled() -> bool:
         # ImportError: config module not available
         # KeyError: API key not in config
         # OSError: file/network access issues
-        logger.debug(f"Could not load API key config, falling back to env var: {e}")
+        logger.debug("Could not load API key config, falling back to env var: %s", e)
         return bool(os.environ.get("OPENROUTER_API_KEY"))

@@ -672,12 +672,12 @@ class NotificationManager:
                     self._channels.append(config)
                     loaded += 1
                 except (json.JSONDecodeError, ValueError, TypeError, KeyError) as e:
-                    logger.warning(f"Failed to load channel config {config_id}: {e}")
+                    logger.warning("Failed to load channel config %s: %s", config_id, e)
 
-            logger.info(f"Loaded {loaded} notification channel configs from Redis")
+            logger.info("Loaded %s notification channel configs from Redis", loaded)
             return loaded
         except (ConnectionError, TimeoutError, OSError, RuntimeError, ValueError) as e:
-            logger.warning(f"Failed to load channel configs: {e}")
+            logger.warning("Failed to load channel configs: %s", e)
             return 0
 
     async def _persist_channel(self, config: ChannelConfig) -> bool:
@@ -695,7 +695,7 @@ class NotificationManager:
             )
             return True
         except (ConnectionError, TimeoutError, OSError, RuntimeError, ValueError) as e:
-            logger.warning(f"Failed to persist channel config: {e}")
+            logger.warning("Failed to persist channel config: %s", e)
             return False
 
     async def _delete_persisted_channel(self, config_id: str) -> bool:
@@ -707,14 +707,14 @@ class NotificationManager:
             await self._redis.hdel(self.REDIS_CHANNEL_KEY, config_id)
             return True
         except (ConnectionError, TimeoutError, OSError, RuntimeError) as e:
-            logger.warning(f"Failed to delete channel config: {e}")
+            logger.warning("Failed to delete channel config: %s", e)
             return False
 
     def add_channel(self, config: ChannelConfig) -> None:
         """Add a notification channel configuration."""
         self._channels.append(config)
         logger.info(
-            f"Added notification channel: {config.channel_type.value}",
+            "Added notification channel: %s", config.channel_type.value,
             extra={"workspace_id": config.workspace_id, "config_id": config.config_id},
         )
 
@@ -726,7 +726,7 @@ class NotificationManager:
         """Add and persist a notification channel configuration (async)."""
         self._channels.append(config)
         logger.info(
-            f"Added notification channel: {config.channel_type.value}",
+            "Added notification channel: %s", config.channel_type.value,
             extra={"workspace_id": config.workspace_id, "config_id": config.config_id},
         )
 
@@ -834,7 +834,7 @@ class NotificationManager:
         applicable_channels = self._filter_channels(message)
 
         if not applicable_channels:
-            logger.debug(f"No channels configured for event {event_type.value}")
+            logger.debug("No channels configured for event %s", event_type.value)
             return []
 
         # Send to all applicable channels in parallel
@@ -902,16 +902,16 @@ class NotificationManager:
             result = await provider.send(message, config)
             if result.success:
                 logger.info(
-                    f"Notification sent to {config.channel_type.value}",
+                    "Notification sent to %s", config.channel_type.value,
                     extra={"event_type": message.event_type.value},
                 )
             else:
                 logger.warning(
-                    f"Failed to send notification to {config.channel_type.value}: {result.error}",
+                    "Failed to send notification to %s: %s", config.channel_type.value, result.error,
                 )
             return result
         except (RuntimeError, ValueError, TypeError, OSError, ConnectionError, TimeoutError, AttributeError) as e:
-            logger.error(f"Error sending notification to {config.channel_type.value}: {e}")
+            logger.error("Error sending notification to %s: %s", config.channel_type.value, e)
             return NotificationResult(
                 success=False,
                 channel=config.channel_type,

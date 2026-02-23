@@ -586,7 +586,7 @@ def _build_graph_from_replay(debate_id: str, replay_path: Path) -> HandlerResult
                     try:
                         event = json_mod.loads(line)
                     except json_mod.JSONDecodeError:
-                        logger.warning(f"Skipping malformed JSONL line {line_num}")
+                        logger.warning("Skipping malformed JSONL line %s", line_num)
                         continue
 
                     if event.get("type") == "agent_message":

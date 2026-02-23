@@ -169,7 +169,7 @@ class ProcessSandbox(SandboxBackend):
             "process": None,
         }
 
-        logger.info(f"Created process sandbox: {instance_id}")
+        logger.info("Created process sandbox: %s", instance_id)
         return instance_id
 
     async def execute(
@@ -256,7 +256,7 @@ class ProcessSandbox(SandboxBackend):
 
         except (OSError, RuntimeError) as e:
             instance["state"] = SandboxState.FAILED
-            logger.error(f"Process sandbox execution failed: {e}")
+            logger.error("Process sandbox execution failed: %s", e)
             return SandboxExecution(
                 execution_id=instance_id,
                 success=False,
@@ -278,7 +278,7 @@ class ProcessSandbox(SandboxBackend):
                 instance["process"].kill()
                 await instance["process"].wait()
             except (OSError, ProcessLookupError) as e:
-                logger.debug(f"Failed to kill sandbox process: {type(e).__name__}: {e}")
+                logger.debug("Failed to kill sandbox process: %s: %s", type(e).__name__, e)
 
         # Clean up work directory
         work_dir = instance.get("work_dir")
@@ -286,10 +286,10 @@ class ProcessSandbox(SandboxBackend):
             try:
                 shutil.rmtree(work_dir)
             except (OSError, PermissionError) as e:
-                logger.warning(f"Failed to clean up sandbox dir: {e}")
+                logger.warning("Failed to clean up sandbox dir: %s", e)
 
         del self._instances[instance_id]
-        logger.info(f"Destroyed process sandbox: {instance_id}")
+        logger.info("Destroyed process sandbox: %s", instance_id)
         return True
 
     async def is_available(self) -> bool:
@@ -332,7 +332,7 @@ class DockerSandbox(SandboxBackend):
             await proc.wait()
             return False
         except (OSError, RuntimeError) as e:
-            logger.debug(f"Docker availability check failed: {type(e).__name__}: {e}")
+            logger.debug("Docker availability check failed: %s: %s", type(e).__name__, e)
             return False
 
     async def create(self, config: SandboxConfig) -> str:
@@ -415,11 +415,11 @@ class DockerSandbox(SandboxBackend):
                 "state": SandboxState.CREATED,
             }
 
-            logger.info(f"Created Docker sandbox: {instance_id}")
+            logger.info("Created Docker sandbox: %s", instance_id)
             return instance_id
 
         except (OSError, RuntimeError) as e:
-            logger.error(f"Failed to create Docker sandbox: {e}")
+            logger.error("Failed to create Docker sandbox: %s", e)
             raise
 
     async def execute(
@@ -516,7 +516,7 @@ class DockerSandbox(SandboxBackend):
             )
 
         except (OSError, RuntimeError) as e:
-            logger.error(f"Docker sandbox execution failed: {e}")
+            logger.error("Docker sandbox execution failed: %s", e)
             return SandboxExecution(
                 execution_id=instance_id,
                 success=False,
@@ -547,11 +547,11 @@ class DockerSandbox(SandboxBackend):
                 await proc.wait()
 
             del self._instances[instance_id]
-            logger.info(f"Destroyed Docker sandbox: {instance_id}")
+            logger.info("Destroyed Docker sandbox: %s", instance_id)
             return True
 
         except (OSError, RuntimeError) as e:
-            logger.error(f"Failed to destroy Docker sandbox: {e}")
+            logger.error("Failed to destroy Docker sandbox: %s", e)
             return False
 
 

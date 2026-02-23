@@ -218,7 +218,7 @@ class MarketplaceHandler:
             return error_response("Not found", 404)
 
         except (ValueError, KeyError, TypeError, RuntimeError, OSError) as e:
-            logger.exception(f"Error in marketplace handler: {e}")
+            logger.exception("Error in marketplace handler: %s", e)
             return error_response("Internal server error", 500)
 
     def _get_tenant_id(self, request: Any) -> str:
@@ -543,7 +543,7 @@ class MarketplaceHandler:
 
         except (ValueError, KeyError, TypeError, RuntimeError, OSError) as e:
             cb.record_failure()
-            logger.exception(f"Error deploying template: {e}")
+            logger.exception("Error deploying template: %s", e)
             return error_response("Deployment failed", 500)
 
     # =========================================================================
@@ -672,7 +672,7 @@ class MarketplaceHandler:
 
         except (ValueError, KeyError, TypeError, RuntimeError) as e:
             cb.record_failure()
-            logger.exception(f"Error rating template: {e}")
+            logger.exception("Error rating template: %s", e)
             return error_response("Rating failed", 500)
 
     # =========================================================================

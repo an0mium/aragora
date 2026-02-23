@@ -69,7 +69,7 @@ class ConvergenceDetector:
         self.debate_id = debate_id
         self.backend = self._select_backend()
 
-        logger.info(f"ConvergenceDetector initialized with {self.backend.__class__.__name__}")
+        logger.info("ConvergenceDetector initialized with %s", self.backend.__class__.__name__)
 
     def _select_backend(self) -> SimilarityBackend:
         """
@@ -87,15 +87,15 @@ class ConvergenceDetector:
         if env_override:
             try:
                 backend = get_similarity_backend(env_override, debate_id=self.debate_id)
-                logger.info(f"Using {env_override} backend via {_ENV_CONVERGENCE_BACKEND}")
+                logger.info("Using %s backend via %s", env_override, _ENV_CONVERGENCE_BACKEND)
                 return backend
             except (ImportError, RuntimeError, OSError) as e:
                 logger.warning(
-                    f"{_ENV_CONVERGENCE_BACKEND}={env_override} failed: {e}. Falling back to factory."
+                    "%s=%s failed: %s. Falling back to factory.", _ENV_CONVERGENCE_BACKEND, env_override, e
                 )
             except (ValueError, TypeError, AttributeError) as e:
                 logger.exception(
-                    f"{_ENV_CONVERGENCE_BACKEND}={env_override} unexpected error: {e}. Falling back to factory."
+                    "%s=%s unexpected error: %s. Falling back to factory.", _ENV_CONVERGENCE_BACKEND, env_override, e
                 )
 
         # Use SimilarityFactory for unified backend selection
@@ -105,10 +105,10 @@ class ConvergenceDetector:
                 input_size=10,  # Default for typical debate sizes
                 debate_id=self.debate_id,
             )
-            logger.info(f"Using {backend.__class__.__name__} via SimilarityFactory")
+            logger.info("Using %s via SimilarityFactory", backend.__class__.__name__)
             return backend
         except (ImportError, RuntimeError, ValueError, TypeError, AttributeError, OSError) as e:
-            logger.warning(f"SimilarityFactory failed: {e}. Using JaccardBackend fallback.")
+            logger.warning("SimilarityFactory failed: %s. Using JaccardBackend fallback.", e)
             return JaccardBackend()
 
     def check_convergence(
@@ -407,4 +407,4 @@ class ConvergenceDetector:
         if self.debate_id:
             cleanup_embedding_cache(self.debate_id)
             cleanup_similarity_cache(self.debate_id)
-            logger.debug(f"ConvergenceDetector cleanup complete: debate={self.debate_id}")
+            logger.debug("ConvergenceDetector cleanup complete: debate=%s", self.debate_id)

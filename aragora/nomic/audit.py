@@ -205,7 +205,7 @@ class AuditLogger:
             conn.executescript(self.SCHEMA)
             conn.commit()
         except sqlite3.Error as e:
-            logger.error(f"Failed to initialize audit database: {e}")
+            logger.error("Failed to initialize audit database: %s", e)
 
     @contextmanager
     def _transaction(self) -> Generator[sqlite3.Connection, None, None]:
@@ -216,7 +216,7 @@ class AuditLogger:
             conn.commit()
         except sqlite3.Error as e:
             conn.rollback()
-            logger.error(f"Audit transaction failed: {e}")
+            logger.error("Audit transaction failed: %s", e)
             raise
 
     def log(self, event: AuditEvent) -> bool:
@@ -259,7 +259,7 @@ class AuditLogger:
             return True
 
         except sqlite3.Error as e:
-            logger.error(f"Failed to log audit event: {e}")
+            logger.error("Failed to log audit event: %s", e)
             return False
 
     def _prune_if_needed(self) -> None:
@@ -284,10 +284,10 @@ class AuditLogger:
                     (delete_count,),
                 )
                 conn.commit()
-                logger.info(f"Pruned {delete_count} old audit events")
+                logger.info("Pruned %s old audit events", delete_count)
 
         except sqlite3.Error as e:
-            logger.warning(f"Failed to prune audit events: {e}")
+            logger.warning("Failed to prune audit events: %s", e)
 
     def log_cycle_start(self, cycle_id: str, config: dict | None = None) -> bool:
         """Log cycle start event."""
@@ -472,7 +472,7 @@ class AuditLogger:
             return events
 
         except sqlite3.Error as e:
-            logger.error(f"Failed to query audit events: {e}")
+            logger.error("Failed to query audit events: %s", e)
             return []
 
     def get_cycle_summary(self, cycle_id: str) -> dict[str, Any]:

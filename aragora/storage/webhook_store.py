@@ -119,7 +119,7 @@ class InMemoryWebhookStore(WebhookStoreBackend):
                 del self._store[k]
             self._last_cleanup = now
             if expired:
-                logger.debug(f"InMemoryWebhookStore cleanup: removed {len(expired)}")
+                logger.debug("InMemoryWebhookStore cleanup: removed %s", len(expired))
             return len(expired)
 
     def _maybe_cleanup(self) -> None:
@@ -174,7 +174,7 @@ class SQLiteWebhookStore(WebhookStoreBackend):
         self._cleanup_interval = cleanup_interval
         self._last_cleanup = time.time()
         self._init_schema()
-        logger.info(f"SQLiteWebhookStore initialized: {self.db_path}")
+        logger.info("SQLiteWebhookStore initialized: %s", self.db_path)
 
     def _get_conn(self) -> sqlite3.Connection:
         """Get per-context database connection (async-safe)."""
@@ -237,7 +237,7 @@ class SQLiteWebhookStore(WebhookStoreBackend):
         removed = cursor.rowcount
         self._last_cleanup = time.time()
         if removed > 0:
-            logger.debug(f"SQLiteWebhookStore cleanup: removed {removed}")
+            logger.debug("SQLiteWebhookStore cleanup: removed %s", removed)
         return removed
 
     def _maybe_cleanup(self) -> None:
@@ -318,7 +318,7 @@ class PostgresWebhookStore(WebhookStoreBackend):
             await conn.execute(self.INITIAL_SCHEMA)
 
         self._initialized = True
-        logger.debug(f"[{self.SCHEMA_NAME}] Schema initialized")
+        logger.debug("[%s] Schema initialized", self.SCHEMA_NAME)
 
     def is_processed(self, event_id: str) -> bool:
         """Check if event was already processed (sync wrapper)."""
@@ -376,7 +376,7 @@ class PostgresWebhookStore(WebhookStoreBackend):
             parts = result.split()
             removed = int(parts[1]) if len(parts) > 1 else 0
             if removed > 0:
-                logger.debug(f"PostgresWebhookStore cleanup: removed {removed}")
+                logger.debug("PostgresWebhookStore cleanup: removed %s", removed)
             return removed
 
     def _maybe_cleanup(self) -> None:
@@ -389,7 +389,7 @@ class PostgresWebhookStore(WebhookStoreBackend):
 
                 run_async(self.cleanup_expired_async())
             except (OSError, RuntimeError, ConnectionError, TimeoutError) as e:
-                logger.debug(f"Background cleanup failed: {e}")
+                logger.debug("Background cleanup failed: %s", e)
 
     def size(self) -> int:
         """Get current store size (sync wrapper)."""
@@ -493,7 +493,7 @@ def set_webhook_store(store: WebhookStoreBackend) -> None:
     """
     global _webhook_store
     _webhook_store = store
-    logger.debug(f"Webhook store backend set: {type(store).__name__}")
+    logger.debug("Webhook store backend set: %s", type(store).__name__)
 
 
 def reset_webhook_store() -> None:

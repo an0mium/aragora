@@ -232,12 +232,12 @@ def init_gateway_metrics() -> bool:
         return True
 
     except ImportError as e:
-        logger.warning(f"prometheus_client not installed, gateway metrics disabled: {e}")
+        logger.warning("prometheus_client not installed, gateway metrics disabled: %s", e)
         _init_noop_metrics()
         _initialized = True
         return False
     except (RuntimeError, ValueError, TypeError, OSError) as e:
-        logger.error(f"Failed to initialize gateway metrics: {e}")
+        logger.error("Failed to initialize gateway metrics: %s", e)
         _init_noop_metrics()
         _initialized = True
         return False

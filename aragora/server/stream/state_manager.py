@@ -54,7 +54,7 @@ class BoundedDebateDict(OrderedDict):
         # Evict oldest if at capacity
         while len(self) >= self.maxsize:
             oldest_key, oldest_val = self.popitem(last=False)
-            logger.debug(f"Evicted oldest debate {oldest_key} to maintain maxsize={self.maxsize}")
+            logger.debug("Evicted oldest debate %s to maintain maxsize=%s", oldest_key, self.maxsize)
         super().__setitem__(key, value)
 
 
@@ -126,7 +126,7 @@ def cleanup_stale_debates() -> None:
         for debate_id in stale_ids:
             _active_debates.pop(debate_id, None)
     if stale_ids:
-        logger.debug(f"Cleaned up {len(stale_ids)} stale debate entries")
+        logger.debug("Cleaned up %s stale debate entries", len(stale_ids))
 
 
 def increment_cleanup_counter() -> bool:
@@ -291,7 +291,7 @@ class DebateStateManager:
                 cleaned_count += 1
 
         if cleaned_count > 0:
-            logger.debug(f"Cleaned up {cleaned_count} stale entries")
+            logger.debug("Cleaned up %s stale entries", cleaned_count)
 
         return cleaned_count
 
@@ -388,9 +388,9 @@ async def periodic_state_cleanup(
         try:
             cleaned = manager.cleanup_stale_entries()
             if cleaned > 0:
-                logger.info(f"Periodic cleanup: removed {cleaned} stale state entries")
+                logger.info("Periodic cleanup: removed %s stale state entries", cleaned)
         except (RuntimeError, ValueError, OSError) as e:
-            logger.warning(f"Periodic state cleanup error: {e}")
+            logger.warning("Periodic state cleanup error: %s", e)
 
 
 def start_cleanup_task(
@@ -414,7 +414,7 @@ def start_cleanup_task(
     with _cleanup_task_lock:
         if _cleanup_task is None or _cleanup_task.done():
             _cleanup_task = asyncio.create_task(periodic_state_cleanup(manager, interval_seconds))
-            logger.debug(f"Started periodic state cleanup task (interval={interval_seconds}s)")
+            logger.debug("Started periodic state cleanup task (interval=%ss)", interval_seconds)
         return _cleanup_task
 
 

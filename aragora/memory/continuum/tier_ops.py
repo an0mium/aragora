@@ -173,7 +173,7 @@ class TierOpsMixin:
             tm_new: MemoryTier | None = self._tier_manager.get_next_tier(tm_current, "faster")
             if tm_new is None:
                 logger.debug(
-                    f"[memory] No faster tier available for {id} (already at {current_tier.value})"
+                    "[memory] No faster tier available for %s (already at %s)", id, current_tier.value
                 )
                 return None
 
@@ -253,7 +253,7 @@ class TierOpsMixin:
             tm_new: MemoryTier | None = self._tier_manager.get_next_tier(tm_current, "slower")
             if tm_new is None:
                 logger.debug(
-                    f"[memory] No slower tier available for {id} (already at {current_tier.value})"
+                    "[memory] No slower tier available for %s (already at %s)", id, current_tier.value
                 )
                 return None
 

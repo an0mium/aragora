@@ -181,7 +181,7 @@ class BaseIntegration(ABC):
             self._last_reset = now
 
         if self._message_count >= max_per_minute:
-            logger.warning(f"{self.__class__.__name__} rate limit reached")
+            logger.warning("%s rate limit reached", self.__class__.__name__)
             return False
 
         self._message_count += 1

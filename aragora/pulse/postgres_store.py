@@ -195,7 +195,7 @@ class PostgresScheduledDebateStore(PostgresStore):
                 record.scheduler_run_id,
             )
 
-        logger.debug(f"Recorded scheduled debate: {record.topic_text[:50]}...")
+        logger.debug("Recorded scheduled debate: %s...", record.topic_text[:50])
 
     async def get_recent_topics_async(self, hours: int = 24) -> list[ScheduledDebateRecord]:
         """Get topics debated within the last N hours asynchronously."""
@@ -379,7 +379,7 @@ class PostgresScheduledDebateStore(PostgresStore):
                 f"(consensus={consensus_reached}, confidence={confidence:.2f})"
             )
         else:
-            logger.warning(f"No scheduled debate found for debate_id: {debate_id}")
+            logger.warning("No scheduled debate found for debate_id: %s", debate_id)
 
         return updated
 
@@ -417,7 +417,7 @@ class PostgresScheduledDebateStore(PostgresStore):
                 removed = 0
 
         if removed > 0:
-            logger.info(f"Cleaned up {removed} old scheduled debate records")
+            logger.info("Cleaned up %s old scheduled debate records", removed)
 
         return removed
 

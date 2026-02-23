@@ -225,7 +225,7 @@ class SenderHistoryService:
                 CREATE INDEX IF NOT EXISTS idx_priority_feedback_user ON priority_feedback(user_id);
                 """)
             self._connection.commit()
-            logger.info(f"[sender-history] Initialized database at {self.db_path}")
+            logger.info("[sender-history] Initialized database at %s", self.db_path)
 
     async def close(self) -> None:
         """Close database connection."""

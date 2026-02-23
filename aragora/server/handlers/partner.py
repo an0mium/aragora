@@ -153,7 +153,7 @@ class PartnerHandler(BaseHandler):
             )
 
         except (ImportError, OSError, RuntimeError, TypeError, KeyError, AttributeError) as e:
-            logger.exception(f"Error registering partner: {e}")
+            logger.exception("Error registering partner: %s", e)
             return error_response(safe_error_message(e, "registration"), 500)
 
     @require_user_auth
@@ -176,7 +176,7 @@ class PartnerHandler(BaseHandler):
             logger.warning("Handler error: %s", e)
             return error_response("Resource not found", 404)
         except (ImportError, OSError, RuntimeError, TypeError, KeyError, AttributeError) as e:
-            logger.exception(f"Error getting partner profile: {e}")
+            logger.exception("Error getting partner profile: %s", e)
             return error_response(safe_error_message(e, "profile"), 500)
 
     @require_user_auth
@@ -251,7 +251,7 @@ class PartnerHandler(BaseHandler):
             logger.warning("Handler error: %s", e)
             return error_response("Invalid request", 400)
         except (ImportError, OSError, RuntimeError, TypeError, KeyError, AttributeError) as e:
-            logger.exception(f"Error creating API key: {e}")
+            logger.exception("Error creating API key: %s", e)
             return error_response(safe_error_message(e, "key creation"), 500)
 
     @require_user_auth
@@ -305,7 +305,7 @@ class PartnerHandler(BaseHandler):
             logger.warning("Handler error: %s", e)
             return error_response("Invalid request", 400)
         except (ImportError, OSError, RuntimeError, TypeError, KeyError, AttributeError) as e:
-            logger.exception(f"Error rotating API key: {e}")
+            logger.exception("Error rotating API key: %s", e)
             return error_response(safe_error_message(e, "key rotation"), 500)
 
     @require_user_auth
@@ -331,7 +331,7 @@ class PartnerHandler(BaseHandler):
             )
 
         except (ImportError, OSError, RuntimeError, TypeError, KeyError, AttributeError) as e:
-            logger.exception(f"Error listing API keys: {e}")
+            logger.exception("Error listing API keys: %s", e)
             return error_response(safe_error_message(e, "key listing"), 500)
 
     @require_user_auth
@@ -354,7 +354,7 @@ class PartnerHandler(BaseHandler):
             return json_response({"message": "Key revoked successfully", "key_id": key_id})
 
         except (ImportError, OSError, RuntimeError, TypeError, KeyError, AttributeError) as e:
-            logger.exception(f"Error revoking API key: {e}")
+            logger.exception("Error revoking API key: %s", e)
             return error_response(safe_error_message(e, "key revocation"), 500)
 
     @require_user_auth
@@ -386,7 +386,7 @@ class PartnerHandler(BaseHandler):
             logger.warning("Handler error: %s", e)
             return error_response("Resource not found", 404)
         except (ImportError, OSError, RuntimeError, TypeError, KeyError, AttributeError) as e:
-            logger.exception(f"Error getting usage: {e}")
+            logger.exception("Error getting usage: %s", e)
             return error_response(safe_error_message(e, "usage"), 500)
 
     @require_user_auth
@@ -455,7 +455,7 @@ class PartnerHandler(BaseHandler):
             )
 
         except (ImportError, OSError, RuntimeError, TypeError, KeyError, AttributeError) as e:
-            logger.exception(f"Error configuring webhook: {e}")
+            logger.exception("Error configuring webhook: %s", e)
             return error_response(safe_error_message(e, "webhook"), 500)
 
     @require_user_auth
@@ -499,5 +499,5 @@ class PartnerHandler(BaseHandler):
             )
 
         except (ImportError, OSError, RuntimeError, TypeError, KeyError, AttributeError) as e:
-            logger.exception(f"Error getting limits: {e}")
+            logger.exception("Error getting limits: %s", e)
             return error_response(safe_error_message(e, "limits"), 500)

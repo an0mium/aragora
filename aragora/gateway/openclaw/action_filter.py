@@ -616,9 +616,7 @@ class ActionFilter:
         self._stats_lock = threading.Lock()
 
         logger.info(
-            f"ActionFilter initialized for tenant={tenant_id} "
-            f"with {len(self._allowed_actions)} allowed actions, "
-            f"{len(self._rules)} rules"
+            "ActionFilter initialized for tenant=%s with %s allowed actions, %s rules", tenant_id, len(self._allowed_actions), len(self._rules)
         )
 
     # =========================================================================
@@ -826,7 +824,7 @@ class ActionFilter:
             action: Action pattern to allow (supports glob patterns).
         """
         self._allowed_actions.add(action)
-        logger.info(f"Added action to allowlist: {action}")
+        logger.info("Added action to allowlist: %s", action)
 
     def remove_allowed_action(self, action: str) -> bool:
         """
@@ -840,7 +838,7 @@ class ActionFilter:
         """
         if action in self._allowed_actions:
             self._allowed_actions.discard(action)
-            logger.info(f"Removed action from allowlist: {action}")
+            logger.info("Removed action from allowlist: %s", action)
             return True
         return False
 
@@ -852,7 +850,7 @@ class ActionFilter:
             actions: New set of allowed action patterns.
         """
         self._allowed_actions = actions.copy()
-        logger.info(f"Updated allowlist with {len(actions)} actions")
+        logger.info("Updated allowlist with %s actions", len(actions))
 
     def get_allowed_actions_list(self) -> list[str]:
         """
@@ -887,7 +885,7 @@ class ActionFilter:
         """
         self._rules.append(rule)
         self._rules.sort(key=lambda r: r.priority, reverse=True)
-        logger.info(f"Added action rule: {rule.action_pattern}")
+        logger.info("Added action rule: %s", rule.action_pattern)
 
     def remove_rule(self, action_pattern: str) -> bool:
         """
@@ -905,7 +903,7 @@ class ActionFilter:
         ]
         removed = original_count - len(self._rules)
         if removed > 0:
-            logger.info(f"Removed action rule: {action_pattern}")
+            logger.info("Removed action rule: %s", action_pattern)
         return removed > 0
 
     def get_rules(self, include_critical: bool = False) -> list[ActionRule]:
@@ -1105,7 +1103,7 @@ class ActionFilter:
                 try:
                     self._alert_callback(decision)
                 except (RuntimeError, ValueError, TypeError) as e:  # noqa: BLE001 - user-provided alert callback
-                    logger.error(f"Alert callback failed: {e}")
+                    logger.error("Alert callback failed: %s", e)
 
         entry = ActionAuditEntry(
             decision_id=decision.decision_id,
@@ -1127,8 +1125,7 @@ class ActionFilter:
                 self._audit_log = self._audit_log[-10000:]
 
         logger.debug(
-            f"Audit: action={decision.action} allowed={decision.allowed} "
-            f"risk={decision.risk_level.value} tenant={self._tenant_id}"
+            "Audit: action=%s allowed=%s risk=%s tenant=%s", decision.action, decision.allowed, decision.risk_level.value, self._tenant_id
         )
 
     def get_audit_log(
@@ -1222,7 +1219,7 @@ class ActionFilter:
         with self._audit_lock:
             count = len(self._audit_log)
             self._audit_log.clear()
-        logger.info(f"Cleared {count} audit log entries")
+        logger.info("Cleared %s audit log entries", count)
         return count
 
 

@@ -205,7 +205,7 @@ class TestGenerator:
             imports=self._generate_imports(spec),
         )
 
-        logger.info(f"Generated {len(test_cases)} test cases for {spec.name}")
+        logger.info("Generated %s test cases for %s", len(test_cases), spec.name)
 
         return suite
 
@@ -496,7 +496,7 @@ def extract_function_specs(source_code: str, module_name: str) -> list[FunctionS
     try:
         tree = ast.parse(source_code)
     except SyntaxError:
-        logger.warning(f"Failed to parse {module_name}")
+        logger.warning("Failed to parse %s", module_name)
         return []
 
     specs: list[FunctionSpec] = []

@@ -239,7 +239,7 @@ class AuditVerifyMixin:
                 "checked": datetime.now(timezone.utc).isoformat(),
             }
         except (RuntimeError, AttributeError, KeyError, ValueError) as e:
-            logger.warning(f"Failed to verify trail {trail_id}: {e}")
+            logger.warning("Failed to verify trail %s: %s", trail_id, e)
             return {
                 "type": "audit_trail",
                 "id": trail_id,
@@ -312,7 +312,7 @@ class AuditVerifyMixin:
                 "errors": errors[:10],  # Limit errors in response
             }
         except (RuntimeError, AttributeError, KeyError, ValueError, TypeError) as e:
-            logger.warning(f"Failed to verify date range: {e}")
+            logger.warning("Failed to verify date range: %s", e)
             return {
                 "type": "date_range",
                 "from": date_range.get("from"),
@@ -365,7 +365,7 @@ class AuditVerifyMixin:
                 filtered.append(event)
             return filtered[:limit]
         except (RuntimeError, AttributeError, KeyError, ValueError) as e:
-            logger.warning(f"Failed to fetch audit events: {e}")
+            logger.warning("Failed to fetch audit events: %s", e)
             return []
 
 

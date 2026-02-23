@@ -177,7 +177,7 @@ class SandboxExecutor:
                 error_message=f"Execution timed out after {timeout} seconds",
             )
         except (RuntimeError, OSError, subprocess.SubprocessError) as e:
-            logger.exception(f"Sandbox execution error: {e}")
+            logger.exception("Sandbox execution error: %s", e)
             return ExecutionResult(
                 execution_id=execution_id,
                 status=ExecutionStatus.FAILED,

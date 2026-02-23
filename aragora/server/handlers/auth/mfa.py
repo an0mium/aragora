@@ -200,7 +200,7 @@ def handle_mfa_enable(handler_instance: AuthHandler, handler) -> HandlerResult:
     # Invalidate all existing sessions by incrementing token version
     user_store.increment_token_version(user.id)
 
-    logger.info(f"MFA enabled for user_id={user.id}")
+    logger.info("MFA enabled for user_id=%s", user.id)
 
     # Audit log: MFA enabled
     if AUDIT_AVAILABLE and audit_security:
@@ -295,7 +295,7 @@ def handle_mfa_disable(handler_instance: AuthHandler, handler) -> HandlerResult:
         mfa_backup_codes=None,
     )
 
-    logger.info(f"MFA disabled for user_id={user.id}")
+    logger.info("MFA disabled for user_id=%s", user.id)
 
     # Audit log: MFA disabled
     if AUDIT_AVAILABLE and audit_security:
@@ -408,7 +408,7 @@ def handle_mfa_verify(handler_instance: AuthHandler, handler) -> HandlerResult:
             role=user.role,
         )
         token_dict = tokens.to_dict()
-        logger.info(f"MFA verified for user_id={user.id}")
+        logger.info("MFA verified for user_id=%s", user.id)
         return json_response(
             {
                 "message": "MFA verification successful",
@@ -445,7 +445,7 @@ def handle_mfa_verify(handler_instance: AuthHandler, handler) -> HandlerResult:
             token_dict = tokens.to_dict()
             remaining = len(backup_hashes)
 
-            logger.info(f"Backup code used for user_id={user.id}, {remaining} remaining")
+            logger.info("Backup code used for user_id=%s, %s remaining", user.id, remaining)
 
             return json_response(
                 {
@@ -537,7 +537,7 @@ def handle_mfa_backup_codes(handler_instance: AuthHandler, handler) -> HandlerRe
         mfa_backup_codes=json_module.dumps(backup_hashes),
     )
 
-    logger.info(f"Backup codes regenerated for user_id={user.id}")
+    logger.info("Backup codes regenerated for user_id=%s", user.id)
 
     return json_response(
         {

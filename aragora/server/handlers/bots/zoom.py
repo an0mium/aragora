@@ -141,13 +141,13 @@ class ZoomHandler(BotHandlerMixin, SecureHandler):
             self._bot = create_zoom_bot()
             logger.info("Zoom bot initialized")
         except ImportError as e:
-            logger.warning(f"Zoom bot module not available: {e}")
+            logger.warning("Zoom bot module not available: %s", e)
             self._bot = None
         except (ValueError, KeyError, TypeError) as e:
-            logger.error(f"Failed to initialize Zoom bot due to configuration error: {e}")
+            logger.error("Failed to initialize Zoom bot due to configuration error: %s", e)
             self._bot = None
         except (RuntimeError, OSError, AttributeError) as e:
-            logger.exception(f"Unexpected error initializing Zoom bot: {e}")
+            logger.exception("Unexpected error initializing Zoom bot: %s", e)
             self._bot = None
 
         return self._bot
@@ -206,7 +206,7 @@ class ZoomHandler(BotHandlerMixin, SecureHandler):
                 return err
 
             event_type = event.get("event", "")
-            logger.info(f"Zoom event received: {event_type}")
+            logger.info("Zoom event received: %s", event_type)
 
             # Handle URL validation - requires ZOOM_SECRET_TOKEN
             if event_type == "endpoint.url_validation":

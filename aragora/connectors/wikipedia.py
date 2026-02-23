@@ -207,17 +207,17 @@ class WikipediaConnector(BaseConnector):
                 results.append(evidence)
                 self._cache_put(evidence_id, evidence)
 
-            logger.info(f"Wikipedia search '{query}' returned {len(results)} results")
+            logger.info("Wikipedia search '%s' returned %s results", query, len(results))
             return results
 
         except httpx.TimeoutException:
-            logger.warning(f"Wikipedia search timeout for query: {query}")
+            logger.warning("Wikipedia search timeout for query: %s", query)
             return []
         except httpx.HTTPStatusError as e:
-            logger.error(f"Wikipedia API error: {e.response.status_code}")
+            logger.error("Wikipedia API error: %s", e.response.status_code)
             return []
         except (httpx.RequestError, ValueError, KeyError) as e:
-            logger.error(f"Wikipedia search failed: {e}")
+            logger.error("Wikipedia search failed: %s", e)
             return []
 
     async def fetch(self, evidence_id: str) -> Evidence | None:
@@ -255,7 +255,7 @@ class WikipediaConnector(BaseConnector):
                 response = await client.get(summary_url)
 
                 if response.status_code == 404:
-                    logger.info(f"Wikipedia article not found: {title}")
+                    logger.info("Wikipedia article not found: %s", title)
                     return None
 
                 response.raise_for_status()
@@ -268,10 +268,10 @@ class WikipediaConnector(BaseConnector):
             return evidence
 
         except httpx.TimeoutException:
-            logger.warning(f"Wikipedia fetch timeout for: {title}")
+            logger.warning("Wikipedia fetch timeout for: %s", title)
             return None
         except (httpx.HTTPStatusError, httpx.RequestError, ValueError, KeyError) as e:
-            logger.error(f"Wikipedia fetch failed for {title}: {e}")
+            logger.error("Wikipedia fetch failed for %s: %s", title, e)
             return None
 
     async def _fetch_summary(self, title: str) -> str | None:
@@ -286,13 +286,13 @@ class WikipediaConnector(BaseConnector):
                     return data.get("extract", "")
                 return None
         except httpx.TimeoutException:
-            logger.debug(f"Timeout fetching Wikipedia summary for: {title}")
+            logger.debug("Timeout fetching Wikipedia summary for: %s", title)
             return None
         except httpx.HTTPError as e:
-            logger.debug(f"HTTP error fetching Wikipedia summary: {e}")
+            logger.debug("HTTP error fetching Wikipedia summary: %s", e)
             return None
         except (ValueError, KeyError) as e:
-            logger.debug(f"Parse error in Wikipedia summary: {e}")
+            logger.debug("Parse error in Wikipedia summary: %s", e)
             return None
 
     def _parse_summary_response(self, data: dict) -> Evidence | None:
@@ -323,7 +323,7 @@ class WikipediaConnector(BaseConnector):
                     created_at = timestamp
                     freshness = self.calculate_freshness(timestamp)
                 except (ValueError, TypeError) as e:
-                    logger.debug(f"Could not parse Wikipedia timestamp: {e}")
+                    logger.debug("Could not parse Wikipedia timestamp: %s", e)
                     # Keep default freshness
 
             return Evidence(
@@ -346,7 +346,7 @@ class WikipediaConnector(BaseConnector):
                 },
             )
         except (ValueError, TypeError, KeyError, AttributeError) as e:
-            logger.error(f"Failed to parse Wikipedia response: {e}")
+            logger.error("Failed to parse Wikipedia response: %s", e)
             return None
 
     async def get_article_sections(self, title: str) -> list[dict]:
@@ -396,7 +396,7 @@ class WikipediaConnector(BaseConnector):
             ValueError,
             KeyError,
         ) as e:
-            logger.error(f"Failed to get sections for {title}: {e}")
+            logger.error("Failed to get sections for %s: %s", title, e)
             return []
 
     async def get_related_articles(self, title: str, limit: int = 10) -> list[str]:
@@ -443,5 +443,5 @@ class WikipediaConnector(BaseConnector):
             ValueError,
             KeyError,
         ) as e:
-            logger.error(f"Failed to get related articles for {title}: {e}")
+            logger.error("Failed to get related articles for %s: %s", title, e)
             return []

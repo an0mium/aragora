@@ -296,7 +296,7 @@ class DataIsolationManager:
                     finally:
                         loop.close()
             except (RuntimeError, AttributeError, ValueError, LookupError) as e:
-                logger.debug(f"Could not populate RBAC permissions: {e}")
+                logger.debug("Could not populate RBAC permissions: %s", e)
 
         return ctx
 
@@ -344,7 +344,7 @@ class DataIsolationManager:
                     assigned_by="system",
                 )
             except (RuntimeError, AttributeError, ValueError, LookupError, PermissionError) as e:
-                logger.warning(f"Could not assign org_admin role: {e}")
+                logger.warning("Could not assign org_admin role: %s", e)
 
         await self._log_access(
             workspace_id="",
@@ -354,7 +354,7 @@ class DataIsolationManager:
             details={"org_id": org_id, "name": name},
         )
 
-        logger.info(f"Created organization {org_id}: {name}")
+        logger.info("Created organization %s: %s", org_id, name)
 
         return org_data
 
@@ -377,7 +377,7 @@ class DataIsolationManager:
                     self._organizations[oid] for oid in org_ids if oid in self._organizations
                 ]
             except (RuntimeError, AttributeError, ValueError, LookupError) as e:
-                logger.debug(f"Could not get org assignments: {e}")
+                logger.debug("Could not get org assignments: %s", e)
 
         return accessible
 
@@ -443,7 +443,7 @@ class DataIsolationManager:
             outcome="success",
         )
 
-        logger.info(f"Created workspace {workspace_id} for org {organization_id}")
+        logger.info("Created workspace %s for org %s", workspace_id, organization_id)
 
         return workspace
 
@@ -590,7 +590,7 @@ class DataIsolationManager:
             added_by=added_by,
         )
 
-        logger.info(f"Added member {user_id} to workspace {workspace_id}")
+        logger.info("Added member %s to workspace %s", user_id, workspace_id)
 
     async def remove_member(
         self,
@@ -609,7 +609,7 @@ class DataIsolationManager:
         workspace = self._workspaces[workspace_id]
         if user_id in workspace.members:
             del workspace.members[user_id]
-            logger.info(f"Removed member {user_id} from workspace {workspace_id}")
+            logger.info("Removed member %s from workspace %s", user_id, workspace_id)
 
     async def list_members(
         self,
@@ -693,7 +693,7 @@ class DataIsolationManager:
             outcome="success",
         )
 
-        logger.info(f"Deleted workspace {workspace_id}")
+        logger.info("Deleted workspace %s", workspace_id)
 
     async def encrypt_data(
         self,
@@ -771,13 +771,13 @@ class DataIsolationManager:
         """Generate an encryption key for a workspace."""
         key_id = f"wsk_{workspace_id}_{secrets.token_hex(8)}"
         # In production, this would integrate with a KMS
-        logger.debug(f"Generated encryption key {key_id}")
+        logger.debug("Generated encryption key %s", key_id)
         return key_id
 
     async def _delete_encryption_key(self, key_id: str) -> None:
         """Delete an encryption key."""
         # In production, this would integrate with a KMS
-        logger.debug(f"Deleted encryption key {key_id}")
+        logger.debug("Deleted encryption key %s", key_id)
 
     async def _setup_workspace_storage(self, workspace: Workspace) -> None:
         """Setup storage directory for a workspace."""

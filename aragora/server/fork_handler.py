@@ -35,7 +35,7 @@ def _ensure_imports():
             Environment = _Env
             create_agent = _ca
         except ImportError as e:
-            logger.error(f"Failed to import debate components: {e}")
+            logger.error("Failed to import debate components: %s", e)
             raise
 
 
@@ -68,7 +68,7 @@ class ForkBridgeHandler:
         """Register a fork for later execution."""
         with self._fork_store_lock:
             self.fork_store[fork_id] = fork_data
-            logger.info(f"Fork registered: {fork_id}")
+            logger.info("Fork registered: %s", fork_id)
 
     def get_fork(self, fork_id: str) -> dict[str, Any] | None:
         """Get fork data by ID."""
@@ -123,7 +123,7 @@ class ForkBridgeHandler:
             initial_messages = fork_data.get("messages", [])
             # Validate initial_messages type and size
             if not isinstance(initial_messages, list):
-                logger.warning(f"Invalid initial_messages type: {type(initial_messages).__name__}")
+                logger.warning("Invalid initial_messages type: %s", type(initial_messages).__name__)
                 initial_messages = []
             else:
                 # Validate per-message structure and truncate
@@ -133,7 +133,7 @@ class ForkBridgeHandler:
                         validated.append(msg)
                 if len(validated) < min(len(initial_messages), 1000):
                     logger.debug(
-                        f"Filtered {min(len(initial_messages), 1000) - len(validated)} invalid messages"
+                        "Filtered %s invalid messages", min(len(initial_messages), 1000) - len(validated)
                     )
                 initial_messages = validated
             original_task = fork_data.get("task", "Continue the debate")
@@ -183,18 +183,18 @@ class ForkBridgeHandler:
                         with self.active_loops_lock:
                             self.active_loops.pop(loop_id, None)
                     except (RuntimeError, KeyError) as cleanup_err:
-                        logger.error(f"Failed to cleanup fork '{loop_id}': {cleanup_err}")
+                        logger.error("Failed to cleanup fork '%s': %s", loop_id, cleanup_err)
                         return
 
                     # Log status
                     if t.cancelled():
-                        logger.debug(f"Fork debate '{loop_id}' was cancelled")
+                        logger.debug("Fork debate '%s' was cancelled", loop_id)
                     elif t.exception():
-                        logger.warning(f"Fork debate '{loop_id}' failed: {t.exception()}")
+                        logger.warning("Fork debate '%s' failed: %s", loop_id, t.exception())
                     else:
-                        logger.info(f"Fork debate '{loop_id}' completed successfully")
+                        logger.info("Fork debate '%s' completed successfully", loop_id)
                 except (RuntimeError, KeyError, TypeError) as e:
-                    logger.error(f"Exception in callback for '{loop_id}': {e}")
+                    logger.error("Exception in callback for '%s': %s", loop_id, e)
 
             task_obj.add_done_callback(_on_task_done)
 
@@ -216,18 +216,18 @@ class ForkBridgeHandler:
                 },
             )
 
-            logger.info(f"Fork debate started: {fork_id} -> {loop_id}")
+            logger.info("Fork debate started: %s -> %s", fork_id, loop_id)
             return True
 
         except ImportError as e:
-            logger.error(f"Debate components not available: {e}")
+            logger.error("Debate components not available: %s", e)
             await self._send_error(ws, "Debate system not available")
             return False
         except (ValueError, TypeError, RuntimeError, KeyError, AttributeError) as e:
             # Cleanup on failure
             with self.active_loops_lock:
                 self.active_loops.pop(loop_id, None)
-            logger.error(f"Failed to start fork debate {fork_id}: {e}")
+            logger.error("Failed to start fork debate %s: %s", fork_id, e)
             await self._send_error(ws, f"Fork initialization failed: {type(e).__name__}")
             return False
 
@@ -236,7 +236,7 @@ class ForkBridgeHandler:
         try:
             return await arena.run()
         except (RuntimeError, ValueError, TimeoutError, asyncio.CancelledError) as e:
-            logger.error(f"Fork debate {loop_id} failed: {type(e).__name__}: {e}")
+            logger.error("Fork debate %s failed: %s: %s", loop_id, type(e).__name__, e)
             raise  # Re-raise so callback can detect it
 
     async def _send_json(self, ws: Any, data: dict) -> None:
@@ -249,7 +249,7 @@ class ForkBridgeHandler:
                 # Fall back to websockets style
                 await ws.send(json.dumps(data))
         except (ConnectionError, OSError, RuntimeError) as e:
-            logger.error(f"Failed to send JSON message: {e}")
+            logger.error("Failed to send JSON message: %s", e)
 
     async def _send_error(self, ws: Any, message: str) -> None:
         """Send error message to websocket."""

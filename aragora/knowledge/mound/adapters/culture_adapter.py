@@ -136,7 +136,7 @@ class CultureAdapter(KnowledgeMoundAdapter):
             self._mound = get_knowledge_mound()
             return self._mound
         except (ImportError, Exception) as e:
-            logger.debug(f"Could not get KnowledgeMound: {e}")
+            logger.debug("Could not get KnowledgeMound: %s", e)
             return None
 
     def store_pattern(
@@ -155,7 +155,7 @@ class CultureAdapter(KnowledgeMoundAdapter):
         """
         if pattern.observation_count < self.MIN_OBSERVATIONS_FOR_STORAGE:
             logger.debug(
-                f"Pattern has too few observations ({pattern.observation_count}), skipping"
+                "Pattern has too few observations (%s), skipping", pattern.observation_count
             )
             return None
 
@@ -221,10 +221,10 @@ class CultureAdapter(KnowledgeMoundAdapter):
                 return asyncio.run(do_store())
 
         except ImportError as e:
-            logger.debug(f"Import error storing pattern: {e}")
+            logger.debug("Import error storing pattern: %s", e)
             return None
         except (RuntimeError, ValueError, OSError, AttributeError) as e:
-            logger.warning(f"Failed to store culture pattern: {e}")
+            logger.warning("Failed to store culture pattern: %s", e)
             return None
 
     def _pattern_to_content(self, pattern: CulturePattern) -> str:
@@ -311,7 +311,7 @@ class CultureAdapter(KnowledgeMoundAdapter):
                 return asyncio.run(do_query())
 
         except (OSError, ConnectionError, RuntimeError, ValueError, TypeError, AttributeError) as e:
-            logger.debug(f"Failed to load culture patterns: {e}")
+            logger.debug("Failed to load culture patterns: %s", e)
             return []
 
     def _item_to_stored_pattern(self, item: Any) -> StoredCulturePattern:
@@ -483,7 +483,7 @@ class CultureAdapter(KnowledgeMoundAdapter):
                 return asyncio.run(do_store())
 
         except (RuntimeError, ValueError, OSError, AttributeError) as e:
-            logger.warning(f"Failed to promote pattern to organization: {e}")
+            logger.warning("Failed to promote pattern to organization: %s", e)
             return None
 
     def sync_to_mound(
@@ -507,8 +507,7 @@ class CultureAdapter(KnowledgeMoundAdapter):
                 stored_count += 1
 
         logger.info(
-            f"Synced {stored_count}/{len(patterns)} culture patterns to KM "
-            f"for workspace {workspace_id}"
+            "Synced %s/%s culture patterns to KM for workspace %s", stored_count, len(patterns), workspace_id
         )
         return stored_count
 

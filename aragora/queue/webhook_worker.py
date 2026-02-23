@@ -160,10 +160,10 @@ class WebhookDeliveryWorker:
     async def start(self) -> None:
         """Start the worker."""
         if self._running:
-            logger.warning(f"Worker {self._worker_id} already running")
+            logger.warning("Worker %s already running", self._worker_id)
             return
 
-        logger.info(f"Starting webhook delivery worker {self._worker_id}")
+        logger.info("Starting webhook delivery worker %s", self._worker_id)
         self._running = True
         self._start_time = time.time()
         self._shutdown_event.clear()
@@ -185,12 +185,12 @@ class WebhookDeliveryWorker:
         if not self._running:
             return
 
-        logger.info(f"Stopping webhook worker {self._worker_id}")
+        logger.info("Stopping webhook worker %s", self._worker_id)
         self._running = False
         self._shutdown_event.set()
 
         if self._tasks:
-            logger.info(f"Waiting for {len(self._tasks)} active deliveries")
+            logger.info("Waiting for %s active deliveries", len(self._tasks))
             done, pending = await asyncio.wait(
                 self._tasks,
                 timeout=timeout,
@@ -198,11 +198,11 @@ class WebhookDeliveryWorker:
             )
 
             if pending:
-                logger.warning(f"Cancelling {len(pending)} pending deliveries")
+                logger.warning("Cancelling %s pending deliveries", len(pending))
                 for task in pending:
                     task.cancel()
 
-        logger.info(f"Webhook worker {self._worker_id} stopped")
+        logger.info("Webhook worker %s stopped", self._worker_id)
 
     async def _process_loop(self) -> None:
         """Main processing loop."""
@@ -234,7 +234,7 @@ class WebhookDeliveryWorker:
             except asyncio.CancelledError:
                 break
             except (RuntimeError, ValueError, OSError) as e:  # noqa: BLE001 - worker isolation
-                logger.error(f"Error in webhook worker loop: {e}", exc_info=True)
+                logger.error("Error in webhook worker loop: %s", e, exc_info=True)
                 await asyncio.sleep(poll_interval)
 
     def _on_task_done(self, task: asyncio.Task[None]) -> None:
@@ -243,7 +243,7 @@ class WebhookDeliveryWorker:
         self._semaphore.release()
 
         if not task.cancelled() and task.exception():
-            logger.error(f"Delivery task failed: {task.exception()}")
+            logger.error("Delivery task failed: %s", task.exception())
 
     async def _process_delivery(self, job: Job) -> None:
         """Process a single webhook delivery job."""
@@ -254,12 +254,12 @@ class WebhookDeliveryWorker:
         event_data = payload.get("event_data", {})
         attempt = job.attempts + 1
 
-        logger.debug(f"Processing webhook delivery {job.id} to {url} (attempt {attempt})")
+        logger.debug("Processing webhook delivery %s to %s (attempt %s)", job.id, url, attempt)
 
         # Check circuit breaker
         circuit = self._get_circuit_breaker(url)
         if circuit.state == "open":
-            logger.warning(f"Circuit breaker open for {url}, skipping delivery")
+            logger.warning("Circuit breaker open for %s, skipping delivery", url)
             await self._schedule_retry(job, "Circuit breaker open")
             return
 
@@ -368,7 +368,7 @@ class WebhookDeliveryWorker:
                 attempt=attempt,
             )
         except (RuntimeError, ValueError) as e:
-            logger.error(f"Unexpected error delivering to {url}: {e}", exc_info=True)
+            logger.error("Unexpected error delivering to %s: %s", url, e, exc_info=True)
             return DeliveryResult(
                 webhook_id=webhook_id,
                 url=url,
@@ -404,7 +404,7 @@ class WebhookDeliveryWorker:
             self.MAX_BACKOFF_SECONDS,
         )
 
-        logger.info(f"Scheduling retry for job {job.id} in {backoff}s (attempt {attempt})")
+        logger.info("Scheduling retry for job %s in %ss (attempt %s)", job.id, backoff, attempt)
 
         # Update job for retry
         job.attempts = attempt

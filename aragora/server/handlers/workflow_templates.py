@@ -103,12 +103,11 @@ async def _execute_workflow_async(
             )
             store.save_execution(execution)
             logger.info(
-                f"Workflow execution {execution_id} completed: "
-                f"success={result.success}, duration={result.total_duration_ms}ms"
+                "Workflow execution %s completed: success=%s, duration=%sms", execution_id, result.success, result.total_duration_ms
             )
 
     except (RuntimeError, ValueError, TypeError, KeyError, AttributeError, OSError) as e:
-        logger.exception(f"Workflow execution {execution_id} failed: {e}")
+        logger.exception("Workflow execution %s failed: %s", execution_id, e)
         execution = store.get_execution(execution_id)
         if execution:
             execution.update(
@@ -159,7 +158,7 @@ def _start_workflow_execution(
             _execute_workflow_async(workflow, execution_id, inputs, tenant_id),
         )
 
-    logger.info(f"Started workflow execution {execution_id} for workflow {workflow.id}")
+    logger.info("Started workflow execution %s for workflow %s", execution_id, workflow.id)
     return execution_id
 
 
@@ -190,7 +189,7 @@ class WorkflowTemplatesHandler(BaseHandler):
         # Rate limit check
         client_ip = get_client_ip(handler)
         if not _template_limiter.is_allowed(client_ip):
-            logger.warning(f"Rate limit exceeded for templates endpoint: {client_ip}")
+            logger.warning("Rate limit exceeded for templates endpoint: %s", client_ip)
             return error_response("Rate limit exceeded. Please try again later.", 429)
 
         # Parse path
@@ -403,7 +402,7 @@ class WorkflowTemplatesHandler(BaseHandler):
                 }
             )
         except (RuntimeError, ValueError, TypeError, KeyError, AttributeError, OSError) as e:
-            logger.error(f"Template execution failed: {e}")
+            logger.error("Template execution failed: %s", e)
             self._emit_template_event("TEMPLATE_EXECUTION_FAILED", {
                 "template_id": template_id,
                 "error": type(e).__name__,
@@ -708,7 +707,7 @@ class WorkflowPatternTemplatesHandler(BaseHandler):
             )
 
         except (RuntimeError, ValueError, TypeError, KeyError, AttributeError) as e:
-            logger.error(f"Failed to instantiate pattern {pattern_id}: {e}")
+            logger.error("Failed to instantiate pattern %s: %s", pattern_id, e)
             return error_response("Pattern instantiation failed", 500)
 
 
@@ -1231,5 +1230,5 @@ class SMEWorkflowsHandler(BaseHandler):
             return json_response(response_data, status=201)
 
         except (RuntimeError, ValueError, TypeError, KeyError, AttributeError) as e:
-            logger.error(f"Failed to create SME workflow: {e}")
+            logger.error("Failed to create SME workflow: %s", e)
             return error_response("Workflow creation failed", 500)

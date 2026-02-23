@@ -242,7 +242,7 @@ class OpenClawExternalAdapter(BaseExternalAgentAdapter):
 
         except (OSError, ConnectionError, RuntimeError) as e:
             execution_time_ms = (time.time() - start_time) * 1000
-            logger.error(f"OpenClaw execution failed: {e}")
+            logger.error("OpenClaw execution failed: %s", e)
 
             return ExternalAgentResult(
                 task_id=task.task_id,
@@ -270,7 +270,7 @@ class OpenClawExternalAdapter(BaseExternalAgentAdapter):
                 ) as response:
                     return response.status == 200
         except (OSError, ConnectionError, TimeoutError) as e:
-            logger.warning(f"OpenClaw health check failed: {e}")
+            logger.warning("OpenClaw health check failed: %s", e)
             return False
 
     def get_config(self) -> dict[str, Any]:

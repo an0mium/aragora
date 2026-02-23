@@ -78,7 +78,7 @@ class FileBackend(AuditPersistenceBackend):
                 with open(self._index_path) as f:
                     self._index = json.load(f)
             except (json.JSONDecodeError, OSError) as e:
-                logger.warning(f"Failed to load audit index, starting fresh: {e}")
+                logger.warning("Failed to load audit index, starting fresh: %s", e)
                 self._index = {}
 
         # Load or create meta
@@ -87,10 +87,10 @@ class FileBackend(AuditPersistenceBackend):
                 with open(self._meta_path) as f:
                     self._meta = json.load(f)
             except (json.JSONDecodeError, OSError) as e:
-                logger.warning(f"Failed to load audit meta, starting fresh: {e}")
+                logger.warning("Failed to load audit meta, starting fresh: %s", e)
                 self._meta = {}
 
-        logger.info(f"File audit backend initialized at {self.storage_path}")
+        logger.info("File audit backend initialized at %s", self.storage_path)
 
     def _get_current_file(self) -> Path:
         """Get the current day's log file."""
@@ -177,7 +177,7 @@ class FileBackend(AuditPersistenceBackend):
                         data = json.loads(line)
                         return self._dict_to_event(data)
         except (OSError, json.JSONDecodeError) as e:
-            logger.warning(f"Failed to read event {event_id}: {e}")
+            logger.warning("Failed to read event %s: %s", event_id, e)
 
         return None
 
@@ -229,7 +229,7 @@ class FileBackend(AuditPersistenceBackend):
                         except json.JSONDecodeError:
                             continue
             except OSError as e:
-                logger.warning(f"Failed to read {log_file}: {e}")
+                logger.warning("Failed to read %s: %s", log_file, e)
 
         return results
 
@@ -335,9 +335,9 @@ class FileBackend(AuditPersistenceBackend):
                         del self._index[eid]
 
                     log_file.unlink()
-                    logger.info(f"Deleted old audit log: {log_file.name}")
+                    logger.info("Deleted old audit log: %s", log_file.name)
                 except OSError as e:
-                    logger.warning(f"Failed to delete {log_file}: {e}")
+                    logger.warning("Failed to delete %s: %s", log_file, e)
 
         if deleted:
             self._meta["event_count"] = max(0, self._meta.get("event_count", 0) - deleted)

@@ -70,7 +70,7 @@ class BasicHandlersMixin:
         importance = data.get("importance", 0.5)
 
         # Track access pattern for RLM optimization
-        logger.debug(f"Memory retrieval: tier={tier}, cache_hit={hit}")
+        logger.debug("Memory retrieval: tier=%s, cache_hit=%s", tier, hit)
 
         # Update RLM compression hints based on access patterns
         try:
@@ -91,7 +91,7 @@ class BasicHandlersMixin:
         except ImportError:
             pass  # RLM module not available
         except (RuntimeError, TypeError, AttributeError, ValueError) as e:
-            logger.debug(f"RLM pattern recording failed: {e}")
+            logger.debug("RLM pattern recording failed: %s", e)
 
     def _handle_elo_to_debate(self, event: StreamEvent) -> None:
         """
@@ -128,7 +128,7 @@ class BasicHandlersMixin:
         except ImportError:
             pass  # AgentPool module not available
         except (RuntimeError, TypeError, AttributeError, ValueError) as e:
-            logger.debug(f"AgentPool weight update failed: {e}")
+            logger.debug("AgentPool weight update failed: %s", e)
 
     def _handle_knowledge_to_memory(self, event: StreamEvent) -> None:
         """
@@ -143,7 +143,7 @@ class BasicHandlersMixin:
         node_type = data.get("node_type", "fact")
         workspace_id = data.get("workspace_id", "default")
 
-        logger.debug(f"Knowledge indexed: {node_type} {node_id}")
+        logger.debug("Knowledge indexed: %s %s", node_type, node_id)
 
         # Create memory entry referencing knowledge node
         try:
@@ -166,11 +166,11 @@ class BasicHandlersMixin:
                     importance=0.6,  # Default importance for knowledge references
                     metadata=entry_metadata,
                 )
-                logger.debug(f"Created memory reference for knowledge node {node_id}")
+                logger.debug("Created memory reference for knowledge node %s", node_id)
         except ImportError:
             pass  # ContinuumMemory not available
         except (RuntimeError, TypeError, AttributeError, ValueError, OSError) as e:
-            logger.debug(f"Memory sync for knowledge failed: {e}")
+            logger.debug("Memory sync for knowledge failed: %s", e)
 
     def _handle_calibration_to_agent(self, event: StreamEvent) -> None:
         """
@@ -204,7 +204,7 @@ class BasicHandlersMixin:
         except (ImportError, AttributeError):
             pass  # AgentPool or get_agent_pool not available
         except (RuntimeError, TypeError, ValueError) as e:
-            logger.debug(f"AgentPool calibration update failed: {e}")
+            logger.debug("AgentPool calibration update failed: %s", e)
 
     def _handle_evidence_to_insight(self, event: StreamEvent) -> None:
         """
@@ -220,7 +220,7 @@ class BasicHandlersMixin:
         claim = data.get("claim", "")
         confidence = data.get("confidence", 0.5)
 
-        logger.debug(f"Evidence collected: {evidence_id} from {source}")
+        logger.debug("Evidence collected: %s from %s", evidence_id, source)
 
         # Skip if no meaningful content
         if not content or len(content) < 50:
@@ -250,11 +250,11 @@ class BasicHandlersMixin:
                     importance=confidence,
                     metadata=insight_metadata,
                 )
-                logger.debug(f"Stored evidence insight from {source}")
+                logger.debug("Stored evidence insight from %s", source)
         except ImportError:
             pass  # ContinuumMemory not available
         except (RuntimeError, TypeError, AttributeError, ValueError, OSError) as e:
-            logger.debug(f"Evidence insight storage failed: {e}")
+            logger.debug("Evidence insight storage failed: %s", e)
 
     def _handle_webhook_delivery(self, event: StreamEvent) -> None:
         """
@@ -291,14 +291,14 @@ class BasicHandlersMixin:
                 try:
                     result = dispatch_webhook_with_retry(webhook, payload)
                     if not result.success:
-                        logger.warning(f"Webhook delivery failed for {webhook.id}: {result.error}")
+                        logger.warning("Webhook delivery failed for %s: %s", webhook.id, result.error)
                 except (OSError, ConnectionError, RuntimeError, ValueError, TypeError) as e:
-                    logger.error(f"Webhook dispatch error for {webhook.id}: {e}")
+                    logger.error("Webhook dispatch error for %s: %s", webhook.id, e)
 
         except ImportError:
             logger.debug("Webhook modules not available for event delivery")
         except (KeyError, AttributeError, TypeError, ValueError) as e:
-            logger.debug(f"Webhook delivery handler error: {e}")
+            logger.debug("Webhook delivery handler error: %s", e)
 
     def _handle_mound_to_memory(self, event: StreamEvent) -> None:
         """
@@ -311,21 +311,21 @@ class BasicHandlersMixin:
         update_type = data.get("update_type", "unknown")
         workspace_id = data.get("workspace_id", "")
 
-        logger.debug(f"Mound updated: type={update_type}, workspace={workspace_id}")
+        logger.debug("Mound updated: type=%s, workspace=%s", update_type, workspace_id)
 
         # Handle culture pattern updates
         if update_type == "culture_patterns":
             patterns_count = data.get("patterns_count", 0)
             debate_id = data.get("debate_id", "")
             logger.info(
-                f"Culture patterns updated: {patterns_count} patterns from debate {debate_id}"
+                "Culture patterns updated: %s patterns from debate %s", patterns_count, debate_id
             )
 
         # Handle node deletions
         elif update_type == "node_deleted":
             node_id = data.get("node_id", "")
             archived = data.get("archived", False)
-            logger.debug(f"Knowledge node removed: {node_id} (archived={archived})")
+            logger.debug("Knowledge node removed: %s (archived=%s)", node_id, archived)
 
             # Clear any cached references to this node
             try:
@@ -350,7 +350,7 @@ class BasicHandlersMixin:
         total_findings = data.get("total_findings", 0)
         critical_count = data.get("critical_count", 0)
 
-        logger.debug(f"Gauntlet complete: {gauntlet_id} verdict={verdict}")
+        logger.debug("Gauntlet complete: %s verdict=%s", gauntlet_id, verdict)
 
         try:
             from aragora.notifications.service import notify_gauntlet_completed
@@ -365,7 +365,7 @@ class BasicHandlersMixin:
         except ImportError:
             pass  # Notification service not available
         except (RuntimeError, TypeError, ValueError, OSError) as e:
-            logger.debug(f"Gauntlet notification failed: {e}")
+            logger.debug("Gauntlet notification failed: %s", e)
 
     def _handle_debate_end_to_cost_tracking(self, event: StreamEvent) -> None:
         """Debate end → Cost tracking record.
@@ -396,7 +396,7 @@ class BasicHandlersMixin:
         except ImportError:
             pass  # CostTracker not available
         except (RuntimeError, TypeError, AttributeError, ValueError) as e:
-            logger.debug(f"Cost tracking record failed: {e}")
+            logger.debug("Cost tracking record failed: %s", e)
 
     def _handle_consensus_to_learning(self, event: StreamEvent) -> None:
         """Consensus → Selection feedback learning.
@@ -427,7 +427,7 @@ class BasicHandlersMixin:
         except ImportError:
             pass  # SelectionFeedbackLoop not available
         except (RuntimeError, TypeError, AttributeError, ValueError) as e:
-            logger.debug(f"Selection feedback learning failed: {e}")
+            logger.debug("Selection feedback learning failed: %s", e)
 
     def _handle_agent_message_to_rhetorical(self, event: StreamEvent) -> None:
         """Agent message → Rhetorical analysis.
@@ -455,7 +455,7 @@ class BasicHandlersMixin:
         except ImportError:
             pass  # RhetoricalObserver not available
         except (RuntimeError, TypeError, AttributeError, ValueError) as e:
-            logger.debug(f"Rhetorical analysis failed: {e}")
+            logger.debug("Rhetorical analysis failed: %s", e)
 
     def _handle_vote_to_belief(self, event: StreamEvent) -> None:
         """Vote → Belief network update.
@@ -486,7 +486,7 @@ class BasicHandlersMixin:
         except ImportError:
             pass  # BeliefNetwork not available
         except (RuntimeError, TypeError, AttributeError, ValueError) as e:
-            logger.debug(f"Belief network update failed: {e}")
+            logger.debug("Belief network update failed: %s", e)
 
     def _handle_debate_end_to_explainability(self, event: StreamEvent) -> None:
         """Debate end → Explainability auto-trigger.
@@ -543,11 +543,11 @@ class BasicHandlersMixin:
                 node_type="debate_outcome",
                 metadata=outcome_content,
             )
-            logger.debug(f"Persisted debate outcome to KM: {debate_id}")
+            logger.debug("Persisted debate outcome to KM: %s", debate_id)
         except ImportError:
             pass  # Knowledge Mound not available
         except (RuntimeError, TypeError, AttributeError, ValueError, OSError) as e:
-            logger.debug(f"KM outcome persistence failed: {e}")
+            logger.debug("KM outcome persistence failed: %s", e)
 
     def _handle_debate_end_to_workflow(self, event: StreamEvent) -> None:
         """Debate end -> post-debate workflow automation.
@@ -631,7 +631,7 @@ class BasicHandlersMixin:
         except ImportError:
             pass  # Knowledge Mound not available
         except (RuntimeError, TypeError, AttributeError, ValueError, OSError) as e:
-            logger.debug(f"KM workflow storage failed: {e}")
+            logger.debug("KM workflow storage failed: %s", e)
 
     def _handle_tier_demotion_to_revalidation(self, event: StreamEvent) -> None:
         """Memory tier demotion → Re-validation trigger.
@@ -680,7 +680,7 @@ class BasicHandlersMixin:
         except ImportError:
             pass  # Knowledge Mound not available
         except (RuntimeError, TypeError, AttributeError, ValueError) as e:
-            logger.debug(f"KM re-validation trigger failed: {e}")
+            logger.debug("KM re-validation trigger failed: %s", e)
 
     def _handle_tier_promotion_to_knowledge(self, event: StreamEvent) -> None:
         """Memory tier promotion → Knowledge Mound notification.
@@ -720,4 +720,4 @@ class BasicHandlersMixin:
         except ImportError:
             pass  # Knowledge Mound not available
         except (RuntimeError, TypeError, AttributeError, ValueError) as e:
-            logger.debug(f"KM importance boost failed: {e}")
+            logger.debug("KM importance boost failed: %s", e)

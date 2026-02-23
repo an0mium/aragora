@@ -176,7 +176,7 @@ class CurriculumAwareFeedbackLoop:
         subtask_id = assignment.subtask.id
 
         logger.info(
-            f"Creating curriculum for task '{task[:50]}' after {self._iteration_counts[subtask_id]} failures"
+            "Creating curriculum for task '%s' after %s failures", task[:50], self._iteration_counts[subtask_id]
         )
 
         # Estimate current capability based on failure history
@@ -193,7 +193,7 @@ class CurriculumAwareFeedbackLoop:
             )
 
             if not curriculum.stepping_stones:
-                logger.warning(f"No stepping stones generated for task: {task[:50]}")
+                logger.warning("No stepping stones generated for task: %s", task[:50])
                 return {
                     "action": "escalate",
                     "reason": "Could not generate stepping stones",
@@ -205,8 +205,7 @@ class CurriculumAwareFeedbackLoop:
 
             first_stone = curriculum.stepping_stones[0]
             logger.info(
-                f"Created curriculum with {len(curriculum.stepping_stones)} stepping stones. "
-                f"First stone: {first_stone.task[:50]}"
+                "Created curriculum with %s stepping stones. First stone: %s", len(curriculum.stepping_stones), first_stone.task[:50]
             )
 
             return {
@@ -225,7 +224,7 @@ class CurriculumAwareFeedbackLoop:
             }
 
         except (RuntimeError, ValueError, OSError) as e:
-            logger.exception(f"Failed to create curriculum: {e}")
+            logger.exception("Failed to create curriculum: %s", e)
             return {
                 "action": "escalate",
                 "reason": f"Curriculum creation failed: {e}",
@@ -281,7 +280,7 @@ class CurriculumAwareFeedbackLoop:
         if isinstance(next_action, SteppingStone):
             stone_idx = curriculum.current_index + 1
             total = len(curriculum.stepping_stones)
-            logger.info(f"Next stepping stone ({stone_idx}/{total}): {next_action.task[:50]}")
+            logger.info("Next stepping stone (%s/%s): %s", stone_idx, total, next_action.task[:50])
             return {
                 "action": "stepping_stone",
                 "reason": "Continuing curriculum",

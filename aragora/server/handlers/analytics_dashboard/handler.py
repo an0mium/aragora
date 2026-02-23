@@ -74,7 +74,7 @@ class AnalyticsDashboardHandler(
                 org_id=user_info.org_id,
             )
         except (AttributeError, ValueError, TypeError, KeyError) as e:
-            logger.debug(f"Could not extract auth context: {e}")
+            logger.debug("Could not extract auth context: %s", e)
             return None
 
     def _check_permission(
@@ -95,7 +95,7 @@ class AnalyticsDashboardHandler(
             # SECURITY: Fail closed in production when RBAC module is unavailable
             if rbac_fail_closed():
                 return error_response("Service unavailable: access control module not loaded", 503)
-            logger.debug(f"RBAC not available, allowing {permission_key}")
+            logger.debug("RBAC not available, allowing %s", permission_key)
             return None
 
         context = self._get_auth_context(handler)
@@ -107,13 +107,13 @@ class AnalyticsDashboardHandler(
             decision = check_permission(context, permission_key, resource_id)
             if not decision.allowed:
                 logger.warning(
-                    f"Permission denied: {permission_key} for user {context.user_id}: {decision.reason}"
+                    "Permission denied: %s for user %s: %s", permission_key, context.user_id, decision.reason
                 )
                 record_rbac_check(permission_key, granted=False)
                 return error_response("Permission denied", 403)
             record_rbac_check(permission_key, granted=True)
         except PermissionDeniedError as e:
-            logger.warning(f"Permission denied: {permission_key} for user {context.user_id}: {e}")
+            logger.warning("Permission denied: %s for user %s: %s", permission_key, context.user_id, e)
             record_rbac_check(permission_key, granted=False)
             return error_response("Permission denied", 403)
 

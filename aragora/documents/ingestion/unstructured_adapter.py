@@ -258,7 +258,7 @@ class UnstructuredParser:
         try:
             elements = partition(**kwargs)
         except (ValueError, RuntimeError, OSError) as e:
-            logger.warning(f"unstructured partition failed: {e}, trying fallback")
+            logger.warning("unstructured partition failed: %s, trying fallback", e)
             ext = Path(filename).suffix.lower()
             return self._parse_with_fallback(content, filename, ext)
 

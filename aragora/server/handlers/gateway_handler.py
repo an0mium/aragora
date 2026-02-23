@@ -202,7 +202,7 @@ class GatewayHandler(BaseHandler):
 
         decision = check_permission(rbac_ctx, permission_key)
         if not decision.allowed:
-            logger.warning(f"RBAC denied: user={rbac_ctx.user_id} permission={permission_key}")
+            logger.warning("RBAC denied: user=%s permission=%s", rbac_ctx.user_id, permission_key)
             return error_response("Permission denied", 403)
 
         return None
@@ -405,7 +405,7 @@ class GatewayHandler(BaseHandler):
 
         device_id = run_async(registry.register(device))
 
-        logger.info(f"Registered device: {device_id} ({name})")
+        logger.info("Registered device: %s (%s)", device_id, name)
 
         return json_response(
             {
@@ -432,7 +432,7 @@ class GatewayHandler(BaseHandler):
         if not success:
             return error_response(f"Device not found: {device_id}", 404)
 
-        logger.info(f"Unregistered device: {device_id}")
+        logger.info("Unregistered device: %s", device_id)
 
         return json_response({"message": "Device unregistered successfully"})
 

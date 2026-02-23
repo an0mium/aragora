@@ -55,11 +55,11 @@ class DashboardOperationsMixin:
             checker = get_permission_checker()
             decision = checker.check_permission(context, permission)
             if not decision.allowed:
-                logger.warning(f"RBAC denied {permission} for user {user_id}: {decision.reason}")
+                logger.warning("RBAC denied %s for user %s: %s", permission, user_id, decision.reason)
                 return error_response("Permission denied", status=403)
             return None
         except (TypeError, ValueError, KeyError, AttributeError) as e:
-            logger.error(f"RBAC check failed: {e}")
+            logger.error("RBAC check failed: %s", e)
             return error_response("Authorization check failed", status=500)
 
     @require_permission("debates:read")
@@ -93,7 +93,7 @@ class DashboardOperationsMixin:
                 status=503,
             )
         except (KeyError, ValueError, OSError, TypeError, AttributeError) as e:
-            logger.exception(f"Failed to get health status: {e}")
+            logger.exception("Failed to get health status: %s", e)
             return error_response("Internal server error")
 
     @require_permission("debates:read")
@@ -126,7 +126,7 @@ class DashboardOperationsMixin:
                 status=503,
             )
         except (KeyError, ValueError, OSError, TypeError, AttributeError) as e:
-            logger.exception(f"Failed to get metrics: {e}")
+            logger.exception("Failed to get metrics: %s", e)
             return error_response("Internal server error")
 
     @require_permission("debates:read")
@@ -211,7 +211,7 @@ class DashboardOperationsMixin:
             )
 
         except (KeyError, ValueError, OSError, TypeError, AttributeError) as e:
-            logger.exception(f"Failed to get adapter status: {e}")
+            logger.exception("Failed to get adapter status: %s", e)
             return error_response("Internal server error")
 
     @require_permission("debates:read")
@@ -246,7 +246,7 @@ class DashboardOperationsMixin:
                 status=503,
             )
         except (KeyError, ValueError, OSError, TypeError, AttributeError) as e:
-            logger.exception(f"Failed to get query stats: {e}")
+            logger.exception("Failed to get query stats: %s", e)
             return error_response("Internal server error")
 
     @require_permission("debates:read")
@@ -271,7 +271,7 @@ class DashboardOperationsMixin:
                 status=503,
             )
         except (KeyError, ValueError, OSError, TypeError, AttributeError) as e:
-            logger.exception(f"Failed to reset metrics: {e}")
+            logger.exception("Failed to reset metrics: %s", e)
             return error_response("Internal server error")
 
     @require_permission("debates:read")
@@ -309,5 +309,5 @@ class DashboardOperationsMixin:
                 status=503,
             )
         except (KeyError, ValueError, OSError, TypeError, AttributeError) as e:
-            logger.exception(f"Failed to get batcher stats: {e}")
+            logger.exception("Failed to get batcher stats: %s", e)
             return error_response("Internal server error")

@@ -237,7 +237,7 @@ class ExplanationBuilder:
                     link.quality_scores = scores
                     link.relevance_score = scores.get("semantic_relevance", 0.8)
                 except (KeyError, TypeError, AttributeError, ValueError) as e:
-                    logger.debug(f"Evidence scoring failed: {e}")
+                    logger.debug("Evidence scoring failed: %s", e)
 
             evidence.append(link)
 
@@ -265,7 +265,7 @@ class ExplanationBuilder:
                 provenance_evidence = self._extract_provenance_evidence()
                 evidence.extend(provenance_evidence)
             except (KeyError, TypeError, AttributeError, ValueError) as e:
-                logger.debug(f"Provenance extraction failed: {e}")
+                logger.debug("Provenance extraction failed: %s", e)
 
         return evidence
 
@@ -283,10 +283,10 @@ class ExplanationBuilder:
                 "completeness": scores.get("completeness", 0.5),
             }
         except (KeyError, TypeError, AttributeError) as e:
-            logger.debug(f"Evidence scoring returned incomplete data: {e}")
+            logger.debug("Evidence scoring returned incomplete data: %s", e)
             return {}
         except (ValueError, RuntimeError, OSError) as e:
-            logger.warning(f"Unexpected error during evidence scoring: {e}")
+            logger.warning("Unexpected error during evidence scoring: %s", e)
             return {}
 
     def _extract_provenance_evidence(self) -> list[EvidenceLink]:
@@ -310,7 +310,7 @@ class ExplanationBuilder:
                     )
                 )
         except (KeyError, TypeError, AttributeError, ValueError) as e:
-            logger.debug(f"Provenance claim extraction failed: {e}")
+            logger.debug("Provenance claim extraction failed: %s", e)
 
         return evidence
 
@@ -393,9 +393,9 @@ class ExplanationBuilder:
                 elo_factor = (elo - 1000) / 500
                 base *= max(0.5, min(2.0, 1.0 + elo_factor * 0.3))
             except (KeyError, AttributeError) as e:
-                logger.debug(f"ELO rating not available for {agent}: {e}")
+                logger.debug("ELO rating not available for %s: %s", agent, e)
             except (ValueError, RuntimeError) as e:
-                logger.warning(f"Unexpected error getting ELO rating for {agent}: {e}")
+                logger.warning("Unexpected error getting ELO rating for %s: %s", agent, e)
 
         # Calibration contribution
         if self.calibration_tracker:
@@ -403,9 +403,9 @@ class ExplanationBuilder:
                 calibration = self.calibration_tracker.get_weight(agent)
                 base *= calibration
             except (KeyError, AttributeError) as e:
-                logger.debug(f"Calibration weight not available for {agent}: {e}")
+                logger.debug("Calibration weight not available for %s: %s", agent, e)
             except (ValueError, RuntimeError) as e:
-                logger.warning(f"Unexpected error getting calibration for {agent}: {e}")
+                logger.warning("Unexpected error getting calibration for %s: %s", agent, e)
 
         return base
 
@@ -417,10 +417,10 @@ class ExplanationBuilder:
             adj = self.calibration_tracker.get_adjustment(agent)
             return float(adj) if adj is not None else None
         except (KeyError, AttributeError) as e:
-            logger.debug(f"Calibration adjustment not available for {agent}: {e}")
+            logger.debug("Calibration adjustment not available for %s: %s", agent, e)
             return None
         except (ValueError, RuntimeError) as e:
-            logger.warning(f"Unexpected error getting calibration adjustment for {agent}: {e}")
+            logger.warning("Unexpected error getting calibration adjustment for %s: %s", agent, e)
             return None
 
     def _get_elo_rating(self, agent: str) -> float | None:
@@ -431,10 +431,10 @@ class ExplanationBuilder:
             rating = self.elo_system.get_rating(agent)
             return float(rating) if rating is not None else None
         except (KeyError, AttributeError) as e:
-            logger.debug(f"ELO rating not available for {agent}: {e}")
+            logger.debug("ELO rating not available for %s: %s", agent, e)
             return None
         except (ValueError, RuntimeError) as e:
-            logger.warning(f"Unexpected error getting ELO rating for {agent}: {e}")
+            logger.warning("Unexpected error getting ELO rating for %s: %s", agent, e)
             return None
 
     def _detect_flip(self, agent: str, result: Any) -> bool:
@@ -471,7 +471,7 @@ class ExplanationBuilder:
                         )
                     )
             except (KeyError, TypeError, AttributeError, ValueError, RuntimeError) as e:
-                logger.debug(f"Belief network extraction failed: {e}")
+                logger.debug("Belief network extraction failed: %s", e)
 
         # Extract from result's position history if available
         if hasattr(result, "position_history"):
@@ -554,9 +554,9 @@ class ExplanationBuilder:
                     )
                 )
             except (KeyError, AttributeError, ZeroDivisionError) as e:
-                logger.debug(f"Calibration factor calculation skipped: {e}")
+                logger.debug("Calibration factor calculation skipped: %s", e)
             except (ValueError, RuntimeError) as e:
-                logger.warning(f"Unexpected error calculating calibration factor: {e}")
+                logger.warning("Unexpected error calculating calibration factor: %s", e)
 
         # Rounds to consensus factor
         rounds_used = decision.rounds_used

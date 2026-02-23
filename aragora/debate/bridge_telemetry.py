@@ -297,7 +297,7 @@ def with_bridge_telemetry(
                 try:
                     op.metadata = extract_metadata(*args, **kwargs)
                 except (TypeError, ValueError, AttributeError, KeyError, RuntimeError) as e:
-                    logger.debug(f"bridge_telemetry_metadata_extraction_failed: {e}")
+                    logger.debug("bridge_telemetry_metadata_extraction_failed: %s", e)
 
             try:
                 result = await func(*args, **kwargs)
@@ -325,7 +325,7 @@ def with_bridge_telemetry(
                 try:
                     op.metadata = extract_metadata(*args, **kwargs)
                 except (TypeError, ValueError, AttributeError, KeyError, RuntimeError) as e:
-                    logger.debug(f"bridge_telemetry_metadata_extraction_failed: {e}")
+                    logger.debug("bridge_telemetry_metadata_extraction_failed: %s", e)
 
             try:
                 result = func(*args, **kwargs)

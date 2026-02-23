@@ -267,7 +267,7 @@ class OpenClawPolicy:
             policy_dict = yaml.safe_load(f)
 
         self.load_from_dict(policy_dict)
-        logger.info(f"Loaded policy from {path}: {len(self._rules)} rules")
+        logger.info("Loaded policy from %s: %s rules", path, len(self._rules))
 
     def load_from_dict(self, policy_dict: dict[str, Any]) -> None:
         """Load policy from dictionary."""
@@ -457,7 +457,7 @@ class OpenClawPolicy:
             try:
                 self._event_callback(event_type, data)
             except (RuntimeError, ValueError, TypeError) as e:  # noqa: BLE001 - user-provided event callback
-                logger.warning(f"Event callback failed: {e}")
+                logger.warning("Event callback failed: %s", e)
 
     def add_rule(self, rule: PolicyRule) -> None:
         """Add a rule to the policy."""

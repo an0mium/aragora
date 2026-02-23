@@ -74,7 +74,7 @@ class SecurityOperationsMixin:
                 )
                 return True
             except Exception as e:  # noqa: BLE001 - Database errors return False
-                logger.debug(f"Failed to link OAuth provider {provider} for user {user_id}: {e}")
+                logger.debug("Failed to link OAuth provider %s for user %s: %s", provider, user_id, e)
                 return False
 
     def unlink_oauth_provider(self, user_id: str, provider: str) -> bool:
@@ -349,7 +349,7 @@ class SecurityOperationsMixin:
                 )
                 return True
             except Exception as e:  # noqa: BLE001 - Database errors return False
-                logger.debug(f"Failed to create invitation for {invitation.email}: {e}")
+                logger.debug("Failed to create invitation for %s: %s", invitation.email, e)
                 return False
 
     def get_invitation_by_id(self, invitation_id: str) -> OrganizationInvitation | None:

@@ -116,9 +116,9 @@ class ControlPlaneHandler(
     def _handle_coordinator_error(self, error: Exception, operation: str) -> HandlerResult:
         """Unified error handler for coordinator operations."""
         if isinstance(error, (ValueError, KeyError, AttributeError)):
-            logger.warning(f"Data error in {operation}: {type(error).__name__}: {error}")
+            logger.warning("Data error in %s: %s: %s", operation, type(error).__name__, error)
             return error_response(safe_error_message(error, "control plane"), 400)
-        logger.error(f"Error in {operation}: {error}")
+        logger.error("Error in %s: %s", operation, error)
         return error_response(safe_error_message(error, "control plane"), 500)
 
     def _get_stream(self) -> Any | None:
@@ -179,7 +179,7 @@ class ControlPlaneHandler(
                         await asyncio.sleep(delay)
 
             logger.warning(
-                f"Stream emission failed after {max_retries} attempts for {emit_method}: {last_error}"
+                "Stream emission failed after %s attempts for %s: %s", max_retries, emit_method, last_error
             )
 
         # Schedule the emission task without blocking
@@ -195,7 +195,7 @@ class ControlPlaneHandler(
             try:
                 _run_async(method(*args, **kwargs))
             except (OSError, RuntimeError, TimeoutError, ValueError, ConnectionError) as e:
-                logger.warning(f"Stream emission failed (no event loop): {e}")
+                logger.warning("Stream emission failed (no event loop): %s", e)
 
     def can_handle(self, path: str) -> bool:
         """Check if this handler can process the given path."""

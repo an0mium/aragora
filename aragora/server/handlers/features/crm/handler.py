@@ -335,9 +335,9 @@ class CRMHandler(
             if connector:
                 _platform_connectors[platform] = connector
         except (ImportError, ConnectionError, ValueError, RuntimeError, OSError) as e:
-            logger.warning(f"Could not initialize {platform} connector: {e}")
+            logger.warning("Could not initialize %s connector: %s", platform, e)
 
-        logger.info(f"Connected CRM platform: {platform}")
+        logger.info("Connected CRM platform: %s", platform)
 
         return self._json_response(
             200,
@@ -366,7 +366,7 @@ class CRMHandler(
 
         del _platform_credentials[platform]
 
-        logger.info(f"Disconnected CRM platform: {platform}")
+        logger.info("Disconnected CRM platform: %s", platform)
 
         return self._json_response(
             200,
@@ -411,7 +411,7 @@ class CRMHandler(
                 return connector
 
         except (ImportError, ConnectionError, ValueError, RuntimeError, OSError, TypeError) as e:
-            logger.error(f"Failed to create {platform} connector: {e}")
+            logger.error("Failed to create %s connector: %s", platform, e)
             return None
 
         return None

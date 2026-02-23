@@ -139,7 +139,7 @@ def get_cluster_config() -> ClusterConfig:
                 try:
                     nodes.append((host, int(port_str)))
                 except ValueError:
-                    logger.warning(f"Invalid cluster node: {node}")
+                    logger.warning("Invalid cluster node: %s", node)
             elif node:
                 nodes.append((node, 6379))
 
@@ -270,17 +270,17 @@ class RedisClusterClient:
             # Try cluster info - will raise ResponseError if not a cluster
             test_client.execute_command("CLUSTER", "INFO")
             test_client.close()
-            logger.info(f"Detected Redis Cluster at {host}:{port}")
+            logger.info("Detected Redis Cluster at %s:%s", host, port)
             return True
         except ImportError:
             logger.debug("redis package not installed for cluster detection")
             return False
         except (ConnectionError, TimeoutError, OSError) as e:
-            logger.debug(f"Connection failed during cluster detection: {type(e).__name__}: {e}")
+            logger.debug("Connection failed during cluster detection: %s: %s", type(e).__name__, e)
             return False
         except (ValueError, RuntimeError) as e:
             # ResponseError indicates standalone mode, other errors logged for debugging
-            logger.debug(f"Cluster detection result (standalone): {type(e).__name__}: {e}")
+            logger.debug("Cluster detection result (standalone): %s: %s", type(e).__name__, e)
             return False
 
     def _create_client(self) -> RedisClientProtocol | None:
@@ -312,7 +312,7 @@ class RedisClusterClient:
 
                 # Test cluster connectivity
                 client.ping()
-                logger.info(f"Redis Cluster connected: {len(self.config.nodes)} startup nodes")
+                logger.info("Redis Cluster connected: %s startup nodes", len(self.config.nodes))
             else:
                 # Create standalone client with connection pool
                 host, port = self.config.nodes[0]
@@ -328,7 +328,7 @@ class RedisClusterClient:
                 )
                 client = redis.Redis(connection_pool=pool)
                 client.ping()
-                logger.info(f"Redis standalone connected: {host}:{port}")
+                logger.info("Redis standalone connected: %s:%s", host, port)
 
             self._available = True
             return client
@@ -337,7 +337,7 @@ class RedisClusterClient:
             logger.error("redis package not installed. Install with: pip install 'redis>=4.5.0'")
             return None
         except (OSError, ConnectionError, TimeoutError, ValueError, RuntimeError) as e:
-            logger.error(f"Failed to connect to Redis: {e}")
+            logger.error("Failed to connect to Redis: %s", e)
             return None
 
     def get_client(self) -> RedisClientProtocol | None:
@@ -400,7 +400,7 @@ class RedisClusterClient:
                     if "MOVED" in str(e) or "CLUSTERDOWN" in str(e):
                         self._reconnect()
 
-        logger.error(f"Redis operation failed after {retries + 1} attempts: {last_error}")
+        logger.error("Redis operation failed after %s attempts: %s", retries + 1, last_error)
         if last_error is None:
             raise RuntimeError("Redis operation failed with unknown error")
         raise last_error
@@ -445,7 +445,7 @@ class RedisClusterClient:
                     if "MOVED" in str(e) or "CLUSTERDOWN" in str(e):
                         self._reconnect()
 
-        logger.error(f"Redis operation failed after {retries + 1} attempts: {last_error}")
+        logger.error("Redis operation failed after %s attempts: %s", retries + 1, last_error)
         if last_error is None:
             raise RuntimeError("Redis operation failed with unknown error")
         raise last_error
@@ -458,11 +458,11 @@ class RedisClusterClient:
                     self._client.close()
                 except (ConnectionError, TimeoutError, OSError) as e:
                     logger.debug(
-                        f"Error closing Redis client during reconnect: {type(e).__name__}: {e}"
+                        "Error closing Redis client during reconnect: %s: %s", type(e).__name__, e
                     )
                 except (RuntimeError, ValueError) as e:
                     logger.warning(
-                        f"Unexpected error closing Redis client: {type(e).__name__}: {e}"
+                        "Unexpected error closing Redis client: %s: %s", type(e).__name__, e
                     )
                 self._client = None
             self._client = self._create_client()
@@ -736,10 +736,10 @@ class RedisClusterClient:
                 return False
             return client.ping()
         except (ConnectionError, TimeoutError, OSError) as e:
-            logger.debug(f"Redis ping failed: {type(e).__name__}: {e}")
+            logger.debug("Redis ping failed: %s: %s", type(e).__name__, e)
             return False
         except (RuntimeError, ValueError) as e:
-            logger.warning(f"Unexpected error during Redis ping: {type(e).__name__}: {e}")
+            logger.warning("Unexpected error during Redis ping: %s: %s", type(e).__name__, e)
             return False
 
     def info(self, section: str | None = None) -> dict[str, Any]:
@@ -795,10 +795,10 @@ class RedisClusterClient:
                     logger.info("Redis cluster client closed")
                 except (ConnectionError, TimeoutError, OSError) as e:
                     logger.debug(
-                        f"Connection error while closing Redis client: {type(e).__name__}: {e}"
+                        "Connection error while closing Redis client: %s: %s", type(e).__name__, e
                     )
                 except (RuntimeError, ValueError) as e:
-                    logger.error(f"Unexpected error closing Redis client: {type(e).__name__}: {e}")
+                    logger.error("Unexpected error closing Redis client: %s: %s", type(e).__name__, e)
                 finally:
                     self._client = None
                     self._available = False

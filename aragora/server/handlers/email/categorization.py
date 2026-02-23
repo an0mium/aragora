@@ -113,7 +113,7 @@ async def handle_categorize_email(
         }
 
     except (TypeError, ValueError, KeyError, RuntimeError) as e:
-        logger.exception(f"Failed to categorize email: {e}")
+        logger.exception("Failed to categorize email: %s", e)
         return {
             "success": False,
             "error": "Internal server error",
@@ -188,7 +188,7 @@ async def handle_categorize_batch(
         }
 
     except (TypeError, ValueError, KeyError, RuntimeError) as e:
-        logger.exception(f"Failed to categorize batch: {e}")
+        logger.exception("Failed to categorize batch: %s", e)
         return {
             "success": False,
             "error": "Internal server error",
@@ -255,7 +255,7 @@ async def handle_feedback_batch(
         }
 
     except (TypeError, ValueError, KeyError, RuntimeError) as e:
-        logger.exception(f"Failed to record batch feedback: {e}")
+        logger.exception("Failed to record batch feedback: %s", e)
         return {
             "success": False,
             "error": "Internal server error",
@@ -306,7 +306,7 @@ async def handle_apply_category_label(
             "error": f"Invalid category: {category}",
         }
     except (TypeError, RuntimeError, OSError, ConnectionError) as e:
-        logger.exception(f"Failed to apply category label: {e}")
+        logger.exception("Failed to apply category label: %s", e)
         return {
             "success": False,
             "error": "Internal server error",

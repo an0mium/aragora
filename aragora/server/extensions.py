@@ -202,7 +202,7 @@ def init_agent_fabric(
         return fabric, hook_manager
 
     except (ImportError, TypeError, ValueError, OSError) as e:
-        logger.warning(f"[extensions] Failed to initialize Agent Fabric: {e}")
+        logger.warning("[extensions] Failed to initialize Agent Fabric: %s", e)
         return None, None
 
 
@@ -273,7 +273,7 @@ def init_gastown(storage_path: Path | None = None) -> tuple[Any | None, ...]:
         return coordinator, workspace_mgr, convoy_tracker, hook_runner, gastown_adapter
 
     except (ImportError, TypeError, ValueError, OSError) as e:
-        logger.warning(f"[extensions] Failed to initialize Gastown: {e}")
+        logger.warning("[extensions] Failed to initialize Gastown: %s", e)
         return None, None, None, None, None
 
 
@@ -347,7 +347,7 @@ def init_moltbot(storage_path: Path | None = None) -> tuple[Any | None, ...]:
         return inbox, gateway, voice, onboarding, moltbot_adapter
 
     except (ImportError, TypeError, ValueError, OSError) as e:
-        logger.warning(f"[extensions] Failed to initialize Moltbot: {e}")
+        logger.warning("[extensions] Failed to initialize Moltbot: %s", e)
         return None, None, None, None, None
 
 
@@ -429,7 +429,7 @@ def init_computer_use() -> tuple[Any | None, Any | None, Any | None, Any | None]
         return orchestrator, policy_checker, approval_workflow, approval_enforcer
 
     except (ImportError, TypeError, ValueError, OSError) as e:
-        logger.warning(f"[extensions] Failed to initialize Computer Use: {e}")
+        logger.warning("[extensions] Failed to initialize Computer Use: %s", e)
         return None, None, None, None
 
 
@@ -516,7 +516,7 @@ def init_extensions(storage_path: Path | None = None) -> ExtensionState:
         enabled.append("ComputerUse")
 
     if enabled:
-        logger.info(f"[extensions] Enabled extensions: {', '.join(enabled)}")
+        logger.info("[extensions] Enabled extensions: %s", ', '.join(enabled))
     else:
         logger.info("[extensions] No extensions enabled")
 
@@ -540,7 +540,7 @@ async def shutdown_extensions() -> None:
             await _extension_state.local_gateway.stop()
             logger.debug("[extensions] Moltbot gateway stopped")
         except (OSError, RuntimeError, asyncio.CancelledError) as e:
-            logger.warning(f"[extensions] Error stopping gateway: {e}")
+            logger.warning("[extensions] Error stopping gateway: %s", e)
 
     # Persist extension state
     if _extension_state.coordinator:
@@ -548,7 +548,7 @@ async def shutdown_extensions() -> None:
             await _extension_state.coordinator.persist_all()
             logger.debug("[extensions] Gastown state persisted")
         except (OSError, RuntimeError, asyncio.CancelledError) as e:
-            logger.warning(f"[extensions] Error persisting Gastown: {e}")
+            logger.warning("[extensions] Error persisting Gastown: %s", e)
 
     logger.info("[extensions] Extensions shutdown complete")
     _extension_state = None

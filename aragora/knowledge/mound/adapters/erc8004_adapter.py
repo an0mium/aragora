@@ -154,7 +154,7 @@ class ERC8004Adapter(KnowledgeMoundAdapter):
                         total = self._get_identity_contract().get_total_supply()
                         agent_ids = list(range(1, min(total + 1, 1001)))
                     except (OSError, ConnectionError, RuntimeError, ValueError) as e:
-                        logger.warning(f"Could not get total supply: {e}")
+                        logger.warning("Could not get total supply: %s", e)
                         agent_ids = []
 
                 for agent_id in agent_ids or []:
@@ -172,7 +172,7 @@ class ERC8004Adapter(KnowledgeMoundAdapter):
                                 await self._store_reputation_node(summary)
                                 synced += 1
                             except (OSError, ConnectionError, RuntimeError, ValueError, KeyError) as e:  # noqa: BLE001 - adapter isolation
-                                logger.debug(f"No reputation for agent {agent_id}: {e}")
+                                logger.debug("No reputation for agent %s: %s", agent_id, e)
                                 skipped += 1
 
                         # Sync validations
@@ -188,7 +188,7 @@ class ERC8004Adapter(KnowledgeMoundAdapter):
                                     await self._store_validation_node(record)
                                     synced += 1
                             except (OSError, ConnectionError, RuntimeError, ValueError, KeyError) as e:  # noqa: BLE001 - adapter isolation
-                                logger.debug(f"No validations for agent {agent_id}: {e}")
+                                logger.debug("No validations for agent %s: %s", agent_id, e)
                                 skipped += 1
 
                     except (OSError, ConnectionError, RuntimeError, ValueError, AttributeError) as e:  # noqa: BLE001 - adapter isolation
@@ -330,7 +330,7 @@ class ERC8004Adapter(KnowledgeMoundAdapter):
         }
 
         self._emit_event("identity_synced", node_data)
-        logger.debug(f"Stored identity node for agent #{identity.token_id}")
+        logger.debug("Stored identity node for agent #%s", identity.token_id)
 
     async def _store_reputation_node(self, summary: Any) -> None:
         """Store a reputation summary as a KM node."""
@@ -348,7 +348,7 @@ class ERC8004Adapter(KnowledgeMoundAdapter):
         }
 
         self._emit_event("reputation_synced", node_data)
-        logger.debug(f"Stored reputation node for agent #{summary.agent_id}")
+        logger.debug("Stored reputation node for agent #%s", summary.agent_id)
 
     async def _store_validation_node(self, record: Any) -> None:
         """Store a validation record as a KM node."""
@@ -366,7 +366,7 @@ class ERC8004Adapter(KnowledgeMoundAdapter):
         }
 
         self._emit_event("validation_synced", node_data)
-        logger.debug(f"Stored validation node for hash {record.request_hash[:16]}...")
+        logger.debug("Stored validation node for hash %s...", record.request_hash[:16])
 
     def _get_identity_bridge(self) -> Any:
         """Get the blockchain identity bridge for agent ID mappings."""
@@ -425,7 +425,7 @@ class ERC8004Adapter(KnowledgeMoundAdapter):
                 skill_history = performance_adapter.get_agent_skill_history(agent_id, limit=1)
 
                 if not skill_history:
-                    logger.debug(f"No ELO history for agent {agent_id}")
+                    logger.debug("No ELO history for agent %s", agent_id)
                     skipped += 1
                     continue
 
@@ -445,8 +445,7 @@ class ERC8004Adapter(KnowledgeMoundAdapter):
                 debates_count = latest_rating.get("debates_count", 0)
                 if debates_count < 3:
                     logger.debug(
-                        f"Agent {agent_id} has insufficient debates ({debates_count}) "
-                        "for consensus verification"
+                        "Agent %s has insufficient debates (%s) for consensus verification", agent_id, debates_count
                     )
                     skipped += 1
                     continue
@@ -590,8 +589,7 @@ class ERC8004Adapter(KnowledgeMoundAdapter):
                 total_predictions = stats.get("total", 0)
                 if total_predictions < 5:
                     logger.debug(
-                        f"Agent {agent_id} has insufficient predictions "
-                        f"({total_predictions}) for calibration reputation"
+                        "Agent %s has insufficient predictions (%s) for calibration reputation", agent_id, total_predictions
                     )
                     skipped += 1
                     continue
@@ -682,8 +680,7 @@ class ERC8004Adapter(KnowledgeMoundAdapter):
 
                     except (OSError, ConnectionError, RuntimeError, ValueError) as e:
                         logger.debug(
-                            f"Failed to push domain calibration {domain} "
-                            f"for {agent_id}: {e}"
+                            "Failed to push domain calibration %s for %s: %s", domain, agent_id, e
                         )
 
             except (OSError, ConnectionError, RuntimeError, ValueError, KeyError, AttributeError) as e:  # noqa: BLE001 - adapter isolation
@@ -764,17 +761,14 @@ class ERC8004Adapter(KnowledgeMoundAdapter):
                 result["status"] = "on_chain"
 
                 logger.info(
-                    f"Registered prediction commitment for {agent_id} "
-                    f"(token {token_id}), topic_hash={result['topic_hash']}, "
-                    f"tx={tx_hash[:16]}..."
+                    "Registered prediction commitment for %s (token %s), topic_hash=%s, tx=%s...", agent_id, token_id, result['topic_hash'], tx_hash[:16]
                 )
 
             except (OSError, ConnectionError, RuntimeError, ValueError) as e:
                 result["status"] = "local_only"
                 result["error"] = f"On-chain commitment failed: {type(e).__name__}"
                 logger.warning(
-                    f"On-chain commitment failed for {agent_id}, "
-                    f"recording locally: {e}"
+                    "On-chain commitment failed for %s, recording locally: %s", agent_id, e
                 )
 
         # Always emit event for local tracking
@@ -991,9 +985,7 @@ class ERC8004Adapter(KnowledgeMoundAdapter):
                         )
 
                         logger.info(
-                            f"Pushed validation for receipt {receipt_id}, "
-                            f"agent {agent_id} (token {token_id}): "
-                            f"response={response.name}, tx={tx_hash[:16]}..."
+                            "Pushed validation for receipt %s, agent %s (token %s): response=%s, tx=%s...", receipt_id, agent_id, token_id, response.name, tx_hash[:16]
                         )
                         updated += 1
 

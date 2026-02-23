@@ -114,14 +114,14 @@ class CancellationToken:
         self._cancelled_at = datetime.now(timezone.utc)
         self._cancelled.set()
 
-        logger.info(f"cancellation_signalled reason={reason} type={reason_type.value}")
+        logger.info("cancellation_signalled reason=%s type=%s", reason, reason_type.value)
 
         # Execute registered callbacks
         for callback in self._callbacks:
             try:
                 callback(self)
             except (TypeError, ValueError, AttributeError, RuntimeError, OSError) as e:
-                logger.warning(f"Cancellation callback failed: {e}")
+                logger.warning("Cancellation callback failed: %s", e)
 
         # Propagate to children
         for child in self._children:
@@ -206,7 +206,7 @@ class CancellationToken:
             try:
                 callback(self)
             except (TypeError, ValueError, AttributeError, RuntimeError, OSError) as e:
-                logger.warning(f"Cancellation callback failed: {e}")
+                logger.warning("Cancellation callback failed: %s", e)
 
         return unregister
 

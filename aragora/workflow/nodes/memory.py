@@ -84,7 +84,7 @@ class MemoryReadStep(BaseStep):
         query = self._interpolate_query(query_template, context)
 
         if not query:
-            logger.warning(f"Empty query for memory read step '{self.name}'")
+            logger.warning("Empty query for memory read step '%s'", self.name)
             response = {"items": [], "total_count": 0, "query": query}
             _emit(False, 0, query, "Empty query")
             return response
@@ -118,7 +118,7 @@ class MemoryReadStep(BaseStep):
                 limit=request.limit,
             )
 
-            logger.info(f"Memory read '{self.name}': found {len(result.items)} items")
+            logger.info("Memory read '%s': found %s items", self.name, len(result.items))
 
             response = {
                 "items": [item.to_dict() for item in result.items],
@@ -141,7 +141,7 @@ class MemoryReadStep(BaseStep):
             return response
 
         except (ImportError, RuntimeError, ValueError, TypeError, OSError, AttributeError) as e:
-            logger.error(f"Memory read failed: {e}")
+            logger.error("Memory read failed: %s", e)
             response = {"items": [], "total_count": 0, "query": query, "error": "Memory read failed"}
             _emit(False, 0, query, "Memory read failed")
             return response
@@ -229,7 +229,7 @@ class MemoryWriteStep(BaseStep):
         content = self._interpolate_content(content_template, context)
 
         if not content:
-            logger.warning(f"Empty content for memory write step '{self.name}'")
+            logger.warning("Empty content for memory write step '%s'", self.name)
             response = {"success": False, "error": "Empty content"}
             _emit(False, "Empty content")
             return response
@@ -285,7 +285,7 @@ class MemoryWriteStep(BaseStep):
 
             result: IngestionResult = await mound.store(request)
 
-            logger.info(f"Memory write '{self.name}': stored as {result.node_id}")
+            logger.info("Memory write '%s': stored as %s", self.name, result.node_id)
 
             response = {
                 "success": result.success,
@@ -309,7 +309,7 @@ class MemoryWriteStep(BaseStep):
             return response
 
         except (ImportError, RuntimeError, ValueError, TypeError, OSError, AttributeError) as e:
-            logger.error(f"Memory write failed: {e}")
+            logger.error("Memory write failed: %s", e)
             response = {"success": False, "error": "Memory write failed"}
             _emit(False, "Memory write failed")
             return response

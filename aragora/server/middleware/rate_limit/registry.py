@@ -48,7 +48,7 @@ class RateLimiterRegistry:
                     self._use_redis = True
                     logger.info("Using Redis-backed rate limiter")
                 except (ImportError, OSError, ConnectionError, ValueError, AttributeError) as e:
-                    logger.warning(f"Failed to create Redis rate limiter: {e}")
+                    logger.warning("Failed to create Redis rate limiter: %s", e)
                     self._default_limiter = RateLimiter()
                     self._use_redis = False
             else:
@@ -216,9 +216,9 @@ class RateLimiterRegistry:
                         # Configure the default limit
                         limiter.configure_endpoint("*", requests_per_minute, key_type="ip")
                         self._limiters[name] = limiter
-                        logger.debug(f"Created Redis-backed rate limiter: {name}")
+                        logger.debug("Created Redis-backed rate limiter: %s", name)
                     except (ImportError, OSError, ConnectionError, ValueError, AttributeError) as e:
-                        logger.warning(f"Failed to create Redis rate limiter for {name}: {e}")
+                        logger.warning("Failed to create Redis rate limiter for %s: %s", name, e)
                         self._limiters[name] = RateLimiter(
                             default_limit=requests_per_minute,
                             ip_limit=requests_per_minute,

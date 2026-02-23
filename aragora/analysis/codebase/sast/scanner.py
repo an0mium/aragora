@@ -144,14 +144,14 @@ The scanner will fall back to local pattern matching until Semgrep is installed.
                     re.IGNORECASE | re.MULTILINE,
                 )
             except re.error as e:
-                logger.warning(f"Failed to compile pattern {rule_id}: {e}")
+                logger.warning("Failed to compile pattern %s: %s", rule_id, e)
 
     async def initialize(self) -> None:
         """Initialize scanner and check Semgrep availability."""
         if self.config.use_semgrep:
             self._semgrep_available, self._semgrep_version = await self._check_semgrep()
             if self._semgrep_available:
-                logger.info(f"Semgrep {self._semgrep_version} is available")
+                logger.info("Semgrep %s is available", self._semgrep_version)
             else:
                 logger.warning("Semgrep not available, using local patterns")
                 logger.info(self.SEMGREP_INSTALL_INSTRUCTIONS)
@@ -182,7 +182,7 @@ The scanner will fall back to local pattern matching until Semgrep is installed.
                 return True, version
             return False, None
         except (FileNotFoundError, OSError, asyncio.TimeoutError) as e:
-            logger.debug(f"Semgrep check failed: {e}")
+            logger.debug("Semgrep check failed: %s", e)
             return False, None
 
     def is_semgrep_available(self) -> bool:
@@ -227,7 +227,7 @@ The scanner will fall back to local pattern matching until Semgrep is installed.
                     if ruleset["id"] not in existing_ids:
                         rulesets.append(ruleset)
             except (OSError, ValueError, asyncio.TimeoutError) as e:
-                logger.debug(f"Failed to fetch registry rulesets: {e}")
+                logger.debug("Failed to fetch registry rulesets: %s", e)
 
         return rulesets
 
@@ -299,8 +299,7 @@ The scanner will fall back to local pattern matching until Semgrep is installed.
             filtered_count = original_count - len(result.findings)
             if filtered_count > 0:
                 logger.debug(
-                    f"Filtered {filtered_count} low-confidence findings "
-                    f"(threshold: {confidence_threshold})"
+                    "Filtered %s low-confidence findings (threshold: %s)", filtered_count, confidence_threshold
                 )
 
         # Add fix recommendations based on CWE
@@ -398,14 +397,13 @@ The scanner will fall back to local pattern matching until Semgrep is installed.
 
                 await self._security_emitter.emit(event)
                 logger.info(
-                    f"Emitted SAST_CRITICAL security event for {len(critical_findings)} "
-                    f"critical findings (scan_id={scan_id})"
+                    "Emitted SAST_CRITICAL security event for %s critical findings (scan_id=%s)", len(critical_findings), scan_id
                 )
 
             except ImportError:
                 logger.debug("SecurityEventEmitter not available for event emission")
             except (OSError, ValueError, TypeError) as e:
-                logger.warning(f"Failed to emit security event: {e}")
+                logger.warning("Failed to emit security event: %s", e)
 
     async def _scan_with_semgrep(
         self,
@@ -443,7 +441,7 @@ The scanner will fall back to local pattern matching until Semgrep is installed.
             # Add target
             cmd.append(repo_path)
 
-            logger.info(f"Running Semgrep scan: {' '.join(cmd[:5])}...")
+            logger.info("Running Semgrep scan: %s...", ' '.join(cmd[:5]))
 
             process = await asyncio.create_subprocess_exec(
                 *cmd,
@@ -567,7 +565,7 @@ The scanner will fall back to local pattern matching until Semgrep is installed.
             )
 
         except (KeyError, TypeError, ValueError) as e:
-            logger.warning(f"Failed to parse Semgrep result: {e}")
+            logger.warning("Failed to parse Semgrep result: %s", e)
             return None
 
     async def _scan_with_local_patterns(
@@ -718,7 +716,7 @@ The scanner will fall back to local pattern matching until Semgrep is installed.
                         findings.append(finding)
 
         except (OSError, UnicodeDecodeError) as e:
-            logger.debug(f"Error scanning {file_path}: {e}")
+            logger.debug("Error scanning %s: %s", file_path, e)
 
         return findings
 

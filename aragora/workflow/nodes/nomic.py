@@ -90,8 +90,7 @@ class NomicLoopStep(BaseStep):
             phases = self.ALL_PHASES
 
         logger.info(
-            f"NomicLoopStep '{self.name}' starting: "
-            f"cycles={cycles}, phases={phases}, workspace={workspace_id}"
+            "NomicLoopStep '%s' starting: cycles=%s, phases=%s, workspace=%s", self.name, cycles, phases, workspace_id
         )
 
         try:
@@ -193,7 +192,7 @@ class NomicLoopStep(BaseStep):
             results: list[dict[str, Any]] = []
             for cycle in range(cycles):
                 self._cycle_count = cycle + 1
-                logger.info(f"Starting nomic cycle {cycle + 1}/{cycles}")
+                logger.info("Starting nomic cycle %s/%s", cycle + 1, cycles)
 
                 machine = create_nomic_state_machine(
                     checkpoint_dir=config.get("checkpoint_dir"),
@@ -365,7 +364,7 @@ class NomicLoopStep(BaseStep):
             }
 
         except ImportError as e:
-            logger.error(f"Failed to import nomic module: {e}")
+            logger.error("Failed to import nomic module: %s", e)
             return {
                 "success": False,
                 "error": f"Nomic module not available: {e}",
@@ -403,6 +402,6 @@ class NomicLoopStep(BaseStep):
         if phases:
             invalid_phases = [p for p in phases if p not in self.ALL_PHASES]
             if invalid_phases:
-                logger.warning(f"Invalid phases in config: {invalid_phases}")
+                logger.warning("Invalid phases in config: %s", invalid_phases)
                 return False
         return True

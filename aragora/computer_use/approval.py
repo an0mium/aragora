@@ -185,19 +185,18 @@ class LoggingNotifier(ApprovalNotifier):
     async def notify_request(self, request: ApprovalRequest) -> None:
         """Log new approval request."""
         logger.info(
-            f"[Approval Request] {request.id}: {request.context.action_type} "
-            f"- {request.context.reason} (priority: {request.priority.value})"
+            "[Approval Request] %s: %s - %s (priority: %s)", request.id, request.context.action_type, request.context.reason, request.priority.value
         )
 
     async def notify_decision(self, request: ApprovalRequest) -> None:
         """Log approval decision."""
         decision = request.status.value.upper()
         by = request.approved_by or request.denied_by or "unknown"
-        logger.info(f"[Approval {decision}] {request.id} by {by}")
+        logger.info("[Approval %s] %s by %s", decision, request.id, by)
 
     async def notify_expiry(self, request: ApprovalRequest) -> None:
         """Log expired request."""
-        logger.warning(f"[Approval Expired] {request.id}: {request.context.action_type}")
+        logger.warning("[Approval Expired] %s: %s", request.id, request.context.action_type)
 
 
 class WebhookNotifier(ApprovalNotifier):
@@ -225,9 +224,9 @@ class WebhookNotifier(ApprovalNotifier):
                     timeout=10.0,
                 )
                 if response.status_code >= 400:
-                    logger.warning(f"Webhook failed: {response.status_code}")
+                    logger.warning("Webhook failed: %s", response.status_code)
         except (RuntimeError, OSError, TimeoutError) as e:
-            logger.error(f"Webhook error: {e}")
+            logger.error("Webhook error: %s", e)
 
     async def notify_request(self, request: ApprovalRequest) -> None:
         """Send webhook for new request."""
@@ -349,8 +348,7 @@ class ApprovalWorkflow:
 
         if self._config.log_all_requests:
             logger.info(
-                f"Approval request created: {request_id} "
-                f"for {context.action_type} ({context.category.value})"
+                "Approval request created: %s for %s (%s)", request_id, context.action_type, context.category.value
             )
 
         await _audit_approval_action(
@@ -428,7 +426,7 @@ class ApprovalWorkflow:
         if self._config.notify_on_decision:
             await self._notify_all("decision", request)
 
-        logger.info(f"Request {request_id} approved by {approver_id}")
+        logger.info("Request %s approved by %s", request_id, approver_id)
 
         await _audit_approval_action(
             actor_id=approver_id,
@@ -470,7 +468,7 @@ class ApprovalWorkflow:
         if self._config.notify_on_decision:
             await self._notify_all("decision", request)
 
-        logger.info(f"Request {request_id} denied by {denier_id}")
+        logger.info("Request %s denied by %s", request_id, denier_id)
 
         await _audit_approval_action(
             actor_id=denier_id,
@@ -499,7 +497,7 @@ class ApprovalWorkflow:
         if expiry_task:
             expiry_task.cancel()
 
-        logger.info(f"Request {request_id} cancelled")
+        logger.info("Request %s cancelled", request_id)
         return True
 
     async def _handle_expiry(self, request_id: str, timeout: float) -> None:
@@ -522,7 +520,7 @@ class ApprovalWorkflow:
                 if request:
                     await self._notify_all("expiry", request)
 
-            logger.warning(f"Request {request_id} expired")
+            logger.warning("Request %s expired", request_id)
 
             await _audit_approval_action(
                 actor_id="system",
@@ -548,7 +546,7 @@ class ApprovalWorkflow:
                 elif event_type == "expiry":
                     await notifier.notify_expiry(request)
             except (RuntimeError, OSError, TimeoutError) as e:
-                logger.error(f"Notifier error: {e}")
+                logger.error("Notifier error: %s", e)
 
     async def get_request(self, request_id: str) -> ApprovalRequest | None:
         """Get a request by ID."""

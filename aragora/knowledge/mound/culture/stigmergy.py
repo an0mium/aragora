@@ -328,7 +328,7 @@ class StigmergyManager:
             del self._signals[signal_id]
 
         if expired_ids:
-            logger.debug(f"Cleaned up {len(expired_ids)} expired signals")
+            logger.debug("Cleaned up %s expired signals", len(expired_ids))
 
         return len(expired_ids)
 

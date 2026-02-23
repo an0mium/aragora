@@ -567,8 +567,7 @@ class SourceReputationManager:
             self.debate_sources[did] = set(sources)
 
         logger.info(
-            f"Imported {len(self.reputations)} reputations, "
-            f"{sum(len(v) for v in self.verifications.values())} verifications"
+            "Imported %s reputations, %s verifications", len(self.reputations), sum(len(v) for v in self.verifications.values())
         )
 
 
@@ -674,7 +673,7 @@ class AttributionChain:
         """
         entries = self.by_evidence.get(evidence_id, [])
         if not entries:
-            logger.warning(f"No attribution entries found for evidence {evidence_id}")
+            logger.warning("No attribution entries found for evidence %s", evidence_id)
             return None
 
         # Use most recent entry

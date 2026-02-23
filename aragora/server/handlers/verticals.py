@@ -228,7 +228,7 @@ class VerticalsHandler(SecureHandler):
             return None
         except (RuntimeError, OSError, AttributeError, TypeError) as e:
             self._circuit_breaker.record_failure()
-            logger.error(f"Error loading verticals registry: {e}")
+            logger.error("Error loading verticals registry: %s", e)
             return None
 
     def _get_registry(self) -> Any | None:
@@ -352,11 +352,11 @@ class VerticalsHandler(SecureHandler):
 
         except (KeyError, ValueError, TypeError) as e:
             self._circuit_breaker.record_failure()
-            logger.warning(f"Data error listing verticals: {e}")
+            logger.warning("Data error listing verticals: %s", e)
             return error_response(safe_error_message(e, "list verticals"), 400)
         except (RuntimeError, OSError, AttributeError) as e:
             self._circuit_breaker.record_failure()
-            logger.exception(f"Unexpected error listing verticals: {e}")
+            logger.exception("Unexpected error listing verticals: %s", e)
             return error_response(safe_error_message(e, "list verticals"), 500)
 
     def _get_vertical(self, vertical_id: str) -> HandlerResult:
@@ -395,11 +395,11 @@ class VerticalsHandler(SecureHandler):
 
         except (KeyError, AttributeError, TypeError) as e:
             self._circuit_breaker.record_failure()
-            logger.warning(f"Data error getting vertical {vertical_id}: {e}")
+            logger.warning("Data error getting vertical %s: %s", vertical_id, e)
             return error_response(safe_error_message(e, "get vertical"), 400)
         except (RuntimeError, OSError, ValueError) as e:
             self._circuit_breaker.record_failure()
-            logger.exception(f"Unexpected error getting vertical {vertical_id}: {e}")
+            logger.exception("Unexpected error getting vertical %s: %s", vertical_id, e)
             return error_response(safe_error_message(e, "get vertical"), 500)
 
     def _get_tools(self, vertical_id: str) -> HandlerResult:
@@ -428,11 +428,11 @@ class VerticalsHandler(SecureHandler):
 
         except (KeyError, AttributeError, TypeError) as e:
             self._circuit_breaker.record_failure()
-            logger.warning(f"Data error getting tools for {vertical_id}: {e}")
+            logger.warning("Data error getting tools for %s: %s", vertical_id, e)
             return error_response(safe_error_message(e, "get vertical tools"), 400)
         except (RuntimeError, OSError, ValueError) as e:
             self._circuit_breaker.record_failure()
-            logger.exception(f"Unexpected error getting tools for {vertical_id}: {e}")
+            logger.exception("Unexpected error getting tools for %s: %s", vertical_id, e)
             return error_response(safe_error_message(e, "get vertical tools"), 500)
 
     def _get_compliance(self, vertical_id: str, query_params: dict[str, Any]) -> HandlerResult:
@@ -477,11 +477,11 @@ class VerticalsHandler(SecureHandler):
             return error_response("Compliance module not available", 503)
         except (KeyError, AttributeError, TypeError) as e:
             self._circuit_breaker.record_failure()
-            logger.warning(f"Data error getting compliance for {vertical_id}: {e}")
+            logger.warning("Data error getting compliance for %s: %s", vertical_id, e)
             return error_response(safe_error_message(e, "get vertical compliance"), 400)
         except (RuntimeError, OSError, ValueError) as e:
             self._circuit_breaker.record_failure()
-            logger.exception(f"Unexpected error getting compliance for {vertical_id}: {e}")
+            logger.exception("Unexpected error getting compliance for %s: %s", vertical_id, e)
             return error_response(safe_error_message(e, "get vertical compliance"), 500)
 
     def _suggest_vertical(self, query_params: dict[str, Any]) -> HandlerResult:
@@ -525,11 +525,11 @@ class VerticalsHandler(SecureHandler):
 
         except (KeyError, AttributeError, TypeError) as e:
             self._circuit_breaker.record_failure()
-            logger.warning(f"Data error suggesting vertical: {e}")
+            logger.warning("Data error suggesting vertical: %s", e)
             return error_response(safe_error_message(e, "suggest vertical"), 400)
         except (RuntimeError, OSError, ValueError) as e:
             self._circuit_breaker.record_failure()
-            logger.exception(f"Unexpected error suggesting vertical: {e}")
+            logger.exception("Unexpected error suggesting vertical: %s", e)
             return error_response(safe_error_message(e, "suggest vertical"), 500)
 
     async def _create_debate(self, vertical_id: str, handler: Any) -> HandlerResult:
@@ -643,15 +643,15 @@ class VerticalsHandler(SecureHandler):
 
         except ImportError as e:
             self._circuit_breaker.record_failure()
-            logger.error(f"Debate infrastructure not available: {e}")
+            logger.error("Debate infrastructure not available: %s", e)
             return error_response("Debate infrastructure not available", 503)
         except (ValueError, KeyError, TypeError) as e:
             self._circuit_breaker.record_failure()
-            logger.warning(f"Invalid data for debate creation in {vertical_id}: {e}")
+            logger.warning("Invalid data for debate creation in %s: %s", vertical_id, e)
             return error_response(safe_error_message(e, "create vertical debate"), 400)
         except (RuntimeError, OSError, AttributeError) as e:
             self._circuit_breaker.record_failure()
-            logger.exception(f"Unexpected error creating debate for {vertical_id}: {e}")
+            logger.exception("Unexpected error creating debate for %s: %s", vertical_id, e)
             return error_response(safe_error_message(e, "create vertical debate"), 500)
 
     def _create_agent(self, vertical_id: str, handler: Any) -> HandlerResult:
@@ -709,11 +709,11 @@ class VerticalsHandler(SecureHandler):
             return error_response("Invalid request", 400)
         except (KeyError, TypeError, AttributeError) as e:
             self._circuit_breaker.record_failure()
-            logger.warning(f"Data error creating agent for {vertical_id}: {e}")
+            logger.warning("Data error creating agent for %s: %s", vertical_id, e)
             return error_response(safe_error_message(e, "create vertical agent"), 400)
         except (RuntimeError, OSError) as e:
             self._circuit_breaker.record_failure()
-            logger.exception(f"Unexpected error creating agent for {vertical_id}: {e}")
+            logger.exception("Unexpected error creating agent for %s: %s", vertical_id, e)
             return error_response(safe_error_message(e, "create vertical agent"), 500)
 
     def _update_config(self, vertical_id: str, handler: Any) -> HandlerResult:
@@ -852,7 +852,7 @@ class VerticalsHandler(SecureHandler):
                 )
 
             # Log the update
-            logger.info(f"Updated vertical {vertical_id} config: {updates_applied}")
+            logger.info("Updated vertical %s config: %s", vertical_id, updates_applied)
 
             self._circuit_breaker.record_success()
             return json_response(
@@ -872,13 +872,13 @@ class VerticalsHandler(SecureHandler):
 
         except ImportError as e:
             self._circuit_breaker.record_failure()
-            logger.error(f"Verticals config module not available: {e}")
+            logger.error("Verticals config module not available: %s", e)
             return error_response("Verticals config module not available", 503)
         except (ValueError, KeyError, TypeError, AttributeError) as e:
             self._circuit_breaker.record_failure()
-            logger.warning(f"Data error updating config for {vertical_id}: {e}")
+            logger.warning("Data error updating config for %s: %s", vertical_id, e)
             return error_response(safe_error_message(e, "update vertical config"), 400)
         except (RuntimeError, OSError) as e:
             self._circuit_breaker.record_failure()
-            logger.exception(f"Unexpected error updating config for {vertical_id}: {e}")
+            logger.exception("Unexpected error updating config for %s: %s", vertical_id, e)
             return error_response(safe_error_message(e, "update vertical config"), 500)

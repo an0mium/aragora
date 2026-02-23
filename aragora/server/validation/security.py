@@ -218,7 +218,7 @@ def execute_regex_with_timeout(
         try:
             compiled = re.compile(pattern, flags)
         except re.error as e:
-            logger.warning(f"Invalid regex pattern: {e}")
+            logger.warning("Invalid regex pattern: %s", e)
             return None
     else:
         compiled = pattern
@@ -231,10 +231,10 @@ def execute_regex_with_timeout(
         try:
             return future.result(timeout=timeout)
         except concurrent.futures.TimeoutError:
-            logger.warning(f"Regex execution timed out after {timeout}s")
+            logger.warning("Regex execution timed out after %ss", timeout)
             return None
         except (re.error, ValueError, RuntimeError) as e:
-            logger.warning(f"Regex execution failed: {e}")
+            logger.warning("Regex execution failed: %s", e)
             return None
 
 
@@ -270,7 +270,7 @@ def execute_regex_finditer_with_timeout(
         try:
             compiled = re.compile(pattern, flags)
         except re.error as e:
-            logger.warning(f"Invalid regex pattern: {e}")
+            logger.warning("Invalid regex pattern: %s", e)
             return []
     else:
         compiled = pattern
@@ -288,10 +288,10 @@ def execute_regex_finditer_with_timeout(
         try:
             return future.result(timeout=timeout)
         except concurrent.futures.TimeoutError:
-            logger.warning(f"Regex finditer timed out after {timeout}s")
+            logger.warning("Regex finditer timed out after %ss", timeout)
             return []
         except (re.error, ValueError, RuntimeError) as e:
-            logger.warning(f"Regex finditer failed: {e}")
+            logger.warning("Regex finditer failed: %s", e)
             return []
 
 

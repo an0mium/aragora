@@ -121,7 +121,7 @@ class PostgresMarketplaceStore:
             await conn.execute(self.INITIAL_SCHEMA)
 
         self._initialized = True
-        logger.debug(f"[{self.SCHEMA_NAME}] Schema initialized")
+        logger.debug("[%s] Schema initialized", self.SCHEMA_NAME)
 
         # Initialize default categories
         await self._init_categories_async()
@@ -250,7 +250,7 @@ class PostgresMarketplaceStore:
                     raise ValueError(f"Template with name '{name}' already exists") from e
                 raise
 
-        logger.info(f"Created template: {template.id} ({template.name})")
+        logger.info("Created template: %s (%s)", template.id, template.name)
         return template
 
     def get_template(self, template_id: str) -> StoredTemplate | None:

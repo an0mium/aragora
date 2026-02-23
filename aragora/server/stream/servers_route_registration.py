@@ -359,11 +359,11 @@ class RouteRegistrationMixin:
         await runner.setup()
         site = web.TCPSite(runner, self.host, self.port)
 
-        logger.info(f"Unified server (HTTP+WS) running on http://{self.host}:{self.port}")
-        logger.info(f"  WebSocket: ws://{self.host}:{self.port}/")
-        logger.info(f"  Voice WS:  ws://{self.host}:{self.port}/ws/voice/{{debate_id}}")
-        logger.info(f"  HTTP API:  http://{self.host}:{self.port}/api/v1/* (preferred)")
-        logger.info(f"  Legacy:    http://{self.host}:{self.port}/api/* (deprecated)")
+        logger.info("Unified server (HTTP+WS) running on http://%s:%s", self.host, self.port)
+        logger.info("  WebSocket: ws://%s:%s/", self.host, self.port)
+        logger.info("  Voice WS:  ws://%s:%s/ws/voice/{debate_id}", self.host, self.port)
+        logger.info("  HTTP API:  http://%s:%s/api/v1/* (preferred)", self.host, self.port)
+        logger.info("  Legacy:    http://%s:%s/api/* (deprecated)", self.host, self.port)
 
         await site.start()
 

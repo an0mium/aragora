@@ -262,7 +262,7 @@ class ZoomIntegration:
             ) as response:
                 if response.status != 200:
                     text = await response.text()
-                    logger.error(f"Zoom OAuth error: {response.status} - {text}")
+                    logger.error("Zoom OAuth error: %s - %s", response.status, text)
                     raise RuntimeError(f"Failed to get Zoom token: {text}")
 
                 result = await response.json()
@@ -273,7 +273,7 @@ class ZoomIntegration:
                 return self._access_token
 
         except aiohttp.ClientError as e:
-            logger.error(f"Zoom OAuth connection error: {e}")
+            logger.error("Zoom OAuth connection error: %s", e)
             raise
 
     async def _api_request(
@@ -307,7 +307,7 @@ class ZoomIntegration:
             ) as response:
                 if response.status >= 400:
                     text = await response.text()
-                    logger.error(f"Zoom API error: {response.status} - {text}")
+                    logger.error("Zoom API error: %s - %s", response.status, text)
                     raise RuntimeError(f"Zoom API error: {response.status}")
 
                 if response.status == 204:
@@ -317,7 +317,7 @@ class ZoomIntegration:
                 return result
 
         except aiohttp.ClientError as e:
-            logger.error(f"Zoom API connection error: {e}")
+            logger.error("Zoom API connection error: %s", e)
             raise
 
     def verify_webhook(self, body: bytes, signature: str, timestamp: str) -> bool:
@@ -482,10 +482,10 @@ class ZoomIntegration:
             return None
 
         except (aiohttp.ClientError, asyncio.TimeoutError) as e:
-            logger.error(f"Zoom transcript connection error: {type(e).__name__}: {e}")
+            logger.error("Zoom transcript connection error: %s: %s", type(e).__name__, e)
             return None
         except (ValueError, KeyError) as e:
-            logger.error(f"Zoom transcript parse error: {type(e).__name__}: {e}")
+            logger.error("Zoom transcript parse error: %s: %s", type(e).__name__, e)
             return None
 
     async def send_chat_message(
@@ -524,10 +524,10 @@ class ZoomIntegration:
             logger.debug("Zoom chat message sent")
             return True
         except (aiohttp.ClientError, asyncio.TimeoutError) as e:
-            logger.error(f"Zoom chat connection error: {type(e).__name__}: {e}")
+            logger.error("Zoom chat connection error: %s: %s", type(e).__name__, e)
             return False
         except (ValueError, TypeError) as e:
-            logger.error(f"Zoom chat payload error: {type(e).__name__}: {e}")
+            logger.error("Zoom chat payload error: %s: %s", type(e).__name__, e)
             return False
 
     async def send_debate_summary(

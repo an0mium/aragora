@@ -88,9 +88,7 @@ def audit_cross_tenant_attempt(
 
     # Log to security audit logger
     _security_audit_logger.warning(
-        "SECURITY: Cross-tenant access attempt detected | "
-        f"user={user_id} | user_tenant={user_tenant_id} | "
-        f"requested_tenant={requested_tenant_id} | endpoint={endpoint}"
+        "SECURITY: Cross-tenant access attempt detected | user=%s | user_tenant=%s | requested_tenant=%s | endpoint=%s", user_id, user_tenant_id, requested_tenant_id, endpoint
     )
 
     # Also log the full structured entry for SIEM integration
@@ -244,7 +242,7 @@ async def validate_tenant_access(
 
     # Check if user is admin (bypasses tenant restrictions)
     if _is_admin_user(user):
-        logger.debug(f"Admin user {user_id} granted access to tenant {requested_tenant_id}")
+        logger.debug("Admin user %s granted access to tenant %s", user_id, requested_tenant_id)
         return None
 
     # Get user's tenant memberships
@@ -351,7 +349,7 @@ def validate_tenant_access_sync(
 
     # Check if user is admin (bypasses tenant restrictions)
     if _is_admin_user(user):
-        logger.debug(f"Admin user {user_id} granted access to tenant {requested_tenant_id}")
+        logger.debug("Admin user %s granted access to tenant %s", user_id, requested_tenant_id)
         return None
 
     # Get user's tenant memberships

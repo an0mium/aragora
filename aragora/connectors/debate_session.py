@@ -78,7 +78,7 @@ class DebateSessionManager:
         )
 
         self._store.set_debate_session(session)
-        logger.debug(f"Created debate session: {session_id}")
+        logger.debug("Created debate session: %s", session_id)
         return session
 
     async def get_session(self, session_id: str) -> DebateSession | None:
@@ -111,7 +111,7 @@ class DebateSessionManager:
         """
         result = self._store.delete_debate_session(session_id)
         if result:
-            logger.debug(f"Deleted debate session: {session_id}")
+            logger.debug("Deleted debate session: %s", session_id)
         return result
 
     async def link_debate(self, session_id: str, debate_id: str) -> bool:
@@ -126,7 +126,7 @@ class DebateSessionManager:
         """
         session = self._store.get_debate_session(session_id)
         if not session:
-            logger.warning(f"Session not found for linking: {session_id}")
+            logger.warning("Session not found for linking: %s", session_id)
             return False
 
         old_debate = session.debate_id
@@ -154,7 +154,7 @@ class DebateSessionManager:
 
         session.unlink_debate()
         self._store.set_debate_session(session)
-        logger.debug(f"Unlinked debate from session {session_id}")
+        logger.debug("Unlinked debate from session %s", session_id)
         return True
 
     async def find_sessions_for_user(
@@ -235,7 +235,7 @@ class DebateSessionManager:
         """
         old_session = self._store.get_debate_session(session_id)
         if not old_session:
-            logger.warning(f"Session not found for handoff: {session_id}")
+            logger.warning("Session not found for handoff: %s", session_id)
             return None
 
         # Create new session on target channel
@@ -256,8 +256,7 @@ class DebateSessionManager:
 
         self._store.set_debate_session(new_session)
         logger.info(
-            f"Handoff session from {old_session.channel} to {new_channel}: "
-            f"{session_id} -> {new_session_id}"
+            "Handoff session from %s to %s: %s -> %s", old_session.channel, new_channel, session_id, new_session_id
         )
         return new_session
 

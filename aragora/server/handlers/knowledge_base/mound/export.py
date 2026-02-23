@@ -61,7 +61,7 @@ class ExportOperationsMixin:
                 )
             )
         except (KeyError, ValueError, OSError, TypeError, RuntimeError) as e:
-            logger.error(f"D3 graph export failed: {e}")
+            logger.error("D3 graph export failed: %s", e)
             return error_response("D3 graph export failed", 500)
 
         return json_response(
@@ -95,7 +95,7 @@ class ExportOperationsMixin:
                 )
             )
         except (KeyError, ValueError, OSError, TypeError, RuntimeError) as e:
-            logger.error(f"GraphML export failed: {e}")
+            logger.error("GraphML export failed: %s", e)
             return error_response("GraphML export failed", 500)
 
         return HandlerResult(
@@ -189,5 +189,5 @@ class ExportOperationsMixin:
             logger.warning("Handler error: %s", e)
             return error_response("Repository not found", 404)
         except (KeyError, ValueError, OSError, TypeError, RuntimeError, ImportError) as e:
-            logger.error(f"Failed to index repository: {e}")
+            logger.error("Failed to index repository: %s", e)
             return error_response("Failed to index repository", 500)

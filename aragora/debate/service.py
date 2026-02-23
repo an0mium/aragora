@@ -307,7 +307,7 @@ class DebateService:
             result = await asyncio.wait_for(arena.run(), timeout=opts.timeout)
             return result
         except asyncio.TimeoutError:
-            logger.warning(f"Debate timed out after {opts.timeout}s: {task[:50]}...")
+            logger.warning("Debate timed out after %ss: %s...", opts.timeout, task[:50])
             raise
 
     async def run_quick(
@@ -409,9 +409,9 @@ class DebateService:
                 try:
                     resolved.append(self._agent_resolver(agent))
                 except (KeyError, ValueError) as e:
-                    logger.warning(f"Failed to resolve agent '{agent}': {e}")
+                    logger.warning("Failed to resolve agent '%s': %s", agent, e)
                 except (RuntimeError, TypeError, AttributeError) as e:
-                    logger.exception(f"Unexpected error resolving agent '{agent}': {e}")
+                    logger.exception("Unexpected error resolving agent '%s': %s", agent, e)
             elif isinstance(agent, str):
                 # Try to create a basic agent from the name
                 try:
@@ -419,7 +419,7 @@ class DebateService:
 
                     resolved.append(create_agent(cast(AgentType, agent)))
                 except ImportError:
-                    logger.warning(f"Cannot resolve agent '{agent}' - no resolver configured")
+                    logger.warning("Cannot resolve agent '%s' - no resolver configured", agent)
 
         return resolved
 

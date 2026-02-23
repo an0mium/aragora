@@ -326,7 +326,7 @@ class PolicyRegistry:
     def register(self, policy: ResourcePolicy) -> None:
         """Register a policy for a resource type."""
         self._policies[policy.resource_type] = policy
-        logger.debug(f"Registered policy for {policy.resource_type.value}")
+        logger.debug("Registered policy for %s", policy.resource_type.value)
 
     def get(self, resource_type: ResourceType) -> ResourcePolicy | None:
         """Get policy for a resource type."""

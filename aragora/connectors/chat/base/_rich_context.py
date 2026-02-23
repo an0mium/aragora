@@ -134,8 +134,7 @@ class RichContextMixin:
         )
 
         logger.debug(
-            f"Fetched context from {self.platform_name} channel {channel_id}: "
-            f"{len(messages)} messages, {len(participants)} participants"
+            "Fetched context from %s channel %s: %s messages, %s participants", self.platform_name, channel_id, len(messages), len(participants)
         )
 
         return context
@@ -300,9 +299,7 @@ class RichContextMixin:
             rich_context["formatted_context"] = _format_context_for_llm_impl(rich_context)
 
         logger.debug(
-            f"Fetched rich context from {self.platform_name} channel {channel_id}: "
-            f"{len(base_context.messages)} messages, "
-            f"{len(rich_context.get('topics', []))} topics extracted"
+            "Fetched rich context from %s channel %s: %s messages, %s topics extracted", self.platform_name, channel_id, len(base_context.messages), len(rich_context.get('topics', []))
         )
 
         return rich_context

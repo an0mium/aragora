@@ -140,7 +140,7 @@ class BlockchainIdentityBridge:
         self._token_to_agent[(resolved_chain_id, token_id)] = aragora_agent_id
 
         logger.info(
-            f"Linked agent {aragora_agent_id} to token {token_id} on chain {resolved_chain_id}"
+            "Linked agent %s to token %s on chain %s", aragora_agent_id, token_id, resolved_chain_id
         )
         return link
 
@@ -160,7 +160,7 @@ class BlockchainIdentityBridge:
         del self._token_to_agent[(link.chain_id, link.token_id)]
         del self._links[aragora_agent_id]
 
-        logger.info(f"Unlinked agent {aragora_agent_id}")
+        logger.info("Unlinked agent %s", aragora_agent_id)
         return True
 
     async def get_blockchain_identity(
@@ -182,7 +182,7 @@ class BlockchainIdentityBridge:
         try:
             return self._get_identity_contract().get_agent(link.token_id)
         except (RuntimeError, ValueError, OSError, ConnectionError, KeyError) as e:
-            logger.warning(f"Failed to fetch identity for {aragora_agent_id}: {e}")
+            logger.warning("Failed to fetch identity for %s: %s", aragora_agent_id, e)
             return None
 
     async def get_agent_by_token(
@@ -259,7 +259,7 @@ class BlockchainIdentityBridge:
             link.verified = True
             return True
         except (RuntimeError, ValueError, OSError, ConnectionError, KeyError) as e:
-            logger.warning(f"Failed to verify link for {aragora_agent_id}: {e}")
+            logger.warning("Failed to verify link for %s: %s", aragora_agent_id, e)
             link.verified = False
             return False
 
@@ -311,10 +311,10 @@ class BlockchainIdentityBridge:
                         links_created += 1
 
                 except (RuntimeError, ValueError, OSError, ConnectionError, KeyError) as e:
-                    logger.debug(f"Failed to process token {token_id}: {e}")
+                    logger.debug("Failed to process token %s: %s", token_id, e)
 
         except (RuntimeError, ValueError, OSError, ConnectionError, KeyError) as e:
-            logger.error(f"Sync from blockchain failed: {e}")
+            logger.error("Sync from blockchain failed: %s", e)
 
         return links_created
 

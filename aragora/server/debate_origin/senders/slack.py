@@ -45,17 +45,17 @@ async def _send_slack_result(origin: DebateOrigin, result: dict[str, Any]) -> bo
             if response.is_success:
                 resp_data = response.json()
                 if resp_data.get("ok"):
-                    logger.info(f"Slack result sent to {channel}")
+                    logger.info("Slack result sent to %s", channel)
                     return True
                 else:
-                    logger.warning(f"Slack API error: {resp_data.get('error')}")
+                    logger.warning("Slack API error: %s", resp_data.get('error'))
                     return False
             else:
-                logger.warning(f"Slack send failed: {response.status_code}")
+                logger.warning("Slack send failed: %s", response.status_code)
                 return False
 
     except (httpx.HTTPError, OSError, ValueError, TypeError) as e:
-        logger.error(f"Slack result send error: {e}")
+        logger.error("Slack result send error: %s", e)
         return False
 
 
@@ -98,12 +98,12 @@ async def _send_slack_receipt(origin: DebateOrigin, summary: str, receipt_url: s
             if response.is_success:
                 resp_data = response.json()
                 if resp_data.get("ok"):
-                    logger.info(f"Slack receipt posted to {origin.channel_id}")
+                    logger.info("Slack receipt posted to %s", origin.channel_id)
                     return True
             return False
 
     except (httpx.HTTPError, OSError, ValueError, TypeError) as e:
-        logger.error(f"Slack receipt post error: {e}")
+        logger.error("Slack receipt post error: %s", e)
         return False
 
 
@@ -133,5 +133,5 @@ async def _send_slack_error(origin: DebateOrigin, message: str) -> bool:
             return response.is_success and response.json().get("ok", False)
 
     except (httpx.HTTPError, OSError, ValueError, TypeError) as e:
-        logger.error(f"Slack error send failed: {e}")
+        logger.error("Slack error send failed: %s", e)
         return False

@@ -65,7 +65,7 @@ class SQLiteIntegrationStore(IntegrationStoreBackend):
         self._connections: set[sqlite3.Connection] = set()
         self._connections_lock = threading.Lock()
         self._init_schema()
-        logger.info(f"SQLiteIntegrationStore initialized: {self.db_path}")
+        logger.info("SQLiteIntegrationStore initialized: %s", self.db_path)
 
     def _get_conn(self) -> sqlite3.Connection:
         """Get per-context database connection."""
@@ -179,7 +179,7 @@ class SQLiteIntegrationStore(IntegrationStoreBackend):
             ),
         )
         conn.commit()
-        logger.debug(f"Saved integration: {config.type} for user {user_id}")
+        logger.debug("Saved integration: %s for user %s", config.type, user_id)
 
     async def delete(self, integration_type: str, user_id: str = "default") -> bool:
         conn = self._get_conn()
@@ -190,7 +190,7 @@ class SQLiteIntegrationStore(IntegrationStoreBackend):
         conn.commit()
         deleted = cursor.rowcount > 0
         if deleted:
-            logger.debug(f"Deleted integration: {integration_type} for user {user_id}")
+            logger.debug("Deleted integration: %s for user %s", integration_type, user_id)
         return deleted
 
     async def list_for_user(self, user_id: str = "default") -> list[IntegrationConfig]:
@@ -266,7 +266,7 @@ class SQLiteIntegrationStore(IntegrationStoreBackend):
         )
         conn.commit()
         _record_user_mapping_operation("save", mapping.platform, True)
-        logger.debug(f"Saved user mapping: {mapping.email} -> {mapping.platform}")
+        logger.debug("Saved user mapping: %s -> %s", mapping.email, mapping.platform)
 
     async def delete_user_mapping(
         self, email: str, platform: str, user_id: str = "default"

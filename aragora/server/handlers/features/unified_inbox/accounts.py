@@ -55,7 +55,7 @@ async def handle_gmail_oauth_url(
 
         auth_url = connector.get_oauth_url(redirect_uri=redirect_uri, state=state)
 
-        logger.info(f"[UnifiedInbox] Generated Gmail OAuth URL for tenant {tenant_id}")
+        logger.info("[UnifiedInbox] Generated Gmail OAuth URL for tenant %s", tenant_id)
 
         return {
             "success": True,
@@ -99,7 +99,7 @@ async def handle_outlook_oauth_url(
 
         auth_url = connector.get_oauth_url(redirect_uri=redirect_uri, state=state)
 
-        logger.info(f"[UnifiedInbox] Generated Outlook OAuth URL for tenant {tenant_id}")
+        logger.info("[UnifiedInbox] Generated Outlook OAuth URL for tenant %s", tenant_id)
 
         return {
             "success": True,
@@ -165,7 +165,7 @@ async def connect_gmail(
                 )
                 schedule_message_persist(tenant_id, unified)
             except (KeyError, ValueError, TypeError, AttributeError) as e:
-                logger.warning(f"[UnifiedInbox] Error converting message: {e}")
+                logger.warning("[UnifiedInbox] Error converting message: %s", e)
 
         # Create sync service
         sync_service = GmailSyncService(
@@ -195,14 +195,14 @@ async def connect_gmail(
             store = get_gmail_token_store()
             await store.save(state)
         except (ImportError, OSError, ValueError) as e:
-            logger.warning(f"[UnifiedInbox] Failed to persist Gmail tokens: {e}")
+            logger.warning("[UnifiedInbox] Failed to persist Gmail tokens: %s", e)
 
         # Start sync using the authenticated connector
         await sync_service.start()
 
         account.status = AccountStatus.CONNECTED
 
-        logger.info(f"[UnifiedInbox] Gmail sync service registered for {account.id}")
+        logger.info("[UnifiedInbox] Gmail sync service registered for %s", account.id)
         return {"success": True}
 
     except ImportError:
@@ -267,7 +267,7 @@ async def connect_outlook(
                 )
                 schedule_message_persist(tenant_id, unified)
             except (KeyError, ValueError, TypeError, AttributeError) as e:
-                logger.warning(f"[UnifiedInbox] Error converting message: {e}")
+                logger.warning("[UnifiedInbox] Error converting message: %s", e)
 
         # Create sync service
         sync_service = OutlookSyncService(
@@ -308,14 +308,14 @@ async def connect_outlook(
             store = get_integration_store()
             await store.save(integration)
         except (ImportError, OSError, ValueError) as e:
-            logger.warning(f"[UnifiedInbox] Failed to persist Outlook tokens: {e}")
+            logger.warning("[UnifiedInbox] Failed to persist Outlook tokens: %s", e)
 
         # Start sync using the authenticated connector
         await sync_service.start()
 
         account.status = AccountStatus.CONNECTED
 
-        logger.info(f"[UnifiedInbox] Outlook sync service registered for {account.id}")
+        logger.info("[UnifiedInbox] Outlook sync service registered for %s", account.id)
         return {"success": True}
 
     except ImportError:
@@ -346,6 +346,6 @@ async def disconnect_account(
         try:
             if hasattr(sync_service, "stop"):
                 await sync_service.stop()
-            logger.info(f"[UnifiedInbox] Stopped sync service for account {account_id}")
+            logger.info("[UnifiedInbox] Stopped sync service for account %s", account_id)
         except (OSError, ValueError, AttributeError) as e:
-            logger.warning(f"[UnifiedInbox] Error stopping sync service: {e}")
+            logger.warning("[UnifiedInbox] Error stopping sync service: %s", e)

@@ -383,8 +383,7 @@ class ResourcePermissionStore:
         )
         if existing and existing.is_valid:
             logger.warning(
-                f"Permission already exists: {existing.id} for user {user_id} "
-                f"on {resource_type.value}/{resource_id}"
+                "Permission already exists: %s for user %s on %s/%s", existing.id, user_id, resource_type.value, resource_id
             )
             # Update existing permission instead of creating duplicate
             existing.expires_at = expires_at
@@ -417,8 +416,7 @@ class ResourcePermissionStore:
         self._invalidate_cache_for_user_resource(user_id, resource_type, resource_id)
 
         logger.info(
-            f"Granted permission {permission_id} to user {user_id} "
-            f"for {resource_type.value}/{resource_id}"
+            "Granted permission %s to user %s for %s/%s", permission_id, user_id, resource_type.value, resource_id
         )
 
         return permission
@@ -435,7 +433,7 @@ class ResourcePermissionStore:
         """
         permission = self._permissions.get(permission_id)
         if not permission:
-            logger.warning(f"Permission not found for revocation: {permission_id}")
+            logger.warning("Permission not found for revocation: %s", permission_id)
             return False
 
         # Mark as inactive (soft delete for audit trail)
@@ -452,8 +450,7 @@ class ResourcePermissionStore:
         )
 
         logger.info(
-            f"Revoked permission {permission.permission_id} from user {permission.user_id} "
-            f"for {permission.resource_type.value}/{permission.resource_id}"
+            "Revoked permission %s from user %s for %s/%s", permission.permission_id, permission.user_id, permission.resource_type.value, permission.resource_id
         )
 
         return True
@@ -809,7 +806,7 @@ class ResourcePermissionStore:
         # Clear check cache on cleanup
         self._check_cache.clear()
 
-        logger.info(f"Cleaned up {len(expired_ids)} expired/inactive permissions")
+        logger.info("Cleaned up %s expired/inactive permissions", len(expired_ids))
         return len(expired_ids)
 
     def clear_cache(self, user_id: str | None = None) -> None:

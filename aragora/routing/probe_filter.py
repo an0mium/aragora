@@ -132,7 +132,7 @@ class ProbeFilter:
                     continue
             return max(mtimes)
         except OSError as e:
-            logger.debug(f"Failed to get mtime for {agent_name}: {e}")
+            logger.debug("Failed to get mtime for %s: %s", agent_name, e)
             return 0.0
 
     def get_agent_profile(self, agent_name: str) -> ProbeProfile:
@@ -159,7 +159,7 @@ class ProbeFilter:
             if ttl_valid and mtime_valid:
                 return profile
             elif not mtime_valid:
-                logger.debug(f"Cache invalidated for {agent_name}: probe files modified")
+                logger.debug("Cache invalidated for %s: probe files modified", agent_name)
 
         # Build fresh profile
         profile = self._load_profile(agent_name)
@@ -172,7 +172,7 @@ class ProbeFilter:
 
         agent_probes_dir = self.probes_dir / agent_name
         if not agent_probes_dir.exists():
-            logger.debug(f"No probe history for {agent_name}")
+            logger.debug("No probe history for %s", agent_name)
             return profile
 
         # Load all probe reports
@@ -182,7 +182,7 @@ class ProbeFilter:
                 data = json.loads(probe_file.read_text())
                 reports.append(data)
             except (json.JSONDecodeError, OSError, ValueError, KeyError) as e:
-                logger.debug(f"Failed to load probe file {probe_file}: {e}")
+                logger.debug("Failed to load probe file %s: %s", probe_file, e)
 
         if not reports:
             return profile
@@ -244,7 +244,7 @@ class ProbeFilter:
                 last_dt = datetime.fromisoformat(latest_date.replace("Z", "+00:00"))
                 profile.days_since_probe = (datetime.now() - last_dt.replace(tzinfo=None)).days
             except (ValueError, AttributeError) as e:
-                logger.debug(f"Could not parse probe date '{latest_date}': {e}")
+                logger.debug("Could not parse probe date '%s': %s", latest_date, e)
                 profile.days_since_probe = 999
 
         return profile
@@ -288,12 +288,12 @@ class ProbeFilter:
                 continue
 
             if exclude_critical and profile.has_critical_issues():
-                logger.debug(f"Excluding {agent}: has critical vulnerabilities")
+                logger.debug("Excluding %s: has critical vulnerabilities", agent)
                 continue
 
             if exclude_stale and profile.is_stale(stale_days):
                 logger.debug(
-                    f"Excluding {agent}: probe data is {profile.days_since_probe} days old"
+                    "Excluding %s: probe data is %s days old", agent, profile.days_since_probe
                 )
                 continue
 

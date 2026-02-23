@@ -150,7 +150,7 @@ class HumanNotifier:
                     success = True
                 except (RuntimeError, ValueError, TypeError, AttributeError, OSError, ConnectionError, TimeoutError) as e:
                     logger.warning(
-                        f"Notification handler '{channel}' failed: {type(e).__name__}: {e}"
+                        "Notification handler '%s' failed: %s: %s", channel, type(e).__name__, e
                     )
                     continue
 
@@ -165,24 +165,24 @@ class HumanNotifier:
         """Log notification to CLI."""
         snapshot = breakpoint.debate_snapshot
         logger.info("=" * 60)
-        logger.info(f"BREAKPOINT TRIGGERED: {breakpoint.trigger.value}")
+        logger.info("BREAKPOINT TRIGGERED: %s", breakpoint.trigger.value)
         logger.info("=" * 60)
-        logger.info(f"Debate: {snapshot.debate_id}")
-        logger.info(f"Task: {snapshot.task[:100]}...")
-        logger.info(f"Round: {snapshot.current_round}/{snapshot.total_rounds}")
+        logger.info("Debate: %s", snapshot.debate_id)
+        logger.info("Task: %s...", snapshot.task[:100])
+        logger.info("Round: %s/%s", snapshot.current_round, snapshot.total_rounds)
         logger.info(f"Confidence: {snapshot.confidence:.0%}")
 
         if snapshot.key_disagreements:
             logger.info("Key disagreements:")
             for d in snapshot.key_disagreements[:3]:
-                logger.info(f"  - {d}")
+                logger.info("  - %s", d)
 
         logger.info("Agent positions:")
         for agent, position in snapshot.agent_positions.items():
-            logger.info(f"  {agent}: {position[:80]}...")
+            logger.info("  %s: %s...", agent, position[:80])
 
-        logger.info(f"Escalation level: {breakpoint.escalation_level}")
-        logger.info(f"Timeout: {breakpoint.timeout_minutes} minutes")
+        logger.info("Escalation level: %s", breakpoint.escalation_level)
+        logger.info("Timeout: %s minutes", breakpoint.timeout_minutes)
         logger.info("=" * 60)
 
 
@@ -414,9 +414,9 @@ class BreakpointManager:
                     },
                 )
             )
-            logger.info(f"Emitted BREAKPOINT event for {breakpoint.breakpoint_id}")
+            logger.info("Emitted BREAKPOINT event for %s", breakpoint.breakpoint_id)
         except (RuntimeError, ValueError, TypeError, AttributeError, OSError) as e:
-            logger.warning(f"Failed to emit breakpoint event: {e}")
+            logger.warning("Failed to emit breakpoint event: %s", e)
 
     async def handle_breakpoint(self, breakpoint: Breakpoint) -> HumanGuidance:
         """Handle a breakpoint by getting human input."""
@@ -525,7 +525,7 @@ How would you like to proceed?
             return False
 
         if bp.resolved:
-            logger.warning(f"Breakpoint {breakpoint_id} already resolved")
+            logger.warning("Breakpoint %s already resolved", breakpoint_id)
             return False
 
         bp.resolved = True
@@ -535,7 +535,7 @@ How would you like to proceed?
         # Emit WebSocket event
         self._emit_breakpoint_resolved_event(bp)
 
-        logger.info(f"Breakpoint {breakpoint_id} resolved with action: {guidance.action}")
+        logger.info("Breakpoint %s resolved with action: %s", breakpoint_id, guidance.action)
         return True
 
     def _emit_breakpoint_resolved_event(self, breakpoint: Breakpoint) -> None:
@@ -565,9 +565,9 @@ How would you like to proceed?
                     },
                 )
             )
-            logger.info(f"Emitted BREAKPOINT_RESOLVED event for {breakpoint.breakpoint_id}")
+            logger.info("Emitted BREAKPOINT_RESOLVED event for %s", breakpoint.breakpoint_id)
         except (RuntimeError, ValueError, TypeError, AttributeError, OSError) as e:
-            logger.warning(f"Failed to emit breakpoint resolved event: {e}")
+            logger.warning("Failed to emit breakpoint resolved event: %s", e)
 
     def inject_guidance(
         self,

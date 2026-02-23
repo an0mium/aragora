@@ -146,7 +146,7 @@ class OllamaBackend(EmbeddingBackend):
                 )
                 if attempt < self.config.max_retries - 1:
                     delay = self.config.base_delay * (2**attempt)
-                    logger.warning(f"Ollama timeout, retrying in {delay}s")
+                    logger.warning("Ollama timeout, retrying in %ss", delay)
                     await asyncio.sleep(delay)
                     continue
                 raise last_error
@@ -155,7 +155,7 @@ class OllamaBackend(EmbeddingBackend):
                 self._record_failure()
                 if attempt < self.config.max_retries - 1:
                     delay = self.config.base_delay * (2**attempt)
-                    logger.warning(f"Ollama API error, retrying in {delay}s: {e}")
+                    logger.warning("Ollama API error, retrying in %ss: %s", delay, e)
                     await asyncio.sleep(delay)
                     continue
                 raise EmbeddingError(

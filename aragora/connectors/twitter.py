@@ -135,7 +135,7 @@ class TwitterConnector(BaseConnector):
             logger.debug("Twitter health check timed out")
             return False
         except httpx.RequestError as e:
-            logger.debug(f"Twitter health check failed: {e}")
+            logger.debug("Twitter health check failed: %s", e)
             return False
 
     async def _rate_limit(self) -> None:
@@ -223,7 +223,7 @@ class TwitterConnector(BaseConnector):
         try:
             data = await self._request_with_retry(do_request, f"search '{query[:50]}'")
             results = self._parse_search_results(data)
-            logger.info(f"Twitter search '{query[:50]}...' returned {len(results)} results")
+            logger.info("Twitter search '%s...' returned %s results", query[:50], len(results))
             return results[:limit]
 
         except (
@@ -235,7 +235,7 @@ class TwitterConnector(BaseConnector):
             KeyError,
             TypeError,
         ) as e:
-            logger.debug(f"Twitter search failed: {e}")
+            logger.debug("Twitter search failed: %s", e)
             return []
 
     async def fetch(self, evidence_id: str) -> Evidence | None:
@@ -296,7 +296,7 @@ class TwitterConnector(BaseConnector):
             KeyError,
             TypeError,
         ) as e:
-            logger.debug(f"Twitter fetch failed for {evidence_id}: {e}")
+            logger.debug("Twitter fetch failed for %s: %s", evidence_id, e)
             return None
 
     def _parse_search_results(self, data: dict) -> list[Evidence]:
@@ -314,7 +314,7 @@ class TwitterConnector(BaseConnector):
                 if evidence:
                     results.append(evidence)
             except (ValueError, TypeError, KeyError, AttributeError) as e:
-                logger.debug(f"Error parsing tweet: {e}")
+                logger.debug("Error parsing tweet: %s", e)
                 continue
 
         return results
@@ -487,7 +487,7 @@ class TwitterConnector(BaseConnector):
                 if evidence:
                     results.append(evidence)
 
-            logger.info(f"Twitter user {user_id} returned {len(results)} tweets")
+            logger.info("Twitter user %s returned %s tweets", user_id, len(results))
             return results
 
         except (
@@ -499,7 +499,7 @@ class TwitterConnector(BaseConnector):
             KeyError,
             TypeError,
         ) as e:
-            logger.debug(f"Twitter get_user_tweets failed for {user_id}: {e}")
+            logger.debug("Twitter get_user_tweets failed for %s: %s", user_id, e)
             return []
 
     async def search_hashtag(self, hashtag: str, limit: int = 10) -> list[Evidence]:

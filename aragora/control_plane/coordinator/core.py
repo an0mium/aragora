@@ -293,7 +293,7 @@ class ControlPlaneCoordinator:
                         }
                     )
                 except (ConnectionError, OSError, AttributeError) as e:
-                    logger.debug(f"Failed to broadcast watchdog issue: {e}")
+                    logger.debug("Failed to broadcast watchdog issue: %s", e)
 
             # Record in KM if adapter available
             km_adapter = self._state_manager.km_adapter
@@ -302,10 +302,10 @@ class ControlPlaneCoordinator:
                     # KM adapter can track operational incidents
                     pass  # KM tracking is optional - no-op if not needed
                 except (ConnectionError, OSError, AttributeError) as e:
-                    logger.debug(f"Failed to record watchdog issue in KM: {e}")
+                    logger.debug("Failed to record watchdog issue in KM: %s", e)
 
         except (RuntimeError, ValueError, KeyError) as e:
-            logger.warning(f"Error handling watchdog issue: {e}")
+            logger.warning("Error handling watchdog issue: %s", e)
 
     @classmethod
     async def create(

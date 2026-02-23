@@ -110,7 +110,7 @@ class EnterpriseProxy:
         for name, fw_config in self._frameworks.items():
             self._init_framework(name, fw_config)
 
-        logger.info(f"EnterpriseProxy initialized with {len(self._frameworks)} frameworks")
+        logger.info("EnterpriseProxy initialized with %s frameworks", len(self._frameworks))
 
     def _init_framework(self, name: str, config: ExternalFrameworkConfig) -> None:
         """Initialize components for a framework.
@@ -227,11 +227,11 @@ class EnterpriseProxy:
             config: Framework configuration.
         """
         if name in self._frameworks:
-            logger.warning(f"Overwriting existing framework config for '{name}'")
+            logger.warning("Overwriting existing framework config for '%s'", name)
 
         self._frameworks[name] = config
         self._init_framework(name, config)
-        logger.info(f"Registered framework: {name}")
+        logger.info("Registered framework: %s", name)
 
     def unregister_framework(self, name: str) -> bool:
         """Unregister an external framework.
@@ -251,7 +251,7 @@ class EnterpriseProxy:
         del self._sanitizers[name]
         del self._health_results[name]
 
-        logger.info(f"Unregistered framework: {name}")
+        logger.info("Unregistered framework: %s", name)
         return True
 
     def get_framework_config(self, name: str) -> ExternalFrameworkConfig | None:
@@ -470,7 +470,7 @@ class EnterpriseProxy:
             except ProxyError:
                 raise
             except (RuntimeError, ValueError, TypeError) as e:  # noqa: BLE001 - user-provided pre-request hook
-                logger.error(f"Pre-request hook failed: {e}")
+                logger.error("Pre-request hook failed: %s", e)
                 raise ProxyError(
                     f"Pre-request hook failed: {e}",
                     code="HOOK_ERROR",
@@ -492,7 +492,7 @@ class EnterpriseProxy:
                 try:
                     await error_hook(proxy_request, e)
                 except (RuntimeError, ValueError, TypeError) as hook_error:  # noqa: BLE001 - user-provided error hook
-                    logger.error(f"Error hook failed: {hook_error}")
+                    logger.error("Error hook failed: %s", hook_error)
             raise
 
     async def _execute_with_resilience(
@@ -594,8 +594,7 @@ class EnterpriseProxy:
                     await asyncio.sleep(delay)
                 else:
                     logger.warning(
-                        f"Request to {request.framework} failed after "
-                        f"{retry_settings.max_retries + 1} attempts: {e}"
+                        "Request to %s failed after %s attempts: %s", request.framework, retry_settings.max_retries + 1, e
                     )
                     raise
 
@@ -695,7 +694,7 @@ class EnterpriseProxy:
                     try:
                         await hook(request, proxy_response)
                     except (RuntimeError, ValueError, TypeError) as e:  # noqa: BLE001 - user-provided post-request hook
-                        logger.error(f"Post-request hook failed: {e}")
+                        logger.error("Post-request hook failed: %s", e)
 
                 return proxy_response
 
@@ -824,7 +823,7 @@ class EnterpriseProxy:
                     try:
                         await self.check_health(name)
                     except (OSError, ConnectionError, TimeoutError, RuntimeError) as e:
-                        logger.error(f"Health check failed for {name}: {e}")
+                        logger.error("Health check failed for %s: %s", name, e)
 
                     await asyncio.sleep(config.health_check_interval)
 

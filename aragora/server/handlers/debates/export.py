@@ -189,7 +189,7 @@ class ExportOperationsMixin:
         # Start processing in background
         asyncio.create_task(self._process_batch_export(job))
 
-        logger.info(f"Batch export {job_id} started with {len(items)} items")
+        logger.info("Batch export %s started with %s items", job_id, len(items))
 
         return json_response(
             {
@@ -229,12 +229,12 @@ class ExportOperationsMixin:
                 for debate_id in debate_ids:
                     debates_map[debate_id] = storage.get_debate(debate_id)
         except (KeyError, ValueError, OSError, TypeError, AttributeError, RuntimeError) as e:
-            logger.warning(f"Batch fetch failed, falling back to individual queries: {e}")
+            logger.warning("Batch fetch failed, falling back to individual queries: %s", e)
             for debate_id in debate_ids:
                 try:
                     debates_map[debate_id] = storage.get_debate(debate_id)
                 except (KeyError, ValueError, OSError, TypeError, AttributeError) as e:
-                    logger.warning(f"Failed to fetch debate {debate_id}: {type(e).__name__}: {e}")
+                    logger.warning("Failed to fetch debate %s: %s: %s", debate_id, type(e).__name__, e)
                     debates_map[debate_id] = None
 
         for i, item in enumerate(job.items):
@@ -262,7 +262,7 @@ class ExportOperationsMixin:
                 item.error = "Export failed"
                 item.completed_at = time.time()
                 job.error_count += 1
-                logger.warning(f"Batch export item failed: {item.debate_id}: {e}")
+                logger.warning("Batch export item failed: %s: %s", item.debate_id, e)
 
             job.processed_count += 1
 
@@ -468,7 +468,7 @@ class ExportOperationsMixin:
                         break
 
         except (ConnectionError, OSError, RuntimeError, ValueError, TypeError) as e:
-            logger.warning(f"SSE stream error for {job_id}: {e}")
+            logger.warning("SSE stream error for %s: %s", job_id, e)
             yield f"data: {json.dumps({'type': 'error', 'message': 'Stream error'})}\n\n"
 
     def _list_batch_exports(self: _DebatesHandlerProtocol, limit: int = 50) -> HandlerResult:

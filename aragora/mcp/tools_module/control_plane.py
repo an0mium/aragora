@@ -32,7 +32,7 @@ async def _get_coordinator() -> Any:
         _coordinator = await ControlPlaneCoordinator.create()
         return _coordinator
     except (ImportError, RuntimeError, OSError) as e:
-        logger.warning(f"Could not create coordinator: {e}")
+        logger.warning("Could not create coordinator: %s", e)
         return None
 
 

@@ -175,7 +175,7 @@ class PairwiseSimilarityCache:
                 evicted += 1
 
         if evicted > 0:
-            logger.debug(f"Evicted {evicted} expired entries from cache {self.session_id}")
+            logger.debug("Evicted %s expired entries from cache %s", evicted, self.session_id)
 
         return evicted
 
@@ -324,11 +324,10 @@ class _PeriodicCacheCleanup:
 
                 if cleaned > 0 or entries_evicted > 0:
                     logger.info(
-                        f"Periodic cleanup: removed {cleaned} stale caches, "
-                        f"evicted {entries_evicted} expired entries"
+                        "Periodic cleanup: removed %s stale caches, evicted %s expired entries", cleaned, entries_evicted
                     )
             except (RuntimeError, ValueError, TypeError, AttributeError, KeyError, OSError) as e:
-                logger.warning(f"Error during periodic cache cleanup: {e}")
+                logger.warning("Error during periodic cache cleanup: %s", e)
 
     def get_stats(self) -> dict[str, Any]:
         """Get cleanup thread statistics."""
@@ -465,7 +464,7 @@ def get_pairwise_similarity_cache(
                     del _similarity_cache_manager[oldest_session]
                 if oldest_session in _similarity_cache_timestamps:
                     del _similarity_cache_timestamps[oldest_session]
-                logger.debug(f"Evicted oldest similarity cache {oldest_session} to make room")
+                logger.debug("Evicted oldest similarity cache %s to make room", oldest_session)
 
         # Create new cache
         _similarity_cache_manager[session_id] = PairwiseSimilarityCache(
@@ -491,7 +490,7 @@ def cleanup_similarity_cache(session_id: str) -> None:
             del _similarity_cache_manager[session_id]
         if session_id in _similarity_cache_timestamps:
             del _similarity_cache_timestamps[session_id]
-        logger.debug(f"Cleaned up similarity cache for session {session_id}")
+        logger.debug("Cleaned up similarity cache for session %s", session_id)
 
 
 def cleanup_stale_similarity_caches(
@@ -529,7 +528,7 @@ def cleanup_stale_similarity_caches(
             cleaned += 1
 
     if cleaned > 0:
-        logger.debug(f"Cleaned up {cleaned} stale similarity caches")
+        logger.debug("Cleaned up %s stale similarity caches", cleaned)
 
     return cleaned
 
@@ -560,7 +559,7 @@ def evict_expired_cache_entries() -> int:
             evicted = cache.evict_expired()
             total_evicted += evicted
         except (RuntimeError, ValueError, TypeError, AttributeError, KeyError, OSError) as e:
-            logger.warning(f"Error evicting expired entries from cache {cache.session_id}: {e}")
+            logger.warning("Error evicting expired entries from cache %s: %s", cache.session_id, e)
 
     return total_evicted
 

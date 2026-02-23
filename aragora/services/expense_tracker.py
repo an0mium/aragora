@@ -408,7 +408,7 @@ class ExpenseTracker:
             return True
         cb = self._circuit_breakers[service]
         if not cb.can_proceed():
-            logger.warning(f"Circuit breaker open for {service}")
+            logger.warning("Circuit breaker open for %s", service)
             return False
         return True
 
@@ -461,7 +461,7 @@ class ExpenseTracker:
                 metadata={"service": "expense_tracker"},
             )
         except (ValueError, OSError, ConnectionError, RuntimeError, TypeError) as e:
-            logger.debug(f"Failed to emit usage event: {e}")
+            logger.debug("Failed to emit usage event: %s", e)
 
     async def process_receipt(
         self,
@@ -519,7 +519,7 @@ class ExpenseTracker:
         )
 
         logger.info(
-            f"Processed receipt -> expense {expense_id}: {expense.vendor_name} ${expense.amount}"
+            "Processed receipt -> expense %s: %s $%s", expense_id, expense.vendor_name, expense.amount
         )
         return expense
 
@@ -538,7 +538,7 @@ class ExpenseTracker:
         is_jpeg = image_data[:2] == b"\xff\xd8"
 
         doc_type = "PDF" if is_pdf else "PNG" if is_png else "JPEG" if is_jpeg else "unknown"
-        logger.debug(f"Processing {doc_type} receipt ({len(image_data)} bytes)")
+        logger.debug("Processing %s receipt (%s bytes)", doc_type, len(image_data))
 
         extracted_text = ""
         confidence = 0.5
@@ -569,9 +569,9 @@ class ExpenseTracker:
                         extracted_text += page.extract_text() or ""
                     confidence = 0.7 if extracted_text.strip() else 0.2
                 except (ValueError, OSError, ConnectionError, RuntimeError, TypeError) as e:
-                    logger.warning(f"PDF extraction failed: {e}")
+                    logger.warning("PDF extraction failed: %s", e)
             except (ValueError, OSError, ConnectionError, RuntimeError, TypeError) as e:
-                logger.warning(f"pdfplumber extraction failed: {e}")
+                logger.warning("pdfplumber extraction failed: %s", e)
 
         # Try image OCR with pytesseract if available
         elif is_png or is_jpeg:
@@ -589,7 +589,7 @@ class ExpenseTracker:
                 )
                 confidence = 0.0
             except (ValueError, OSError, ConnectionError, RuntimeError, TypeError) as e:
-                logger.warning(f"Image OCR failed: {e}")
+                logger.warning("Image OCR failed: %s", e)
 
         # Parse extracted text for receipt data
         result = self._parse_receipt_text(extracted_text)
@@ -781,7 +781,7 @@ class ExpenseTracker:
             for pattern in patterns:
                 if re.search(pattern, combined, re.IGNORECASE):
                     logger.debug(
-                        f"Categorized {expense.vendor_name} as {category.value} (pattern: {pattern})"
+                        "Categorized %s as %s (pattern: %s)", expense.vendor_name, category.value, pattern
                     )
                     return category
 
@@ -861,10 +861,10 @@ Respond with ONLY the category name (lowercase, with underscores). No explanatio
                         try:
                             return ExpenseCategory(category_text)
                         except ValueError:
-                            logger.debug(f"LLM returned invalid category: {category_text}")
+                            logger.debug("LLM returned invalid category: %s", category_text)
                             return None
                     else:
-                        logger.warning(f"Anthropic API error: {response.status_code}")
+                        logger.warning("Anthropic API error: %s", response.status_code)
                         return None
             else:  # OpenAI
                 async with pool.get_session("openai") as client:
@@ -896,13 +896,13 @@ Respond with ONLY the category name (lowercase, with underscores). No explanatio
                         try:
                             return ExpenseCategory(category_text)
                         except ValueError:
-                            logger.debug(f"LLM returned invalid category: {category_text}")
+                            logger.debug("LLM returned invalid category: %s", category_text)
                             return None
                     else:
-                        logger.warning(f"OpenAI API error: {response.status_code}")
+                        logger.warning("OpenAI API error: %s", response.status_code)
                         return None
         except (ValueError, OSError, ConnectionError, RuntimeError, TypeError) as e:
-            logger.warning(f"LLM categorization failed: {e}")
+            logger.warning("LLM categorization failed: %s", e)
             return None
 
     async def detect_duplicates(
@@ -1011,7 +1011,7 @@ Respond with ONLY the category name (lowercase, with underscores). No explanatio
 
                 result.success_count += 1
                 result.synced_ids.append(expense.id)
-                logger.info(f"Synced expense {expense.id} to QBO as {qbo_id}")
+                logger.info("Synced expense %s to QBO as %s", expense.id, qbo_id)
 
             except (ValueError, OSError, ConnectionError, RuntimeError, TypeError) as e:
                 result.failed_count += 1
@@ -1022,7 +1022,7 @@ Respond with ONLY the category name (lowercase, with underscores). No explanatio
                         "error": str(e),
                     }
                 )
-                logger.error(f"Failed to sync expense {expense.id}: {e}")
+                logger.error("Failed to sync expense %s: %s", expense.id, e)
 
         return result
 
@@ -1071,11 +1071,11 @@ Respond with ONLY the category name (lowercase, with underscores). No explanatio
             )
 
             qbo_id = result.get("Id", f"qbo_{uuid4().hex[:8]}")
-            logger.info(f"Created QBO expense {qbo_id} for expense {expense.id}")
+            logger.info("Created QBO expense %s for expense %s", qbo_id, expense.id)
             return qbo_id
 
         except (ValueError, OSError, ConnectionError, RuntimeError, TypeError) as e:
-            logger.exception(f"Failed to create QBO expense: {e}")
+            logger.exception("Failed to create QBO expense: %s", e)
             # Return mock ID on failure so sync can continue
             return f"qbo_error_{uuid4().hex[:8]}"
 

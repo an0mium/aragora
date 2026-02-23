@@ -237,8 +237,7 @@ class WebhookHandler(SecureHandler):
         decision = check_permission(rbac_ctx, permission_key)
         if not decision.allowed:
             logger.warning(
-                f"RBAC denied: user={rbac_ctx.user_id} permission={permission_key} "
-                f"reason={decision.reason}"
+                "RBAC denied: user=%s permission=%s reason=%s", rbac_ctx.user_id, permission_key, decision.reason
             )
             return error_response(
                 "Permission denied",
@@ -565,7 +564,7 @@ The webhook secret is only returned once on creation - save it securely.""",
         # Rate limit check
         client_ip = get_client_ip(handler)
         if not _list_limiter.is_allowed(client_ip):
-            logger.warning(f"Rate limit exceeded for webhook list: {client_ip}")
+            logger.warning("Rate limit exceeded for webhook list: %s", client_ip)
             return error_response("Rate limit exceeded. Please try again later.", 429)
 
         # RBAC permission check
@@ -614,7 +613,7 @@ The webhook secret is only returned once on creation - save it securely.""",
         # Rate limit check
         client_ip = get_client_ip(handler)
         if not _register_limiter.is_allowed(client_ip):
-            logger.warning(f"Rate limit exceeded for webhook registration: {client_ip}")
+            logger.warning("Rate limit exceeded for webhook registration: %s", client_ip)
             return error_response("Rate limit exceeded. Please try again later.", 429)
 
         # RBAC permission check
@@ -769,7 +768,7 @@ The webhook secret is only returned once on creation - save it securely.""",
         # Rate limit check
         client_ip = get_client_ip(handler)
         if not _test_limiter.is_allowed(client_ip):
-            logger.warning(f"Rate limit exceeded for webhook test: {client_ip}")
+            logger.warning("Rate limit exceeded for webhook test: %s", client_ip)
             return error_response("Rate limit exceeded. Please try again later.", 429)
 
         # RBAC permission check
@@ -871,7 +870,7 @@ The webhook secret is only returned once on creation - save it securely.""",
                 }
             )
         except (KeyError, ValueError, AttributeError, TypeError) as e:
-            logger.error(f"Error getting SLO webhook status: {e}")
+            logger.error("Error getting SLO webhook status: %s", e)
             return error_response("Failed to retrieve SLO status", 500)
 
     def _handle_slo_test(self, handler: Any) -> HandlerResult:
@@ -931,7 +930,7 @@ The webhook secret is only returned once on creation - save it securely.""",
         except ImportError:
             return error_response("SLO module not available", 500)
         except (KeyError, ValueError, AttributeError, TypeError) as e:
-            logger.error(f"Error sending test SLO notification: {e}")
+            logger.error("Error sending test SLO notification: %s", e)
             return error_response("Test notification failed", 500)
 
     # =========================================================================
@@ -964,7 +963,7 @@ The webhook secret is only returned once on creation - save it securely.""",
         except ImportError:
             return error_response("Webhook retry queue not available", 500)
         except (KeyError, ValueError, OSError, TypeError) as e:
-            logger.error(f"Error listing dead letters: {e}")
+            logger.error("Error listing dead letters: %s", e)
             return error_response("Failed to list dead letters", 500)
 
     async def _handle_get_dead_letter(self, delivery_id: str, handler: Any) -> HandlerResult:
@@ -991,7 +990,7 @@ The webhook secret is only returned once on creation - save it securely.""",
         except ImportError:
             return error_response("Webhook retry queue not available", 500)
         except (KeyError, ValueError, OSError, TypeError) as e:
-            logger.error(f"Error getting dead letter: {e}")
+            logger.error("Error getting dead letter: %s", e)
             return error_response("Failed to retrieve dead letter", 500)
 
     async def _handle_retry_dead_letter(self, delivery_id: str, handler: Any) -> HandlerResult:
@@ -1033,7 +1032,7 @@ The webhook secret is only returned once on creation - save it securely.""",
         except ImportError:
             return error_response("Webhook retry queue not available", 500)
         except (KeyError, ValueError, OSError, TypeError) as e:
-            logger.error(f"Error retrying dead letter: {e}")
+            logger.error("Error retrying dead letter: %s", e)
             return error_response("Dead letter retry failed", 500)
 
     async def _handle_delete_dead_letter(self, delivery_id: str, handler: Any) -> HandlerResult:
@@ -1072,7 +1071,7 @@ The webhook secret is only returned once on creation - save it securely.""",
         except ImportError:
             return error_response("Webhook retry queue not available", 500)
         except (KeyError, ValueError, OSError, TypeError) as e:
-            logger.error(f"Error deleting dead letter: {e}")
+            logger.error("Error deleting dead letter: %s", e)
             return error_response("Dead letter deletion failed", 500)
 
     async def _handle_queue_stats(self, handler: Any) -> HandlerResult:
@@ -1093,7 +1092,7 @@ The webhook secret is only returned once on creation - save it securely.""",
         except ImportError:
             return error_response("Webhook retry queue not available", 500)
         except (KeyError, ValueError, OSError, TypeError) as e:
-            logger.error(f"Error getting queue stats: {e}")
+            logger.error("Error getting queue stats: %s", e)
             return error_response("Failed to retrieve queue stats", 500)
 
 

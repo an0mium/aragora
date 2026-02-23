@@ -176,7 +176,7 @@ class CostAdapter(FusionMixin, SemanticSearchMixin, ReverseFlowMixin, KnowledgeM
                 return True
             return False
         except (RuntimeError, ValueError, OSError, AttributeError) as e:
-            logger.warning(f"Failed to apply fusion result to cost: {e}")
+            logger.warning("Failed to apply fusion result to cost: %s", e)
             return False
 
     # ========================================================================
@@ -348,7 +348,7 @@ class CostAdapter(FusionMixin, SemanticSearchMixin, ReverseFlowMixin, KnowledgeM
         level = alert.level.value if hasattr(alert.level, "value") else str(alert.level)
 
         if not self._alert_level_meets_threshold(level):
-            logger.debug(f"Alert {alert.id} below level threshold: {level}")
+            logger.debug("Alert %s below level threshold: %s", alert.id, level)
             return None
 
         alert_id = f"{self.ID_PREFIX}alert_{alert.id}"
@@ -381,7 +381,7 @@ class CostAdapter(FusionMixin, SemanticSearchMixin, ReverseFlowMixin, KnowledgeM
                 self._workspace_alerts[alert.workspace_id] = []
             self._workspace_alerts[alert.workspace_id].append(alert_id)
 
-        logger.info(f"Stored budget alert: {alert_id} (level={level})")
+        logger.info("Stored budget alert: %s (level=%s)", alert_id, level)
         return alert_id
 
     def store_anomaly(
@@ -471,7 +471,7 @@ class CostAdapter(FusionMixin, SemanticSearchMixin, ReverseFlowMixin, KnowledgeM
                 self._agent_costs[agent_id] = []
             self._agent_costs[agent_id].append(snapshot_id)
 
-        logger.debug(f"Stored cost snapshot: {snapshot_id}")
+        logger.debug("Stored cost snapshot: %s", snapshot_id)
         return snapshot_id
 
     def get_alert(self, alert_id: str) -> dict[str, Any] | None:

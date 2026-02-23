@@ -50,13 +50,13 @@ def emit_tier_event(
         )
     except (AttributeError, TypeError) as e:
         # event_emitter not properly configured or emit() signature mismatch
-        logger.debug(f"[memory] Event emitter configuration error: {e}")
+        logger.debug("[memory] Event emitter configuration error: %s", e)
     except (ValueError, KeyError) as e:
         # Invalid event data
-        logger.warning(f"[memory] Invalid tier event data: {e}")
+        logger.warning("[memory] Invalid tier event data: %s", e)
     except (ConnectionError, OSError) as e:
         # Network/IO errors during event emission - non-critical
-        logger.debug(f"[memory] Event emission network error: {e}")
+        logger.debug("[memory] Event emission network error: %s", e)
 
 
 def promote_batch(
@@ -136,8 +136,7 @@ def promote_batch(
 
     if promoted_count > 0:
         logger.info(
-            f"[memory] Batch promoted {promoted_count}/{len(ids)} entries: "
-            f"{from_tier.value} -> {to_tier.value}"
+            "[memory] Batch promoted %s/%s entries: %s -> %s", promoted_count, len(ids), from_tier.value, to_tier.value
         )
 
     return promoted_count
@@ -212,8 +211,7 @@ def demote_batch(
 
     if demoted_count > 0:
         logger.info(
-            f"[memory] Batch demoted {demoted_count}/{len(ids)} entries: "
-            f"{from_tier.value} -> {to_tier.value}"
+            "[memory] Batch demoted %s/%s entries: %s -> %s", demoted_count, len(ids), from_tier.value, to_tier.value
         )
 
     return demoted_count
@@ -304,7 +302,7 @@ def consolidate(cms: ContinuumMemory) -> dict[str, int]:
         count = promote_batch(cms, from_tier, to_tier, ids)
         promotions += count
         logger.debug(
-            f"Promoted {count}/{len(ids)} entries from {from_tier.value} to {to_tier.value}"
+            "Promoted %s/%s entries from %s to %s", count, len(ids), from_tier.value, to_tier.value
         )
 
     # Process all demotions (outside the collection connection)
@@ -312,12 +310,12 @@ def consolidate(cms: ContinuumMemory) -> dict[str, int]:
         count = demote_batch(cms, from_tier, to_tier, ids)
         demotions += count
         logger.debug(
-            f"Demoted {count}/{len(ids)} entries from {from_tier.value} to {to_tier.value}"
+            "Demoted %s/%s entries from %s to %s", count, len(ids), from_tier.value, to_tier.value
         )
 
     if promotions > 0 or demotions > 0:
         logger.info(
-            f"[memory] Consolidation complete: {promotions} promotions, {demotions} demotions"
+            "[memory] Consolidation complete: %s promotions, %s demotions", promotions, demotions
         )
     else:
         logger.debug("[memory] Consolidation complete: no tier changes")

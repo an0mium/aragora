@@ -86,7 +86,7 @@ class OllamaAgent(APIAgent):
                     data = await response.json()
                     return data.get("models", [])
             except (aiohttp.ClientError, asyncio.TimeoutError, OSError, ValueError, KeyError) as e:
-                logger.warning(f"Failed to list Ollama models: {e}")
+                logger.warning("Failed to list Ollama models: %s", e)
                 return []
 
     async def pull_model(self, model_name: str) -> AsyncGenerator[dict, None]:
@@ -138,7 +138,7 @@ class OllamaAgent(APIAgent):
                         return {}
                     return await response.json()
             except (aiohttp.ClientError, asyncio.TimeoutError, OSError, ValueError, KeyError) as e:
-                logger.warning(f"Failed to get model info: {e}")
+                logger.warning("Failed to get model info: %s", e)
                 return {}
 
     @handle_agent_errors(

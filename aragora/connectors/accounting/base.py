@@ -133,7 +133,7 @@ class AccountingConnectorBase(ABC, Generic[C]):
     def set_credentials(self, credentials: C) -> None:
         """Set the credentials for authenticated requests."""
         self._credentials = credentials
-        logger.info(f"[{self.PROVIDER_NAME}] Credentials set")
+        logger.info("[%s] Credentials set", self.PROVIDER_NAME)
 
     def get_credentials(self) -> C | None:
         """Get the current credentials."""
@@ -249,7 +249,7 @@ class AccountingConnectorBase(ABC, Generic[C]):
                 if response.status_code == 429:
                     if attempt < config.max_retries:
                         delay = self._get_retry_delay(response, attempt, config)
-                        logger.warning(f"[{self.PROVIDER_NAME}] Rate limited, retrying in {delay}s")
+                        logger.warning("[%s] Rate limited, retrying in %ss", self.PROVIDER_NAME, delay)
                         await asyncio.sleep(delay)
                         continue
                     else:
@@ -262,8 +262,7 @@ class AccountingConnectorBase(ABC, Generic[C]):
                     if attempt < config.max_retries:
                         delay = self._get_retry_delay(response, attempt, config)
                         logger.warning(
-                            f"[{self.PROVIDER_NAME}] Server error {response.status_code}, "
-                            f"retrying in {delay}s"
+                            "[%s] Server error %s, retrying in %ss", self.PROVIDER_NAME, response.status_code, delay
                         )
                         await asyncio.sleep(delay)
                         continue
@@ -277,10 +276,10 @@ class AccountingConnectorBase(ABC, Generic[C]):
                             request_headers = self._get_auth_headers()
                             continue
                         except (ConnectorAuthError, ConnectorAPIError, asyncio.TimeoutError) as e:
-                            logger.warning(f"[{self.PROVIDER_NAME}] Token refresh failed: {e}")
+                            logger.warning("[%s] Token refresh failed: %s", self.PROVIDER_NAME, e)
                         except (RuntimeError, ValueError, KeyError) as e:
                             logger.error(
-                                f"[{self.PROVIDER_NAME}] Unexpected error during token refresh: {e}"
+                                "[%s] Unexpected error during token refresh: %s", self.PROVIDER_NAME, e
                             )
                     raise ConnectorAuthError(f"Authentication failed: {response.status_code}")
 
@@ -301,7 +300,7 @@ class AccountingConnectorBase(ABC, Generic[C]):
                 last_error = e
                 if attempt < config.max_retries:
                     delay = self._get_retry_delay(None, attempt, config)
-                    logger.warning(f"[{self.PROVIDER_NAME}] Timeout, retrying in {delay}s")
+                    logger.warning("[%s] Timeout, retrying in %ss", self.PROVIDER_NAME, delay)
                     await asyncio.sleep(delay)
                     continue
                 raise ConnectorTimeoutError(f"Request timed out: {endpoint}") from e
@@ -310,7 +309,7 @@ class AccountingConnectorBase(ABC, Generic[C]):
                 last_error = e
                 if config.retry_on_connection_error and attempt < config.max_retries:
                     delay = self._get_retry_delay(None, attempt, config)
-                    logger.warning(f"[{self.PROVIDER_NAME}] Connection error, retrying in {delay}s")
+                    logger.warning("[%s] Connection error, retrying in %ss", self.PROVIDER_NAME, delay)
                     await asyncio.sleep(delay)
                     continue
                 raise ConnectorAPIError(f"Connection error: {e}") from e
@@ -391,14 +390,14 @@ class AccountingConnectorBase(ABC, Generic[C]):
                 return data.get("error") or data.get("message") or str(data)
             return str(data)
         except (json.JSONDecodeError, ValueError, TypeError) as e:
-            logger.debug(f"[{self.PROVIDER_NAME}] Could not parse error as JSON: {e}")
+            logger.debug("[%s] Could not parse error as JSON: %s", self.PROVIDER_NAME, e)
             if hasattr(response, "text"):
                 if asyncio.iscoroutinefunction(response.text):
                     return await response.text()
                 return response.text
             return f"HTTP {response.status_code}"
         except (AttributeError, KeyError, RuntimeError) as e:
-            logger.warning(f"[{self.PROVIDER_NAME}] Unexpected error parsing response: {e}")
+            logger.warning("[%s] Unexpected error parsing response: %s", self.PROVIDER_NAME, e)
             return f"HTTP {response.status_code}"
 
     # =========================================================================
@@ -433,8 +432,7 @@ class AccountingConnectorBase(ABC, Generic[C]):
         for _page_idx in range(_MAX_PAGES):
             if page >= max_iterations:
                 logger.warning(
-                    f"[{self.PROVIDER_NAME}] Pagination limit {max_iterations} reached "
-                    f"for {entity_type}, stopping with {len(results)} results"
+                    "[%s] Pagination limit %s reached for %s, stopping with %s results", self.PROVIDER_NAME, max_iterations, entity_type, len(results)
                 )
                 break
             # Build pagination params
@@ -462,7 +460,7 @@ class AccountingConnectorBase(ABC, Generic[C]):
             if pagination.max_pages and page >= pagination.max_pages:
                 break
 
-        logger.debug(f"[{self.PROVIDER_NAME}] Listed {len(results)} {entity_type}(s)")
+        logger.debug("[%s] Listed %s %s(s)", self.PROVIDER_NAME, len(results), entity_type)
         return results
 
     def _extract_entities(self, response: dict[str, Any], entity_type: str) -> list[dict[str, Any]]:

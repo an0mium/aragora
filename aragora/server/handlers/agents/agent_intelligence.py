@@ -218,7 +218,7 @@ class AgentIntelligenceMixin:
                     "confidence_level": self._compute_confidence(rating),
                 }
             except (KeyError, ValueError, AttributeError, TypeError) as e:
-                logger.debug(f"Could not get ELO data for {agent}: {e}")
+                logger.debug("Could not get ELO data for %s: %s", agent, e)
 
         # Get position history
         try:
@@ -240,7 +240,7 @@ class AgentIntelligenceMixin:
                         for p in positions
                     ]
         except (ImportError, OSError, KeyError, ValueError) as e:
-            logger.debug(f"Could not get position data for {agent}: {e}")
+            logger.debug("Could not get position data for %s: %s", agent, e)
 
         # Get memory tier summary
         try:
@@ -258,7 +258,7 @@ class AgentIntelligenceMixin:
                 "red_line_count": len(memory.get_red_line_memories()),
             }
         except (ImportError, KeyError, ValueError, TypeError) as e:
-            logger.debug(f"Could not get memory data: {e}")
+            logger.debug("Could not get memory data: %s", e)
 
         # Get persona info if available
         try:
@@ -277,7 +277,7 @@ class AgentIntelligenceMixin:
                     ),
                 }
         except (ImportError, KeyError, ValueError, AttributeError) as e:
-            logger.debug(f"Could not get persona data for {agent}: {e}")
+            logger.debug("Could not get persona data for %s: %s", agent, e)
 
         # Add debate-specific context if debate_id provided
         if debate_id:
@@ -297,7 +297,7 @@ class AgentIntelligenceMixin:
                             "debate_status": debate.get("status", "unknown"),
                         }
             except (KeyError, ValueError, AttributeError, TypeError) as e:
-                logger.debug(f"Could not get debate context: {e}")
+                logger.debug("Could not get debate context: %s", e)
 
         return json_response(introspection)
 

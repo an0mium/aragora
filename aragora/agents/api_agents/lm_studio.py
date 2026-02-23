@@ -90,7 +90,7 @@ class LMStudioAgent(APIAgent):
                     data = await response.json()
                     return data.get("data", [])
             except (aiohttp.ClientError, asyncio.TimeoutError, OSError, ValueError, KeyError) as e:
-                logger.warning(f"Failed to list LM Studio models: {e}")
+                logger.warning("Failed to list LM Studio models: %s", e)
                 return []
 
     async def get_loaded_model(self) -> str | None:

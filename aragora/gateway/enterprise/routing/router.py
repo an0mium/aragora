@@ -429,7 +429,7 @@ class EndpointHealthTracker:
                 health.status = EndpointStatus.HEALTHY
 
             logger.warning(
-                f"Endpoint {endpoint_url} failure #{health.consecutive_failures}: {error}"
+                "Endpoint %s failure #%s: %s", endpoint_url, health.consecutive_failures, error
             )
 
             return health.status
@@ -562,7 +562,7 @@ class TenantRouter:
             for config in configs:
                 self._configs[config.tenant_id] = config
 
-        logger.info(f"TenantRouter initialized with {len(self._configs)} tenant configs")
+        logger.info("TenantRouter initialized with %s tenant configs", len(self._configs))
 
     # =========================================================================
     # Configuration Management
@@ -577,7 +577,7 @@ class TenantRouter:
         """
         async with self._lock:
             self._configs[config.tenant_id] = config
-            logger.info(f"Added tenant config for {config.tenant_id}")
+            logger.info("Added tenant config for %s", config.tenant_id)
 
     async def remove_tenant_config(self, tenant_id: str) -> bool:
         """
@@ -594,7 +594,7 @@ class TenantRouter:
                 del self._configs[tenant_id]
                 # Also reset quota tracking
                 await self._quota_tracker.reset(tenant_id)
-                logger.info(f"Removed tenant config for {tenant_id}")
+                logger.info("Removed tenant config for %s", tenant_id)
                 return True
             return False
 
@@ -866,7 +866,7 @@ class TenantRouter:
                     available_fallback,
                     config.load_balancing,
                 )
-                logger.warning(f"Using fallback endpoint for tenant {tenant_id}: {endpoint.url}")
+                logger.warning("Using fallback endpoint for tenant %s: %s", tenant_id, endpoint.url)
                 return endpoint, True
 
         raise NoAvailableEndpointError(
@@ -978,7 +978,7 @@ class TenantRouter:
             tenant_id: Tenant identifier.
         """
         await self._quota_tracker.reset(tenant_id)
-        logger.info(f"Reset quota for tenant {tenant_id}")
+        logger.info("Reset quota for tenant %s", tenant_id)
 
     # =========================================================================
     # Health Monitoring
@@ -1089,7 +1089,7 @@ class TenantRouter:
             try:
                 handler(entry)
             except (RuntimeError, ValueError, TypeError) as e:  # noqa: BLE001 - user-provided event handler callback
-                logger.error(f"Audit event handler failed: {e}")
+                logger.error("Audit event handler failed: %s", e)
 
         # Log to standard logger
         log_msg = (

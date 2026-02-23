@@ -263,7 +263,7 @@ class AutoPrefetchBatcher:
                 future.set_result(None)
             return
 
-        logger.info(f"Auto-prefetch: batching {len(pending)} loads for '{property_name}'")
+        logger.info("Auto-prefetch: batching %s loads for '%s'", len(pending), property_name)
 
         # Record metric
         if _auto_prefetch_counter:
@@ -279,7 +279,7 @@ class AutoPrefetchBatcher:
             # Set results on lazy values
             for (obj, lazy_value), result in zip(pending, results):
                 if isinstance(result, Exception):
-                    logger.warning(f"Auto-prefetch load failed for '{property_name}': {result}")
+                    logger.warning("Auto-prefetch load failed for '%s': %s", property_name, result)
                 else:
                     lazy_value.set(result)
 
@@ -287,7 +287,7 @@ class AutoPrefetchBatcher:
                 future.set_result(None)
 
         except (RuntimeError, ValueError, TypeError, AttributeError, OSError) as e:
-            logger.error(f"Auto-prefetch batch failed for '{property_name}': {e}")
+            logger.error("Auto-prefetch batch failed for '%s': %s", property_name, e)
             if future and not future.done():
                 future.set_exception(e)
 
@@ -343,9 +343,7 @@ class LazyValue(Generic[T]):
             n_plus_one_detected = _detect_n_plus_one(self._property_name)
             if n_plus_one_detected:
                 logger.warning(
-                    f"Potential N+1 query detected for '{self._property_name}'. "
-                    f"Consider using prefetch() to batch load. "
-                    f"(Set N_PLUS_ONE_AUTO_PREFETCH=true for automatic batching)"
+                    "Potential N+1 query detected for '%s'. Consider using prefetch() to batch load. (Set N_PLUS_ONE_AUTO_PREFETCH=true for automatic batching)", self._property_name
                 )
 
             # Load value with metrics
@@ -523,7 +521,7 @@ class LazyLoader:
 
             if not isinstance(descriptor, LazyDescriptor):
                 logger.warning(
-                    f"Property '{prop_name}' is not a lazy_property on {obj_type.__name__}"
+                    "Property '%s' is not a lazy_property on %s", prop_name, obj_type.__name__
                 )
                 continue
 
@@ -548,7 +546,7 @@ class LazyLoader:
                             lazy_value.set(results[obj])
             else:
                 # Fall back to individual loads (still benefits from N+1 warning)
-                logger.debug(f"No prefetch function for '{prefetch_key}', loading individually")
+                logger.debug("No prefetch function for '%s', loading individually", prefetch_key)
 
                 # Record metric for fallback prefetch
                 _init_metrics()

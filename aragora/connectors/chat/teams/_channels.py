@@ -100,7 +100,7 @@ class TeamsChannelsMixin:
         # Check circuit breaker
         can_proceed, cb_error = self._check_circuit_breaker()
         if not can_proceed:
-            logger.warning(f"Circuit breaker open: {cb_error}")
+            logger.warning("Circuit breaker open: %s", cb_error)
             return []
 
         try:
@@ -133,7 +133,7 @@ class TeamsChannelsMixin:
                     )
 
                 if not success or not data:
-                    logger.error(f"Failed to get channel messages: {error}")
+                    logger.error("Failed to get channel messages: %s", error)
                     break
 
                 # Parse messages from response
@@ -209,17 +209,17 @@ class TeamsChannelsMixin:
             else:
                 logger.warning("Pagination safety cap reached for Teams channel messages")
 
-            logger.debug(f"Retrieved {len(messages)} messages from Teams channel {channel_id}")
+            logger.debug("Retrieved %s messages from Teams channel %s", len(messages), channel_id)
             return messages[:limit]
 
         except httpx.TimeoutException as e:
             classified = _tc._classify_teams_error(f"Timeout: {e}")
-            logger.error(f"Teams get_channel_history timeout: {e}")
+            logger.error("Teams get_channel_history timeout: %s", e)
             self._record_failure(classified)
             return []
         except httpx.ConnectError as e:
             classified = _tc._classify_teams_error(f"Connection error: {e}")
-            logger.error(f"Teams get_channel_history connection error: {e}")
+            logger.error("Teams get_channel_history connection error: %s", e)
             self._record_failure(classified)
             return []
         except (
@@ -231,7 +231,7 @@ class TeamsChannelsMixin:
             OSError,
         ) as e:
             classified = _tc._classify_teams_error(str(e))
-            logger.error(f"Teams get_channel_history error: {e}")
+            logger.error("Teams get_channel_history error: %s", e)
             self._record_failure(classified)
             return []
 
@@ -302,7 +302,7 @@ class TeamsChannelsMixin:
         evidence_list.sort(key=lambda e: e.relevance_score, reverse=True)
 
         logger.debug(
-            f"Collected {len(evidence_list)} evidence items from Teams channel {channel_id}"
+            "Collected %s evidence items from Teams channel %s", len(evidence_list), channel_id
         )
         return evidence_list
 
@@ -337,7 +337,7 @@ class TeamsChannelsMixin:
             )
 
             if not success or not data:
-                logger.debug(f"Failed to get channel info: {error}")
+                logger.debug("Failed to get channel info: %s", error)
                 return None
 
             return ChatChannel(
@@ -354,7 +354,7 @@ class TeamsChannelsMixin:
             )
 
         except (httpx.HTTPError, httpx.TimeoutException, RuntimeError, OSError) as e:
-            logger.debug(f"Teams get_channel_info error: {e}")
+            logger.debug("Teams get_channel_info error: %s", e)
             return None
 
     async def list_channels(
@@ -390,7 +390,7 @@ class TeamsChannelsMixin:
             )
 
             if not success or not data:
-                logger.warning(f"Failed to list channels for team {team_id}: {error}")
+                logger.warning("Failed to list channels for team %s: %s", team_id, error)
                 return channels
 
             channel_list = data.get("value", [])
@@ -409,11 +409,11 @@ class TeamsChannelsMixin:
                 )
                 channels.append(channel)
 
-            logger.debug(f"Listed {len(channels)} channels for team {team_id}")
+            logger.debug("Listed %s channels for team %s", len(channels), team_id)
             return channels
 
         except (httpx.HTTPError, httpx.TimeoutException, RuntimeError, OSError) as e:
-            logger.error(f"Teams list_channels error: {e}")
+            logger.error("Teams list_channels error: %s", e)
             return channels
 
     async def get_user_info(
@@ -440,7 +440,7 @@ class TeamsChannelsMixin:
             )
 
             if not success or not data:
-                logger.debug(f"Failed to get user info: {error}")
+                logger.debug("Failed to get user info: %s", error)
                 return None
 
             return ChatUser(
@@ -457,5 +457,5 @@ class TeamsChannelsMixin:
             )
 
         except (httpx.HTTPError, httpx.TimeoutException, RuntimeError, OSError) as e:
-            logger.debug(f"Teams get_user_info error: {e}")
+            logger.debug("Teams get_user_info error: %s", e)
             return None

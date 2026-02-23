@@ -105,7 +105,7 @@ async def get_auth_context(
     except UnauthorizedError:
         raise
     except (TypeError, ValueError, KeyError, AttributeError, ImportError) as e:
-        logger.warning(f"Error extracting auth context: {e}")
+        logger.warning("Error extracting auth context: %s", e)
         if require_auth:
             raise UnauthorizedError("Authentication failed")
         return AuthorizationContext(
@@ -182,7 +182,7 @@ def _get_user_permissions(user_ctx: Any) -> set[str]:
             permissions.update(role_perms)
         return permissions
     except (TypeError, ValueError, KeyError, AttributeError, ImportError) as e:
-        logger.warning(f"Error getting user permissions: {e}")
+        logger.warning("Error getting user permissions: %s", e)
         return set()
 
 
@@ -338,7 +338,7 @@ def _extract_user_from_headers(handler: Any) -> tuple[str, str]:
         if user_ctx.is_authenticated:
             return user_ctx.user_id, user_ctx.email or user_ctx.user_id
     except (TypeError, ValueError, KeyError, AttributeError, ImportError) as e:
-        logger.debug(f"JWT extraction failed: {e}")
+        logger.debug("JWT extraction failed: %s", e)
 
     # SECURITY: Do NOT fall back to X-User-ID headers - they can be spoofed
     # Return anonymous identity instead

@@ -613,7 +613,7 @@ class RequestLoggingMiddleware:
         if headers:
             extra["headers"] = redact_sensitive(dict(headers))
 
-        self.logger.info(f"{method} {path}", extra=extra)
+        self.logger.info("%s %s", method, path, extra=extra)
 
         return ctx
 
@@ -688,7 +688,7 @@ class RequestLoggingMiddleware:
             extra["traceback"] = traceback.format_exc()
 
         self.logger.error(
-            f"{ctx['method']} {ctx['path']} -> ERROR: {type(error).__name__}",
+            "%s %s -> ERROR: %s", ctx['method'], ctx['path'], type(error).__name__,
             extra=extra,
             exc_info=True,
         )

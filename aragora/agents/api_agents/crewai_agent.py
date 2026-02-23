@@ -300,7 +300,7 @@ class CrewAIAgent(ExternalFrameworkAgent):
 
         if self.crewai_config.audit_all_requests:
             logger.info(
-                f"[{self.name}] CrewAI request",
+                "[%s] CrewAI request", self.name,
                 extra={
                     "prompt_length": len(prompt),
                     "allowed_tools": self._get_allowed_tools(),
@@ -363,13 +363,12 @@ class CrewAIAgent(ExternalFrameworkAgent):
             blocked_tools = set(tools) - set(filtered_tools)
             if blocked_tools:
                 logger.warning(
-                    f"[{self.name}] Blocked tools: {blocked_tools}. "
-                    f"Allowed: {self.crewai_config.allowed_tools}"
+                    "[%s] Blocked tools: %s. Allowed: %s", self.name, blocked_tools, self.crewai_config.allowed_tools
                 )
 
         if self.crewai_config.audit_all_requests:
             logger.info(
-                f"[{self.name}] CrewAI kickoff",
+                "[%s] CrewAI kickoff", self.name,
                 extra={
                     "task_length": len(task),
                     "inputs": list(inputs.keys()) if inputs else [],
@@ -464,7 +463,7 @@ class CrewAIAgent(ExternalFrameworkAgent):
             raise
         except (AgentError, ValueError, KeyError, TypeError, RuntimeError, OSError) as e:
             execution_time = time.time() - start_time
-            logger.error(f"[{self.name}] Crew execution failed: {e}")
+            logger.error("[%s] Crew execution failed: %s", self.name, e)
             return {
                 "success": False,
                 "output": "Crew execution failed",
@@ -541,9 +540,7 @@ class CrewAIAgent(ExternalFrameworkAgent):
         available = await super().is_available()
         if available:
             logger.debug(
-                f"[{self.name}] CrewAI available at {self.base_url} "
-                f"(process={self.crewai_config.process}, "
-                f"tools={len(self.crewai_config.allowed_tools)})"
+                "[%s] CrewAI available at %s (process=%s, tools=%s)", self.name, self.base_url, self.crewai_config.process, len(self.crewai_config.allowed_tools)
             )
         return available
 

@@ -490,7 +490,7 @@ class RedisFindingWorkflowStore(FindingWorkflowStoreBackend):
             logger.info("Connected to Redis for finding workflow storage")
             self._using_fallback = False
         except (ConnectionError, TimeoutError, OSError, ImportError) as e:
-            logger.warning(f"Redis connection failed, using SQLite fallback: {e}")
+            logger.warning("Redis connection failed, using SQLite fallback: %s", e)
             self._using_fallback = True
             self._redis_client = None
 
@@ -505,7 +505,7 @@ class RedisFindingWorkflowStore(FindingWorkflowStoreBackend):
                 return json.loads(data)
             return None
         except (ConnectionError, TimeoutError, OSError, ValueError) as e:
-            logger.warning(f"Redis get failed, using fallback: {e}")
+            logger.warning("Redis get failed, using fallback: %s", e)
             return await self._fallback.get(finding_id)
 
     async def save(self, data: dict[str, Any]) -> None:
@@ -538,7 +538,7 @@ class RedisFindingWorkflowStore(FindingWorkflowStoreBackend):
 
             pipe.execute()
         except (ConnectionError, TimeoutError, OSError) as e:
-            logger.warning(f"Redis save failed (SQLite fallback used): {e}")
+            logger.warning("Redis save failed (SQLite fallback used): %s", e)
 
     async def delete(self, finding_id: str) -> bool:
         """Delete workflow data for a finding."""
@@ -574,7 +574,7 @@ class RedisFindingWorkflowStore(FindingWorkflowStoreBackend):
                 return True
             return result
         except (ConnectionError, TimeoutError, OSError, ValueError) as e:
-            logger.warning(f"Redis delete failed: {e}")
+            logger.warning("Redis delete failed: %s", e)
             return result
 
     async def list_all(self) -> list[dict[str, Any]]:
@@ -601,7 +601,7 @@ class RedisFindingWorkflowStore(FindingWorkflowStoreBackend):
                                 results.append(json.loads(v))
             return results
         except (ConnectionError, TimeoutError, OSError, ValueError) as e:
-            logger.warning(f"Redis list_all failed, using fallback: {e}")
+            logger.warning("Redis list_all failed, using fallback: %s", e)
             return await self._fallback.list_all()
 
     async def list_by_assignee(self, user_id: str) -> list[dict[str, Any]]:
@@ -618,7 +618,7 @@ class RedisFindingWorkflowStore(FindingWorkflowStoreBackend):
             values = self._redis_client.mget(keys)
             return [json.loads(v) for v in values if v]
         except (ConnectionError, TimeoutError, OSError, ValueError) as e:
-            logger.warning(f"Redis list_by_assignee failed, using fallback: {e}")
+            logger.warning("Redis list_by_assignee failed, using fallback: %s", e)
             return await self._fallback.list_by_assignee(user_id)
 
     async def list_overdue(self) -> list[dict[str, Any]]:
@@ -640,7 +640,7 @@ class RedisFindingWorkflowStore(FindingWorkflowStoreBackend):
             values = self._redis_client.mget(keys)
             return [json.loads(v) for v in values if v]
         except (ConnectionError, TimeoutError, OSError, ValueError) as e:
-            logger.warning(f"Redis list_by_state failed, using fallback: {e}")
+            logger.warning("Redis list_by_state failed, using fallback: %s", e)
             return await self._fallback.list_by_state(state)
 
     async def close(self) -> None:
@@ -650,9 +650,9 @@ class RedisFindingWorkflowStore(FindingWorkflowStoreBackend):
             try:
                 self._redis_client.close()
             except (ConnectionError, OSError) as e:
-                logger.debug(f"Redis close failed (connection already closed): {e}")
+                logger.debug("Redis close failed (connection already closed): %s", e)
             except (RuntimeError, ValueError) as e:
-                logger.debug(f"Redis close failed: {e}")
+                logger.debug("Redis close failed: %s", e)
 
 
 class PostgresFindingWorkflowStore(FindingWorkflowStoreBackend):
@@ -699,7 +699,7 @@ class PostgresFindingWorkflowStore(FindingWorkflowStoreBackend):
             await conn.execute(self.INITIAL_SCHEMA)
 
         self._initialized = True
-        logger.debug(f"[{self.SCHEMA_NAME}] Schema initialized")
+        logger.debug("[%s] Schema initialized", self.SCHEMA_NAME)
 
     async def get(self, finding_id: str) -> dict[str, Any] | None:
         """Get workflow data for a finding."""

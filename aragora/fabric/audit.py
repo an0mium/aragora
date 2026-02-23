@@ -148,8 +148,7 @@ class AuditStore:
         """
         self._append_log(self._policy_file, log)
         logger.debug(
-            f"Policy decision logged: trace_id={log.trace_id}, "
-            f"agent={log.agent_id}, effect={log.effect.value}"
+            "Policy decision logged: trace_id=%s, agent=%s, effect=%s", log.trace_id, log.agent_id, log.effect.value
         )
 
     def log_budget_decision(self, log: BudgetDecisionLog) -> None:
@@ -161,8 +160,7 @@ class AuditStore:
         """
         self._append_log(self._budget_file, log)
         logger.debug(
-            f"Budget decision logged: trace_id={log.trace_id}, "
-            f"agent={log.agent_id}, allowed={log.allowed}"
+            "Budget decision logged: trace_id=%s, agent=%s, allowed=%s", log.trace_id, log.agent_id, log.allowed
         )
 
     def log_task_event(self, log: TaskExecutionLog) -> None:
@@ -174,8 +172,7 @@ class AuditStore:
         """
         self._append_log(self._task_file, log)
         logger.debug(
-            f"Task event logged: trace_id={log.trace_id}, "
-            f"task={log.task_id}, event={log.event_type}"
+            "Task event logged: trace_id=%s, task=%s, event=%s", log.trace_id, log.task_id, log.event_type
         )
 
     def _append_log(
@@ -203,7 +200,7 @@ class AuditStore:
                         try:
                             logs.append(json.loads(line))
                         except json.JSONDecodeError:
-                            logger.warning(f"Invalid JSON in audit log: {line[:100]}")
+                            logger.warning("Invalid JSON in audit log: %s", line[:100])
         return logs
 
     def query_by_trace_id(self, trace_id: str) -> list[dict[str, Any]]:

@@ -35,7 +35,7 @@ async def _with_callback_timeout(
     try:
         return await asyncio.wait_for(coro, timeout=timeout)
     except asyncio.TimeoutError:
-        logger.warning(f"Callback timed out after {timeout}s, using default")
+        logger.warning("Callback timed out after %ss, using default", timeout)
         return default
 
 
@@ -131,8 +131,7 @@ class ContextCompressor:
             if compressed_msgs is not ctx.context_messages:
                 ctx.context_messages = list(compressed_msgs)
                 logger.info(
-                    f"[rlm] Compressed context: {original_count} → {len(ctx.context_messages)} messages"
-                )
+                    "[rlm] Compressed context: %s → %s messages", original_count, len(ctx.context_messages)               )
 
                 # Notify spectator about compression
                 if self._notify_spectator:
@@ -155,7 +154,7 @@ class ContextCompressor:
             return (original_count, original_count)
 
         except (RuntimeError, AttributeError, TypeError) as e:  # noqa: BLE001
-            logger.warning(f"[rlm] Context compression failed: {e}")
+            logger.warning("[rlm] Context compression failed: %s", e)
             # Continue without compression - don't break the debate
             return (original_count, original_count)
 

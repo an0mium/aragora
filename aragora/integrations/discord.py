@@ -166,14 +166,14 @@ class DiscordIntegration:
                     elif response.status == 429:
                         # Rate limited by Discord
                         retry_after = float(response.headers.get("Retry-After", 5))
-                        logger.warning(f"Discord rate limited, retrying after {retry_after}s")
+                        logger.warning("Discord rate limited, retrying after %ss", retry_after)
                         await asyncio.sleep(retry_after)
                         continue
                     elif response.status >= 500:
                         # Server error - retry with backoff
                         text = await response.text()
                         logger.warning(
-                            f"Discord server error (attempt {attempt + 1}): {response.status} - {text}"
+                            "Discord server error (attempt %s): %s - %s", attempt + 1, response.status, text
                         )
                         if self._circuit_breaker is not None:
                             self._circuit_breaker.record_failure()
@@ -184,19 +184,19 @@ class DiscordIntegration:
                     else:
                         # Client error - don't retry
                         text = await response.text()
-                        logger.error(f"Discord webhook failed: {response.status} - {text}")
+                        logger.error("Discord webhook failed: %s - %s", response.status, text)
                         return False
 
             except asyncio.TimeoutError:
-                logger.warning(f"Discord webhook timeout (attempt {attempt + 1})")
+                logger.warning("Discord webhook timeout (attempt %s)", attempt + 1)
                 if self._circuit_breaker is not None:
                     self._circuit_breaker.record_failure()
             except aiohttp.ClientError as e:
-                logger.error(f"Discord webhook connection error: {type(e).__name__}: {e}")
+                logger.error("Discord webhook connection error: %s: %s", type(e).__name__, e)
                 if self._circuit_breaker is not None:
                     self._circuit_breaker.record_failure()
             except (ValueError, TypeError) as e:
-                logger.error(f"Discord webhook payload error: {type(e).__name__}: {e}")
+                logger.error("Discord webhook payload error: %s: %s", type(e).__name__, e)
                 break  # Payload errors are not retryable
 
             if attempt < self.config.retry_count - 1:
@@ -426,12 +426,12 @@ class DiscordWebhookManager:
                     results[name] = await handler(*args, **kwargs)
                 except (aiohttp.ClientError, asyncio.TimeoutError) as e:
                     logger.error(
-                        f"Discord broadcast to {name} connection error: {type(e).__name__}: {e}"
+                        "Discord broadcast to %s connection error: %s: %s", name, type(e).__name__, e
                     )
                     results[name] = False
                 except (RuntimeError, ValueError, TypeError) as e:
                     logger.error(
-                        f"Discord broadcast to {name} unexpected error: {type(e).__name__}: {e}"
+                        "Discord broadcast to %s unexpected error: %s: %s", name, type(e).__name__, e
                     )
                     results[name] = False
 

@@ -224,7 +224,7 @@ class KnowledgeMoundAdapter(ResilientAdapterMixin):
         try:
             self._event_callback(event_type, data)
         except (RuntimeError, ValueError, TypeError, AttributeError) as e:  # noqa: BLE001 - adapter isolation
-            logger.warning(f"[{self.adapter_name}] Failed to emit event {event_type}: {e}")
+            logger.warning("[%s] Failed to emit event %s: %s", self.adapter_name, event_type, e)
 
     def _record_metric(
         self,
@@ -257,7 +257,7 @@ class KnowledgeMoundAdapter(ResilientAdapterMixin):
         except ImportError:
             pass  # Metrics not available
         except (RuntimeError, ValueError, OSError, AttributeError) as e:
-            logger.debug(f"[{self.adapter_name}] Failed to record metric: {e}")
+            logger.debug("[%s] Failed to record metric: %s", self.adapter_name, e)
 
         # Check SLOs and alert on violations
         self._check_slo(operation, latency_ms)
@@ -290,11 +290,11 @@ class KnowledgeMoundAdapter(ResilientAdapterMixin):
                     context={"adapter": self.adapter_name, "operation": operation},
                 )
                 if not passed:
-                    logger.warning(f"[{self.adapter_name}] SLO violation: {message}")
+                    logger.warning("[%s] SLO violation: %s", self.adapter_name, message)
         except ImportError:
             pass  # SLO monitoring not available
         except (RuntimeError, ValueError, OSError, AttributeError) as e:
-            logger.debug(f"[{self.adapter_name}] Failed to check SLO: {e}")
+            logger.debug("[%s] Failed to check SLO: %s", self.adapter_name, e)
 
     def _record_validation_outcome(
         self,

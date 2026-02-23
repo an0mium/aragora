@@ -173,7 +173,7 @@ class HookManager:
         self._hooks[hook_id] = hook
         self._persist_hook(hook)
 
-        logger.info(f"Created hook {hook_id} for agent {agent_id}")
+        logger.info("Created hook %s for agent %s", hook_id, agent_id)
         return hook
 
     async def get_hook(self, hook_id: str) -> Hook | None:
@@ -223,7 +223,7 @@ class HookManager:
                 pending.append(hook)
 
         if pending:
-            logger.info(f"GUPP patrol found {len(pending)} pending hooks")
+            logger.info("GUPP patrol found %s pending hooks", len(pending))
 
         return pending
 
@@ -244,7 +244,7 @@ class HookManager:
                 stale.append(hook)
 
         if stale:
-            logger.warning(f"Found {len(stale)} stale hooks")
+            logger.warning("Found %s stale hooks", len(stale))
 
         return stale
 
@@ -264,7 +264,7 @@ class HookManager:
         hook.updated_at = time.time()
         self._persist_hook(hook)
 
-        logger.info(f"Resumed hook {hook_id} for agent {hook.agent_id}")
+        logger.info("Resumed hook %s for agent %s", hook_id, hook.agent_id)
         return hook
 
     async def reassign_hook(self, hook_id: str, new_agent_id: str) -> Hook | None:
@@ -287,7 +287,7 @@ class HookManager:
         hook.retry_count += 1
         self._persist_hook(hook)
 
-        logger.info(f"Re-assigned hook {hook_id} from {old_agent} to {new_agent_id}")
+        logger.info("Re-assigned hook %s from %s to %s", hook_id, old_agent, new_agent_id)
         return hook
 
     # =========================================================================
@@ -326,7 +326,7 @@ class HookManager:
             result_path = self._hook_dir(hook_id) / HOOK_RESULT_FILE
             result_path.write_text(json.dumps(result, indent=2, default=str))
 
-        logger.info(f"Completed hook {hook_id} for agent {hook.agent_id}")
+        logger.info("Completed hook %s for agent %s", hook_id, hook.agent_id)
         return hook
 
     async def fail_hook(
@@ -352,12 +352,12 @@ class HookManager:
             hook.status = HookStatus.ASSIGNED
             hook.retry_count += 1
             logger.warning(
-                f"Hook {hook_id} failed (retry {hook.retry_count}/{hook.max_retries}): {error}"
+                "Hook %s failed (retry %s/%s): %s", hook_id, hook.retry_count, hook.max_retries, error
             )
         else:
             hook.status = HookStatus.FAILED
             hook.completed_at = time.time()
-            logger.error(f"Hook {hook_id} permanently failed: {error}")
+            logger.error("Hook %s permanently failed: %s", hook_id, error)
 
         self._persist_hook(hook)
         return hook
@@ -380,7 +380,7 @@ class HookManager:
         hook.updated_at = time.time()
         self._persist_hook(hook)
 
-        logger.info(f"Abandoned hook {hook_id}: {reason}")
+        logger.info("Abandoned hook %s: %s", hook_id, reason)
         return hook
 
     # =========================================================================
@@ -411,7 +411,7 @@ class HookManager:
             self._remove_hook_dir(hook_id)
 
         if to_remove:
-            logger.info(f"Cleaned up {len(to_remove)} completed hooks")
+            logger.info("Cleaned up %s completed hooks", len(to_remove))
 
         return len(to_remove)
 
@@ -474,7 +474,7 @@ class HookManager:
             self._hooks[hook_id] = hook
             return hook
         except (json.JSONDecodeError, KeyError, TypeError) as e:
-            logger.error(f"Failed to load hook {hook_id}: {e}")
+            logger.error("Failed to load hook %s: %s", hook_id, e)
             return None
 
     def _load_all_hooks(self) -> None:
@@ -532,11 +532,11 @@ class HookManager:
                 timeout=30,
             )
 
-            logger.debug(f"Created git worktree at {worktree_path}")
+            logger.debug("Created git worktree at %s", worktree_path)
             return worktree_path
 
         except (subprocess.TimeoutExpired, FileNotFoundError, OSError) as e:
-            logger.warning(f"Failed to create git worktree for hook {hook_id}: {e}")
+            logger.warning("Failed to create git worktree for hook %s: %s", hook_id, e)
             return None
 
     def _remove_worktree(self, hook_id: str) -> None:
@@ -551,9 +551,9 @@ class HookManager:
                 text=True,
                 timeout=10,
             )
-            logger.debug(f"Removed git worktree at {worktree_path}")
+            logger.debug("Removed git worktree at %s", worktree_path)
         except (subprocess.TimeoutExpired, FileNotFoundError, OSError) as e:
-            logger.warning(f"Failed to remove git worktree for hook {hook_id}: {e}")
+            logger.warning("Failed to remove git worktree for hook %s: %s", hook_id, e)
 
 
 def _short_id() -> str:

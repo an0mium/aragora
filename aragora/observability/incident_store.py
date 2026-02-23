@@ -199,7 +199,7 @@ class IncidentStore:
                     (update_id, incident_id, initial_message, now),
                 )
 
-        logger.info(f"Incident created: {incident_id} - {title} ({severity})")
+        logger.info("Incident created: %s - %s (%s)", incident_id, title, severity)
         return incident_id
 
     def add_update(

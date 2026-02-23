@@ -144,5 +144,5 @@ class StreamingMixin:
             return ""
 
         else:
-            logger.warning(f"Unknown streaming format type: {format_type}")
+            logger.warning("Unknown streaming format type: %s", format_type)
             return ""

@@ -439,8 +439,7 @@ class BindingsHandler(BaseHandler):
         router.add_binding(binding)
 
         logger.info(
-            f"Created binding: {binding.name or binding.peer_pattern} "
-            f"for {binding.provider}/{binding.account_id}"
+            "Created binding: %s for %s/%s", binding.name or binding.peer_pattern, binding.provider, binding.account_id
         )
 
         return json_response(
@@ -521,7 +520,7 @@ class BindingsHandler(BaseHandler):
 
         removed = router.remove_binding(provider, account_id, peer_pattern)
         if removed:
-            logger.info(f"Removed binding: {provider}/{account_id}/{peer_pattern}")
+            logger.info("Removed binding: %s/%s/%s", provider, account_id, peer_pattern)
             return json_response({"status": "deleted"})
         else:
             return error_response(

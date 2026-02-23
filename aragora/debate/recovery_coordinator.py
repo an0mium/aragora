@@ -392,8 +392,7 @@ class RecoveryCoordinator:
             if decision.requires_approval:
                 event.result = "pending_approval"
                 logger.info(
-                    f"Recovery {event.id} requires approval: {decision.action.value} "
-                    f"for {decision.target_agent_id}"
+                    "Recovery %s requires approval: %s for %s", event.id, decision.action.value, decision.target_agent_id
                 )
             else:
                 # Execute the action
@@ -416,7 +415,7 @@ class RecoveryCoordinator:
                     if asyncio.iscoroutine(result):
                         await result
                 except (RuntimeError, TypeError, ValueError, AttributeError) as e:
-                    logger.error(f"Recovery callback error: {e}")
+                    logger.error("Recovery callback error: %s", e)
 
             return event
 
@@ -424,19 +423,19 @@ class RecoveryCoordinator:
         """Execute the actual recovery action."""
         try:
             if decision.action == RecoveryAction.NUDGE:
-                logger.info(f"Nudging agent {decision.target_agent_id}: {decision.reason}")
+                logger.info("Nudging agent %s: %s", decision.target_agent_id, decision.reason)
                 return True
 
             elif decision.action == RecoveryAction.REPLACE:
                 logger.info(
-                    f"Replacing {decision.target_agent_id} with {decision.replacement_agent_id}"
+                    "Replacing %s with %s", decision.target_agent_id, decision.replacement_agent_id
                 )
                 if decision.target_agent_id:
                     self._replaced_agents.add(decision.target_agent_id)
                 return True
 
             elif decision.action == RecoveryAction.SKIP:
-                logger.info(f"Skipping agent {decision.target_agent_id}")
+                logger.info("Skipping agent %s", decision.target_agent_id)
                 return True
 
             elif decision.action == RecoveryAction.RESET_ROUND:
@@ -452,17 +451,17 @@ class RecoveryCoordinator:
                 return True
 
             elif decision.action == RecoveryAction.ESCALATE:
-                logger.warning(f"Escalating: {decision.reason}")
+                logger.warning("Escalating: %s", decision.reason)
                 return True
 
             elif decision.action == RecoveryAction.ABORT:
-                logger.error(f"Aborting debate: {decision.reason}")
+                logger.error("Aborting debate: %s", decision.reason)
                 return True
 
             return False
 
         except (RuntimeError, TypeError, ValueError, AttributeError, KeyError) as e:
-            logger.error(f"Recovery execution failed: {e}")
+            logger.error("Recovery execution failed: %s", e)
             return False
 
     def _create_protocol_message(
@@ -502,7 +501,7 @@ class RecoveryCoordinator:
                 if asyncio.iscoroutine(result):
                     await result
             except (RuntimeError, TypeError, ValueError, AttributeError) as e:
-                logger.error(f"Protocol message emission failed: {e}")
+                logger.error("Protocol message emission failed: %s", e)
 
     def _generate_event_id(self) -> str:
         """Generate a unique event ID."""

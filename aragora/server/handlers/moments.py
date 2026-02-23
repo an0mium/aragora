@@ -116,7 +116,7 @@ class MomentsHandler(SecureHandler):
         # Rate limit check
         client_ip = get_client_ip(handler)
         if not _moments_limiter.is_allowed(client_ip):
-            logger.warning(f"Rate limit exceeded for moments endpoint: {client_ip}")
+            logger.warning("Rate limit exceeded for moments endpoint: %s", client_ip)
             return error_response("Rate limit exceeded. Please try again later.", 429)
 
         if normalized == "/api/moments":
@@ -250,10 +250,10 @@ class MomentsHandler(SecureHandler):
                 }
             )
         except (KeyError, TypeError, AttributeError) as e:
-            logger.warning(f"Data error in moments summary: {e}")
+            logger.warning("Data error in moments summary: %s", e)
             return error_response(_safe_error_message(e, "moments summary"), 400)
         except (RuntimeError, ValueError, OSError) as e:
-            logger.exception(f"Unexpected error getting moments summary: {e}")
+            logger.exception("Unexpected error getting moments summary: %s", e)
             return error_response(_safe_error_message(e, "moments summary"), 500)
 
     def _get_timeline(self, limit: int, offset: int) -> HandlerResult:
@@ -304,10 +304,10 @@ class MomentsHandler(SecureHandler):
                 }
             )
         except (KeyError, TypeError, AttributeError) as e:
-            logger.warning(f"Data error in moments timeline: {e}")
+            logger.warning("Data error in moments timeline: %s", e)
             return error_response(_safe_error_message(e, "moments timeline"), 400)
         except (RuntimeError, ValueError, OSError) as e:
-            logger.exception(f"Unexpected error getting moments timeline: {e}")
+            logger.exception("Unexpected error getting moments timeline: %s", e)
             return error_response(_safe_error_message(e, "moments timeline"), 500)
 
     def _get_trending(self, limit: int) -> HandlerResult:
@@ -346,10 +346,10 @@ class MomentsHandler(SecureHandler):
                 }
             )
         except (KeyError, TypeError, AttributeError) as e:
-            logger.warning(f"Data error in moments trending: {e}")
+            logger.warning("Data error in moments trending: %s", e)
             return error_response(_safe_error_message(e, "moments trending"), 400)
         except (RuntimeError, ValueError, OSError) as e:
-            logger.exception(f"Unexpected error getting moments trending: {e}")
+            logger.exception("Unexpected error getting moments trending: %s", e)
             return error_response(_safe_error_message(e, "moments trending"), 500)
 
     def _get_by_type(self, moment_type: str, limit: int) -> HandlerResult:
@@ -397,8 +397,8 @@ class MomentsHandler(SecureHandler):
                 }
             )
         except (KeyError, TypeError, AttributeError) as e:
-            logger.warning(f"Data error in moments by type {moment_type}: {e}")
+            logger.warning("Data error in moments by type %s: %s", moment_type, e)
             return error_response(_safe_error_message(e, f"moments by type {moment_type}"), 400)
         except (RuntimeError, ValueError, OSError) as e:
-            logger.exception(f"Unexpected error getting moments by type {moment_type}: {e}")
+            logger.exception("Unexpected error getting moments by type %s: %s", moment_type, e)
             return error_response(_safe_error_message(e, f"moments by type {moment_type}"), 500)

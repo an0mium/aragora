@@ -69,20 +69,20 @@ async def _run_postgresql_migrations() -> dict[str, Any]:
             logger.debug("No pending PostgreSQL migrations")
             return {"applied": 0, "message": "No pending migrations"}
 
-        logger.info(f"Running {len(pending)} pending PostgreSQL migrations...")
+        logger.info("Running %s pending PostgreSQL migrations...", len(pending))
         applied = runner.upgrade()
 
-        logger.info(f"Successfully applied {len(applied)} PostgreSQL migrations")
+        logger.info("Successfully applied %s PostgreSQL migrations", len(applied))
         return {
             "applied": len(applied),
             "versions": [m.version for m in applied],
         }
 
     except ImportError as e:
-        logger.debug(f"PostgreSQL migrations not available: {e}")
+        logger.debug("PostgreSQL migrations not available: %s", e)
         return {"skipped": True, "reason": "PostgreSQL not configured"}
     except (RuntimeError, OSError) as e:
-        logger.error(f"PostgreSQL migration failed: {e}")
+        logger.error("PostgreSQL migration failed: %s", e)
         return {"error": "PostgreSQL migration failed"}
 
 
@@ -105,24 +105,24 @@ async def _run_sqlite_migrations() -> dict[str, Any]:
             logger.debug("No pending SQLite migrations")
             return {"applied": 0, "message": "No pending migrations"}
 
-        logger.info(f"Running {total_pending} pending SQLite migrations...")
+        logger.info("Running %s pending SQLite migrations...", total_pending)
 
         # Run migrations (creates backup automatically)
         result = runner.migrate_all(dry_run=False)
 
         applied_count = sum(len(db_result.get("applied", [])) for db_result in result.values())
 
-        logger.info(f"Successfully applied {applied_count} SQLite migrations")
+        logger.info("Successfully applied %s SQLite migrations", applied_count)
         return {
             "applied": applied_count,
             "databases": list(result.keys()),
         }
 
     except ImportError as e:
-        logger.debug(f"SQLite migrations not available: {e}")
+        logger.debug("SQLite migrations not available: %s", e)
         return {"skipped": True, "reason": "SQLite migrations not configured"}
     except (RuntimeError, OSError) as e:
-        logger.error(f"SQLite migration failed: {e}")
+        logger.error("SQLite migration failed: %s", e)
         return {"error": "SQLite migration failed"}
 
 

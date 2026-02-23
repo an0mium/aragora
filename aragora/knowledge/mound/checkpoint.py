@@ -211,7 +211,7 @@ class KMCheckpointStore:
         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
         checkpoint_id = f"km_ckpt_{timestamp}_{hashlib.md5(str(time.time()).encode(), usedforsecurity=False).hexdigest()[:8]}"
 
-        logger.info(f"Creating KM checkpoint: {checkpoint_id}")
+        logger.info("Creating KM checkpoint: %s", checkpoint_id)
 
         # Collect content
         content = KMCheckpointContent()
@@ -299,9 +299,7 @@ class KMCheckpointStore:
 
         duration_ms = int((time.time() - start_time) * 1000)
         logger.info(
-            f"Created KM checkpoint {checkpoint_id}: "
-            f"{len(content.nodes)} nodes, {len(content.relationships)} relationships, "
-            f"{len(content_bytes)} bytes, {duration_ms}ms"
+            "Created KM checkpoint %s: %s nodes, %s relationships, %s bytes, %sms", checkpoint_id, len(content.nodes), len(content.relationships), len(content_bytes), duration_ms
         )
 
         # Prune old checkpoints
@@ -329,7 +327,7 @@ class KMCheckpointStore:
         start_time = time.time()
         errors: list[str] = []
 
-        logger.info(f"Restoring KM from checkpoint: {checkpoint_id}")
+        logger.info("Restoring KM from checkpoint: %s", checkpoint_id)
 
         # Load checkpoint
         checkpoint_path = self.checkpoint_dir / checkpoint_id
@@ -418,7 +416,7 @@ class KMCheckpointStore:
                 culture_restored = True
             except (KeyError, TypeError, ValueError, AttributeError) as e:
                 errors.append(f"Failed to restore culture patterns: {e}")
-                logger.warning(f"Culture pattern restore failed: {e}")
+                logger.warning("Culture pattern restore failed: %s", e)
 
         # Restore staleness state
         if metadata.includes_staleness and content_dict.get("staleness_state"):
@@ -426,7 +424,7 @@ class KMCheckpointStore:
                 await self._restore_staleness(content_dict["staleness_state"])
             except (KeyError, TypeError, ValueError, AttributeError) as e:
                 errors.append(f"Failed to restore staleness state: {e}")
-                logger.warning(f"Staleness state restore failed: {e}")
+                logger.warning("Staleness state restore failed: %s", e)
 
         # Restore vectors if requested and present
         if restore_vectors and metadata.includes_vectors and content_dict.get("vector_embeddings"):
@@ -434,14 +432,12 @@ class KMCheckpointStore:
                 await self._restore_vectors(content_dict["vector_embeddings"])
             except (KeyError, TypeError, ValueError, AttributeError) as e:
                 errors.append(f"Failed to restore vectors: {e}")
-                logger.warning(f"Vector restore failed: {e}")
+                logger.warning("Vector restore failed: %s", e)
 
         duration_ms = int((time.time() - start_time) * 1000)
 
         logger.info(
-            f"Restored KM checkpoint {checkpoint_id}: "
-            f"{nodes_restored} nodes, {relationships_restored} relationships, "
-            f"{len(errors)} errors, {duration_ms}ms"
+            "Restored KM checkpoint %s: %s nodes, %s relationships, %s errors, %sms", checkpoint_id, nodes_restored, relationships_restored, len(errors), duration_ms
         )
 
         return RestoreResult(
@@ -466,7 +462,7 @@ class KMCheckpointStore:
                         metadata_dict = json.loads(metadata_file.read_text())
                         checkpoints.append(KMCheckpointMetadata(**metadata_dict))
                     except (json.JSONDecodeError, TypeError) as e:
-                        logger.warning(f"Failed to read checkpoint metadata {item.name}: {e}")
+                        logger.warning("Failed to read checkpoint metadata %s: %s", item.name, e)
 
         # Sort by creation time (newest first)
         checkpoints.sort(key=lambda x: x.created_at, reverse=True)
@@ -496,10 +492,10 @@ class KMCheckpointStore:
 
         try:
             shutil.rmtree(checkpoint_path)
-            logger.info(f"Deleted KM checkpoint: {checkpoint_id}")
+            logger.info("Deleted KM checkpoint: %s", checkpoint_id)
             return True
         except (OSError, PermissionError) as e:
-            logger.error(f"Failed to delete checkpoint {checkpoint_id}: {e}")
+            logger.error("Failed to delete checkpoint %s: %s", checkpoint_id, e)
             return False
 
     async def compare_checkpoints(
@@ -627,7 +623,7 @@ class KMCheckpointStore:
             try:
                 return self.mound._culture_accumulator.export_state()
             except (AttributeError, TypeError, ValueError) as e:
-                logger.debug(f"Culture export skipped due to error: {e}")
+                logger.debug("Culture export skipped due to error: %s", e)
         return {}
 
     async def _export_staleness(self) -> dict[str, Any]:
@@ -638,7 +634,7 @@ class KMCheckpointStore:
                 detector = cast(_StalenessDetectorProtocol, self.mound._staleness_detector)
                 return detector.export_state()
             except (AttributeError, TypeError, ValueError) as e:
-                logger.debug(f"Staleness export skipped due to error: {e}")
+                logger.debug("Staleness export skipped due to error: %s", e)
         return {}
 
     async def _export_vectors(self) -> dict[str, list[float]]:
@@ -649,7 +645,7 @@ class KMCheckpointStore:
             try:
                 vectors = self.mound._semantic_store.export_embeddings()
             except (AttributeError, TypeError, ValueError, OSError) as e:
-                logger.debug(f"Vector export skipped due to error: {e}")
+                logger.debug("Vector export skipped due to error: %s", e)
 
         return vectors
 
@@ -684,7 +680,7 @@ class KMCheckpointStore:
             try:
                 self.mound._culture_accumulator.import_state(culture_state)
             except (RuntimeError, ValueError, OSError, AttributeError) as e:
-                logger.warning(f"Failed to restore culture state: {e}")
+                logger.warning("Failed to restore culture state: %s", e)
 
     async def _restore_staleness(self, staleness_state: dict[str, Any]) -> None:
         """Restore staleness detector state."""
@@ -694,7 +690,7 @@ class KMCheckpointStore:
                 detector = cast(_StalenessDetectorProtocol, self.mound._staleness_detector)
                 detector.import_state(staleness_state)
             except (RuntimeError, ValueError, OSError, AttributeError) as e:
-                logger.warning(f"Failed to restore staleness state: {e}")
+                logger.warning("Failed to restore staleness state: %s", e)
 
     async def _restore_vectors(self, vectors: dict[str, list[float]]) -> None:
         """Restore vector embeddings."""
@@ -702,7 +698,7 @@ class KMCheckpointStore:
             try:
                 self.mound._semantic_store.import_embeddings(vectors)
             except (RuntimeError, ValueError, OSError, AttributeError) as e:
-                logger.warning(f"Failed to restore vectors: {e}")
+                logger.warning("Failed to restore vectors: %s", e)
 
     async def _prune_old_checkpoints(self) -> int:
         """Prune old checkpoints beyond max_checkpoints."""
@@ -720,7 +716,7 @@ class KMCheckpointStore:
                 deleted += 1
 
         if deleted > 0:
-            logger.info(f"Pruned {deleted} old KM checkpoints")
+            logger.info("Pruned %s old KM checkpoints", deleted)
 
         return deleted
 

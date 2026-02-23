@@ -155,8 +155,7 @@ class DebateConfig:
                 )
                 if filtered:
                     logger.info(
-                        f"Auto-trimmed {len(filtered)} agents without credentials: "
-                        f"{', '.join(f[0] for f in filtered)}"
+                        "Auto-trimmed %s agents without credentials: %s", len(filtered), ', '.join(f[0] for f in filtered)
                     )
             except ValueError as e:
                 # Re-raise with more context
@@ -298,7 +297,7 @@ class DebateFactory:
                     agent = stream_wrapper(agent, self.stream_emitter, debate_id)
 
                 result.agents.append(agent)
-                logger.debug(f"Created agent {spec.provider} successfully")
+                logger.debug("Created agent %s successfully", spec.provider)
 
             except (
                 ValueError,
@@ -337,7 +336,7 @@ class DebateFactory:
                 )
             )
         except (ValueError, TypeError, AttributeError, RuntimeError) as e:
-            logger.warning(f"Failed to emit agent error event: {e}")
+            logger.warning("Failed to emit agent error event: %s", e)
 
     def _get_persona_prompt(self, persona: str) -> str | None:
         """Get system prompt modifier for a persona.
@@ -384,7 +383,7 @@ class DebateFactory:
                     prompt = f"You are a {traits_str} agent. {stored_persona.description}"
                     return prompt
             except (ValueError, TypeError, KeyError, AttributeError) as e:
-                logger.debug(f"Failed to get persona from manager: {e}")
+                logger.debug("Failed to get persona from manager: %s", e)
 
         # Fallback: use persona name as behavioral hint
         if persona:
@@ -423,7 +422,7 @@ class DebateFactory:
                     top_p=p.top_p,
                     frequency_penalty=p.frequency_penalty,
                 )
-                logger.debug(f"Applied persona params for {persona}: temp={p.temperature}")
+                logger.debug("Applied persona params for %s: temp=%s", persona, p.temperature)
                 return
         except ImportError:
             pass
@@ -438,10 +437,10 @@ class DebateFactory:
                         top_p=stored_persona.top_p,
                         frequency_penalty=stored_persona.frequency_penalty,
                     )
-                    logger.debug(f"Applied persona params from manager for {persona}")
+                    logger.debug("Applied persona params from manager for %s", persona)
                     return
             except (ValueError, TypeError, KeyError, AttributeError) as e:
-                logger.debug(f"Failed to get persona params: {e}")
+                logger.debug("Failed to get persona params: %s", e)
 
     def _maybe_add_vertical_specialist(
         self,
@@ -492,7 +491,7 @@ class DebateFactory:
             agent_result.agents.append(specialist)
             logger.info("Injected vertical specialist: %s", vertical_id)
         except (ValueError, TypeError, KeyError, RuntimeError, AttributeError) as e:
-            logger.warning(f"Failed to create vertical specialist {vertical_id}: {e}")
+            logger.warning("Failed to create vertical specialist %s: %s", vertical_id, e)
 
         return agent_result
 
@@ -718,10 +717,10 @@ class DebateFactory:
         """
         cb_status = arena.circuit_breaker.get_all_status()
         if cb_status:
-            logger.debug(f"Agent status before debate: {cb_status}")
+            logger.debug("Agent status before debate: %s", cb_status)
             open_circuits = [
                 name for name, status in cb_status.items() if status["status"] == "open"
             ]
             if open_circuits:
-                logger.debug(f"Resetting open circuits for: {open_circuits}")
+                logger.debug("Resetting open circuits for: %s", open_circuits)
                 arena.circuit_breaker.reset()

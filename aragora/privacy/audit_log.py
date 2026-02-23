@@ -289,7 +289,7 @@ class PrivacyAuditLog:
         await self._write_entry(entry)
 
         logger.debug(
-            f"Audit: {action.value} by {actor.id} on {resource.type}/{resource.id} -> {outcome.value}"
+            "Audit: %s by %s on %s/%s -> %s", action.value, actor.id, resource.type, resource.id, outcome.value
         )
 
         return entry
@@ -304,7 +304,7 @@ class PrivacyAuditLog:
             with open(log_file, "a") as f:
                 f.write(json.dumps(entry.to_dict()) + "\n")
         except OSError as e:
-            logger.error(f"Failed to write audit log: {e}")
+            logger.error("Failed to write audit log: %s", e)
 
     async def query(
         self,
@@ -510,7 +510,7 @@ class PrivacyAuditLog:
             for entry in entries:
                 f.write(json.dumps(entry.to_dict()) + "\n")
 
-        logger.info(f"Exported {len(entries)} audit entries to {output_path}")
+        logger.info("Exported %s audit entries to %s", len(entries), output_path)
         return len(entries)
 
     async def cleanup_old_entries(
@@ -531,7 +531,7 @@ class PrivacyAuditLog:
         removed_count = original_count - len(self._entries)
 
         if removed_count > 0:
-            logger.info(f"Cleaned up {removed_count} audit entries older than {retention} days")
+            logger.info("Cleaned up %s audit entries older than %s days", removed_count, retention)
 
         return removed_count
 

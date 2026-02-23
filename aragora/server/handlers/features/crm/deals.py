@@ -71,7 +71,7 @@ class DealOperationsMixin:
         has_failure = False
         for platform, result in zip(_platform_credentials.keys(), results):
             if isinstance(result, BaseException):
-                logger.error(f"Error fetching deals from {platform}: {result}")
+                logger.error("Error fetching deals from %s: %s", platform, result)
                 has_failure = True
                 continue
             all_deals.extend(result)
@@ -112,7 +112,7 @@ class DealOperationsMixin:
                 return normalized
 
         except (ConnectionError, TimeoutError, OSError, ValueError) as e:
-            logger.error(f"Error fetching {platform} deals: {e}")
+            logger.error("Error fetching %s deals: %s", platform, e)
             cb.record_failure()
 
         return []

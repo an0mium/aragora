@@ -170,12 +170,12 @@ class DatabaseConsolidator:
         # Ensure consolidated directory exists
         self.consolidated_dir.mkdir(parents=True, exist_ok=True)
 
-        logger.info(f"Consolidator initialized: nomic_dir={self.nomic_dir}, dry_run={dry_run}")
+        logger.info("Consolidator initialized: nomic_dir=%s, dry_run=%s", self.nomic_dir, dry_run)
 
     def _connect(self, db_path: Path) -> sqlite3.Connection | None:
         """Connect to a database if it exists."""
         if not db_path.exists():
-            logger.debug(f"Database not found: {db_path}")
+            logger.debug("Database not found: %s", db_path)
             return None
 
         conn = sqlite3.connect(str(db_path), timeout=30.0)
@@ -226,7 +226,7 @@ class DatabaseConsolidator:
         validated_target = _validate_table_name(target_table)
 
         if not self._table_exists(source_conn, validated_source):
-            logger.debug(f"Source table {validated_source} not found")
+            logger.debug("Source table %s not found", validated_source)
             return 0
 
         # Get source columns
@@ -245,7 +245,7 @@ class DatabaseConsolidator:
                 mapped_cols.append((src_col, tgt_col))
 
         if not mapped_cols:
-            logger.warning(f"No matching columns between {validated_source} and {validated_target}")
+            logger.warning("No matching columns between %s and %s", validated_source, validated_target)
             return 0
 
         # Read source data (validated_source already checked)
@@ -289,7 +289,7 @@ class DatabaseConsolidator:
                     )
                     copied += 1
                 except sqlite3.IntegrityError as e:
-                    logger.debug(f"Skip duplicate: {e}")
+                    logger.debug("Skip duplicate: %s", e)
             else:
                 copied += 1
 
@@ -302,7 +302,7 @@ class DatabaseConsolidator:
         target_path = self.consolidated_dir / "core.db"
         target_conn = self._connect(target_path)
         if not target_conn:
-            logger.error(f"Cannot connect to target: {target_path}")
+            logger.error("Cannot connect to target: %s", target_path)
             return stats
 
         # Execute schema if needed
@@ -380,7 +380,7 @@ class DatabaseConsolidator:
         target_path = self.consolidated_dir / "memory.db"
         target_conn = self._connect(target_path)
         if not target_conn:
-            logger.error(f"Cannot connect to target: {target_path}")
+            logger.error("Cannot connect to target: %s", target_path)
             return stats
 
         # Execute schema if needed
@@ -531,7 +531,7 @@ class DatabaseConsolidator:
         target_path = self.consolidated_dir / "analytics.db"
         target_conn = self._connect(target_path)
         if not target_conn:
-            logger.error(f"Cannot connect to target: {target_path}")
+            logger.error("Cannot connect to target: %s", target_path)
             return stats
 
         # Execute schema if needed
@@ -646,7 +646,7 @@ class DatabaseConsolidator:
         target_path = self.consolidated_dir / "agents.db"
         target_conn = self._connect(target_path)
         if not target_conn:
-            logger.error(f"Cannot connect to target: {target_path}")
+            logger.error("Cannot connect to target: %s", target_path)
             return stats
 
         # Execute schema if needed
@@ -741,7 +741,7 @@ class DatabaseConsolidator:
     def run(self) -> dict[str, dict[str, int]]:
         """Run full consolidation migration."""
         logger.info("=" * 60)
-        logger.info(f"DATABASE CONSOLIDATION MIGRATION {'(DRY RUN)' if self.dry_run else ''}")
+        logger.info("DATABASE CONSOLIDATION MIGRATION %s", '(DRY RUN)' if self.dry_run else '')
         logger.info("=" * 60)
 
         # Run all migrations
@@ -759,14 +759,14 @@ class DatabaseConsolidator:
         for db_name, tables in self.stats.items():
             db_total = sum(tables.values())
             total += db_total
-            logger.info(f"{db_name}.db:")
+            logger.info("%s.db:", db_name)
             for table, count in sorted(tables.items()):
                 if count > 0:
-                    logger.info(f"  {table}: {count} rows")
-            logger.info(f"  Total: {db_total} rows")
+                    logger.info("  %s: %s rows", table, count)
+            logger.info("  Total: %s rows", db_total)
 
         logger.info("-" * 60)
-        logger.info(f"TOTAL ROWS MIGRATED: {total}")
+        logger.info("TOTAL ROWS MIGRATED: %s", total)
         logger.info("-" * 60)
 
         if self.dry_run:
@@ -802,9 +802,9 @@ class DatabaseConsolidator:
                     try:
                         validated_table = _validate_table_name(table)
                         cursor.execute(f"DELETE FROM {validated_table}")
-                        logger.info(f"Cleared {db_name}/{validated_table}")
+                        logger.info("Cleared %s/%s", db_name, validated_table)
                     except ValueError as e:
-                        logger.warning(f"Skipping unknown table {table}: {e}")
+                        logger.warning("Skipping unknown table %s: %s", table, e)
 
             if not self.dry_run:
                 conn.commit()

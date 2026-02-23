@@ -103,10 +103,10 @@ class FCMConnector(DeviceConnector):
         try:
             await self._refresh_access_token()
             self._initialized = True
-            logger.info(f"FCM connector initialized for project {self._project_id}")
+            logger.info("FCM connector initialized for project %s", self._project_id)
             return True
         except (OSError, ValueError, RuntimeError) as e:
-            logger.error(f"Failed to initialize FCM connector: {e}")
+            logger.error("Failed to initialize FCM connector: %s", e)
             return False
 
     async def _refresh_access_token(self) -> None:
@@ -149,7 +149,7 @@ class FCMConnector(DeviceConnector):
             )
             raise
         except (OSError, ValueError) as e:
-            logger.error(f"Failed to refresh FCM access token: {e}")
+            logger.error("Failed to refresh FCM access token: %s", e)
             raise
 
     async def _ensure_valid_token(self) -> str:
@@ -434,10 +434,10 @@ class APNsConnector(DeviceConnector):
         try:
             self._refresh_jwt_token()
             self._initialized = True
-            logger.info(f"APNs connector initialized for bundle {self._bundle_id}")
+            logger.info("APNs connector initialized for bundle %s", self._bundle_id)
             return True
         except (OSError, ValueError, RuntimeError) as e:
-            logger.error(f"Failed to initialize APNs connector: {e}")
+            logger.error("Failed to initialize APNs connector: %s", e)
             return False
 
     def _refresh_jwt_token(self) -> None:
@@ -469,7 +469,7 @@ class APNsConnector(DeviceConnector):
             logger.warning("PyJWT library not available. Install with: pip install pyjwt")
             raise
         except (OSError, ValueError) as e:
-            logger.error(f"Failed to generate APNs JWT: {e}")
+            logger.error("Failed to generate APNs JWT: %s", e)
             raise
 
     def _ensure_valid_token(self) -> str:

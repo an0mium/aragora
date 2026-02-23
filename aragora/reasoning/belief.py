@@ -420,7 +420,7 @@ class BeliefNetwork:
                 min_confidence=min_confidence,
             )
         except (ConnectionError, TimeoutError, OSError, ValueError, KeyError, RuntimeError) as e:
-            logger.warning(f"Failed to query KM for related beliefs: {e}")
+            logger.warning("Failed to query KM for related beliefs: %s", e)
             return []
 
     def query_km_historical_cruxes(
@@ -449,7 +449,7 @@ class BeliefNetwork:
                 limit=limit,
             )
         except (ConnectionError, TimeoutError, OSError, ValueError, KeyError, RuntimeError) as e:
-            logger.warning(f"Failed to query KM for historical cruxes: {e}")
+            logger.warning("Failed to query KM for historical cruxes: %s", e)
             return []
 
     def seed_from_km(self, topic: str, min_confidence: float = 0.7) -> int:
@@ -485,11 +485,11 @@ class BeliefNetwork:
                 node.metadata["km_belief_id"] = belief.get("id")
                 seeded_count += 1
             except (ValueError, KeyError, TypeError, RuntimeError) as e:
-                logger.warning(f"Failed to seed belief from KM: {e}")
+                logger.warning("Failed to seed belief from KM: %s", e)
 
         if seeded_count > 0:
             logger.info(
-                f"Seeded {seeded_count} beliefs from Knowledge Mound for topic: {topic[:50]}..."
+                "Seeded %s beliefs from Knowledge Mound for topic: %s...", seeded_count, topic[:50]
             )
 
         return seeded_count
@@ -676,9 +676,9 @@ class BeliefNetwork:
                             centrality=node.centrality,
                             debate_id=self.debate_id,
                         )
-                        logger.debug(f"Belief synced to Knowledge Mound: {node.node_id}")
+                        logger.debug("Belief synced to Knowledge Mound: %s", node.node_id)
                     except (ConnectionError, TimeoutError, OSError, ValueError, RuntimeError) as e:
-                        logger.warning(f"Failed to sync belief to KM: {e}")
+                        logger.warning("Failed to sync belief to KM: %s", e)
 
         return PropagationResult(
             converged=converged,
@@ -735,9 +735,9 @@ class BeliefNetwork:
         except ImportError:
             pass  # Events module not available
         except (AttributeError, TypeError, KeyError) as e:
-            logger.debug(f"Event emission skipped due to expected error: {e}")
+            logger.debug("Event emission skipped due to expected error: %s", e)
         except (RuntimeError, ValueError, OSError) as e:
-            logger.warning(f"Unexpected error during event emission: {e}")
+            logger.warning("Unexpected error during event emission: %s", e)
             # Event emission is non-critical, don't fail belief propagation
 
     def _send_messages(self, factor: Factor) -> None:

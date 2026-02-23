@@ -303,7 +303,7 @@ class MemoryProfiler:
 
             if warnings:
                 for w in warnings:
-                    logger.warning(f"Memory profile [{operation}]: {w}")
+                    logger.warning("Memory profile [%s]: %s", operation, w)
 
             # Stop tracing if we started it
             if self._tracing_started_by_us:

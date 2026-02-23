@@ -381,7 +381,7 @@ class MySQLConnector(EnterpriseConnector):
                                 )
 
                     except (ValueError, RuntimeError, OSError) as e:
-                        logger.debug(f"Search failed on {table}: {e}")
+                        logger.debug("Search failed on %s: %s", table, e)
                         continue
 
         return sorted(results, key=lambda x: float(x.get("rank") or 0), reverse=True)[:limit]
@@ -398,7 +398,7 @@ class MySQLConnector(EnterpriseConnector):
             return None
 
         if parsed.get("is_legacy"):
-            logger.debug(f"[{self.name}] Cannot fetch legacy hash-based ID: {evidence_id}")
+            logger.debug("[%s] Cannot fetch legacy hash-based ID: %s", self.name, evidence_id)
             return None
 
         database = parsed["database"]
@@ -436,7 +436,7 @@ class MySQLConnector(EnterpriseConnector):
                     return None
 
         except (ValueError, RuntimeError, OSError, KeyError) as e:
-            logger.error(f"[{self.name}] Fetch failed: {e}")
+            logger.error("[%s] Fetch failed: %s", self.name, e)
             return None
 
     async def start_binlog_cdc(self) -> None:
@@ -477,7 +477,7 @@ class MySQLConnector(EnterpriseConnector):
                 resume_stream=True,
             )
 
-            logger.info(f"[MySQL CDC] Started binlog stream for {self.database}")
+            logger.info("[MySQL CDC] Started binlog stream for %s", self.database)
 
             self._cdc_task = asyncio.create_task(self._process_binlog_events())
 
@@ -537,7 +537,7 @@ class MySQLConnector(EnterpriseConnector):
                     await self.cdc_manager.process_event(event)
 
         except (ValueError, RuntimeError, OSError, ConnectionError) as e:
-            logger.error(f"[MySQL CDC] Binlog processing error: {e}")
+            logger.error("[MySQL CDC] Binlog processing error: %s", e)
             raise
         finally:
             if self._binlog_stream:
@@ -556,7 +556,7 @@ class MySQLConnector(EnterpriseConnector):
             self._binlog_stream.close()
             self._binlog_stream = None
 
-        logger.info(f"[MySQL CDC] Stopped binlog stream for {self.database}")
+        logger.info("[MySQL CDC] Stopped binlog stream for %s", self.database)
 
     async def close(self) -> None:
         """Close connections and cleanup resources."""

@@ -151,7 +151,7 @@ class OrganizationsHandler(SecureHandler):
         # Rate limit check
         client_ip = get_client_ip(handler)
         if not _org_limiter.is_allowed(client_ip):
-            logger.warning(f"Rate limit exceeded for organization endpoint: {client_ip}")
+            logger.warning("Rate limit exceeded for organization endpoint: %s", client_ip)
             return error_response("Rate limit exceeded. Please try again later.", 429)
 
         if hasattr(handler, "command"):
@@ -457,8 +457,7 @@ class OrganizationsHandler(SecureHandler):
         decision = check_permission(auth_ctx, permission_key)
         if not decision.allowed:
             logger.warning(
-                f"RBAC denied: user={auth_ctx.user_id} permission={permission_key} "
-                f"reason={decision.reason}"
+                "RBAC denied: user=%s permission=%s reason=%s", auth_ctx.user_id, permission_key, decision.reason
             )
             return error_response(
                 "Permission denied",
@@ -549,7 +548,7 @@ class OrganizationsHandler(SecureHandler):
         if not success:
             return error_response("Failed to update organization", 500)
 
-        logger.info(f"Organization {org_id} updated by user {user.id}")
+        logger.info("Organization %s updated by user %s", org_id, user.id)
         audit_admin(
             admin_id=user.id,
             action="update_organization",
@@ -666,7 +665,7 @@ class OrganizationsHandler(SecureHandler):
             if not success:
                 return error_response("Failed to add user to organization", 500)
 
-            logger.info(f"User {existing_user.id} added to org {org_id} by {user.id}")
+            logger.info("User %s added to org %s by %s", existing_user.id, org_id, user.id)
             audit_admin(
                 admin_id=user.id,
                 action="add_member",
@@ -707,8 +706,7 @@ class OrganizationsHandler(SecureHandler):
         user_store.create_invitation(invitation)
 
         logger.info(
-            f"Invitation created: {email} invited to org {org_id} by {user.id} "
-            f"(token={invitation.token[:8]}...)"
+            "Invitation created: %s invited to org %s by %s (token=%s...)", email, org_id, user.id, invitation.token[:8]
         )
         audit_admin(
             admin_id=user.id,
@@ -775,7 +773,7 @@ class OrganizationsHandler(SecureHandler):
         if not success:
             return error_response("Failed to remove user from organization", 500)
 
-        logger.info(f"User {target_user_id} removed from org {org_id} by {user.id}")
+        logger.info("User %s removed from org %s by %s", target_user_id, org_id, user.id)
         audit_admin(
             admin_id=user.id,
             action="remove_member",
@@ -835,7 +833,7 @@ class OrganizationsHandler(SecureHandler):
             return error_response("Failed to update user role", 500)
 
         logger.info(
-            f"User {target_user_id} role changed to {new_role} in org {org_id} by {user.id}"
+            "User %s role changed to %s in org %s by %s", target_user_id, new_role, org_id, user.id
         )
         audit_admin(
             admin_id=user.id,
@@ -949,7 +947,7 @@ class OrganizationsHandler(SecureHandler):
         # Update status to revoked in database
         user_store.update_invitation_status(invitation_id, "revoked")
 
-        logger.info(f"Invitation {invitation_id} revoked by {user.id}")
+        logger.info("Invitation %s revoked by %s", invitation_id, user.id)
         audit_admin(
             admin_id=user.id,
             action="revoke_invitation",
@@ -1050,8 +1048,7 @@ class OrganizationsHandler(SecureHandler):
         )
 
         logger.info(
-            f"User {user.id} accepted invitation to org {invitation.org_id} "
-            f"with role {invitation.role}"
+            "User %s accepted invitation to org %s with role %s", user.id, invitation.org_id, invitation.role
         )
         audit_data(
             user_id=user.id,

@@ -1248,12 +1248,12 @@ def quick_health_check() -> bool:
 
         if result.get("errors"):
             for error in result["errors"]:
-                logger.error(f"Configuration error: {error}")
+                logger.error("Configuration error: %s", error)
             return False
 
         return True
     except (ImportError, ValueError, TypeError, OSError, RuntimeError) as e:
-        logger.error(f"Health check failed: {e}")
+        logger.error("Health check failed: %s", e)
         return False
 
 

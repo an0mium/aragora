@@ -126,7 +126,7 @@ import Mathlib.Algebra.Ring.Basic
                     self._model_available = self.PRIMARY_MODEL in model_ids
                     return self._model_available
         except (ConnectionError, TimeoutError, OSError, ValueError, KeyError) as e:
-            logger.warning(f"Failed to check model availability: {e}")
+            logger.warning("Failed to check model availability: %s", e)
 
         return False
 
@@ -300,17 +300,17 @@ If the claim is UNTRANSLATABLE to Lean 4, return exactly:
                     else:
                         error_text = response.text
                         last_error = f"API error {response.status_code}: {error_text[:200]}"
-                        logger.warning(f"DeepSeek-Prover {model} failed: {last_error}")
+                        logger.warning("DeepSeek-Prover %s failed: %s", model, last_error)
 
             except asyncio.TimeoutError:
                 last_error = f"Timeout after {self.timeout}s"
-                logger.warning(f"DeepSeek-Prover {model} timed out")
+                logger.warning("DeepSeek-Prover %s timed out", model)
             except (OSError, ConnectionError) as e:
                 last_error = f"Network error: {e}"
-                logger.warning(f"DeepSeek-Prover {model} network error: {e}")
+                logger.warning("DeepSeek-Prover %s network error: %s", model, e)
             except (ValueError, KeyError, TypeError, RuntimeError) as e:
                 last_error = f"Unexpected error: {type(e).__name__}: {e}"
-                logger.warning(f"DeepSeek-Prover {model} error: {e}")
+                logger.warning("DeepSeek-Prover %s error: %s", model, e)
 
         # All models failed
         elapsed_ms = (time.time() - start_time) * 1000

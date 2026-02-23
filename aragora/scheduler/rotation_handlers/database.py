@@ -181,7 +181,7 @@ class DatabaseRotationHandler(RotationHandler):
                 _validate_pg_identifier(username, "username")
                 quoted = _quote_pg_identifier(username)
                 await conn.execute(f"ALTER USER {quoted} WITH PASSWORD $1", new_password)
-                logger.info(f"Updated PostgreSQL password for user {username}")
+                logger.info("Updated PostgreSQL password for user %s", username)
             finally:
                 await conn.close()
 
@@ -238,7 +238,7 @@ class DatabaseRotationHandler(RotationHandler):
                 RuntimeError,
                 ValueError,
             ) as e:
-                logger.warning(f"Supabase API rotation failed: {e}, falling back to direct")
+                logger.warning("Supabase API rotation failed: %s, falling back to direct", e)
                 # Fall back to direct PostgreSQL rotation
                 await self._rotate_postgresql(secret_id, username, new_password, metadata)
         else:
@@ -266,7 +266,7 @@ class DatabaseRotationHandler(RotationHandler):
         username = metadata.get("username")
 
         if not username:
-            logger.error(f"No username provided for validation of {secret_id}")
+            logger.error("No username provided for validation of %s", secret_id)
             return False
 
         if db_type in ("postgresql", "supabase"):
@@ -283,16 +283,16 @@ class DatabaseRotationHandler(RotationHandler):
                 )
                 await conn.execute("SELECT 1")
                 await conn.close()
-                logger.info(f"Validated database credentials for {secret_id}")
+                logger.info("Validated database credentials for %s", secret_id)
                 return True
             except ImportError:
                 logger.warning("asyncpg not installed, assuming credentials valid")
                 return True
             except (OSError, TimeoutError, ConnectionError, RuntimeError) as e:
-                logger.error(f"Database validation failed for {secret_id}: {e}")
+                logger.error("Database validation failed for %s: %s", secret_id, e)
                 return False
         else:
-            logger.warning(f"No validation for db_type={db_type}")
+            logger.warning("No validation for db_type=%s", db_type)
             return True
 
     async def revoke_old_credentials(
@@ -312,5 +312,5 @@ class DatabaseRotationHandler(RotationHandler):
         Returns:
             True (password was already rotated)
         """
-        logger.info(f"Old database credentials for {secret_id} were invalidated during rotation")
+        logger.info("Old database credentials for %s were invalidated during rotation", secret_id)
         return True

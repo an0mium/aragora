@@ -216,7 +216,7 @@ def export_circuit_breaker_metrics() -> None:
     except ImportError:
         pass
     except (ValueError, TypeError, RuntimeError, AttributeError) as e:
-        logger.debug(f"Error exporting circuit breaker metrics: {e}")
+        logger.debug("Error exporting circuit breaker metrics: %s", e)
 
 
 # ============================================================================

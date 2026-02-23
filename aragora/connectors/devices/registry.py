@@ -65,21 +65,21 @@ class DeviceConnectorRegistry:
                 self.CONNECTOR_CLASSES["apns"] = APNsConnector
                 self.CONNECTOR_CLASSES["web_push"] = WebPushConnector
             except ImportError as e:
-                logger.debug(f"Could not load push connectors: {e}")
+                logger.debug("Could not load push connectors: %s", e)
 
             try:
                 from .alexa import AlexaConnector
 
                 self.CONNECTOR_CLASSES["alexa"] = AlexaConnector
             except ImportError as e:
-                logger.debug(f"Could not load Alexa connector: {e}")
+                logger.debug("Could not load Alexa connector: %s", e)
 
             try:
                 from .google_home import GoogleHomeConnector
 
                 self.CONNECTOR_CLASSES["google_home"] = GoogleHomeConnector
             except ImportError as e:
-                logger.debug(f"Could not load Google Home connector: {e}")
+                logger.debug("Could not load Google Home connector: %s", e)
 
             self._initialized = True
 
@@ -145,7 +145,7 @@ class DeviceConnectorRegistry:
         """
         with self._lock:
             self._connectors[platform] = connector
-            logger.info(f"Registered device connector: {platform}")
+            logger.info("Registered device connector: %s", platform)
 
     def unregister(self, platform: str) -> DeviceConnector | None:
         """
@@ -256,12 +256,12 @@ class DeviceConnectorRegistry:
                 if success:
                     with self._lock:
                         self._connectors[platform] = connector
-                    logger.info(f"Initialized device connector: {platform}")
+                    logger.info("Initialized device connector: %s", platform)
                 else:
-                    logger.debug(f"Device connector not configured: {platform}")
+                    logger.debug("Device connector not configured: %s", platform)
 
             except (OSError, ValueError, RuntimeError, TypeError) as e:
-                logger.warning(f"Failed to initialize {platform}: {e}")
+                logger.warning("Failed to initialize %s: %s", platform, e)
                 results[platform] = False
 
         return results
@@ -275,7 +275,7 @@ class DeviceConnectorRegistry:
             try:
                 await connector.shutdown()
             except (OSError, RuntimeError) as e:
-                logger.warning(f"Error shutting down {connector.platform_name}: {e}")
+                logger.warning("Error shutting down %s: %s", connector.platform_name, e)
 
         with self._lock:
             self._connectors.clear()

@@ -163,7 +163,7 @@ class FusionImplementationMixin:
             return True
 
         except (RuntimeError, ValueError, OSError, AttributeError) as e:
-            logger.warning(f"Failed to apply fusion result: {e}")
+            logger.warning("Failed to apply fusion result: %s", e)
             return False
 
 

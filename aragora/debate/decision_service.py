@@ -354,7 +354,7 @@ class EventBus:
                 try:
                     queue.put_nowait(event)
                 except asyncio.QueueFull:
-                    logger.warning(f"Event queue full for debate {event.debate_id}")
+                    logger.warning("Event queue full for debate %s", event.debate_id)
 
     async def subscribe(self, debate_id: str) -> asyncio.Queue[DebateEvent]:
         """Create a new subscription for debate events."""
@@ -374,7 +374,7 @@ class EventBus:
                     if not self._subscribers[debate_id]:
                         del self._subscribers[debate_id]
                 except ValueError as e:
-                    logger.debug(f"Failed to remove subscription for debate {debate_id}: {e}")
+                    logger.debug("Failed to remove subscription for debate %s: %s", debate_id, e)
                     # Queue was not in subscriber list, likely already removed
 
 
@@ -472,7 +472,7 @@ class AsyncDecisionService:
         # Start background execution
         task = asyncio.create_task(self._run_debate(debate_id, request))
         task.add_done_callback(
-            lambda t: logger.error(f"[decision_service] Debate {debate_id} failed: {t.exception()}")
+            lambda t: logger.error("[decision_service] Debate %s failed: %s", debate_id, t.exception())
             if not t.cancelled() and t.exception()
             else None
         )
@@ -617,7 +617,7 @@ class AsyncDecisionService:
                 raise
 
             except Exception as e:  # noqa: BLE001 - background debate execution must catch all failures to update state
-                logger.exception(f"Debate {debate_id} failed: {e}")
+                logger.exception("Debate %s failed: %s", debate_id, e)
                 state.status = DebateStatus.FAILED
                 state.error = f"Debate failed: {type(e).__name__}"
                 state.completed_at = datetime.now(timezone.utc)
@@ -640,7 +640,7 @@ class AsyncDecisionService:
 
         def _log_task_error(t: asyncio.Task) -> None:
             if not t.cancelled() and t.exception():
-                logger.warning(f"[decision_service] Background task failed: {t.exception()}")
+                logger.warning("[decision_service] Background task failed: %s", t.exception())
 
         def on_round_start(round_num: int) -> None:
             state.current_round = round_num
@@ -672,7 +672,7 @@ class AsyncDecisionService:
                     )
                 )
             ).add_done_callback(
-                lambda t: logger.warning(f"[decision_service] Event publish failed: {t.exception()}")
+                lambda t: logger.warning("[decision_service] Event publish failed: %s", t.exception())
                 if not t.cancelled() and t.exception()
                 else None
             )
@@ -692,7 +692,7 @@ class AsyncDecisionService:
                     )
                 )
             ).add_done_callback(
-                lambda t: logger.warning(f"[decision_service] Consensus publish failed: {t.exception()}")
+                lambda t: logger.warning("[decision_service] Consensus publish failed: %s", t.exception())
                 if not t.cancelled() and t.exception()
                 else None
             )

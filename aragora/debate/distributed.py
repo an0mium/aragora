@@ -159,7 +159,7 @@ class DistributedDebateCoordinator:
         self._sync_task: asyncio.Task | None = None
         self._connected = False
 
-        logger.info(f"[DistributedDebate] Coordinator initialized: {self._instance_id}")
+        logger.info("[DistributedDebate] Coordinator initialized: %s", self._instance_id)
 
     async def connect(self) -> None:
         """Start the distributed debate coordinator."""
@@ -214,7 +214,7 @@ class DistributedDebateCoordinator:
             except asyncio.CancelledError:
                 break
             except (RuntimeError, ConnectionError, OSError, ValueError) as e:
-                logger.error(f"[DistributedDebate] Sync error: {e}")
+                logger.error("[DistributedDebate] Sync error: %s", e)
 
     async def _sync_debates(self) -> None:
         """Sync active debates with other instances."""
@@ -245,7 +245,7 @@ class DistributedDebateCoordinator:
         try:
             event = DistributedDebateEvent.from_dict(event_data)
         except (KeyError, ValueError, TypeError, AttributeError) as e:
-            logger.warning(f"[DistributedDebate] Invalid event: {e}")
+            logger.warning("[DistributedDebate] Invalid event: %s", e)
             return
 
         # Skip our own events
@@ -278,7 +278,7 @@ class DistributedDebateCoordinator:
             )
             self._debates[event.debate_id] = state
             self._debate_locks[event.debate_id] = asyncio.Lock()
-            logger.info(f"[DistributedDebate] Joined debate {event.debate_id}")
+            logger.info("[DistributedDebate] Joined debate %s", event.debate_id)
 
     async def _on_debate_started(self, event: DistributedDebateEvent) -> None:
         """Handle debate start from coordinator."""
@@ -381,7 +381,7 @@ class DistributedDebateCoordinator:
         self._debates[debate_id] = state
         self._debate_locks[debate_id] = asyncio.Lock()
 
-        logger.info(f"[DistributedDebate] Starting debate {debate_id}: {task[:50]}...")
+        logger.info("[DistributedDebate] Starting debate %s: %s...", debate_id, task[:50])
 
         # Broadcast debate creation
         await self._publish_event(
@@ -432,7 +432,7 @@ class DistributedDebateCoordinator:
                     break
 
         except Exception as e:  # noqa: BLE001 - debate execution must not crash coordinator
-            logger.error(f"[DistributedDebate] Debate {debate_id} failed: {e}")
+            logger.error("[DistributedDebate] Debate %s failed: %s", debate_id, e)
             state.status = "failed"
 
         # Finalize
@@ -458,8 +458,7 @@ class DistributedDebateCoordinator:
         )
 
         logger.info(
-            f"[DistributedDebate] Debate {debate_id} completed: "
-            f"consensus={state.consensus_reached}, rounds={state.current_round}"
+            "[DistributedDebate] Debate %s completed: consensus=%s, rounds=%s", debate_id, state.consensus_reached, state.current_round
         )
 
         return result

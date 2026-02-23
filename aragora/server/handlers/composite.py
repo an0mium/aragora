@@ -117,7 +117,7 @@ class CompositeHandler(BaseHandler):
         # Rate limit check
         client_ip = get_client_ip(handler)
         if not _composite_limiter.is_allowed(client_ip):
-            logger.warning(f"Rate limit exceeded for composite endpoint: {client_ip}")
+            logger.warning("Rate limit exceeded for composite endpoint: %s", client_ip)
             return self._error_response("Rate limit exceeded. Please try again later.", 429)
 
         if path.endswith("/full-context"):
@@ -196,10 +196,10 @@ class CompositeHandler(BaseHandler):
             )
 
         except (ValueError, KeyError, TypeError) as e:
-            logger.warning(f"Data error in full-context handler: {e}")
+            logger.warning("Data error in full-context handler: %s", e)
             return self._error_response("Invalid data", 400)
         except (ValueError, KeyError, TypeError, RuntimeError, OSError) as e:
-            logger.exception(f"Unexpected error in full-context handler: {e}")
+            logger.exception("Unexpected error in full-context handler: %s", e)
             return self._error_response("Internal server error", 500)
 
     def _handle_reliability(self, agent_id: str, query_params: dict[str, str]) -> HandlerResult:
@@ -253,10 +253,10 @@ class CompositeHandler(BaseHandler):
             )
 
         except (ValueError, KeyError, TypeError) as e:
-            logger.warning(f"Data error in reliability handler: {e}")
+            logger.warning("Data error in reliability handler: %s", e)
             return self._error_response("Invalid data", 400)
         except (ValueError, KeyError, TypeError, RuntimeError, OSError) as e:
-            logger.exception(f"Unexpected error in reliability handler: {e}")
+            logger.exception("Unexpected error in reliability handler: %s", e)
             return self._error_response("Internal server error", 500)
 
     def _handle_compression_analysis(
@@ -312,10 +312,10 @@ class CompositeHandler(BaseHandler):
             )
 
         except (ValueError, KeyError, TypeError) as e:
-            logger.warning(f"Data error in compression-analysis handler: {e}")
+            logger.warning("Data error in compression-analysis handler: %s", e)
             return self._error_response("Invalid data", 400)
         except (ValueError, KeyError, TypeError, RuntimeError, OSError) as e:
-            logger.exception(f"Unexpected error in compression-analysis handler: {e}")
+            logger.exception("Unexpected error in compression-analysis handler: %s", e)
             return self._error_response("Internal server error", 500)
 
     # ==========================================================================
@@ -341,7 +341,7 @@ class CompositeHandler(BaseHandler):
         circuit_breaker = _get_circuit_breaker(subsystem)
 
         if not circuit_breaker.can_proceed():
-            logger.debug(f"Circuit breaker open for {subsystem}, returning fallback")
+            logger.debug("Circuit breaker open for %s, returning fallback", subsystem)
             return fallback_value
 
         try:
@@ -349,7 +349,7 @@ class CompositeHandler(BaseHandler):
             circuit_breaker.record_success()
             return result
         except (KeyError, ValueError, TypeError) as e:
-            logger.warning(f"Data error fetching {subsystem}: {e}")
+            logger.warning("Data error fetching %s: %s", subsystem, e)
             circuit_breaker.record_failure()
             if fallback_value is not None:
                 fallback = (
@@ -360,7 +360,7 @@ class CompositeHandler(BaseHandler):
                 return fallback
             return fallback_value
         except (ValueError, KeyError, TypeError, RuntimeError, OSError) as e:
-            logger.exception(f"Unexpected error fetching {subsystem}: {e}")
+            logger.exception("Unexpected error fetching %s: %s", subsystem, e)
             circuit_breaker.record_failure()
             if fallback_value is not None:
                 fallback = (
@@ -418,9 +418,9 @@ class CompositeHandler(BaseHandler):
                 knowledge_data["facts"] = items
                 knowledge_data["available"] = True
         except (KeyError, ValueError, TypeError, AttributeError) as e:
-            logger.debug(f"Expected error fetching knowledge context: {e}")
+            logger.debug("Expected error fetching knowledge context: %s", e)
         except (ConnectionError, TimeoutError, OSError, RuntimeError) as e:
-            logger.warning(f"Unexpected error fetching knowledge context: {e}")
+            logger.warning("Unexpected error fetching knowledge context: %s", e)
 
         return knowledge_data
 
@@ -442,9 +442,9 @@ class CompositeHandler(BaseHandler):
                 belief_data["cruxes"] = cruxes
                 belief_data["available"] = True
         except (KeyError, ValueError, TypeError, AttributeError) as e:
-            logger.debug(f"Expected error fetching belief context: {e}")
+            logger.debug("Expected error fetching belief context: %s", e)
         except (ConnectionError, TimeoutError, OSError, RuntimeError) as e:
-            logger.warning(f"Unexpected error fetching belief context: {e}")
+            logger.warning("Unexpected error fetching belief context: %s", e)
 
         return belief_data
 
@@ -530,7 +530,7 @@ class CompositeHandler(BaseHandler):
             try:
                 return rlm_handler.get_compression_stats(debate_id)
             except (KeyError, ValueError, TypeError, AttributeError, OSError) as e:
-                logger.debug(f"Error getting RLM metrics: {e}")
+                logger.debug("Error getting RLM metrics: %s", e)
         return None
 
     def _generate_compression_recommendations(self, analysis: dict[str, Any]) -> list[str]:

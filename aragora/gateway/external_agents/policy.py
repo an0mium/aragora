@@ -246,7 +246,7 @@ class PolicyEngine:
     def set_tenant_policy(self, tenant_id: str, policy: ExternalAgentPolicy) -> None:
         """Set a tenant-specific policy."""
         self._tenant_policies[tenant_id] = policy
-        logger.info(f"Set policy for tenant {tenant_id}: {policy.policy_name}")
+        logger.info("Set policy for tenant %s: %s", tenant_id, policy.policy_name)
 
     def get_policy(self, tenant_id: str | None = None) -> ExternalAgentPolicy:
         """Get the applicable policy for a tenant."""

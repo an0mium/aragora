@@ -241,7 +241,7 @@ class DatasetQueryEngine:
                 min_score=ctx.options.min_chunk_score,
             )
         except (ConnectionError, TimeoutError, RuntimeError) as e:
-            logger.warning(f"Embedding search failed, trying keyword: {e}")
+            logger.warning("Embedding search failed, trying keyword: %s", e)
             return await self._embedding_service.keyword_search(
                 query=ctx.query,
                 workspace_id=ctx.workspace_id,
@@ -298,10 +298,10 @@ Include references to excerpt numbers [N] when citing information."""
             ctx.agent_responses[agent.name] = response
             return response
         except (RuntimeError, TimeoutError, ConnectionError) as e:
-            logger.warning(f"Agent generation failed: {e}")
+            logger.warning("Agent generation failed: %s", e)
             return self._synthesize_from_chunks(ctx)
         except (OSError, ConnectionError, TimeoutError, RuntimeError) as e:
-            logger.exception(f"Unexpected agent generation error: {e}")
+            logger.exception("Unexpected agent generation error: %s", e)
             return self._synthesize_from_chunks(ctx)
 
     async def _generate_with_debate(self, ctx: QueryContext) -> str:
@@ -415,10 +415,10 @@ Provide a single, definitive answer that:
         try:
             return await agent.generate(prompt, [])
         except (RuntimeError, TimeoutError, ConnectionError) as e:
-            logger.warning(f"Agent {agent.name} failed: {e}")
+            logger.warning("Agent %s failed: %s", agent.name, e)
             return None
         except (OSError, ConnectionError, TimeoutError, RuntimeError) as e:
-            logger.exception(f"Unexpected error in agent {agent.name}: {e}")
+            logger.exception("Unexpected error in agent %s: %s", agent.name, e)
             return None
 
     def _format_responses(self, responses: dict[str, str]) -> str:
@@ -494,9 +494,9 @@ Only include facts that are directly supported by the source material."""
                         facts.append(fact)
 
         except (ValueError, RuntimeError, TimeoutError) as e:
-            logger.warning(f"Fact extraction failed: {e}")
+            logger.warning("Fact extraction failed: %s", e)
         except (OSError, ConnectionError, TimeoutError, RuntimeError) as e:
-            logger.exception(f"Unexpected fact extraction error: {e}")
+            logger.exception("Unexpected fact extraction error: %s", e)
 
         return facts
 
@@ -631,9 +631,9 @@ Then briefly explain your reasoning."""
                 # UNCERTAIN doesn't vote
 
             except (RuntimeError, TimeoutError, ConnectionError) as e:
-                logger.warning(f"Agent {agent.name} verification failed: {e}")
+                logger.warning("Agent %s verification failed: %s", agent.name, e)
             except (OSError, ConnectionError, TimeoutError, RuntimeError) as e:
-                logger.exception(f"Unexpected verification error for agent {agent.name}: {e}")
+                logger.exception("Unexpected verification error for agent %s: %s", agent.name, e)
 
         # Calculate new status based on votes
         if votes:
@@ -667,7 +667,7 @@ Then briefly explain your reasoning."""
             self._embedding_service.close()
         except (RuntimeError, ConnectionError, OSError) as e:
             # Ignore cleanup errors but log for debugging
-            logger.debug(f"Error closing embedding service: {e}")
+            logger.debug("Error closing embedding service: %s", e)
 
 
 class SimpleQueryEngine:
@@ -771,4 +771,4 @@ class SimpleQueryEngine:
             self._embedding_service.close()
         except (RuntimeError, ConnectionError, OSError) as e:
             # Ignore cleanup errors but log for debugging
-            logger.debug(f"Error closing embedding service: {e}")
+            logger.debug("Error closing embedding service: %s", e)

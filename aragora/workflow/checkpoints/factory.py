@@ -107,7 +107,7 @@ def get_checkpoint_store(
     def _maybe_wrap_with_cache(store: CheckpointStore) -> CheckpointStore:
         """Wrap store with caching if enabled."""
         if enable_caching:
-            logger.debug(f"Wrapping checkpoint store with cache (size={cache_size})")
+            logger.debug("Wrapping checkpoint store with cache (size=%s)", cache_size)
             return CachingCheckpointStore(store, max_cache_size=cache_size)
         return store
 
@@ -151,7 +151,7 @@ def get_checkpoint_store(
                 logger.info("Using RedisCheckpointStore for checkpoints")
                 return _maybe_wrap_with_cache(store)
         except (RuntimeError, ConnectionError, OSError, ImportError) as e:
-            logger.debug(f"Redis checkpoint store not available: {e}")
+            logger.debug("Redis checkpoint store not available: %s", e)
 
     # Try Postgres if preferred
     if prefer_postgres and _compat_stub.ASYNCPG_AVAILABLE:
@@ -179,7 +179,7 @@ def get_checkpoint_store(
                     # No event loop
                     logger.debug("No event loop for Postgres initialization")
         except (RuntimeError, ConnectionError, OSError, ImportError) as e:
-            logger.debug(f"Postgres checkpoint store not available: {e}")
+            logger.debug("Postgres checkpoint store not available: %s", e)
 
     # Fall back to file-based storage
     # SECURITY: Check production guards before allowing file fallback
@@ -197,7 +197,7 @@ def get_checkpoint_store(
     except ImportError:
         pass  # Guards not available, allow fallback
 
-    logger.debug(f"Using FileCheckpointStore in {fallback_dir}")
+    logger.debug("Using FileCheckpointStore in %s", fallback_dir)
     return _maybe_wrap_with_cache(FileCheckpointStore(fallback_dir))
 
 
@@ -253,7 +253,7 @@ async def get_checkpoint_store_async(
     def _maybe_wrap_with_cache(store: CheckpointStore) -> CheckpointStore:
         """Wrap store with caching if enabled."""
         if enable_caching:
-            logger.debug(f"Wrapping checkpoint store with cache (size={cache_size})")
+            logger.debug("Wrapping checkpoint store with cache (size=%s)", cache_size)
             return CachingCheckpointStore(store, max_cache_size=cache_size)
         return store
 
@@ -297,7 +297,7 @@ async def get_checkpoint_store_async(
                 logger.info("Using RedisCheckpointStore for checkpoints")
                 return _maybe_wrap_with_cache(store)
         except (RuntimeError, ConnectionError, OSError, ImportError) as e:
-            logger.debug(f"Redis checkpoint store not available: {e}")
+            logger.debug("Redis checkpoint store not available: %s", e)
 
     # Try Postgres if preferred
     if prefer_postgres and _compat_stub.ASYNCPG_AVAILABLE:
@@ -310,7 +310,7 @@ async def get_checkpoint_store_async(
             logger.info("Using PostgresCheckpointStore for checkpoints")
             return _maybe_wrap_with_cache(pg_store)
         except (RuntimeError, ConnectionError, OSError, ImportError) as e:
-            logger.debug(f"Postgres checkpoint store not available: {e}")
+            logger.debug("Postgres checkpoint store not available: %s", e)
 
     # Fall back to file-based storage
     # SECURITY: Check production guards before allowing file fallback
@@ -328,5 +328,5 @@ async def get_checkpoint_store_async(
     except ImportError:
         pass  # Guards not available, allow fallback
 
-    logger.debug(f"Using FileCheckpointStore in {fallback_dir}")
+    logger.debug("Using FileCheckpointStore in %s", fallback_dir)
     return _maybe_wrap_with_cache(FileCheckpointStore(fallback_dir))

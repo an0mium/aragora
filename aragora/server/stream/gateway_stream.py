@@ -140,7 +140,7 @@ class GatewayStreamServer:
                     callback(event)
                 sent_count += 1
             except (ValueError, TypeError, RuntimeError, OSError, ConnectionError) as e:
-                logger.warning(f"Error in gateway stream callback: {e}")
+                logger.warning("Error in gateway stream callback: %s", e)
                 # Continue to other subscribers even if one fails
 
         return sent_count

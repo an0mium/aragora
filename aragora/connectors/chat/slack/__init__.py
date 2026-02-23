@@ -240,7 +240,7 @@ class SlackConnector(SlackMessagesMixin, SlackEventsMixin, ChatPlatformConnector
 
         # Check if token needs refresh
         if not store.is_token_expired(self._workspace_id):
-            logger.debug(f"Token for workspace {self._workspace_id} not expired, skipping refresh")
+            logger.debug("Token for workspace %s not expired, skipping refresh", self._workspace_id)
             return False
 
         # Get OAuth credentials from environment
@@ -252,7 +252,7 @@ class SlackConnector(SlackMessagesMixin, SlackEventsMixin, ChatPlatformConnector
             return False
 
         # Attempt refresh
-        logger.info(f"Attempting token refresh for workspace: {self._workspace_id}")
+        logger.info("Attempting token refresh for workspace: %s", self._workspace_id)
         workspace = await store.refresh_workspace_token(
             self._workspace_id,
             client_id=client_id,
@@ -262,10 +262,10 @@ class SlackConnector(SlackMessagesMixin, SlackEventsMixin, ChatPlatformConnector
         if workspace:
             # Update connector's token with refreshed token
             self.bot_token = workspace.access_token
-            logger.info(f"Token refreshed successfully for workspace: {self._workspace_id}")
+            logger.info("Token refreshed successfully for workspace: %s", self._workspace_id)
             return True
 
-        logger.error(f"Token refresh failed for workspace: {self._workspace_id}")
+        logger.error("Token refresh failed for workspace: %s", self._workspace_id)
         return False
 
     def _is_auth_error(self, error: str | None) -> bool:
@@ -370,8 +370,7 @@ class SlackConnector(SlackMessagesMixin, SlackEventsMixin, ChatPlatformConnector
                         if _is_retryable_error(response.status_code, error):
                             if attempt < retries - 1:
                                 logger.warning(
-                                    f"Slack {operation} retryable error: {error} "
-                                    f"(attempt {attempt + 1}/{retries})"
+                                    "Slack %s retryable error: %s (attempt %s/%s)", operation, error, attempt + 1, retries
                                 )
                                 # Use Retry-After header for rate limits (429), exponential backoff otherwise
                                 if response.status_code == 429:
@@ -383,7 +382,7 @@ class SlackConnector(SlackMessagesMixin, SlackEventsMixin, ChatPlatformConnector
                         # Check for auth errors - attempt token refresh
                         if self._is_auth_error(error) and attempt < retries - 1:
                             logger.warning(
-                                f"Slack {operation} auth error: {error}, attempting token refresh"
+                                "Slack %s auth error: %s, attempting token refresh", operation, error
                             )
                             if await self._attempt_token_refresh():
                                 # Token refreshed, retry immediately
@@ -400,41 +399,38 @@ class SlackConnector(SlackMessagesMixin, SlackEventsMixin, ChatPlatformConnector
                 classified = classify_connector_error(last_error, "slack")
                 if attempt < retries - 1:
                     logger.warning(
-                        f"[slack] {operation} timeout (attempt {attempt + 1}/{retries}) "
-                        f"[{type(classified).__name__}]"
+                        "[slack] %s timeout (attempt %s/%s) [%s]", operation, attempt + 1, retries, type(classified).__name__
                     )
                     await _exponential_backoff(attempt)
                     continue
                 # Final attempt failed
-                logger.error(f"[slack] {operation} timeout after {retries} attempts")
+                logger.error("[slack] %s timeout after %s attempts", operation, retries)
 
             except _httpx.ConnectError as e:
                 last_error = f"Connection error: {e}"
                 classified = classify_connector_error(last_error, "slack")
                 if attempt < retries - 1:
                     logger.warning(
-                        f"[slack] {operation} network error (attempt {attempt + 1}/{retries}) "
-                        f"[{type(classified).__name__}]"
+                        "[slack] %s network error (attempt %s/%s) [%s]", operation, attempt + 1, retries, type(classified).__name__
                     )
                     await _exponential_backoff(attempt)
                     continue
                 # Final attempt failed
-                logger.error(f"[slack] {operation} network error after {retries} attempts: {e}")
+                logger.error("[slack] %s network error after %s attempts: %s", operation, retries, e)
 
             except (_httpx.RequestError, OSError, ValueError, RuntimeError, TypeError) as e:
                 # Unexpected error - don't retry, classify for metrics
                 last_error = f"Unexpected error: {e}"
                 classified = classify_connector_error(last_error, "slack")
                 logger.exception(
-                    f"[slack] {operation} unexpected error [{type(classified).__name__}]: {e}"
+                    "[slack] %s unexpected error [%s]: %s", operation, type(classified).__name__, e
                 )
                 break
             except Exception as e:  # noqa: BLE001 - safety net after specific httpx/OS catches; httpx internals may raise unexpected types
                 last_error = f"Unexpected error: {e}"
                 classified = classify_connector_error(last_error, "slack")
                 logger.exception(
-                    f"[slack] {operation} unhandled {type(e).__name__} "
-                    f"[{type(classified).__name__}]: {e}"
+                    "[slack] %s unhandled %s [%s]: %s", operation, type(e).__name__, type(classified).__name__, e
                 )
                 break
 
@@ -443,7 +439,7 @@ class SlackConnector(SlackMessagesMixin, SlackEventsMixin, ChatPlatformConnector
             self._circuit_breaker.record_failure()
         if last_error:
             classified = classify_connector_error(last_error, "slack")
-            logger.debug(f"[slack] {operation} final error type: {type(classified).__name__}")
+            logger.debug("[slack] %s final error type: %s", operation, type(classified).__name__)
         return False, None, last_error or "Unknown error"
 
 

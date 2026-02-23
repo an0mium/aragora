@@ -112,7 +112,7 @@ class RolesManager:
 
         # Log role assignment for debugging
         roles = {a.name: a.role for a in self.agents}
-        logger.debug(f"Role assignment: {roles}")
+        logger.debug("Role assignment: %s", roles)
 
     def assign_stances(self, round_num: int = 0) -> None:
         """Assign debate stances to agents for asymmetric debate.
@@ -283,14 +283,14 @@ Do not advocate - analyze impartially."""
                 debate_domain=debate_domain,
             )
             self.current_role_assignments = result.assignments
-            logger.debug(f"Role matcher assigned: {list(self.current_role_assignments.keys())}")
+            logger.debug("Role matcher assigned: %s", list(self.current_role_assignments.keys()))
         # Fall back to simple role rotation
         elif self.role_rotator:
             total_rounds = getattr(self.protocol, "rounds", 3)
             self.current_role_assignments = self.role_rotator.get_assignments(
                 agent_names, round_num, total_rounds
             )
-            logger.debug(f"Role rotator assigned: {list(self.current_role_assignments.keys())}")
+            logger.debug("Role rotator assigned: %s", list(self.current_role_assignments.keys()))
 
     def get_role_context(self, agent: Agent) -> str:
         """Get cognitive role context for an agent in the current round.
@@ -383,7 +383,7 @@ Do not advocate - analyze impartially."""
         """
         if self.current_role_assignments:
             roles_str = self.format_role_assignments_for_log()
-            logger.debug(f"role_assignments round={round_num} roles={roles_str}")
+            logger.debug("role_assignments round=%s roles=%s", round_num, roles_str)
 
 
 __all__ = ["RolesManager"]

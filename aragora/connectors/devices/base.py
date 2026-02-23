@@ -115,7 +115,7 @@ class DeviceConnector(ABC):
                     failure_threshold=self.config.circuit_breaker_threshold,
                     cooldown_seconds=self.config.circuit_breaker_cooldown,
                 )
-                logger.debug(f"Circuit breaker initialized for {self.platform_name}")
+                logger.debug("Circuit breaker initialized for %s", self.platform_name)
             except ImportError:
                 logger.warning("Circuit breaker module not available")
             self._circuit_breaker_initialized = True
@@ -155,7 +155,7 @@ class DeviceConnector(ABC):
             status = cb.get_status()
             if status == "open":
                 logger.warning(
-                    f"Circuit breaker OPENED for {self.platform_name} after repeated failures"
+                    "Circuit breaker OPENED for %s after repeated failures", self.platform_name
                 )
 
     # ==========================================================================
@@ -224,7 +224,7 @@ class DeviceConnector(ABC):
                     await asyncio.sleep(total_delay)
                 else:
                     logger.error(
-                        f"{self.platform_name} {operation} failed after {max_retries} attempts: {e}"
+                        "%s %s failed after %s attempts: %s", self.platform_name, operation, max_retries, e
                     )
 
         if last_exception:
@@ -315,8 +315,7 @@ class DeviceConnector(ABC):
                             continue
                         else:
                             logger.error(
-                                f"{self.platform_name} {operation} failed after {max_retries} "
-                                f"attempts with status {response.status_code}"
+                                "%s %s failed after %s attempts with status %s", self.platform_name, operation, max_retries, response.status_code
                             )
                             return False, None, last_error
 
@@ -324,7 +323,7 @@ class DeviceConnector(ABC):
                     if response.status_code >= 400:
                         self._record_failure()
                         error = f"HTTP {response.status_code}: {response.text[:200]}"
-                        logger.warning(f"{self.platform_name} {operation} failed: {error}")
+                        logger.warning("%s %s failed: %s", self.platform_name, operation, error)
                         return False, None, error
 
                     # Success
@@ -348,7 +347,7 @@ class DeviceConnector(ABC):
                     await asyncio.sleep(delay)
                 else:
                     logger.error(
-                        f"{self.platform_name} {operation} failed after {max_retries} attempts: {e}"
+                        "%s %s failed after %s attempts: %s", self.platform_name, operation, max_retries, e
                     )
 
         return False, None, last_error
@@ -540,13 +539,13 @@ class DeviceConnector(ABC):
         # Validate device type
         if registration.device_type not in self.supported_device_types:
             logger.warning(
-                f"Device type {registration.device_type} not supported by {self.platform_name}"
+                "Device type %s not supported by %s", registration.device_type, self.platform_name
             )
             return None
 
         # Validate token format (subclasses may override for stricter validation)
         if not self.validate_token(registration.push_token):
-            logger.warning(f"Invalid push token format for {self.platform_name}")
+            logger.warning("Invalid push token format for %s", self.platform_name)
             return None
 
         # Generate device ID
@@ -607,7 +606,7 @@ class DeviceConnector(ABC):
             )
             store.set_device_session(session)
 
-            logger.info(f"Registered new device {device_id} for user {registration.user_id}")
+            logger.info("Registered new device %s for user %s", device_id, registration.user_id)
             return device_token
 
         except ImportError:
@@ -676,7 +675,7 @@ class DeviceConnector(ABC):
         Returns:
             VoiceDeviceResponse to send back to the device
         """
-        logger.warning(f"{self.platform_name} does not support voice requests")
+        logger.warning("%s does not support voice requests", self.platform_name)
         return VoiceDeviceResponse(
             text="I'm sorry, this feature is not available.",
             should_end_session=True,
@@ -701,7 +700,7 @@ class DeviceConnector(ABC):
         Returns:
             True if notification sent successfully
         """
-        logger.warning(f"{self.platform_name} does not support proactive notifications")
+        logger.warning("%s does not support proactive notifications", self.platform_name)
         return False
 
     # ==========================================================================
@@ -793,7 +792,7 @@ class DeviceConnector(ABC):
             True if initialization successful
         """
         self._initialized = True
-        logger.info(f"{self.platform_name} device connector initialized")
+        logger.info("%s device connector initialized", self.platform_name)
         return True
 
     async def shutdown(self) -> None:
@@ -803,7 +802,7 @@ class DeviceConnector(ABC):
         Subclasses should override to perform cleanup.
         """
         self._initialized = False
-        logger.info(f"{self.platform_name} device connector shutdown")
+        logger.info("%s device connector shutdown", self.platform_name)
 
     def __repr__(self) -> str:
         return f"{self.__class__.__name__}(platform={self.platform_name})"

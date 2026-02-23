@@ -300,7 +300,7 @@ class OwnershipManager:
         self._store_record(record)
         self._invalidate_cache(resource_type, resource_id)
 
-        logger.info(f"Set owner {owner_id} for {resource_type.value}/{resource_id} in org {org_id}")
+        logger.info("Set owner %s for %s/%s in org %s", owner_id, resource_type.value, resource_id, org_id)
 
         return record
 
@@ -411,14 +411,14 @@ class OwnershipManager:
         record = self.get_ownership_record(resource_type, resource_id)
         if not record:
             logger.warning(
-                f"Cannot transfer ownership: resource {resource_type.value}/{resource_id} not found"
+                "Cannot transfer ownership: resource %s/%s not found", resource_type.value, resource_id
             )
             return None
 
         old_owner_id = record.owner_id
 
         if old_owner_id == new_owner_id:
-            logger.info(f"Ownership transfer skipped: same owner {new_owner_id}")
+            logger.info("Ownership transfer skipped: same owner %s", new_owner_id)
             return record
 
         # Record transfer history
@@ -447,8 +447,7 @@ class OwnershipManager:
         self._invalidate_cache(resource_type, resource_id)
 
         logger.info(
-            f"Transferred ownership of {resource_type.value}/{resource_id} "
-            f"from {old_owner_id} to {new_owner_id}"
+            "Transferred ownership of %s/%s from %s to %s", resource_type.value, resource_id, old_owner_id, new_owner_id
         )
 
         return record
@@ -479,7 +478,7 @@ class OwnershipManager:
         self._remove_record(record_id)
         self._invalidate_cache(resource_type, resource_id)
 
-        logger.info(f"Removed ownership for {resource_type.value}/{resource_id}")
+        logger.info("Removed ownership for %s/%s", resource_type.value, resource_id)
 
         return True
 

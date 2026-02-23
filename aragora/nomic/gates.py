@@ -409,7 +409,7 @@ class ApprovalGate(ABC):
                 reason="Gates disabled",
             )
             self._decisions.append(decision)
-            logger.debug(f"Gate {self.gate_type.value} skipped (disabled)")
+            logger.debug("Gate %s skipped (disabled)", self.gate_type.value)
             return decision
 
         # Check gate conditions
@@ -721,7 +721,7 @@ class CommitGate(ApprovalGate):
                     metadata={"files_changed": files_changed},
                 )
             except (RuntimeError, OSError, ConnectionError, TimeoutError) as e:
-                logger.warning(f"Web UI callback failed: {e}, falling back to CLI")
+                logger.warning("Web UI callback failed: %s, falling back to CLI", e)
 
         # Fall back to CLI approval
         approved = await self._request_cli_approval(commit_info, files_changed, improvement)

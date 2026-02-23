@@ -118,7 +118,7 @@ class SpectatorStream:
 
         # Validate event type
         if event_type not in VALID_EVENT_TYPES:
-            logger.warning(f"Unknown spectator event type: {event_type!r}")
+            logger.warning("Unknown spectator event type: %r", event_type)
             # Continue anyway - don't break on unknown events
 
         try:
@@ -135,7 +135,7 @@ class SpectatorStream:
         except (OSError, ValueError, TypeError, UnicodeError, RuntimeError) as e:
             # Swallow non-critical errors (IO, encoding, etc.) to ensure
             # spectating never breaks debates. Log at debug level.
-            logger.debug(f"Spectator emit failed (non-fatal): {type(e).__name__}: {e}")
+            logger.debug("Spectator emit failed (non-fatal): %s: %s", type(e).__name__, e)
 
     def _emit_json(
         self,

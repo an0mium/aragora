@@ -207,7 +207,7 @@ class PulseAdapter(FusionMixin, SemanticSearchMixin, KnowledgeMoundAdapter):
                 return True
             return False
         except (RuntimeError, ValueError, OSError, AttributeError) as e:
-            logger.warning(f"Failed to apply fusion result to pulse: {e}")
+            logger.warning("Failed to apply fusion result to pulse: %s", e)
             return False
 
     # ========================================================================
@@ -424,7 +424,7 @@ class PulseAdapter(FusionMixin, SemanticSearchMixin, KnowledgeMoundAdapter):
 
         self._debates[debate_id] = debate_data
 
-        logger.info(f"Stored scheduled debate: {debate_id}")
+        logger.info("Stored scheduled debate: %s", debate_id)
         return debate_id
 
     def store_outcome(
@@ -464,7 +464,7 @@ class PulseAdapter(FusionMixin, SemanticSearchMixin, KnowledgeMoundAdapter):
 
         self._outcomes[outcome_id] = outcome_data
 
-        logger.info(f"Stored outcome: {outcome_id} (consensus={outcome.consensus_reached})")
+        logger.info("Stored outcome: %s (consensus=%s)", outcome_id, outcome.consensus_reached)
         return outcome_id
 
     def store_debate_outcome(

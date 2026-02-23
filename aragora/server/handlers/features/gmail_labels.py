@@ -258,7 +258,7 @@ class GmailLabelsHandler(SecureHandler):
             )
 
         except (ConnectionError, TimeoutError, OSError, ValueError, AttributeError) as e:
-            logger.error(f"[GmailLabels] List labels failed: {e}")
+            logger.error("[GmailLabels] List labels failed: %s", e)
             return error_response("Failed to list labels", 500)
 
     async def _create_label(self, state: Any, body: dict[str, Any]) -> HandlerResult:
@@ -272,7 +272,7 @@ class GmailLabelsHandler(SecureHandler):
             return json_response({"label": label, "success": True})
 
         except (ConnectionError, TimeoutError, OSError, ValueError) as e:
-            logger.error(f"[GmailLabels] Create label failed: {e}")
+            logger.error("[GmailLabels] Create label failed: %s", e)
             return error_response("Label creation failed", 500)
 
     async def _api_create_label(
@@ -316,7 +316,7 @@ class GmailLabelsHandler(SecureHandler):
             return json_response({"label": label, "success": True})
 
         except (ConnectionError, TimeoutError, OSError, ValueError) as e:
-            logger.error(f"[GmailLabels] Update label failed: {e}")
+            logger.error("[GmailLabels] Update label failed: %s", e)
             return error_response("Label update failed", 500)
 
     async def _api_update_label(
@@ -360,7 +360,7 @@ class GmailLabelsHandler(SecureHandler):
             return json_response({"deleted": label_id, "success": True})
 
         except (ConnectionError, TimeoutError, OSError, ValueError) as e:
-            logger.error(f"[GmailLabels] Delete label failed: {e}")
+            logger.error("[GmailLabels] Delete label failed: %s", e)
             return error_response("Label deletion failed", 500)
 
     async def _api_delete_label(self, state: Any, label_id: str) -> None:
@@ -405,7 +405,7 @@ class GmailLabelsHandler(SecureHandler):
             )
 
         except (ConnectionError, TimeoutError, OSError, ValueError) as e:
-            logger.error(f"[GmailLabels] Modify labels failed: {e}")
+            logger.error("[GmailLabels] Modify labels failed: %s", e)
             return error_response("Label modification failed", 500)
 
     async def _api_modify_labels(
@@ -456,7 +456,7 @@ class GmailLabelsHandler(SecureHandler):
             )
 
         except (ConnectionError, TimeoutError, OSError, ValueError) as e:
-            logger.error(f"[GmailLabels] Mark read failed: {e}")
+            logger.error("[GmailLabels] Mark read failed: %s", e)
             return error_response("Mark as read failed", 500)
 
     async def _star_message(
@@ -482,7 +482,7 @@ class GmailLabelsHandler(SecureHandler):
             )
 
         except (ConnectionError, TimeoutError, OSError, ValueError) as e:
-            logger.error(f"[GmailLabels] Star message failed: {e}")
+            logger.error("[GmailLabels] Star message failed: %s", e)
             return error_response("Star operation failed", 500)
 
     async def _archive_message(self, state: Any, message_id: str) -> HandlerResult:
@@ -498,7 +498,7 @@ class GmailLabelsHandler(SecureHandler):
             )
 
         except (ConnectionError, TimeoutError, OSError, ValueError) as e:
-            logger.error(f"[GmailLabels] Archive failed: {e}")
+            logger.error("[GmailLabels] Archive failed: %s", e)
             return error_response("Archive operation failed", 500)
 
     async def _trash_message(
@@ -525,7 +525,7 @@ class GmailLabelsHandler(SecureHandler):
             )
 
         except (ConnectionError, TimeoutError, OSError, ValueError) as e:
-            logger.error(f"[GmailLabels] Trash failed: {e}")
+            logger.error("[GmailLabels] Trash failed: %s", e)
             return error_response("Trash operation failed", 500)
 
     async def _api_trash_message(self, state: Any, message_id: str) -> None:
@@ -572,7 +572,7 @@ class GmailLabelsHandler(SecureHandler):
             )
 
         except (ConnectionError, TimeoutError, OSError, ValueError) as e:
-            logger.error(f"[GmailLabels] List filters failed: {e}")
+            logger.error("[GmailLabels] List filters failed: %s", e)
             return error_response("Failed to list filters", 500)
 
     async def _api_list_filters(self, state: Any) -> list[dict[str, Any]]:
@@ -606,7 +606,7 @@ class GmailLabelsHandler(SecureHandler):
             return json_response({"filter": filter_result, "success": True})
 
         except (ConnectionError, TimeoutError, OSError, ValueError) as e:
-            logger.error(f"[GmailLabels] Create filter failed: {e}")
+            logger.error("[GmailLabels] Create filter failed: %s", e)
             return error_response("Filter creation failed", 500)
 
     async def _api_create_filter(
@@ -677,7 +677,7 @@ class GmailLabelsHandler(SecureHandler):
             return json_response({"deleted": filter_id, "success": True})
 
         except (ConnectionError, TimeoutError, OSError, ValueError) as e:
-            logger.error(f"[GmailLabels] Delete filter failed: {e}")
+            logger.error("[GmailLabels] Delete filter failed: %s", e)
             return error_response("Filter deletion failed", 500)
 
     async def _api_delete_filter(self, state: Any, filter_id: str) -> None:

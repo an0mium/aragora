@@ -277,7 +277,7 @@ class N8nIntegration(BaseIntegration):
         # SSRF protection: validate URL before making request
         is_valid, error = _validate_webhook_url(webhook_url)
         if not is_valid:
-            logger.warning(f"n8n webhook URL blocked by SSRF protection: {error}")
+            logger.warning("n8n webhook URL blocked by SSRF protection: %s", error)
             return False
 
         session = await self._get_session()
@@ -289,10 +289,10 @@ class N8nIntegration(BaseIntegration):
             ) as response:
                 return response.status == 200
         except (aiohttp.ClientError, asyncio.TimeoutError, OSError) as e:
-            logger.error(f"n8n webhook connection error: {type(e).__name__}: {e}")
+            logger.error("n8n webhook connection error: %s: %s", type(e).__name__, e)
             return False
         except (ValueError, TypeError) as e:
-            logger.error(f"n8n webhook payload error: {type(e).__name__}: {e}")
+            logger.error("n8n webhook payload error: %s: %s", type(e).__name__, e)
             return False
 
     # =========================================================================
@@ -324,7 +324,7 @@ class N8nIntegration(BaseIntegration):
         )
 
         self._credentials[cred_id] = credential
-        logger.info(f"Created n8n credential {cred_id} for workspace {workspace_id}")
+        logger.info("Created n8n credential %s for workspace %s", cred_id, workspace_id)
         return credential
 
     def get_credential(self, cred_id: str) -> N8nCredential | None:
@@ -355,7 +355,7 @@ class N8nIntegration(BaseIntegration):
                     del self._webhook_path_map[webhook.webhook_path]
 
             del self._credentials[cred_id]
-            logger.info(f"Deleted n8n credential {cred_id}")
+            logger.info("Deleted n8n credential %s", cred_id)
             return True
         return False
 
@@ -385,13 +385,13 @@ class N8nIntegration(BaseIntegration):
         """
         credential = self._credentials.get(cred_id)
         if not credential:
-            logger.warning(f"n8n credential not found: {cred_id}")
+            logger.warning("n8n credential not found: %s", cred_id)
             return None
 
         # Validate events
         invalid_events = [e for e in events if e != "*" and e not in self.EVENT_TYPES]
         if invalid_events:
-            logger.warning(f"Invalid event types: {invalid_events}")
+            logger.warning("Invalid event types: %s", invalid_events)
             return None
 
         webhook_id = f"webhook_{secrets.token_hex(8)}"
@@ -410,7 +410,7 @@ class N8nIntegration(BaseIntegration):
         self._webhook_path_map[webhook_path] = webhook
 
         logger.info(
-            f"Registered n8n webhook {webhook_id} for credential {cred_id}, events: {events}"
+            "Registered n8n webhook %s for credential %s, events: %s", webhook_id, cred_id, events
         )
         return webhook
 
@@ -433,7 +433,7 @@ class N8nIntegration(BaseIntegration):
             if webhook.webhook_path in self._webhook_path_map:
                 del self._webhook_path_map[webhook.webhook_path]
             del credential.webhooks[webhook_id]
-            logger.info(f"Unregistered n8n webhook {webhook_id} from credential {cred_id}")
+            logger.info("Unregistered n8n webhook %s from credential %s", webhook_id, cred_id)
             return True
         return False
 
@@ -494,7 +494,7 @@ class N8nIntegration(BaseIntegration):
                     triggered_count += 1
 
         if triggered_count > 0:
-            logger.info(f"Dispatched {triggered_count} n8n webhooks for {event_type}")
+            logger.info("Dispatched %s n8n webhooks for %s", triggered_count, event_type)
 
         return triggered_count
 
@@ -537,13 +537,13 @@ class N8nIntegration(BaseIntegration):
                 if response.status == 200:
                     return True
                 else:
-                    logger.warning(f"n8n webhook {webhook.id} failed: {response.status}")
+                    logger.warning("n8n webhook %s failed: %s", webhook.id, response.status)
                     return False
         except (aiohttp.ClientError, asyncio.TimeoutError, OSError) as e:
-            logger.error(f"n8n webhook {webhook.id} connection error: {type(e).__name__}: {e}")
+            logger.error("n8n webhook %s connection error: %s: %s", webhook.id, type(e).__name__, e)
             return False
         except (ValueError, TypeError) as e:
-            logger.error(f"n8n webhook {webhook.id} payload error: {type(e).__name__}: {e}")
+            logger.error("n8n webhook %s payload error: %s: %s", webhook.id, type(e).__name__, e)
             return False
 
     def _format_webhook_payload(

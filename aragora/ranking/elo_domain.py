@@ -74,7 +74,7 @@ class KMAdapterMixin:
                 return result
             return []
         except (AttributeError, TypeError, RuntimeError) as e:
-            logger.warning(f"Failed to query KM for agent skill history: {e}")
+            logger.warning("Failed to query KM for agent skill history: %s", e)
             return []
 
     def query_km_domain_expertise(
@@ -102,7 +102,7 @@ class KMAdapterMixin:
                 limit=limit,
             )
         except (AttributeError, TypeError, RuntimeError) as e:
-            logger.warning(f"Failed to query KM for domain expertise: {e}")
+            logger.warning("Failed to query KM for domain expertise: %s", e)
             return []
 
 

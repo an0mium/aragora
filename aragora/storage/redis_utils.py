@@ -77,7 +77,7 @@ def get_redis_client(redis_url: str | None = None) -> RedisClientProtocol | None
         except ImportError:
             logger.debug("Redis cluster module not available")
         except (ConnectionError, TimeoutError, OSError, RuntimeError) as e:
-            logger.warning(f"Failed to initialize Redis cluster: {e}")
+            logger.warning("Failed to initialize Redis cluster: %s", e)
 
     # Fall back to standalone Redis
     url = redis_url or os.getenv("ARAGORA_REDIS_URL", "redis://localhost:6379")
@@ -86,7 +86,7 @@ def get_redis_client(redis_url: str | None = None) -> RedisClientProtocol | None
 
         client = redis.from_url(url, encoding="utf-8", decode_responses=True)
         client.ping()
-        logger.info(f"Using standalone Redis client at {url}")
+        logger.info("Using standalone Redis client at %s", url)
         if redis_url is None:
             _cached_client = client
             _initialized = True
@@ -95,7 +95,7 @@ def get_redis_client(redis_url: str | None = None) -> RedisClientProtocol | None
         logger.debug("redis package not installed")
         return None
     except (ConnectionError, TimeoutError, OSError, redis.exceptions.ConnectionError, redis.exceptions.RedisError) as e:
-        logger.debug(f"Redis not available: {e}")
+        logger.debug("Redis not available: %s", e)
         if redis_url is None:
             _initialized = True
         return None
@@ -118,7 +118,7 @@ def is_cluster_mode() -> bool:
     except ImportError:
         return False
     except Exception as e:  # noqa: BLE001 - Cluster check fallback
-        logger.debug(f"Redis cluster mode check failed: {e}")
+        logger.debug("Redis cluster mode check failed: %s", e)
         return False
 
 

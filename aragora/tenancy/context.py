@@ -121,7 +121,7 @@ class TenantContext:
         self._token_tenant = _current_tenant.set(self._tenant)
 
         TenantContext._depth += 1
-        logger.debug(f"Entered tenant context: {self._tenant_id} (depth={TenantContext._depth})")
+        logger.debug("Entered tenant context: %s (depth=%s)", self._tenant_id, TenantContext._depth)
         return self
 
     def __exit__(self, exc_type, exc_val, exc_tb) -> None:
@@ -130,7 +130,7 @@ class TenantContext:
         _current_tenant.reset(self._token_tenant)
 
         TenantContext._depth -= 1
-        logger.debug(f"Exited tenant context: {self._tenant_id} (depth={TenantContext._depth})")
+        logger.debug("Exited tenant context: %s (depth=%s)", self._tenant_id, TenantContext._depth)
 
     async def __aenter__(self) -> TenantContext:
         """Enter async context."""

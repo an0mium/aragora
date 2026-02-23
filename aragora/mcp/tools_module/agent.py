@@ -30,7 +30,7 @@ async def list_agents_tool() -> dict[str, Any]:
             "count": len(agents),
         }
     except Exception as e:  # noqa: BLE001 - graceful degradation, provide fallback agent list
-        logger.warning(f"Could not list agents: {e}")
+        logger.warning("Could not list agents: %s", e)
         # Fallback list
         return {
             "agents": [
@@ -84,7 +84,7 @@ async def get_agent_history_tool(
             result["losses"] = agent_rating.losses
             result["total_debates"] = agent_rating.debates_count
     except Exception as e:  # noqa: BLE001 - graceful degradation, ELO lookup is non-critical
-        logger.debug(f"Could not get ELO: {e}")
+        logger.debug("Could not get ELO: %s", e)
 
     # Get performance stats from storage
     try:
@@ -124,7 +124,7 @@ async def get_agent_history_tool(
                 for d in filtered_debates[:limit]
             ]
     except Exception as e:  # noqa: BLE001 - graceful degradation, history lookup is non-critical
-        logger.debug(f"Could not get agent history: {e}")
+        logger.debug("Could not get agent history: %s", e)
 
     return result
 

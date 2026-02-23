@@ -140,7 +140,7 @@ class BatchOperationsMixin:
         except ImportError:
             logger.debug("Spam moderation not available for batch validation")
         except (RuntimeError, ValueError, TypeError, AttributeError, OSError) as e:
-            logger.warning(f"Failed to initialize spam moderation for batch: {e}")
+            logger.warning("Failed to initialize spam moderation for batch: %s", e)
 
         for i, item_data in enumerate(items_data):
             if not isinstance(item_data, dict):
@@ -169,7 +169,7 @@ class BatchOperationsMixin:
                         )
                         continue
                 except (RuntimeError, ValueError, TypeError, AttributeError, OSError) as e:
-                    logger.warning(f"Spam check failed for batch item {i}: {e}")
+                    logger.warning("Spam check failed for batch item %s: %s", i, e)
                     # Continue processing on error (fail-open)
 
             try:
@@ -276,7 +276,7 @@ class BatchOperationsMixin:
 
             batch_id = run_async(submit())
 
-            logger.info(f"Batch {batch_id} submitted with {len(items)} items")
+            logger.info("Batch %s submitted with %s items", batch_id, len(items))
 
             # Increment usage on successful batch submission
             if user_ctx and user_ctx.is_authenticated and user_ctx.org_id:
@@ -284,10 +284,10 @@ class BatchOperationsMixin:
                     try:
                         user_store.increment_usage(user_ctx.org_id, batch_size)
                         logger.info(
-                            f"Incremented batch usage for org {user_ctx.org_id} by {batch_size}"
+                            "Incremented batch usage for org %s by %s", user_ctx.org_id, batch_size
                         )
                     except (KeyError, ValueError, OSError, TypeError, RuntimeError) as ue:
-                        logger.warning(f"Usage increment failed for org {user_ctx.org_id}: {ue}")
+                        logger.warning("Usage increment failed for org %s: %s", user_ctx.org_id, ue)
 
             return json_response(
                 {
@@ -299,7 +299,7 @@ class BatchOperationsMixin:
             )
 
         except (ValueError, KeyError, TypeError, RuntimeError, OSError) as e:
-            logger.error(f"Failed to submit batch: {e}", exc_info=True)
+            logger.error("Failed to submit batch: %s", e, exc_info=True)
             return error_response(safe_error_message(e, "submit batch"), 500)
 
     def _create_debate_executor(self: _DebatesHandlerProtocol) -> Callable[[BatchItem], Any]:

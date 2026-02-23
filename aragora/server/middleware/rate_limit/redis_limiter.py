@@ -121,15 +121,15 @@ def get_redis_client() -> redis.Redis | None:
         )
         # Test connection
         _redis_client.ping()
-        logger.info(f"Redis rate limiting enabled: {redis_url.split('@')[-1]}")
+        logger.info("Redis rate limiting enabled: %s", redis_url.split('@')[-1])
         return _redis_client
 
     except REDIS_CONNECTION_ERRORS as e:
-        logger.warning(f"Redis connection failed, using in-memory rate limiting: {e}")
+        logger.warning("Redis connection failed, using in-memory rate limiting: %s", e)
         _redis_client = None
         return None
     except (ValueError, RuntimeError) as e:
-        logger.warning(f"Redis connection failed, using in-memory rate limiting: {e}")
+        logger.warning("Redis connection failed, using in-memory rate limiting: %s", e)
         _redis_client = None
         return None
 
@@ -142,7 +142,7 @@ def reset_redis_client() -> None:
             _redis_client.close()
         except (OSError, RuntimeError) as e:
             # Log but don't fail - we're resetting anyway
-            logger.debug(f"Error closing Redis client during reset: {e}")
+            logger.debug("Error closing Redis client during reset: %s", e)
     _redis_client = None
     _redis_init_attempted = False
 
@@ -245,7 +245,7 @@ class RateLimitCircuitBreaker:
                 if self._failure_count >= self.failure_threshold:
                     self._state = self.OPEN
                     logger.warning(
-                        f"Rate limit circuit breaker OPEN after {self._failure_count} failures"
+                        "Rate limit circuit breaker OPEN after %s failures", self._failure_count
                     )
 
     def get_stats(self) -> dict[str, Any]:
@@ -450,7 +450,7 @@ class RedisRateLimiter:
                 key=key,
             )
         except (OSError, ValueError, RuntimeError, KeyError, TypeError) as e:
-            logger.warning(f"Redis rate limit failed, using fallback: {e}")
+            logger.warning("Redis rate limit failed, using fallback: %s", e)
 
             # Record failure for circuit breaker
             if self._circuit_breaker:
@@ -492,7 +492,7 @@ class RedisRateLimiter:
             pipe.execute()
 
         except (OSError, ValueError, RuntimeError, TypeError, KeyError) as e:
-            logger.debug(f"Failed to sync distributed metrics: {e}")
+            logger.debug("Failed to sync distributed metrics: %s", e)
 
     def get_distributed_metrics(self) -> dict[str, Any]:
         """Get aggregated metrics from all instances."""
@@ -607,7 +607,7 @@ class RedisRateLimiter:
             if keys:
                 self.redis.delete(*keys)
         except (OSError, ValueError, RuntimeError, TypeError) as e:
-            logger.warning(f"Redis reset failed: {e}")
+            logger.warning("Redis reset failed: %s", e)
 
         with self._lock:
             self._buckets.clear()

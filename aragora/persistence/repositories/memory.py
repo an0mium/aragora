@@ -192,7 +192,7 @@ class MemoryRepository(BaseRepository[MemoryEntity]):
             try:
                 metadata = json.loads(row["metadata"])
             except (json.JSONDecodeError, TypeError) as e:
-                logger.debug(f"Failed to parse memory metadata for row {row['id']}: {e}")
+                logger.debug("Failed to parse memory metadata for row %s: %s", row['id'], e)
 
         return MemoryEntity(
             id=row["id"],

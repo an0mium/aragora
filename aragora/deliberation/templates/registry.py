@@ -41,9 +41,9 @@ class TemplateRegistry:
     def register(self, template: DeliberationTemplate) -> None:
         """Register a template."""
         if template.name in self._templates:
-            logger.warning(f"Overwriting existing template: {template.name}")
+            logger.warning("Overwriting existing template: %s", template.name)
         self._templates[template.name] = template
-        logger.debug(f"Registered template: {template.name}")
+        logger.debug("Registered template: %s", template.name)
 
     def unregister(self, name: str) -> bool:
         """Unregister a template by name."""
@@ -144,14 +144,14 @@ class TemplateRegistry:
                     self.register(template)
                     count += 1
                 except (KeyError, TypeError, ValueError) as e:
-                    logger.warning(f"Failed to load template from YAML: {e}")
+                    logger.warning("Failed to load template from YAML: %s", e)
 
             return count
         except ImportError:
             logger.warning("PyYAML not installed, cannot load YAML templates")
             return 0
         except (OSError, ValueError, Exception) as e:
-            logger.error(f"Failed to load templates from {yaml_path}: {e}")
+            logger.error("Failed to load templates from %s: %s", yaml_path, e)
             return 0
 
     def load_from_directory(self, directory: Path) -> int:
@@ -347,7 +347,7 @@ def list_templates(
         try:
             cat = TemplateCategory(category)
         except ValueError as e:
-            logger.warning(f"Failed to parse category filter '{category}': {e}")
+            logger.warning("Failed to parse category filter '%s': %s", category, e)
             # Keep cat as None to skip category filtering
     return _global_registry.list(category=cat, tags=tags, search=search, limit=limit, offset=offset)
 

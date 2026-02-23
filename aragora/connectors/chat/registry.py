@@ -31,7 +31,7 @@ def register_connector(platform: str, connector_class: type[ChatPlatformConnecto
         connector_class: ChatPlatformConnector subclass
     """
     _CONNECTOR_CLASSES[platform.lower()] = connector_class
-    logger.debug(f"Registered chat connector: {platform}")
+    logger.debug("Registered chat connector: %s", platform)
 
 
 def get_connector(
@@ -61,7 +61,7 @@ def get_connector(
         connector_class = _lazy_load_connector(platform)
 
     if connector_class is None:
-        logger.warning(f"No connector available for platform: {platform}")
+        logger.warning("No connector available for platform: %s", platform)
         return None
 
     # Create instance
@@ -74,7 +74,7 @@ def get_connector(
 
         return connector
     except (TypeError, ValueError, KeyError, RuntimeError) as e:
-        logger.error(f"Failed to create {platform} connector: {e}")
+        logger.error("Failed to create %s connector: %s", platform, e)
         return None
 
 
@@ -133,7 +133,7 @@ def _lazy_load_connector(platform: str) -> type[ChatPlatformConnector] | None:
             return IMessageConnector
 
     except ImportError as e:
-        logger.debug(f"Could not load {platform} connector: {e}")
+        logger.debug("Could not load %s connector: %s", platform, e)
 
     return None
 
@@ -283,7 +283,7 @@ class ChatPlatformRegistry:
                 )
                 results[platform] = response.success
             except (OSError, RuntimeError, ValueError, TimeoutError) as e:
-                logger.error(f"Broadcast to {platform} failed: {e}")
+                logger.error("Broadcast to %s failed: %s", platform, e)
                 results[platform] = False
 
         return results

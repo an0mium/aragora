@@ -41,7 +41,7 @@ def start_metrics_server(port: int = 9090) -> bool:
 
         start_http_server(port)
         _metrics_server = port
-        logger.info(f"Metrics server started on port {port}")
+        logger.info("Metrics server started on port %s", port)
         return True
     except ImportError as e:
         logger.error(
@@ -83,7 +83,7 @@ def stop_metrics_server() -> bool:
 
     port = _metrics_server
     _metrics_server = None
-    logger.info(f"Metrics server on port {port} marked for shutdown")
+    logger.info("Metrics server on port %s marked for shutdown", port)
     return True
 
 

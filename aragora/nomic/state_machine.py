@@ -197,7 +197,7 @@ class NomicStateMachine:
         self._total_cycles += 1
         self._state_entry_time = time.time()
 
-        logger.info(f"Starting nomic cycle {self.context.cycle_id}")
+        logger.info("Starting nomic cycle %s", self.context.cycle_id)
 
         if self.enable_metrics:
             try:
@@ -253,7 +253,7 @@ class NomicStateMachine:
         self.event_log = EventLog.from_dict(checkpoint_data.get("event_log", {}))
         self.running = True
 
-        logger.info(f"Resumed from checkpoint, state: {self.context.current_state.name}")
+        logger.info("Resumed from checkpoint, state: %s", self.context.current_state.name)
 
         # Log the checkpoint load
         event = checkpoint_loaded_event(checkpoint_path, self.context.current_state.name)
@@ -270,7 +270,7 @@ class NomicStateMachine:
         """
         self.event_log.append(event)
         logger.debug(
-            f"Processing event: {event.event_type.name} in state {self.current_state.name}"
+            "Processing event: %s in state %s", event.event_type.name, self.current_state.name
         )
 
         # Determine next state based on event
@@ -365,7 +365,7 @@ class NomicStateMachine:
         self.context.current_state = next_state
         self._state_entry_time = time.time()
 
-        logger.info(f"Transition: {current.name} -> {next_state.name}")
+        logger.info("Transition: %s -> %s", current.name, next_state.name)
 
         # Call transition callbacks
         for callback in self._on_transition_callbacks:
@@ -404,7 +404,7 @@ class NomicStateMachine:
                     else:
                         callback(current, next_state, trigger_event)
             except Exception as e:  # noqa: BLE001 - callback errors must not break state machine
-                logger.error(f"Transition callback error: {e}")
+                logger.error("Transition callback error: %s", e)
 
         # Checkpoint if required
         state_config = get_state_config(next_state)
@@ -415,17 +415,17 @@ class NomicStateMachine:
         if next_state == NomicState.COMPLETED:
             self._successful_cycles += 1
             self.running = False
-            logger.info(f"Cycle {self.cycle_id} completed successfully")
+            logger.info("Cycle %s completed successfully", self.cycle_id)
             return
 
         elif next_state == NomicState.FAILED:
             self._failed_cycles += 1
             self.running = False
-            logger.error(f"Cycle {self.cycle_id} failed")
+            logger.error("Cycle %s failed", self.cycle_id)
             return
 
         elif next_state == NomicState.PAUSED:
-            logger.info(f"Cycle {self.cycle_id} paused")
+            logger.info("Cycle %s paused", self.cycle_id)
             return
 
         # Run state handler
@@ -437,7 +437,7 @@ class NomicStateMachine:
         """
         handler = self._handlers.get(state)
         if not handler:
-            logger.warning(f"No handler registered for state {state.name}")
+            logger.warning("No handler registered for state %s", state.name)
             # Auto-advance to next logical state for unhandled states
             await self._auto_advance(state)
             return
@@ -462,7 +462,7 @@ class NomicStateMachine:
             # For RECOVERY state, use the handler's returned next_state directly
             # This allows recovery handlers to dictate where to go next
             if state == NomicState.RECOVERY and next_state:
-                logger.info(f"Recovery handler returned transition to {next_state.name}")
+                logger.info("Recovery handler returned transition to %s", next_state.name)
                 await self._transition_to(next_state, trigger_event)
                 return
 
@@ -477,12 +477,12 @@ class NomicStateMachine:
             await self._process_event(event)
 
         except asyncio.TimeoutError:
-            logger.error(f"State {state.name} timed out after {timeout}s")
+            logger.error("State %s timed out after %ss", state.name, timeout)
             event = timeout_event(state.name.lower(), timeout)
             await self._process_event(event)
 
         except Exception as e:  # noqa: BLE001 - state machine must catch all to decide retry/recovery
-            logger.error(f"Error in state {state.name}: {e}")
+            logger.error("Error in state %s: %s", state.name, e)
             # Check if we can retry
             retry_count = self.context.retry_counts.get(state.name, 0)
             if retry_count < state_config.max_retries:
@@ -509,7 +509,7 @@ class NomicStateMachine:
                         else:
                             callback(state, e)
                     except Exception as cb_err:  # noqa: BLE001 - callback errors must not break error handling
-                        logger.error(f"Error callback failed: {cb_err}")
+                        logger.error("Error callback failed: %s", cb_err)
 
                 event = error_event(
                     phase=state.name.lower(),

@@ -370,7 +370,7 @@ class FasterWhisperBackend(TranscriptionBackend):
             if compute_type == "auto":
                 compute_type = "float16" if device == "cuda" else "int8"
 
-            logger.info(f"Loading faster-whisper model: {self.config.whisper_model} on {device}")
+            logger.info("Loading faster-whisper model: %s on %s", self.config.whisper_model, device)
             self._model = WhisperModel(
                 self.config.whisper_model,
                 device=device,
@@ -654,7 +654,7 @@ def get_transcription_backend(
         backend_cls = _BACKENDS[backend_name]
         backend = backend_cls(config)
         if backend.is_available():
-            logger.info(f"Auto-selected transcription backend: {backend_name}")
+            logger.info("Auto-selected transcription backend: %s", backend_name)
             return backend
 
     available = get_available_backends()

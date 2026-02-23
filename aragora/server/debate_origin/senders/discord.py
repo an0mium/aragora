@@ -41,14 +41,14 @@ async def _send_discord_result(origin: DebateOrigin, result: dict[str, Any]) -> 
         async with httpx.AsyncClient(timeout=30.0) as client:
             response = await client.post(url, json=data, headers=headers)
             if response.is_success:
-                logger.info(f"Discord result sent to {channel_id}")
+                logger.info("Discord result sent to %s", channel_id)
                 return True
             else:
-                logger.warning(f"Discord send failed: {response.status_code}")
+                logger.warning("Discord send failed: %s", response.status_code)
                 return False
 
     except (OSError, TimeoutError, httpx.HTTPError) as e:
-        logger.error(f"Discord result send error: {e}")
+        logger.error("Discord result send error: %s", e)
         return False
 
 
@@ -74,12 +74,12 @@ async def _send_discord_receipt(origin: DebateOrigin, summary: str) -> bool:
         async with httpx.AsyncClient(timeout=30.0) as client:
             response = await client.post(url, json=data, headers=headers)
             if response.is_success:
-                logger.info(f"Discord receipt posted to {origin.channel_id}")
+                logger.info("Discord receipt posted to %s", origin.channel_id)
                 return True
             return False
 
     except (OSError, TimeoutError, httpx.HTTPError) as e:
-        logger.error(f"Discord receipt post error: {e}")
+        logger.error("Discord receipt post error: %s", e)
         return False
 
 
@@ -107,7 +107,7 @@ async def _send_discord_error(origin: DebateOrigin, message: str) -> bool:
             return response.is_success
 
     except (OSError, TimeoutError, httpx.HTTPError) as e:
-        logger.error(f"Discord error send failed: {e}")
+        logger.error("Discord error send failed: %s", e)
         return False
 
 
@@ -138,17 +138,17 @@ async def _send_discord_voice(origin: DebateOrigin, result: dict[str, Any]) -> b
                 response = await client.post(url, headers=headers, data=data, files=files)
 
                 if response.is_success:
-                    logger.info(f"Discord voice sent to {origin.channel_id}")
+                    logger.info("Discord voice sent to %s", origin.channel_id)
                     return True
                 else:
-                    logger.warning(f"Discord voice send failed: {response.status_code}")
+                    logger.warning("Discord voice send failed: %s", response.status_code)
                     return False
 
     except (OSError, TimeoutError, httpx.HTTPError) as e:
-        logger.error(f"Discord voice send error: {e}")
+        logger.error("Discord voice send error: %s", e)
         return False
     finally:
         try:
             Path(audio_path).unlink(missing_ok=True)
         except OSError as e:
-            logger.debug(f"Failed to cleanup temp file: {e}")
+            logger.debug("Failed to cleanup temp file: %s", e)

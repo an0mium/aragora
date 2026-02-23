@@ -274,7 +274,7 @@ class AutoScaler:
             except asyncio.CancelledError:
                 break
             except (RuntimeError, ValueError, OSError) as e:
-                logger.error(f"Error in scaling loop: {e}")
+                logger.error("Error in scaling loop: %s", e)
 
     def _cooldown_passed(self) -> bool:
         """Check if cooldown period has passed since last scaling action."""
@@ -323,7 +323,7 @@ class AutoScaler:
                 metrics.pending_tasks = stats.get("pending_tasks", 0)
                 metrics.running_tasks = stats.get("running_tasks", 0)
             except (OSError, ConnectionError, RuntimeError) as e:
-                logger.debug(f"Failed to get scheduler stats: {e}")
+                logger.debug("Failed to get scheduler stats: %s", e)
 
         # Get registry stats
         if self._registry:
@@ -337,7 +337,7 @@ class AutoScaler:
                 if metrics.total_agents > 0:
                     metrics.utilization = metrics.busy_agents / metrics.total_agents
             except (OSError, ConnectionError, RuntimeError) as e:
-                logger.debug(f"Failed to get registry stats: {e}")
+                logger.debug("Failed to get registry stats: %s", e)
 
         # Calculate p99 latency from samples
         if self._latency_samples:
@@ -572,7 +572,7 @@ class AutoScaler:
                 self._record_scaling_action(decision)
 
         except (RuntimeError, ValueError, OSError) as e:
-            logger.error(f"Failed to apply scaling decision: {e}")
+            logger.error("Failed to apply scaling decision: %s", e)
             success = False
 
         return success

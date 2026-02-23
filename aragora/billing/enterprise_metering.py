@@ -356,7 +356,7 @@ class EnterpriseMeter:
 
         await self._init_schema()
         self._initialized = True
-        logger.info(f"Enterprise metering initialized: {self.db_path}")
+        logger.info("Enterprise metering initialized: %s", self.db_path)
 
     async def _init_schema(self) -> None:
         """Initialize database schema."""
@@ -617,7 +617,7 @@ class EnterpriseMeter:
                 ),
             )
         self._conn.commit()
-        logger.debug(f"Flushed {len(records)} token usage records")
+        logger.debug("Flushed %s token usage records", len(records))
 
     async def get_cost_breakdown(
         self,
@@ -830,7 +830,7 @@ class EnterpriseMeter:
         )
         self._conn.commit()
 
-        logger.info(f"Set budget for tenant {tenant_id}: ${monthly_budget}")
+        logger.info("Set budget for tenant %s: $%s", tenant_id, monthly_budget)
         return config
 
     async def get_budget(self, tenant_id: str) -> BudgetConfig | None:
@@ -962,16 +962,16 @@ class EnterpriseMeter:
                     sent_count += 1
                 else:
                     failed_count += 1
-                    logger.warning(f"Failed to send budget alert to {email}: {result.error}")
+                    logger.warning("Failed to send budget alert to %s: %s", email, result.error)
 
             if sent_count > 0:
-                logger.info(f"Sent {sent_count} budget alert email(s) for tenant {tenant_id}")
+                logger.info("Sent %s budget alert email(s) for tenant %s", sent_count, tenant_id)
             if failed_count > 0:
                 logger.warning(
-                    f"Failed to send {failed_count} budget alert email(s) for tenant {tenant_id}"
+                    "Failed to send %s budget alert email(s) for tenant %s", failed_count, tenant_id
                 )
         except (ImportError, OSError, ConnectionError, RuntimeError, ValueError, TypeError) as e:
-            logger.error(f"Error sending budget alert emails: {e}")
+            logger.error("Error sending budget alert emails: %s", e)
 
     async def forecast_usage(
         self,
@@ -1139,7 +1139,7 @@ class EnterpriseMeter:
         )
         self._conn.commit()
 
-        logger.info(f"Generated invoice {invoice.id} for tenant {tenant_id}: ${total}")
+        logger.info("Generated invoice %s for tenant %s: $%s", invoice.id, tenant_id, total)
         return invoice
 
     async def get_invoices(

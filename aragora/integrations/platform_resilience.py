@@ -332,7 +332,7 @@ class DeadLetterQueue:
                 conn.commit()
 
             self._initialized = True
-            logger.info(f"Dead letter queue initialized: {self.db_path}")
+            logger.info("Dead letter queue initialized: %s", self.db_path)
 
     def enqueue(
         self,
@@ -347,7 +347,7 @@ class DeadLetterQueue:
         Returns the message ID.
         """
         if not DLQ_ENABLED:
-            logger.debug(f"DLQ disabled, dropping message for {platform}:{destination}")
+            logger.debug("DLQ disabled, dropping message for %s:%s", platform, destination)
             return ""
 
         self._ensure_initialized()
@@ -385,14 +385,14 @@ class DeadLetterQueue:
                 )
                 conn.commit()
 
-            logger.info(f"Enqueued dead letter {msg_id} for {platform}:{destination}")
+            logger.info("Enqueued dead letter %s for %s:%s", msg_id, platform, destination)
             return msg_id
 
         except sqlite3.Error as e:
-            logger.error(f"Dead letter enqueue database error: {type(e).__name__}: {e}")
+            logger.error("Dead letter enqueue database error: %s: %s", type(e).__name__, e)
             return ""
         except (json.JSONDecodeError, ValueError, TypeError) as e:
-            logger.error(f"Dead letter enqueue serialization error: {type(e).__name__}: {e}")
+            logger.error("Dead letter enqueue serialization error: %s: %s", type(e).__name__, e)
             return ""
 
     def get_pending(self, platform: str | None = None, limit: int = 100) -> list[DeadLetterMessage]:
@@ -447,7 +447,7 @@ class DeadLetterQueue:
                 return messages
 
         except sqlite3.Error as e:
-            logger.error(f"Dead letter query database error: {type(e).__name__}: {e}")
+            logger.error("Dead letter query database error: %s: %s", type(e).__name__, e)
             return []
 
     def mark_success(self, msg_id: str) -> bool:
@@ -461,10 +461,10 @@ class DeadLetterQueue:
                     (msg_id,),
                 )
                 conn.commit()
-            logger.info(f"Dead letter {msg_id} delivered successfully")
+            logger.info("Dead letter %s delivered successfully", msg_id)
             return True
         except sqlite3.Error as e:
-            logger.error(f"Dead letter mark-success database error: {type(e).__name__}: {e}")
+            logger.error("Dead letter mark-success database error: %s: %s", type(e).__name__, e)
             return False
 
     def mark_retry(self, msg_id: str, error_message: str) -> bool:
@@ -501,7 +501,7 @@ class DeadLetterQueue:
                         (retry_count, now, error_message[:1000], msg_id),
                     )
                     conn.commit()
-                    logger.warning(f"Dead letter {msg_id} exceeded max retries, marked failed")
+                    logger.warning("Dead letter %s exceeded max retries, marked failed", msg_id)
                     return False
 
                 # Exponential backoff: 30s, 1m, 2m, 4m, 8m, ...
@@ -519,12 +519,12 @@ class DeadLetterQueue:
                 )
                 conn.commit()
                 logger.info(
-                    f"Dead letter {msg_id} scheduled for retry {retry_count} at {next_retry}"
+                    "Dead letter %s scheduled for retry %s at %s", msg_id, retry_count, next_retry
                 )
                 return True
 
         except sqlite3.Error as e:
-            logger.error(f"Dead letter mark-retry database error: {type(e).__name__}: {e}")
+            logger.error("Dead letter mark-retry database error: %s: %s", type(e).__name__, e)
             return False
 
     def cleanup_old(self, max_age_hours: float = DLQ_RETENTION_HOURS) -> int:
@@ -545,10 +545,10 @@ class DeadLetterQueue:
                 conn.commit()
                 deleted = cursor.rowcount
                 if deleted > 0:
-                    logger.info(f"Cleaned up {deleted} old dead letters")
+                    logger.info("Cleaned up %s old dead letters", deleted)
                 return deleted
         except sqlite3.Error as e:
-            logger.error(f"Dead letter cleanup database error: {type(e).__name__}: {e}")
+            logger.error("Dead letter cleanup database error: %s: %s", type(e).__name__, e)
             return 0
 
     def get_stats(self) -> dict[str, Any]:
@@ -584,7 +584,7 @@ class DeadLetterQueue:
                 return stats
 
         except sqlite3.Error as e:
-            logger.error(f"DLQ stats database error: {type(e).__name__}: {e}")
+            logger.error("DLQ stats database error: %s: %s", type(e).__name__, e)
             return {"total": 0, "by_status": {}, "by_platform": {}, "error": str(e)}
 
 
@@ -639,7 +639,7 @@ def with_timeout(
             try:
                 return await asyncio.wait_for(func(*args, **kwargs), timeout=timeout_seconds)
             except asyncio.TimeoutError:
-                logger.warning(f"Timeout in {func.__name__} after {timeout_seconds}s")
+                logger.warning("Timeout in %s after %ss", func.__name__, timeout_seconds)
                 if fallback_response is not None:
                     return fallback_response
                 raise
@@ -704,13 +704,13 @@ def with_platform_resilience(
                 latency_ms = (time.time() - start_time) * 1000
                 circuit.record_failure(f"Timeout after {timeout_seconds}s")
                 logger.warning(
-                    f"Timeout in {func.__name__} for {platform} after {timeout_seconds}s"
+                    "Timeout in %s for %s after %ss", func.__name__, platform, timeout_seconds
                 )
                 return None
 
             except Exception as e:  # noqa: BLE001 - generic decorator must catch all to record circuit failure
                 circuit.record_failure(str(e))
-                logger.error(f"Error in {func.__name__} for {platform}: {e}")
+                logger.error("Error in %s for %s: %s", func.__name__, platform, e)
                 if use_dlq and args:
                     dlq = get_dead_letter_queue()
                     dlq.enqueue(

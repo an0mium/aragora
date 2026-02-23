@@ -146,9 +146,9 @@ class OutcomeComplexityBridge:
             outcomes = self.outcome_tracker.get_recent_outcomes(limit=100)
             for outcome in outcomes:
                 self._process_outcome(outcome)
-            logger.info(f"Loaded {len(outcomes)} historical outcomes")
+            logger.info("Loaded %s historical outcomes", len(outcomes))
         except (RuntimeError, ValueError, TypeError, AttributeError, KeyError, OSError) as e:
-            logger.debug(f"Could not load historical outcomes: {e}")
+            logger.debug("Could not load historical outcomes: %s", e)
 
     def _process_outcome(self, outcome: ConsensusOutcome) -> None:
         """Process an outcome to update statistics.
@@ -258,8 +258,7 @@ class OutcomeComplexityBridge:
             self._maybe_recalibrate(complexity)
 
         logger.debug(
-            f"outcome_complexity_recorded complexity={complexity} succeeded={succeeded} "
-            f"timeout={timeout}"
+            "outcome_complexity_recorded complexity=%s succeeded=%s timeout=%s", complexity, succeeded, timeout
         )
 
     def _maybe_recalibrate(self, complexity: str) -> TimeoutAdjustment | None:

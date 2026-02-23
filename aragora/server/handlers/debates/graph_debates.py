@@ -116,7 +116,7 @@ class GraphDebatesHandler(SecureHandler):
         except UnauthorizedError:
             return error_response("Authentication required", 401)
         except ForbiddenError as e:
-            logger.warning(f"Graph debates GET access denied: {e}")
+            logger.warning("Graph debates GET access denied: %s", e)
             return error_response("Permission denied", 403)
 
         # Extract debate ID from path if present
@@ -204,13 +204,13 @@ class GraphDebatesHandler(SecureHandler):
         except UnauthorizedError:
             return error_response("Authentication required", 401)
         except ForbiddenError as e:
-            logger.warning(f"Graph debates POST access denied: {e}")
+            logger.warning("Graph debates POST access denied: %s", e)
             return error_response("Permission denied", 403)
 
         # Rate limit check (5/min - expensive branching operations)
         client_ip = get_client_ip(handler)
         if not _graph_limiter.is_allowed(client_ip):
-            logger.warning(f"Rate limit exceeded for graph debates: {client_ip}")
+            logger.warning("Rate limit exceeded for graph debates: %s", client_ip)
             return error_response("Rate limit exceeded. Please try again later.", 429)
 
         logger.debug("POST /api/debates/graph - running graph debate")
@@ -366,10 +366,10 @@ class GraphDebatesHandler(SecureHandler):
             )
 
         except ImportError as e:
-            logger.error(f"Import error for graph debates: {e}")
+            logger.error("Import error for graph debates: %s", e)
             return error_response("Graph debate module not available", 500)
         except (ValueError, TypeError, KeyError, AttributeError, RuntimeError, OSError) as e:
-            logger.exception(f"Graph debate failed: {e}")
+            logger.exception("Graph debate failed: %s", e)
             return error_response(safe_error_message(e, "graph debate"), 500)
 
     async def _load_agents(self, agent_names: list[str]) -> list:
@@ -384,10 +384,10 @@ class GraphDebatesHandler(SecureHandler):
                     agent = create_agent(model_type=cast(AgentType, name), name=name)
                     agents.append(agent)
                 except (ImportError, ValueError, TypeError, KeyError, AttributeError) as e:
-                    logger.warning(f"Failed to create agent {name}: {e}")
+                    logger.warning("Failed to create agent %s: %s", name, e)
             return agents
         except (ImportError, ValueError, TypeError) as e:
-            logger.warning(f"Failed to load agents: {e}")
+            logger.warning("Failed to load agents: %s", e)
             return []
 
     async def _get_graph_debate(self, handler: Any, debate_id: str) -> HandlerResult:
@@ -403,7 +403,7 @@ class GraphDebatesHandler(SecureHandler):
 
             return json_response(debate)
         except (KeyError, ValueError, OSError, TypeError, AttributeError) as e:
-            logger.error(f"Failed to get graph debate {debate_id}: {e}")
+            logger.error("Failed to get graph debate %s: %s", debate_id, e)
             return error_response("Failed to retrieve graph debate", 500)
 
     @api_endpoint(
@@ -431,7 +431,7 @@ class GraphDebatesHandler(SecureHandler):
             branches = await storage.get_debate_branches(debate_id)
             return json_response({"debate_id": debate_id, "branches": branches})
         except (KeyError, ValueError, OSError, TypeError, AttributeError) as e:
-            logger.error(f"Failed to get branches for {debate_id}: {e}")
+            logger.error("Failed to get branches for %s: %s", debate_id, e)
             return error_response("Failed to retrieve branches", 500)
 
     @api_endpoint(
@@ -459,5 +459,5 @@ class GraphDebatesHandler(SecureHandler):
             nodes = await storage.get_debate_nodes(debate_id)
             return json_response({"debate_id": debate_id, "nodes": nodes})
         except (KeyError, ValueError, OSError, TypeError, AttributeError) as e:
-            logger.error(f"Failed to get nodes for {debate_id}: {e}")
+            logger.error("Failed to get nodes for %s: %s", debate_id, e)
             return error_response("Failed to retrieve nodes", 500)

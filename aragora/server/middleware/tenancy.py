@@ -110,7 +110,7 @@ class WorkspaceManager:
                     self._cache[workspace_id] = workspace
                     return workspace
             except (OSError, ConnectionError, TimeoutError, RuntimeError) as e:
-                logger.error(f"Failed to get workspace: {e}")
+                logger.error("Failed to get workspace: %s", e)
 
         return None
 
@@ -142,7 +142,7 @@ class WorkspaceManager:
             try:
                 await self._storage.save_workspace(workspace)
             except (OSError, ConnectionError, TimeoutError, RuntimeError) as e:
-                logger.error(f"Failed to save workspace: {e}")
+                logger.error("Failed to save workspace: %s", e)
 
         self._cache[workspace.id] = workspace
         return workspace
@@ -169,7 +169,7 @@ class WorkspaceManager:
             try:
                 return await self._storage.get_workspace_usage(workspace_id)
             except (OSError, ConnectionError, TimeoutError, RuntimeError) as e:
-                logger.error(f"Failed to get usage: {e}")
+                logger.error("Failed to get usage: %s", e)
 
         return {
             "debates_this_month": 0,

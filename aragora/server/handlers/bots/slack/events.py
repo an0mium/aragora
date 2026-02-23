@@ -232,7 +232,7 @@ async def handle_slack_events(request: Any) -> HandlerResult:
                 except (TypeError, ValueError, KeyError, AttributeError, RuntimeError) as e:
                     logger.debug("RBAC check failed for app_mention: %s", e)
 
-            logger.info(f"Slack mention from {user} in {channel}: {text[:100]}")
+            logger.info("Slack mention from %s in %s: %s", user, channel, text[:100])
 
             clean_text = re.sub(r"<@[^>]+>", "", text).strip()
             decision_integrity = None
@@ -334,7 +334,7 @@ async def handle_slack_events(request: Any) -> HandlerResult:
 
                     store = get_slack_workspace_store()
                     store.revoke_token(team_id)
-                    logger.info(f"Slack app uninstalled from workspace {team_id}")
+                    logger.info("Slack app uninstalled from workspace %s", team_id)
 
                     audit_data(
                         user_id="system",
@@ -344,7 +344,7 @@ async def handle_slack_events(request: Any) -> HandlerResult:
                         platform="slack",
                     )
                 except (ImportError, RuntimeError, OSError, KeyError, AttributeError) as e:
-                    logger.error(f"Failed to handle app_uninstalled for {team_id}: {e}")
+                    logger.error("Failed to handle app_uninstalled for %s: %s", team_id, e)
 
             return json_response({"ok": True})
 
@@ -364,16 +364,16 @@ async def handle_slack_events(request: Any) -> HandlerResult:
 
                     store = get_slack_workspace_store()
                     store.revoke_token(team_id)
-                    logger.info(f"Slack tokens revoked for workspace {team_id}")
+                    logger.info("Slack tokens revoked for workspace %s", team_id)
                 except (ImportError, RuntimeError, OSError, KeyError, AttributeError) as e:
-                    logger.error(f"Failed to handle tokens_revoked for {team_id}: {e}")
+                    logger.error("Failed to handle tokens_revoked for %s: %s", team_id, e)
 
             return json_response({"ok": True})
 
         return json_response({"ok": True})
 
     except (json.JSONDecodeError, KeyError, TypeError, ValueError) as e:
-        logger.error(f"Slack events handler error: {e}")
+        logger.error("Slack events handler error: %s", e)
         return error_response(safe_error_message(e, "Slack event"), 500)
 
 

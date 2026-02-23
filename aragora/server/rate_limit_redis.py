@@ -147,7 +147,7 @@ class RedisRateLimiter:
 
             # Test connection
             self._redis.ping()
-            logger.info(f"Redis rate limiter connected: {self.config.url}")
+            logger.info("Redis rate limiter connected: %s", self.config.url)
             self._available = True
             return self._redis
 
@@ -156,7 +156,7 @@ class RedisRateLimiter:
             self._available = False
             return None
         except REDIS_CONNECTION_ERRORS as e:
-            logger.warning(f"Failed to connect to Redis: {e}")
+            logger.warning("Failed to connect to Redis: %s", e)
             self._available = False
             return None
 
@@ -294,7 +294,7 @@ class RedisRateLimiter:
                 )
 
         except REDIS_CONNECTION_ERRORS as e:
-            logger.error(f"Redis rate limit error: {e}")
+            logger.error("Redis rate limit error: %s", e)
             # Fallback: allow request on error
             return RateLimitResult(allowed=True, limit=0)
 
@@ -345,7 +345,7 @@ class RedisRateLimiter:
             return max(0, config.requests_per_minute - current_count)
 
         except REDIS_CONNECTION_ERRORS as e:
-            logger.error(f"Redis get_remaining error: {e}")
+            logger.error("Redis get_remaining error: %s", e)
             return 0
 
     def reset(self, pattern: str | None = None) -> int:
@@ -371,12 +371,12 @@ class RedisRateLimiter:
             keys = list(redis_client.scan_iter(match=full_pattern, count=1000))
             if keys:
                 deleted = redis_client.delete(*keys)
-                logger.info(f"Reset {deleted} rate limit keys matching {full_pattern}")
+                logger.info("Reset %s rate limit keys matching %s", deleted, full_pattern)
                 return deleted
             return 0
 
         except REDIS_CONNECTION_ERRORS as e:
-            logger.error(f"Redis reset error: {e}")
+            logger.error("Redis reset error: %s", e)
             return 0
 
     def get_stats(self) -> dict[str, Any]:
@@ -408,7 +408,7 @@ class RedisRateLimiter:
             }
 
         except REDIS_CONNECTION_ERRORS as e:
-            logger.error(f"Redis stats error: {e}")
+            logger.error("Redis stats error: %s", e)
             return {"available": False, "error": "Redis connection error"}
 
     def get_client_key(self, handler: Any) -> str:
@@ -447,7 +447,7 @@ class RedisRateLimiter:
                 self._redis.close()
                 logger.info("Redis rate limiter connection closed")
             except REDIS_CONNECTION_ERRORS as e:
-                logger.error(f"Error closing Redis connection: {e}")
+                logger.error("Error closing Redis connection: %s", e)
             finally:
                 self._redis = None
 

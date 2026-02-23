@@ -326,8 +326,7 @@ class ApprovalWorkflow:
 
         self._requests[request_id] = request
         logger.info(
-            f"[{request_id}] Created {level.value} approval request for "
-            f"{len(changes)} changes, {len(approver_list)} approvers"
+            "[%s] Created %s approval request for %s changes, %s approvers", request_id, level.value, len(changes), len(approver_list)
         )
 
         return request
@@ -494,24 +493,24 @@ class ApprovalWorkflow:
             True if vote was accepted, False otherwise
         """
         if request_id not in self._requests:
-            logger.warning(f"[{request_id}] Approval request not found")
+            logger.warning("[%s] Approval request not found", request_id)
             return False
 
         request = self._requests[request_id]
 
         if request.status != ApprovalStatus.PENDING:
-            logger.warning(f"[{request_id}] Cannot vote on {request.status.value} request")
+            logger.warning("[%s] Cannot vote on %s request", request_id, request.status.value)
             return False
 
         # Check if approver is authorized
         if request.approvers and approver_id not in request.approvers:
-            logger.warning(f"[{request_id}] {approver_id} is not an authorized approver")
+            logger.warning("[%s] %s is not an authorized approver", request_id, approver_id)
             return False
 
         # Check for duplicate vote
         existing = [v for v in request.votes if v.approver_id == approver_id]
         if existing:
-            logger.warning(f"[{request_id}] {approver_id} has already voted")
+            logger.warning("[%s] %s has already voted", request_id, approver_id)
             return False
 
         # Record vote
@@ -522,7 +521,7 @@ class ApprovalWorkflow:
         )
         request.votes.append(vote)
 
-        logger.info(f"[{request_id}] {approver_id} voted: {'approved' if approved else 'rejected'}")
+        logger.info("[%s] %s voted: %s", request_id, approver_id, 'approved' if approved else 'rejected')
 
         # Check if approval is complete
         self._check_approval_complete(request)
@@ -539,7 +538,7 @@ class ApprovalWorkflow:
             return False
 
         request.status = ApprovalStatus.CANCELLED
-        logger.info(f"[{request_id}] Request cancelled: {reason or 'No reason given'}")
+        logger.info("[%s] Request cancelled: %s", request_id, reason or 'No reason given')
         return True
 
     def get_request(self, request_id: str) -> ApprovalRequest | None:

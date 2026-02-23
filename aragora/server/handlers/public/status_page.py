@@ -192,7 +192,7 @@ class StatusPageHandler(BaseHandler):
             try:
                 return checker()
             except (RuntimeError, OSError, ValueError, TypeError, AttributeError) as e:
-                logger.error(f"Health check failed for {component_id}: {e}")
+                logger.error("Health check failed for %s: %s", component_id, e)
                 return ComponentHealth(
                     name=component_id,
                     status=ServiceStatus.PARTIAL_OUTAGE,
@@ -271,7 +271,7 @@ class StatusPageHandler(BaseHandler):
                         message="Database not yet initialized",
                     )
         except (ImportError, OSError, RuntimeError, ValueError) as e:
-            logger.warning(f"Database health check failed: {e}")
+            logger.warning("Database health check failed: %s", e)
 
         return ComponentHealth(
             name="Database",
@@ -296,7 +296,7 @@ class StatusPageHandler(BaseHandler):
                         response_time_ms=response_time,
                     )
         except (ImportError, ConnectionError, OSError, RuntimeError, TypeError) as e:
-            logger.debug(f"Redis health check: {e}")
+            logger.debug("Redis health check: %s", e)
 
         return ComponentHealth(
             name="Cache",
@@ -494,7 +494,7 @@ class StatusPageHandler(BaseHandler):
             active = [i.to_dict() for i in store.get_active_incidents()]
             recent = [i.to_dict() for i in store.get_recent_incidents(days=7)]
         except (ImportError, RuntimeError, OSError, AttributeError, KeyError) as e:
-            logger.debug(f"Incident store unavailable: {e}")
+            logger.debug("Incident store unavailable: %s", e)
             active = []
             recent = []
 

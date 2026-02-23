@@ -108,7 +108,7 @@ class BillingHandler(SecureHandler):
         if path != "/api/v1/webhooks/stripe":
             client_ip = get_client_ip(handler)
             if not _billing_limiter.is_allowed(client_ip):
-                logger.warning(f"Rate limit exceeded for billing endpoint: {client_ip}")
+                logger.warning("Rate limit exceeded for billing endpoint: %s", client_ip)
                 return error_response("Rate limit exceeded. Please try again later.", 429)
 
         # Determine HTTP method from handler if not provided
@@ -321,7 +321,7 @@ class BillingHandler(SecureHandler):
                 except StripeError as e:
                     # Log Stripe errors but continue with partial subscription data
                     # This allows the endpoint to degrade gracefully when Stripe is unavailable
-                    logger.warning(f"Failed to get Stripe subscription: {type(e).__name__}: {e}")
+                    logger.warning("Failed to get Stripe subscription: %s: %s", type(e).__name__, e)
 
         return json_response({"subscription": subscription_data})
 
@@ -394,7 +394,7 @@ class BillingHandler(SecureHandler):
                 },
             )
 
-            logger.info(f"Created checkout session {session.id} for user {db_user.email}")
+            logger.info("Created checkout session %s for user %s", session.id, db_user.email)
             audit_data(
                 user_id=db_user.id,
                 resource_type="checkout_session",
@@ -407,7 +407,7 @@ class BillingHandler(SecureHandler):
             return json_response({"checkout": session.to_dict()})
 
         except StripeConfigError as e:
-            logger.error(f"Stripe checkout failed: {type(e).__name__}: {e}")
+            logger.error("Stripe checkout failed: %s: %s", type(e).__name__, e)
             return error_response("Payment service unavailable", 503)
 
     @handle_errors("create portal")
@@ -454,7 +454,7 @@ class BillingHandler(SecureHandler):
             return json_response({"portal": session.to_dict()})
 
         except StripeConfigError as e:
-            logger.error(f"Stripe portal failed: {type(e).__name__}: {e}")
+            logger.error("Stripe portal failed: %s: %s", type(e).__name__, e)
             return error_response("Payment service unavailable", 503)
 
     def _log_audit(
@@ -498,7 +498,7 @@ class BillingHandler(SecureHandler):
                 user_agent=user_agent,
             )
         except (KeyError, ValueError, OSError, TypeError, AttributeError, RuntimeError) as e:
-            logger.warning(f"Failed to log audit event: {e}")
+            logger.warning("Failed to log audit event: %s", e)
 
     @handle_errors("get audit log")
     @require_permission("admin:audit")
@@ -795,14 +795,14 @@ class BillingHandler(SecureHandler):
             return json_response({"invoices": invoices})
 
         except StripeConfigError as e:
-            logger.error(f"Stripe invoices failed: {type(e).__name__}: {e}")
+            logger.error("Stripe invoices failed: %s: %s", type(e).__name__, e)
             return error_response("Payment service unavailable", 503)
         except StripeAPIError as e:
-            logger.error(f"Stripe API error getting invoices: {type(e).__name__}: {e}")
+            logger.error("Stripe API error getting invoices: %s: %s", type(e).__name__, e)
             return error_response("Failed to retrieve invoices from payment provider", 502)
         except StripeError as e:
             # Catch any other Stripe errors
-            logger.error(f"Stripe error getting invoices: {type(e).__name__}: {e}")
+            logger.error("Stripe error getting invoices: %s: %s", type(e).__name__, e)
             return error_response("Payment service error", 500)
 
     @handle_errors("cancel subscription")
@@ -834,7 +834,7 @@ class BillingHandler(SecureHandler):
                 at_period_end=True,  # Cancel at end of period, not immediately
             )
 
-            logger.info(f"Subscription canceled for org {org.id} (user: {db_user.email})")
+            logger.info("Subscription canceled for org %s (user: %s)", org.id, db_user.email)
             audit_admin(
                 admin_id=user.user_id,
                 action="cancel_subscription",
@@ -865,13 +865,13 @@ class BillingHandler(SecureHandler):
             )
 
         except StripeConfigError as e:
-            logger.error(f"Stripe config error canceling subscription: {type(e).__name__}: {e}")
+            logger.error("Stripe config error canceling subscription: %s: %s", type(e).__name__, e)
             return error_response("Payment service unavailable", 503)
         except StripeAPIError as e:
-            logger.error(f"Stripe API error canceling subscription: {type(e).__name__}: {e}")
+            logger.error("Stripe API error canceling subscription: %s: %s", type(e).__name__, e)
             return error_response("Failed to cancel subscription with payment provider", 502)
         except StripeError as e:
-            logger.error(f"Stripe error canceling subscription: {type(e).__name__}: {e}")
+            logger.error("Stripe error canceling subscription: %s: %s", type(e).__name__, e)
             return error_response("Failed to cancel subscription", 500)
 
     @handle_errors("resume subscription")
@@ -899,7 +899,7 @@ class BillingHandler(SecureHandler):
             stripe = get_stripe_client()
             subscription = stripe.resume_subscription(org.stripe_subscription_id)
 
-            logger.info(f"Subscription resumed for org {org.id} (user: {db_user.email})")
+            logger.info("Subscription resumed for org %s (user: %s)", org.id, db_user.email)
             audit_admin(
                 admin_id=user.user_id,
                 action="resume_subscription",
@@ -916,13 +916,13 @@ class BillingHandler(SecureHandler):
             )
 
         except StripeConfigError as e:
-            logger.error(f"Stripe config error resuming subscription: {type(e).__name__}: {e}")
+            logger.error("Stripe config error resuming subscription: %s: %s", type(e).__name__, e)
             return error_response("Payment service unavailable", 503)
         except StripeAPIError as e:
-            logger.error(f"Stripe API error resuming subscription: {type(e).__name__}: {e}")
+            logger.error("Stripe API error resuming subscription: %s: %s", type(e).__name__, e)
             return error_response("Failed to resume subscription with payment provider", 502)
         except StripeError as e:
-            logger.error(f"Stripe error resuming subscription: {type(e).__name__}: {e}")
+            logger.error("Stripe error resuming subscription: %s: %s", type(e).__name__, e)
             return error_response("Failed to resume subscription", 500)
 
     @handle_errors("stripe webhook")
@@ -956,10 +956,10 @@ class BillingHandler(SecureHandler):
         if not event_id:
             logger.warning("Webhook event missing ID, cannot check idempotency")
         elif _is_duplicate_webhook(event_id):
-            logger.info(f"Skipping duplicate webhook event: {event_id}")
+            logger.info("Skipping duplicate webhook event: %s", event_id)
             return json_response({"received": True, "duplicate": True})
 
-        logger.info(f"Received Stripe webhook: {event.type} (id={event_id})")
+        logger.info("Received Stripe webhook: %s (id=%s)", event.type, event_id)
 
         # Get user store
         user_store = self._get_user_store()
@@ -1012,8 +1012,7 @@ class BillingHandler(SecureHandler):
         subscription_id = session.get("subscription")
 
         logger.info(
-            f"Checkout completed: user={user_id}, org={org_id}, "
-            f"customer={customer_id}, subscription={subscription_id}"
+            "Checkout completed: user=%s, org=%s, customer=%s, subscription=%s", user_id, org_id, customer_id, subscription_id
         )
 
         if user_store and org_id:
@@ -1034,7 +1033,7 @@ class BillingHandler(SecureHandler):
                     stripe_subscription_id=subscription_id,
                     tier=tier,
                 )
-                logger.info(f"Updated org {org_id} with subscription, tier={tier.value}")
+                logger.info("Updated org %s with subscription, tier=%s", org_id, tier.value)
 
                 # Log audit event
                 self._log_audit(
@@ -1053,7 +1052,7 @@ class BillingHandler(SecureHandler):
 
     def _handle_subscription_created(self, event: Any, user_store: Any) -> HandlerResult:
         """Handle customer.subscription.created event."""
-        logger.info(f"Subscription created: {event.subscription_id}")
+        logger.info("Subscription created: %s", event.subscription_id)
         return json_response({"received": True})
 
     def _handle_subscription_updated(self, event: Any, user_store: Any) -> HandlerResult:
@@ -1070,8 +1069,7 @@ class BillingHandler(SecureHandler):
         price_id = items[0].get("price", {}).get("id", "") if items else ""
 
         logger.info(
-            f"Subscription updated: {subscription_id}, "
-            f"status={status}, cancel_at_period_end={cancel_at_period_end}"
+            "Subscription updated: %s, status=%s, cancel_at_period_end=%s", subscription_id, status, cancel_at_period_end
         )
 
         # Update organization tier if price changed
@@ -1089,7 +1087,7 @@ class BillingHandler(SecureHandler):
 
                 if updates:
                     user_store.update_organization(org.id, **updates)
-                    logger.info(f"Updated org {org.id} tier from subscription update")
+                    logger.info("Updated org %s tier from subscription update", org.id)
 
                     # Log audit event for tier change
                     if new_tier and new_tier != old_tier:
@@ -1112,7 +1110,7 @@ class BillingHandler(SecureHandler):
         subscription = event.object
         subscription_id = subscription.get("id")
 
-        logger.info(f"Subscription deleted: {subscription_id}")
+        logger.info("Subscription deleted: %s", subscription_id)
 
         # Downgrade organization to free tier and clear subscription ID
         if user_store and subscription_id:
@@ -1125,7 +1123,7 @@ class BillingHandler(SecureHandler):
                     tier=SubscriptionTier.FREE,
                     stripe_subscription_id=None,
                 )
-                logger.info(f"Downgraded org {org.id} to FREE tier after subscription deletion")
+                logger.info("Downgraded org %s to FREE tier after subscription deletion", org.id)
 
                 # Log audit event
                 self._log_audit(
@@ -1159,12 +1157,12 @@ class BillingHandler(SecureHandler):
             org = user_store.get_organization_by_stripe_customer(customer_id)
             if org:
                 user_store.reset_org_usage(org.id)
-                logger.info(f"Reset usage for org {org.id} after invoice payment")
+                logger.info("Reset usage for org %s after invoice payment", org.id)
 
                 # Mark any active payment failure as recovered
                 recovery_store = get_recovery_store()
                 if recovery_store.mark_recovered(org.id):
-                    logger.info(f"Payment recovered for org {org.id}")
+                    logger.info("Payment recovered for org %s", org.id)
 
         return json_response({"received": True})
 
@@ -1185,8 +1183,7 @@ class BillingHandler(SecureHandler):
         hosted_invoice_url = invoice.get("hosted_invoice_url")
 
         logger.warning(
-            f"Invoice payment failed: customer={customer_id}, "
-            f"subscription={subscription_id}, attempt={attempt_count}"
+            "Invoice payment failed: customer=%s, subscription=%s, attempt=%s", customer_id, subscription_id, attempt_count
         )
 
         # Record failure and get tracking info
@@ -1205,10 +1202,7 @@ class BillingHandler(SecureHandler):
                 )
 
                 logger.info(
-                    f"Payment failure recorded for org {org.id}: "
-                    f"attempt={failure.attempt_count}, "
-                    f"days_failing={failure.days_failing}, "
-                    f"days_until_downgrade={failure.days_until_downgrade}"
+                    "Payment failure recorded for org %s: attempt=%s, days_failing=%s, days_until_downgrade=%s", org.id, failure.attempt_count, failure.days_failing, failure.days_until_downgrade
                 )
 
                 # Send notification to organization owner
@@ -1226,15 +1220,13 @@ class BillingHandler(SecureHandler):
                         days_until_downgrade=failure.days_until_downgrade,
                     )
                     logger.info(
-                        f"Payment failure notification sent to {owner.email}: "
-                        f"method={result.method}, success={result.success}"
+                        "Payment failure notification sent to %s: method=%s, success=%s", owner.email, result.method, result.success
                     )
 
                 # Log warning if nearing grace period end
                 if failure.days_until_downgrade <= 3:
                     logger.warning(
-                        f"Org {org.id} payment grace period ending soon: "
-                        f"{failure.days_until_downgrade} days until auto-downgrade"
+                        "Org %s payment grace period ending soon: %s days until auto-downgrade", org.id, failure.days_until_downgrade
                     )
 
         return json_response(
@@ -1257,7 +1249,7 @@ class BillingHandler(SecureHandler):
         customer_id = invoice.get("customer")
         subscription_id = invoice.get("subscription")
 
-        logger.info(f"Invoice finalized: customer={customer_id}, subscription={subscription_id}")
+        logger.info("Invoice finalized: customer=%s, subscription=%s", customer_id, subscription_id)
 
         # Flush remainder usage for the org
         flushed_records = []
@@ -1269,11 +1261,10 @@ class BillingHandler(SecureHandler):
                     flushed_records = usage_sync.flush_period(org_id=org.id)
                     if flushed_records:
                         logger.info(
-                            f"Flushed {len(flushed_records)} usage records for org {org.id} "
-                            f"on invoice finalize"
+                            "Flushed %s usage records for org %s on invoice finalize", len(flushed_records), org.id
                         )
                 except (KeyError, ValueError, OSError, TypeError, AttributeError, RuntimeError) as e:
-                    logger.error(f"Failed to flush usage on invoice finalize: {e}")
+                    logger.error("Failed to flush usage on invoice finalize: %s", e)
 
         return json_response(
             {

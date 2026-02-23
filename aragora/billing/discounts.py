@@ -439,7 +439,7 @@ class DiscountManager:
             raise ValueError(f"Discount code '{code}' already exists")
 
         logger.info(
-            f"Created discount code: {code} ({discount_percent}% or {discount_amount_cents}c)"
+            "Created discount code: %s (%s%% or %sc)", code, discount_percent, discount_amount_cents
         )
         return discount_code
 

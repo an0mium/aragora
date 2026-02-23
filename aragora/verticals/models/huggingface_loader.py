@@ -176,7 +176,7 @@ class SpecialistModel:
         except ImportError:
             pass
 
-        logger.info(f"Unloaded model: {self.model_id}")
+        logger.info("Unloaded model: %s", self.model_id)
 
 
 class HuggingFaceSpecialistLoader:
@@ -286,7 +286,7 @@ class HuggingFaceSpecialistLoader:
                     {"device_map": "auto"},
                 )
             else:
-                logger.warning(f"Unknown quantization: {quantization}")
+                logger.warning("Unknown quantization: %s", quantization)
                 return None, {}
 
         except ImportError:
@@ -327,7 +327,7 @@ class HuggingFaceSpecialistLoader:
         # Check cache
         cache_key = f"{model_id}:{adapter_id or 'none'}:{quantization or 'none'}"
         if cache_key in self._loaded_models:
-            logger.info(f"Using cached model: {model_id}")
+            logger.info("Using cached model: %s", model_id)
             return self._loaded_models[cache_key]
 
         # Evict old models if needed
@@ -335,7 +335,7 @@ class HuggingFaceSpecialistLoader:
             oldest_key = next(iter(self._loaded_models))
             self._loaded_models[oldest_key].unload()
             del self._loaded_models[oldest_key]
-            logger.info(f"Evicted model from cache: {oldest_key}")
+            logger.info("Evicted model from cache: %s", oldest_key)
 
         try:
             from transformers import AutoTokenizer, AutoModelForCausalLM, AutoModel
@@ -343,7 +343,7 @@ class HuggingFaceSpecialistLoader:
             device = self._get_device()
             quant_config, load_kwargs = self._get_quantization_config(quantization)
 
-            logger.info(f"Loading model: {model_id} on {device}")
+            logger.info("Loading model: %s on %s", model_id, device)
 
             # Load tokenizer
             tokenizer = AutoTokenizer.from_pretrained(  # nosec B615
@@ -406,12 +406,12 @@ class HuggingFaceSpecialistLoader:
             )
 
             self._loaded_models[cache_key] = specialist_model
-            logger.info(f"Successfully loaded model: {model_id}")
+            logger.info("Successfully loaded model: %s", model_id)
 
             return specialist_model
 
         except (ImportError, RuntimeError, ValueError, TypeError, OSError) as e:
-            logger.error(f"Failed to load model {model_id}: {e}")
+            logger.error("Failed to load model %s: %s", model_id, e)
             raise ModelLoadError(f"Failed to load model {model_id}: {e}") from e
 
     def _load_adapter(self, model: Any, adapter_id: str) -> Any:
@@ -428,20 +428,20 @@ class HuggingFaceSpecialistLoader:
         try:
             from peft import PeftModel
 
-            logger.info(f"Loading adapter: {adapter_id}")
+            logger.info("Loading adapter: %s", adapter_id)
             model = PeftModel.from_pretrained(  # nosec B615
                 model,
                 adapter_id,
                 cache_dir=self._cache_dir,
             )
-            logger.info(f"Loaded adapter: {adapter_id}")
+            logger.info("Loaded adapter: %s", adapter_id)
             return model
 
         except ImportError:
             logger.warning("peft not available for adapter loading")
             return model
         except (RuntimeError, ValueError, TypeError, OSError) as e:
-            logger.error(f"Failed to load adapter {adapter_id}: {e}")
+            logger.error("Failed to load adapter %s: %s", adapter_id, e)
             return model
 
     def load_embedding_model(
@@ -551,5 +551,5 @@ class HuggingFaceSpecialistLoader:
                 "library_name": info.library_name,
             }
         except (ImportError, ConnectionError, TimeoutError, OSError, ValueError, RuntimeError) as e:
-            logger.warning(f"Could not get model info for {model_id}: {e}")
+            logger.warning("Could not get model info for %s: %s", model_id, e)
             return None

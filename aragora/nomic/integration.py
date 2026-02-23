@@ -417,7 +417,7 @@ class NomicIntegration:
             except (RuntimeError, OSError, ValueError) as e:
                 # If probing fails, assume moderate reliability
                 logger.debug(
-                    f"Agent probing failed for {agent.name}, using default weight: {type(e).__name__}"
+                    "Agent probing failed for %s, using default weight: %s", agent.name, type(e).__name__
                 )
                 weights[agent.name] = 0.75
 
@@ -736,7 +736,7 @@ class NomicIntegration:
 
         except (RuntimeError, OSError, ValueError) as e:
             # Log but don't fail on checkpoint errors
-            logger.warning(f"Checkpoint failed for {phase}: {e}")
+            logger.warning("Checkpoint failed for %s: %s", phase, e)
             return None
 
     async def resume_from_checkpoint(
@@ -779,7 +779,7 @@ class NomicIntegration:
                 )
 
         except (RuntimeError, OSError, ValueError) as e:
-            logger.warning(f"Resume failed: {e}")
+            logger.warning("Resume failed: %s", e)
 
         return None
 

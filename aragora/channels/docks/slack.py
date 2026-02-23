@@ -128,7 +128,7 @@ class SlackDock(ChannelDock):
                     )
 
         except (ConnectionError, TimeoutError, OSError, ValueError) as e:
-            logger.error(f"Slack send error: {e}")
+            logger.error("Slack send error: %s", e)
             return SendResult.fail(
                 error=str(e),
                 platform=self.PLATFORM,

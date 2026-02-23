@@ -375,7 +375,7 @@ async def execute_workflow(
         return execution
 
     except (ValueError, KeyError, TypeError) as e:
-        logger.warning(f"Invalid workflow configuration or inputs: {e}")
+        logger.warning("Invalid workflow configuration or inputs: %s", e)
         execution.update(
             {
                 "status": "failed",
@@ -386,7 +386,7 @@ async def execute_workflow(
         store.save_execution(execution)
         raise
     except OSError as e:
-        logger.error(f"Storage error during workflow execution: {e}")
+        logger.error("Storage error during workflow execution: %s", e)
         execution.update(
             {
                 "status": "failed",
@@ -397,7 +397,7 @@ async def execute_workflow(
         store.save_execution(execution)
         raise
     except (ConnectionError, TimeoutError) as e:
-        logger.error(f"Connection error during workflow execution: {e}")
+        logger.error("Connection error during workflow execution: %s", e)
         execution.update(
             {
                 "status": "failed",

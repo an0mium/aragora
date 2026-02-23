@@ -144,7 +144,7 @@ class RLMStreamingMixin:
             )
 
         except (RuntimeError, ValueError, TimeoutError, ConnectionError, OSError) as e:
-            logger.error(f"Streaming query failed: {e}")
+            logger.error("Streaming query failed: %s", e)
             yield RLMStreamEvent(
                 event_type=RLMStreamEventType.ERROR,
                 query=query,
@@ -219,7 +219,7 @@ class RLMStreamingMixin:
                     feedback=feedback,
                 )
             except (RuntimeError, ValueError, TimeoutError, ConnectionError, OSError) as e:
-                logger.error(f"Iteration {iteration} failed: {e}")
+                logger.error("Iteration %s failed: %s", iteration, e)
                 yield RLMStreamEvent(
                     event_type=RLMStreamEventType.ERROR,
                     query=query,
@@ -359,7 +359,7 @@ class RLMStreamingMixin:
             )
 
         except (RuntimeError, ValueError, TimeoutError, ConnectionError, OSError) as e:
-            logger.error(f"Streaming compression failed: {e}")
+            logger.error("Streaming compression failed: %s", e)
             yield RLMStreamEvent(
                 event_type=RLMStreamEventType.ERROR,
                 query=f"compress:{source_type}",

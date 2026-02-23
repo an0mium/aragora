@@ -153,7 +153,7 @@ class AgentPerformanceMonitor:
         )
 
         self._active_trackings[tracking_id] = metric
-        logger.debug(f"perf_track_start agent={agent_name} op={operation} phase={phase}")
+        logger.debug("perf_track_start agent=%s op=%s phase=%s", agent_name, operation, phase)
 
         return tracking_id
 
@@ -174,7 +174,7 @@ class AgentPerformanceMonitor:
             error: Error message (for failure cases)
         """
         if tracking_id not in self._active_trackings:
-            logger.warning(f"perf_unknown_tracking id={tracking_id}")
+            logger.warning("perf_unknown_tracking id=%s", tracking_id)
             return
 
         metric = self._active_trackings.pop(tracking_id)
@@ -358,10 +358,10 @@ class AgentPerformanceMonitor:
         try:
             with open(filepath, "w") as f:
                 json.dump(data, f, indent=2)
-            logger.info(f"perf_saved path={filepath} metrics={len(self.metrics)}")
+            logger.info("perf_saved path=%s metrics=%s", filepath, len(self.metrics))
             return filepath
         except (OSError, TypeError, ValueError) as e:
-            logger.error(f"perf_save_error error={e}")
+            logger.error("perf_save_error error=%s", e)
             return None
 
     def clear(self) -> None:

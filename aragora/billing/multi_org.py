@@ -373,7 +373,7 @@ class MultiOrgManager:
         )
 
         await self._save_membership(membership)
-        logger.info(f"Added user {user_id} to org {org_id} with role {role.value}")
+        logger.info("Added user %s to org %s with role %s", user_id, org_id, role.value)
         return membership
 
     async def remove_member(
@@ -415,7 +415,7 @@ class MultiOrgManager:
             if self._contexts[user_id].org_id == org_id:
                 del self._contexts[user_id]
 
-        logger.info(f"Removed user {user_id} from org {org_id}")
+        logger.info("Removed user %s from org %s", user_id, org_id)
         return True
 
     async def update_role(
@@ -451,7 +451,7 @@ class MultiOrgManager:
         membership.updated_at = datetime.now(timezone.utc)
         await self._save_membership(membership)
 
-        logger.info(f"Updated role for {user_id} in {org_id} to {new_role.value}")
+        logger.info("Updated role for %s in %s to %s", user_id, org_id, new_role.value)
         return membership
 
     async def get_membership(
@@ -555,7 +555,7 @@ class MultiOrgManager:
         membership.updated_at = datetime.now(timezone.utc)
         await self._save_membership(membership)
 
-        logger.info(f"Set primary org for {user_id} to {org_id}")
+        logger.info("Set primary org for %s to %s", user_id, org_id)
         return membership
 
     async def get_primary_org(
@@ -620,7 +620,7 @@ class MultiOrgManager:
         )
 
         self._contexts[user_id] = context
-        logger.debug(f"Switched context for {user_id} to org {org_id}")
+        logger.debug("Switched context for %s to org %s", user_id, org_id)
         return context
 
     async def get_current_context(
@@ -701,7 +701,7 @@ class MultiOrgManager:
         membership.updated_at = datetime.now(timezone.utc)
 
         await self._save_membership(membership)
-        logger.info(f"User {user_id} accepted invitation to org {membership.org_id}")
+        logger.info("User %s accepted invitation to org %s", user_id, membership.org_id)
         return membership
 
     async def get_member_count(self, org_id: str) -> dict[str, int]:

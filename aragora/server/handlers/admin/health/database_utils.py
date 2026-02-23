@@ -54,14 +54,14 @@ def handle_store_check_errors(
         result = check_fn()
         return result, result.get("healthy", True)
     except (sqlite3.Error, OSError) as e:
-        logger.warning(f"{store_name} database error: {type(e).__name__}: {e}")
+        logger.warning("%s database error: %s: %s", store_name, type(e).__name__, e)
         return {
             "healthy": False,
             "error": "Health check failed",
             "error_type": "database",
         }, False
     except (KeyError, TypeError, AttributeError) as e:
-        logger.debug(f"{store_name} data access error: {type(e).__name__}: {e}")
+        logger.debug("%s data access error: %s: %s", store_name, type(e).__name__, e)
         return {
             "healthy": False,
             "error": "Health check failed",

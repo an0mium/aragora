@@ -46,5 +46,5 @@ class AgentStepExecutor(StepExecutor):
         """Execute step via agent."""
         # This would integrate with the actual agent system
         # For now, return a placeholder
-        logger.info(f"Agent executing step: {step.name}")
+        logger.info("Agent executing step: %s", step.name)
         return {"status": "executed", "step": step.name}

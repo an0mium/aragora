@@ -184,7 +184,7 @@ class HealthChecker:
                 self._healthy = True
                 self._last_error = None
                 logger.info(
-                    f"[{self.name}] Health recovered after {self._consecutive_successes} successes"
+                    "[%s] Health recovered after %s successes", self.name, self._consecutive_successes
                 )
                 self._emit_health_event(
                     component=self.name,
@@ -209,7 +209,7 @@ class HealthChecker:
             if self._healthy and self._consecutive_failures >= self.failure_threshold:
                 self._healthy = False
                 logger.warning(
-                    f"[{self.name}] Health degraded after {self._consecutive_failures} failures: {error}"
+                    "[%s] Health degraded after %s failures: %s", self.name, self._consecutive_failures, error
                 )
                 self._emit_health_event(
                     component=self.name,

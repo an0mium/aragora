@@ -78,7 +78,7 @@ class GauntletHeatmapMixin:
                 else:
                     return error_response(f"Gauntlet run not found: {gauntlet_id}", 404)
             except (OSError, RuntimeError, ValueError) as e:
-                logger.warning(f"Storage lookup failed for {gauntlet_id}: {e}")
+                logger.warning("Storage lookup failed for %s: %s", gauntlet_id, e)
                 return error_response(f"Gauntlet run not found: {gauntlet_id}", 404)
 
         # Generate heatmap

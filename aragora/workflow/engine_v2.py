@@ -272,7 +272,7 @@ class EnhancedWorkflowEngine(WorkflowEngine):
         metadata = self._merge_metadata(definition, metadata)
         metadata.setdefault("workflow_name", definition.name)
 
-        logger.info(f"Starting enhanced workflow {workflow_id}: {definition.name}")
+        logger.info("Starting enhanced workflow %s: %s", workflow_id, definition.name)
 
         # Reset tracking
         self._usage = ResourceUsage()
@@ -315,7 +315,7 @@ class EnhancedWorkflowEngine(WorkflowEngine):
             error = None
 
         except asyncio.TimeoutError:
-            logger.error(f"Workflow timed out after {self._limits.timeout_seconds}s")
+            logger.error("Workflow timed out after %ss", self._limits.timeout_seconds)
             success = False
             error = f"Timeout after {self._limits.timeout_seconds}s"
             limits_exceeded = True
@@ -323,7 +323,7 @@ class EnhancedWorkflowEngine(WorkflowEngine):
             final_output = None
 
         except ResourceExhaustedError as e:
-            logger.error(f"Resource limit exceeded: {e}")
+            logger.error("Resource limit exceeded: %s", e)
             success = False
             error = "Resource limit exceeded"
             limits_exceeded = True
@@ -338,7 +338,7 @@ class EnhancedWorkflowEngine(WorkflowEngine):
             final_output = None
 
         except (RuntimeError, ValueError, TypeError, OSError, ConnectionError, KeyError, AttributeError) as e:
-            logger.exception(f"Workflow execution failed: {e}")
+            logger.exception("Workflow execution failed: %s", e)
             success = False
             error = "Workflow execution failed"
             final_output = None
@@ -404,7 +404,7 @@ class EnhancedWorkflowEngine(WorkflowEngine):
 
             step_def = definition.get_step(current_step_id)
             if not step_def:
-                logger.error(f"Step '{current_step_id}' not found")
+                logger.error("Step '%s' not found", current_step_id)
                 break
 
             if current_step_id in completed_steps:
@@ -442,7 +442,7 @@ class EnhancedWorkflowEngine(WorkflowEngine):
             # Handle failure
             if not result.success:
                 if self._config.stop_on_failure and not step_def.optional:
-                    logger.error(f"Step '{current_step_id}' failed, stopping")
+                    logger.error("Step '%s' failed, stopping", current_step_id)
                     break
 
             # Create checkpoint if enabled
@@ -483,7 +483,7 @@ class EnhancedWorkflowEngine(WorkflowEngine):
         started_at = datetime.now(timezone.utc)
         start_time = time.time()
 
-        logger.debug(f"Executing step: {step_def.name} ({step_def.id})")
+        logger.debug("Executing step: %s (%s)", step_def.name, step_def.id)
 
         self._emit_event(
             context,
@@ -760,7 +760,7 @@ class EnhancedWorkflowEngine(WorkflowEngine):
             try:
                 self._metrics_callback(metrics)
             except (RuntimeError, ValueError, TypeError, OSError, AttributeError) as e:
-                logger.warning(f"Metrics callback failed: {e}")
+                logger.warning("Metrics callback failed: %s", e)
 
     def estimate_cost(self, definition: WorkflowDefinition) -> dict[str, float]:
         """

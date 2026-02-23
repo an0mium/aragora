@@ -440,7 +440,7 @@ async def _start_teams_debate(
                 logger.debug("Failed to register dedup Teams origin: %s", exc)
 
         if result.request_id:
-            logger.info(f"DecisionRouter started debate {result.request_id} from Teams")
+            logger.info("DecisionRouter started debate %s from Teams", result.request_id)
             _active_debates[result.request_id] = {
                 "topic": topic,
                 "conversation_id": conversation_id,
@@ -458,7 +458,7 @@ async def _start_teams_debate(
             topic, conversation_id, user_id, debate_id, service_url, thread_id
         )
     except (RuntimeError, ValueError, KeyError, AttributeError) as e:
-        logger.error(f"DecisionRouter failed: {e}, using fallback")
+        logger.error("DecisionRouter failed: %s, using fallback", e)
         return await _fallback_start_debate(
             topic, conversation_id, user_id, debate_id, service_url, thread_id
         )
@@ -490,7 +490,7 @@ async def _fallback_start_debate(
             },
         )
     except (RuntimeError, KeyError, AttributeError, OSError) as e:
-        logger.warning(f"Failed to register debate origin: {e}")
+        logger.warning("Failed to register debate origin: %s", e)
 
     # Try to enqueue via Redis queue
     try:
@@ -509,11 +509,11 @@ async def _fallback_start_debate(
         )
         queue = await create_redis_queue()
         await queue.enqueue(job)
-        logger.info(f"Debate {debate_id} enqueued via Redis queue")
+        logger.info("Debate %s enqueued via Redis queue", debate_id)
     except ImportError:
         logger.warning("Redis queue not available, debate will run inline")
     except (RuntimeError, OSError, ConnectionError) as e:
-        logger.warning(f"Failed to enqueue debate: {e}")
+        logger.warning("Failed to enqueue debate: %s", e)
 
     # Track active debate
     _active_debates[debate_id] = {

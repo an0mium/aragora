@@ -209,7 +209,7 @@ class OAuthWizardHandler(SecureHandler):
         try:
             auth_context = await self.get_auth_context(handler, require_auth=True)
         except (UnauthorizedError, PermissionDeniedError, ValueError, RuntimeError) as e:
-            logger.debug(f"OAuth wizard auth failed: {e}")
+            logger.debug("OAuth wizard auth failed: %s", e)
             return error_response("Authentication required", 401)
 
         try:
@@ -263,7 +263,7 @@ class OAuthWizardHandler(SecureHandler):
             return error_response("Not found", 404)
 
         except (ConnectionError, TimeoutError, ValueError, RuntimeError) as e:
-            logger.exception(f"Error in OAuth wizard handler: {e}")
+            logger.exception("Error in OAuth wizard handler: %s", e)
             return error_response("Internal server error", 500)
 
     async def _get_wizard_config(self, query_params: dict[str, str]) -> HandlerResult:
@@ -663,7 +663,7 @@ class OAuthWizardHandler(SecureHandler):
                 }
             )
         except (ImportError, ConnectionError, TimeoutError, OSError, ValueError, RuntimeError) as e:
-            logger.exception(f"Connection test failed for {provider_id}: {e}")
+            logger.exception("Connection test failed for %s: %s", provider_id, e)
             return json_response(
                 {
                     "provider": provider_id,
@@ -801,7 +801,7 @@ class OAuthWizardHandler(SecureHandler):
                 }
             )
         except (ImportError, ConnectionError, TimeoutError, OSError, ValueError, RuntimeError) as e:
-            logger.exception(f"Failed to list workspaces for {provider_id}: {e}")
+            logger.exception("Failed to list workspaces for %s: %s", provider_id, e)
             return error_response("Failed to list workspaces", 500)
 
     async def _get_slack_workspaces(self) -> list[dict[str, Any]]:
@@ -883,7 +883,7 @@ class OAuthWizardHandler(SecureHandler):
                 }
             )
         except (ImportError, ConnectionError, TimeoutError, OSError, ValueError, RuntimeError) as e:
-            logger.exception(f"Failed to disconnect {provider_id}: {e}")
+            logger.exception("Failed to disconnect %s: %s", provider_id, e)
             return error_response("Disconnect operation failed", 500)
 
     async def _disconnect_slack_workspace(self, workspace_id: str) -> dict[str, Any]:
@@ -892,7 +892,7 @@ class OAuthWizardHandler(SecureHandler):
 
         store = get_slack_workspace_store()
         store.deactivate(workspace_id)
-        logger.info(f"Disconnected Slack workspace: {workspace_id}")
+        logger.info("Disconnected Slack workspace: %s", workspace_id)
         return {"success": True, "message": f"Workspace {workspace_id} disconnected"}
 
     async def _disconnect_teams_tenant(self, tenant_id: str) -> dict[str, Any]:
@@ -901,7 +901,7 @@ class OAuthWizardHandler(SecureHandler):
 
         store = get_teams_tenant_store()
         store.deactivate(tenant_id)
-        logger.info(f"Disconnected Teams tenant: {tenant_id}")
+        logger.info("Disconnected Teams tenant: %s", tenant_id)
         return {"success": True, "message": f"Tenant {tenant_id} disconnected"}
 
     async def _disconnect_discord_guild(self, guild_id: str) -> dict[str, Any]:
@@ -911,7 +911,7 @@ class OAuthWizardHandler(SecureHandler):
         store = get_discord_guild_store()
         success = store.deactivate(guild_id)
         if success:
-            logger.info(f"Disconnected Discord guild: {guild_id}")
+            logger.info("Disconnected Discord guild: %s", guild_id)
             return {"success": True, "message": f"Guild {guild_id} disconnected"}
         else:
             return {"success": False, "message": f"Guild {guild_id} not found"}
@@ -923,7 +923,7 @@ class OAuthWizardHandler(SecureHandler):
         store = get_integration_store()
         success = await store.delete("gmail", user_id)
         if success:
-            logger.info(f"Disconnected Gmail account for user: {user_id}")
+            logger.info("Disconnected Gmail account for user: %s", user_id)
             return {"success": True, "message": f"Gmail disconnected for user {user_id}"}
         else:
             return {"success": False, "message": f"Gmail integration not found for user {user_id}"}

@@ -74,13 +74,13 @@ class UsageAnalyticsMixin:
             )
 
         except ValueError as e:
-            logger.warning(f"Invalid cost metrics parameter: {e}")
+            logger.warning("Invalid cost metrics parameter: %s", e)
             return error_response("Invalid parameter", 400, code="INVALID_PARAMETER")
         except (KeyError, TypeError, AttributeError) as e:
-            logger.warning(f"Data error in cost metrics: {e}")
+            logger.warning("Data error in cost metrics: %s", e)
             return error_response(safe_error_message(e, "cost metrics"), 400, code="DATA_ERROR")
         except (ImportError, RuntimeError, OSError) as e:
-            logger.exception(f"Unexpected error getting cost metrics: {e}")
+            logger.exception("Unexpected error getting cost metrics: %s", e)
             return error_response(safe_error_message(e, "cost metrics"), 500, code="INTERNAL_ERROR")
 
     @require_user_auth
@@ -135,7 +135,7 @@ class UsageAnalyticsMixin:
             )
 
         except (ImportError, RuntimeError, OSError, LookupError) as e:
-            logger.exception(f"Unexpected error getting token usage: {e}")
+            logger.exception("Unexpected error getting token usage: %s", e)
             return error_response(safe_error_message(e, "token usage"), 500, code="INTERNAL_ERROR")
 
     @require_user_auth
@@ -222,7 +222,7 @@ class UsageAnalyticsMixin:
             )
 
         except (ImportError, RuntimeError, OSError, LookupError) as e:
-            logger.exception(f"Unexpected error getting token trends: {e}")
+            logger.exception("Unexpected error getting token trends: %s", e)
             return error_response(safe_error_message(e, "token trends"), 500, code="INTERNAL_ERROR")
 
     @require_user_auth
@@ -328,7 +328,7 @@ class UsageAnalyticsMixin:
             )
 
         except (ImportError, RuntimeError, OSError, LookupError) as e:
-            logger.exception(f"Unexpected error getting provider breakdown: {e}")
+            logger.exception("Unexpected error getting provider breakdown: %s", e)
             return error_response(
                 safe_error_message(e, "provider breakdown"), 500, code="INTERNAL_ERROR"
             )
@@ -375,7 +375,7 @@ class UsageAnalyticsMixin:
                         else 0,
                     }
             except (AttributeError, TypeError, ValueError) as e:
-                logger.debug(f"Budget info unavailable: {e}")
+                logger.debug("Budget info unavailable: %s", e)
 
             return json_response(
                 {
@@ -387,7 +387,7 @@ class UsageAnalyticsMixin:
             )
 
         except (ImportError, RuntimeError, OSError) as e:
-            logger.exception(f"Unexpected error getting cost breakdown: {e}")
+            logger.exception("Unexpected error getting cost breakdown: %s", e)
             return error_response(
                 safe_error_message(e, "cost breakdown"), 500, code="INTERNAL_ERROR"
             )

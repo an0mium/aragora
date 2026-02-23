@@ -520,7 +520,7 @@ class AragoraRLM(RLMStreamingMixin):
                     self.backend_config.fallback_model_name or self.backend_config.model_name,
                 )
         except (RuntimeError, ValueError, ImportError, OSError, TypeError) as e:
-            logger.error(f"[AragoraRLM] Failed to initialize official RLM: {e}")
+            logger.error("[AragoraRLM] Failed to initialize official RLM: %s", e)
             self._official_rlm = None
             self._fallback_rlm = None
 
@@ -532,13 +532,13 @@ class AragoraRLM(RLMStreamingMixin):
                 completion = self._official_rlm.completion(prompt)
                 return completion.response
             except (RuntimeError, ValueError, ConnectionError, TimeoutError, OSError) as e:
-                logger.warning(f"Official RLM call failed: {e}")
+                logger.warning("Official RLM call failed: %s", e)
                 if self._fallback_rlm:
                     try:
                         completion = self._fallback_rlm.completion(prompt)
                         return completion.response
                     except (RuntimeError, ValueError, ConnectionError, TimeoutError, OSError) as fallback_exc:
-                        logger.warning(f"Fallback RLM call failed: {fallback_exc}")
+                        logger.warning("Fallback RLM call failed: %s", fallback_exc)
 
         # Fallback to Aragora agent registry
         if self.agent_registry:
@@ -546,7 +546,7 @@ class AragoraRLM(RLMStreamingMixin):
                 agent = self.agent_registry.get_agent(model)
                 return agent.complete(prompt)
             except (RuntimeError, ValueError, ConnectionError, TimeoutError, OSError) as e:
-                logger.warning(f"Aragora agent call failed: {e}")
+                logger.warning("Aragora agent call failed: %s", e)
 
         raise RuntimeError("No backend available for agent calls")
 
@@ -592,9 +592,9 @@ class AragoraRLM(RLMStreamingMixin):
                 if belief_summary.strip():
                     augmented_query = f"{belief_summary}\n\n## Query\n{query}"
                     belief_context_used = True
-                    logger.debug(f"Injected belief context for topic: {topic}")
+                    logger.debug("Injected belief context for topic: %s", topic)
             except (RuntimeError, ValueError, AttributeError, TypeError) as e:
-                logger.debug(f"Belief context injection skipped: {e}")
+                logger.debug("Belief context injection skipped: %s", e)
 
         if self._official_rlm:
             # PRIMARY: Use TRUE RLM (REPL-based recursive decomposition)
@@ -801,7 +801,7 @@ Write Python code to analyze the context and call FINAL(answer) with your answer
             )
 
         except (RuntimeError, ValueError, ConnectionError, TimeoutError, OSError) as e:
-            logger.error(f"[AragoraRLM] TRUE RLM query failed: {e}")
+            logger.error("[AragoraRLM] TRUE RLM query failed: %s", e)
             if self._fallback_rlm:
                 try:
                     completion = self._fallback_rlm.completion(
@@ -822,7 +822,7 @@ Write Python code to analyze the context and call FINAL(answer) with your answer
                         uncertainty_sources=[],
                     )
                 except (RuntimeError, ValueError, ConnectionError, TimeoutError, OSError) as fallback_exc:
-                    logger.warning(f"[AragoraRLM] Fallback TRUE RLM query failed: {fallback_exc}")
+                    logger.warning("[AragoraRLM] Fallback TRUE RLM query failed: %s", fallback_exc)
             logger.warning(
                 "[AragoraRLM] Falling back to COMPRESSION approach "
                 "(this is suboptimal - TRUE RLM gives model agency)"
@@ -839,7 +839,7 @@ Write Python code to analyze the context and call FINAL(answer) with your answer
         try:
             content_bytes = len(context.original_content.encode("utf-8", errors="ignore"))
         except (UnicodeError, MemoryError, ValueError) as e:
-            logger.debug(f"Failed to compute content bytes: {type(e).__name__}: {e}")
+            logger.debug("Failed to compute content bytes: %s: %s", type(e).__name__, e)
             content_bytes = 0
         threshold = getattr(self.aragora_config, "externalize_content_bytes", 0) or 0
         return threshold > 0 and content_bytes >= threshold
@@ -877,7 +877,7 @@ Write Python code to analyze the context and call FINAL(answer) with your answer
             try:
                 file_path.write_text(context.original_content)
             except OSError as e:
-                logger.warning(f"[AragoraRLM] Failed to write context file: {e}")
+                logger.warning("[AragoraRLM] Failed to write context file: %s", e)
                 return None
 
         metadata["content_path"] = str(file_path)
@@ -1083,8 +1083,7 @@ Write Python code to analyze the context and call FINAL(answer) with your answer
             compression = await self._hierarchy_cache.get_cached(content, source_type)
             if compression:
                 logger.debug(
-                    f"[AragoraRLM] Using cached compression "
-                    f"(cache_stats={self._hierarchy_cache.stats})"
+                    "[AragoraRLM] Using cached compression (cache_stats=%s)", self._hierarchy_cache.stats
                 )
 
         # Compress if not cached

@@ -385,7 +385,7 @@ class ABTestManager(SQLiteStore):
             )
 
         logger.info(
-            f"Started A/B test {test.id} for {agent}: v{baseline_version} vs v{evolved_version}"
+            "Started A/B test %s for %s: v%s vs v%s", test.id, agent, baseline_version, evolved_version
         )
         self._log_event(
             "ab_test_started", test, rubric=test.rubric.to_dict() if test.rubric else None
@@ -461,7 +461,7 @@ class ABTestManager(SQLiteStore):
         """
         test = self.get_active_test(agent)
         if not test:
-            logger.debug(f"No active A/B test for {agent}")
+            logger.debug("No active A/B test for %s", agent)
             return None
 
         if variant not in ("baseline", "evolved"):
@@ -487,7 +487,7 @@ class ABTestManager(SQLiteStore):
                     ),
                 )
             except sqlite3.IntegrityError:
-                logger.warning(f"Debate {debate_id} already recorded for test {test.id}")
+                logger.warning("Debate %s already recorded for test %s", debate_id, test.id)
                 return test
 
             # Update test counters
@@ -512,7 +512,7 @@ class ABTestManager(SQLiteStore):
                     (1 if won else 0, test.id),
                 )
 
-        logger.info(f"Recorded {variant} {'win' if won else 'loss'} for test {test.id}")
+        logger.info("Recorded %s %s for test %s", variant, 'win' if won else 'loss', test.id)
 
         rubric_obj = (
             rubric

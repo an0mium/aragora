@@ -204,7 +204,7 @@ class PhaseExecutor:
         # Filter to available phases
         order = [p for p in order if p in self._phases]
 
-        logger.info(f"Starting phase execution for debate {debate_id}: {order}")
+        logger.info("Starting phase execution for debate %s: %s", debate_id, order)
 
         # Execute with overall timeout
         try:
@@ -215,12 +215,12 @@ class PhaseExecutor:
             success = all(r.success for r in self._results)
             error = None
         except asyncio.TimeoutError:
-            logger.error(f"Phase execution timed out after {self._config.total_timeout_seconds}s")
+            logger.error("Phase execution timed out after %ss", self._config.total_timeout_seconds)
             success = False
             error = f"Execution timed out after {self._config.total_timeout_seconds}s"
             final_output = None
         except Exception as e:  # noqa: BLE001 - phase execution boundary: user-provided phases can raise any exception
-            logger.exception(f"Phase execution failed: {e}")
+            logger.exception("Phase execution failed: %s", e)
             success = False
             error = f"Execution failed: {type(e).__name__}"
             final_output = None
@@ -248,7 +248,7 @@ class PhaseExecutor:
         for phase_name in phase_order:
             # Check for early termination
             if self._should_terminate:
-                logger.info(f"Early termination: {self._termination_reason}")
+                logger.info("Early termination: %s", self._termination_reason)
                 break
 
             # Execute phase
@@ -269,14 +269,14 @@ class PhaseExecutor:
 
                         if has_critical_remaining:
                             logger.warning(
-                                f"Required phase '{phase_name}' failed, but continuing to critical phases"
+                                "Required phase '%s' failed, but continuing to critical phases", phase_name
                             )
                             # Continue to ensure consensus/synthesis runs
                         else:
-                            logger.error(f"Required phase '{phase_name}' failed, stopping")
+                            logger.error("Required phase '%s' failed, stopping", phase_name)
                             break
                     else:
-                        logger.warning(f"Optional phase '{phase_name}' failed, continuing")
+                        logger.warning("Optional phase '%s' failed, continuing", phase_name)
 
         return final_output
 
@@ -304,12 +304,12 @@ class PhaseExecutor:
                 if asyncio.iscoroutine(result):
                     await result
             except (TypeError, ValueError, AttributeError, RuntimeError, OSError) as e:
-                logger.debug(f"Pre-phase callback failed for '{phase_name}': {e}")
+                logger.debug("Pre-phase callback failed for '%s': %s", phase_name, e)
 
         started_at = datetime.now(timezone.utc)
         start_time = time.time()
 
-        logger.debug(f"Starting phase: {phase_name}")
+        logger.debug("Starting phase: %s", phase_name)
 
         # Use OpenTelemetry tracing when enabled
         if self._config.enable_tracing:
@@ -328,7 +328,7 @@ class PhaseExecutor:
                 if asyncio.iscoroutine(post_result):
                     await post_result
             except (TypeError, ValueError, AttributeError, RuntimeError, OSError) as e:
-                logger.debug(f"Post-phase callback failed for '{phase_name}': {e}")
+                logger.debug("Post-phase callback failed for '%s': %s", phase_name, e)
 
         return result
 
@@ -373,7 +373,7 @@ class PhaseExecutor:
                 span.set_attribute("phase.timeout", True)
 
                 if phase_name in OPTIONAL_PHASES and self._config.skip_optional_on_timeout:
-                    logger.warning(f"Optional phase '{phase_name}' timed out, skipping")
+                    logger.warning("Optional phase '%s' timed out, skipping", phase_name)
                     return PhaseResult(
                         phase_name=phase_name,
                         status=PhaseStatus.SKIPPED,
@@ -383,7 +383,7 @@ class PhaseExecutor:
                         error=f"Timed out after {self._config.phase_timeout_seconds}s",
                     )
                 else:
-                    logger.error(f"Phase '{phase_name}' timed out")
+                    logger.error("Phase '%s' timed out", phase_name)
                     return PhaseResult(
                         phase_name=phase_name,
                         status=PhaseStatus.FAILED,
@@ -395,7 +395,7 @@ class PhaseExecutor:
 
             except Exception as e:  # noqa: BLE001 - phase execution boundary: user-provided phases can raise any exception
                 duration_ms = (time.time() - start_time) * 1000
-                logger.exception(f"Phase '{phase_name}' failed: {e}")
+                logger.exception("Phase '%s' failed: %s", phase_name, e)
                 span.record_exception(e)
 
                 return PhaseResult(
@@ -444,7 +444,7 @@ class PhaseExecutor:
             duration_ms = (time.time() - start_time) * 1000
 
             if phase_name in OPTIONAL_PHASES and self._config.skip_optional_on_timeout:
-                logger.warning(f"Optional phase '{phase_name}' timed out, skipping")
+                logger.warning("Optional phase '%s' timed out, skipping", phase_name)
                 return PhaseResult(
                     phase_name=phase_name,
                     status=PhaseStatus.SKIPPED,
@@ -454,7 +454,7 @@ class PhaseExecutor:
                     error=f"Timed out after {self._config.phase_timeout_seconds}s",
                 )
             else:
-                logger.error(f"Phase '{phase_name}' timed out")
+                logger.error("Phase '%s' timed out", phase_name)
                 return PhaseResult(
                     phase_name=phase_name,
                     status=PhaseStatus.FAILED,
@@ -466,7 +466,7 @@ class PhaseExecutor:
 
         except Exception as e:  # noqa: BLE001 - phase execution boundary: user-provided phases can raise any exception
             duration_ms = (time.time() - start_time) * 1000
-            logger.exception(f"Phase '{phase_name}' failed: {e}")
+            logger.exception("Phase '%s' failed: %s", phase_name, e)
 
             return PhaseResult(
                 phase_name=phase_name,
@@ -508,7 +508,7 @@ class PhaseExecutor:
         """
         self._should_terminate = True
         self._termination_reason = reason
-        logger.info(f"Termination requested: {reason}")
+        logger.info("Termination requested: %s", reason)
 
     def check_termination(self) -> tuple[bool, str | None]:
         """

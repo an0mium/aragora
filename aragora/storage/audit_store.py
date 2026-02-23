@@ -104,7 +104,7 @@ class AuditStore:
                 logger.info("AuditStore using PostgreSQL backend")
             else:
                 self._backend = SQLiteBackend(str(db_path))
-                logger.info(f"AuditStore using SQLite backend: {db_path}")
+                logger.info("AuditStore using SQLite backend: %s", db_path)
 
             self._init_db()
 
@@ -172,7 +172,7 @@ class AuditStore:
             try:
                 self._backend.execute_write(idx_sql)
             except (OSError, RuntimeError, sqlite3.Error) as e:
-                logger.debug(f"Index creation skipped: {e}")
+                logger.debug("Index creation skipped: %s", e)
 
     # =========================================================================
     # Audit Logging Methods
@@ -406,7 +406,7 @@ class AuditStore:
                     "DELETE FROM audit_log WHERE timestamp < ?",
                     (cutoff,),
                 )
-                logger.info(f"Cleaned up {count} audit log entries older than {days} days")
+                logger.info("Cleaned up %s audit log entries older than %s days", count, days)
             return count
 
         # Legacy SQLite path
@@ -417,7 +417,7 @@ class AuditStore:
             )
             count = cursor.rowcount
             if count > 0:
-                logger.info(f"Cleaned up {count} audit log entries older than {days} days")
+                logger.info("Cleaned up %s audit log entries older than %s days", count, days)
             return count
 
     def get_recent_activity(

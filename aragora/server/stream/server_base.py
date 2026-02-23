@@ -174,7 +174,7 @@ class ServerBase:
             self._rate_limiter_last_access.pop(k, None)
 
         if stale_keys:
-            logger.debug(f"Cleaned up {len(stale_keys)} stale rate limiters")
+            logger.debug("Cleaned up %s stale rate limiters", len(stale_keys))
 
         return len(stale_keys)
 
@@ -234,7 +234,7 @@ class ServerBase:
                 self._debate_states_last_access.pop(k, None)
 
         if stale_keys:
-            logger.debug(f"Cleaned up {len(stale_keys)} stale debate states")
+            logger.debug("Cleaned up %s stale debate states", len(stale_keys))
 
         return len(stale_keys)
 
@@ -362,7 +362,7 @@ class ServerBase:
         )
         self.active_loops.pop(oldest, None)
         self._active_loops_last_access.pop(oldest, None)
-        logger.warning(f"Evicted stale loop: {oldest}")
+        logger.warning("Evicted stale loop: %s", oldest)
         return oldest
 
     def cleanup_active_loops(self) -> int:
@@ -377,7 +377,7 @@ class ServerBase:
                 self._active_loops_last_access.pop(k, None)
 
         if stale_keys:
-            logger.info(f"Cleaned up {len(stale_keys)} stale active loops")
+            logger.info("Cleaned up %s stale active loops", len(stale_keys))
 
         return len(stale_keys)
 
@@ -480,7 +480,7 @@ class ServerBase:
                 self._ws_auth_states[ws_id]["revoked_at"] = time.time()
                 self._ws_auth_states[ws_id]["revoke_reason"] = reason
                 if reason:
-                    logger.info(f"Revoked WebSocket auth for {ws_id}: {reason}")
+                    logger.info("Revoked WebSocket auth for %s: %s", ws_id, reason)
                 return True
         return False
 
@@ -511,7 +511,7 @@ class ServerBase:
                 del self._ws_auth_states[ws_id]
 
             if stale_keys:
-                logger.debug(f"Cleaned up {len(stale_keys)} orphaned auth states")
+                logger.debug("Cleaned up %s orphaned auth states", len(stale_keys))
 
             return len(stale_keys)
 

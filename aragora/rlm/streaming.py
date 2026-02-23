@@ -131,7 +131,7 @@ class StreamingRLMQuery:
             level_enum = AbstractionLevel[level]
             return self.context.get_at_level(level_enum)
         except (KeyError, AttributeError) as e:
-            logger.debug(f"Could not get level {level}: {e}")
+            logger.debug("Could not get level %s: %s", level, e)
             return None
 
     async def stream_all(self) -> AsyncGenerator[StreamChunk, None]:

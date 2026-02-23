@@ -190,8 +190,7 @@ class ReverseFlowMixin:
         self._km_patterns[agent_name] = patterns
 
         logger.info(
-            f"Analyzed KM patterns for {agent_name}: "
-            f"found {len(patterns)} patterns from {total_items} items"
+            "Analyzed KM patterns for %s: found %s patterns from %s items", agent_name, len(patterns), total_items
         )
 
         return patterns
@@ -304,7 +303,7 @@ class ReverseFlowMixin:
             return False
 
         if recommendation.applied:
-            logger.debug(f"Adjustment for {recommendation.agent_name} already applied")
+            logger.debug("Adjustment for %s already applied", recommendation.agent_name)
             return False
 
         if not force and recommendation.confidence < 0.7:
@@ -320,7 +319,7 @@ class ReverseFlowMixin:
             # Get current rating
             current_rating = self._elo_system.get_rating(agent_name)
             if not current_rating:
-                logger.warning(f"Agent {agent_name} not found in ELO system")
+                logger.warning("Agent %s not found in ELO system", agent_name)
                 return False
 
             # Apply adjustment
@@ -354,7 +353,7 @@ class ReverseFlowMixin:
             return True
 
         except (RuntimeError, ValueError, OSError, AttributeError) as e:
-            logger.error(f"Error applying KM adjustment for {agent_name}: {e}")
+            logger.error("Error applying KM adjustment for %s: %s", agent_name, e)
             return False
 
     async def sync_km_to_elo(

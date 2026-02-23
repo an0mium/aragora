@@ -118,7 +118,7 @@ class HackerNewsConnector(BaseConnector):
             logger.debug("HackerNews health check timed out")
             return False
         except httpx.RequestError as e:
-            logger.debug(f"HackerNews health check failed: {e}")
+            logger.debug("HackerNews health check failed: %s", e)
             return False
 
     async def _rate_limit(self) -> None:
@@ -188,12 +188,12 @@ class HackerNewsConnector(BaseConnector):
         try:
             data = await self._request_with_retry(do_request, f"search '{query}'")
             results = self._parse_search_results(data)
-            logger.info(f"HackerNews search '{query}' returned {len(results)} results")
+            logger.info("HackerNews search '%s' returned %s results", query, len(results))
             return results
 
         except (OSError, ValueError, KeyError, TypeError) as e:
             # Return empty list on failure (connector exceptions already logged)
-            logger.debug(f"HackerNews search failed: {e}")
+            logger.debug("HackerNews search failed: %s", e)
             return []
 
     async def fetch(self, evidence_id: str) -> Evidence | None:
@@ -236,7 +236,7 @@ class HackerNewsConnector(BaseConnector):
             return evidence
 
         except (OSError, ValueError, KeyError, TypeError) as e:
-            logger.debug(f"HackerNews fetch failed for {evidence_id}: {e}")
+            logger.debug("HackerNews fetch failed for %s: %s", evidence_id, e)
             return None
 
     def _parse_search_results(self, data: dict) -> list[Evidence]:
@@ -250,7 +250,7 @@ class HackerNewsConnector(BaseConnector):
                 if evidence:
                     results.append(evidence)
             except (KeyError, TypeError, ValueError) as e:
-                logger.debug(f"Error parsing HN hit: {e}")
+                logger.debug("Error parsing HN hit: %s", e)
                 continue
 
         return results

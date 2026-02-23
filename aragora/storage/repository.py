@@ -121,7 +121,7 @@ class DatabaseRepository:
             try:
                 callback(operation)
             except Exception as e:  # noqa: BLE001 - user-provided callbacks can raise anything
-                logger.warning(f"Change callback error: {e}")
+                logger.warning("Change callback error: %s", e)
 
     def on_change(self, callback: Callable[[str], None]) -> None:
         """
@@ -361,7 +361,7 @@ class DatabaseRepository:
 
         if count > 0:
             self._notify_change("delete")
-            logger.debug(f"Batch deleted {count}/{len(id_values)} records from {self.TABLE_NAME}")
+            logger.debug("Batch deleted %s/%s records from %s", count, len(id_values), self.TABLE_NAME)
 
         return count
 
@@ -435,7 +435,7 @@ class DatabaseRepository:
         if total_updated > 0:
             self._notify_change("update")
             logger.debug(
-                f"Batch updated {total_updated}/{len(updates)} records in {self.TABLE_NAME}"
+                "Batch updated %s/%s records in %s", total_updated, len(updates), self.TABLE_NAME
             )
 
         return total_updated
@@ -493,7 +493,7 @@ class DatabaseRepository:
 
         if count > 0:
             self._notify_change("update")
-            logger.debug(f"Batch updated {count}/{len(id_values)} records in {self.TABLE_NAME}")
+            logger.debug("Batch updated %s/%s records in %s", count, len(id_values), self.TABLE_NAME)
 
         return count
 

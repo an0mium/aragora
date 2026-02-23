@@ -74,7 +74,7 @@ class TokenBlacklist:
         """
         with self._data_lock:
             self._blacklist[token_jti] = expires_at
-            logger.info(f"token_revoked jti={token_jti[:16]}...")
+            logger.info("token_revoked jti=%s...", token_jti[:16])
             self._maybe_cleanup()
 
     def revoke_token(self, token: str) -> bool:
@@ -124,7 +124,7 @@ class TokenBlacklist:
             for k in expired:
                 del self._blacklist[k]
             if expired:
-                logger.debug(f"token_blacklist_cleanup removed={len(expired)}")
+                logger.debug("token_blacklist_cleanup removed=%s", len(expired))
             self._last_cleanup = now
             return len(expired)
 
@@ -191,7 +191,7 @@ def revoke_token_persistent(token: str) -> bool:
     token_jti = hashlib.sha256(token.encode()).hexdigest()[:32]
     backend = get_persistent_blacklist()
     backend.add(token_jti, payload.exp)
-    logger.info(f"token_revoked_persistent jti={token_jti[:16]}...")
+    logger.info("token_revoked_persistent jti=%s...", token_jti[:16])
     return True
 
 

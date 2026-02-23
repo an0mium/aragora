@@ -105,17 +105,17 @@ async def _send_google_chat_result(origin: DebateOrigin, result: dict[str, Any])
         )
 
         if response.success:
-            logger.info(f"Google Chat result sent to {space_name}")
+            logger.info("Google Chat result sent to %s", space_name)
             return True
         else:
-            logger.warning(f"Google Chat send failed: {response.error}")
+            logger.warning("Google Chat send failed: %s", response.error)
             return False
 
     except ImportError as e:
-        logger.warning(f"Google Chat connector not available: {e}")
+        logger.warning("Google Chat connector not available: %s", e)
         return False
     except (OSError, ValueError, TypeError, RuntimeError, AttributeError) as e:
-        logger.error(f"Google Chat result send error: {e}")
+        logger.error("Google Chat result send error: %s", e)
         return False
 
 
@@ -138,12 +138,12 @@ async def _send_google_chat_receipt(origin: DebateOrigin, summary: str) -> bool:
         )
 
         if response.success:
-            logger.info(f"Google Chat receipt posted to {space_name}")
+            logger.info("Google Chat receipt posted to %s", space_name)
             return True
         return False
 
     except ImportError:
         return False
     except (OSError, ValueError, TypeError, RuntimeError, AttributeError) as e:
-        logger.error(f"Google Chat receipt post error: {e}")
+        logger.error("Google Chat receipt post error: %s", e)
         return False

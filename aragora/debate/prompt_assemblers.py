@@ -204,9 +204,9 @@ class PromptAssemblyMixin:
                     else:
                         dissent_section = f"## Historical Minority Views\n{dissent_context[:600]}"
             except (AttributeError, TypeError, KeyError) as e:
-                logger.debug(f"Dissent retrieval error: {e}")
+                logger.debug("Dissent retrieval error: %s", e)
             except (RuntimeError, ValueError, OSError, ConnectionError) as e:
-                logger.warning(f"Unexpected dissent retrieval error: {e}")
+                logger.warning("Unexpected dissent retrieval error: %s", e)
 
         patterns_section = ""
         patterns = self.format_successful_patterns(limit=3)

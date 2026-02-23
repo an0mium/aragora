@@ -67,7 +67,7 @@ class MemoryAnalyticsHandler(SecureHandler):
                 db_path = self.ctx.get("analytics_db", "memory_analytics.db")
                 self._tracker = TierAnalyticsTracker(db_path=db_path)
             except ImportError as e:
-                logger.debug(f"TierAnalyticsTracker not available: {e}")
+                logger.debug("TierAnalyticsTracker not available: %s", e)
         return self._tracker
 
     def can_handle(self, path: str) -> bool:
@@ -86,7 +86,7 @@ class MemoryAnalyticsHandler(SecureHandler):
         # Rate limit check
         client_ip = get_client_ip(handler)
         if not _memory_analytics_limiter.is_allowed(client_ip):
-            logger.warning(f"Rate limit exceeded for memory analytics endpoint: {client_ip}")
+            logger.warning("Rate limit exceeded for memory analytics endpoint: %s", client_ip)
             return error_response("Rate limit exceeded. Please try again later.", 429)
 
         # RBAC: Require authentication and memory:read permission
@@ -96,7 +96,7 @@ class MemoryAnalyticsHandler(SecureHandler):
         except UnauthorizedError:
             return error_response("Authentication required to access memory analytics", 401)
         except ForbiddenError as e:
-            logger.warning(f"Memory analytics access denied: {e}")
+            logger.warning("Memory analytics access denied: %s", e)
             return error_response("Permission denied", 403)
 
         if path == "/api/v1/memory/analytics":
@@ -122,7 +122,7 @@ class MemoryAnalyticsHandler(SecureHandler):
         except UnauthorizedError:
             return error_response("Authentication required", 401)
         except ForbiddenError as e:
-            logger.warning(f"Memory analytics POST access denied: {e}")
+            logger.warning("Memory analytics POST access denied: %s", e)
             return error_response("Permission denied", 403)
 
         if path == "/api/v1/memory/analytics/snapshot":

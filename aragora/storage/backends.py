@@ -198,7 +198,7 @@ class SQLiteBackend(DatabaseBackend):
                 self._pool.put(conn)
 
             self._initialized = True
-            logger.debug(f"SQLite connection pool initialized (size={self.pool_size})")
+            logger.debug("SQLite connection pool initialized (size=%s)", self.pool_size)
 
     def _create_connection(self) -> sqlite3.Connection:
         """Create a new database connection."""
@@ -292,7 +292,7 @@ class SQLiteBackend(DatabaseBackend):
 
             self._initialized = False
             if closed > 0:
-                logger.debug(f"SQLite connection pool closed ({closed} connections)")
+                logger.debug("SQLite connection pool closed (%s connections)", closed)
 
     @property
     def backend_type(self) -> str:
@@ -361,7 +361,7 @@ class PostgreSQLBackend(DatabaseBackend):
             maxconn=pool_size + pool_max_overflow,
             dsn=database_url,
         )
-        logger.info(f"PostgreSQL connection pool created (size={pool_size})")
+        logger.info("PostgreSQL connection pool created (size=%s)", pool_size)
 
     @contextmanager
     def connection(self) -> Generator[Any, None, None]:
@@ -515,7 +515,7 @@ def get_database_backend(
             settings = get_settings()
             db_settings = settings.database
         except (ImportError, AttributeError, ValueError, OSError, RuntimeError) as e:
-            logger.warning(f"Could not load settings, using SQLite: {e}")
+            logger.warning("Could not load settings, using SQLite: %s", e)
             db_settings = None
 
         # Determine backend
@@ -536,7 +536,7 @@ def get_database_backend(
                 )
                 logger.info("Using PostgreSQL backend")
             except ImportError as e:
-                logger.warning(f"PostgreSQL not available, falling back to SQLite: {e}")
+                logger.warning("PostgreSQL not available, falling back to SQLite: %s", e)
                 resolved_path = (
                     resolve_db_path(db_path)
                     if db_path
@@ -556,7 +556,7 @@ def get_database_backend(
                 sqlite_path = resolve_db_path("aragora.db")
 
             _backend = SQLiteBackend(db_path=sqlite_path)
-            logger.info(f"Using SQLite backend: {sqlite_path}")
+            logger.info("Using SQLite backend: %s", sqlite_path)
 
         _backend_initialized = True
         return _backend

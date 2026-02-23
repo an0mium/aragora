@@ -270,7 +270,7 @@ def get_recent_activity_legacy(domain: str | None, hours: int, debates: list) ->
                             d_domain = d.get("domain", "general")
                             domain_counts[d_domain] = domain_counts.get(d_domain, 0) + 1
                     except (ValueError, KeyError) as e:
-                        logger.debug(f"Skipping debate with invalid datetime: {e}")
+                        logger.debug("Skipping debate with invalid datetime: %s", e)
 
             activity["debates_last_period"] = len(recent)
             activity["consensus_last_period"] = sum(1 for d in recent if d.get("consensus_reached"))
@@ -380,7 +380,7 @@ def process_debates_single_pass(
                         d_domain = d.get("domain", "general")
                         domain_counts[d_domain] = domain_counts.get(d_domain, 0) + 1
                 except (ValueError, KeyError) as e:
-                    logger.debug(f"Skipping debate with invalid timestamp: {e}")
+                    logger.debug("Skipping debate with invalid timestamp: %s", e)
 
             # Pattern metrics
             if d.get("disagreement_report"):

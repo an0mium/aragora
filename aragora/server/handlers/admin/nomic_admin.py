@@ -234,7 +234,7 @@ class NomicAdminMixin:
         except ImportError:
             return error_response("Nomic recovery module not available", 503)
         except (TypeError, ValueError, KeyError, AttributeError) as e:
-            logger.error(f"Failed to get circuit breakers: {e}", exc_info=True)
+            logger.error("Failed to get circuit breakers: %s", e, exc_info=True)
             return error_response("Failed to retrieve circuit breakers", 500)
 
     @api_endpoint(
@@ -349,7 +349,7 @@ class NomicAdminMixin:
                 with open(state_file) as f:
                     current_state = json.load(f)
             except (json.JSONDecodeError, OSError) as e:
-                logger.warning(f"Could not read nomic state file: {e}")
+                logger.warning("Could not read nomic state file: %s", e)
                 # Continue with empty state
 
         # Update state
@@ -387,9 +387,9 @@ class NomicAdminMixin:
                 cycle_id=new_state["cycle_id"],
             )
         except (ImportError, AttributeError, TypeError) as e:
-            logger.debug(f"Metrics tracking skipped: {e}")
+            logger.debug("Metrics tracking skipped: %s", e)
 
-        logger.info(f"Admin {auth_ctx.user_id} reset nomic phase to {target_phase}: {reason}")
+        logger.info("Admin %s reset nomic phase to %s: %s", auth_ctx.user_id, target_phase, reason)
         audit_admin(
             admin_id=auth_ctx.user_id,
             action="reset_nomic_phase",
@@ -493,7 +493,7 @@ class NomicAdminMixin:
                 with open(state_file) as f:
                     current_state = json.load(f)
             except (json.JSONDecodeError, OSError) as e:
-                logger.warning(f"Could not read nomic state file: {e}")
+                logger.warning("Could not read nomic state file: %s", e)
                 # Continue with empty state
 
         # Update state
@@ -517,7 +517,7 @@ class NomicAdminMixin:
             logger.warning("Handler error: %s", e)
             return error_response("Nomic pause failed", 500)
 
-        logger.info(f"Admin {auth_ctx.user_id} paused nomic: {reason}")
+        logger.info("Admin %s paused nomic: %s", auth_ctx.user_id, reason)
         audit_admin(
             admin_id=auth_ctx.user_id,
             action="pause_nomic",
@@ -620,7 +620,7 @@ class NomicAdminMixin:
                 with open(state_file) as f:
                     current_state = json.load(f)
             except (json.JSONDecodeError, OSError) as e:
-                logger.warning(f"Could not read nomic state file: {e}")
+                logger.warning("Could not read nomic state file: %s", e)
                 # Continue with empty state
 
         if current_state.get("phase") != "paused":
@@ -650,7 +650,7 @@ class NomicAdminMixin:
             logger.warning("Handler error: %s", e)
             return error_response("Nomic resume failed", 500)
 
-        logger.info(f"Admin {auth_ctx.user_id} resumed nomic to phase {resume_phase}")
+        logger.info("Admin %s resumed nomic to phase %s", auth_ctx.user_id, resume_phase)
         audit_admin(
             admin_id=auth_ctx.user_id,
             action="resume_nomic",
@@ -732,10 +732,10 @@ class NomicAdminMixin:
             except ImportError:
                 logger.debug("nomic.metrics not available for circuit breaker count update")
             except (TypeError, ValueError, AttributeError, RuntimeError) as e:
-                logger.debug(f"Best effort metrics update failed: {type(e).__name__}")
+                logger.debug("Best effort metrics update failed: %s", type(e).__name__)
 
             logger.info(
-                f"Admin {auth_ctx.user_id} reset circuit breakers. Previously open: {open_before}"
+                "Admin %s reset circuit breakers. Previously open: %s", auth_ctx.user_id, open_before
             )
             audit_admin(
                 admin_id=auth_ctx.user_id,
@@ -755,7 +755,7 @@ class NomicAdminMixin:
         except ImportError:
             return error_response("Nomic recovery module not available", 503)
         except (TypeError, ValueError, KeyError, AttributeError, RuntimeError) as e:
-            logger.error(f"Failed to reset circuit breakers: {e}", exc_info=True)
+            logger.error("Failed to reset circuit breakers: %s", e, exc_info=True)
             return error_response("Circuit breaker reset failed", 500)
 
 

@@ -153,7 +153,7 @@ class CodebaseAuditHandler(SecureHandler):
             except UnauthorizedError:
                 return error_response("Authentication required for codebase audit", 401)
             except ForbiddenError as e:
-                logger.warning(f"Codebase audit access denied: {e}")
+                logger.warning("Codebase audit access denied: %s", e)
                 return error_response("Permission denied", 403)
 
             tenant_id = self._get_tenant_id(request)
@@ -223,7 +223,7 @@ class CodebaseAuditHandler(SecureHandler):
             return error_response("Not found", 404)
 
         except (ValueError, KeyError, TypeError, RuntimeError, OSError) as e:
-            logger.exception(f"Error in codebase audit handler: {e}")
+            logger.exception("Error in codebase audit handler: %s", e)
             return error_response("Internal server error", 500)
 
     def _get_tenant_id(self, request: Any) -> str:
@@ -267,13 +267,13 @@ class CodebaseAuditHandler(SecureHandler):
             # Validate target_path to prevent directory traversal
             is_valid, error_msg = validate_repository_path(target_path)
             if not is_valid:
-                logger.warning(f"Invalid target_path rejected: {error_msg}")
+                logger.warning("Invalid target_path rejected: %s", error_msg)
                 return error_response(f"Invalid target_path: {error_msg}", 400)
 
             # Validate scan_types
             is_valid, error_msg = validate_scan_types(scan_types)
             if not is_valid:
-                logger.warning(f"Invalid scan_types rejected: {error_msg}")
+                logger.warning("Invalid scan_types rejected: %s", error_msg)
                 return error_response(f"Invalid scan_types: {error_msg}", 400)
 
             # Create scan result
@@ -325,7 +325,7 @@ class CodebaseAuditHandler(SecureHandler):
             for i, (scan_type_name, _) in enumerate(tasks):
                 result = results[i]
                 if isinstance(result, BaseException):
-                    logger.error(f"{scan_type_name} scan failed: {result}")
+                    logger.error("%s scan failed: %s", scan_type_name, result)
                 elif scan_type_name == "metrics":
                     if isinstance(result, dict):
                         metrics = result
@@ -373,7 +373,7 @@ class CodebaseAuditHandler(SecureHandler):
         except (KeyError, ValueError, TypeError, OSError, RuntimeError) as e:
             # Record failure in circuit breaker
             _codebase_audit_circuit_breaker.record_failure()
-            logger.exception(f"Comprehensive scan error: {e}")
+            logger.exception("Comprehensive scan error: %s", e)
             return error_response("Scan operation failed", 500)
 
     # =========================================================================
@@ -423,7 +423,7 @@ class CodebaseAuditHandler(SecureHandler):
         """
         # Check circuit breaker
         if not _codebase_audit_circuit_breaker.can_proceed():
-            logger.warning(f"Circuit breaker is open for {scan_type.value} scan")
+            logger.warning("Circuit breaker is open for %s scan", scan_type.value)
             return error_response(
                 "Service temporarily unavailable. Please try again later.",
                 503,
@@ -437,7 +437,7 @@ class CodebaseAuditHandler(SecureHandler):
             is_valid, error_msg = validate_repository_path(target_path)
             if not is_valid:
                 logger.warning(
-                    f"Invalid target_path rejected in {scan_type.value} scan: {error_msg}"
+                    "Invalid target_path rejected in %s scan: %s", scan_type.value, error_msg
                 )
                 return error_response(f"Invalid target_path: {error_msg}", 400)
 
@@ -488,7 +488,7 @@ class CodebaseAuditHandler(SecureHandler):
         except (KeyError, ValueError, TypeError, OSError, RuntimeError) as e:
             # Record failure in circuit breaker
             _codebase_audit_circuit_breaker.record_failure()
-            logger.exception(f"{scan_type.value} scan error: {e}")
+            logger.exception("%s scan error: %s", scan_type.value, e)
             return error_response("Scan operation failed", 500)
 
     @rate_limit(requests_per_minute=30, limiter_name="codebase_audit_metrics")
@@ -501,7 +501,7 @@ class CodebaseAuditHandler(SecureHandler):
             # Validate target_path to prevent directory traversal
             is_valid, error_msg = validate_repository_path(target_path)
             if not is_valid:
-                logger.warning(f"Invalid target_path rejected in metrics analysis: {error_msg}")
+                logger.warning("Invalid target_path rejected in metrics analysis: %s", error_msg)
                 return error_response(f"Invalid target_path: {error_msg}", 400)
 
             scan_id = f"metrics_{uuid4().hex[:12]}"
@@ -536,7 +536,7 @@ class CodebaseAuditHandler(SecureHandler):
             )
 
         except (KeyError, ValueError, TypeError, OSError, RuntimeError) as e:
-            logger.exception(f"Metrics analysis error: {e}")
+            logger.exception("Metrics analysis error: %s", e)
             return error_response("Analysis operation failed", 500)
 
     # =========================================================================
@@ -712,7 +712,7 @@ class CodebaseAuditHandler(SecureHandler):
             )
 
         except (KeyError, ValueError, TypeError, AttributeError) as e:
-            logger.exception(f"Error dismissing finding: {e}")
+            logger.exception("Error dismissing finding: %s", e)
             return error_response("Dismiss operation failed", 500)
 
     async def _handle_create_issue(
@@ -777,7 +777,7 @@ class CodebaseAuditHandler(SecureHandler):
             )
 
         except (KeyError, ValueError, TypeError, AttributeError, ConnectionError, OSError) as e:
-            logger.exception(f"Error creating issue: {e}")
+            logger.exception("Error creating issue: %s", e)
             return error_response("Issue creation failed", 500)
 
     # =========================================================================

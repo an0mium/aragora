@@ -538,7 +538,7 @@ class CostOptimizer:
         # Get usage data from tracker
         usage_data = await self._get_usage_data(workspace_id, days)
         if not usage_data:
-            logger.info(f"No usage data for workspace {workspace_id}")
+            logger.info("No usage data for workspace %s", workspace_id)
             return []
 
         # Build usage patterns
@@ -563,7 +563,7 @@ class CostOptimizer:
         )
 
         logger.info(
-            f"Generated {len(recommendations)} recommendations for workspace {workspace_id}"
+            "Generated %s recommendations for workspace %s", len(recommendations), workspace_id
         )
         return recommendations
 
@@ -646,7 +646,7 @@ class CostOptimizer:
             return False
 
         rec.apply(user_id)
-        logger.info(f"Recommendation {recommendation_id} applied by {user_id}")
+        logger.info("Recommendation %s applied by %s", recommendation_id, user_id)
         return True
 
     def dismiss_recommendation(
@@ -659,7 +659,7 @@ class CostOptimizer:
             return False
 
         rec.dismiss()
-        logger.info(f"Recommendation {recommendation_id} dismissed")
+        logger.info("Recommendation %s dismissed", recommendation_id)
         return True
 
     def get_summary(self, workspace_id: str) -> RecommendationSummary:

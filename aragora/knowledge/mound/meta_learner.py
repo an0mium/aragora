@@ -431,10 +431,10 @@ class KnowledgeMoundMetaLearner:
 
             return True
         except (AttributeError, KeyError, ValueError) as e:
-            logger.warning(f"Failed to apply tier recommendations: {e}")
+            logger.warning("Failed to apply tier recommendations: %s", e)
             return False
         except (RuntimeError, ValueError, OSError, AttributeError) as e:
-            logger.exception(f"Unexpected error applying tier recommendations: {e}")
+            logger.exception("Unexpected error applying tier recommendations: %s", e)
             return False
 
     # =========================================================================
@@ -556,7 +556,7 @@ class KnowledgeMoundMetaLearner:
             merge_id, archive=True, reason=f"merged_into_{keep_id}"
         )
 
-        logger.debug(f"Merged {merge_id} into {keep_id}")
+        logger.debug("Merged %s into %s", merge_id, keep_id)
         return True
 
     # =========================================================================

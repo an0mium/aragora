@@ -90,7 +90,7 @@ def with_resilience(
                         )
                         await asyncio.sleep(delay)
                     else:
-                        logger.error(f"[resilience] {name} failed after {retries} attempts: {e}")
+                        logger.error("[resilience] %s failed after %s attempts: %s", name, retries, e)
 
             # All retries exhausted
             if last_exception:

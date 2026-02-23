@@ -103,10 +103,10 @@ class GauntletRunnerMixin:
                         if hasattr(user_store, "increment_usage"):
                             try:
                                 user_store.increment_usage(user_ctx.org_id, 1)
-                                logger.info(f"Incremented gauntlet usage for org {user_ctx.org_id}")
+                                logger.info("Incremented gauntlet usage for org %s", user_ctx.org_id)
                             except (ValueError, TypeError, KeyError, AttributeError, OSError, RuntimeError) as ue:
                                 logger.warning(
-                                    f"Usage increment failed for org {user_ctx.org_id}: {ue}"
+                                    "Usage increment failed for org %s: %s", user_ctx.org_id, ue
                                 )
 
         # Parse request body (with Content-Length validation)
@@ -175,9 +175,9 @@ class GauntletRunnerMixin:
                 agents=agents,
                 config_json=config_json,
             )
-            logger.debug(f"Persisted inflight gauntlet run: {gauntlet_id}")
+            logger.debug("Persisted inflight gauntlet run: %s", gauntlet_id)
         except (OSError, RuntimeError, ValueError) as e:
-            logger.warning(f"Failed to persist inflight gauntlet {gauntlet_id}: {e}")
+            logger.warning("Failed to persist inflight gauntlet %s: %s", gauntlet_id, e)
 
         # Use durable job queue if enabled, otherwise fire-and-forget
         if is_durable_queue_enabled():
@@ -196,9 +196,9 @@ class GauntletRunnerMixin:
                     ),
                     name=f"enqueue-gauntlet-{gauntlet_id}",
                 )
-                logger.info(f"Enqueued gauntlet {gauntlet_id} to durable job queue")
+                logger.info("Enqueued gauntlet %s to durable job queue", gauntlet_id)
             except ImportError as ie:
-                logger.warning(f"Durable queue unavailable, falling back: {ie}")
+                logger.warning("Durable queue unavailable, falling back: %s", ie)
                 create_tracked_task(
                     self._run_gauntlet_async(
                         gauntlet_id, input_content, input_type, persona, agents, profile
@@ -263,7 +263,7 @@ class GauntletRunnerMixin:
                 storage = _get_storage_proxy()
                 storage.update_inflight_status(gauntlet_id, "running")
             except (OSError, RuntimeError, ValueError) as e:
-                logger.debug(f"Failed to update inflight status: {e}")
+                logger.debug("Failed to update inflight status: %s", e)
 
             # Create agents
             agent_instances = []
@@ -276,7 +276,7 @@ class GauntletRunnerMixin:
                     )
                     agent_instances.append(agent)
                 except (ImportError, ValueError, RuntimeError) as e:
-                    logger.warning(f"Could not create agent {agent_type}: {e}")
+                    logger.warning("Could not create agent %s: %s", agent_type, e)
 
             if not agent_instances:
                 gauntlet_runs[gauntlet_id]["status"] = "failed"
@@ -399,12 +399,12 @@ class GauntletRunnerMixin:
             try:
                 storage = _get_storage_proxy()
                 storage.save(result)
-                logger.info(f"Gauntlet {gauntlet_id} persisted to storage")
+                logger.info("Gauntlet %s persisted to storage", gauntlet_id)
 
                 # Clean up inflight record after successful completion
                 storage.delete_inflight(gauntlet_id)
             except (OSError, RuntimeError, ValueError) as storage_err:
-                logger.warning(f"Failed to persist gauntlet {gauntlet_id}: {storage_err}")
+                logger.warning("Failed to persist gauntlet %s: %s", gauntlet_id, storage_err)
 
             # Auto-persist decision receipt
             await self._auto_persist_receipt(result, gauntlet_id)  # type: ignore[attr-defined]
@@ -413,7 +413,7 @@ class GauntletRunnerMixin:
             # In-memory entry can be removed after a timeout in production
 
         except (OSError, RuntimeError, ValueError, ImportError, asyncio.CancelledError) as e:
-            logger.error(f"Gauntlet {gauntlet_id} failed: {e}")
+            logger.error("Gauntlet %s failed: %s", gauntlet_id, e)
             gauntlet_runs[gauntlet_id]["status"] = "failed"
             gauntlet_runs[gauntlet_id]["error"] = "Gauntlet run failed"
 

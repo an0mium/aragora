@@ -266,7 +266,7 @@ class DoclingParser:
             result.parse_duration_ms = int((time.monotonic() - start_time) * 1000)
             return result
         except (ValueError, RuntimeError, OSError) as e:
-            logger.error(f"Docling parsing failed: {e}")
+            logger.error("Docling parsing failed: %s", e)
             return DoclingResult(
                 text="",
                 tables=[],

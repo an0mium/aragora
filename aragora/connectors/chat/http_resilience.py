@@ -63,7 +63,7 @@ class HTTPResilienceMixin:
                     failure_threshold=self._circuit_breaker_threshold,
                     cooldown_seconds=self._circuit_breaker_cooldown,
                 )
-                logger.debug(f"Circuit breaker initialized for {self.platform_name}")
+                logger.debug("Circuit breaker initialized for %s", self.platform_name)
             except ImportError:
                 logger.warning("Circuit breaker module not available")
             self._circuit_breaker_initialized = True
@@ -103,7 +103,7 @@ class HTTPResilienceMixin:
             status = cb.get_status()
             if status == "open":
                 logger.warning(
-                    f"Circuit breaker OPENED for {self.platform_name} after repeated failures"
+                    "Circuit breaker OPENED for %s after repeated failures", self.platform_name
                 )
 
     # ==========================================================================
@@ -170,7 +170,7 @@ class HTTPResilienceMixin:
                     await asyncio.sleep(total_delay)
                 else:
                     logger.error(
-                        f"{self.platform_name} {operation} failed after {max_retries} attempts: {e}"
+                        "%s %s failed after %s attempts: %s", self.platform_name, operation, max_retries, e
                     )
 
         if last_exception:
@@ -282,8 +282,7 @@ class HTTPResilienceMixin:
                             continue
                         else:
                             logger.error(
-                                f"{self.platform_name} {operation} failed after {max_retries} "
-                                f"attempts with status {response.status_code}"
+                                "%s %s failed after %s attempts with status %s", self.platform_name, operation, max_retries, response.status_code
                             )
                             return False, None, last_error
 
@@ -291,7 +290,7 @@ class HTTPResilienceMixin:
                     if response.status_code >= 400:
                         self._record_failure()
                         error = f"HTTP {response.status_code}: {response.text[:200]}"
-                        logger.warning(f"{self.platform_name} {operation} failed: {error}")
+                        logger.warning("%s %s failed: %s", self.platform_name, operation, error)
                         return False, None, error
 
                     # Success
@@ -317,7 +316,7 @@ class HTTPResilienceMixin:
                     await asyncio.sleep(delay)
                 else:
                     logger.error(
-                        f"{self.platform_name} {operation} timed out after {max_retries} attempts"
+                        "%s %s timed out after %s attempts", self.platform_name, operation, max_retries
                     )
 
             except httpx.ConnectError as e:
@@ -333,19 +332,19 @@ class HTTPResilienceMixin:
                     await asyncio.sleep(delay)
                 else:
                     logger.error(
-                        f"{self.platform_name} {operation} connection failed after {max_retries} attempts"
+                        "%s %s connection failed after %s attempts", self.platform_name, operation, max_retries
                     )
 
             except (ValueError, TypeError, RuntimeError, OSError) as e:
                 last_error = f"Unexpected error: {e}"
                 self._record_failure()
-                logger.error(f"{self.platform_name} {operation} unexpected error: {e}")
+                logger.error("%s %s unexpected error: %s", self.platform_name, operation, e)
                 # Don't retry on unexpected errors
                 break
             except Exception as e:  # noqa: BLE001 - safety net after specific httpx/OS catches; httpx internals may raise unexpected types
                 last_error = f"Unexpected error: {e}"
                 self._record_failure()
-                logger.error(f"{self.platform_name} {operation} unhandled {type(e).__name__}: {e}")
+                logger.error("%s %s unhandled %s: %s", self.platform_name, operation, type(e).__name__, e)
                 # Don't retry on unknown exceptions
                 break
 

@@ -282,13 +282,13 @@ class SharedControlPlaneState:
             conn.commit()
             conn.close()
             self._sqlite_initialized = True
-            logger.info(f"SharedControlPlaneState SQLite initialized: {self._sqlite_path}")
+            logger.info("SharedControlPlaneState SQLite initialized: %s", self._sqlite_path)
 
             # Load existing state into memory cache
             self._load_sqlite_state()
 
         except (OSError, sqlite3.Error) as e:
-            logger.warning(f"Failed to initialize SQLite fallback: {e}")
+            logger.warning("Failed to initialize SQLite fallback: %s", e)
             self._sqlite_initialized = False
 
     def _load_sqlite_state(self) -> None:
@@ -328,11 +328,11 @@ class SharedControlPlaneState:
 
             conn.close()
             logger.debug(
-                f"Loaded {len(self._local_agents)} agents, {len(self._local_tasks)} tasks from SQLite"
+                "Loaded %s agents, %s tasks from SQLite", len(self._local_agents), len(self._local_tasks)
             )
 
         except (OSError, sqlite3.Error, json.JSONDecodeError) as e:
-            logger.warning(f"Failed to load state from SQLite: {e}")
+            logger.warning("Failed to load state from SQLite: %s", e)
 
     async def connect(self) -> bool:
         """
@@ -351,7 +351,7 @@ class SharedControlPlaneState:
             )
             await self._redis.ping()
             self._connected = True
-            logger.info(f"SharedControlPlaneState connected to Redis: {self._redis_url}")
+            logger.info("SharedControlPlaneState connected to Redis: %s", self._redis_url)
             return True
 
         except ImportError:
@@ -375,7 +375,7 @@ class SharedControlPlaneState:
                     "shared_state",
                     f"Failed to connect to Redis: {e}",
                 ) from e
-            logger.warning(f"Failed to connect to Redis, using SQLite fallback: {e}")
+            logger.warning("Failed to connect to Redis, using SQLite fallback: %s", e)
             self._redis = None
             self._connected = False
             self._init_sqlite()
@@ -388,7 +388,7 @@ class SharedControlPlaneState:
                         "shared_state",
                         f"Failed to connect to Redis: {e}",
                     ) from e
-                logger.warning(f"Failed to connect to Redis, using SQLite fallback: {e}")
+                logger.warning("Failed to connect to Redis, using SQLite fallback: %s", e)
                 self._redis = None
                 self._connected = False
                 self._init_sqlite()
@@ -594,7 +594,7 @@ class SharedControlPlaneState:
         task = await self._get_task(task_id)
         if not task:
             # Task may not be tracked in shared state, just log and continue
-            logger.debug(f"Task {task_id} not found in shared state for progress update")
+            logger.debug("Task %s not found in shared state for progress update", task_id)
             return
 
         # Store progress in task metadata
@@ -670,7 +670,7 @@ class SharedControlPlaneState:
                     conn.commit()
                     conn.close()
                 except (OSError, sqlite3.Error) as e:
-                    logger.debug(f"Failed to persist metric to SQLite: {e}")
+                    logger.debug("Failed to persist metric to SQLite: %s", e)
 
     # --- Stream/Events ---
 
@@ -698,7 +698,7 @@ class SharedControlPlaneState:
                 channel = f"{self._key_prefix}events"
                 await self._redis.publish(channel, json.dumps(event))
             except (OSError, ConnectionError, RuntimeError) as e:
-                logger.warning(f"Failed to publish event to Redis: {e}")
+                logger.warning("Failed to publish event to Redis: %s", e)
 
     # --- Internal Storage Methods ---
 
@@ -751,7 +751,7 @@ class SharedControlPlaneState:
                     conn.commit()
                     conn.close()
                 except (OSError, sqlite3.Error) as e:
-                    logger.debug(f"Failed to persist agent to SQLite: {e}")
+                    logger.debug("Failed to persist agent to SQLite: %s", e)
 
     async def _get_task(self, task_id: str) -> TaskState | None:
         """Get task from storage."""
@@ -842,7 +842,7 @@ class SharedControlPlaneState:
                     conn.commit()
                     conn.close()
                 except (OSError, sqlite3.Error) as e:
-                    logger.debug(f"Failed to persist task to SQLite: {e}")
+                    logger.debug("Failed to persist task to SQLite: %s", e)
 
     def _calculate_avg_duration(self, agents: list[AgentState]) -> float:
         """Calculate average task duration."""
@@ -870,7 +870,7 @@ def set_shared_state(state: SharedControlPlaneState) -> None:
     """
     global _shared_state
     _shared_state = state
-    logger.info(f"Set shared control plane state (persistent={state.is_persistent})")
+    logger.info("Set shared control plane state (persistent=%s)", state.is_persistent)
 
 
 def get_shared_state_sync() -> SharedControlPlaneState | None:
@@ -907,7 +907,7 @@ async def get_shared_state(
         if auto_connect:
             await _shared_state.connect()
         logger.info(
-            f"Created shared control plane state (persistent={_shared_state.is_persistent})"
+            "Created shared control plane state (persistent=%s)", _shared_state.is_persistent
         )
 
     return _shared_state

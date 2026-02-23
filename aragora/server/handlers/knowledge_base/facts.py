@@ -481,7 +481,7 @@ class FactsOperationsMixin:
         try:
             verified = _run_async(engine.verify_fact(fact_id))
         except (KeyError, ValueError, OSError, TypeError, RuntimeError) as e:
-            logger.error(f"Verification failed: {e}")
+            logger.error("Verification failed: %s", e)
             return error_response("Verification failed", 500)
 
         return json_response(verified.to_dict())

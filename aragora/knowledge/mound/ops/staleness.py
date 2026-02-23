@@ -135,13 +135,13 @@ class StalenessOperationsMixin(_StalenessOperationsMixinBase):
 
                 _task_queue.append(task)
                 task_ids.append(task_id)
-                logger.debug(f"Scheduled revalidation task {task_id} for node {node_id}")
+                logger.debug("Scheduled revalidation task %s for node %s", task_id, node_id)
             except ImportError:
                 # Control plane not available, just log
                 logger.warning(
-                    f"Control plane not available, revalidation for {node_id} marked but not queued"
+                    "Control plane not available, revalidation for %s marked but not queued", node_id
                 )
                 task_ids.append(f"pending_{node_id}")
 
-        logger.info(f"Scheduled {len(task_ids)} revalidation tasks with priority={priority}")
+        logger.info("Scheduled %s revalidation tasks with priority=%s", len(task_ids), priority)
         return task_ids

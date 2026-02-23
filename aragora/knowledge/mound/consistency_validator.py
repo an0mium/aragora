@@ -276,7 +276,7 @@ class ConsistencyValidator:
 
         for result in results:
             if isinstance(result, Exception):
-                logger.error(f"Consistency check failed: {result}")
+                logger.error("Consistency check failed: %s", result)
                 error_result = ConsistencyCheckResult(
                     check_type=ConsistencyCheckType.ALL,
                     passed=False,

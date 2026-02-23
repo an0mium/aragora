@@ -219,7 +219,7 @@ class StalenessDetector:
             return 0.0
 
         except (RuntimeError, ValueError, OSError, AttributeError) as e:
-            logger.warning(f"Failed to compute contradiction score: {e}")
+            logger.warning("Failed to compute contradiction score: %s", e)
             return 0.0
 
     async def _compute_evidence_score(self, node_id: str) -> float:
@@ -251,7 +251,7 @@ class StalenessDetector:
             return 0.0
 
         except (RuntimeError, ValueError, OSError, AttributeError) as e:
-            logger.warning(f"Failed to compute evidence score: {e}")
+            logger.warning("Failed to compute evidence score: %s", e)
             return 0.0
 
     async def _compute_consensus_score(self, node_id: str) -> float:
@@ -283,7 +283,7 @@ class StalenessDetector:
             return 0.0
 
         except (RuntimeError, ValueError, OSError, AttributeError) as e:
-            logger.warning(f"Failed to compute consensus score: {e}")
+            logger.warning("Failed to compute consensus score: %s", e)
             return 0.0
 
     def _emit_staleness_event(self, check: StalenessCheck, node: Any) -> None:
@@ -324,7 +324,7 @@ class StalenessDetector:
         except ImportError:
             pass  # Events module not available
         except (RuntimeError, ValueError, OSError, AttributeError) as e:
-            logger.warning(f"Failed to emit staleness event: {e}")
+            logger.warning("Failed to emit staleness event: %s", e)
 
     async def get_stale_nodes(
         self,
@@ -432,8 +432,8 @@ class StalenessDetector:
 
             # Safety limit
             if updated >= 10000:
-                logger.warning(f"Staleness update capped at {updated} nodes")
+                logger.warning("Staleness update capped at %s nodes", updated)
                 break
 
-        logger.info(f"Updated staleness scores for {updated} nodes in {workspace_id}")
+        logger.info("Updated staleness scores for %s nodes in %s", updated, workspace_id)
         return updated

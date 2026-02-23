@@ -114,7 +114,7 @@ class EloFeedback:
                         )
                     )
         except (TypeError, ValueError, AttributeError, KeyError) as e:
-            logger.warning(f"ELO event emission error: {e}")
+            logger.warning("ELO event emission error: %s", e)
 
     def record_voting_accuracy(self, ctx: DebateContext) -> None:
         """
@@ -158,12 +158,11 @@ class EloFeedback:
                 )
 
             logger.debug(
-                f"[voting_accuracy] Recorded voting accuracy for {len(result.votes)} votes "
-                f"in debate {ctx.debate_id}"
+                "[voting_accuracy] Recorded voting accuracy for %s votes in debate %s", len(result.votes), ctx.debate_id
             )
 
         except (RuntimeError, AttributeError, TypeError) as e:  # noqa: BLE001
-            logger.debug(f"[voting_accuracy] Recording failed: {e}")
+            logger.debug("[voting_accuracy] Recording failed: %s", e)
 
     def apply_learning_bonuses(self, ctx: DebateContext) -> None:
         """
@@ -199,10 +198,10 @@ class EloFeedback:
                             f"to {agent.name} in domain {domain}"
                         )
                 except (RuntimeError, AttributeError, TypeError) as e:  # noqa: BLE001
-                    logger.debug(f"[learning] Bonus failed for {agent.name}: {e}")
+                    logger.debug("[learning] Bonus failed for %s: %s", agent.name, e)
 
         except (RuntimeError, AttributeError, TypeError) as e:  # noqa: BLE001
-            logger.debug(f"[learning] Learning bonus application failed: {e}")
+            logger.debug("[learning] Learning bonus application failed: %s", e)
 
 
 __all__ = ["EloFeedback"]

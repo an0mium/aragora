@@ -106,7 +106,7 @@ class RetryPolicy:
                         on_retry(attempt + 1, e)
                     await asyncio.sleep(delay)
                 else:
-                    logger.error(f"All {self.max_retries} retries exhausted: {e}")
+                    logger.error("All %s retries exhausted: %s", self.max_retries, e)
 
         if last_exception:
             raise last_exception
@@ -278,7 +278,7 @@ class SyncJob:
             logger.warning("croniter not installed, falling back to interval")
             return datetime.now(timezone.utc) + timedelta(hours=1)
         except (ValueError, TypeError, KeyError) as e:
-            logger.error(f"Invalid cron expression '{cron_expr}': {e}")
+            logger.error("Invalid cron expression '%s': %s", cron_expr, e)
             return None
 
     def to_dict(self) -> dict[str, Any]:
@@ -356,7 +356,7 @@ class SyncScheduler:
         self._jobs[job_id] = job
         self._connectors[connector.connector_id] = connector
 
-        logger.info(f"Registered connector: {connector.name} (job_id={job_id})")
+        logger.info("Registered connector: %s (job_id=%s)", connector.name, job_id)
         return job
 
     def unregister_connector(self, connector_id: str, tenant_id: str = "default") -> None:
@@ -369,7 +369,7 @@ class SyncScheduler:
         if connector_id in self._connectors:
             del self._connectors[connector_id]
 
-        logger.info(f"Unregistered connector: {connector_id}")
+        logger.info("Unregistered connector: %s", connector_id)
 
     def get_job(self, job_id: str) -> SyncJob | None:
         """Get a sync job by ID."""
@@ -397,11 +397,11 @@ class SyncScheduler:
         job = self._jobs.get(job_id)
 
         if not job:
-            logger.warning(f"No job found for {job_id}")
+            logger.warning("No job found for %s", job_id)
             return None
 
         if job.current_run_id:
-            logger.warning(f"Sync already running for {job_id}")
+            logger.warning("Sync already running for %s", job_id)
             return job.current_run_id
 
         return await self._execute_sync(job, full_sync=full_sync)
@@ -427,7 +427,7 @@ class SyncScheduler:
         handled = await job.connector.handle_webhook(payload)
 
         if handled:
-            logger.info(f"Webhook triggered sync for {connector_id}")
+            logger.info("Webhook triggered sync for %s", connector_id)
 
         return handled
 
@@ -454,11 +454,11 @@ class SyncScheduler:
             # Check concurrent sync limit
             if len(self._running_syncs) >= self.max_concurrent_syncs:
                 history.status = SyncStatus.PENDING
-                logger.warning(f"Max concurrent syncs reached, queueing {job.id}")
+                logger.warning("Max concurrent syncs reached, queueing %s", job.id)
                 return run_id
 
             # Run sync
-            logger.info(f"Starting sync for {job.connector_id} (run_id={run_id})")
+            logger.info("Starting sync for %s (run_id=%s)", job.connector_id, run_id)
 
             result = await job.connector.sync(full_sync=full_sync)
 
@@ -488,7 +488,7 @@ class SyncScheduler:
             )
 
         except (OSError, RuntimeError, ValueError, TypeError, AttributeError) as e:
-            logger.error(f"Sync failed for {job.connector_id}: {e}")
+            logger.error("Sync failed for %s: %s", job.connector_id, e)
             history.status = SyncStatus.FAILED
             history.completed_at = datetime.now(timezone.utc)
             history.errors.append("Sync operation failed")
@@ -507,7 +507,7 @@ class SyncScheduler:
                 job.next_run = datetime.now(timezone.utc) + timedelta(
                     minutes=job.schedule.retry_delay_minutes
                 )
-                logger.info(f"Retry scheduled for {job.connector_id} at {job.next_run}")
+                logger.info("Retry scheduled for %s at %s", job.connector_id, job.next_run)
 
         finally:
             self._running_syncs.pop(run_id, None)
@@ -596,7 +596,7 @@ class SyncScheduler:
                 # Alert if we're having persistent issues
                 if consecutive_errors == 5:
                     logger.critical(
-                        f"Scheduler experiencing persistent errors: {consecutive_errors} consecutive failures"
+                        "Scheduler experiencing persistent errors: %s consecutive failures", consecutive_errors
                     )
 
                 await asyncio.sleep(delay)
@@ -672,7 +672,7 @@ class SyncScheduler:
         with open(state_file, "w") as f:
             json.dump(state, f, indent=2, default=str)
 
-        logger.debug(f"Saved scheduler state to {state_file}")
+        logger.debug("Saved scheduler state to %s", state_file)
 
     async def load_state(self) -> None:
         """Load scheduler state from disk."""
@@ -705,7 +705,7 @@ class SyncScheduler:
                 )
                 self._history.append(history)
 
-            logger.info(f"Loaded scheduler state: {len(self._history)} history entries")
+            logger.info("Loaded scheduler state: %s history entries", len(self._history))
 
         except (OSError, json.JSONDecodeError, ValueError, TypeError, KeyError) as e:
-            logger.warning(f"Failed to load scheduler state: {e}")
+            logger.warning("Failed to load scheduler state: %s", e)

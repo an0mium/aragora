@@ -115,7 +115,7 @@ class BudgetCoordinator:
 
             if not allowed:
                 logger.warning(
-                    f"budget_check_failed org_id={self.org_id} debate_id={debate_id} reason={reason}"
+                    "budget_check_failed org_id=%s debate_id=%s reason=%s", self.org_id, debate_id, reason
                 )
                 from aragora.exceptions import BudgetExceededError
 
@@ -123,7 +123,7 @@ class BudgetCoordinator:
 
             if action == BudgetAction.SOFT_LIMIT:
                 logger.warning(
-                    f"budget_soft_limit_warning org_id={self.org_id} debate_id={debate_id} reason={reason}"
+                    "budget_soft_limit_warning org_id=%s debate_id=%s reason=%s", self.org_id, debate_id, reason
                 )
 
         except ImportError:
@@ -176,11 +176,11 @@ class BudgetCoordinator:
                         else "Autotuner recommends stopping"
                     )
                     logger.info(
-                        f"autotuner_stop debate_id={debate_id} round={round_num} reason={reason}"
+                        "autotuner_stop debate_id=%s round=%s reason=%s", debate_id, round_num, reason
                     )
                     return False, reason
             except (AttributeError, TypeError) as e:
-                logger.debug(f"Autotuner check failed (continuing): {e}")
+                logger.debug("Autotuner check failed (continuing): %s", e)
 
         if not self.org_id:
             return True, ""  # No org context - allow continuation
@@ -198,15 +198,13 @@ class BudgetCoordinator:
 
             if not allowed:
                 logger.warning(
-                    f"budget_exceeded_mid_debate org_id={self.org_id} "
-                    f"debate_id={debate_id} round={round_num} reason={reason}"
+                    "budget_exceeded_mid_debate org_id=%s debate_id=%s round=%s reason=%s", self.org_id, debate_id, round_num, reason
                 )
                 return False, reason
 
             if action == BudgetAction.SOFT_LIMIT:
                 logger.info(
-                    f"budget_soft_limit_mid_debate org_id={self.org_id} "
-                    f"debate_id={debate_id} round={round_num} reason={reason}"
+                    "budget_soft_limit_mid_debate org_id=%s debate_id=%s round=%s reason=%s", self.org_id, debate_id, round_num, reason
                 )
                 # Continue but warn - could be logged for alerting
 
@@ -215,7 +213,7 @@ class BudgetCoordinator:
             pass
         except (ConnectionError, OSError, ValueError, TypeError, AttributeError) as e:
             # On any error, allow continuation (fail open for availability)
-            logger.debug(f"Budget check error (continuing): {e}")
+            logger.debug("Budget check error (continuing): %s", e)
 
         # Per-debate budget check via extensions
         if self.extensions is not None and hasattr(self.extensions, "check_debate_budget"):
@@ -224,12 +222,11 @@ class BudgetCoordinator:
                 if not status.get("allowed", True):
                     reason = status.get("message", "Per-debate budget exceeded")
                     logger.warning(
-                        f"per_debate_budget_exceeded debate_id={debate_id} "
-                        f"round={round_num} reason={reason}"
+                        "per_debate_budget_exceeded debate_id=%s round=%s reason=%s", debate_id, round_num, reason
                     )
                     return False, reason
             except (ConnectionError, OSError, ValueError, TypeError, AttributeError) as e:
-                logger.debug(f"Per-debate budget check error (continuing): {e}")
+                logger.debug("Per-debate budget check error (continuing): %s", e)
 
         return True, ""
 

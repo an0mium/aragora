@@ -167,7 +167,7 @@ class DiscordOAuthHandler(SecureHandler):
         try:
             auth_context = await self.get_auth_context(handler, require_auth=True)
         except (UnauthorizedError, Exception) as e:
-            logger.debug(f"Discord OAuth auth failed: {e}")
+            logger.debug("Discord OAuth auth failed: %s", e)
             return error_response("Authentication required", 401)
 
         if path == "/api/integrations/discord/install":
@@ -232,7 +232,7 @@ class DiscordOAuthHandler(SecureHandler):
 
         oauth_url = f"{DISCORD_OAUTH_AUTHORIZE_URL}?{urlencode(oauth_params)}"
 
-        logger.info(f"Initiating Discord OAuth flow (state: {state[:8]}...)")
+        logger.info("Initiating Discord OAuth flow (state: %s...)", state[:8])
 
         # Return redirect response
         return HandlerResult(
@@ -260,7 +260,7 @@ class DiscordOAuthHandler(SecureHandler):
         if "error" in query_params:
             error_code = query_params.get("error")
             error_desc = query_params.get("error_description", "")
-            logger.warning(f"Discord OAuth error: {error_code} - {error_desc}")
+            logger.warning("Discord OAuth error: %s - %s", error_code, error_desc)
             return error_response(f"Discord authorization denied: {error_code}", 400)
 
         code = query_params.get("code")
@@ -315,7 +315,7 @@ class DiscordOAuthHandler(SecureHandler):
         except ImportError:
             return error_response("httpx not available", 503)
         except (OSError, ConnectionError, TimeoutError, ValueError, RuntimeError, KeyError) as e:
-            logger.error(f"Discord token exchange failed: {e}")
+            logger.error("Discord token exchange failed: %s", e)
             return error_response("Token exchange failed", 500)
 
         # Extract token info
@@ -352,7 +352,7 @@ class DiscordOAuthHandler(SecureHandler):
                     bot_user_id = me_data.get("id", "")
 
         except (ImportError, OSError, ConnectionError, TimeoutError, ValueError, RuntimeError) as e:
-            logger.warning(f"Failed to fetch bot info: {e}")
+            logger.warning("Failed to fetch bot info: %s", e)
             bot_user_id = bot_user_id or DISCORD_CLIENT_ID
 
         if not guild_id:
@@ -386,10 +386,10 @@ class DiscordOAuthHandler(SecureHandler):
             if not store.save(guild):
                 return error_response("Failed to save guild", 500)
 
-            logger.info(f"Discord guild installed: {guild_name} ({guild_id})")
+            logger.info("Discord guild installed: %s (%s)", guild_name, guild_id)
 
         except ImportError as e:
-            logger.error(f"Guild store not available: {e}")
+            logger.error("Guild store not available: %s", e)
             return error_response("Guild storage not available", 503)
 
         # Return success page
@@ -465,7 +465,7 @@ class DiscordOAuthHandler(SecureHandler):
 
             store = get_discord_guild_store()
             store.deactivate(guild_id)
-            logger.info(f"Discord guild deactivated: {guild_id}")
+            logger.info("Discord guild deactivated: %s", guild_id)
 
         except ImportError:
             logger.warning("Could not deactivate guild - store unavailable")

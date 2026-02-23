@@ -543,7 +543,7 @@ class RedisFederationRegistryStore(FederationRegistryStoreBackend):
             logger.info("Connected to Redis for federation registry storage")
             self._using_fallback = False
         except (ConnectionError, TimeoutError, OSError, ImportError) as e:
-            logger.warning(f"Redis connection failed, using SQLite fallback: {e}")
+            logger.warning("Redis connection failed, using SQLite fallback: %s", e)
             self._using_fallback = True
             self._redis_client = None
 
@@ -566,7 +566,7 @@ class RedisFederationRegistryStore(FederationRegistryStoreBackend):
                 return FederatedRegionConfig.from_json(data)
             return None
         except (ConnectionError, TimeoutError, OSError, ValueError) as e:
-            logger.warning(f"Redis get failed, using fallback: {e}")
+            logger.warning("Redis get failed, using fallback: %s", e)
             return await self._fallback.get(region_id, workspace_id)
 
     async def save(self, region: FederatedRegionConfig) -> None:
@@ -583,7 +583,7 @@ class RedisFederationRegistryStore(FederationRegistryStoreBackend):
             key = self._make_key(region.region_id, region.workspace_id)
             self._redis_client.set(key, region.to_json())
         except (ConnectionError, TimeoutError, OSError) as e:
-            logger.warning(f"Redis save failed (SQLite fallback used): {e}")
+            logger.warning("Redis save failed (SQLite fallback used): %s", e)
 
     async def delete(self, region_id: str, workspace_id: str | None = None) -> bool:
         """Delete a federated region."""
@@ -596,7 +596,7 @@ class RedisFederationRegistryStore(FederationRegistryStoreBackend):
             key = self._make_key(region_id, workspace_id)
             self._redis_client.delete(key)
         except (ConnectionError, TimeoutError, OSError) as e:
-            logger.warning(f"Redis delete failed: {e}")
+            logger.warning("Redis delete failed: %s", e)
 
         return result
 
@@ -646,9 +646,9 @@ class RedisFederationRegistryStore(FederationRegistryStoreBackend):
             try:
                 self._redis_client.close()
             except (ConnectionError, OSError) as e:
-                logger.debug(f"Redis close failed (connection already closed): {e}")
+                logger.debug("Redis close failed (connection already closed): %s", e)
             except (RuntimeError, ValueError) as e:
-                logger.debug(f"Redis close failed: {e}")
+                logger.debug("Redis close failed: %s", e)
 
 
 class PostgresFederationRegistryStore(FederationRegistryStoreBackend):
@@ -711,7 +711,7 @@ class PostgresFederationRegistryStore(FederationRegistryStoreBackend):
             await conn.execute(self.INITIAL_SCHEMA)
 
         self._initialized = True
-        logger.debug(f"[{self.SCHEMA_NAME}] Schema initialized")
+        logger.debug("[%s] Schema initialized", self.SCHEMA_NAME)
 
     async def get(
         self, region_id: str, workspace_id: str | None = None

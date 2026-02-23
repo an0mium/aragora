@@ -126,7 +126,7 @@ def with_retry(
                         )
                         await asyncio.sleep(delay)
                     else:
-                        logger.error(f"Max retries exceeded for {func.__name__} after timeout")
+                        logger.error("Max retries exceeded for %s after timeout", func.__name__)
                 except config.retryable_exceptions as e:
                     last_exception = e
                     if attempt < config.max_retries:
@@ -137,7 +137,7 @@ def with_retry(
                         )
                         await asyncio.sleep(delay)
                     else:
-                        logger.error(f"Max retries exceeded for {func.__name__}: {e}")
+                        logger.error("Max retries exceeded for %s: %s", func.__name__, e)
 
             if last_exception:
                 _emit_retry_exhausted(func.__name__, total_attempts, args)

@@ -175,8 +175,7 @@ class EvolutionRepository:
 
             conn.commit()
             logger.info(
-                f"rollback_recorded id={rollback.id} loop={rollback.loop_id} "
-                f"cycle={rollback.cycle_number} reason={rollback.reason}"
+                "rollback_recorded id=%s loop=%s cycle=%s reason=%s", rollback.id, rollback.loop_id, rollback.cycle_number, rollback.reason
             )
 
             return rollback.id
@@ -288,8 +287,7 @@ class EvolutionRepository:
 
             conn.commit()
             logger.debug(
-                f"evolution_recorded id={evolution.id} loop={evolution.loop_id} "
-                f"cycle={evolution.cycle_number}"
+                "evolution_recorded id=%s loop=%s cycle=%s", evolution.id, evolution.loop_id, evolution.cycle_number
             )
 
             return evolution.id
@@ -374,7 +372,7 @@ class EvolutionRepository:
 
             conn.commit()
             logger.debug(
-                f"file_changes_recorded loop={loop_id} cycle={cycle_number} count={len(changes)}"
+                "file_changes_recorded loop=%s cycle=%s count=%s", loop_id, cycle_number, len(changes)
             )
 
     def get_cycles_touching_file(

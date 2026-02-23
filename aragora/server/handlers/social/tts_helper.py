@@ -79,11 +79,11 @@ class TTSHelper:
             self._available = True
             return True
         except (ImportError, RuntimeError) as e:
-            logger.debug(f"TTS backend not available: {e}")
+            logger.debug("TTS backend not available: %s", e)
             self._available = False
             return False
         except (OSError, ValueError, AttributeError, TypeError) as e:
-            logger.exception(f"Unexpected error checking TTS availability: {e}")
+            logger.exception("Unexpected error checking TTS availability: %s", e)
             self._available = False
             return False
 
@@ -96,13 +96,13 @@ class TTSHelper:
             from aragora.broadcast.tts_backends import get_tts_backend
 
             self._backend = get_tts_backend()
-            logger.info(f"TTSHelper using backend: {self._backend.name}")
+            logger.info("TTSHelper using backend: %s", self._backend.name)
             return self._backend
         except ImportError as e:
-            logger.warning(f"TTS backends not available: {e}")
+            logger.warning("TTS backends not available: %s", e)
             raise RuntimeError("TTS backends not available")
         except (RuntimeError, OSError, ValueError, AttributeError) as e:
-            logger.error(f"Failed to initialize TTS backend: {e}")
+            logger.error("Failed to initialize TTS backend: %s", e)
             raise
 
     def _get_bridge(self) -> Any:
@@ -116,7 +116,7 @@ class TTSHelper:
             self._bridge = get_tts_bridge()
             return self._bridge
         except ImportError as e:
-            logger.warning(f"TTS bridge not available: {e}")
+            logger.warning("TTS bridge not available: %s", e)
             raise RuntimeError("TTS bridge not available")
 
     async def synthesize_response(
@@ -143,7 +143,7 @@ class TTSHelper:
         # Truncate if too long
         if len(text) > TTS_MAX_TEXT_LENGTH:
             text = text[: TTS_MAX_TEXT_LENGTH - 3] + "..."
-            logger.debug(f"TTS text truncated to {TTS_MAX_TEXT_LENGTH} chars")
+            logger.debug("TTS text truncated to %s chars", TTS_MAX_TEXT_LENGTH)
 
         voice = voice or TTS_DEFAULT_VOICE
 
@@ -177,13 +177,13 @@ class TTSHelper:
             try:
                 Path(audio_path).unlink()
             except (OSError, PermissionError) as e:
-                logger.debug(f"Could not remove temp TTS file {audio_path}: {e}")
+                logger.debug("Could not remove temp TTS file %s: %s", audio_path, e)
 
-            logger.info(f"TTS synthesized: {len(text)} chars -> {len(audio_bytes)} bytes")
+            logger.info("TTS synthesized: %s chars -> %s bytes", len(text), len(audio_bytes))
             return result
 
         except (RuntimeError, OSError, ValueError, TypeError, AttributeError) as e:
-            logger.error(f"TTS synthesis failed: {e}")
+            logger.error("TTS synthesis failed: %s", e)
             return None
 
     async def synthesize_debate_result(

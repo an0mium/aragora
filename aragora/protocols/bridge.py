@@ -109,7 +109,7 @@ class ProtocolBridge:
                     for agent in agents:
                         self._external_agents[agent.name] = agent
                 except (ConnectionError, TimeoutError, OSError, ValueError, RuntimeError) as e:
-                    logger.warning(f"Failed to discover agents from {registry}: {e}")
+                    logger.warning("Failed to discover agents from %s: %s", registry, e)
 
         logger.info("Protocol bridge initialized")
 
@@ -186,7 +186,7 @@ class ProtocolBridge:
         """
         # Strip mcp:// prefix if present
         tool_name = target.removeprefix("mcp://").strip("/")
-        logger.info(f"MCP invocation: tool={tool_name}")
+        logger.info("MCP invocation: tool=%s", tool_name)
 
         tool_arguments: dict[str, Any] = {"query": task}
         if context:
@@ -222,7 +222,7 @@ class ProtocolBridge:
             except ImportError:
                 logger.warning("mcp package not installed, cannot connect to remote MCP server")
             except (ConnectionError, TimeoutError, OSError, RuntimeError, ValueError) as e:
-                logger.warning(f"Remote MCP invocation failed: {e}")
+                logger.warning("Remote MCP invocation failed: %s", e)
                 return {
                     "protocol": "mcp",
                     "target": target,
@@ -245,7 +245,7 @@ class ProtocolBridge:
         except ImportError:
             logger.warning("AragoraMCPServer not available")
         except (RuntimeError, ValueError, TypeError, OSError) as e:
-            logger.warning(f"Local MCP invocation failed: {e}")
+            logger.warning("Local MCP invocation failed: %s", e)
             return {
                 "protocol": "mcp",
                 "target": target,

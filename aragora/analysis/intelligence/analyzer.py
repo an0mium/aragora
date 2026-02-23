@@ -168,7 +168,7 @@ class CodeIntelligence:
             try:
                 results[path_str] = self.analyze_file(path_str)
             except (OSError, UnicodeDecodeError, ValueError) as e:
-                logger.warning(f"Failed to analyze {path}: {e}")
+                logger.warning("Failed to analyze %s: %s", path, e)
 
         return results
 

@@ -227,7 +227,7 @@ class VoteBonusCalculator:
                     )
 
             except (ValueError, KeyError, TypeError) as e:  # noqa: BLE001
-                logger.warning(f"process_evaluation_error agent={agent_name}: {e}")
+                logger.warning("process_evaluation_error agent=%s: %s", agent_name, e)
                 # No bonus on error
 
         if process_scores:

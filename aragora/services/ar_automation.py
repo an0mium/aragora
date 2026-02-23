@@ -428,7 +428,7 @@ class ARAutomation:
         if auto_send and customer_email:
             await self.send_invoice(invoice_id)
 
-        logger.info(f"Generated invoice {invoice_number} for {customer_name}: ${total_amount}")
+        logger.info("Generated invoice %s for %s: $%s", invoice_number, customer_name, total_amount)
         return invoice
 
     async def send_invoice(self, invoice_id: str, send_email: bool = True) -> bool:
@@ -447,7 +447,7 @@ class ARAutomation:
             return False
 
         if not invoice.customer_email:
-            logger.warning(f"No email for customer {invoice.customer_name}")
+            logger.warning("No email for customer %s", invoice.customer_name)
             return False
 
         email_sent = False
@@ -462,8 +462,7 @@ class ARAutomation:
         invoice.updated_at = datetime.now()
 
         logger.info(
-            f"Sent invoice {invoice.invoice_number} to {invoice.customer_email} "
-            f"(email={'sent' if email_sent else 'not sent'})"
+            "Sent invoice %s to %s (email=%s)", invoice.invoice_number, invoice.customer_email, 'sent' if email_sent else 'not sent'
         )
         return True
 
@@ -506,7 +505,7 @@ class ARAutomation:
             )
             return success
         except (ValueError, OSError, ConnectionError, RuntimeError) as e:
-            logger.error(f"Error sending invoice email: {e}")
+            logger.error("Error sending invoice email: %s", e)
             return False
 
     def _build_invoice_html(self, invoice: ARInvoice) -> str:
@@ -667,7 +666,7 @@ class ARAutomation:
             return None
 
         if not invoice.customer_email:
-            logger.warning(f"No email for customer {invoice.customer_name}")
+            logger.warning("No email for customer %s", invoice.customer_name)
             return None
 
         # Determine escalation level
@@ -726,7 +725,7 @@ class ARAutomation:
 
             if not email_sent:
                 logger.warning(
-                    f"Failed to send email for reminder on invoice {invoice.invoice_number}"
+                    "Failed to send email for reminder on invoice %s", invoice.invoice_number
                 )
 
         # Update invoice
@@ -739,8 +738,7 @@ class ARAutomation:
         self._reminder_history.append(reminder)
 
         logger.info(
-            f"Sent {level.value} reminder for invoice {invoice.invoice_number} "
-            f"(email={'sent' if reminder['emailSent'] else 'not sent'})"
+            "Sent %s reminder for invoice %s (email=%s)", level.value, invoice.invoice_number, 'sent' if reminder['emailSent'] else 'not sent'
         )
         return reminder
 
@@ -796,7 +794,7 @@ class ARAutomation:
             )
             return success
         except (ValueError, OSError, ConnectionError, RuntimeError) as e:
-            logger.error(f"Error sending reminder email: {e}")
+            logger.error("Error sending reminder email: %s", e)
             return False
 
     def _build_reminder_html(
@@ -1087,7 +1085,7 @@ class ARAutomation:
         invoice.updated_at = datetime.now()
 
         logger.info(
-            f"Recorded payment ${amount} for invoice {invoice.invoice_number}, balance: ${invoice.balance}"
+            "Recorded payment $%s for invoice %s, balance: $%s", amount, invoice.invoice_number, invoice.balance
         )
         return invoice
 
@@ -1223,7 +1221,7 @@ class ARAutomation:
             else:
                 failed += 1
 
-        logger.info(f"Bulk reminders complete: {sent} sent, {skipped} skipped, {failed} failed")
+        logger.info("Bulk reminders complete: %s sent, %s skipped, %s failed", sent, skipped, failed)
 
         return {
             "sent": sent,

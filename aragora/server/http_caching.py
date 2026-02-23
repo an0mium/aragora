@@ -133,7 +133,7 @@ def get_cached_serialization(
         hash_value = hashlib.md5(serialized.encode(), usedforsecurity=False).hexdigest()[:16]
         etag = f'"{hash_value}"'
     except (TypeError, ValueError) as e:
-        logger.debug(f"Cached serialization failed: {e}")
+        logger.debug("Cached serialization failed: %s", e)
         serialized = json.dumps(str(data))
         etag = f'"{hashlib.md5(serialized.encode(), usedforsecurity=False).hexdigest()[:16]}"'
 
@@ -245,7 +245,7 @@ def generate_etag(data: Any) -> str:
         hash_value = hashlib.md5(serialized.encode(), usedforsecurity=False).hexdigest()[:16]
         return f'"{hash_value}"'
     except (TypeError, ValueError) as e:
-        logger.debug(f"ETag generation failed: {e}")
+        logger.debug("ETag generation failed: %s", e)
         return f'"{hashlib.md5(str(data).encode(), usedforsecurity=False).hexdigest()[:16]}"'
 
 

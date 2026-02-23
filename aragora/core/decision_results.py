@@ -25,7 +25,7 @@ def _get_result_store():
 
             _decision_result_store = get_decision_result_store()
         except (ImportError, OSError, RuntimeError, ValueError) as e:
-            logger.warning(f"DecisionResultStore not available, using in-memory: {e}")
+            logger.warning("DecisionResultStore not available, using in-memory: %s", e)
     return _decision_result_store
 
 
@@ -37,7 +37,7 @@ def save_decision_result(request_id: str, data: dict[str, Any]) -> None:
             store.save(request_id, data)
             return
         except (OSError, RuntimeError, ValueError) as e:
-            logger.warning(f"Failed to persist result, using fallback: {e}")
+            logger.warning("Failed to persist result, using fallback: %s", e)
     _decision_results_fallback[request_id] = data
 
 
@@ -50,7 +50,7 @@ def get_decision_result(request_id: str) -> dict[str, Any] | None:
             if result:
                 return result
         except (OSError, RuntimeError, KeyError) as e:
-            logger.warning(f"Failed to retrieve from store: {e}")
+            logger.warning("Failed to retrieve from store: %s", e)
     return _decision_results_fallback.get(request_id)
 
 
@@ -61,7 +61,7 @@ def get_decision_status(request_id: str) -> dict[str, Any]:
         try:
             return store.get_status(request_id)
         except (OSError, RuntimeError, KeyError) as e:
-            logger.warning(f"Failed to get status from store: {e}")
+            logger.warning("Failed to get status from store: %s", e)
 
     if request_id in _decision_results_fallback:
         result = _decision_results_fallback[request_id]

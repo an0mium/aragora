@@ -81,7 +81,7 @@ def check_budget(
                 try:
                     cost = cost_estimator(*args, **kwargs)
                 except (TypeError, ValueError, KeyError, AttributeError) as e:
-                    logger.warning(f"Cost estimator failed: {e}")
+                    logger.warning("Cost estimator failed: %s", e)
 
             if cost <= 0:
                 # No cost - skip budget check
@@ -126,7 +126,7 @@ def check_budget(
             except BudgetExceededError:
                 raise
             except (TypeError, ValueError, KeyError, AttributeError, RuntimeError, OSError) as e:
-                logger.warning(f"Budget check failed: {e}")
+                logger.warning("Budget check failed: %s", e)
                 # Fail open - allow operation if check fails
 
             return await func(*args, **kwargs)
@@ -151,7 +151,7 @@ def check_budget(
                 try:
                     cost = cost_estimator(*args, **kwargs)
                 except (TypeError, ValueError, KeyError, AttributeError) as e:
-                    logger.warning(f"Cost estimator failed: {e}")
+                    logger.warning("Cost estimator failed: %s", e)
 
             if cost <= 0:
                 return func(*args, **kwargs)
@@ -192,7 +192,7 @@ def check_budget(
             except BudgetExceededError:
                 raise
             except (TypeError, ValueError, KeyError, AttributeError, RuntimeError, OSError) as e:
-                logger.warning(f"Budget check failed: {e}")
+                logger.warning("Budget check failed: %s", e)
 
             return func(*args, **kwargs)
 
@@ -258,7 +258,7 @@ def record_spend(
                 try:
                     cost = cost_calculator(result)
                 except (TypeError, ValueError, KeyError, AttributeError) as e:
-                    logger.warning(f"Cost calculator failed: {e}")
+                    logger.warning("Cost calculator failed: %s", e)
 
             if cost <= 0:
                 return result
@@ -268,7 +268,7 @@ def record_spend(
             try:
                 description = description_template.format(**kwargs)
             except KeyError as e:
-                logger.debug(f"Could not format description template with kwargs: {e}")
+                logger.debug("Could not format description template with kwargs: %s", e)
 
             # Record spend
             try:
@@ -285,7 +285,7 @@ def record_spend(
             except ImportError:
                 logger.debug("Budget manager module not available, skipping spend recording")
             except (TypeError, ValueError, KeyError, AttributeError, RuntimeError, OSError) as e:
-                logger.warning(f"Failed to record spend: {e}")
+                logger.warning("Failed to record spend: %s", e)
 
             return result
 
@@ -313,7 +313,7 @@ def record_spend(
                 try:
                     cost = cost_calculator(result)
                 except (TypeError, ValueError, KeyError, AttributeError) as e:
-                    logger.warning(f"Cost calculator failed: {e}")
+                    logger.warning("Cost calculator failed: %s", e)
 
             if cost <= 0:
                 return result
@@ -322,7 +322,7 @@ def record_spend(
             try:
                 description = description_template.format(**kwargs)
             except KeyError as e:
-                logger.debug(f"Could not format description template with kwargs: {e}")
+                logger.debug("Could not format description template with kwargs: %s", e)
 
             try:
                 from aragora.billing.budget_manager import get_budget_manager
@@ -338,7 +338,7 @@ def record_spend(
             except ImportError:
                 logger.debug("Budget manager module not available, skipping spend recording")
             except (TypeError, ValueError, KeyError, AttributeError, RuntimeError, OSError) as e:
-                logger.warning(f"Failed to record spend: {e}")
+                logger.warning("Failed to record spend: %s", e)
 
             return result
 

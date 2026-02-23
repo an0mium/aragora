@@ -287,7 +287,7 @@ class SchedulerHandler(BaseHandler):
         scheduler = self._get_scheduler()
         job = scheduler.add_schedule(config)
 
-        logger.info(f"Created scheduled job: {job.job_id} ({name})")
+        logger.info("Created scheduled job: %s (%s)", job.job_id, name)
 
         return json_response(
             {
@@ -310,7 +310,7 @@ class SchedulerHandler(BaseHandler):
         success = scheduler.remove_schedule(job_id)
 
         if success:
-            logger.info(f"Deleted scheduled job: {job_id}")
+            logger.info("Deleted scheduled job: %s", job_id)
             return json_response({"success": True, "message": f"Job {job_id} deleted"})
         else:
             return error_response(f"Failed to delete job: {job_id}", 500)
@@ -353,7 +353,7 @@ class SchedulerHandler(BaseHandler):
                 return error_response("Failed to trigger job", 500)
         except (RuntimeError, OSError, ConnectionError, TimeoutError, ValueError, TypeError) as e:
             _scheduler_circuit_breaker.record_failure()
-            logger.error(f"Failed to trigger job {job_id}: {e}")
+            logger.error("Failed to trigger job %s: %s", job_id, e)
             return error_response(safe_error_message(e, "Failed to trigger job"), 500)
 
     @require_user_auth
@@ -460,7 +460,7 @@ class SchedulerHandler(BaseHandler):
                 }
             )
         except (RuntimeError, OSError, ConnectionError, TimeoutError, ValueError, TypeError) as e:
-            logger.error(f"Webhook handling failed: {e}")
+            logger.error("Webhook handling failed: %s", e)
             return error_response(safe_error_message(e, "Webhook handling"), 500)
 
     @handle_errors("git push event")
@@ -514,7 +514,7 @@ class SchedulerHandler(BaseHandler):
                 }
             )
         except (RuntimeError, OSError, ConnectionError, TimeoutError, ValueError, TypeError) as e:
-            logger.error(f"Git push handling failed: {e}")
+            logger.error("Git push handling failed: %s", e)
             return error_response(safe_error_message(e, "Git push handling"), 500)
 
     @require_user_auth
@@ -562,5 +562,5 @@ class SchedulerHandler(BaseHandler):
                 }
             )
         except (RuntimeError, OSError, ConnectionError, TimeoutError, ValueError, TypeError) as e:
-            logger.error(f"File upload handling failed: {e}")
+            logger.error("File upload handling failed: %s", e)
             return error_response(safe_error_message(e, "File upload handling"), 500)

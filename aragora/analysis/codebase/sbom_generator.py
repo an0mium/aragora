@@ -278,7 +278,7 @@ class SBOMGenerator:
         Returns:
             SBOMResult with generated SBOM
         """
-        logger.info(f"[SBOM] Scanning repository: {repo_path}")
+        logger.info("[SBOM] Scanning repository: %s", repo_path)
 
         # Use scanner to get dependencies
         scan_result = await self.scanner.scan_repository(
@@ -361,8 +361,7 @@ class SBOMGenerator:
         license_count = len(set(lic for c in components for lic in c.licenses if lic))
 
         logger.info(
-            f"[SBOM] Generated {format.value}: {len(components)} components, "
-            f"{vuln_count} vulnerabilities, {license_count} licenses"
+            "[SBOM] Generated %s: %s components, %s vulnerabilities, %s licenses", format.value, len(components), vuln_count, license_count
         )
 
         return SBOMResult(

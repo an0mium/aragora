@@ -62,7 +62,7 @@ class CompanyOperationsMixin:
         has_failure = False
         for platform, result in zip(_platform_credentials.keys(), results):
             if isinstance(result, BaseException):
-                logger.error(f"Error fetching companies from {platform}: {result}")
+                logger.error("Error fetching companies from %s: %s", platform, result)
                 has_failure = True
                 continue
             all_companies.extend(result)
@@ -99,7 +99,7 @@ class CompanyOperationsMixin:
                 return [self._normalize_hubspot_company(c) for c in companies]
 
         except (ConnectionError, TimeoutError, OSError, ValueError) as e:
-            logger.error(f"Error fetching {platform} companies: {e}")
+            logger.error("Error fetching %s companies: %s", platform, e)
             cb.record_failure()
 
         return []

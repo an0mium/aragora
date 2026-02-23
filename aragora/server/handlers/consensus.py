@@ -136,11 +136,11 @@ class ConsensusHandler(BaseHandler):
             checker = get_permission_checker()
             decision = checker.check_permission(context, permission)
             if not decision.allowed:
-                logger.warning(f"RBAC denied {permission} for user {user_id}: {decision.reason}")
+                logger.warning("RBAC denied %s for user %s: %s", permission, user_id, decision.reason)
                 return error_response("Permission denied", 403)
             return None
         except (TypeError, ValueError, KeyError, AttributeError) as e:
-            logger.error(f"RBAC check failed: {e}")
+            logger.error("RBAC check failed: %s", e)
             return error_response("Authorization check failed", 500)
 
     @staticmethod
@@ -163,7 +163,7 @@ class ConsensusHandler(BaseHandler):
         # Rate limit check
         client_ip = get_client_ip(handler)
         if not _consensus_limiter.is_allowed(client_ip):
-            logger.warning(f"Rate limit exceeded for consensus endpoint: {client_ip}")
+            logger.warning("Rate limit exceeded for consensus endpoint: %s", client_ip)
             return error_response("Rate limit exceeded. Please try again later.", 429)
 
         # Auth: skip for GET (public read-only dashboard data), require for mutations
@@ -385,7 +385,7 @@ class ConsensusHandler(BaseHandler):
         except ImportError:
             return error_response("Fixtures module not available", 503)
         except (KeyError, ValueError, OSError) as e:
-            logger.error(f"Failed to seed demo data: {e}")
+            logger.error("Failed to seed demo data: %s", e)
             return error_response(safe_error_message(e, "seeding"), 500)
 
     @ttl_cache(ttl_seconds=CACHE_TTL_RECENT_DISSENTS, key_prefix="recent_dissents", skip_first=True)
@@ -451,7 +451,7 @@ class ConsensusHandler(BaseHandler):
                     }
                 )
             except (json.JSONDecodeError, ValueError, KeyError, TypeError) as e:
-                logger.debug(f"Failed to parse dissent record: {e}")
+                logger.debug("Failed to parse dissent record: %s", e)
 
         return json_response({"dissents": dissents})
 
@@ -496,7 +496,7 @@ class ConsensusHandler(BaseHandler):
 
                     records.append(DissentRecord.from_dict(json.loads(row[0])))
                 except (json.JSONDecodeError, ValueError, KeyError, TypeError) as e:
-                    logger.debug(f"Failed to parse contrarian view record: {e}")
+                    logger.debug("Failed to parse contrarian view record: %s", e)
 
         return json_response(
             {
@@ -552,7 +552,7 @@ class ConsensusHandler(BaseHandler):
 
                     records.append(DissentRecord.from_dict(json.loads(row[0])))
                 except (json.JSONDecodeError, ValueError, KeyError, TypeError) as e:
-                    logger.debug(f"Failed to parse risk warning record: {e}")
+                    logger.debug("Failed to parse risk warning record: %s", e)
 
         def _safe_dissent_type_str(dt: Any) -> str:
             """Safely extract dissent type as string."""

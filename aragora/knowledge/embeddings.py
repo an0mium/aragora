@@ -146,7 +146,7 @@ class WeaviateEmbeddingService:
 
             self._connected = True
             self._ensure_schema()
-            logger.info(f"Connected to Weaviate at {self.config.weaviate_url}")
+            logger.info("Connected to Weaviate at %s", self.config.weaviate_url)
 
         except WeaviateConnectionError as e:
             raise ConnectionError(f"Failed to connect to Weaviate: {e}") from e
@@ -160,11 +160,11 @@ class WeaviateEmbeddingService:
 
         # Check if collection exists
         if self._client.collections.exists(collection_name):
-            logger.debug(f"Collection {collection_name} already exists")
+            logger.debug("Collection %s already exists", collection_name)
             return
 
         # Create collection with properties
-        logger.info(f"Creating collection {collection_name}")
+        logger.info("Creating collection %s", collection_name)
 
         # Configure vectorizer based on config
         if self.config.vectorizer == "text2vec-openai" and self.config.openai_api_key:
@@ -253,7 +253,7 @@ class WeaviateEmbeddingService:
                 )
                 count += 1
 
-        logger.info(f"Embedded {count} chunks for workspace {workspace_id}")
+        logger.info("Embedded %s chunks for workspace %s", count, workspace_id)
         return count
 
     async def hybrid_search(
@@ -402,7 +402,7 @@ class WeaviateEmbeddingService:
         result = collection.data.delete_many(where=workspace_filter)
         deleted = result.successful if hasattr(result, "successful") else 0
 
-        logger.info(f"Deleted {deleted} chunks for workspace {workspace_id}")
+        logger.info("Deleted %s chunks for workspace %s", deleted, workspace_id)
         return deleted
 
     async def delete_document_chunks(self, document_id: str) -> int:
@@ -426,7 +426,7 @@ class WeaviateEmbeddingService:
         result = collection.data.delete_many(where=doc_filter)
         deleted = result.successful if hasattr(result, "successful") else 0
 
-        logger.info(f"Deleted {deleted} chunks for document {document_id}")
+        logger.info("Deleted %s chunks for document %s", deleted, document_id)
         return deleted
 
     def get_statistics(self, workspace_id: str | None = None) -> dict[str, Any]:

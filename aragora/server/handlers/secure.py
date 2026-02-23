@@ -268,7 +268,7 @@ class SecureHandler(BaseHandler):
             )
 
         # Unknown security error
-        logger.error(f"Unexpected security error: {error}")
+        logger.error("Unexpected security error: %s", error)
         return error_response("Security error", 500)
 
 
@@ -383,7 +383,7 @@ def secure_endpoint(
                 ConnectionError,
                 TimeoutError,
             ) as e:
-                logger.exception(f"Error in secure endpoint {func.__name__}: {e}")
+                logger.exception("Error in secure endpoint %s: %s", func.__name__, e)
                 raise
 
         return wrapper

@@ -199,7 +199,7 @@ class ExamplePermissionHandler(PermissionHandler):
         """Delete a document."""
         user = self.current_user
 
-        logger.info(f"User {user.user_id} deleted document {doc_id}")
+        logger.info("User %s deleted document %s", user.user_id, doc_id)
 
         return json_response(
             {

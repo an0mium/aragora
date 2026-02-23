@@ -57,7 +57,7 @@ def log_intervention(
         "user_id": user_id,
     }
     _intervention_log.append(entry)
-    logger.info(f"Intervention logged: {intervention_type} for debate {debate_id}")
+    logger.info("Intervention logged: %s for debate %s", intervention_type, debate_id)
 
 
 @require_permission("debates:write")

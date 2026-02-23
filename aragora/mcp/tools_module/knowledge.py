@@ -111,7 +111,7 @@ async def query_knowledge_tool(
     except ImportError:
         logger.warning("Knowledge Mound not available")
     except (RuntimeError, ValueError, OSError, AttributeError) as e:
-        logger.error(f"Knowledge query failed: {e}")
+        logger.error("Knowledge query failed: %s", e)
         return {
             "error": "Knowledge query failed",
             "query": query,
@@ -200,7 +200,7 @@ async def store_knowledge_tool(
         logger.warning("Knowledge Mound not available")
         return {"error": "Knowledge Mound module not available"}
     except (RuntimeError, ValueError, OSError) as e:
-        logger.error(f"Failed to store knowledge: {e}")
+        logger.error("Failed to store knowledge: %s", e)
         return {"error": "Failed to store knowledge"}
 
 
@@ -247,7 +247,7 @@ async def get_knowledge_stats_tool() -> dict[str, Any]:
             "total_nodes": 0,
         }
     except (RuntimeError, ValueError, OSError, AttributeError) as e:
-        logger.error(f"Failed to get knowledge stats: {e}")
+        logger.error("Failed to get knowledge stats: %s", e)
         return {"error": "Failed to retrieve knowledge stats"}
 
 
@@ -332,7 +332,7 @@ async def get_decision_receipt_tool(
         return receipt
 
     except (RuntimeError, ValueError, OSError, KeyError) as e:
-        logger.error(f"Failed to generate decision receipt: {e}")
+        logger.error("Failed to generate decision receipt: %s", e)
         return {"error": "Receipt generation failed"}
 
 
@@ -381,7 +381,7 @@ async def verify_decision_receipt_tool(
         return result
 
     except (RuntimeError, ValueError, OSError) as e:
-        logger.error(f"Receipt verification failed: {e}")
+        logger.error("Receipt verification failed: %s", e)
         return {"error": "Receipt verification failed"}
 
 
@@ -432,7 +432,7 @@ async def build_decision_integrity_tool(
         return package.to_dict()
 
     except (RuntimeError, ValueError, OSError, ImportError) as e:
-        logger.error(f"Failed to build decision integrity package: {e}")
+        logger.error("Failed to build decision integrity package: %s", e)
         return {"error": "Decision integrity build failed"}
 
 

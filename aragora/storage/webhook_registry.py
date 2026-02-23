@@ -105,7 +105,7 @@ class SQLiteWebhookRegistry:
         self._connections: set[sqlite3.Connection] = set()
         self._connections_lock = threading.Lock()
         self._init_schema()
-        logger.info(f"SQLiteWebhookRegistry initialized: {self.db_path}")
+        logger.info("SQLiteWebhookRegistry initialized: %s", self.db_path)
 
     def _get_conn(self) -> sqlite3.Connection:
         """Get per-context database connection."""
@@ -224,7 +224,7 @@ class SQLiteWebhookRegistry:
         )
         conn.commit()
 
-        logger.info(f"Registered webhook {webhook_id} for events: {events}")
+        logger.info("Registered webhook %s for events: %s", webhook_id, events)
 
         return WebhookConfig(
             id=webhook_id,
@@ -295,7 +295,7 @@ class SQLiteWebhookRegistry:
         conn.commit()
 
         if cursor.rowcount > 0:
-            logger.info(f"Deleted webhook {webhook_id}")
+            logger.info("Deleted webhook %s", webhook_id)
             return True
         return False
 

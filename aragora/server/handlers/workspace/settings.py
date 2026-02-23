@@ -202,7 +202,7 @@ class WorkspaceSettingsMixin:
         )
         cached_result = m._audit_query_cache.get(cache_key)
         if cached_result is not None:
-            logger.debug(f"Cache hit for audit query: {cache_key}")
+            logger.debug("Cache hit for audit query: %s", cache_key)
             return m.json_response(cached_result)
 
         audit_log = self._get_audit_log()
@@ -230,7 +230,7 @@ class WorkspaceSettingsMixin:
 
         # Cache the result
         m._audit_query_cache.set(cache_key, result)
-        logger.debug(f"Cached audit query: {cache_key}")
+        logger.debug("Cached audit query: %s", cache_key)
 
         return m.json_response(result)
 
@@ -366,7 +366,7 @@ class WorkspaceSettingsMixin:
         cache_key = f"audit:actor:{actor_id}:days:{days}"
         cached_result = m._audit_query_cache.get(cache_key)
         if cached_result is not None:
-            logger.debug(f"Cache hit for actor history: {cache_key}")
+            logger.debug("Cache hit for actor history: %s", cache_key)
             return m.json_response(cached_result)
 
         audit_log = self._get_audit_log()
@@ -384,7 +384,7 @@ class WorkspaceSettingsMixin:
 
         # Cache the result
         m._audit_query_cache.set(cache_key, result)
-        logger.debug(f"Cached actor history: {cache_key}")
+        logger.debug("Cached actor history: %s", cache_key)
 
         return m.json_response(result)
 
@@ -416,7 +416,7 @@ class WorkspaceSettingsMixin:
         cache_key = f"audit:resource:{resource_id}:days:{days}"
         cached_result = m._audit_query_cache.get(cache_key)
         if cached_result is not None:
-            logger.debug(f"Cache hit for resource history: {cache_key}")
+            logger.debug("Cache hit for resource history: %s", cache_key)
             return m.json_response(cached_result)
 
         audit_log = self._get_audit_log()
@@ -436,7 +436,7 @@ class WorkspaceSettingsMixin:
 
         # Cache the result
         m._audit_query_cache.set(cache_key, result)
-        logger.debug(f"Cached resource history: {cache_key}")
+        logger.debug("Cached resource history: %s", cache_key)
 
         return m.json_response(result)
 
@@ -468,7 +468,7 @@ class WorkspaceSettingsMixin:
         cache_key = f"audit:denied:days:{days}"
         cached_result = m._audit_query_cache.get(cache_key)
         if cached_result is not None:
-            logger.debug(f"Cache hit for denied access: {cache_key}")
+            logger.debug("Cache hit for denied access: %s", cache_key)
             return m.json_response(cached_result)
 
         audit_log = self._get_audit_log()
@@ -485,7 +485,7 @@ class WorkspaceSettingsMixin:
 
         # Cache the result
         m._audit_query_cache.set(cache_key, result)
-        logger.debug(f"Cached denied access: {cache_key}")
+        logger.debug("Cached denied access: %s", cache_key)
 
         return m.json_response(result)
 

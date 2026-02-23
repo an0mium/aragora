@@ -221,11 +221,11 @@ class SlackDebateStore:
                 ),
             )
             conn.commit()
-            logger.debug(f"Saved Slack debate: {debate.debate_id}")
+            logger.debug("Saved Slack debate: %s", debate.debate_id)
             return True
 
         except sqlite3.Error as e:
-            logger.error(f"Failed to save debate: {e}")
+            logger.error("Failed to save debate: %s", e)
             return False
 
     def get(self, debate_id: str) -> SlackActiveDebate | None:
@@ -251,7 +251,7 @@ class SlackDebateStore:
             return None
 
         except sqlite3.Error as e:
-            logger.error(f"Failed to get debate {debate_id}: {e}")
+            logger.error("Failed to get debate %s: %s", debate_id, e)
             return None
 
     def get_by_thread(
@@ -287,7 +287,7 @@ class SlackDebateStore:
             return None
 
         except sqlite3.Error as e:
-            logger.error(f"Failed to get debate by thread: {e}")
+            logger.error("Failed to get debate by thread: %s", e)
             return None
 
     def list_active(
@@ -332,7 +332,7 @@ class SlackDebateStore:
             return [SlackActiveDebate.from_row(row) for row in cursor.fetchall()]
 
         except sqlite3.Error as e:
-            logger.error(f"Failed to list active debates: {e}")
+            logger.error("Failed to list active debates: %s", e)
             return []
 
     def list_by_user(
@@ -366,7 +366,7 @@ class SlackDebateStore:
             return [SlackActiveDebate.from_row(row) for row in cursor.fetchall()]
 
         except sqlite3.Error as e:
-            logger.error(f"Failed to list debates by user: {e}")
+            logger.error("Failed to list debates by user: %s", e)
             return []
 
     def update_status(
@@ -402,11 +402,11 @@ class SlackDebateStore:
                 (status, receipt_id, error_message, completed_at, debate_id),
             )
             conn.commit()
-            logger.info(f"Updated Slack debate {debate_id} status to {status}")
+            logger.info("Updated Slack debate %s status to %s", debate_id, status)
             return True
 
         except sqlite3.Error as e:
-            logger.error(f"Failed to update debate {debate_id}: {e}")
+            logger.error("Failed to update debate %s: %s", debate_id, e)
             return False
 
     def update_thread(self, debate_id: str, thread_ts: str) -> bool:
@@ -428,11 +428,11 @@ class SlackDebateStore:
                 (thread_ts, debate_id),
             )
             conn.commit()
-            logger.debug(f"Updated thread_ts for debate {debate_id}")
+            logger.debug("Updated thread_ts for debate %s", debate_id)
             return True
 
         except sqlite3.Error as e:
-            logger.error(f"Failed to update thread for {debate_id}: {e}")
+            logger.error("Failed to update thread for %s: %s", debate_id, e)
             return False
 
     def delete(self, debate_id: str) -> bool:
@@ -451,11 +451,11 @@ class SlackDebateStore:
                 (debate_id,),
             )
             conn.commit()
-            logger.info(f"Deleted Slack debate: {debate_id}")
+            logger.info("Deleted Slack debate: %s", debate_id)
             return True
 
         except sqlite3.Error as e:
-            logger.error(f"Failed to delete debate {debate_id}: {e}")
+            logger.error("Failed to delete debate %s: %s", debate_id, e)
             return False
 
     def cleanup_old(self, max_age_hours: int = 24) -> int:
@@ -483,11 +483,11 @@ class SlackDebateStore:
 
             deleted = cursor.rowcount
             if deleted > 0:
-                logger.info(f"Cleaned up {deleted} old Slack debates")
+                logger.info("Cleaned up %s old Slack debates", deleted)
             return deleted
 
         except sqlite3.Error as e:
-            logger.error(f"Failed to cleanup old debates: {e}")
+            logger.error("Failed to cleanup old debates: %s", e)
             return 0
 
     def get_stats(self, workspace_id: str | None = None) -> dict[str, Any]:
@@ -548,7 +548,7 @@ class SlackDebateStore:
             }
 
         except sqlite3.Error as e:
-            logger.error(f"Failed to get stats: {e}")
+            logger.error("Failed to get stats: %s", e)
             return {"total_debates": 0, "active_debates": 0}
 
 

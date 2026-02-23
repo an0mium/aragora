@@ -204,7 +204,7 @@ class ReconciliationHandler:
             return error_response("Not found", 404)
 
         except (ValueError, KeyError, TypeError, RuntimeError, OSError) as e:
-            logger.exception(f"Error in reconciliation handler: {e}")
+            logger.exception("Error in reconciliation handler: %s", e)
             return error_response("Internal server error", 500)
 
     def _get_tenant_id(self, request: Any) -> str:
@@ -356,7 +356,7 @@ class ReconciliationHandler:
             return error_response("Required module not available", 503)
         except (KeyError, ValueError, TypeError, AttributeError, OSError) as e:
             self._circuit_breaker.record_failure()
-            logger.exception(f"Error running reconciliation: {e}")
+            logger.exception("Error running reconciliation: %s", e)
             return error_response("Reconciliation failed", 500)
 
     # =========================================================================
@@ -526,7 +526,7 @@ class ReconciliationHandler:
                 return error_response("Failed to resolve discrepancy", 400)
 
         except (KeyError, ValueError, TypeError, AttributeError, OSError) as e:
-            logger.exception(f"Error resolving discrepancy: {e}")
+            logger.exception("Error resolving discrepancy: %s", e)
             return error_response("Resolution failed", 500)
 
     @require_permission("reconciliation:write")
@@ -620,7 +620,7 @@ class ReconciliationHandler:
             )
 
         except (KeyError, ValueError, TypeError, AttributeError, OSError) as e:
-            logger.exception(f"Error in bulk resolve: {e}")
+            logger.exception("Error in bulk resolve: %s", e)
             return error_response("Bulk resolution failed", 500)
 
     # =========================================================================
@@ -671,7 +671,7 @@ class ReconciliationHandler:
             result.reconciled_at = datetime.now(timezone.utc)
             result.reconciled_by = user_id
 
-            logger.info(f"[Reconciliation] Approved {reconciliation_id} by {user_id}: {notes}")
+            logger.info("[Reconciliation] Approved %s by %s: %s", reconciliation_id, user_id, notes)
 
             return success_response(
                 {
@@ -683,7 +683,7 @@ class ReconciliationHandler:
             )
 
         except (KeyError, ValueError, TypeError, AttributeError, OSError) as e:
-            logger.exception(f"Error approving reconciliation: {e}")
+            logger.exception("Error approving reconciliation: %s", e)
             return error_response("Approval failed", 500)
 
     # =========================================================================

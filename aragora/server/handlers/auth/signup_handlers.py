@@ -59,11 +59,11 @@ def _check_permission(
         checker = get_permission_checker()
         decision = checker.check_permission(context, permission)
         if not decision.allowed:
-            logger.warning(f"RBAC denied {permission} for user {user_id}: {decision.reason}")
+            logger.warning("RBAC denied %s for user %s: %s", permission, user_id, decision.reason)
             return error_response("Permission denied", status=403)
         return None
     except (ValueError, KeyError, TypeError, AttributeError) as e:
-        logger.error(f"RBAC check failed: {e}")
+        logger.error("RBAC check failed: %s", e)
         return error_response("Authorization check failed", status=500)
 
 
@@ -241,7 +241,7 @@ async def handle_signup(
             _cleanup_expired_tokens()
 
         # In production: send verification email
-        logger.info(f"Signup initiated for {email}")
+        logger.info("Signup initiated for %s", email)
 
         # Audit logging (security-sensitive action)
         try:
@@ -383,7 +383,7 @@ async def handle_resend_verification(
             )
 
         # In production: resend verification email
-        logger.info(f"Resending verification for {email}")
+        logger.info("Resending verification for %s", email)
 
         return success_response(
             {
@@ -456,7 +456,7 @@ async def handle_setup_organization(
             "member_count": 1,
         }
 
-        logger.info(f"Organization created: {org_id}")
+        logger.info("Organization created: %s", org_id)
 
         # Audit logging (admin action)
         try:
@@ -559,7 +559,7 @@ async def handle_invite(
 
         # In production: send invitation email
         invite_url = f"/invite/{invite_token}"
-        logger.info(f"Invitation sent for org {organization_id}")
+        logger.info("Invitation sent for org %s", organization_id)
 
         # Audit logging
         try:
@@ -674,7 +674,7 @@ async def handle_accept_invite(
         organization_id = invite.get("organization_id")
         role = invite.get("role")
 
-        logger.info(f"User joined organization {organization_id}")
+        logger.info("User joined organization %s", organization_id)
 
         # Audit logging
         try:
@@ -743,7 +743,7 @@ async def handle_onboarding_complete(
                 "template_used": template_used,
             }
 
-        logger.info(f"Onboarding completed for org {organization_id} by {user_id}")
+        logger.info("Onboarding completed for org %s by %s", organization_id, user_id)
 
         return success_response(
             {

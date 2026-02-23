@@ -218,10 +218,10 @@ class RelationshipHandler(BaseHandler):
         # Rate limit check
         client_ip = get_client_ip(handler)
         if not _relationship_limiter.is_allowed(client_ip):
-            logger.warning(f"Rate limit exceeded for relationship endpoint: {client_ip}")
+            logger.warning("Rate limit exceeded for relationship endpoint: %s", client_ip)
             return error_response("Rate limit exceeded. Please try again later.", 429)
 
-        logger.debug(f"Relationship request: {path} params={query_params}")
+        logger.debug("Relationship request: %s params=%s", path, query_params)
         nomic_dir = self.ctx.get("nomic_dir")
 
         if path == "/api/v1/relationships/summary":
@@ -263,7 +263,7 @@ class RelationshipHandler(BaseHandler):
             # Fall back to default
             return RelationshipTracker()
         except (OSError, ValueError, TypeError, RuntimeError) as e:
-            logger.warning(f"Failed to create RelationshipTracker: {e}")
+            logger.warning("Failed to create RelationshipTracker: %s", e)
             return None
 
     def _fetch_relationships(
@@ -331,7 +331,7 @@ class RelationshipHandler(BaseHandler):
 
                 if len(rows) == MAX_RELATIONSHIPS:
                     logger.warning(
-                        f"Relationship summary hit limit of {MAX_RELATIONSHIPS} - results may be incomplete"
+                        "Relationship summary hit limit of %s - results may be incomplete", MAX_RELATIONSHIPS
                     )
 
             if not rows:
@@ -396,7 +396,7 @@ class RelationshipHandler(BaseHandler):
                 }
 
             logger.info(
-                f"Relationship summary: {len(rows)} relationships, {len(rivalry_scores)} rivalries, {len(alliance_scores)} alliances"
+                "Relationship summary: %s relationships, %s rivalries, %s alliances", len(rows), len(rivalry_scores), len(alliance_scores)
             )
             return json_response(
                 {
@@ -482,7 +482,7 @@ class RelationshipHandler(BaseHandler):
                 for agent, data in nodes_data.items()
             ]
 
-            logger.info(f"Relationship graph: {len(nodes)} nodes, {len(edges)} edges")
+            logger.info("Relationship graph: %s nodes, %s edges", len(nodes), len(edges))
             return json_response(
                 {
                     "nodes": nodes,

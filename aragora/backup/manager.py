@@ -1014,7 +1014,7 @@ class BackupManager:
                 try:
                     safe_table = _validate_sql_identifier(table, "table")
                 except ValueError as e:
-                    logger.warning(f"Skipping table with invalid name: {e}")
+                    logger.warning("Skipping table with invalid name: %s", e)
                     continue
 
                 cursor.execute(f'PRAGMA table_info("{safe_table}")')
@@ -1025,7 +1025,7 @@ class BackupManager:
                         try:
                             safe_col = _validate_sql_identifier(col_name, "column")
                         except ValueError as e:
-                            logger.warning(f"Skipping column with invalid name: {e}")
+                            logger.warning("Skipping column with invalid name: %s", e)
                             continue
 
                         cursor.execute(
@@ -1066,7 +1066,7 @@ class BackupManager:
                 try:
                     safe_table = _validate_sql_identifier(table, "table")
                 except ValueError as e:
-                    logger.warning(f"Skipping table with invalid name: {e}")
+                    logger.warning("Skipping table with invalid name: %s", e)
                     checksums[table] = ""
                     continue
 
@@ -1084,7 +1084,7 @@ class BackupManager:
                     checksums[table] = hasher.hexdigest()
                 except (OSError, RuntimeError) as e:
                     # Some tables may not have rowid (e.g., WITHOUT ROWID tables)
-                    logger.warning(f"Could not compute checksum for table {table}: {e}")
+                    logger.warning("Could not compute checksum for table %s: %s", table, e)
                     checksums[table] = ""
 
         finally:

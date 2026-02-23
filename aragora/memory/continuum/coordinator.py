@@ -354,11 +354,11 @@ class ContinuumMemory(
             try:
                 self._km_adapter.store_memory(entry)
             except (ConnectionError, TimeoutError, OSError) as e:
-                logger.debug(f"Failed to sync memory to KM (network): {e}")
+                logger.debug("Failed to sync memory to KM (network): %s", e)
             except (ValueError, KeyError, TypeError) as e:
-                logger.debug(f"Failed to sync memory to KM (data): {e}")
+                logger.debug("Failed to sync memory to KM (data): %s", e)
             except (RuntimeError, AttributeError) as e:
-                logger.warning(f"Unexpected error syncing memory to KM: {e}")
+                logger.warning("Unexpected error syncing memory to KM: %s", e)
 
         return entry
 

@@ -528,7 +528,7 @@ class DeliberationManager:
                 try:
                     self._elo_callback(outcome)
                 except (RuntimeError, ValueError, TypeError) as e:  # noqa: BLE001 - user-provided ELO callback
-                    logger.error(f"ELO callback failed: {e}")
+                    logger.error("ELO callback failed: %s", e)
 
             return outcome
 

@@ -410,12 +410,12 @@ class FederationRegistry:
                     decode_responses=True,
                 )
                 await self._redis.ping()
-                logger.info(f"FederationRegistry connected to Redis: {self._redis_url}")
+                logger.info("FederationRegistry connected to Redis: %s", self._redis_url)
             except ImportError:
                 logger.warning("redis package not installed, using in-memory fallback")
                 self._redis = None
             except (OSError, ConnectionError, TimeoutError) as e:
-                logger.warning(f"Redis not available, using in-memory fallback: {e}")
+                logger.warning("Redis not available, using in-memory fallback: %s", e)
                 self._redis = None
 
         # Start background tasks
@@ -461,7 +461,7 @@ class FederationRegistry:
             try:
                 self._event_callback(event_type, data)
             except (RuntimeError, ValueError, TypeError) as e:  # noqa: BLE001 - user-provided event callback
-                logger.warning(f"Failed to emit event {event_type}: {e}")
+                logger.warning("Failed to emit event %s: %s", event_type, e)
 
     async def register(
         self,
@@ -555,9 +555,7 @@ class FederationRegistry:
         )
 
         logger.info(
-            f"Framework registered: {framework.framework_id} "
-            f"(name={name}, version={version}, api={negotiated_version}, "
-            f"capabilities={[c.name for c in capabilities]})"
+            "Framework registered: %s (name=%s, version=%s, api=%s, capabilities=%s)", framework.framework_id, name, version, negotiated_version, [c.name for c in capabilities]
         )
 
         return RegistrationResult(
@@ -602,7 +600,7 @@ class FederationRegistry:
             {"framework_id": framework_id, "name": framework.name},
         )
 
-        logger.info(f"Framework unregistered: {framework_id}")
+        logger.info("Framework unregistered: %s", framework_id)
         return True
 
     async def get(self, framework_id: str) -> ExternalFramework | None:
@@ -734,7 +732,7 @@ class FederationRegistry:
             healthy = await self._check_health_endpoint(health_endpoint)
             framework.record_health_check(healthy)
         except (OSError, ConnectionError, TimeoutError) as e:
-            logger.warning(f"Health check failed for {framework_id}: {e}")
+            logger.warning("Health check failed for %s: %s", framework_id, e)
             framework.record_health_check(False)
 
         await self._save_framework(framework)
@@ -765,7 +763,7 @@ class FederationRegistry:
             logger.debug("aiohttp not available, skipping HTTP health check")
             return True
         except (OSError, ConnectionError, TimeoutError) as e:
-            logger.debug(f"Health check request failed: {e}")
+            logger.debug("Health check request failed: %s", e)
             return False
 
     async def find_by_capability(
@@ -969,7 +967,7 @@ class FederationRegistry:
         except ImportError:
             logger.debug("aiohttp not available, using cached capabilities")
         except (OSError, ConnectionError, TimeoutError, RuntimeError) as e:
-            logger.warning(f"Failed to refresh capabilities for {framework_id}: {e}")
+            logger.warning("Failed to refresh capabilities for %s: %s", framework_id, e)
 
         return framework.capabilities
 
@@ -1049,7 +1047,7 @@ class FederationRegistry:
                     await result
                 framework.startup_hooks.append(hook_id)
             except (RuntimeError, ValueError, TypeError) as e:  # noqa: BLE001 - user-provided lifecycle hook callback
-                logger.error(f"Startup hook {hook_id} failed: {e}")
+                logger.error("Startup hook %s failed: %s", hook_id, e)
 
     async def _run_shutdown_hooks(self, framework: ExternalFramework) -> None:
         """Run all registered shutdown hooks."""
@@ -1060,7 +1058,7 @@ class FederationRegistry:
                     await result
                 framework.shutdown_hooks.append(hook_id)
             except (RuntimeError, ValueError, TypeError) as e:  # noqa: BLE001 - user-provided lifecycle hook callback
-                logger.error(f"Shutdown hook {hook_id} failed: {e}")
+                logger.error("Shutdown hook %s failed: %s", hook_id, e)
 
     def _negotiate_version(self, client_versions: list[str]) -> str | None:
         """
@@ -1117,7 +1115,7 @@ class FederationRegistry:
             except asyncio.CancelledError:
                 break
             except (OSError, ConnectionError, RuntimeError) as e:
-                logger.error(f"Error in health check loop: {e}")
+                logger.error("Error in health check loop: %s", e)
 
     async def _cleanup_loop(self) -> None:
         """Background task to clean up dead frameworks."""
@@ -1128,7 +1126,7 @@ class FederationRegistry:
             except asyncio.CancelledError:
                 break
             except (OSError, ConnectionError, RuntimeError) as e:
-                logger.error(f"Error in cleanup loop: {e}")
+                logger.error("Error in cleanup loop: %s", e)
 
     async def _cleanup_dead_frameworks(self) -> int:
         """Mark frameworks as disconnected if heartbeat expired."""
@@ -1150,10 +1148,10 @@ class FederationRegistry:
                         {"framework_id": framework.framework_id, "name": framework.name},
                     )
 
-                    logger.warning(f"Framework marked disconnected: {framework.framework_id}")
+                    logger.warning("Framework marked disconnected: %s", framework.framework_id)
 
         if marked_disconnected > 0:
-            logger.info(f"Marked {marked_disconnected} frameworks as disconnected")
+            logger.info("Marked %s frameworks as disconnected", marked_disconnected)
 
         return marked_disconnected
 

@@ -145,7 +145,7 @@ class CompensatingAction:
             if self.action_type == "restore_checkpoint" and self.checkpoint_path:
                 # Restore from checkpoint file
                 if self.checkpoint_path.exists():
-                    logger.info(f"Restoring checkpoint for step {self.step_name}")
+                    logger.info("Restoring checkpoint for step %s", self.step_name)
                     return True
             elif self.action_type == "custom" and self.custom_handler:
                 if asyncio.iscoroutinefunction(self.custom_handler):
@@ -156,7 +156,7 @@ class CompensatingAction:
             self.executed = True
             return True
         except (RuntimeError, OSError, ValueError) as e:
-            logger.error(f"Compensating action failed for step {self.step_name}: {e}")
+            logger.error("Compensating action failed for step %s: %s", self.step_name, e)
             return False
 
 
@@ -219,7 +219,7 @@ class MoleculeTransaction:
         Returns True if commit succeeds, False otherwise.
         """
         if self.state != TransactionState.ACTIVE:
-            logger.warning(f"Cannot commit transaction in state {self.state}")
+            logger.warning("Cannot commit transaction in state %s", self.state)
             return False
 
         try:
@@ -227,7 +227,7 @@ class MoleculeTransaction:
             await self._write_transaction_log("committed")
             self.state = TransactionState.COMMITTED
             self.committed_at = datetime.now(timezone.utc)
-            logger.info(f"Transaction {self.transaction_id} committed successfully")
+            logger.info("Transaction %s committed successfully", self.transaction_id)
             return True
         except (RuntimeError, ValueError, OSError) as e:
             logger.warning("Transaction commit failed: %s", e)
@@ -243,10 +243,10 @@ class MoleculeTransaction:
         Returns True if rollback succeeds, False otherwise.
         """
         if self.state not in (TransactionState.ACTIVE, TransactionState.FAILED):
-            logger.warning(f"Cannot rollback transaction in state {self.state}")
+            logger.warning("Cannot rollback transaction in state %s", self.state)
             return False
 
-        logger.info(f"Rolling back transaction {self.transaction_id}")
+        logger.info("Rolling back transaction %s", self.transaction_id)
         rollback_success = True
 
         # Execute compensating actions in reverse order
@@ -256,10 +256,10 @@ class MoleculeTransaction:
                     success = await action.execute()
                     if not success:
                         rollback_success = False
-                        logger.error(f"Compensating action failed for step {action.step_name}")
+                        logger.error("Compensating action failed for step %s", action.step_name)
                 except (RuntimeError, OSError, ValueError) as e:
                     rollback_success = False
-                    logger.error(f"Error executing compensating action: {e}")
+                    logger.error("Error executing compensating action: %s", e)
 
         # Restore pre-transaction snapshot if available
         if self.pre_transaction_snapshot:
@@ -267,16 +267,16 @@ class MoleculeTransaction:
                 await self._restore_snapshot()
             except (RuntimeError, ValueError, OSError) as e:
                 rollback_success = False
-                logger.error(f"Failed to restore pre-transaction snapshot: {e}")
+                logger.error("Failed to restore pre-transaction snapshot: %s", e)
 
         await self._write_transaction_log("rolled_back")
         self.state = TransactionState.ROLLED_BACK
         self.rolled_back_at = datetime.now(timezone.utc)
 
         if rollback_success:
-            logger.info(f"Transaction {self.transaction_id} rolled back successfully")
+            logger.info("Transaction %s rolled back successfully", self.transaction_id)
         else:
-            logger.warning(f"Transaction {self.transaction_id} rollback completed with errors")
+            logger.warning("Transaction %s rollback completed with errors", self.transaction_id)
 
         return rollback_success
 
@@ -294,7 +294,7 @@ class MoleculeTransaction:
             with open(log_file, "w") as f:
                 json.dump(log_entry, f, indent=2)
         except (RuntimeError, ValueError, OSError) as e:
-            logger.warning(f"Failed to write transaction log: {e}")
+            logger.warning("Failed to write transaction log: %s", e)
 
     async def _restore_snapshot(self) -> None:
         """Restore pre-transaction snapshot."""
@@ -305,7 +305,7 @@ class MoleculeTransaction:
         try:
             with open(snapshot_file, "w") as f:
                 json.dump(self.pre_transaction_snapshot, f, indent=2)
-            logger.info(f"Restored pre-transaction snapshot for molecule {self.molecule_id}")
+            logger.info("Restored pre-transaction snapshot for molecule %s", self.molecule_id)
         except (RuntimeError, OSError, ValueError) as e:
             raise TransactionRollbackError(f"Failed to restore snapshot: {e}")
 

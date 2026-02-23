@@ -137,7 +137,7 @@ class TTSIntegration:
         now = time.time()
         last = self._last_synthesis.get(debate_id, 0)
         if now - last < self._min_interval:
-            logger.debug(f"[TTS Integration] Rate limited for debate {debate_id}")
+            logger.debug("[TTS Integration] Rate limited for debate %s", debate_id)
             return
 
         # Concurrency check
@@ -146,7 +146,7 @@ class TTSIntegration:
                 logger.debug("[TTS Integration] Max concurrent synthesis reached")
                 return
             if debate_id in self._active_synthesis:
-                logger.debug(f"[TTS Integration] Already synthesizing for {debate_id}")
+                logger.debug("[TTS Integration] Already synthesizing for %s", debate_id)
                 return
             self._active_synthesis.add(debate_id)
             self._last_synthesis[debate_id] = now
@@ -176,7 +176,7 @@ class TTSIntegration:
                 )
 
         except (OSError, RuntimeError, ValueError, TimeoutError) as e:
-            logger.warning(f"[TTS Integration] Synthesis failed: {e}")
+            logger.warning("[TTS Integration] Synthesis failed: %s", e)
 
         finally:
             async with self._lock:
@@ -239,7 +239,7 @@ class TTSIntegration:
             try:
                 audio_path.unlink()
             except OSError as e:
-                logger.debug(f"[TTS Integration] Failed to cleanup temp file: {e}")
+                logger.debug("[TTS Integration] Failed to cleanup temp file: %s", e)
 
             # Record metrics
             synthesis_duration = time.perf_counter() - synthesis_start
@@ -256,7 +256,7 @@ class TTSIntegration:
             logger.debug("[TTS Integration] TTS backends not available")
             return None
         except (OSError, RuntimeError, ValueError, TimeoutError) as e:
-            logger.warning(f"[TTS Integration] Chat synthesis failed: {e}")
+            logger.warning("[TTS Integration] Chat synthesis failed: %s", e)
             return None
 
 

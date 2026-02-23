@@ -158,8 +158,7 @@ class CapabilityRouter(AgentRouter):
                             )
                             if has_fallback:
                                 logger.info(
-                                    f"Using fallback agent {cap_rule.fallback_agent_id} "
-                                    f"for {message.message_id} (missing: {missing})"
+                                    "Using fallback agent %s for %s (missing: %s)", cap_rule.fallback_agent_id, message.message_id, missing
                                 )
                                 return RoutingResult(
                                     agent_id=cap_rule.fallback_agent_id,
@@ -169,11 +168,11 @@ class CapabilityRouter(AgentRouter):
                                 )
 
                         # Skip this rule
-                        logger.debug(f"Skipping rule {rule.rule_id} - missing: {missing}")
+                        logger.debug("Skipping rule %s - missing: %s", rule.rule_id, missing)
                         continue
 
             # Rule matches
-            logger.debug(f"Routed {message.message_id} to {rule.agent_id} via {rule.rule_id}")
+            logger.debug("Routed %s to %s via %s", message.message_id, rule.agent_id, rule.rule_id)
             return RoutingResult(
                 agent_id=rule.agent_id,
                 rule_id=rule.rule_id,

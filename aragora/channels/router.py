@@ -84,13 +84,13 @@ class ChannelRouter:
         platform = self._normalize_platform(platform)
         dock = self.registry.get_dock(platform)
         if dock is None:
-            logger.warning(f"No dock available for platform: {platform}")
+            logger.warning("No dock available for platform: %s", platform)
             return None
 
         if not dock.is_initialized:
             success = await dock.initialize()
             if not success:
-                logger.warning(f"Failed to initialize dock for platform: {platform}")
+                logger.warning("Failed to initialize dock for platform: %s", platform)
                 return None
 
         return dock
@@ -449,7 +449,7 @@ class ChannelRouter:
         except ImportError:
             logger.debug("TTS bridge not available")
         except (ConnectionError, TimeoutError, OSError, RuntimeError) as e:
-            logger.warning(f"TTS synthesis failed: {e}")
+            logger.warning("TTS synthesis failed: %s", e)
 
         return None
 

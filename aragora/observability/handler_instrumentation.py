@@ -77,7 +77,7 @@ def _safe_record_request(
     except ImportError:
         pass
     except (RuntimeError, TypeError, AttributeError) as e:
-        logger.debug(f"Failed to record request metrics: {e}")
+        logger.debug("Failed to record request metrics: %s", e)
 
 
 def _safe_start_span(name: str, attributes: dict[str, Any] | None = None) -> Any:
@@ -93,7 +93,7 @@ def _safe_start_span(name: str, attributes: dict[str, Any] | None = None) -> Any
     except ImportError:
         return _NoOpContextManager()
     except (RuntimeError, TypeError, AttributeError) as e:
-        logger.debug(f"Failed to start span: {e}")
+        logger.debug("Failed to start span: %s", e)
         return _NoOpContextManager()
 
 
@@ -397,7 +397,7 @@ def record_control_plane_operation(
                 status=status,
             ).inc()
     except (ImportError, RuntimeError, TypeError, AttributeError) as e:
-        logger.debug(f"Failed to record control plane operation: {e}")
+        logger.debug("Failed to record control plane operation: %s", e)
 
 
 def record_agent_registration(

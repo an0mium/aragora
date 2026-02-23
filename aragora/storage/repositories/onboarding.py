@@ -139,7 +139,7 @@ class OnboardingRepository:
             )
             conn.commit()
 
-        logger.debug(f"Created onboarding flow {flow_id} for user {user_id}")
+        logger.debug("Created onboarding flow %s for user %s", flow_id, user_id)
         return flow_id
 
     def get_flow(self, user_id: str, org_id: str | None) -> dict[str, Any] | None:

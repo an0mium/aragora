@@ -191,9 +191,9 @@ def validate_feature_dependencies(config: ArenaConfig) -> FeatureValidationResul
 
     # Log results
     for warning in result.warnings:
-        logger.warning(f"  [feature_validator] {warning}")
+        logger.warning("  [feature_validator] %s", warning)
     for error in result.errors:
-        logger.error(f"  [feature_validator] {error}")
+        logger.error("  [feature_validator] %s", error)
 
     return result
 

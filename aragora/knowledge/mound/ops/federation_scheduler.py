@@ -329,8 +329,7 @@ class FederationScheduler:
 
         self._schedules[schedule_id] = schedule
         logger.info(
-            f"Added federation schedule '{config.name}' for region {config.region_id}, "
-            f"next run: {next_run}"
+            "Added federation schedule '%s' for region %s, next run: %s", config.name, config.region_id, next_run
         )
 
         return schedule
@@ -339,7 +338,7 @@ class FederationScheduler:
         """Remove a schedule."""
         if schedule_id in self._schedules:
             del self._schedules[schedule_id]
-            logger.info(f"Removed federation schedule {schedule_id}")
+            logger.info("Removed federation schedule %s", schedule_id)
             return True
         return False
 
@@ -347,7 +346,7 @@ class FederationScheduler:
         """Pause a schedule."""
         if schedule_id in self._schedules:
             self._schedules[schedule_id].status = ScheduleStatus.PAUSED
-            logger.info(f"Paused federation schedule {schedule_id}")
+            logger.info("Paused federation schedule %s", schedule_id)
             return True
         return False
 
@@ -363,7 +362,7 @@ class FederationScheduler:
                 schedule.next_run = datetime.now() + timedelta(
                     minutes=schedule.config.interval_minutes
                 )
-            logger.info(f"Resumed federation schedule {schedule_id}")
+            logger.info("Resumed federation schedule %s", schedule_id)
             return True
         return False
 
@@ -470,7 +469,7 @@ class FederationScheduler:
             except asyncio.CancelledError:
                 break
             except (RuntimeError, ValueError, OSError) as e:
-                logger.error(f"Error in federation scheduler loop: {e}")
+                logger.error("Error in federation scheduler loop: %s", e)
                 await asyncio.sleep(30)
 
     async def _execute_sync(self, schedule: ScheduledSync) -> SyncRun:
@@ -488,8 +487,7 @@ class FederationScheduler:
 
         try:
             logger.info(
-                f"Starting federation sync: {schedule.config.name} "
-                f"({schedule.config.sync_mode.value})"
+                "Starting federation sync: %s (%s)", schedule.config.name, schedule.config.sync_mode.value
             )
 
             if self._sync_callback:
@@ -521,7 +519,7 @@ class FederationScheduler:
             schedule.last_result = {"status": "success", **result}
 
             logger.info(
-                f"Federation sync completed: {run.items_pushed} pushed, {run.items_pulled} pulled"
+                "Federation sync completed: %s pushed, %s pulled", run.items_pushed, run.items_pulled
             )
 
         except (RuntimeError, ValueError, OSError, AttributeError) as e:
@@ -534,14 +532,13 @@ class FederationScheduler:
             schedule.consecutive_errors += 1
             schedule.last_result = {"status": "error", "error": "Federation sync failed"}
 
-            logger.error(f"Federation sync failed: {e}")
+            logger.error("Federation sync failed: %s", e)
 
             # Disable after too many consecutive errors
             if schedule.consecutive_errors >= schedule.config.max_retries:
                 schedule.status = ScheduleStatus.ERROR
                 logger.warning(
-                    f"Schedule {schedule.config.name} disabled after "
-                    f"{schedule.consecutive_errors} consecutive errors"
+                    "Schedule %s disabled after %s consecutive errors", schedule.config.name, schedule.consecutive_errors
                 )
         finally:
             if schedule.status == ScheduleStatus.RUNNING:
@@ -605,7 +602,7 @@ class FederationScheduler:
         except ImportError:
             logger.warning("KnowledgeMound not available for sync")
         except (RuntimeError, ValueError, OSError, AttributeError) as e:
-            logger.error(f"Error during sync: {e}")
+            logger.error("Error during sync: %s", e)
             raise
 
         return {

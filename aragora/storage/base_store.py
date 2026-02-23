@@ -148,7 +148,7 @@ class SQLiteStore(BaseDatabase, ABC):
             manager.ensure_schema(initial_schema=self.INITIAL_SCHEMA)
 
             logger.debug(
-                f"[{self.SCHEMA_NAME}] Schema initialized at version {self.SCHEMA_VERSION}"
+                "[%s] Schema initialized at version %s", self.SCHEMA_NAME, self.SCHEMA_VERSION
             )
 
     def register_migrations(self, manager: SchemaManager) -> None:
@@ -239,7 +239,7 @@ class SQLiteStore(BaseDatabase, ABC):
             safe_patterns = ["IS NULL", "IS NOT NULL", "TRUE", "FALSE"]
             if not any(p in where_check for p in safe_patterns):
                 logger.warning(
-                    f"WHERE clause without placeholders or params may indicate SQL injection risk: {where[:50]}"
+                    "WHERE clause without placeholders or params may indicate SQL injection risk: %s", where[:50]
                 )
 
     def count(self, table: str, where: str = "", params: tuple = ()) -> int:
@@ -322,7 +322,7 @@ class SQLiteStore(BaseDatabase, ABC):
         """
         with self.connection() as conn:
             conn.execute("VACUUM")
-            logger.debug(f"[{self.SCHEMA_NAME}] Database vacuumed")
+            logger.debug("[%s] Database vacuumed", self.SCHEMA_NAME)
 
     def get_schema_version(self) -> int:
         """Get the current schema version from database.

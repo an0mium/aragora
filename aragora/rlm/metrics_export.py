@@ -87,7 +87,7 @@ class MetricsCollector:
             try:
                 callback(snapshot)
             except (RuntimeError, ValueError, TypeError) as e:
-                logger.warning(f"Metrics callback failed: {e}")
+                logger.warning("Metrics callback failed: %s", e)
 
         self._last_snapshot = snapshot
         self._last_collect_time = now
@@ -227,7 +227,7 @@ def export_to_prometheus(
                 # For simplicity, we just expose the current value
                 pass  # Counter._value.set() is not standard - use a Gauge for absolute values
 
-    logger.info(f"[RLM Metrics] Prometheus metrics registered with prefix '{prefix}'")
+    logger.info("[RLM Metrics] Prometheus metrics registered with prefix '%s'", prefix)
     return metrics_map
 
 
@@ -262,11 +262,11 @@ def export_to_statsd(
         for name, value in metrics.items():
             client.gauge(name, value)
 
-        logger.info(f"[RLM Metrics] Exported to StatsD at {host}:{port}")
+        logger.info("[RLM Metrics] Exported to StatsD at %s:%s", host, port)
         return True
 
     except (ConnectionError, TimeoutError, OSError, ValueError) as e:
-        logger.error(f"[RLM Metrics] StatsD export failed: {e}")
+        logger.error("[RLM Metrics] StatsD export failed: %s", e)
         return False
 
 
@@ -316,11 +316,11 @@ def export_to_opentelemetry(
             )
             instruments[name] = counter
 
-        logger.info(f"[RLM Metrics] OpenTelemetry instruments created for '{meter_name}'")
+        logger.info("[RLM Metrics] OpenTelemetry instruments created for '%s'", meter_name)
         return instruments
 
     except (RuntimeError, ValueError, TypeError) as e:
-        logger.error(f"[RLM Metrics] OpenTelemetry export failed: {e}")
+        logger.error("[RLM Metrics] OpenTelemetry export failed: %s", e)
         return {}
 
 
@@ -354,7 +354,7 @@ def create_periodic_exporter(
             try:
                 export_fn()
             except (RuntimeError, ValueError, ConnectionError, TimeoutError, OSError) as e:
-                logger.error(f"Periodic metrics export failed: {e}")
+                logger.error("Periodic metrics export failed: %s", e)
             stop_event.wait(interval_seconds)
 
     thread = threading.Thread(target=run, daemon=True)

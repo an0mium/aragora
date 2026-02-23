@@ -70,7 +70,7 @@ def _get_real_consensus_rate(
         # No data available, use default
         return default
     except (ImportError, KeyError, ValueError, AttributeError, TypeError) as e:
-        logger.warning(f"Failed to get consensus rate: {e}")
+        logger.warning("Failed to get consensus rate: %s", e)
         return default
 
 
@@ -208,7 +208,7 @@ class SMESuccessDashboardHandler(SecureHandler):
         # Rate limit check
         client_ip = get_client_ip(handler)
         if not _dashboard_limiter.is_allowed(client_ip):
-            logger.warning(f"Rate limit exceeded for success dashboard: {client_ip}")
+            logger.warning("Rate limit exceeded for success dashboard: %s", client_ip)
             return error_response("Rate limit exceeded. Please try again later.", 429)
 
         # Determine HTTP method from handler if not provided
@@ -328,9 +328,9 @@ class SMESuccessDashboardHandler(SecureHandler):
                         analytics.get_debate_stats(org_id=org_id, days_back=days_back)
                     )
                 except (RuntimeError, ValueError, AttributeError) as e:
-                    logger.debug(f"Failed to run async get_debate_stats: {e}")
+                    logger.debug("Failed to run async get_debate_stats: %s", e)
             except (RuntimeError, ValueError, AttributeError) as e:
-                logger.debug(f"Failed to get debate stats from analytics: {e}")
+                logger.debug("Failed to get debate stats from analytics: %s", e)
 
         # Use real data if available, fall back to estimates
         if debate_stats is not None and debate_stats.total_debates > 0:

@@ -185,10 +185,7 @@ class AgentHierarchy:
             self._role_history[debate_id].append((agent_name, assignment.role))
 
         logger.info(
-            f"Assigned roles for debate {debate_id}: "
-            f"orchestrator={self.get_orchestrator(debate_id)}, "
-            f"monitors={[a for a, r in assignments.items() if r.role == HierarchyRole.MONITOR]}, "
-            f"workers={[a for a, r in assignments.items() if r.role == HierarchyRole.WORKER]}"
+            "Assigned roles for debate %s: orchestrator=%s, monitors=%s, workers=%s", debate_id, self.get_orchestrator(debate_id), [a for a, r in assignments.items() if r.role == HierarchyRole.MONITOR], [a for a, r in assignments.items() if r.role == HierarchyRole.WORKER]
         )
 
         return assignments
@@ -287,7 +284,7 @@ class AgentHierarchy:
 
         assignment.role = to_role
         self._role_history[debate_id].append((agent_name, to_role))
-        logger.info(f"Promoted {agent_name} to {to_role.value} in debate {debate_id}")
+        logger.info("Promoted %s to %s in debate %s", agent_name, to_role.value, debate_id)
         return True
 
     def get_hierarchy_status(self, debate_id: str) -> dict:

@@ -218,7 +218,7 @@ class TierManager:
     def update_config(self, tier: MemoryTier, config: TierConfig) -> None:
         """Update configuration for a tier."""
         self._configs[tier] = config
-        logger.info(f"Updated tier config for {tier.value}")
+        logger.info("Updated tier config for %s", tier.value)
 
     def get_tier_index(self, tier: MemoryTier) -> int:
         """Get the index of a tier in the ordering (0=slowest, 3=fastest)."""

@@ -360,7 +360,7 @@ class RedisApprovalRequestStore(ApprovalRequestStoreBackend):
             logger.info("Connected to Redis for approval request storage")
             self._using_fallback = False
         except (ConnectionError, TimeoutError, OSError, ImportError) as e:
-            logger.warning(f"Redis connection failed, using SQLite fallback: {e}")
+            logger.warning("Redis connection failed, using SQLite fallback: %s", e)
             self._using_fallback = True
             self._redis_client = None
 
@@ -373,7 +373,7 @@ class RedisApprovalRequestStore(ApprovalRequestStoreBackend):
                 return json.loads(data)
             return None
         except (ConnectionError, TimeoutError, OSError, ValueError) as e:
-            logger.warning(f"Redis get failed, using fallback: {e}")
+            logger.warning("Redis get failed, using fallback: %s", e)
             return await self._fallback.get(request_id)
 
     async def save(self, data: dict[str, Any]) -> None:
@@ -398,7 +398,7 @@ class RedisApprovalRequestStore(ApprovalRequestStoreBackend):
                 pipe.sadd(f"{self.REDIS_INDEX_WORKFLOW}{workflow_id}", request_id)
             pipe.execute()
         except (ConnectionError, TimeoutError, OSError) as e:
-            logger.warning(f"Redis save failed (SQLite fallback used): {e}")
+            logger.warning("Redis save failed (SQLite fallback used): %s", e)
 
     async def delete(self, request_id: str) -> bool:
         result = await self._fallback.delete(request_id)
@@ -426,7 +426,7 @@ class RedisApprovalRequestStore(ApprovalRequestStoreBackend):
                 return True
             return result
         except (ConnectionError, TimeoutError, OSError, ValueError) as e:
-            logger.warning(f"Redis delete failed: {e}")
+            logger.warning("Redis delete failed: %s", e)
             return result
 
     async def list_all(self) -> list[dict[str, Any]]:
@@ -451,7 +451,7 @@ class RedisApprovalRequestStore(ApprovalRequestStoreBackend):
                                 results.append(json.loads(v))
             return results
         except (ConnectionError, TimeoutError, OSError, ValueError) as e:
-            logger.warning(f"Redis list_all failed, using fallback: {e}")
+            logger.warning("Redis list_all failed, using fallback: %s", e)
             return await self._fallback.list_all()
 
     async def list_by_status(self, status: str) -> list[dict[str, Any]]:
@@ -466,7 +466,7 @@ class RedisApprovalRequestStore(ApprovalRequestStoreBackend):
             values = self._redis_client.mget(keys)
             return [json.loads(v) for v in values if v]
         except (ConnectionError, TimeoutError, OSError, ValueError) as e:
-            logger.warning(f"Redis list_by_status failed, using fallback: {e}")
+            logger.warning("Redis list_by_status failed, using fallback: %s", e)
             return await self._fallback.list_by_status(status)
 
     async def list_by_workflow(self, workflow_id: str) -> list[dict[str, Any]]:
@@ -481,7 +481,7 @@ class RedisApprovalRequestStore(ApprovalRequestStoreBackend):
             values = self._redis_client.mget(keys)
             return [json.loads(v) for v in values if v]
         except (ConnectionError, TimeoutError, OSError, ValueError) as e:
-            logger.warning(f"Redis list_by_workflow failed, using fallback: {e}")
+            logger.warning("Redis list_by_workflow failed, using fallback: %s", e)
             return await self._fallback.list_by_workflow(workflow_id)
 
     async def list_pending(self) -> list[dict[str, Any]]:
@@ -526,7 +526,7 @@ class RedisApprovalRequestStore(ApprovalRequestStoreBackend):
             pipe.execute()
             return True
         except (ConnectionError, TimeoutError, OSError, ValueError) as e:
-            logger.warning(f"Redis respond failed: {e}")
+            logger.warning("Redis respond failed: %s", e)
             return result
 
     async def close(self) -> None:
@@ -535,9 +535,9 @@ class RedisApprovalRequestStore(ApprovalRequestStoreBackend):
             try:
                 self._redis_client.close()
             except (ConnectionError, OSError) as e:
-                logger.debug(f"Redis close failed (connection already closed): {e}")
+                logger.debug("Redis close failed (connection already closed): %s", e)
             except (RuntimeError, ValueError) as e:
-                logger.debug(f"Redis close failed: {e}")
+                logger.debug("Redis close failed: %s", e)
 
 
 class PostgresApprovalRequestStore(GenericPostgresStore, ApprovalRequestStoreBackend):

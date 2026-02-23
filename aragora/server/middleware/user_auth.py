@@ -393,20 +393,20 @@ class SupabaseAuthValidator:
             return None
         except (InvalidSignatureError, DecodeError) as e:
             # Token signature invalid or malformed - potential tampering
-            logger.warning(f"JWT signature/decode error: {e}")
+            logger.warning("JWT signature/decode error: %s", e)
             return None
         except InvalidTokenError as e:
             # Catch-all for other JWT validation errors
-            logger.warning(f"JWT validation error: {e}")
+            logger.warning("JWT validation error: %s", e)
             return None
         except (KeyError, ValueError, TypeError) as e:
             # Malformed token structure or payload
-            logger.warning(f"JWT structure error: {e}")
+            logger.warning("JWT structure error: %s", e)
             return None
         except (RuntimeError, OSError, AttributeError) as e:
             # Unexpected system error - always fail closed.
             # Never silently bypass auth, even in dev mode.
-            logger.error(f"JWT validation system error (failing closed): {e}")
+            logger.error("JWT validation system error (failing closed): %s", e)
             raise  # Re-raise to trigger 500 error, don't silently allow
 
     def _evict_stale_cache_entries(self) -> None:
@@ -468,7 +468,7 @@ class SupabaseAuthValidator:
             return payload
 
         except (ValueError, TypeError, KeyError, UnicodeDecodeError) as e:
-            logger.warning(f"JWT decode failed: {e}")
+            logger.warning("JWT decode failed: %s", e)
             return None
 
     def _payload_to_user(self, payload: dict[str, Any]) -> User:
@@ -554,7 +554,7 @@ class APIKeyValidator:
                         return user
 
         except (OSError, ConnectionError, TimeoutError, RuntimeError) as e:
-            logger.warning(f"API key validation failed: {e}")
+            logger.warning("API key validation failed: %s", e)
 
         return None
 

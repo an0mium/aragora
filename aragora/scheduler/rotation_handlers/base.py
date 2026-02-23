@@ -159,14 +159,14 @@ class RotationHandler(ABC):
 
         try:
             # Step 1: Generate new credentials
-            logger.info(f"Generating new credentials for {secret_id}")
+            logger.info("Generating new credentials for %s", secret_id)
             new_value, updated_metadata = await self.generate_new_credentials(secret_id, metadata)
             new_version = updated_metadata.get(
                 "version", "v" + datetime.now(timezone.utc).strftime("%Y%m%d%H%M%S")
             )
 
             # Step 2: Validate new credentials
-            logger.info(f"Validating new credentials for {secret_id}")
+            logger.info("Validating new credentials for %s", secret_id)
             is_valid = await self.validate_credentials(secret_id, new_value, updated_metadata)
 
             if not is_valid:
@@ -186,7 +186,7 @@ class RotationHandler(ABC):
 
             # Step 4: Return success (revocation happens after grace period)
             logger.info(
-                f"Rotation successful for {secret_id}, grace period ends at {grace_period_ends}"
+                "Rotation successful for %s, grace period ends at %s", secret_id, grace_period_ends
             )
 
             return RotationResult(
@@ -203,7 +203,7 @@ class RotationHandler(ABC):
             )
 
         except (OSError, RuntimeError, ValueError, TypeError, TimeoutError, RotationError) as e:
-            logger.exception(f"Rotation failed for {secret_id}: {e}")
+            logger.exception("Rotation failed for %s: %s", secret_id, e)
             return RotationResult(
                 status=RotationStatus.FAILED,
                 secret_id=secret_id,
@@ -235,7 +235,7 @@ class RotationHandler(ABC):
             success = await self.revoke_old_credentials(secret_id, old_value, metadata)
 
             if success:
-                logger.info(f"Successfully revoked old credentials for {secret_id}")
+                logger.info("Successfully revoked old credentials for %s", secret_id)
                 return RotationResult(
                     status=RotationStatus.SUCCESS,
                     secret_id=secret_id,
@@ -243,7 +243,7 @@ class RotationHandler(ABC):
                     metadata={"action": "revocation"},
                 )
             else:
-                logger.warning(f"Failed to revoke old credentials for {secret_id}")
+                logger.warning("Failed to revoke old credentials for %s", secret_id)
                 return RotationResult(
                     status=RotationStatus.PARTIAL,
                     secret_id=secret_id,
@@ -252,7 +252,7 @@ class RotationHandler(ABC):
                 )
 
         except (OSError, RuntimeError, ValueError, TypeError, TimeoutError, RotationError) as e:
-            logger.exception(f"Revocation error for {secret_id}: {e}")
+            logger.exception("Revocation error for %s: %s", secret_id, e)
             return RotationResult(
                 status=RotationStatus.FAILED,
                 secret_id=secret_id,

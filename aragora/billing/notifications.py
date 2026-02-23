@@ -116,11 +116,11 @@ class BillingNotifier:
                 server.login(self.smtp_user, self.smtp_password)
                 server.sendmail(self.smtp_from, to_email, msg.as_string())
 
-            logger.info(f"Sent billing email to {to_email}: {subject}")
+            logger.info("Sent billing email to %s: %s", to_email, subject)
             return NotificationResult(success=True, method="email")
 
         except (smtplib.SMTPException, OSError, ConnectionError, TimeoutError, ssl.SSLError) as e:
-            logger.error(f"Failed to send email to {to_email}: {e}")
+            logger.error("Failed to send email to %s: %s", to_email, e)
             return NotificationResult(success=False, method="email", error="Email delivery failed")
 
     def _send_webhook(self, payload: dict) -> NotificationResult:
@@ -143,11 +143,11 @@ class BillingNotifier:
             with urlopen(req, timeout=10) as response:
                 response.read()
 
-            logger.info(f"Sent webhook notification: {payload.get('event')}")
+            logger.info("Sent webhook notification: %s", payload.get('event'))
             return NotificationResult(success=True, method="webhook")
 
         except URLError as e:
-            logger.error(f"Failed to send webhook: {e}")
+            logger.error("Failed to send webhook: %s", e)
             return NotificationResult(success=False, method="webhook", error="Webhook delivery failed")
 
     def notify_payment_failed(
@@ -272,8 +272,7 @@ If you believe this is an error, please contact support@aragora.ai
 
         # Log as final fallback
         logger.warning(
-            f"PAYMENT_FAILED: org={org_id} name={org_name} email={email} "
-            f"attempt={attempt_count} urgency={urgency}"
+            "PAYMENT_FAILED: org=%s name=%s email=%s attempt=%s urgency=%s", org_id, org_name, email, attempt_count, urgency
         )
         return NotificationResult(success=True, method="log")
 
@@ -394,8 +393,7 @@ Questions? Contact us at support@aragora.ai
 
         # Log as final fallback
         logger.info(
-            f"TRIAL_ENDING: org={org_id} name={org_name} email={email} "
-            f"days_remaining={days_remaining}"
+            "TRIAL_ENDING: org=%s name=%s email=%s days_remaining=%s", org_id, org_name, email, days_remaining
         )
         return NotificationResult(success=True, method="log")
 
@@ -491,7 +489,7 @@ We'd love to hear your feedback. What could we have done better?
 
         # Log as final fallback
         logger.info(
-            f"SUBSCRIPTION_CANCELED: org={org_id} name={org_name} email={email} reason={reason}"
+            "SUBSCRIPTION_CANCELED: org=%s name=%s email=%s reason=%s", org_id, org_name, email, reason
         )
         return NotificationResult(success=True, method="log")
 
@@ -598,8 +596,7 @@ Need help? Contact support@aragora.ai
 
         # Log as final fallback
         logger.warning(
-            f"SUBSCRIPTION_DOWNGRADED: org={org_id} name={org_name} email={email} "
-            f"previous_tier={previous_tier.value}"
+            "SUBSCRIPTION_DOWNGRADED: org=%s name=%s email=%s previous_tier=%s", org_id, org_name, email, previous_tier.value
         )
         return NotificationResult(success=True, method="log")
 

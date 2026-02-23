@@ -106,15 +106,14 @@ async def handle_scan_secrets(
                     repo_scans[scan_id] = result
 
                 logger.info(
-                    f"[Security] Completed secrets scan {scan_id} for {repo_id}: "
-                    f"{len(result.secrets)} secrets found"
+                    "[Security] Completed secrets scan %s for %s: %s secrets found", scan_id, repo_id, len(result.secrets)
                 )
 
                 # Emit security events for findings (triggers debate for critical secrets)
                 await emit_secrets_events(result, repo_id, scan_id, workspace_id)
 
             except (OSError, ValueError, TypeError, RuntimeError) as e:
-                logger.exception(f"Secrets scan {scan_id} failed: {e}")
+                logger.exception("Secrets scan %s failed: %s", scan_id, e)
                 with secrets_scan_lock:
                     scan_result.status = "failed"
                     scan_result.error = "Secrets scan failed"
@@ -128,7 +127,7 @@ async def handle_scan_secrets(
         task = asyncio.create_task(run_secrets_scan())
         running_secrets_scans[repo_id] = task
 
-        logger.info(f"[Security] Started secrets scan {scan_id} for {repo_id}")
+        logger.info("[Security] Started secrets scan %s for %s", scan_id, repo_id)
 
         return success_response(
             {
@@ -140,7 +139,7 @@ async def handle_scan_secrets(
         )
 
     except (OSError, ValueError, TypeError, RuntimeError) as e:
-        logger.exception(f"Failed to start secrets scan: {e}")
+        logger.exception("Failed to start secrets scan: %s", e)
         return error_response("Internal server error", 500)
 
 
@@ -174,7 +173,7 @@ async def handle_get_secrets_scan_status(
             return success_response({"scan_result": latest.to_dict()})
 
     except (KeyError, ValueError, TypeError) as e:
-        logger.exception(f"Failed to get secrets scan status: {e}")
+        logger.exception("Failed to get secrets scan status: %s", e)
         return error_response("Internal server error", 500)
 
 
@@ -236,7 +235,7 @@ async def handle_get_secrets(
         )
 
     except (KeyError, ValueError, TypeError, AttributeError) as e:
-        logger.exception(f"Failed to get secrets: {e}")
+        logger.exception("Failed to get secrets: %s", e)
         return error_response("Internal server error", 500)
 
 
@@ -300,5 +299,5 @@ async def handle_list_secrets_scans(
         )
 
     except (KeyError, ValueError, TypeError) as e:
-        logger.exception(f"Failed to list secrets scans: {e}")
+        logger.exception("Failed to list secrets scans: %s", e)
         return error_response("Internal server error", 500)

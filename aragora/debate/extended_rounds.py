@@ -303,11 +303,11 @@ class RLMContextManager:
                     # Log which approach was used
                     if result.used_true_rlm:
                         logger.debug(
-                            f"[ExtendedRounds] Round {round_num}: Used TRUE RLM for compression"
+                            "[ExtendedRounds] Round %s: Used TRUE RLM for compression", round_num
                         )
                     elif result.used_compression_fallback:
                         logger.debug(
-                            f"[ExtendedRounds] Round {round_num}: Used compression fallback"
+                            "[ExtendedRounds] Round %s: Used compression fallback", round_num
                         )
 
                     # Track token savings
@@ -317,9 +317,9 @@ class RLMContextManager:
                     self._state.compressed_tokens = compressed_tokens
 
             except asyncio.TimeoutError:
-                logger.warning(f"[ExtendedRounds] RLM compression timed out for round {round_num}")
+                logger.warning("[ExtendedRounds] RLM compression timed out for round %s", round_num)
             except (RuntimeError, ValueError, TypeError, AttributeError, KeyError, OSError, ConnectionError) as e:
-                logger.error(f"[ExtendedRounds] RLM compression failed: {e}")
+                logger.error("[ExtendedRounds] RLM compression failed: %s", e)
 
         # Build final context
         return await self._apply_sliding_window(debate_context, round_num)
@@ -376,7 +376,7 @@ class RLMContextManager:
                 if result and result.answer:
                     return result.answer
             except (RuntimeError, ValueError, TypeError, AttributeError, KeyError, OSError, ConnectionError) as e:
-                logger.debug(f"[ExtendedRounds] Drill-down query failed: {e}")
+                logger.debug("[ExtendedRounds] Drill-down query failed: %s", e)
 
         # Fallback: return the compressed history itself
         return self._state.compressed_history

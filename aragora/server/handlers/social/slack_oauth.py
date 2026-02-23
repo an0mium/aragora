@@ -137,7 +137,7 @@ def _get_oauth_audit_logger() -> Any:
 
             _slack_oauth_audit = get_slack_audit_logger()
         except (ImportError, AttributeError, ValueError) as e:
-            logger.debug(f"Slack OAuth audit logger not available: {e}")
+            logger.debug("Slack OAuth audit logger not available: %s", e)
             _slack_oauth_audit = None
     return _slack_oauth_audit
 
@@ -304,7 +304,7 @@ class SlackOAuthHandler(SecureHandler):
                         body = json_module.loads(raw_body) if raw_body else {}
                     except (json.JSONDecodeError, ValueError, KeyError, UnicodeDecodeError) as e:
                         logger.warning(
-                            f"Failed to parse Slack webhook body: {type(e).__name__}: {e}"
+                            "Failed to parse Slack webhook body: %s: %s", type(e).__name__, e
                         )
                         body = {}
 
@@ -368,7 +368,7 @@ class SlackOAuthHandler(SecureHandler):
         try:
             auth_context = await self.get_auth_context(handler, require_auth=True)
         except (UnauthorizedError, Exception) as e:
-            logger.debug(f"Slack OAuth auth failed: {e}")
+            logger.debug("Slack OAuth auth failed: %s", e)
             return error_response("Authentication required", 401)
 
         if path == "/api/integrations/slack/install":
@@ -381,7 +381,7 @@ class SlackOAuthHandler(SecureHandler):
                         CONNECTOR_AUTHORIZE,
                     )
                 except (ForbiddenError, PermissionError) as e:
-                    logger.warning(f"Permission denied for Slack install: {e}")
+                    logger.warning("Permission denied for Slack install: %s", e)
                     return error_response("Permission denied", 403)
                 return await self._handle_install(query_params)
             return error_response("Method not allowed", 405)
@@ -392,7 +392,7 @@ class SlackOAuthHandler(SecureHandler):
                 try:
                     self._check_permission(auth_context, CONNECTOR_READ)
                 except (ForbiddenError, PermissionError) as e:
-                    logger.warning(f"Permission denied for Slack preview: {e}")
+                    logger.warning("Permission denied for Slack preview: %s", e)
                     return error_response("Permission denied", 403)
                 return await self._handle_preview(query_params)
             return error_response("Method not allowed", 405)
@@ -407,7 +407,7 @@ class SlackOAuthHandler(SecureHandler):
                         CONNECTOR_READ,
                     )
                 except (ForbiddenError, PermissionError) as e:
-                    logger.warning(f"Permission denied for Slack workspace list: {e}")
+                    logger.warning("Permission denied for Slack workspace list: %s", e)
                     return error_response(
                         "Permission denied",
                         403,
@@ -430,7 +430,7 @@ class SlackOAuthHandler(SecureHandler):
                         CONNECTOR_READ,
                     )
                 except (ForbiddenError, PermissionError) as e:
-                    logger.warning(f"Permission denied for Slack workspace status: {e}")
+                    logger.warning("Permission denied for Slack workspace status: %s", e)
                     return error_response(
                         "Permission denied",
                         403,
@@ -450,7 +450,7 @@ class SlackOAuthHandler(SecureHandler):
                         CONNECTOR_AUTHORIZE,
                     )
                 except (ForbiddenError, PermissionError) as e:
-                    logger.warning(f"Permission denied for Slack token refresh: {e}")
+                    logger.warning("Permission denied for Slack token refresh: %s", e)
                     return error_response(
                         "Permission denied",
                         403,
@@ -481,7 +481,7 @@ class SlackOAuthHandler(SecureHandler):
         try:
             state = state_store.generate(metadata={"tenant_id": tenant_id, "provider": "slack"})
         except (ValueError, TypeError, OSError, RuntimeError) as e:
-            logger.error(f"Failed to generate OAuth state: {e}")
+            logger.error("Failed to generate OAuth state: %s", e)
             return error_response("Failed to initialize OAuth flow", 503)
 
         # Build OAuth URL
@@ -499,7 +499,7 @@ class SlackOAuthHandler(SecureHandler):
                 return error_response("Only localhost allowed in development mode", 400)
             scheme = "http"
             redirect_uri = f"{scheme}://{host}/api/integrations/slack/callback"
-            logger.warning(f"Using fallback redirect_uri in development: {redirect_uri}")
+            logger.warning("Using fallback redirect_uri in development: %s", redirect_uri)
 
         oauth_params = {
             "client_id": SLACK_CLIENT_ID,
@@ -517,7 +517,7 @@ class SlackOAuthHandler(SecureHandler):
             "provider": "slack",
         }
 
-        logger.info(f"Initiating Slack OAuth flow (state: {state[:8]}...)")
+        logger.info("Initiating Slack OAuth flow (state: %s...)", state[:8])
 
         # Return redirect response
         return HandlerResult(
@@ -789,7 +789,7 @@ class SlackOAuthHandler(SecureHandler):
         # Check for error from Slack
         if "error" in query_params:
             error_code = query_params.get("error")
-            logger.warning(f"Slack OAuth error: {error_code}")
+            logger.warning("Slack OAuth error: %s", error_code)
             # Audit log OAuth denial
             audit = _get_oauth_audit_logger()
             if audit:
@@ -863,8 +863,7 @@ class SlackOAuthHandler(SecureHandler):
                                     response.headers.get("Retry-After", retry_delay * 2)
                                 )
                                 logger.warning(
-                                    f"[{request_id}] Slack OAuth rate limited, "
-                                    f"retrying in {retry_after}s (attempt {attempt + 1}/{max_retries})"
+                                    "[%s] Slack OAuth rate limited, retrying in %ss (attempt %s/%s)", request_id, retry_after, attempt + 1, max_retries
                                 )
                                 if attempt < max_retries - 1:
                                     await asyncio.sleep(retry_after)
@@ -873,8 +872,7 @@ class SlackOAuthHandler(SecureHandler):
                             if status_code >= 500:
                                 # Server error - retry with backoff
                                 logger.warning(
-                                    f"[{request_id}] Slack OAuth server error {status_code}, "
-                                    f"retrying (attempt {attempt + 1}/{max_retries})"
+                                    "[%s] Slack OAuth server error %s, retrying (attempt %s/%s)", request_id, status_code, attempt + 1, max_retries
                                 )
                                 if attempt < max_retries - 1:
                                     await asyncio.sleep(retry_delay * (2**attempt))
@@ -887,8 +885,7 @@ class SlackOAuthHandler(SecureHandler):
                 except httpx.TimeoutException as e:
                     last_error = e
                     logger.warning(
-                        f"[{request_id}] Slack OAuth timeout, "
-                        f"retrying (attempt {attempt + 1}/{max_retries})"
+                        "[%s] Slack OAuth timeout, retrying (attempt %s/%s)", request_id, attempt + 1, max_retries
                     )
                     if attempt < max_retries - 1:
                         await asyncio.sleep(retry_delay * (2**attempt))
@@ -897,8 +894,7 @@ class SlackOAuthHandler(SecureHandler):
                 except httpx.ConnectError as e:
                     last_error = e
                     logger.warning(
-                        f"[{request_id}] Slack OAuth connection error, "
-                        f"retrying (attempt {attempt + 1}/{max_retries})"
+                        "[%s] Slack OAuth connection error, retrying (attempt %s/%s)", request_id, attempt + 1, max_retries
                     )
                     if attempt < max_retries - 1:
                         await asyncio.sleep(retry_delay * (2**attempt))
@@ -906,19 +902,19 @@ class SlackOAuthHandler(SecureHandler):
 
             if data is None:
                 logger.error(
-                    f"[{request_id}] Slack token exchange failed after {max_retries} attempts: {last_error}"
+                    "[%s] Slack token exchange failed after %s attempts: %s", request_id, max_retries, last_error
                 )
                 return error_response(f"Token exchange failed after retries: {last_error}", 500)
 
         except ImportError:
             return error_response("httpx not available", 503)
         except (ConnectionError, TimeoutError, OSError, ValueError, TypeError) as e:
-            logger.error(f"[{request_id}] Slack token exchange failed: {e}")
+            logger.error("[%s] Slack token exchange failed: %s", request_id, e)
             return error_response("Token exchange failed", 500)
 
         if not data.get("ok"):
             error_msg = data.get("error", "Unknown error")
-            logger.error(f"Slack OAuth failed: {error_msg}")
+            logger.error("Slack OAuth failed: %s", error_msg)
             return error_response(f"Slack OAuth failed: {error_msg}", 400)
 
         # Extract workspace info
@@ -977,7 +973,7 @@ class SlackOAuthHandler(SecureHandler):
                     )
                 return error_response("Failed to save workspace", 500)
 
-            logger.info(f"Slack workspace installed: {workspace_name} ({workspace_id})")
+            logger.info("Slack workspace installed: %s (%s)", workspace_name, workspace_id)
 
             # Audit log successful installation
             audit = _get_oauth_audit_logger()
@@ -991,7 +987,7 @@ class SlackOAuthHandler(SecureHandler):
                 )
 
         except ImportError as e:
-            logger.error(f"Workspace store not available: {e}")
+            logger.error("Workspace store not available: %s", e)
             # Audit log storage unavailable error
             audit = _get_oauth_audit_logger()
             if audit:
@@ -1134,7 +1130,7 @@ class SlackOAuthHandler(SecureHandler):
 
                     store = get_slack_workspace_store()
                     store.deactivate(workspace_id)
-                    logger.info(f"Slack workspace uninstalled: {workspace_id}")
+                    logger.info("Slack workspace uninstalled: %s", workspace_id)
 
                     # Audit log uninstallation
                     audit = _get_oauth_audit_logger()
@@ -1161,7 +1157,7 @@ class SlackOAuthHandler(SecureHandler):
 
                     store = get_slack_workspace_store()
                     store.deactivate(workspace_id)
-                    logger.info(f"Slack tokens revoked for workspace: {workspace_id}")
+                    logger.info("Slack tokens revoked for workspace: %s", workspace_id)
 
                     # Audit log token revocation
                     audit = _get_oauth_audit_logger()
@@ -1218,7 +1214,7 @@ class SlackOAuthHandler(SecureHandler):
                     }
                 )
 
-            logger.info(f"Listed {len(workspace_list)} Slack workspaces")
+            logger.info("Listed %s Slack workspaces", len(workspace_list))
             return json_response(
                 {
                     "workspaces": workspace_list,
@@ -1227,10 +1223,10 @@ class SlackOAuthHandler(SecureHandler):
             )
 
         except ImportError as e:
-            logger.error(f"Workspace store not available: {e}")
+            logger.error("Workspace store not available: %s", e)
             return error_response("Workspace storage not available", 503)
         except (KeyError, ValueError, OSError, TypeError, AttributeError) as e:
-            logger.error(f"Failed to list workspaces: {e}")
+            logger.error("Failed to list workspaces: %s", e)
             return error_response("Failed to list workspaces", 500)
 
     async def _handle_workspace_status(self, workspace_id: str) -> HandlerResult:
@@ -1284,14 +1280,14 @@ class SlackOAuthHandler(SecureHandler):
                 "tenant_id": workspace.tenant_id,
             }
 
-            logger.debug(f"Token status for workspace {workspace_id}: {token_status}")
+            logger.debug("Token status for workspace %s: %s", workspace_id, token_status)
             return json_response(status_data)
 
         except ImportError as e:
-            logger.error(f"Workspace store not available: {e}")
+            logger.error("Workspace store not available: %s", e)
             return error_response("Workspace storage not available", 503)
         except (KeyError, ValueError, OSError, TypeError, AttributeError) as e:
-            logger.error(f"Failed to get workspace status: {e}")
+            logger.error("Failed to get workspace status: %s", e)
             return error_response("Failed to get workspace status", 500)
 
     async def _handle_refresh_token(self, workspace_id: str) -> HandlerResult:
@@ -1337,7 +1333,7 @@ class SlackOAuthHandler(SecureHandler):
                     data = response.json()
 
             except httpx.HTTPError as e:
-                logger.error(f"Token refresh HTTP error for {workspace_id}: {e}")
+                logger.error("Token refresh HTTP error for %s: %s", workspace_id, e)
                 audit = _get_oauth_audit_logger()
                 if audit:
                     audit.log_oauth(
@@ -1351,7 +1347,7 @@ class SlackOAuthHandler(SecureHandler):
 
             if not data.get("ok"):
                 error_msg = data.get("error", "Unknown error")
-                logger.error(f"Token refresh failed for {workspace_id}: {error_msg}")
+                logger.error("Token refresh failed for %s: %s", workspace_id, error_msg)
                 audit = _get_oauth_audit_logger()
                 if audit:
                     audit.log_oauth(
@@ -1375,7 +1371,7 @@ class SlackOAuthHandler(SecureHandler):
             if not store.save(workspace):
                 return error_response("Failed to save refreshed token", 500)
 
-            logger.info(f"Token refreshed for workspace {workspace_id}")
+            logger.info("Token refreshed for workspace %s", workspace_id)
 
             audit = _get_oauth_audit_logger()
             if audit:
@@ -1395,10 +1391,10 @@ class SlackOAuthHandler(SecureHandler):
             )
 
         except ImportError as e:
-            logger.error(f"Workspace store not available: {e}")
+            logger.error("Workspace store not available: %s", e)
             return error_response("Workspace storage not available", 503)
         except (ConnectionError, TimeoutError, OSError, ValueError, TypeError) as e:
-            logger.error(f"Failed to refresh token: {e}")
+            logger.error("Failed to refresh token: %s", e)
             return error_response("Failed to refresh token", 500)
 
 

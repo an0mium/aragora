@@ -155,12 +155,12 @@ class DebateLoaders:
                     else:
                         results.append(None)
                 except (TypeError, ValueError, AttributeError, KeyError, RuntimeError, OSError) as e:
-                    logger.debug(f"Failed to load ELO for {name}: {e}")
+                    logger.debug("Failed to load ELO for %s: %s", name, e)
                     results.append(None)
             return results
 
         except (TypeError, ValueError, AttributeError, KeyError, RuntimeError, OSError) as e:
-            logger.warning(f"Batch ELO load failed: {e}")
+            logger.warning("Batch ELO load failed: %s", e)
             return [None] * len(agent_names)
 
     async def _batch_load_stats(self, agent_names: list[str]) -> list[AgentStats | None]:
@@ -195,12 +195,12 @@ class DebateLoaders:
                     else:
                         results.append(None)
                 except (TypeError, ValueError, AttributeError, KeyError, RuntimeError, OSError) as e:
-                    logger.debug(f"Failed to load stats for {name}: {e}")
+                    logger.debug("Failed to load stats for %s: %s", name, e)
                     results.append(None)
             return results
 
         except (TypeError, ValueError, AttributeError, KeyError, RuntimeError, OSError) as e:
-            logger.warning(f"Batch stats load failed: {e}")
+            logger.warning("Batch stats load failed: %s", e)
             return [None] * len(agent_names)
 
     def _elo_to_rating(self, agent_name: str, data: Any | None) -> ELORating | None:

@@ -336,7 +336,7 @@ class TaskQueueExecutorAdapter:
             for workflow_id in list(self._queue._workflows.keys()):
                 self._queue.cancel_workflow(workflow_id)
 
-        logger.info(f"Queue adapter termination requested: {reason}")
+        logger.info("Queue adapter termination requested: %s", reason)
 
     async def stop(self) -> None:
         """Stop the queue (cleanup)."""

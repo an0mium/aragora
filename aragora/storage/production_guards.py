@@ -117,7 +117,7 @@ def get_environment() -> EnvironmentMode:
     elif env in ("test", "testing"):
         return EnvironmentMode.TEST
     else:
-        logger.warning(f"Unknown environment '{env}', treating as development")
+        logger.warning("Unknown environment '%s', treating as development", env)
         return EnvironmentMode.DEVELOPMENT
 
 
@@ -138,7 +138,7 @@ def get_storage_mode() -> StorageMode | None:
     try:
         return StorageMode(mode)
     except ValueError:
-        logger.warning(f"Unknown storage mode '{mode}'")
+        logger.warning("Unknown storage mode '%s'", mode)
         return None
 
 
@@ -196,31 +196,26 @@ def require_distributed_store(
     # Allow fallback during pytest runs regardless of environment.
     if os.environ.get("PYTEST_CURRENT_TEST"):
         logger.info(
-            f"Store '{store_name}' using {current_mode.value} backend "
-            "during tests (pytest override)"
+            "Store '%s' using %s backend during tests (pytest override)", store_name, current_mode.value
         )
         return
 
     # Allow fallback in development/test
     if env in config.allowed_fallback_envs:
         logger.info(
-            f"Store '{store_name}' using {current_mode.value} backend "
-            f"(allowed in {env.value} environment)"
+            "Store '%s' using %s backend (allowed in %s environment)", store_name, current_mode.value, env.value
         )
         return
 
     # Allow fallback for explicitly excluded stores
     if store_name in config.fail_open_stores:
-        logger.info(f"Store '{store_name}' using {current_mode.value} backend (fail-open store)")
+        logger.info("Store '%s' using %s backend (fail-open store)", store_name, current_mode.value)
         return
 
     # Allow fallback if explicitly disabled
     if not config.require_distributed:
         logger.warning(
-            f"Store '{store_name}' using {current_mode.value} backend "
-            f"in {env.value} environment. "
-            f"Distributed state enforcement is DISABLED. "
-            f"This is NOT recommended for multi-instance deployments."
+            "Store '%s' using %s backend in %s environment. Distributed state enforcement is DISABLED. This is NOT recommended for multi-instance deployments.", store_name, current_mode.value, env.value
         )
         return
 
@@ -231,7 +226,7 @@ def require_distributed_store(
         raise DistributedStateError(store_name, reason)
 
     # Using distributed backend, all good
-    logger.debug(f"Store '{store_name}' using distributed backend: {current_mode.value}")
+    logger.debug("Store '%s' using distributed backend: %s", store_name, current_mode.value)
 
 
 def validate_store_config(
@@ -269,7 +264,7 @@ def validate_store_config(
     # Check for explicit override
     explicit_mode = get_storage_mode()
     if explicit_mode:
-        logger.info(f"Store '{store_name}' using explicit mode: {explicit_mode.value}")
+        logger.info("Store '%s' using explicit mode: %s", store_name, explicit_mode.value)
         require_distributed_store(
             store_name,
             explicit_mode,
@@ -279,17 +274,17 @@ def validate_store_config(
 
     # 1. Try Supabase first (preferred for persistent data)
     if supabase_dsn:
-        logger.info(f"Store '{store_name}' using Supabase PostgreSQL (preferred)")
+        logger.info("Store '%s' using Supabase PostgreSQL (preferred)", store_name)
         return StorageMode.SUPABASE
 
     # 2. Try self-hosted PostgreSQL (fallback)
     if postgres_url:
-        logger.info(f"Store '{store_name}' using self-hosted PostgreSQL")
+        logger.info("Store '%s' using self-hosted PostgreSQL", store_name)
         return StorageMode.POSTGRES
 
     # 3. Try Redis (for caching/session stores)
     if redis_url:
-        logger.info(f"Store '{store_name}' using Redis backend")
+        logger.info("Store '%s' using Redis backend", store_name)
         return StorageMode.REDIS
 
     # 4. Fall back to local storage (with production guard)
@@ -300,7 +295,7 @@ def validate_store_config(
         "Set SUPABASE_URL + SUPABASE_DB_PASSWORD, DATABASE_URL, or ARAGORA_REDIS_URL.",
     )
 
-    logger.info(f"Store '{store_name}' using {fallback_mode.value} backend (fallback)")
+    logger.info("Store '%s' using %s backend (fallback)", store_name, fallback_mode.value)
     return fallback_mode
 
 
@@ -330,19 +325,19 @@ def check_multi_instance_readiness() -> dict[str, bool]:
         int_store = get_integration_store()
         stores["integration_store"] = getattr(int_store, "_uses_distributed", False)
     except (OSError, RuntimeError, ValueError, ImportError) as e:
-        logger.debug(f"Could not check integration_store: {e}")
+        logger.debug("Could not check integration_store: %s", e)
 
     try:
         webhook_store = get_webhook_store()
         stores["webhook_store"] = getattr(webhook_store, "_uses_distributed", False)
     except (OSError, RuntimeError, ValueError, ImportError) as e:
-        logger.debug(f"Could not check webhook_store: {e}")
+        logger.debug("Could not check webhook_store: %s", e)
 
     try:
         gmail_store = get_gmail_token_store()
         stores["gmail_token_store"] = getattr(gmail_store, "_uses_distributed", False)
     except (OSError, RuntimeError, ValueError, ImportError) as e:
-        logger.debug(f"Could not check gmail_token_store: {e}")
+        logger.debug("Could not check gmail_token_store: %s", e)
 
     # Check user store - critical for authentication
     try:
@@ -351,7 +346,7 @@ def check_multi_instance_readiness() -> dict[str, bool]:
         user_store = get_user_store()
         stores["user_store"] = isinstance(user_store, PostgresUserStore)
     except (OSError, RuntimeError, ValueError, ImportError) as e:
-        logger.debug(f"Could not check user_store: {e}")
+        logger.debug("Could not check user_store: %s", e)
 
     # Check audit log - critical for compliance
     try:
@@ -363,7 +358,7 @@ def check_multi_instance_readiness() -> dict[str, bool]:
         # when horizontal scaling of audit data is required.
         stores["audit_log"] = getattr(audit_log, "_uses_distributed", False)
     except (OSError, RuntimeError, ValueError, ImportError) as e:
-        logger.debug(f"Could not check audit_log: {e}")
+        logger.debug("Could not check audit_log: %s", e)
 
     return stores
 

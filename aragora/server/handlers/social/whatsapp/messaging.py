@@ -60,10 +60,10 @@ async def send_text_message(to_number: str, text: str) -> None:
             )
             if response.status_code != 200:
                 result = response.json()
-                logger.warning(f"WhatsApp API error: {result}")
+                logger.warning("WhatsApp API error: %s", result)
                 status = "error"
     except (OSError, ConnectionError, TimeoutError, ValueError, RuntimeError) as e:
-        logger.error(f"Error sending WhatsApp message: {e}")
+        logger.error("Error sending WhatsApp message: %s", e)
         status = "error"
     finally:
         latency = time.time() - start_time
@@ -130,12 +130,12 @@ async def send_interactive_buttons(
             )
             if response.status_code != 200:
                 result = response.json()
-                logger.warning(f"WhatsApp API error: {result}")
+                logger.warning("WhatsApp API error: %s", result)
                 status = "error"
                 # Fall back to plain text if interactive fails
                 await send_text_message(to_number, body_text)
     except (OSError, ConnectionError, TimeoutError, ValueError, RuntimeError) as e:
-        logger.error(f"Error sending WhatsApp interactive message: {e}")
+        logger.error("Error sending WhatsApp interactive message: %s", e)
         status = "error"
         # Fall back to plain text
         await send_text_message(to_number, body_text)
@@ -183,7 +183,7 @@ async def send_voice_summary(
     except ImportError:
         logger.debug("TTS helper not available")
     except (OSError, ConnectionError, TimeoutError, ValueError, RuntimeError) as e:
-        logger.warning(f"Failed to send WhatsApp voice summary: {e}")
+        logger.warning("Failed to send WhatsApp voice summary: %s", e)
 
 
 async def send_voice_message(
@@ -237,7 +237,7 @@ async def send_voice_message(
             upload_result = upload_response.json()
 
             if upload_response.status_code != 200:
-                logger.warning(f"WhatsApp media upload failed: {upload_result}")
+                logger.warning("WhatsApp media upload failed: %s", upload_result)
                 return
 
             media_id = upload_result.get("id")
@@ -266,9 +266,9 @@ async def send_voice_message(
             )
             if send_response.status_code != 200:
                 send_result = send_response.json()
-                logger.warning(f"WhatsApp audio send failed: {send_result}")
+                logger.warning("WhatsApp audio send failed: %s", send_result)
             else:
-                logger.info(f"WhatsApp voice message sent to {to_number}")
+                logger.info("WhatsApp voice message sent to %s", to_number)
 
     except (OSError, ConnectionError, TimeoutError, ValueError, RuntimeError) as e:
-        logger.error(f"Error sending WhatsApp voice message: {e}")
+        logger.error("Error sending WhatsApp voice message: %s", e)

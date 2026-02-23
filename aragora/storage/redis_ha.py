@@ -180,7 +180,7 @@ class RedisHAConfig:
         try:
             mode = RedisMode(mode_str)
         except ValueError:
-            logger.warning(f"Invalid Redis mode '{mode_str}', falling back to standalone")
+            logger.warning("Invalid Redis mode '%s', falling back to standalone", mode_str)
             mode = RedisMode.STANDALONE
 
         # Auto-detect mode if not explicitly set
@@ -301,7 +301,7 @@ def _parse_host_port(host_str: str, default_port: int = 6379) -> tuple[str, int]
         try:
             return parts[0], int(parts[1])
         except ValueError:
-            logger.warning(f"Invalid port in '{host_str}', using default {default_port}")
+            logger.warning("Invalid port in '%s', using default %s", host_str, default_port)
             return parts[0], default_port
     return host_str, default_port
 
@@ -332,7 +332,7 @@ def _parse_redis_url(url: str) -> tuple[str | None, int | None]:
         # Parse host:port
         return _parse_host_port(url)
     except (ValueError, IndexError, AttributeError) as e:
-        logger.debug(f"Failed to parse Redis URL: {e}")
+        logger.debug("Failed to parse Redis URL: %s", e)
         return None, None
 
 
@@ -368,16 +368,16 @@ def get_redis_client(config: RedisHAConfig | None = None) -> Any | None:
         else:
             return _create_standalone_client(config)
     except ImportError as e:
-        logger.error(f"redis package not installed: {e}. Install with: pip install redis>=4.5.0")
+        logger.error("redis package not installed: %s. Install with: pip install redis>=4.5.0", e)
         return None
     except (ConnectionError, TimeoutError, OSError) as e:
         logger.error(
-            f"Failed to create Redis client ({config.mode.value} mode) - connection error: {e}"
+            "Failed to create Redis client (%s mode) - connection error: %s", config.mode.value, e
         )
         return None
     except ValueError as e:
         logger.error(
-            f"Failed to create Redis client ({config.mode.value} mode) - invalid config: {e}"
+            "Failed to create Redis client (%s mode) - invalid config: %s", config.mode.value, e
         )
         return None
 
@@ -428,7 +428,7 @@ def _create_standalone_client(config: RedisHAConfig) -> Any:
 
     # Verify connection
     client.ping()
-    logger.info(f"Connected to standalone Redis at {config.host}:{config.port}")
+    logger.info("Connected to standalone Redis at %s:%s", config.host, config.port)
 
     return client
 
@@ -490,8 +490,7 @@ def _create_sentinel_client(config: RedisHAConfig) -> Any:
     # Verify connection
     master.ping()
     logger.info(
-        f"Connected to Redis via Sentinel (master={config.sentinel_master}, "
-        f"sentinels={len(sentinel_hosts)})"
+        "Connected to Redis via Sentinel (master=%s, sentinels=%s)", config.sentinel_master, len(sentinel_hosts)
     )
 
     return master
@@ -534,7 +533,7 @@ def _create_cluster_client(config: RedisHAConfig) -> Any:
 
     # Verify connection
     client.ping()
-    logger.info(f"Connected to Redis Cluster ({len(cluster_nodes)} startup nodes)")
+    logger.info("Connected to Redis Cluster (%s startup nodes)", len(cluster_nodes))
 
     return client
 
@@ -568,16 +567,16 @@ async def get_async_redis_client(config: RedisHAConfig | None = None) -> Any | N
         else:
             return await _create_async_standalone_client(config)
     except ImportError as e:
-        logger.error(f"redis package not installed: {e}. Install with: pip install redis>=4.5.0")
+        logger.error("redis package not installed: %s. Install with: pip install redis>=4.5.0", e)
         return None
     except (ConnectionError, TimeoutError, OSError) as e:
         logger.error(
-            f"Failed to create async Redis client ({config.mode.value} mode) - connection error: {e}"
+            "Failed to create async Redis client (%s mode) - connection error: %s", config.mode.value, e
         )
         return None
     except ValueError as e:
         logger.error(
-            f"Failed to create async Redis client ({config.mode.value} mode) - invalid config: {e}"
+            "Failed to create async Redis client (%s mode) - invalid config: %s", config.mode.value, e
         )
         return None
 
@@ -626,7 +625,7 @@ async def _create_async_standalone_client(config: RedisHAConfig) -> Any:
 
     # Verify connection
     await client.ping()
-    logger.info(f"Connected to async standalone Redis at {config.host}:{config.port}")
+    logger.info("Connected to async standalone Redis at %s:%s", config.host, config.port)
 
     return client
 
@@ -687,8 +686,7 @@ async def _create_async_sentinel_client(config: RedisHAConfig) -> Any:
     # Verify connection
     await master.ping()
     logger.info(
-        f"Connected to async Redis via Sentinel (master={config.sentinel_master}, "
-        f"sentinels={len(sentinel_hosts)})"
+        "Connected to async Redis via Sentinel (master=%s, sentinels=%s)", config.sentinel_master, len(sentinel_hosts)
     )
 
     return master
@@ -731,7 +729,7 @@ async def _create_async_cluster_client(config: RedisHAConfig) -> Any:
 
     # Verify connection - RedisCluster.ping() returns coroutine but type stubs don't reflect this
     await client.ping()  # type: ignore[misc]
-    logger.info(f"Connected to async Redis Cluster ({len(cluster_nodes)} startup nodes)")
+    logger.info("Connected to async Redis Cluster (%s startup nodes)", len(cluster_nodes))
 
     return client
 
@@ -808,7 +806,7 @@ def reset_cached_clients() -> None:
             try:
                 _sync_client.close()
             except (ConnectionError, TimeoutError, OSError, AttributeError) as e:
-                logger.debug(f"Error closing sync Redis client: {e}")
+                logger.debug("Error closing sync Redis client: %s", e)
             _sync_client = None
 
         if _async_client is not None:

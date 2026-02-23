@@ -232,7 +232,7 @@ class DebateStreamServer(ServerBase):
 
             return None
         except (AttributeError, KeyError, TypeError) as e:
-            logger.debug(f"Could not extract WebSocket token: {e}")
+            logger.debug("Could not extract WebSocket token: %s", e)
             return None
 
     def _validate_ws_auth(self, websocket, loop_id: str = "") -> bool:
@@ -288,7 +288,7 @@ class DebateStreamServer(ServerBase):
 
             return direct_ip
         except (AttributeError, KeyError, TypeError, IndexError) as e:
-            logger.debug(f"Could not extract client IP: {e}")
+            logger.debug("Could not extract client IP: %s", e)
             return "unknown"
 
     def _check_ws_connection_rate(self, ip: str) -> tuple[bool, str]:
@@ -377,7 +377,7 @@ class DebateStreamServer(ServerBase):
         results = self.cleanup_all()
         total = sum(results.values())
         if total > 0:
-            logger.debug(f"Cleaned up {total} stale entries")
+            logger.debug("Cleaned up %s stale entries", total)
 
     def _update_debate_state(self, event: StreamEvent) -> None:
         """Update cached debate state based on emitted events.
@@ -497,7 +497,7 @@ class DebateStreamServer(ServerBase):
                         disconnected.add(client)
                 except (OSError, ConnectionError, RuntimeError, Exception) as e:
                     # WebSocket/network errors during send
-                    logger.debug(f"Client disconnected during broadcast: {e}")
+                    logger.debug("Client disconnected during broadcast: %s", e)
                     disconnected.add(client)
 
         if disconnected:
@@ -557,7 +557,7 @@ class DebateStreamServer(ServerBase):
                         disconnected.add(client)
                 except (OSError, ConnectionError, RuntimeError, Exception) as e:
                     # WebSocket/network errors during send
-                    logger.debug(f"Client disconnected during batch broadcast: {e}")
+                    logger.debug("Client disconnected during batch broadcast: %s", e)
                     disconnected.add(client)
 
         if disconnected:
@@ -735,7 +735,7 @@ class DebateStreamServer(ServerBase):
                 return websocket.request_headers.get("Origin", "")
             return ""
         except (AttributeError, KeyError, TypeError) as e:
-            logger.debug(f"Could not extract origin header: {e}")
+            logger.debug("Could not extract origin header: %s", e)
             return ""
 
     def _validate_audience_payload(self, data: dict) -> tuple[dict | None, str | None]:
@@ -811,7 +811,7 @@ class DebateStreamServer(ServerBase):
         # Check connection rate limit
         rate_allowed, rate_error = self._check_ws_connection_rate(client_ip)
         if not rate_allowed:
-            logger.warning(f"[ws] Connection rejected for {client_ip}: {rate_error}")
+            logger.warning("[ws] Connection rejected for %s: %s", client_ip, rate_error)
             await websocket.close(4029, rate_error)
             return (False, client_ip, "", 0, False, None)
 
@@ -819,7 +819,7 @@ class DebateStreamServer(ServerBase):
         origin = self._extract_ws_origin(websocket)
         if origin and origin not in WS_ALLOWED_ORIGINS:
             self._release_ws_connection(client_ip)
-            logger.warning(f"[ws] Origin not allowed for {client_ip}: {origin}")
+            logger.warning("[ws] Origin not allowed for %s: %s", client_ip, origin)
             await websocket.close(4003, "Origin not allowed")
             return (False, client_ip, "", 0, False, None)
 
@@ -932,7 +932,7 @@ class DebateStreamServer(ServerBase):
         Returns parsed data dict, or None if invalid.
         """
         if len(message) > WS_MAX_MESSAGE_SIZE:
-            logger.warning(f"[ws] Message too large from client: {len(message)} bytes")
+            logger.warning("[ws] Message too large from client: %s bytes", len(message))
             return None
 
         try:
@@ -943,9 +943,9 @@ class DebateStreamServer(ServerBase):
         except asyncio.TimeoutError:
             logger.warning("[ws] JSON parsing timed out - possible DoS attempt")
         except json.JSONDecodeError as e:
-            logger.warning(f"[ws] Invalid JSON from client: {e}")
+            logger.warning("[ws] Invalid JSON from client: %s", e)
         except RuntimeError as e:
-            logger.error(f"[ws] Event loop error during JSON parsing: {e}")
+            logger.error("[ws] Event loop error during JSON parsing: %s", e)
         return None
 
     async def _handle_user_action(
@@ -982,7 +982,7 @@ class DebateStreamServer(ServerBase):
         # Periodic token revalidation
         if is_authenticated and ws_token and self._should_revalidate_token(ws_id):
             if not auth_config.validate_token(ws_token):
-                logger.warning(f"[ws] Token invalidated for client {client_id[:8]}...")
+                logger.warning("[ws] Token invalidated for client %s...", client_id[:8])
                 await websocket.send(
                     json.dumps(
                         {
@@ -1144,10 +1144,10 @@ class DebateStreamServer(ServerBase):
                 )
             )
 
-            logger.info(f"[wisdom] Stored submission {wisdom_id} for loop {loop_id}")
+            logger.info("[wisdom] Stored submission %s for loop %s", wisdom_id, loop_id)
 
         except (OSError, ValueError, AttributeError, KeyError) as e:
-            logger.error(f"[wisdom] Failed to store submission: {e}")
+            logger.error("[wisdom] Failed to store submission: %s", e)
             await websocket.send(
                 json.dumps(
                     {"type": "error", "data": {"message": "Failed to store wisdom submission"}}
@@ -1161,8 +1161,7 @@ class DebateStreamServer(ServerBase):
         async with self._clients_lock:
             self.clients.discard(websocket)
         logger.info(
-            f"[ws] Client {client_id[:8]}... disconnected from {client_ip} "
-            f"(remaining_clients={len(self.clients)})"
+            "[ws] Client %s... disconnected from %s (remaining_clients=%s)", client_id[:8], client_ip, len(self.clients)
         )
 
         # SECURITY: Clean up subscription tracking to prevent stale entries
@@ -1193,8 +1192,7 @@ class DebateStreamServer(ServerBase):
             return
 
         logger.info(
-            f"[ws] Client {client_id[:8]}... connected from {client_ip} "
-            f"(authenticated={is_authenticated}, total_clients={len(self.clients)})"
+            "[ws] Client %s... connected from %s (authenticated=%s, total_clients=%s)", client_id[:8], client_ip, is_authenticated, len(self.clients)
         )
         try:
             # Send initial connection state
@@ -1309,7 +1307,7 @@ class DebateStreamServer(ServerBase):
 
                         if subscribe_allowed:
                             self._client_subscriptions[ws_id] = debate_id
-                            logger.info(f"[ws] Client {client_id[:8]}... subscribed to {debate_id}")
+                            logger.info("[ws] Client %s... subscribed to %s", client_id[:8], debate_id)
                             await self._send_debate_state(websocket, debate_id)
                     else:
                         await websocket.send(
@@ -1327,7 +1325,7 @@ class DebateStreamServer(ServerBase):
             error_name = type(e).__name__
             if "ConnectionClosed" not in error_name and "ConnectionClosedOK" not in error_name:
                 logger.error(
-                    f"[ws] Unexpected error for client {client_id[:8]}...: {error_name}: {e}"
+                    "[ws] Unexpected error for client %s...: %s: %s", client_id[:8], error_name, e
                 )
         finally:
             await self._cleanup_connection(client_ip, client_id, ws_id, websocket)
@@ -1356,7 +1354,7 @@ class DebateStreamServer(ServerBase):
             compression="deflate",  # Enable permessage-deflate for reduced bandwidth
         ):
             logger.info(
-                f"WebSocket server: ws://{self.host}:{self.port} (max message size: {WS_MAX_MESSAGE_SIZE} bytes)"
+                "WebSocket server: ws://%s:%s (max message size: %s bytes)", self.host, self.port, WS_MAX_MESSAGE_SIZE
             )
             await self._stop_event.wait()  # Run until shutdown signal
 
@@ -1369,7 +1367,7 @@ class DebateStreamServer(ServerBase):
         try:
             exc = task.exception()
             if exc is not None:
-                logger.error(f"Drain loop task failed with exception: {exc}")
+                logger.error("Drain loop task failed with exception: %s", exc)
         except asyncio.CancelledError:
             pass  # Task was cancelled, not an error
 
@@ -1387,7 +1385,7 @@ class DebateStreamServer(ServerBase):
                     try:
                         close_tasks.append(client.close())
                     except (OSError, RuntimeError) as e:
-                        logger.debug(f"Error closing WebSocket client: {e}")
+                        logger.debug("Error closing WebSocket client: %s", e)
                 if close_tasks:
                     await asyncio.gather(*close_tasks, return_exceptions=True)
                 self.clients.clear()

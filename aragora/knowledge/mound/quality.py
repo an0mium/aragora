@@ -174,7 +174,7 @@ class QualityScorer:
             return score
 
         except (ValueError, TypeError) as e:
-            logger.debug(f"Failed to parse timestamp: {e}")
+            logger.debug("Failed to parse timestamp: %s", e)
             return 0.5
 
     def _score_confidence(self, item: dict[str, Any]) -> float:

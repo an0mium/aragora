@@ -282,7 +282,7 @@ class DocumentConnector(Connector):
         path = Path(file_path) if isinstance(file_path, str) else file_path
 
         if not path.exists():
-            logger.warning(f"Document file not found: {path}")
+            logger.warning("Document file not found: %s", path)
             return None
 
         try:
@@ -295,12 +295,12 @@ class DocumentConnector(Connector):
                 doc.metadata["parsed_at"] = datetime.now().isoformat()
                 self._parsed_docs[doc_id] = doc
                 logger.info(
-                    f"Parsed document: {path.name} ({len(doc.chunks)} chunks, {len(doc.tables)} tables)"
+                    "Parsed document: %s (%s chunks, %s tables)", path.name, len(doc.chunks), len(doc.tables)
                 )
                 return doc
 
         except (OSError, ValueError, UnicodeDecodeError) as e:
-            logger.error(f"Failed to parse document {path}: {e}")
+            logger.error("Failed to parse document %s: %s", path, e)
 
         return None
 
@@ -327,11 +327,11 @@ class DocumentConnector(Connector):
                 doc_id = self._generate_doc_id_from_content(content, filename)
                 doc.metadata["parsed_at"] = datetime.now().isoformat()
                 self._parsed_docs[doc_id] = doc
-                logger.info(f"Parsed document: {filename} ({len(doc.chunks)} chunks)")
+                logger.info("Parsed document: %s (%s chunks)", filename, len(doc.chunks))
                 return doc
 
         except (OSError, ValueError, UnicodeDecodeError) as e:
-            logger.error(f"Failed to parse document bytes ({filename}): {e}")
+            logger.error("Failed to parse document bytes (%s): %s", filename, e)
 
         return None
 

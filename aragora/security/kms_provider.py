@@ -262,7 +262,7 @@ class AzureKeyVaultProvider(KmsProvider):
             plaintext: bytes = result.plaintext
             return plaintext
         except (ImportError, ValueError, RuntimeError, OSError, ConnectionError) as e:
-            logger.error(f"Azure Key Vault decrypt failed: {e}")
+            logger.error("Azure Key Vault decrypt failed: %s", e)
             raise
 
     async def encrypt_data_key(self, plaintext_key: bytes, key_id: str) -> bytes:
@@ -284,7 +284,7 @@ class AzureKeyVaultProvider(KmsProvider):
             ciphertext: bytes = result.ciphertext
             return ciphertext
         except (ImportError, ValueError, RuntimeError, OSError, ConnectionError) as e:
-            logger.error(f"Azure Key Vault encrypt failed: {e}")
+            logger.error("Azure Key Vault encrypt failed: %s", e)
             raise
 
     async def get_key_metadata(self, key_id: str) -> KmsKeyMetadata:
@@ -562,7 +562,7 @@ class HashiCorpVaultProvider(KmsProvider):
             mount_point=self.transit_path,
         )
 
-        logger.info(f"Rotated Vault Transit key: {key_name}")
+        logger.info("Rotated Vault Transit key: %s", key_name)
         return await self.get_key_metadata(key_name)
 
     async def close(self) -> None:

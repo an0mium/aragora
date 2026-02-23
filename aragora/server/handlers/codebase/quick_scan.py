@@ -66,7 +66,7 @@ async def _check_permission(request: web.Request, permission: str) -> web.Respon
             )
         return None  # Permission granted
     except (AttributeError, TypeError, ValueError, RuntimeError) as e:
-        logger.warning(f"Permission check failed: {e}")
+        logger.warning("Permission check failed: %s", e)
         return web.json_response(
             {"success": False, "error": "Authentication required"},
             status=401,
@@ -133,7 +133,7 @@ async def run_quick_scan(
     scan_id = scan_id or f"qscan_{uuid.uuid4().hex[:12]}"
     start_time = datetime.now(timezone.utc)
 
-    logger.info(f"[QuickScan] Starting scan {scan_id} on {repo_path}")
+    logger.info("[QuickScan] Starting scan %s on %s", scan_id, repo_path)
 
     result: dict[str, Any] = {
         "scan_id": scan_id,
@@ -219,12 +219,12 @@ async def run_quick_scan(
         )
 
     except ImportError as e:
-        logger.warning(f"[QuickScan] Scanner not available: {e}")
+        logger.warning("[QuickScan] Scanner not available: %s", e)
         # Return mock result for demo
         result = _generate_mock_result(scan_id, repo_path, start_time)
 
     except (OSError, ValueError, TypeError, KeyError, AttributeError) as e:
-        logger.exception(f"[QuickScan] Scan {scan_id} failed: {e}")
+        logger.exception("[QuickScan] Scan %s failed: %s", scan_id, e)
         result["status"] = "failed"
         result["error"] = "Scan failed"
         result["completed_at"] = datetime.now(timezone.utc).isoformat()
@@ -396,7 +396,7 @@ class QuickScanHandler:
             )
 
         except (OSError, ValueError, TypeError, KeyError, RuntimeError) as e:
-            logger.exception(f"Quick scan failed: {e}")
+            logger.exception("Quick scan failed: %s", e)
             return web.json_response(
                 {"success": False, "error": "Quick scan failed"},
                 status=500,
@@ -431,7 +431,7 @@ class QuickScanHandler:
             return web.json_response({"success": True, **result})
 
         except (KeyError, ValueError, TypeError) as e:
-            logger.exception(f"Failed to get scan result: {e}")
+            logger.exception("Failed to get scan result: %s", e)
             return web.json_response(
                 {"success": False, "error": "Failed to retrieve scan result"},
                 status=500,
@@ -456,7 +456,7 @@ class QuickScanHandler:
             return web.json_response({"success": True, **result})
 
         except (KeyError, ValueError, TypeError) as e:
-            logger.exception(f"Failed to list scans: {e}")
+            logger.exception("Failed to list scans: %s", e)
             return web.json_response(
                 {"success": False, "error": "Failed to list scans"},
                 status=500,

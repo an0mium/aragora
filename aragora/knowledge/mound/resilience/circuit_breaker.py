@@ -195,15 +195,14 @@ class AdapterCircuitBreaker:
             self._half_open_calls -= 1
             self._transition_to_open()
             circuit_opened = True
-            logger.warning(f"Adapter circuit {self.adapter_name} reopened from half-open: {error}")
+            logger.warning("Adapter circuit %s reopened from half-open: %s", self.adapter_name, error)
         elif self._state == AdapterCircuitState.CLOSED:
             self._failure_count += 1
             if self._failure_count >= self.config.failure_threshold:
                 self._transition_to_open()
                 circuit_opened = True
                 logger.warning(
-                    f"Adapter circuit {self.adapter_name} opened after "
-                    f"{self._failure_count} failures: {error}"
+                    "Adapter circuit %s opened after %s failures: %s", self.adapter_name, self._failure_count, error
                 )
 
         self._record_metrics("failure")
@@ -215,7 +214,7 @@ class AdapterCircuitBreaker:
         self._state_changed_at = time.time()
         self._total_circuit_opens += 1
         self._success_count = 0
-        logger.info(f"Adapter circuit {self.adapter_name} -> OPEN")
+        logger.info("Adapter circuit %s -> OPEN", self.adapter_name)
         self._record_state_change()
 
     def _transition_to_half_open(self) -> None:
@@ -224,7 +223,7 @@ class AdapterCircuitBreaker:
         self._state_changed_at = time.time()
         self._half_open_calls = 0
         self._success_count = 0
-        logger.info(f"Adapter circuit {self.adapter_name} -> HALF_OPEN")
+        logger.info("Adapter circuit %s -> HALF_OPEN", self.adapter_name)
         self._record_state_change()
 
     def _transition_to_closed(self) -> None:
@@ -233,7 +232,7 @@ class AdapterCircuitBreaker:
         self._state_changed_at = time.time()
         self._failure_count = 0
         self._success_count = 0
-        logger.info(f"Adapter circuit {self.adapter_name} -> CLOSED")
+        logger.info("Adapter circuit %s -> CLOSED", self.adapter_name)
         self._record_state_change()
 
     def reset(self) -> None:
@@ -243,7 +242,7 @@ class AdapterCircuitBreaker:
         self._success_count = 0
         self._half_open_calls = 0
         self._state_changed_at = time.time()
-        logger.info(f"Adapter circuit {self.adapter_name} reset to CLOSED")
+        logger.info("Adapter circuit %s reset to CLOSED", self.adapter_name)
 
     def get_stats(self) -> AdapterCircuitStats:
         """Get circuit breaker statistics."""
@@ -284,7 +283,7 @@ class AdapterCircuitBreaker:
         except ImportError:
             pass
         except (RuntimeError, OSError, ConnectionError, TimeoutError) as e:
-            logger.debug(f"Failed to record circuit breaker metric: {e}")
+            logger.debug("Failed to record circuit breaker metric: %s", e)
 
     def _record_state_change(self) -> None:
         """Record Prometheus metrics and emit events for state changes."""
@@ -296,11 +295,10 @@ class AdapterCircuitBreaker:
                 AdapterCircuitState.OPEN: 1,  # unhealthy
             }
             logger.debug(
-                f"Adapter {self.adapter_name} state: {self._state.value} "
-                f"(health={state_map.get(self._state, 0)})"
+                "Adapter %s state: %s (health=%s)", self.adapter_name, self._state.value, state_map.get(self._state, 0)
             )
         except (RuntimeError, OSError, ConnectionError, TimeoutError) as e:
-            logger.debug(f"Failed to record state change metric: {e}")
+            logger.debug("Failed to record state change metric: %s", e)
 
         # Emit KM_CIRCUIT_BREAKER_STATE event
         if self._event_emitter:
@@ -389,7 +387,7 @@ class HealthAwareCircuitBreaker:
             if self._circuit.is_closed:
                 self._circuit._transition_to_open()
                 logger.warning(
-                    f"Health-aware circuit {self.adapter_name} opened due to health degradation"
+                    "Health-aware circuit %s opened due to health degradation", self.adapter_name
                 )
 
     def can_proceed(self) -> bool:

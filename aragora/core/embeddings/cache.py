@@ -204,7 +204,7 @@ class ScopedCacheManager:
                     ttl_seconds=self._default_ttl,
                     max_size=self._default_max_size,
                 )
-                logger.debug(f"Created new embedding cache for scope {scope_id}")
+                logger.debug("Created new embedding cache for scope %s", scope_id)
             return self._caches[scope_id]
 
     def cleanup(self, scope_id: str) -> None:
@@ -217,7 +217,7 @@ class ScopedCacheManager:
             if scope_id in self._caches:
                 self._caches[scope_id].clear()
                 del self._caches[scope_id]
-                logger.debug(f"Cleaned up embedding cache for scope {scope_id}")
+                logger.debug("Cleaned up embedding cache for scope %s", scope_id)
 
     def get_stats(self) -> dict[str, CacheStats]:
         """Get statistics for all active caches."""

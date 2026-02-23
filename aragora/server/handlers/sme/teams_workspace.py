@@ -107,7 +107,7 @@ class TeamsWorkspaceHandler(SecureHandler):
         # Rate limit check
         client_ip = get_client_ip(handler)
         if not _teams_limiter.is_allowed(client_ip):
-            logger.warning(f"Rate limit exceeded for Teams workspace: {client_ip}")
+            logger.warning("Rate limit exceeded for Teams workspace: %s", client_ip)
             return error_response("Rate limit exceeded. Please try again later.", 429)
 
         # Determine HTTP method from handler if not provided
@@ -444,7 +444,7 @@ class TeamsWorkspaceHandler(SecureHandler):
                 connection_status = "invalid_token"
                 token_valid = False
         except (TypeError, AttributeError) as e:
-            logger.warning(f"Teams connection test failed for {tenant_id}: {e}")
+            logger.warning("Teams connection test failed for %s: %s", tenant_id, e)
             connection_status = "error"
             error_message = "Connection test failed"
 
@@ -508,7 +508,7 @@ class TeamsWorkspaceHandler(SecureHandler):
             if sub.workspace_id == tenant_id:
                 sub_store.deactivate(sub.id)
 
-        logger.info(f"Disconnected Teams workspace {tenant_id} for org {org.id}")
+        logger.info("Disconnected Teams workspace %s for org %s", tenant_id, org.id)
 
         return json_response(
             {
@@ -591,7 +591,7 @@ class TeamsWorkspaceHandler(SecureHandler):
         except ImportError:
             logger.warning("Teams connector not available")
         except (RuntimeError, ValueError, OSError) as e:
-            logger.warning(f"Failed to list Teams channels: {e}")
+            logger.warning("Failed to list Teams channels: %s", e)
 
         return json_response(
             {
@@ -686,7 +686,7 @@ class TeamsWorkspaceHandler(SecureHandler):
         try:
             created = sub_store.create(subscription)
             logger.info(
-                f"Created Teams subscription {created.id} for channel {channel_id} in org {org.id}"
+                "Created Teams subscription %s for channel %s in org %s", created.id, channel_id, org.id
             )
             return json_response({"subscription": created.to_dict()}, status=201)
         except ValueError as e:
@@ -775,7 +775,7 @@ class TeamsWorkspaceHandler(SecureHandler):
         if not success:
             return error_response("Failed to delete subscription", 500)
 
-        logger.info(f"Deleted Teams subscription {subscription_id} for org {org.id}")
+        logger.info("Deleted Teams subscription %s for org %s", subscription_id, org.id)
 
         return json_response(
             {

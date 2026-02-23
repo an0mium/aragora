@@ -117,7 +117,7 @@ class DiscordDock(ChannelDock):
                     )
 
         except (ConnectionError, TimeoutError, OSError, ValueError) as e:
-            logger.error(f"Discord send error: {e}")
+            logger.error("Discord send error: %s", e)
             return SendResult.fail(
                 error=str(e),
                 platform=self.PLATFORM,
@@ -240,7 +240,7 @@ class DiscordDock(ChannelDock):
                     )
 
         except (ConnectionError, TimeoutError, OSError, ValueError) as e:
-            logger.error(f"Discord voice send error: {e}")
+            logger.error("Discord voice send error: %s", e)
             return SendResult.fail(
                 error=str(e),
                 platform=self.PLATFORM,

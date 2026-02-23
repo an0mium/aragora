@@ -103,7 +103,7 @@ class WorkspaceManager:
             status=RigStatus.READY,
         )
         self._rigs[rig_id] = rig
-        logger.info(f"Created rig {rig_id} ({name})")
+        logger.info("Created rig %s (%s)", rig_id, name)
         return rig
 
     async def get_rig(self, rig_id: str) -> Rig | None:

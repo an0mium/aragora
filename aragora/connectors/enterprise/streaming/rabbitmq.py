@@ -292,10 +292,10 @@ class RabbitMQConnector(EnterpriseConnector):
                 msg,
                 routing_key=dlq_queue,
             )
-            logger.info(f"[RabbitMQ] Sent message to DLQ: {dlq_queue}")
+            logger.info("[RabbitMQ] Sent message to DLQ: %s", dlq_queue)
 
         except (OSError, RuntimeError, ConnectionError, TimeoutError) as e:
-            logger.error(f"[RabbitMQ] Failed to send to DLQ: {e}")
+            logger.error("[RabbitMQ] Failed to send to DLQ: %s", e)
             raise
 
     async def connect(self) -> bool:
@@ -337,7 +337,7 @@ class RabbitMQConnector(EnterpriseConnector):
                     await self._health_monitor.record_failure(e)
 
                 if attempt == self.config.resilience.max_retries:
-                    logger.error(f"[RabbitMQ] Connection failed after {attempt + 1} attempts: {e}")
+                    logger.error("[RabbitMQ] Connection failed after %s attempts: %s", attempt + 1, e)
                     return False
 
                 delay = backoff.get_delay(attempt)
@@ -416,8 +416,7 @@ class RabbitMQConnector(EnterpriseConnector):
             )
 
         logger.info(
-            f"[RabbitMQ] Connected to {self.config.url}, "
-            f"queue={self.config.queue}, exchange={self.config.exchange or 'default'}"
+            "[RabbitMQ] Connected to %s, queue=%s, exchange=%s", self.config.url, self.config.queue, self.config.exchange or 'default'
         )
         return True
 
@@ -512,14 +511,14 @@ class RabbitMQConnector(EnterpriseConnector):
                             break
 
                     except CircuitBreakerOpenError as e:
-                        logger.warning(f"[RabbitMQ] Circuit breaker open: {e}")
+                        logger.warning("[RabbitMQ] Circuit breaker open: %s", e)
                         # Requeue and wait for recovery
                         await message.nack(requeue=True)
                         await asyncio.sleep(e.recovery_time)
 
                     except (ValueError, RuntimeError, KeyError, json.JSONDecodeError) as e:
                         self._error_count += 1
-                        logger.warning(f"[RabbitMQ] Error processing message: {e}")
+                        logger.warning("[RabbitMQ] Error processing message: %s", e)
 
                         if self._health_monitor:
                             await self._health_monitor.record_failure(e)
@@ -712,7 +711,7 @@ class RabbitMQConnector(EnterpriseConnector):
             if self._health_monitor:
                 await self._health_monitor.record_success()
 
-            logger.debug(f"[RabbitMQ] Published message to {routing_key or self.config.queue}")
+            logger.debug("[RabbitMQ] Published message to %s", routing_key or self.config.queue)
             return True
 
         except (
@@ -727,7 +726,7 @@ class RabbitMQConnector(EnterpriseConnector):
                 await self._streaming_circuit_breaker.record_failure(e)
             if self._health_monitor:
                 await self._health_monitor.record_failure(e)
-            logger.error(f"[RabbitMQ] Failed to publish message: {e}")
+            logger.error("[RabbitMQ] Failed to publish message: %s", e)
             return False
 
     def get_stats(self) -> dict[str, Any]:

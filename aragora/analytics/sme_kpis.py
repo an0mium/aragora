@@ -131,7 +131,7 @@ def get_sme_kpis(
         try:
             debate_stats = _run_async(analytics.get_debate_stats(org_id=org_id, days_back=days))
         except (RuntimeError, ValueError, TypeError, OSError, ConnectionError) as e:
-            logger.debug(f"Failed to get debate stats: {e}")
+            logger.debug("Failed to get debate stats: %s", e)
 
     # Get cost data from cost tracker
     cost_tracker = _get_cost_tracker()
@@ -141,7 +141,7 @@ def get_sme_kpis(
             workspace_stats = cost_tracker.get_workspace_stats(org_id)
             total_cost = Decimal(workspace_stats.get("total_cost_usd", "0"))
         except (ValueError, TypeError, KeyError, RuntimeError, OSError, ConnectionError) as e:
-            logger.debug(f"Failed to get cost data: {e}")
+            logger.debug("Failed to get cost data: %s", e)
 
     kpis.total_cost_usd = float(total_cost)
 

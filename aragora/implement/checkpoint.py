@@ -47,14 +47,14 @@ def save_progress(progress: ImplementProgress, repo_path: Path) -> None:
         # Atomic rename
         os.rename(temp_path, progress_path)
     except OSError as e:
-        logger.error(f"Failed to save checkpoint to {progress_path}: {e}")
+        logger.error("Failed to save checkpoint to %s: %s", progress_path, e)
         # Clean up temp file on error
         if os.path.exists(temp_path):
             os.unlink(temp_path)
         raise
     except (TypeError, ValueError, json.JSONDecodeError) as e:
         # Clean up temp file on serialization errors, then re-raise
-        logger.error(f"Serialization error saving checkpoint: {type(e).__name__}: {e}")
+        logger.error("Serialization error saving checkpoint: %s: %s", type(e).__name__, e)
         if os.path.exists(temp_path):
             os.unlink(temp_path)
         raise
@@ -77,7 +77,7 @@ def load_progress(repo_path: Path) -> ImplementProgress | None:
         return ImplementProgress.from_dict(data)
     except (json.JSONDecodeError, KeyError, ValueError) as e:
         # Corrupted file - log and return None
-        logger.warning(f"Corrupted progress file, starting fresh: {e}")
+        logger.warning("Corrupted progress file, starting fresh: %s", e)
         return None
 
 

@@ -94,7 +94,7 @@ class TTSBridge:
                 from aragora.broadcast.tts_backends import get_tts_backend
 
                 self._backend = get_tts_backend()
-                logger.info(f"TTS Bridge using backend: {self._backend.name}")
+                logger.info("TTS Bridge using backend: %s", self._backend.name)
             except ImportError:
                 logger.error("TTS backends not available")
                 raise RuntimeError("TTS backends not available - install aragora[broadcast]")
@@ -151,7 +151,7 @@ class TTSBridge:
         # Truncate text if too long
         if len(text) > self.config.max_text_length:
             text = text[: self.config.max_text_length - 3] + "..."
-            logger.warning(f"TTS text truncated to {self.config.max_text_length} chars")
+            logger.warning("TTS text truncated to %s chars", self.config.max_text_length)
 
         # Resolve voice
         resolved_voice = self._resolve_voice(voice, context)
@@ -165,7 +165,7 @@ class TTSBridge:
             )
             return Path(audio_path)
         except (RuntimeError, OSError, ValueError) as e:
-            logger.error(f"TTS synthesis failed: {e}")
+            logger.error("TTS synthesis failed: %s", e)
             raise
 
     async def synthesize_debate_summary(
@@ -310,11 +310,11 @@ class TTSBridge:
             try:
                 audio_path.unlink()
             except (OSError, PermissionError) as e:
-                logger.debug(f"Failed to clean up temp audio file {audio_path}: {e}")
+                logger.debug("Failed to clean up temp audio file %s: %s", audio_path, e)
 
             return response.success
         except (RuntimeError, OSError, ValueError) as e:
-            logger.error(f"Failed to send voice response: {e}")
+            logger.error("Failed to send voice response: %s", e)
             return False
 
     def cleanup(self) -> None:
@@ -326,7 +326,7 @@ class TTSBridge:
                 shutil.rmtree(self._temp_dir)
                 self._temp_dir = None
             except OSError as e:
-                logger.warning(f"Failed to cleanup TTS temp dir: {e}")
+                logger.warning("Failed to cleanup TTS temp dir: %s", e)
 
 
 # Singleton instance

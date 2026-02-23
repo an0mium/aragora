@@ -306,7 +306,7 @@ class HybridDebateHandler(BaseHandler):
         except (RuntimeError, OSError, ConnectionError, TimeoutError, ValueError, TypeError) as e:
             # Record failure for circuit breaker
             cb.record_failure()
-            logger.error(f"Hybrid debate execution failed: {e}")
+            logger.error("Hybrid debate execution failed: %s", e)
             raise
 
         # Store the debate

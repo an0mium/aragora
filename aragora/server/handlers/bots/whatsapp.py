@@ -281,7 +281,7 @@ class WhatsAppHandler(BotHandlerMixin, SecureHandler):
                     contact_name = contact.get("profile", {}).get("name", from_number)
                     break
 
-            logger.info(f"WhatsApp message from {contact_name} ({from_number}): type={msg_type}")
+            logger.info("WhatsApp message from %s (%s): type=%s", contact_name, from_number, msg_type)
 
             if msg_type == "text":
                 text = message.get("text", {}).get("body", "")
@@ -313,7 +313,7 @@ class WhatsAppHandler(BotHandlerMixin, SecureHandler):
             elif msg_type == "button":
                 self._handle_button_reply(from_number, message.get("button", {}))
             else:
-                logger.debug(f"Unhandled WhatsApp message type: {msg_type}")
+                logger.debug("Unhandled WhatsApp message type: %s", msg_type)
 
     def _handle_text_message(
         self,
@@ -374,18 +374,18 @@ class WhatsAppHandler(BotHandlerMixin, SecureHandler):
         if int_type == "list_reply":
             reply = interactive.get("list_reply", {})
             reply_id = reply.get("id", "")
-            logger.info(f"WhatsApp list reply from {from_number}: {reply_id}")
+            logger.info("WhatsApp list reply from %s: %s", from_number, reply_id)
 
         elif int_type == "button_reply":
             reply = interactive.get("button_reply", {})
             button_id = reply.get("id", "")
-            logger.info(f"WhatsApp button reply from {from_number}: {button_id}")
+            logger.info("WhatsApp button reply from %s: %s", from_number, button_id)
 
     def _handle_button_reply(self, from_number: str, button: dict[str, Any]) -> None:
         """Handle quick reply button response."""
         payload = button.get("payload", "")
         text = button.get("text", "")
-        logger.info(f"WhatsApp button reply from {from_number}: {payload} ({text})")
+        logger.info("WhatsApp button reply from %s: %s (%s)", from_number, payload, text)
 
     def _extract_attachments(self, message: dict[str, Any]) -> list[dict[str, Any]]:
         """Extract WhatsApp attachment metadata from message payload."""
@@ -529,13 +529,13 @@ class WhatsAppHandler(BotHandlerMixin, SecureHandler):
                 response = client.post(url, headers=headers, json=data)
                 if not response.is_success:
                     logger.warning(
-                        f"WhatsApp send failed: {response.status_code} - {response.text}"
+                        "WhatsApp send failed: %s - %s", response.status_code, response.text
                     )
 
         except ImportError:
             logger.warning("httpx not available for WhatsApp messaging")
         except REDIS_CONNECTION_ERRORS as e:
-            logger.error(f"Failed to send WhatsApp message: {e}")
+            logger.error("Failed to send WhatsApp message: %s", e)
 
     def _send_welcome(self, to_number: str) -> None:
         """Send welcome message."""
@@ -625,7 +625,7 @@ class WhatsAppHandler(BotHandlerMixin, SecureHandler):
             f"Debate ID: {debate_id[:8]}...",
         )
 
-        logger.info(f"Debate requested from WhatsApp {contact_name} ({to_number}): {topic[:100]}")
+        logger.info("Debate requested from WhatsApp %s (%s): %s", contact_name, to_number, topic[:100])
 
     def _start_debate_async(
         self,
@@ -662,7 +662,7 @@ class WhatsAppHandler(BotHandlerMixin, SecureHandler):
                 metadata={"topic": topic, "contact_name": contact_name},
             )
         except (RuntimeError, KeyError, AttributeError, OSError) as e:
-            logger.warning(f"Failed to register debate origin: {e}")
+            logger.warning("Failed to register debate origin: %s", e)
 
         # Try DecisionRouter first (preferred)
         try:
@@ -711,7 +711,7 @@ class WhatsAppHandler(BotHandlerMixin, SecureHandler):
                 router = get_decision_router()
                 result = await router.route(request)
                 if result and result.debate_id:
-                    logger.info(f"DecisionRouter started debate {result.debate_id} from WhatsApp")
+                    logger.info("DecisionRouter started debate %s from WhatsApp", result.debate_id)
                 return result
 
             # Run async in background
@@ -730,7 +730,7 @@ class WhatsAppHandler(BotHandlerMixin, SecureHandler):
         except ImportError:
             logger.debug("DecisionRouter not available, falling back to queue system")
         except (RuntimeError, ValueError, KeyError, AttributeError) as e:
-            logger.error(f"DecisionRouter failed: {e}, falling back to queue system")
+            logger.error("DecisionRouter failed: %s, falling back to queue system", e)
 
         # Fallback to queue system
         return self._start_debate_via_queue(to_number, contact_name, topic, debate_id)
@@ -761,9 +761,9 @@ class WhatsAppHandler(BotHandlerMixin, SecureHandler):
 
                     queue = await create_redis_queue()
                     await queue.enqueue(job)
-                    logger.info(f"WhatsApp debate job enqueued: {job.id}")
+                    logger.info("WhatsApp debate job enqueued: %s", job.id)
                 except (RuntimeError, OSError, ConnectionError) as e:
-                    logger.error(f"Failed to enqueue debate job: {e}")
+                    logger.error("Failed to enqueue debate job: %s", e)
                     self._send_message(
                         to_number, "Sorry, I couldn't start the debate. Please try again later."
                     )
@@ -787,7 +787,7 @@ class WhatsAppHandler(BotHandlerMixin, SecureHandler):
             # Fallback: run debate directly (blocking)
             return self._run_debate_direct(to_number, contact_name, topic, debate_id)
         except (RuntimeError, OSError, ConnectionError) as e:
-            logger.error(f"Failed to start debate: {e}")
+            logger.error("Failed to start debate: %s", e)
             return debate_id
 
     def _run_debate_direct(

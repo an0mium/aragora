@@ -83,7 +83,7 @@ class TeamsCardActions:
         from_user = activity.get("from", {})
         user_id = from_user.get("id", "")
 
-        logger.info(f"Teams invoke: {invoke_name} from {user_id}")
+        logger.info("Teams invoke: %s from %s", invoke_name, user_id)
 
         # Handle Adaptive Card action submit (most common)
         if invoke_name == "adaptiveCard/action" or not invoke_name:
@@ -201,7 +201,7 @@ class TeamsCardActions:
                 "body": {"statusCode": 200, "type": "message", "value": "Help sent"},
             }
 
-        logger.debug(f"Unhandled card action: {action}")
+        logger.debug("Unhandled card action: %s", action)
         return {
             "status": 200,
             "body": {"statusCode": 200, "type": "message", "value": "Action acknowledged"},
@@ -252,7 +252,7 @@ class TeamsCardActions:
         previous_vote = _user_votes[debate_id].get(user_id)
         _user_votes[debate_id][user_id] = agent
 
-        logger.info(f"Vote recorded: {user_id} voted for {agent} in {debate_id}")
+        logger.info("Vote recorded: %s voted for %s in %s", user_id, agent, debate_id)
 
         audit_data(
             user_id=f"teams:{user_id}",
@@ -446,7 +446,7 @@ class TeamsCardActions:
         if user_id not in watchers:
             watchers.append(user_id)
 
-        logger.info(f"User {user_id} watching debate {debate_id}")
+        logger.info("User %s watching debate %s", user_id, debate_id)
 
         return {
             "status": 200,

@@ -66,7 +66,7 @@ class LaboratoryHandler(BaseHandler):
         # Rate limit check
         client_ip = get_client_ip(handler)
         if not _laboratory_limiter.is_allowed(client_ip):
-            logger.warning(f"Rate limit exceeded for laboratory endpoint: {client_ip}")
+            logger.warning("Rate limit exceeded for laboratory endpoint: %s", client_ip)
             return error_response("Rate limit exceeded. Please try again later.", 429)
 
         if path == "/api/v1/laboratory/emergent-traits":
@@ -84,7 +84,7 @@ class LaboratoryHandler(BaseHandler):
         # Rate limit check (shared with GET)
         client_ip = get_client_ip(handler)
         if not _laboratory_limiter.is_allowed(client_ip):
-            logger.warning(f"Rate limit exceeded for laboratory POST endpoint: {client_ip}")
+            logger.warning("Rate limit exceeded for laboratory POST endpoint: %s", client_ip)
             return error_response("Rate limit exceeded. Please try again later.", 429)
 
         if path == "/api/v1/laboratory/cross-pollinations/suggest":

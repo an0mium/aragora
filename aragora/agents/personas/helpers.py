@@ -63,7 +63,7 @@ def apply_persona_to_agent(agent, persona_name: str, manager: PersonaManager | N
         persona = manager.get_persona(persona_name)
 
     if not persona:
-        logger.debug(f"Persona '{persona_name}' not found")
+        logger.debug("Persona '%s' not found", persona_name)
         return False
 
     # Build system prompt from persona
@@ -104,8 +104,7 @@ def apply_persona_to_agent(agent, persona_name: str, manager: PersonaManager | N
             agent.frequency_penalty = persona.frequency_penalty
 
     logger.debug(
-        f"Applied persona '{persona_name}' to agent: "
-        f"temp={persona.temperature}, traits={persona.traits[:2] if persona.traits else []}"
+        "Applied persona '%s' to agent: temp=%s, traits=%s", persona_name, persona.temperature, persona.traits[:2] if persona.traits else []
     )
     return True
 

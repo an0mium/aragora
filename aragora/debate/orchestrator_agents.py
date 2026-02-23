@@ -63,14 +63,13 @@ def select_debate_team(
                 max_agents=len(agents),
             )
             logger.debug(
-                f"[ml] Selected {len(selected)} agents via ML delegation: "
-                f"{[a.name for a in selected]}"
+                "[ml] Selected %s agents via ML delegation: %s", len(selected), [a.name for a in selected]
             )
             return selected
         except (ValueError, TypeError, KeyError) as e:
-            logger.warning(f"[ml] ML delegation failed with data error, falling back: {e}")
+            logger.warning("[ml] ML delegation failed with data error, falling back: %s", e)
         except (RuntimeError, AttributeError, OSError) as e:
-            logger.exception(f"[ml] Unexpected ML delegation error, falling back: {e}")
+            logger.exception("[ml] Unexpected ML delegation error, falling back: %s", e)
 
     if use_performance_selection:
         return agent_pool.select_team(
@@ -107,13 +106,13 @@ def filter_responses_by_quality(
         filtered = ml_quality_gate.filter_responses(responses, context=context or task)
         removed = len(responses) - len(filtered)
         if removed > 0:
-            logger.debug(f"[ml] Quality gate filtered {removed} low-quality responses")
+            logger.debug("[ml] Quality gate filtered %s low-quality responses", removed)
         return filtered
     except (ValueError, TypeError, KeyError, AttributeError) as e:
-        logger.warning(f"[ml] Quality gate failed with data error, keeping all responses: {e}")
+        logger.warning("[ml] Quality gate failed with data error, keeping all responses: %s", e)
         return responses
     except (RuntimeError, OSError, ImportError) as e:
-        logger.exception(f"[ml] Unexpected quality gate error, keeping all responses: {e}")
+        logger.exception("[ml] Unexpected quality gate error, keeping all responses: %s", e)
         return responses
 
 
@@ -150,15 +149,14 @@ def should_terminate_early(
         )
         if should_stop:
             logger.info(
-                f"[ml] Consensus estimator recommends early termination at round "
-                f"{current_round}/{protocol.rounds}"
+                "[ml] Consensus estimator recommends early termination at round %s/%s", current_round, protocol.rounds
             )
         return should_stop
     except (ValueError, TypeError, KeyError) as e:
-        logger.warning(f"[ml] Consensus estimation failed with data error: {e}")
+        logger.warning("[ml] Consensus estimation failed with data error: %s", e)
         return False
     except (RuntimeError, AttributeError, OSError) as e:
-        logger.exception(f"[ml] Unexpected consensus estimation error: {e}")
+        logger.exception("[ml] Unexpected consensus estimation error: %s", e)
         return False
 
 
@@ -183,9 +181,7 @@ def init_agent_hierarchy(
     config = hierarchy_config or HC()
     hierarchy = AgentHierarchy(config)
     logger.info(
-        f"[hierarchy] AgentHierarchy initialized "
-        f"(max_orchestrators={config.max_orchestrators}, "
-        f"max_monitors={config.max_monitors})"
+        "[hierarchy] AgentHierarchy initialized (max_orchestrators=%s, max_monitors=%s)", config.max_orchestrators, config.max_monitors
     )
     return hierarchy
 
@@ -236,10 +232,10 @@ def assign_hierarchy_roles(
             role.value: [name for name, assign in assignments.items() if assign.role == role]
             for role in set(a.role for a in assignments.values())
         }
-        logger.info(f"[hierarchy] Roles assigned for debate {ctx.debate_id}: {role_summary}")
+        logger.info("[hierarchy] Roles assigned for debate %s: %s", ctx.debate_id, role_summary)
 
     except (ImportError, ValueError, TypeError, KeyError, AttributeError) as e:
-        logger.warning(f"[hierarchy] Role assignment failed: {e}")
+        logger.warning("[hierarchy] Role assignment failed: %s", e)
         ctx.hierarchy_assignments = {}
 
 

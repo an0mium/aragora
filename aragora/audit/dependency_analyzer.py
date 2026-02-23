@@ -300,7 +300,7 @@ class DependencyAnalyzer:
                 trans_deps = await self._resolve_pip_transitive(dependencies)
                 dependencies.update(trans_deps)
             except (ValueError, OSError, RuntimeError) as e:
-                logger.warning(f"Failed to resolve transitive dependencies: {e}")
+                logger.warning("Failed to resolve transitive dependencies: %s", e)
 
         # Count dependency types
         total_direct = sum(
@@ -705,7 +705,7 @@ class DependencyAnalyzer:
                                     )
 
         except (ValueError, OSError, RuntimeError) as e:
-            logger.warning(f"Error resolving transitive deps: {e}")
+            logger.warning("Error resolving transitive deps: %s", e)
 
         return transitive
 
@@ -749,7 +749,7 @@ class DependencyAnalyzer:
         except FileNotFoundError:
             logger.info("pip-audit not installed, using Safety DB")
         except (ValueError, OSError, RuntimeError) as e:
-            logger.warning(f"pip-audit failed: {e}")
+            logger.warning("pip-audit failed: %s", e)
 
         # Fallback: check against known CVEs (hardcoded subset for critical ones)
         known_vulns = self._get_known_python_vulns()
@@ -837,7 +837,7 @@ class DependencyAnalyzer:
         except json.JSONDecodeError:
             logger.warning("Failed to parse npm audit output")
         except (ValueError, OSError, RuntimeError) as e:
-            logger.warning(f"npm audit failed: {e}")
+            logger.warning("npm audit failed: %s", e)
 
         return vulnerabilities
 

@@ -875,7 +875,7 @@ class CostGovernanceEngine:
             try:
                 callback(audit_entry)
             except (TypeError, ValueError, RuntimeError, OSError) as e:
-                logger.error(f"Audit callback error: {e}")
+                logger.error("Audit callback error: %s", e)
 
     def add_audit_callback(self, callback: Callable[[dict[str, Any]], None]) -> None:
         """Add an audit callback."""

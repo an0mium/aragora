@@ -189,7 +189,7 @@ class MigrationRunner:
             return None
 
         if not db_path.exists():
-            logger.debug(f"Database {db_path} does not exist, skipping backup")
+            logger.debug("Database %s does not exist, skipping backup", db_path)
             return None
 
         manager = self._get_backup_manager()
@@ -198,7 +198,7 @@ class MigrationRunner:
             return None
 
         try:
-            logger.info(f"[{db_name}] Creating pre-migration backup...")
+            logger.info("[%s] Creating pre-migration backup...", db_name)
             from aragora.backup.manager import BackupType
 
             backup = manager.create_backup(
@@ -206,10 +206,10 @@ class MigrationRunner:
                 backup_type=BackupType.FULL,
                 metadata={"reason": "pre_migration", "db_name": db_name},
             )
-            logger.info(f"[{db_name}] Backup created: {backup.id}")
+            logger.info("[%s] Backup created: %s", db_name, backup.id)
             return backup.id
         except (OSError, RuntimeError, ValueError) as e:
-            logger.error(f"[{db_name}] Failed to create backup: {e}")
+            logger.error("[%s] Failed to create backup: %s", db_name, e)
             return None
 
     def restore_from_backup(self, backup_id: str, db_path: Path) -> bool:
@@ -230,10 +230,10 @@ class MigrationRunner:
 
         try:
             manager.restore_backup(backup_id, str(db_path))
-            logger.info(f"Restored database from backup {backup_id}")
+            logger.info("Restored database from backup %s", backup_id)
             return True
         except (OSError, RuntimeError, ValueError) as e:
-            logger.error(f"Failed to restore from backup {backup_id}: {e}")
+            logger.error("Failed to restore from backup %s: %s", backup_id, e)
             return False
 
     def discover_migrations(self, db_name: str) -> list[MigrationFile]:
@@ -258,7 +258,7 @@ class MigrationRunner:
         migrations_path = self.MIGRATIONS_DIR / db_name
 
         if not migrations_path.exists():
-            logger.debug(f"No migrations directory for {db_name}")
+            logger.debug("No migrations directory for %s", db_name)
             return []
 
         # Pattern: NNN_description.py
@@ -431,7 +431,7 @@ class MigrationRunner:
                         )
                 except (ImportError, ModuleNotFoundError, OSError) as e:
                     # Continue if we can't load/inspect the migration module
-                    logger.warning(f"Could not inspect migration {m.version}: {e}")
+                    logger.warning("Could not inspect migration %s: %s", m.version, e)
                     pass
                 migration_info.append(info)
             return migration_info, warnings
@@ -491,7 +491,7 @@ class MigrationRunner:
             cursor = conn.execute("SELECT version, checksum FROM _migration_checksums")
             return {row[0]: row[1] for row in cursor.fetchall()}
         except (OSError, RuntimeError, ValueError, sqlite3.OperationalError) as e:
-            logger.debug(f"Failed to get applied checksums: {type(e).__name__}: {e}")
+            logger.debug("Failed to get applied checksums: %s: %s", type(e).__name__, e)
             return {}
 
     def _get_applied_details(self, conn) -> dict[int, AppliedMigration]:
@@ -510,7 +510,7 @@ class MigrationRunner:
                 for row in cursor.fetchall()
             }
         except (OSError, RuntimeError, ValueError, sqlite3.OperationalError) as e:
-            logger.debug(f"Failed to get applied migration details: {type(e).__name__}: {e}")
+            logger.debug("Failed to get applied migration details: %s: %s", type(e).__name__, e)
             return {}
 
     def get_migration_history(self, db_name: str) -> list[AppliedMigration]:
@@ -590,8 +590,7 @@ class MigrationRunner:
 
             if checksum_warnings:
                 logger.warning(
-                    f"[{db_name}] Checksum mismatch for {len(checksum_warnings)} migration(s) - "
-                    f"files may have been modified after application"
+                    "[%s] Checksum mismatch for %s migration(s) - files may have been modified after application", db_name, len(checksum_warnings)
                 )
 
             pending = [m for m in migrations if m.version > current and m.version <= target_version]
@@ -609,7 +608,7 @@ class MigrationRunner:
 
             for migration in pending:
                 logger.info(
-                    f"[{db_name}] Applying migration {migration.version}: {migration.description}"
+                    "[%s] Applying migration %s: %s", db_name, migration.version, migration.description
                 )
 
                 try:
@@ -634,7 +633,7 @@ class MigrationRunner:
                     conn.commit()
                     applied.append(migration.version)
 
-                    logger.info(f"[{db_name}] Applied migration {migration.version} successfully")
+                    logger.info("[%s] Applied migration %s successfully", db_name, migration.version)
 
                 except (OSError, RuntimeError, ValueError, sqlite3.OperationalError) as e:
                     conn.rollback()
@@ -644,7 +643,7 @@ class MigrationRunner:
                             "error": str(e),
                         }
                     )
-                    logger.error(f"[{db_name}] Migration {migration.version} failed: {e}")
+                    logger.error("[%s] Migration %s failed: %s", db_name, migration.version, e)
                     break  # Stop on first error
 
             final_version = manager.get_version()
@@ -698,7 +697,7 @@ class MigrationRunner:
             return len(non_doc_lines) == 0 or all(line == "pass" for line in non_doc_lines)
         except (OSError, TypeError) as e:
             # Inspection failures (e.g., source file not found, built-in function) mean non-empty
-            logger.warning(f"Could not inspect function source: {e}")
+            logger.warning("Could not inspect function source: %s", e)
             return False
 
     def migrate_all(self, dry_run: bool = False) -> dict[str, dict]:
@@ -791,7 +790,7 @@ class MigrationRunner:
 
             for migration in to_rollback:
                 logger.info(
-                    f"[{db_name}] Rolling back migration {migration.version}: {migration.description}"
+                    "[%s] Rolling back migration %s: %s", db_name, migration.version, migration.description
                 )
 
                 try:
@@ -839,7 +838,7 @@ class MigrationRunner:
                         )
 
                     rolled_back.append(migration.version)
-                    logger.info(f"[{db_name}] Rolled back migration {migration.version}")
+                    logger.info("[%s] Rolled back migration %s", db_name, migration.version)
 
                 except (OSError, RuntimeError, ValueError, sqlite3.OperationalError) as e:
                     conn.rollback()
@@ -849,7 +848,7 @@ class MigrationRunner:
                             "error": str(e),
                         }
                     )
-                    logger.error(f"[{db_name}] Rollback of {migration.version} failed: {e}")
+                    logger.error("[%s] Rollback of %s failed: %s", db_name, migration.version, e)
                     break
 
             final_version = manager.get_version()
@@ -946,7 +945,7 @@ class MigrationRunner:
 
             # Execute rollback
             logger.info(
-                f"[{db_name}] Rolling back migration {migration.version}: {migration.description}"
+                "[%s] Rolling back migration %s: %s", db_name, migration.version, migration.description
             )
 
             try:
@@ -976,7 +975,7 @@ class MigrationRunner:
                 new_version = max(previous_versions) if previous_versions else 0
                 manager.set_version(new_version)
 
-                logger.info(f"[{db_name}] Rolled back migration {migration.version} successfully")
+                logger.info("[%s] Rolled back migration %s successfully", db_name, migration.version)
 
                 return {
                     "db_name": db_name,
@@ -988,7 +987,7 @@ class MigrationRunner:
 
             except (OSError, RuntimeError, ValueError, sqlite3.OperationalError) as e:
                 conn.rollback()
-                logger.error(f"[{db_name}] Rollback failed: {e}")
+                logger.error("[%s] Rollback failed: %s", db_name, e)
                 return {
                     "db_name": db_name,
                     "status": "failed",
@@ -1119,7 +1118,7 @@ def downgrade(conn: sqlite3.Connection) -> None:
 '''
 
         file_path.write_text(template)
-        logger.info(f"Created migration: {file_path}")
+        logger.info("Created migration: %s", file_path)
 
         # Clear cache
         self._discovered_migrations.pop(db_name, None)

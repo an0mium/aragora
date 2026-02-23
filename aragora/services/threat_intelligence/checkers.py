@@ -220,11 +220,11 @@ class ThreatCheckersMixin:
                     return await self._submit_url_virustotal(url)
                 else:
                     self._record_api_failure("virustotal")
-                    logger.warning(f"VirusTotal returned status {response.status}")
+                    logger.warning("VirusTotal returned status %s", response.status)
 
         except (ValueError, OSError, ConnectionError, RuntimeError) as e:
             self._record_api_failure("virustotal")
-            logger.warning(f"VirusTotal URL check failed: {e}")
+            logger.warning("VirusTotal URL check failed: %s", e)
 
         return None
 
@@ -256,7 +256,7 @@ class ThreatCheckersMixin:
                     }
 
         except (ValueError, OSError, ConnectionError, RuntimeError) as e:
-            logger.warning(f"VirusTotal URL submit failed: {e}")
+            logger.warning("VirusTotal URL submit failed: %s", e)
 
         return None
 
@@ -302,7 +302,7 @@ class ThreatCheckersMixin:
 
         except (ValueError, OSError, ConnectionError, RuntimeError) as e:
             self._record_api_failure("phishtank")
-            logger.warning(f"PhishTank check failed: {e}")
+            logger.warning("PhishTank check failed: %s", e)
 
         return None
 
@@ -349,11 +349,11 @@ class ThreatCheckersMixin:
                         }
                 else:
                     self._record_api_failure("urlhaus")
-                    logger.warning(f"URLhaus returned status {response.status}")
+                    logger.warning("URLhaus returned status %s", response.status)
 
         except (ValueError, OSError, ConnectionError, RuntimeError) as e:
             self._record_api_failure("urlhaus")
-            logger.warning(f"URLhaus check failed: {e}")
+            logger.warning("URLhaus check failed: %s", e)
 
         return None
 
@@ -513,7 +513,7 @@ class ThreatCheckersMixin:
 
         except (ValueError, OSError, ConnectionError, RuntimeError) as e:
             self._record_api_failure("abuseipdb")
-            logger.warning(f"AbuseIPDB check failed: {e}")
+            logger.warning("AbuseIPDB check failed: %s", e)
 
         return default_result
 
@@ -630,7 +630,7 @@ class ThreatCheckersMixin:
                     )
 
         except (ValueError, OSError, ConnectionError, RuntimeError) as e:
-            logger.warning(f"VirusTotal hash check failed: {e}")
+            logger.warning("VirusTotal hash check failed: %s", e)
 
         return FileHashResult(
             hash_value=hash_value,

@@ -173,7 +173,7 @@ class OpenHandsAdapter(ExternalAgentAdapter):
 
         except (RuntimeError, OSError, ConnectionError, ValueError) as e:
             self._record_failure(e)
-            logger.error(f"OpenHands task submission failed: {e}")
+            logger.error("OpenHands task submission failed: %s", e)
             raise ExternalAgentError(
                 "Task submission failed",
                 adapter_name=self.adapter_name,
@@ -214,7 +214,7 @@ class OpenHandsAdapter(ExternalAgentAdapter):
                     adapter_name=self.adapter_name,
                     task_id=task_id,
                 )
-            logger.error(f"OpenHands status check failed: {e}")
+            logger.error("OpenHands status check failed: %s", e)
             raise
 
     async def get_task_result(self, task_id: str) -> TaskResult:
@@ -283,7 +283,7 @@ class OpenHandsAdapter(ExternalAgentAdapter):
                     adapter_name=self.adapter_name,
                     task_id=task_id,
                 )
-            logger.error(f"OpenHands result retrieval failed: {e}")
+            logger.error("OpenHands result retrieval failed: %s", e)
             raise
 
     async def cancel_task(self, task_id: str) -> bool:
@@ -305,7 +305,7 @@ class OpenHandsAdapter(ExternalAgentAdapter):
             return True
 
         except (RuntimeError, OSError, ConnectionError, ValueError) as e:
-            logger.error(f"OpenHands task cancellation failed: {e}")
+            logger.error("OpenHands task cancellation failed: %s", e)
             return False
 
     async def health_check(self) -> HealthStatus:
@@ -359,7 +359,7 @@ class OpenHandsAdapter(ExternalAgentAdapter):
                 yield progress
             return
         except (RuntimeError, OSError, ConnectionError, TimeoutError, ValueError, ImportError) as e:
-            logger.debug(f"WebSocket streaming failed, falling back to polling: {e}")
+            logger.debug("WebSocket streaming failed, falling back to polling: %s", e)
 
         # Fall back to polling
         async for progress in super().stream_progress(task_id):

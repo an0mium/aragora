@@ -65,7 +65,7 @@ async def handle_gmail_oauth_url(
         }
 
     except (ConnectionError, TimeoutError, OSError, ValueError) as e:
-        logger.exception(f"Failed to get OAuth URL: {e}")
+        logger.exception("Failed to get OAuth URL: %s", e)
         return {
             "success": False,
             "error": "Failed to get OAuth URL",
@@ -110,7 +110,7 @@ async def handle_gmail_oauth_callback(
         }
 
     except (ConnectionError, TimeoutError, OSError, ValueError) as e:
-        logger.exception(f"OAuth callback failed: {e}")
+        logger.exception("OAuth callback failed: %s", e)
         return {
             "success": False,
             "error": "OAuth callback failed",
@@ -149,22 +149,22 @@ async def handle_gmail_status(
                 result["email"] = user_info.get("emailAddress")
                 result["messages_total"] = user_info.get("messagesTotal")
             except (KeyError, AttributeError) as e:
-                logger.debug(f"Failed to extract user info fields: {e}")
+                logger.debug("Failed to extract user info fields: %s", e)
                 result["authenticated"] = False
                 result["error"] = "Token expired or invalid"
             except (ConnectionError, TimeoutError) as e:
-                logger.warning(f"Network error checking Gmail status: {e}")
+                logger.warning("Network error checking Gmail status: %s", e)
                 result["authenticated"] = False
                 result["error"] = "Token expired or invalid"
             except (ValueError, TypeError, OSError) as e:
-                logger.warning(f"Unexpected error checking Gmail status: {e}")
+                logger.warning("Unexpected error checking Gmail status: %s", e)
                 result["authenticated"] = False
                 result["error"] = "Token expired or invalid"
 
         return result
 
     except (ConnectionError, TimeoutError, OSError, ValueError) as e:
-        logger.exception(f"Failed to check Gmail status: {e}")
+        logger.exception("Failed to check Gmail status: %s", e)
         return {
             "success": False,
             "error": "Failed to check Gmail status",

@@ -134,7 +134,7 @@ class AragoraTeamsBot:
         elif activity.type == ActivityTypes.conversation_update:
             await self._handle_conversation_update(turn_context)
         else:
-            logger.debug(f"Unhandled activity type: {activity.type}")
+            logger.debug("Unhandled activity type: %s", activity.type)
 
     async def _handle_message(self, turn_context: Any) -> None:
         """Handle incoming message activities."""
@@ -205,7 +205,7 @@ class AragoraTeamsBot:
                 value=InvokeResponse(status=200, body=response),
             )
         else:
-            logger.debug(f"Unhandled invoke: {invoke_name}")
+            logger.debug("Unhandled invoke: %s", invoke_name)
 
     async def _handle_conversation_update(self, turn_context: Any) -> None:
         """Handle conversation update activities (bot added, etc.)."""
@@ -250,7 +250,7 @@ class AragoraTeamsBot:
                         source="teams",
                     )
             except (ImportError, OSError, ValueError, RuntimeError, TypeError) as e:
-                logger.warning(f"Failed to record vote: {e}")
+                logger.warning("Failed to record vote: %s", e)
 
             emoji = "thumbsup" if vote == "agree" else "thumbsdown"
             return {"status": "ok", "message": f":{emoji}: Your vote has been recorded!"}

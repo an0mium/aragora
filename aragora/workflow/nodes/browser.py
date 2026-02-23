@@ -358,7 +358,7 @@ class BrowserStep(BaseStep):
             await _close_browser_connector()
             result_data["session_closed"] = True
 
-        logger.info(f"[BrowserStep] {self._name}: {action} completed")
+        logger.info("[BrowserStep] %s: %s completed", self._name, action)
         return result_data
 
 

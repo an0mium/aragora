@@ -359,7 +359,7 @@ class WitnessBehavior:
             except asyncio.CancelledError:
                 break
             except (RuntimeError, OSError, ValueError) as e:
-                logger.error(f"Patrol cycle error: {e}")
+                logger.error("Patrol cycle error: %s", e)
                 await asyncio.sleep(5)  # Brief pause on error
 
     async def _run_patrol_cycle(self) -> None:
@@ -560,13 +560,13 @@ class WitnessBehavior:
             # Check cooldown
             cooldown_until = self._alert_cooldowns.get(target)
             if cooldown_until and datetime.now(timezone.utc) < cooldown_until:
-                logger.debug(f"Alert for {target} suppressed by cooldown")
+                logger.debug("Alert for %s suppressed by cooldown", target)
                 return None
 
             # Check alert count
             count = self._alert_counts.get(target, 0)
             if count >= self.config.max_alerts_per_target:
-                logger.warning(f"Alert limit reached for {target}")
+                logger.warning("Alert limit reached for %s", target)
                 return None
 
             # Create alert
@@ -586,7 +586,7 @@ class WitnessBehavior:
                 seconds=self.config.alert_cooldown_seconds
             )
 
-            logger.info(f"Alert created: [{severity.value}] {message}")
+            logger.info("Alert created: [%s] %s", severity.value, message)
 
             # Notify callbacks
             for callback in self._callbacks:
@@ -596,7 +596,7 @@ class WitnessBehavior:
                     else:
                         callback(alert)
                 except Exception as e:  # noqa: BLE001 - callback errors must not break alert dispatch
-                    logger.error(f"Alert callback error: {e}")
+                    logger.error("Alert callback error: %s", e)
 
             # Notify mayor if critical
             if severity == AlertSeverity.CRITICAL and self.config.notify_mayor_on_critical:
@@ -612,7 +612,7 @@ class WitnessBehavior:
         mayor_id = await router.route_to_mayor()
 
         if mayor_id:
-            logger.info(f"Notifying mayor {mayor_id} of critical alert: {alert.message}")
+            logger.info("Notifying mayor %s of critical alert: %s", mayor_id, alert.message)
             # In a real implementation, this would send a message to the mayor agent
 
     async def acknowledge_alert(
@@ -638,7 +638,7 @@ class WitnessBehavior:
         alert.acknowledged_at = datetime.now(timezone.utc)
         alert.acknowledged_by = acknowledged_by
 
-        logger.info(f"Alert {alert_id} acknowledged by {acknowledged_by}")
+        logger.info("Alert %s acknowledged by %s", alert_id, acknowledged_by)
         return True
 
     async def generate_health_report(self) -> HealthReport:

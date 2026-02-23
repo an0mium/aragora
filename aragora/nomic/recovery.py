@@ -113,7 +113,7 @@ class CircuitBreaker:
 
         if self._failures >= self.failure_threshold:
             self._state = "open"
-            logger.warning(f"Circuit breaker '{self.name}' opened after {self._failures} failures")
+            logger.warning("Circuit breaker '%s' opened after %s failures", self.name, self._failures)
 
     def reset(self) -> None:
         """Manually reset the circuit breaker."""
@@ -243,7 +243,7 @@ class RecoveryManager:
         # Check circuit breakers
         open_circuits = self.circuit_breakers.all_open()
         if open_circuits:
-            logger.warning(f"Open circuits: {open_circuits}")
+            logger.warning("Open circuits: %s", open_circuits)
 
         # Classify error severity
         is_transient = self._is_transient_error(error)
@@ -420,7 +420,7 @@ async def recovery_handler(
         context=context,
     )
 
-    logger.info(f"Recovery decision: {decision.strategy.name} -> {decision.target_state}")
+    logger.info("Recovery decision: %s -> %s", decision.strategy.name, decision.target_state)
 
     # Apply delay if needed
     if decision.delay_seconds > 0:

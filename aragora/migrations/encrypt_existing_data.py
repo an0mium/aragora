@@ -85,7 +85,7 @@ class EncryptionMigration:
                 logger.error("Encryption not available - install cryptography package")
                 return False
         except ImportError as e:
-            logger.error(f"Cannot import encryption module: {e}")
+            logger.error("Cannot import encryption module: %s", e)
             return False
 
         return True
@@ -100,7 +100,7 @@ class EncryptionMigration:
             Path to the backup file, or None if backup failed
         """
         if not db_path.exists():
-            logger.warning(f"Database not found: {db_path}")
+            logger.warning("Database not found: %s", db_path)
             return None
 
         self.backup_dir.mkdir(parents=True, exist_ok=True)
@@ -108,10 +108,10 @@ class EncryptionMigration:
 
         try:
             shutil.copy2(db_path, backup_path)
-            logger.info(f"Created backup: {backup_path}")
+            logger.info("Created backup: %s", backup_path)
             return backup_path
         except OSError as e:
-            logger.error(f"Failed to create backup: {e}")
+            logger.error("Failed to create backup: %s", e)
             return None
 
     def migrate_integrations(self) -> int:
@@ -153,7 +153,7 @@ class EncryptionMigration:
                 try:
                     settings = json.loads(settings_json)
                 except json.JSONDecodeError:
-                    logger.warning(f"Invalid JSON for integration {record_id}")
+                    logger.warning("Invalid JSON for integration %s", record_id)
                     continue
 
                 # Check if any sensitive fields need encryption
@@ -171,13 +171,13 @@ class EncryptionMigration:
                 encrypted_settings = encrypt_sensitive(settings, record_id=record_id)
 
                 if self.dry_run:
-                    logger.info(f"Would encrypt integration {record_id}")
+                    logger.info("Would encrypt integration %s", record_id)
                 else:
                     cursor.execute(
                         "UPDATE integrations SET settings_json = ? WHERE id = ?",
                         (json.dumps(encrypted_settings), record_id),
                     )
-                    logger.debug(f"Encrypted integration {record_id}")
+                    logger.debug("Encrypted integration %s", record_id)
 
                 migrated += 1
 
@@ -185,7 +185,7 @@ class EncryptionMigration:
                 conn.commit()
 
         except (sqlite3.Error, json.JSONDecodeError, ValueError, KeyError) as e:
-            logger.error(f"Error migrating integrations: {e}")
+            logger.error("Error migrating integrations: %s", e)
             self.stats["errors"].append(f"integrations: {e}")
             conn.rollback()
         finally:
@@ -241,13 +241,13 @@ class EncryptionMigration:
                 encrypted_str = encrypted.to_base64()
 
                 if self.dry_run:
-                    logger.info(f"Would encrypt webhook {webhook_id}")
+                    logger.info("Would encrypt webhook %s", webhook_id)
                 else:
                     cursor.execute(
                         "UPDATE webhooks SET secret = ? WHERE id = ?",
                         (encrypted_str, webhook_id),
                     )
-                    logger.debug(f"Encrypted webhook {webhook_id}")
+                    logger.debug("Encrypted webhook %s", webhook_id)
 
                 migrated += 1
 
@@ -255,7 +255,7 @@ class EncryptionMigration:
                 conn.commit()
 
         except (sqlite3.Error, ValueError, KeyError) as e:
-            logger.error(f"Error migrating webhooks: {e}")
+            logger.error("Error migrating webhooks: %s", e)
             self.stats["errors"].append(f"webhooks: {e}")
             conn.rollback()
         finally:
@@ -323,14 +323,14 @@ class EncryptionMigration:
                     continue
 
                 if self.dry_run:
-                    logger.info(f"Would encrypt tokens for user {user_id}")
+                    logger.info("Would encrypt tokens for user %s", user_id)
                 else:
                     params.append(user_id)
                     cursor.execute(
                         f"UPDATE gmail_tokens SET {', '.join(updates)} WHERE user_id = ?",
                         params,
                     )
-                    logger.debug(f"Encrypted tokens for user {user_id}")
+                    logger.debug("Encrypted tokens for user %s", user_id)
 
                 migrated += 1
 
@@ -338,7 +338,7 @@ class EncryptionMigration:
                 conn.commit()
 
         except (sqlite3.Error, ValueError, KeyError) as e:
-            logger.error(f"Error migrating tokens: {e}")
+            logger.error("Error migrating tokens: %s", e)
             self.stats["errors"].append(f"tokens: {e}")
             conn.rollback()
         finally:
@@ -384,7 +384,7 @@ class EncryptionMigration:
                 try:
                     config = json.loads(config_json)
                 except json.JSONDecodeError:
-                    logger.warning(f"Invalid JSON for sync config {config_id}")
+                    logger.warning("Invalid JSON for sync config %s", config_id)
                     continue
 
                 # Check if needs encryption
@@ -402,13 +402,13 @@ class EncryptionMigration:
                 encrypted_config = encrypt_sensitive(config, record_id=config_id)
 
                 if self.dry_run:
-                    logger.info(f"Would encrypt sync config {config_id}")
+                    logger.info("Would encrypt sync config %s", config_id)
                 else:
                     cursor.execute(
                         "UPDATE sync_configs SET config_json = ? WHERE id = ?",
                         (json.dumps(encrypted_config), config_id),
                     )
-                    logger.debug(f"Encrypted sync config {config_id}")
+                    logger.debug("Encrypted sync config %s", config_id)
 
                 migrated += 1
 
@@ -416,7 +416,7 @@ class EncryptionMigration:
                 conn.commit()
 
         except (sqlite3.Error, json.JSONDecodeError, ValueError, KeyError) as e:
-            logger.error(f"Error migrating sync configs: {e}")
+            logger.error("Error migrating sync configs: %s", e)
             self.stats["errors"].append(f"sync_configs: {e}")
             conn.rollback()
         finally:
@@ -431,7 +431,7 @@ class EncryptionMigration:
         Returns:
             Migration statistics
         """
-        logger.info(f"Starting encryption migration {'(dry run)' if self.dry_run else ''}")
+        logger.info("Starting encryption migration %s", '(dry run)' if self.dry_run else '')
 
         if not self.check_prerequisites():
             logger.error("Prerequisites not met, aborting migration")
@@ -451,16 +451,16 @@ class EncryptionMigration:
             + self.stats["sync_configs_migrated"]
         )
 
-        logger.info(f"Migration complete: {total} records processed")
-        logger.info(f"  Integrations: {self.stats['integrations_migrated']}")
-        logger.info(f"  Webhooks: {self.stats['webhooks_migrated']}")
-        logger.info(f"  Tokens: {self.stats['tokens_migrated']}")
-        logger.info(f"  Sync configs: {self.stats['sync_configs_migrated']}")
+        logger.info("Migration complete: %s records processed", total)
+        logger.info("  Integrations: %s", self.stats['integrations_migrated'])
+        logger.info("  Webhooks: %s", self.stats['webhooks_migrated'])
+        logger.info("  Tokens: %s", self.stats['tokens_migrated'])
+        logger.info("  Sync configs: %s", self.stats['sync_configs_migrated'])
 
         if self.stats["errors"]:
-            logger.warning(f"Errors: {len(self.stats['errors'])}")
+            logger.warning("Errors: %s", len(self.stats['errors']))
             for error in self.stats["errors"]:
-                logger.warning(f"  - {error}")
+                logger.warning("  - %s", error)
 
         return {
             "success": len(self.stats["errors"]) == 0,
@@ -498,14 +498,14 @@ class EncryptionMigration:
 
         if timestamp:
             if timestamp not in by_timestamp:
-                logger.error(f"No backups found for timestamp {timestamp}")
+                logger.error("No backups found for timestamp %s", timestamp)
                 return False
             restore_backups = by_timestamp[timestamp]
         else:
             # Most recent
             latest_ts = sorted(by_timestamp.keys())[-1]
             restore_backups = by_timestamp[latest_ts]
-            logger.info(f"Restoring from most recent backup: {latest_ts}")
+            logger.info("Restoring from most recent backup: %s", latest_ts)
 
         # Restore each backup
         for backup in restore_backups:
@@ -515,9 +515,9 @@ class EncryptionMigration:
 
             try:
                 shutil.copy2(backup, original_path)
-                logger.info(f"Restored: {original_path}")
+                logger.info("Restored: %s", original_path)
             except OSError as e:
-                logger.error(f"Failed to restore {original_path}: {e}")
+                logger.error("Failed to restore %s: %s", original_path, e)
                 return False
 
         logger.info("Rollback complete")

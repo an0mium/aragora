@@ -137,7 +137,7 @@ class SecurityDebateHandler(SecureHandler):
                 SecuritySeverity,
             )
         except ImportError as e:
-            logger.error(f"Security debate module not available: {e}")
+            logger.error("Security debate module not available: %s", e)
             return error_response("Security debate module not available", 500)
 
         # Convert findings to SecurityFinding objects

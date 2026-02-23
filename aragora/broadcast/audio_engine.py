@@ -63,9 +63,9 @@ def get_audio_backend() -> TTSBackend:
         if forced:
             try:
                 _tts_backend = get_tts_backend(forced)
-                logger.info(f"Using forced TTS backend: {forced}")
+                logger.info("Using forced TTS backend: %s", forced)
             except (RuntimeError, OSError, ValueError) as e:
-                logger.warning(f"Failed to use forced backend '{forced}': {e}")
+                logger.warning("Failed to use forced backend '%s': %s", forced, e)
                 _tts_backend = get_fallback_backend()
         else:
             _tts_backend = get_fallback_backend()
@@ -136,14 +136,14 @@ async def _generate_edge_tts(
                 process.kill()
                 await process.wait()
                 logger.warning(
-                    f"edge-tts timed out after {timeout}s (attempt {attempt + 1}/{max_retries})"
+                    "edge-tts timed out after %ss (attempt %s/%s)", timeout, attempt + 1, max_retries
                 )
                 last_error = TimeoutError(f"edge-tts timed out after {timeout}s")
                 # Continue to retry
             else:
                 if process.returncode == 0 and output_path.exists():
                     if attempt > 0:
-                        logger.info(f"edge-tts succeeded on attempt {attempt + 1}")
+                        logger.info("edge-tts succeeded on attempt %s", attempt + 1)
                     return True
 
                 # Non-zero return code - capture error for logging
@@ -151,8 +151,7 @@ async def _generate_edge_tts(
                     stderr.decode("utf-8", errors="replace").strip() if stderr else "unknown error"
                 )
                 logger.debug(
-                    f"edge-tts failed (attempt {attempt + 1}/{max_retries}): "
-                    f"returncode={process.returncode}, error={error_msg[:200]}"
+                    "edge-tts failed (attempt %s/%s): returncode=%s, error=%s", attempt + 1, max_retries, process.returncode, error_msg[:200]
                 )
                 last_error = RuntimeError(
                     f"edge-tts returned {process.returncode}: {error_msg[:100]}"
@@ -163,7 +162,7 @@ async def _generate_edge_tts(
             logger.debug("edge-tts not found in PATH")
             return False
         except (RuntimeError, OSError, ValueError) as e:
-            logger.debug(f"edge-tts generation failed (attempt {attempt + 1}/{max_retries}): {e}")
+            logger.debug("edge-tts generation failed (attempt %s/%s): %s", attempt + 1, max_retries, e)
             last_error = e
 
         # Exponential backoff before retry (except on last attempt)
@@ -173,7 +172,7 @@ async def _generate_edge_tts(
             await asyncio.sleep(delay)
 
     # All retries exhausted
-    logger.warning(f"edge-tts failed after {max_retries} attempts: {last_error}")
+    logger.warning("edge-tts failed after %s attempts: %s", max_retries, last_error)
     return False
 
 
@@ -321,7 +320,7 @@ class AudioEngine:
                 result.unlink()  # Clean up temp file
                 return data
         except (RuntimeError, OSError, ValueError) as e:
-            logger.warning(f"TTS synthesis failed: {e}")
+            logger.warning("TTS synthesis failed: %s", e)
 
         return None
 
@@ -355,7 +354,7 @@ class AudioEngine:
                 output_path.write_bytes(audio_data)
                 return output_path
         except (RuntimeError, OSError, ValueError) as e:
-            logger.warning(f"Segment audio generation failed: {e}")
+            logger.warning("Segment audio generation failed: %s", e)
 
         return None
 
@@ -409,7 +408,7 @@ async def generate_audio(
     valid_paths: list[Path] = []
     for result in results:
         if isinstance(result, BaseException):
-            logger.error(f"Audio segment generation failed: {type(result).__name__}: {result}")
+            logger.error("Audio segment generation failed: %s: %s", type(result).__name__, result)
         elif result is not None:
             valid_paths.append(result)
     return valid_paths

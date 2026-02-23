@@ -132,7 +132,7 @@ def parse_ready_signal(agent_name: str, content: str, round_num: int) -> AgentRe
             signal.reasoning = str(data.get("reasoning", ""))
             return signal
         except (json.JSONDecodeError, ValueError, TypeError) as e:
-            logger.debug(f"Failed to parse HTML ready signal: {e}")
+            logger.debug("Failed to parse HTML ready signal: %s", e)
 
     # Try JSON code block format
     # ```ready_signal {"confidence": 0.85, "ready": true} ```
@@ -146,7 +146,7 @@ def parse_ready_signal(agent_name: str, content: str, round_num: int) -> AgentRe
             signal.reasoning = str(data.get("reasoning", ""))
             return signal
         except (json.JSONDecodeError, ValueError, TypeError) as e:
-            logger.debug(f"Failed to parse JSON ready signal: {e}")
+            logger.debug("Failed to parse JSON ready signal: %s", e)
 
     # Try inline marker format
     # [READY: confidence=0.85, ready=true]
@@ -161,7 +161,7 @@ def parse_ready_signal(agent_name: str, content: str, round_num: int) -> AgentRe
             signal.reasoning = inline_match.group(3) or ""
             return signal
         except (ValueError, TypeError) as e:
-            logger.debug(f"Failed to parse inline ready signal: {e}")
+            logger.debug("Failed to parse inline ready signal: %s", e)
 
     # Heuristic: Check for explicit "final position" or "ready" statements
     # This allows natural language signaling without structured metadata

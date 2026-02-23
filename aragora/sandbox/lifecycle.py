@@ -347,7 +347,7 @@ class SessionContainerManager:
             metadata=metadata or {},
         )
 
-        logger.debug(f"Creating session {session_id} for tenant {tenant_id}")
+        logger.debug("Creating session %s for tenant %s", session_id, tenant_id)
 
         try:
             # Acquire container from pool
@@ -362,11 +362,11 @@ class SessionContainerManager:
                     self._tenant_sessions[tenant_id] = set()
                 self._tenant_sessions[tenant_id].add(session_id)
 
-            logger.info(f"Created session {session_id} with container {container.container_id}")
+            logger.info("Created session %s with container %s", session_id, container.container_id)
             return session
 
         except (RuntimeError, OSError, subprocess.SubprocessError) as e:
-            logger.error(f"Failed to create session {session_id}: {e}")
+            logger.error("Failed to create session %s: %s", session_id, e)
             raise SessionError(f"Failed to create session: {e}") from e
 
     async def get_session(self, session_id: str) -> ContainerSession:
@@ -430,11 +430,11 @@ class SessionContainerManager:
         session = await self.get_session(session_id)
 
         if session.state != SessionState.ACTIVE:
-            logger.warning(f"Cannot suspend session {session_id} in state {session.state}")
+            logger.warning("Cannot suspend session %s in state %s", session_id, session.state)
             return
 
         session.state = SessionState.SUSPENDED
-        logger.info(f"Suspended session {session_id}")
+        logger.info("Suspended session %s", session_id)
 
     async def resume_session(self, session_id: str) -> None:
         """
@@ -446,7 +446,7 @@ class SessionContainerManager:
         session = await self.get_session(session_id)
 
         if session.state != SessionState.SUSPENDED:
-            logger.warning(f"Cannot resume session {session_id} in state {session.state}")
+            logger.warning("Cannot resume session %s in state %s", session_id, session.state)
             return
 
         if session.is_expired():
@@ -454,7 +454,7 @@ class SessionContainerManager:
 
         session.state = SessionState.ACTIVE
         session.last_activity_at = time.time()
-        logger.info(f"Resumed session {session_id}")
+        logger.info("Resumed session %s", session_id)
 
     async def terminate_session(self, session_id: str) -> None:
         """
@@ -479,12 +479,12 @@ class SessionContainerManager:
             try:
                 await self.pool.release(session_id)
             except (RuntimeError, OSError, subprocess.SubprocessError) as e:
-                logger.warning(f"Failed to release container for {session_id}: {e}")
+                logger.warning("Failed to release container for %s: %s", session_id, e)
                 # Force destroy if release fails
                 await self.pool.destroy(session_id)
 
         session.state = SessionState.TERMINATED
-        logger.info(f"Terminated session {session_id}")
+        logger.info("Terminated session %s", session_id)
 
     # ==========================================================================
     # Execution
@@ -538,7 +538,7 @@ class SessionContainerManager:
         timeout = timeout or session.config.max_execution_time_seconds
 
         logger.debug(
-            f"Executing {language} code in session {session_id} (execution {execution_id})"
+            "Executing %s code in session %s (execution %s)", language, session_id, execution_id
         )
 
         start = time.time()
@@ -570,7 +570,7 @@ class SessionContainerManager:
             )
 
         except (RuntimeError, OSError, subprocess.SubprocessError) as e:
-            logger.error(f"Execution error in session {session_id}: {e}")
+            logger.error("Execution error in session %s: %s", session_id, e)
             return SessionExecutionResult(
                 session_id=session_id,
                 execution_id=execution_id,
@@ -722,7 +722,7 @@ class SessionContainerManager:
         for session in sessions:
             await self.terminate_session(session.session_id)
 
-        logger.info(f"Terminated {len(sessions)} sessions for tenant {tenant_id}")
+        logger.info("Terminated %s sessions for tenant %s", len(sessions), tenant_id)
         return len(sessions)
 
     # ==========================================================================
@@ -738,7 +738,7 @@ class SessionContainerManager:
             except asyncio.CancelledError:
                 break
             except (RuntimeError, OSError, subprocess.SubprocessError) as e:
-                logger.error(f"Session cleanup error: {e}")
+                logger.error("Session cleanup error: %s", e)
 
     async def _cleanup_expired_sessions(self) -> None:
         """Cleanup expired sessions."""
@@ -750,7 +750,7 @@ class SessionContainerManager:
             ]
 
         if expired:
-            logger.debug(f"Cleaning up {len(expired)} expired sessions")
+            logger.debug("Cleaning up %s expired sessions", len(expired))
             for session_id in expired:
                 await self.terminate_session(session_id)
 

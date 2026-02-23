@@ -198,10 +198,10 @@ class PromptContextMixin:
                     lines.append(f"  Fix: {fix_preview} ({p.success_count} successes)")
             return "\n".join(lines)
         except (AttributeError, TypeError, ValueError) as e:
-            logger.debug(f"Successful patterns formatting error: {e}")
+            logger.debug("Successful patterns formatting error: %s", e)
             return ""
         except (RuntimeError, KeyError) as e:
-            logger.warning(f"Unexpected patterns formatting error: {e}")
+            logger.warning("Unexpected patterns formatting error: %s", e)
             return ""
 
     def get_role_context(self, agent: Agent) -> str:
@@ -250,21 +250,21 @@ class PromptContextMixin:
                 )
             else:
                 self._classification = self._question_classifier.classify_simple(self.env.task)
-                logger.debug(f"Keyword classification: category={self._classification.category}")
+                logger.debug("Keyword classification: category=%s", self._classification.category)
 
             return self._classification.category
 
         except (asyncio.TimeoutError, asyncio.CancelledError) as e:
-            logger.warning(f"Question classification timed out: {e}")
+            logger.warning("Question classification timed out: %s", e)
             return self._detect_question_domain_keywords(self.env.task)
         except (ValueError, TypeError, AttributeError) as e:
-            logger.warning(f"Question classification failed with data error: {e}")
+            logger.warning("Question classification failed with data error: %s", e)
             return self._detect_question_domain_keywords(self.env.task)
         except (RuntimeError, KeyError, OSError, ConnectionError) as e:
-            logger.exception(f"Unexpected question classification error: {e}")
+            logger.exception("Unexpected question classification error: %s", e)
             return self._detect_question_domain_keywords(self.env.task)
         except Exception as e:
-            logger.warning(f"Question classification failed (API or other error): {e}")
+            logger.warning("Question classification failed (API or other error): %s", e)
             return self._detect_question_domain_keywords(self.env.task)
 
     def _detect_question_domain(self, question: str) -> str:
@@ -370,10 +370,10 @@ class PromptContextMixin:
             return "\n".join(lines) if len(lines) > 1 else ""
 
         except (AttributeError, TypeError, ValueError) as e:
-            logger.debug(f"Flip context formatting error: {e}")
+            logger.debug("Flip context formatting error: %s", e)
             return ""
         except (RuntimeError, KeyError) as e:
-            logger.warning(f"Unexpected flip context formatting error: {e}")
+            logger.warning("Unexpected flip context formatting error: %s", e)
             return ""
 
     def get_continuum_context(self) -> str:
@@ -427,13 +427,13 @@ class PromptContextMixin:
             return self._supermemory_context_cache
 
         except (asyncio.TimeoutError, asyncio.CancelledError) as e:
-            logger.warning(f"Supermemory context injection timed out: {e}")
+            logger.warning("Supermemory context injection timed out: %s", e)
             return ""
         except (AttributeError, TypeError, KeyError) as e:
-            logger.debug(f"Supermemory context injection error: {e}")
+            logger.debug("Supermemory context injection error: %s", e)
             return ""
         except (RuntimeError, ValueError, OSError, ConnectionError) as e:
-            logger.warning(f"Unexpected supermemory context injection error: {e}")
+            logger.warning("Unexpected supermemory context injection error: %s", e)
             return ""
 
     def get_supermemory_context(self) -> str:
@@ -560,7 +560,7 @@ class PromptContextMixin:
 
             return "\n".join(lines)
         except (AttributeError, TypeError, KeyError) as e:
-            logger.debug(f"Prior claims context error: {e}")
+            logger.debug("Prior claims context error: %s", e)
             return ""
 
     def set_supermemory_adapter(self, adapter: SupermemoryAdapter | None) -> None:
@@ -622,9 +622,9 @@ The system will provide relevant details from the full history."""
                 return self._rlm_context.original_content[:max_chars] + "..."
 
         except (AttributeError, TypeError, KeyError) as e:
-            logger.debug(f"RLM abstract retrieval error: {e}")
+            logger.debug("RLM abstract retrieval error: %s", e)
         except (RuntimeError, ValueError) as e:
-            logger.warning(f"Unexpected RLM abstract retrieval error: {e}")
+            logger.warning("Unexpected RLM abstract retrieval error: %s", e)
 
         return ""
 
@@ -673,10 +673,10 @@ The system will provide relevant details from the full history."""
             return "\n".join(lines)
 
         except (AttributeError, TypeError, KeyError) as e:
-            logger.debug(f"Belief context injection error: {e}")
+            logger.debug("Belief context injection error: %s", e)
             return ""
         except (RuntimeError, OSError) as e:
-            logger.warning(f"Unexpected belief context injection error: {e}")
+            logger.warning("Unexpected belief context injection error: %s", e)
             return ""
 
     def _inject_calibration_context(self, agent: Agent) -> str:
@@ -715,10 +715,10 @@ The system will provide relevant details from the full history."""
             return "\n".join(lines)
 
         except (AttributeError, TypeError, KeyError) as e:
-            logger.debug(f"Calibration context injection error: {e}")
+            logger.debug("Calibration context injection error: %s", e)
             return ""
         except (RuntimeError, OSError) as e:
-            logger.warning(f"Unexpected calibration context injection error: {e}")
+            logger.warning("Unexpected calibration context injection error: %s", e)
             return ""
 
     def get_elo_context(self, agent: Agent, all_agents: list[Agent]) -> str:
@@ -760,10 +760,10 @@ The system will provide relevant details from the full history."""
                             accuracy = 1.0 - summary.brier_score
                             calib_str = f", {accuracy:.0%} calibration"
                     except (AttributeError, TypeError, KeyError) as e:
-                        logger.debug(f"Failed to get calibration summary for {name}: {e}")
+                        logger.debug("Failed to get calibration summary for %s: %s", name, e)
                     except (RuntimeError, OSError) as e:
                         logger.warning(
-                            f"Unexpected error getting calibration summary for {name}: {e}"
+                            "Unexpected error getting calibration summary for %s: %s", name, e
                         )
 
                 lines.append(
@@ -787,10 +787,10 @@ The system will provide relevant details from the full history."""
             return "\n".join(lines)
 
         except (AttributeError, TypeError, KeyError) as e:
-            logger.debug(f"ELO context injection error: {e}")
+            logger.debug("ELO context injection error: %s", e)
             return ""
         except (RuntimeError, OSError) as e:
-            logger.warning(f"Unexpected ELO context injection error: {e}")
+            logger.warning("Unexpected ELO context injection error: %s", e)
             return ""
 
     def format_evidence_for_prompt(self, max_snippets: int = 5) -> str:

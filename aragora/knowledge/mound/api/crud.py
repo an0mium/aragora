@@ -186,7 +186,7 @@ class CRUDOperationsMixin(_CRUDMixinBase):
                 request.metadata = validate_metadata(request.metadata)
                 span.add_event("validation_complete")
             except ValidationError as e:
-                logger.warning(f"Validation failed for store request: {e.message}")
+                logger.warning("Validation failed for store request: %s", e.message)
                 span.set_tag("error", "validation_failed")
                 return IngestionResult(
                     node_id="",
@@ -252,7 +252,7 @@ class CRUDOperationsMixin(_CRUDMixinBase):
                     )
                     span.add_event("semantic_indexed")
                 except (OSError, ConnectionError, TimeoutError, RuntimeError) as e:  # noqa: BLE001 - adapter isolation
-                    logger.warning(f"Failed to index in semantic store: {e}")
+                    logger.warning("Failed to index in semantic store: %s", e)
                     span.add_event("semantic_index_failed", {"error": "Semantic indexing failed"})
 
             # Create relationships
@@ -276,7 +276,7 @@ class CRUDOperationsMixin(_CRUDMixinBase):
                 await self._cache.invalidate_queries(request.workspace_id)
                 span.add_event("cache_invalidated")
 
-            logger.debug(f"Stored knowledge node: {node_id}")
+            logger.debug("Stored knowledge node: %s", node_id)
 
             # Emit KNOWLEDGE_INDEXED event for cross-subsystem tracking
             if self.event_emitter:
@@ -592,10 +592,10 @@ class CRUDOperationsMixin(_CRUDMixinBase):
         self._ensure_initialized()
         try:
             await self._save_relationship(from_id, to_id, relationship_type)
-            logger.debug(f"Created relationship: {from_id} --{relationship_type}--> {to_id}")
+            logger.debug("Created relationship: %s --%s--> %s", from_id, relationship_type, to_id)
             return True
         except (RuntimeError, ValueError, OSError, AttributeError) as e:
-            logger.error(f"Failed to create relationship: {e}")
+            logger.error("Failed to create relationship: %s", e)
             return False
 
     async def get_relationships(
@@ -635,7 +635,7 @@ class CRUDOperationsMixin(_CRUDMixinBase):
                     for link in links
                 ]
             except (RuntimeError, ValueError, OSError, AttributeError) as e:
-                logger.warning(f"Failed to get relationships from graph store: {e}")
+                logger.warning("Failed to get relationships from graph store: %s", e)
 
         # Fallback to empty list if no graph store
         return []
@@ -738,5 +738,5 @@ class CRUDOperationsMixin(_CRUDMixinBase):
             logger.debug(f"Updated confidence for {node_id} to {new_confidence:.3f}")
             return True
         except (RuntimeError, ValueError, OSError, AttributeError) as e:
-            logger.warning(f"Failed to update confidence for {node_id}: {e}")
+            logger.warning("Failed to update confidence for %s: %s", node_id, e)
             return False

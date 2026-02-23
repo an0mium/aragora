@@ -132,7 +132,7 @@ class TelegramMessagesMixin:
         )
 
         if not success and error:
-            logger.warning(f"Delete message failed: {error}")
+            logger.warning("Delete message failed: %s", error)
 
         return success
 
@@ -157,7 +157,7 @@ class TelegramMessagesMixin:
         )
 
         if not success:
-            logger.debug(f"Telegram typing indicator failed: {error}")
+            logger.debug("Telegram typing indicator failed: %s", error)
 
         return success
 

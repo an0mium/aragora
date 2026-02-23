@@ -126,7 +126,7 @@ class SkillInstaller:
     def set_policy(self, tenant_id: str, policy: InstallationPolicy) -> None:
         """Set installation policy for a tenant."""
         self._policies[tenant_id] = policy
-        logger.info(f"Set installation policy for tenant {tenant_id}")
+        logger.info("Set installation policy for tenant %s", tenant_id)
 
     def get_policy(self, tenant_id: str) -> InstallationPolicy:
         """Get installation policy for a tenant."""
@@ -337,7 +337,7 @@ class SkillInstaller:
         # Install dependencies first if needed
         dependencies_installed: list[str] = []
         if install_dependencies and check.missing_dependencies:
-            logger.warning(f"Missing dependencies for {skill_id}: {check.missing_dependencies}")
+            logger.warning("Missing dependencies for %s: %s", skill_id, check.missing_dependencies)
             # In a full implementation, would recursively install dependencies
             pass
 
@@ -379,7 +379,7 @@ class SkillInstaller:
 
         # Log warnings
         for warning in check.warnings:
-            logger.warning(f"Installation warning for {skill_id}: {warning}")
+            logger.warning("Installation warning for %s: %s", skill_id, warning)
 
         return result
 
@@ -407,13 +407,13 @@ class SkillInstaller:
 
         if self.UNINSTALL_PERMISSION not in user_permissions:
             if self.ADMIN_PERMISSION not in user_permissions:
-                logger.warning(f"User {user_id} lacks permission to uninstall skill {skill_id}")
+                logger.warning("User %s lacks permission to uninstall skill %s", user_id, skill_id)
                 return False
 
         # Check for dependent skills
         dependents = await self._find_dependents(skill_id, tenant_id)
         if dependents:
-            logger.warning(f"Cannot uninstall {skill_id}: required by {dependents}")
+            logger.warning("Cannot uninstall %s: required by %s", skill_id, dependents)
             return False
 
         return await self._marketplace.uninstall(skill_id, tenant_id)

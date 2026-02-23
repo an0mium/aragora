@@ -72,8 +72,8 @@ class DebateStepExecutor(StepExecutor):
                 "rounds_used": getattr(result, "rounds_used", rounds),
             }
         except ImportError as e:
-            logger.warning(f"Debate modules not available: {e}")
+            logger.warning("Debate modules not available: %s", e)
             return {"status": "skipped", "reason": "Debate modules not available"}
         except (RuntimeError, OSError, ValueError) as e:
-            logger.error(f"Debate execution failed: {e}")
+            logger.error("Debate execution failed: %s", e)
             raise

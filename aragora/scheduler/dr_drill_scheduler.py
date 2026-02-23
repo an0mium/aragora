@@ -643,8 +643,7 @@ class DRDrillScheduler:
         self._storage.save_schedule("weekly_integrity", "data_integrity_check", next_weekly)
 
         logger.info(
-            f"Initialized DR schedules: monthly={next_monthly}, "
-            f"quarterly={next_quarterly}, weekly={next_weekly}"
+            "Initialized DR schedules: monthly=%s, quarterly=%s, weekly=%s", next_monthly, next_quarterly, next_weekly
         )
 
     async def _run_loop(self) -> None:
@@ -662,13 +661,13 @@ class DRDrillScheduler:
             except asyncio.CancelledError:
                 break
             except (OSError, sqlite3.Error, RuntimeError) as e:
-                logger.error(f"Error in DR drill scheduler: {e}")
+                logger.error("Error in DR drill scheduler: %s", e)
                 await asyncio.sleep(300)
 
     async def _execute_scheduled_drill(self, schedule: dict[str, Any]) -> None:
         """Execute a scheduled drill."""
         drill_type = DrillType(schedule["drill_type"])
-        logger.info(f"Executing scheduled DR drill: {drill_type.value}")
+        logger.info("Executing scheduled DR drill: %s", drill_type.value)
 
         # Execute the drill
         drill = await self.execute_drill(drill_type=drill_type)
@@ -763,7 +762,7 @@ class DRDrillScheduler:
                 step.status = DrillStatus.FAILED
                 step.error_message = "Drill step execution failed"
                 failed_steps.append(step)
-                logger.error(f"Step {step.step_name} failed: {e}")
+                logger.error("Step %s failed: %s", step.step_name, e)
 
             step.completed_at = datetime.now(timezone.utc)
             step.duration_seconds = (step.completed_at - step.started_at).total_seconds()
@@ -1013,7 +1012,7 @@ class DRDrillScheduler:
             try:
                 handler(notification)
             except (OSError, RuntimeError, ValueError) as e:
-                logger.error(f"Error sending notification: {e}")
+                logger.error("Error sending notification: %s", e)
 
     # =========================================================================
     # Registration

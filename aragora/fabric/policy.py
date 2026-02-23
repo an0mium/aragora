@@ -56,7 +56,7 @@ class PolicyEngine:
         """Add or update a policy."""
         async with self._lock:
             self._policies[policy.id] = policy
-            logger.debug(f"Added policy {policy.id} ({len(policy.rules)} rules)")
+            logger.debug("Added policy %s (%s rules)", policy.id, len(policy.rules))
 
     async def remove_policy(self, policy_id: str) -> bool:
         """Remove a policy."""
@@ -187,7 +187,7 @@ class PolicyEngine:
             self._pending_approvals[request_id] = request
             self._approval_events[request_id] = event
 
-        logger.info(f"Approval requested: {request_id} for action {action}")
+        logger.info("Approval requested: %s for action %s", request_id, action)
 
         start = datetime.now(timezone.utc)
         try:
@@ -221,7 +221,7 @@ class PolicyEngine:
                 return False
 
             if approver_id not in request.approvers:
-                logger.warning(f"Unauthorized approval attempt: {approver_id} for {request_id}")
+                logger.warning("Unauthorized approval attempt: %s for %s", approver_id, request_id)
                 return False
 
             request.status = "approved"
@@ -233,7 +233,7 @@ class PolicyEngine:
             if event:
                 event.set()
 
-            logger.info(f"Approved: {request_id} by {approver_id}")
+            logger.info("Approved: %s by %s", request_id, approver_id)
             return True
 
     async def deny(
@@ -255,7 +255,7 @@ class PolicyEngine:
             if event:
                 event.set()
 
-            logger.info(f"Denied: {request_id} by {denier_id}")
+            logger.info("Denied: %s by %s", request_id, denier_id)
             return True
 
     async def list_pending_approvals(

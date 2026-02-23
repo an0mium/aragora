@@ -481,7 +481,7 @@ class RepositoryCrawler:
                     )
                     nodes_created += 1
                 except (ValueError, RuntimeError, OSError) as e:
-                    logger.warning(f"Failed to index chunk from {cf.relative_path}: {e}")
+                    logger.warning("Failed to index chunk from %s: %s", cf.relative_path, e)
 
             # Index symbols
             for symbol in cf.symbols:
@@ -499,7 +499,7 @@ class RepositoryCrawler:
                         )
                         nodes_created += 1
                     except (ValueError, RuntimeError, OSError) as e:
-                        logger.warning(f"Failed to index symbol {symbol.name}: {e}")
+                        logger.warning("Failed to index symbol %s: %s", symbol.name, e)
 
         return nodes_created
 
@@ -601,7 +601,7 @@ class RepositoryCrawler:
             }
 
         except (OSError, ValueError) as e:
-            logger.warning(f"Failed to get git info: {e}")
+            logger.warning("Failed to get git info: %s", e)
             return None
 
     async def _run_git_command(
@@ -625,7 +625,7 @@ class RepositoryCrawler:
             return None
 
         except OSError as e:
-            logger.debug(f"Git command failed: {e}")
+            logger.debug("Git command failed: %s", e)
             return None
 
     async def _get_changed_files(self, repo_path: Path) -> set[str] | None:
@@ -644,7 +644,7 @@ class RepositoryCrawler:
             return None
 
         except (OSError, ValueError) as e:
-            logger.debug(f"Failed to get changed files: {e}")
+            logger.debug("Failed to get changed files: %s", e)
             return None
 
     async def _discover_files(
@@ -860,7 +860,7 @@ class RepositoryCrawler:
             return sig
 
         except (AttributeError, TypeError, ValueError) as e:
-            logger.debug(f"Failed to extract function signature for {node.name}: {e}")
+            logger.debug("Failed to extract function signature for %s: %s", node.name, e)
             return f"def {node.name}(...)"
 
     def _extract_python_symbols_regex(self, content: str) -> list[FileSymbol]:

@@ -150,7 +150,7 @@ class LegalHandler:
             return error_response("Not found", 404)
 
         except (ValueError, KeyError, TypeError, RuntimeError, OSError) as e:
-            logger.exception(f"Error in legal handler: {e}")
+            logger.exception("Error in legal handler: %s", e)
             return error_response("Internal server error", 500)
 
     def _get_tenant_id(self, request: Any) -> str:
@@ -234,7 +234,7 @@ class LegalHandler:
                 }
             )
         except (ConnectionError, TimeoutError, OSError, ValueError) as e:
-            logger.error(f"Failed to list envelopes: {e}")
+            logger.error("Failed to list envelopes: %s", e)
             return error_response("Failed to list envelopes", 500)
 
     async def _handle_create_envelope(self, request: Any, tenant_id: str) -> HandlerResult:
@@ -341,7 +341,7 @@ class LegalHandler:
 
             envelope = await connector.create_envelope(create_request)
 
-            logger.info(f"[Legal] Created envelope {envelope.envelope_id} for tenant {tenant_id}")
+            logger.info("[Legal] Created envelope %s for tenant %s", envelope.envelope_id, tenant_id)
 
             return json_response(
                 {
@@ -355,7 +355,7 @@ class LegalHandler:
             )
 
         except (ConnectionError, TimeoutError, OSError, ValueError, KeyError) as e:
-            logger.error(f"Failed to create envelope: {e}")
+            logger.error("Failed to create envelope: %s", e)
             return error_response("Envelope creation failed", 500)
 
     async def _handle_get_envelope(
@@ -381,7 +381,7 @@ class LegalHandler:
             return success_response({"envelope": envelope.to_dict()})
 
         except (ConnectionError, TimeoutError, OSError, ValueError) as e:
-            logger.error(f"Failed to get envelope {envelope_id}: {e}")
+            logger.error("Failed to get envelope %s: %s", envelope_id, e)
             return error_response("Failed to retrieve envelope", 500)
 
     async def _handle_void_envelope(
@@ -411,7 +411,7 @@ class LegalHandler:
         try:
             success = await connector.void_envelope(envelope_id, reason)
             if success:
-                logger.info(f"[Legal] Voided envelope {envelope_id} for tenant {tenant_id}")
+                logger.info("[Legal] Voided envelope %s for tenant %s", envelope_id, tenant_id)
                 return success_response(
                     {"message": "Envelope voided successfully", "envelope_id": envelope_id}
                 )
@@ -419,7 +419,7 @@ class LegalHandler:
                 return error_response("Failed to void envelope", 500)
 
         except (ConnectionError, TimeoutError, OSError, ValueError) as e:
-            logger.error(f"Failed to void envelope {envelope_id}: {e}")
+            logger.error("Failed to void envelope %s: %s", envelope_id, e)
             return error_response("Envelope voiding failed", 500)
 
     async def _handle_resend_envelope(
@@ -440,7 +440,7 @@ class LegalHandler:
         try:
             success = await connector.resend_envelope(envelope_id)
             if success:
-                logger.info(f"[Legal] Resent envelope {envelope_id} for tenant {tenant_id}")
+                logger.info("[Legal] Resent envelope %s for tenant %s", envelope_id, tenant_id)
                 return success_response(
                     {
                         "message": "Notifications resent successfully",
@@ -451,7 +451,7 @@ class LegalHandler:
                 return error_response("Failed to resend notifications", 500)
 
         except (ConnectionError, TimeoutError, OSError, ValueError) as e:
-            logger.error(f"Failed to resend envelope {envelope_id}: {e}")
+            logger.error("Failed to resend envelope %s: %s", envelope_id, e)
             return error_response("Notification resend failed", 500)
 
     # =========================================================================
@@ -487,7 +487,7 @@ class LegalHandler:
             )
 
         except (ConnectionError, TimeoutError, OSError, ValueError) as e:
-            logger.error(f"Failed to download document {document_id} from {envelope_id}: {e}")
+            logger.error("Failed to download document %s from %s: %s", document_id, envelope_id, e)
             return error_response("Document download failed", 500)
 
     async def _handle_download_certificate(
@@ -517,7 +517,7 @@ class LegalHandler:
             )
 
         except (ConnectionError, TimeoutError, OSError, ValueError) as e:
-            logger.error(f"Failed to download certificate for {envelope_id}: {e}")
+            logger.error("Failed to download certificate for %s: %s", envelope_id, e)
             return error_response("Certificate download failed", 500)
 
     # =========================================================================
@@ -574,7 +574,7 @@ class LegalHandler:
             )
 
         except (ConnectionError, TimeoutError, OSError, ValueError, KeyError) as e:
-            logger.error(f"Failed to list DocuSign templates for tenant {tenant_id}: {e}")
+            logger.error("Failed to list DocuSign templates for tenant %s: %s", tenant_id, e)
             return error_response("Failed to list templates", 500)
 
     # =========================================================================
@@ -595,7 +595,7 @@ class LegalHandler:
             event_time = body.get("statusChangedDateTime")
 
             logger.info(
-                f"[Legal] DocuSign webhook: envelope={envelope_id} status={status} time={event_time}"
+                "[Legal] DocuSign webhook: envelope=%s status=%s time=%s", envelope_id, status, event_time
             )
 
             # Emit event for downstream processing
@@ -619,7 +619,7 @@ class LegalHandler:
             )
 
         except (TypeError, ValueError, KeyError) as e:
-            logger.error(f"Error processing DocuSign webhook: {e}")
+            logger.error("Error processing DocuSign webhook: %s", e)
             # Return 200 to prevent retries for malformed payloads
             return success_response({"received": True, "error": "Webhook processing failed"})
 
@@ -667,7 +667,7 @@ class LegalHandler:
 
             # Log structured event for processing pipelines
             logger.info(
-                f"[Legal] Connector event: {event_type}",
+                "[Legal] Connector event: %s", event_type,
                 extra={"event_data": event_data},
             )
 
@@ -679,7 +679,7 @@ class LegalHandler:
                     event_data,
                 )
         except (ImportError, TypeError, ValueError, AttributeError) as e:
-            logger.debug(f"[Legal] Event emission skipped: {e}")
+            logger.debug("[Legal] Event emission skipped: %s", e)
 
 
 # =============================================================================

@@ -109,7 +109,7 @@ class BaseDatabase:
                 conn.execute("COMMIT")
             except Exception as e:  # noqa: BLE001 - must rollback on any user code exception before re-raising
                 logger.warning(
-                    f"Exception during transaction, rolling back: {type(e).__name__}: {e}"
+                    "Exception during transaction, rolling back: %s: %s", type(e).__name__, e
                 )
                 conn.execute("ROLLBACK")
                 raise

@@ -502,7 +502,7 @@ class AuditLog:
                     logger.info("Audit log using PostgreSQL backend")
                 except (OSError, RuntimeError) as e:
                     logger.warning(
-                        f"PostgreSQL audit backend unavailable, falling back to SQLite: {e}"
+                        "PostgreSQL audit backend unavailable, falling back to SQLite: %s", e
                     )
                     try:
                         require_distributed_store(
@@ -521,7 +521,7 @@ class AuditLog:
             )
             self.db_path.parent.mkdir(parents=True, exist_ok=True)
             self._backend = SQLiteBackend(self.db_path)
-            logger.info(f"Audit log using SQLite backend: {self.db_path}")
+            logger.info("Audit log using SQLite backend: %s", self.db_path)
 
         self._ensure_schema()
         self._load_last_hash()
@@ -622,8 +622,7 @@ class AuditLog:
         self._last_hash = event.event_hash
 
         logger.debug(
-            f"audit_logged category={event.category.value} action={event.action} "
-            f"actor={event.actor_id} outcome={event.outcome.value}"
+            "audit_logged category=%s action=%s actor=%s outcome=%s", event.category.value, event.action, event.actor_id, event.outcome.value
         )
 
         return event.id
@@ -1020,7 +1019,7 @@ class AuditLog:
         )
 
         if deleted > 0:
-            logger.info(f"audit_retention_applied deleted={deleted} cutoff={cutoff.date()}")
+            logger.info("audit_retention_applied deleted=%s cutoff=%s", deleted, cutoff.date())
 
         return deleted
 

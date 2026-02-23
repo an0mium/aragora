@@ -75,10 +75,10 @@ class OAuthRepository:
                         datetime.now(timezone.utc).isoformat(),
                     ),
                 )
-            logger.info(f"OAuth linked: user={user_id} provider={provider}")
+            logger.info("OAuth linked: user=%s provider=%s", user_id, provider)
             return True
         except (sqlite3.Error, ValueError, TypeError) as e:
-            logger.error(f"Failed to link OAuth: {e}")
+            logger.error("Failed to link OAuth: %s", e)
             return False
 
     def unlink_provider(self, user_id: str, provider: str) -> bool:
@@ -98,7 +98,7 @@ class OAuthRepository:
                 (user_id, provider.lower()),
             )
             if cursor.rowcount > 0:
-                logger.info(f"OAuth unlinked: user={user_id} provider={provider}")
+                logger.info("OAuth unlinked: user=%s provider=%s", user_id, provider)
                 return True
         return False
 

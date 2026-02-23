@@ -116,7 +116,7 @@ class WebhookManager:
         """Register a webhook endpoint."""
         self._configs[name] = config
         logger.info(
-            f"Registered webhook '{name}' -> {config.url} for events: {[e.value for e in config.events]}"
+            "Registered webhook '%s' -> %s for events: %s", name, config.url, [e.value for e in config.events]
         )
 
     def unregister(self, name: str) -> bool:
@@ -316,7 +316,7 @@ class WebhookManager:
                 continue
 
             if self._is_circuit_open(config.url):
-                logger.warning(f"Circuit open for webhook '{name}', skipping delivery")
+                logger.warning("Circuit open for webhook '%s', skipping delivery", name)
                 continue
 
             result = await self._deliver_with_retry(config, payload)
@@ -330,7 +330,7 @@ class WebhookManager:
             else:
                 self._record_failure(config.url)
                 logger.warning(
-                    f"Webhook '{name}' failed: {result.error} ({result.attempts} attempts)"
+                    "Webhook '%s' failed: %s (%s attempts)", name, result.error, result.attempts
                 )
 
     async def _deliver_with_retry(
@@ -450,7 +450,7 @@ def _load_env_webhooks(manager: WebhookManager) -> None:
                 ),
             )
         except ValueError as e:
-            logger.warning(f"Failed to load webhook from environment: {e}")
+            logger.warning("Failed to load webhook from environment: %s", e)
 
 
 async def notify_gauntlet_completed(

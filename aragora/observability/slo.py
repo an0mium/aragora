@@ -270,7 +270,7 @@ def _init_slo_metrics() -> bool:
         _slo_metrics_initialized = True
         return False
     except (RuntimeError, TypeError, ValueError) as e:
-        logger.error(f"Failed to initialize SLO metrics: {e}")
+        logger.error("Failed to initialize SLO metrics: %s", e)
         _init_noop_slo_metrics()
         _slo_metrics_initialized = True
         return False
@@ -835,7 +835,7 @@ class SLOAlertMonitor:
             if asyncio.iscoroutine(result):
                 await result
         except Exception as e:  # noqa: BLE001 - observability must not crash app
-            logger.error(f"SLO alert callback failed: {e}")
+            logger.error("SLO alert callback failed: %s", e)
 
     async def check_and_alert(self) -> list[SLOBreach]:
         """
@@ -852,7 +852,7 @@ class SLOAlertMonitor:
 
             for alert, result in triggered:
                 if not self._should_alert(alert.slo_name, alert.severity):
-                    logger.debug(f"Skipping alert for {alert.slo_name} (cooldown)")
+                    logger.debug("Skipping alert for %s (cooldown)", alert.slo_name)
                     continue
 
                 breach = SLOBreach(
@@ -878,7 +878,7 @@ class SLOAlertMonitor:
                 )
 
         except Exception as e:  # noqa: BLE001 - observability must not crash app
-            logger.error(f"SLO check failed: {e}")
+            logger.error("SLO check failed: %s", e)
 
         return breaches
 
@@ -889,7 +889,7 @@ class SLOAlertMonitor:
 
         self._running = True
         self._task = asyncio.create_task(self._monitor_loop())
-        logger.info(f"SLO monitoring started (interval: {self.check_interval}s)")
+        logger.info("SLO monitoring started (interval: %ss)", self.check_interval)
 
     async def stop_background_monitoring(self) -> None:
         """Stop background SLO monitoring."""
@@ -909,7 +909,7 @@ class SLOAlertMonitor:
             try:
                 await self.check_and_alert()
             except Exception as e:  # noqa: BLE001 - observability must not crash app
-                logger.error(f"SLO monitor error: {e}")
+                logger.error("SLO monitor error: %s", e)
 
             await asyncio.sleep(self.check_interval)
 
@@ -958,12 +958,12 @@ async def webhook_alert_callback(
                 timeout=10.0,
             )
             response.raise_for_status()
-            logger.info(f"SLO alert sent to webhook: {webhook_url}")
+            logger.info("SLO alert sent to webhook: %s", webhook_url)
 
     except ImportError:
         logger.warning("HTTP client pool not available, webhook alert skipped")
     except (OSError, ConnectionError, RuntimeError) as e:
-        logger.error(f"Failed to send webhook alert: {e}")
+        logger.error("Failed to send webhook alert: %s", e)
 
 
 def create_slack_alert_callback(webhook_url: str) -> AlertCallback:
@@ -1029,7 +1029,7 @@ def create_slack_alert_callback(webhook_url: str) -> AlertCallback:
         except ImportError:
             logger.warning("HTTP client pool not available, Slack alert skipped")
         except (OSError, ConnectionError, RuntimeError) as e:
-            logger.error(f"Failed to send Slack alert: {e}")
+            logger.error("Failed to send Slack alert: %s", e)
 
     return slack_callback
 
@@ -1078,7 +1078,7 @@ def create_notification_callback() -> AlertCallback:
         except ImportError:
             logger.warning("Notification system not available")
         except (OSError, ConnectionError, RuntimeError) as e:
-            logger.error(f"Failed to dispatch notification: {e}")
+            logger.error("Failed to dispatch notification: %s", e)
 
     return notification_callback
 

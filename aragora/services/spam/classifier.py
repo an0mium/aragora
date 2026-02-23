@@ -100,8 +100,7 @@ class SpamClassifier:
         if os.path.exists(self.config.model_path):
             if self.model.load(self.config.model_path):
                 logger.info(
-                    f"Loaded spam model with {self.model.spam_count} spam "
-                    f"and {self.model.ham_count} ham samples"
+                    "Loaded spam model with %s spam and %s ham samples", self.model.spam_count, self.model.ham_count
                 )
 
         # Initialize feedback database
@@ -151,7 +150,7 @@ class SpamClassifier:
             logger.info("Spam feedback database initialized")
 
         except (ValueError, OSError, RuntimeError) as e:
-            logger.warning(f"Failed to initialize feedback database: {e}")
+            logger.warning("Failed to initialize feedback database: %s", e)
 
     async def classify_email(
         self,
@@ -348,7 +347,7 @@ class SpamClassifier:
             return True
 
         except (ValueError, OSError, RuntimeError) as e:
-            logger.warning(f"Failed to record feedback: {e}")
+            logger.warning("Failed to record feedback: %s", e)
             return False
 
     async def _maybe_retrain(self) -> None:
@@ -371,7 +370,7 @@ class SpamClassifier:
                 await self._retrain_model()
 
         except (ValueError, OSError, RuntimeError) as e:
-            logger.warning(f"Failed to check retrain status: {e}")
+            logger.warning("Failed to check retrain status: %s", e)
 
     async def _retrain_model(self) -> None:
         """Retrain model from feedback database."""
@@ -413,10 +412,10 @@ class SpamClassifier:
             self.model.save(self.config.model_path)
             self._last_retrain = datetime.now()
 
-            logger.info(f"Retrained spam model with {trained} feedback samples")
+            logger.info("Retrained spam model with %s feedback samples", trained)
 
         except (ValueError, OSError, RuntimeError) as e:
-            logger.warning(f"Failed to retrain model: {e}")
+            logger.warning("Failed to retrain model: %s", e)
 
     def _hash_content(self, content: str) -> str:
         """Hash content for caching."""

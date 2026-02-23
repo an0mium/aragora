@@ -55,7 +55,7 @@ class BudgetManager:
             self._configs[entity_id] = config
             if entity_id not in self._period_start:
                 self._period_start[entity_id] = self._get_period_start()
-            logger.debug(f"Set budget for {entity_id}")
+            logger.debug("Set budget for %s", entity_id)
 
     async def get_budget(self, entity_id: str) -> BudgetConfig | None:
         """Get budget configuration for an entity."""
@@ -126,7 +126,7 @@ class BudgetManager:
                 will_exceed = True
 
             if will_exceed and config.hard_limit:
-                logger.warning(f"Budget exceeded for {entity_id}")
+                logger.warning("Budget exceeded for %s", entity_id)
                 return False, status
 
             return True, status
@@ -250,14 +250,14 @@ class BudgetManager:
             try:
                 await self._alert_callback(entity_id, status)
             except (RuntimeError, ValueError, AttributeError) as e:  # user-supplied callback
-                logger.error(f"Alert callback error: {e}")
+                logger.error("Alert callback error: %s", e)
 
     async def reset_period(self, entity_id: str) -> None:
         """Reset the budget period for an entity."""
         async with self._lock:
             self._period_start[entity_id] = self._get_period_start()
             self._alert_triggered[entity_id] = False
-            logger.debug(f"Reset budget period for {entity_id}")
+            logger.debug("Reset budget period for %s", entity_id)
 
     async def get_stats(self) -> dict[str, Any]:
         """Get budget manager statistics."""

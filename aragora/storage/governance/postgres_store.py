@@ -122,7 +122,7 @@ class PostgresGovernanceStore:
             await conn.execute(self.INITIAL_SCHEMA)
 
         self._initialized = True
-        logger.debug(f"[{self.SCHEMA_NAME}] Schema initialized")
+        logger.debug("[%s] Schema initialized", self.SCHEMA_NAME)
 
     # =========================================================================
     # Approval Management
@@ -202,7 +202,7 @@ class PostgresGovernanceStore:
         approval_type = "nomic" if "nomic" in title.lower() else "change"
         record_governance_approval(approval_type, status)
 
-        logger.debug(f"Saved approval: {approval_id}")
+        logger.debug("Saved approval: %s", approval_id)
         return approval_id
 
     def update_approval_status(
@@ -248,7 +248,7 @@ class PostgresGovernanceStore:
                 *params,
             )
 
-        logger.debug(f"Updated approval {approval_id} -> {status}")
+        logger.debug("Updated approval %s -> %s", approval_id, status)
         return True
 
     def get_approval(self, approval_id: str) -> ApprovalRecord | None:
@@ -442,7 +442,7 @@ class PostgresGovernanceStore:
         verification_result = "valid" if result.get("valid", False) else "invalid"
         record_governance_verification(verification_type, verification_result)
 
-        logger.debug(f"Saved verification: {verification_id}")
+        logger.debug("Saved verification: %s", verification_id)
         return verification_id
 
     def get_verification(self, verification_id: str) -> VerificationRecord | None:
@@ -619,7 +619,7 @@ class PostgresGovernanceStore:
         outcome = "approved" if consensus_reached else "rejected"
         record_governance_decision(decision_type, outcome)
 
-        logger.debug(f"Saved decision: {decision_id}")
+        logger.debug("Saved decision: %s", decision_id)
         return decision_id
 
     def get_decision(self, decision_id: str) -> DecisionRecord | None:
@@ -798,7 +798,7 @@ class PostgresGovernanceStore:
                         verifications_days,
                     )
 
-        logger.info(f"Cleaned up governance records: {counts}")
+        logger.info("Cleaned up governance records: %s", counts)
         return counts
 
     def close(self) -> None:

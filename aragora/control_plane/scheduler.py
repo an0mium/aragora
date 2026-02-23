@@ -629,7 +629,7 @@ class TaskScheduler:
 
         region_info = f", region={target_region}" if target_region else ""
         logger.info(
-            f"Task submitted: {task.id} (type={task_type}, priority={priority.name}{region_info})"
+            "Task submitted: %s (type=%s, priority=%s%s)", task.id, task_type, priority.name, region_info
         )
 
         return task.id
@@ -707,7 +707,7 @@ class TaskScheduler:
         task.assigned_at = None
         await self._save_task(task)
         await self._enqueue_task(task)
-        logger.debug(f"Task {task.id} released back to queue")
+        logger.debug("Task %s released back to queue", task.id)
 
     async def complete(
         self,
@@ -740,7 +740,7 @@ class TaskScheduler:
         duration = task.completed_at - (task.started_at or task.created_at)
         record_control_plane_task_completed(task.task_type, "completed", duration)
 
-        logger.info(f"Task completed: {task_id}")
+        logger.info("Task completed: %s", task_id)
         return True
 
     async def fail(
@@ -782,8 +782,7 @@ class TaskScheduler:
             record_control_plane_task_retry(task.task_type, "error")
 
             logger.warning(
-                f"Task {task_id} failed (attempt {task.retries}/{task.max_retries}), "
-                f"requeued: {error}"
+                "Task %s failed (attempt %s/%s), requeued: %s", task_id, task.retries, task.max_retries, error
             )
         else:
             task.status = TaskStatus.FAILED
@@ -797,7 +796,7 @@ class TaskScheduler:
             duration = task.completed_at - (task.started_at or task.created_at)
             record_control_plane_task_completed(task.task_type, "failed", duration)
 
-            logger.error(f"Task {task_id} failed permanently: {error}")
+            logger.error("Task %s failed permanently: %s", task_id, error)
 
         return True
 
@@ -825,7 +824,7 @@ class TaskScheduler:
         await self._save_task(task, previous_status=previous_status)
         await self._ack_task(task)
 
-        logger.info(f"Task cancelled: {task_id}")
+        logger.info("Task cancelled: %s", task_id)
         return True
 
     async def get(self, task_id: str) -> Task | None:
@@ -846,7 +845,7 @@ class TaskScheduler:
                 if isinstance(side_effect, list):
                     self._redis.get.side_effect = iter(side_effect)
             except (AttributeError, TypeError) as e:
-                logger.debug(f"Mock side_effect normalization skipped: {e}")
+                logger.debug("Mock side_effect normalization skipped: %s", e)
             data = await self._redis.get(key)
             if data:
                 return Task.from_dict(json.loads(data))
@@ -978,12 +977,12 @@ class TaskScheduler:
                                     reclaimed += 1
 
             except (ConnectionError, OSError, TimeoutError) as e:
-                logger.error(f"Connection error reclaiming stale tasks for {priority.name}: {e}")
+                logger.error("Connection error reclaiming stale tasks for %s: %s", priority.name, e)
             except (KeyError, TypeError, ValueError) as e:
-                logger.error(f"Data error reclaiming stale tasks for {priority.name}: {e}")
+                logger.error("Data error reclaiming stale tasks for %s: %s", priority.name, e)
 
         if reclaimed > 0:
-            logger.info(f"Reclaimed {reclaimed} stale tasks")
+            logger.info("Reclaimed %s stale tasks", reclaimed)
 
         return reclaimed
 
@@ -1071,7 +1070,7 @@ class TaskScheduler:
         # Get the message ID stored when we claimed the task
         message_id = task.metadata.get("_stream_message_id")
         if not message_id:
-            logger.warning(f"Task {task.id} has no stream message ID for acknowledgment")
+            logger.warning("Task %s has no stream message ID for acknowledgment", task.id)
             return
 
         try:
@@ -1081,11 +1080,11 @@ class TaskScheduler:
             # XDEL removes the message from stream (keeps stream size bounded)
             await self._redis.xdel(stream_key, message_id)
 
-            logger.debug(f"Acknowledged task {task.id} (message_id={message_id})")
+            logger.debug("Acknowledged task %s (message_id=%s)", task.id, message_id)
         except (ConnectionError, OSError, TimeoutError) as e:
-            logger.error(f"Connection error acknowledging task {task.id}: {e}")
+            logger.error("Connection error acknowledging task %s: %s", task.id, e)
         except (KeyError, TypeError) as e:
-            logger.error(f"Data error acknowledging task {task.id}: {e}")
+            logger.error("Data error acknowledging task %s: %s", task.id, e)
 
     async def _move_to_dead_letter(self, task: Task, reason: str) -> None:
         """Move task to dead-letter queue after exhausting retries.
@@ -1110,11 +1109,11 @@ class TaskScheduler:
                     "original_priority": task.priority.name,
                 },
             )
-            logger.info(f"Task {task.id} moved to dead-letter queue: {reason}")
+            logger.info("Task %s moved to dead-letter queue: %s", task.id, reason)
         except (ConnectionError, OSError, TimeoutError) as e:
-            logger.error(f"Connection error moving task {task.id} to dead-letter queue: {e}")
+            logger.error("Connection error moving task %s to dead-letter queue: %s", task.id, e)
         except (KeyError, TypeError) as e:
-            logger.error(f"Data error moving task {task.id} to dead-letter queue: {e}")
+            logger.error("Data error moving task %s to dead-letter queue: %s", task.id, e)
 
     async def _claim_from_redis(
         self,
@@ -1180,8 +1179,7 @@ class TaskScheduler:
                             await self._enqueue_task(task)
 
                             logger.debug(
-                                f"Task {task_id} rejected by {worker_id}: "
-                                f"needs {task.required_capabilities}, has {cap_set}"
+                                "Task %s rejected by %s: needs %s, has %s", task_id, worker_id, task.required_capabilities, cap_set
                             )
                             continue
 
@@ -1222,8 +1220,7 @@ class TaskScheduler:
                                     )
                                 else:
                                     logger.debug(
-                                        f"Task {task_id} rejected by policy for {worker_id}: "
-                                        f"{result.reason}"
+                                        "Task %s rejected by policy for %s: %s", task_id, worker_id, result.reason
                                     )
                                 continue
 
@@ -1238,14 +1235,14 @@ class TaskScheduler:
                         task.started_at = time.time()
 
                         await self._save_task(task, previous_status=previous_status)
-                        logger.debug(f"Task {task_id} claimed by {worker_id}")
+                        logger.debug("Task %s claimed by %s", task_id, worker_id)
 
                         return task
 
             except (ConnectionError, OSError, TimeoutError) as e:
-                logger.error(f"Connection error claiming from {priority.name} queue: {e}")
+                logger.error("Connection error claiming from %s queue: %s", priority.name, e)
             except (KeyError, TypeError, ValueError) as e:
-                logger.error(f"Data error claiming from {priority.name} queue: {e}")
+                logger.error("Data error claiming from %s queue: %s", priority.name, e)
 
         return None
 
@@ -1297,7 +1294,7 @@ class TaskScheduler:
                         )
                     else:
                         logger.debug(
-                            f"Task {task.id} rejected by policy for {worker_id}: {result.reason}"
+                            "Task %s rejected by policy for %s: %s", task.id, worker_id, result.reason
                         )
                     continue
 

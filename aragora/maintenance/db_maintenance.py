@@ -113,14 +113,14 @@ class DatabaseMaintenance:
         Safe to run frequently, very fast operation.
         """
         if not db_path.exists():
-            logger.debug(f"WAL checkpoint skipped for {db_path.name}: file not found")
+            logger.debug("WAL checkpoint skipped for %s: file not found", db_path.name)
             return False
         try:
             with sqlite3.connect(str(db_path), timeout=30) as conn:
                 conn.execute("PRAGMA wal_checkpoint(TRUNCATE)")
             return True
         except sqlite3.Error as e:
-            logger.warning(f"WAL checkpoint failed for {db_path.name}: {e}")
+            logger.warning("WAL checkpoint failed for %s: %s", db_path.name, e)
             return False
 
     def checkpoint_all_wal(self) -> dict[str, bool]:
@@ -130,7 +130,7 @@ class DatabaseMaintenance:
             results[db_path.name] = self.checkpoint_wal(db_path)
 
         success_count = sum(results.values())
-        logger.info(f"[maintenance] WAL checkpoint: {success_count}/{len(results)} databases")
+        logger.info("[maintenance] WAL checkpoint: %s/%s databases", success_count, len(results))
         return results
 
     def vacuum(self, db_path: Path) -> bool:
@@ -140,7 +140,7 @@ class DatabaseMaintenance:
         Can be slow for large databases - run weekly.
         """
         if not db_path.exists():
-            logger.warning(f"VACUUM skipped for {db_path.name}: file not found")
+            logger.warning("VACUUM skipped for %s: file not found", db_path.name)
             return False
         try:
             start = time.time()
@@ -150,7 +150,7 @@ class DatabaseMaintenance:
             logger.debug(f"VACUUM {db_path.name} completed in {elapsed:.1f}s")
             return True
         except sqlite3.Error as e:
-            logger.warning(f"VACUUM failed for {db_path.name}: {e}")
+            logger.warning("VACUUM failed for %s: %s", db_path.name, e)
             return False
 
     def vacuum_all(self) -> dict[str, bool]:
@@ -177,14 +177,14 @@ class DatabaseMaintenance:
         Fast operation - safe to run daily.
         """
         if not db_path.exists():
-            logger.warning(f"ANALYZE skipped for {db_path.name}: file not found")
+            logger.warning("ANALYZE skipped for %s: file not found", db_path.name)
             return False
         try:
             with sqlite3.connect(str(db_path), timeout=60) as conn:
                 conn.execute("ANALYZE")
             return True
         except sqlite3.Error as e:
-            logger.warning(f"ANALYZE failed for {db_path.name}: {e}")
+            logger.warning("ANALYZE failed for %s: %s", db_path.name, e)
             return False
 
     def analyze_all(self) -> dict[str, bool]:
@@ -194,7 +194,7 @@ class DatabaseMaintenance:
             results[db_path.name] = self.analyze(db_path)
 
         success_count = sum(results.values())
-        logger.info(f"[maintenance] ANALYZE: {success_count}/{len(results)} databases")
+        logger.info("[maintenance] ANALYZE: %s/%s databases", success_count, len(results))
 
         self._last_analyze = datetime.now()
         return results
@@ -269,14 +269,14 @@ class DatabaseMaintenance:
                                 conn.commit()
                                 results[f"{db_name}:{table_name}"] = deleted
                                 logger.info(
-                                    f"[maintenance] Cleaned {deleted} old records from {db_name}:{table_name}"
+                                    "[maintenance] Cleaned %s old records from %s:%s", deleted, db_name, table_name
                                 )
                             break
                         except sqlite3.OperationalError:
                             continue  # Column doesn't exist, try next
 
             except sqlite3.Error as e:
-                logger.warning(f"Cleanup failed for {db_name}: {e}")
+                logger.warning("Cleanup failed for %s: %s", db_name, e)
 
         return results
 
@@ -327,7 +327,7 @@ def run_startup_maintenance(db_dir: Path | str = DEFAULT_DB_DIR) -> dict:
                 if datetime.now() - last_analyze < timedelta(hours=24):
                     should_analyze = False
         except (OSError, json.JSONDecodeError, ValueError) as e:
-            logger.debug(f"Could not read maintenance state: {e}")
+            logger.debug("Could not read maintenance state: %s", e)
 
     if should_analyze:
         results["analyze"] = maintenance.analyze_all()
@@ -345,7 +345,7 @@ def run_startup_maintenance(db_dir: Path | str = DEFAULT_DB_DIR) -> dict:
                     f,
                 )
         except OSError as e:
-            logger.debug(f"Could not save maintenance state: {e}")
+            logger.debug("Could not save maintenance state: %s", e)
 
     logger.info("[maintenance] Startup maintenance complete")
     return results
@@ -378,7 +378,7 @@ def schedule_maintenance(
             with open(state_file) as f:
                 state = json.load(f)
         except (OSError, json.JSONDecodeError) as e:
-            logger.debug(f"Could not read maintenance state: {e}")
+            logger.debug("Could not read maintenance state: %s", e)
 
     now = datetime.now()
 
@@ -402,7 +402,7 @@ def schedule_maintenance(
     last_cleanup = datetime.fromisoformat(state.get("last_cleanup", "2000-01-01"))
     if now - last_cleanup >= timedelta(days=7):
         logger.info(
-            f"[maintenance] Cleaning up records older than {cleanup_retention_days} days..."
+            "[maintenance] Cleaning up records older than %s days...", cleanup_retention_days
         )
         results["cleanup"] = maintenance.cleanup_old_data(days=cleanup_retention_days)
         results["tasks_run"].append("cleanup")
@@ -416,6 +416,6 @@ def schedule_maintenance(
             with open(state_file, "w") as f:
                 json.dump(state, f, indent=2)
         except OSError as e:
-            logger.debug(f"Could not save maintenance state: {e}")
+            logger.debug("Could not save maintenance state: %s", e)
 
     return results

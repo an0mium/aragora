@@ -674,7 +674,7 @@ class CalibrationTracker(SQLiteStore):
                 else 1.0,
             }
         except (KeyError, ValueError, sqlite3.Error) as e:
-            logger.debug(f"Failed to get calibration export for {agent}: {e}")
+            logger.debug("Failed to get calibration export for %s: %s", agent, e)
             return None
 
     def get_domain_breakdown(self, agent: str) -> dict[str, CalibrationSummary]:

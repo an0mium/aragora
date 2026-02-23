@@ -121,7 +121,7 @@ class TeamsFilesMixin:
             )
 
             if not success or not folder_data:
-                logger.error(f"Failed to get channel files folder: {error}")
+                logger.error("Failed to get channel files folder: %s", error)
                 return FileAttachment(
                     id="",
                     filename=filename,
@@ -174,7 +174,7 @@ class TeamsFilesMixin:
                 )
 
                 if not success or not session_data:
-                    logger.error(f"Failed to create upload session: {error}")
+                    logger.error("Failed to create upload session: %s", error)
                     return FileAttachment(
                         id="",
                         filename=filename,
@@ -213,7 +213,7 @@ class TeamsFilesMixin:
                 file_id = upload_data.get("id", "")
                 web_url = upload_data.get("webUrl")
 
-                logger.info(f"Teams file uploaded: {filename} ({file_size} bytes)")
+                logger.info("Teams file uploaded: %s (%s bytes)", filename, file_size)
                 return FileAttachment(
                     id=file_id,
                     filename=filename,
@@ -238,7 +238,7 @@ class TeamsFilesMixin:
 
         except httpx.TimeoutException as e:
             classified = _tc._classify_teams_error(f"Timeout: {e}")
-            logger.error(f"Teams file upload timeout: {e}")
+            logger.error("Teams file upload timeout: %s", e)
             self._record_failure(classified)
             return FileAttachment(
                 id="",
@@ -250,7 +250,7 @@ class TeamsFilesMixin:
             )
         except httpx.ConnectError as e:
             classified = _tc._classify_teams_error(f"Connection error: {e}")
-            logger.error(f"Teams file upload connection error: {e}")
+            logger.error("Teams file upload connection error: %s", e)
             self._record_failure(classified)
             return FileAttachment(
                 id="",
@@ -269,7 +269,7 @@ class TeamsFilesMixin:
             OSError,
         ) as e:
             classified = _tc._classify_teams_error(str(e))
-            logger.error(f"Teams file upload error: {e}")
+            logger.error("Teams file upload error: %s", e)
             self._record_failure(classified)
             return FileAttachment(
                 id="",
@@ -321,7 +321,7 @@ class TeamsFilesMixin:
             )
 
             if not success or not meta_data:
-                logger.error(f"Failed to get file metadata: {error}")
+                logger.error("Failed to get file metadata: %s", error)
                 return FileAttachment(
                     id=file_id,
                     filename="",
@@ -347,7 +347,7 @@ class TeamsFilesMixin:
 
                 if success and content_data:
                     file_content = content_data if isinstance(content_data, bytes) else b""
-                    logger.info(f"Teams file downloaded: {filename} ({len(file_content)} bytes)")
+                    logger.info("Teams file downloaded: %s (%s bytes)", filename, len(file_content))
                     return FileAttachment(
                         id=file_id,
                         filename=filename,
@@ -380,7 +380,7 @@ class TeamsFilesMixin:
 
         except httpx.TimeoutException as e:
             classified = _tc._classify_teams_error(f"Timeout: {e}")
-            logger.error(f"Teams file download timeout: {e}")
+            logger.error("Teams file download timeout: %s", e)
             self._record_failure(classified)
             return FileAttachment(
                 id=file_id,
@@ -391,7 +391,7 @@ class TeamsFilesMixin:
             )
         except httpx.ConnectError as e:
             classified = _tc._classify_teams_error(f"Connection error: {e}")
-            logger.error(f"Teams file download connection error: {e}")
+            logger.error("Teams file download connection error: %s", e)
             self._record_failure(classified)
             return FileAttachment(
                 id=file_id,
@@ -409,7 +409,7 @@ class TeamsFilesMixin:
             OSError,
         ) as e:
             classified = _tc._classify_teams_error(str(e))
-            logger.error(f"Teams file download error: {e}")
+            logger.error("Teams file download error: %s", e)
             self._record_failure(classified)
             return FileAttachment(
                 id=file_id,

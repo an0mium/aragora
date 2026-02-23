@@ -38,7 +38,7 @@ class TenantFilter:
             tenant_id: Tenant ID from auth token, or None for unauthenticated
         """
         self._client_tenants[client_id] = tenant_id
-        logger.debug(f"Registered client {client_id} for tenant {tenant_id}")
+        logger.debug("Registered client %s for tenant %s", client_id, tenant_id)
 
     def unregister_client(self, client_id: int) -> None:
         """Remove client registration on disconnect.
@@ -47,7 +47,7 @@ class TenantFilter:
             client_id: WebSocket connection identifier
         """
         self._client_tenants.pop(client_id, None)
-        logger.debug(f"Unregistered client {client_id}")
+        logger.debug("Unregistered client %s", client_id)
 
     def register_resource(self, resource_id: str, tenant_id: str) -> None:
         """Register a resource (debate/loop) with its tenant.
@@ -60,7 +60,7 @@ class TenantFilter:
         if tenant_id not in self._tenant_resources:
             self._tenant_resources[tenant_id] = set()
         self._tenant_resources[tenant_id].add(resource_id)
-        logger.debug(f"Registered resource {resource_id} for tenant {tenant_id}")
+        logger.debug("Registered resource %s for tenant %s", resource_id, tenant_id)
 
     def unregister_resource(self, resource_id: str) -> None:
         """Remove resource registration.
@@ -71,7 +71,7 @@ class TenantFilter:
         tenant_id = self._resource_tenants.pop(resource_id, None)
         if tenant_id and tenant_id in self._tenant_resources:
             self._tenant_resources[tenant_id].discard(resource_id)
-        logger.debug(f"Unregistered resource {resource_id}")
+        logger.debug("Unregistered resource %s", resource_id)
 
     def get_client_tenant(self, client_id: int) -> str | None:
         """Get the tenant ID for a client.

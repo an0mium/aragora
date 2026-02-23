@@ -740,7 +740,7 @@ class FeedbackPhase:
         # Fire-and-forget workflow to not block debate completion
         _wf_task = asyncio.create_task(self._run_workflow_async(ctx))
         _wf_task.add_done_callback(
-            lambda t: logger.warning(f"[workflow] Post-debate workflow failed: {t.exception()}")
+            lambda t: logger.warning("[workflow] Post-debate workflow failed: %s", t.exception())
             if not t.cancelled() and t.exception()
             else None
         )
@@ -1329,7 +1329,7 @@ class FeedbackPhase:
         # Fire-and-forget broadcast to not block debate completion
         _broadcast_task = asyncio.create_task(self._broadcast_async(ctx))
         _broadcast_task.add_done_callback(
-            lambda t: logger.warning(f"[broadcast] Auto-broadcast failed: {t.exception()}")
+            lambda t: logger.warning("[broadcast] Auto-broadcast failed: %s", t.exception())
             if not t.cancelled() and t.exception()
             else None
         )
@@ -1418,7 +1418,7 @@ class FeedbackPhase:
         except ImportError:
             logger.debug("Risk assessment unavailable: module not found")
         except (TypeError, ValueError, AttributeError, RuntimeError) as e:
-            logger.debug(f"Risk assessment error: {e}")
+            logger.debug("Risk assessment error: %s", e)
 
     def _record_calibration(self, ctx: DebateContext) -> None:
         """Record calibration data from agent votes with confidence.
@@ -1460,11 +1460,11 @@ class FeedbackPhase:
                 recorded += 1
 
             if recorded > 0:
-                logger.debug(f"[calibration] Recorded {recorded} predictions")
+                logger.debug("[calibration] Recorded %s predictions", recorded)
                 # Emit CALIBRATION_UPDATE event for real-time panel updates
                 self._emit_calibration_update(ctx, recorded)
         except (TypeError, ValueError, AttributeError, KeyError, RuntimeError) as e:
-            logger.warning(f"[calibration] Failed to record: {e}")
+            logger.warning("[calibration] Failed to record: %s", e)
 
     def _emit_calibration_update(self, ctx: DebateContext, recorded_count: int) -> None:
         """Emit CALIBRATION_UPDATE event to WebSocket."""
@@ -1493,7 +1493,7 @@ class FeedbackPhase:
                 )
             )
         except (TypeError, ValueError, AttributeError, KeyError) as e:
-            logger.debug(f"Calibration event emission error: {e}")
+            logger.debug("Calibration event emission error: %s", e)
 
     def _apply_calibration_feedback(self, ctx: DebateContext) -> None:
         """Apply bidirectional calibration adjustment based on consensus alignment.
@@ -1802,7 +1802,7 @@ class FeedbackPhase:
                 volume=getattr(trending_topic, "volume", 0),
             )
         except (TypeError, ValueError, AttributeError, RuntimeError) as e:
-            logger.warning(f"[pulse] Failed to record outcome: {e}")
+            logger.warning("[pulse] Failed to record outcome: %s", e)
 
     def _run_memory_cleanup(self, ctx: DebateContext) -> None:
         """Run periodic memory cleanup to prevent unbounded growth.
@@ -1823,7 +1823,7 @@ class FeedbackPhase:
             # Always try to clean expired memories
             cleaned = self.continuum_memory.cleanup_expired_memories()
             if cleaned > 0:
-                logger.debug(f"[memory] Cleaned {cleaned} expired memories")
+                logger.debug("[memory] Cleaned %s expired memories", cleaned)
 
             # Probabilistically enforce tier limits (10% of debates)
             if random.random() < 0.1:
@@ -1831,7 +1831,7 @@ class FeedbackPhase:
                 logger.debug("[memory] Enforced tier limits")
 
         except (TypeError, ValueError, AttributeError, OSError, RuntimeError) as e:
-            logger.debug(f"[memory] Cleanup error (non-fatal): {e}")
+            logger.debug("[memory] Cleanup error (non-fatal): %s", e)
 
     # =========================================================================
     # ELO Feedback Methods (delegated to EloFeedback helper)
@@ -2199,7 +2199,7 @@ class FeedbackPhase:
                 task = asyncio.create_task(self._index_debate_async(artifact))
                 task.add_done_callback(
                     lambda t: (
-                        logger.warning(f"Debate indexing failed: {t.exception()}")
+                        logger.warning("Debate indexing failed: %s", t.exception())
                         if t.exception()
                         else None
                     )
@@ -2260,7 +2260,7 @@ class FeedbackPhase:
                     )
                 )
         except (TypeError, ValueError, AttributeError, KeyError) as e:
-            logger.warning(f"Flip event emission error: {e}")
+            logger.warning("Flip event emission error: %s", e)
 
     def _store_memory(self, ctx: DebateContext) -> None:
         """Store debate outcome in ContinuumMemory."""

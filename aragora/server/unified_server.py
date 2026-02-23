@@ -582,7 +582,7 @@ class UnifiedHandler(  # type: ignore[misc]
             self.end_headers()
             self.wfile.write(content)
         except (BrokenPipeError, ConnectionResetError) as e:
-            logger.debug(f"Client disconnected during file serve: {type(e).__name__}")
+            logger.debug("Client disconnected during file serve: %s", type(e).__name__)
 
     def _serve_fallback_asset(self, filename: str) -> bool:
         """Serve a minimal static asset when static_dir is not configured."""
@@ -861,9 +861,9 @@ class UnifiedServer:
             )
             logger.info("DecisionRouter initialized for unified routing")
         except ImportError as e:
-            logger.debug(f"DecisionRouter not available: {e}")
+            logger.debug("DecisionRouter not available: %s", e)
         except (TypeError, ValueError, RuntimeError, OSError) as e:
-            logger.warning(f"Failed to initialize DecisionRouter: {e}")
+            logger.warning("Failed to initialize DecisionRouter: %s", e)
 
     def _init_anomaly_detection(self) -> None:
         """Initialize Anomaly Detection service if configured.
@@ -950,18 +950,17 @@ class UnifiedServer:
                 else:
                     protocol = "HTTP"
 
-                logger.info(f"{protocol} server listening on {self.http_host}:{self.http_port}")
+                logger.info("%s server listening on %s:%s", protocol, self.http_host, self.http_port)
                 server.serve_forever()
                 break  # Normal exit
             except ssl.SSLError as e:
-                logger.error(f"SSL configuration error: {e}")
+                logger.error("SSL configuration error: %s", e)
                 break
             except OSError as e:
                 if e.errno == 98 or "Address already in use" in str(e):  # EADDRINUSE
                     if attempt < max_retries - 1:
                         logger.warning(
-                            f"Port {self.http_port} in use, retrying in {retry_delay}s "
-                            f"(attempt {attempt + 1}/{max_retries})"
+                            "Port %s in use, retrying in %ss (attempt %s/%s)", self.http_port, retry_delay, attempt + 1, max_retries
                         )
                         # Using time.sleep is correct here: this method runs in a dedicated
                         # thread (see Thread(target=self._run_http_server)), not the async event loop
@@ -969,14 +968,13 @@ class UnifiedServer:
                         retry_delay *= 2  # Exponential backoff
                     else:
                         logger.error(
-                            f"Failed to bind HTTP server to port {self.http_port} "
-                            f"after {max_retries} attempts: {e}"
+                            "Failed to bind HTTP server to port %s after %s attempts: %s", self.http_port, max_retries, e
                         )
                 else:
-                    logger.error(f"HTTP server failed to start: {e}")
+                    logger.error("HTTP server failed to start: %s", e)
                     break
             except (RuntimeError, SystemError, KeyboardInterrupt) as e:
-                logger.error(f"HTTP server unexpected error: {e}")
+                logger.error("HTTP server unexpected error: %s", e)
                 break
 
     async def start(self, use_parallel_init: bool | None = None) -> None:
@@ -1034,9 +1032,9 @@ class UnifiedServer:
 
                 upgrade_results = await upgrade_handler_stores(self.nomic_dir)
                 if upgrade_results:
-                    logger.info(f"Store upgrades: {upgrade_results}")
+                    logger.info("Store upgrades: %s", upgrade_results)
             except (ImportError, OSError, RuntimeError, ValueError) as e:
-                logger.warning(f"Store upgrade failed (continuing with SQLite): {e}")
+                logger.warning("Store upgrade failed (continuing with SQLite): %s", e)
 
             # Load workflow templates once the async store is ready.
             try:
@@ -1049,7 +1047,7 @@ class UnifiedServer:
                 await load_yaml_templates_async()
                 logger.info("[workflows] Templates loaded for PostgreSQL backend")
             except (ImportError, OSError, RuntimeError, ValueError) as e:
-                logger.warning(f"[workflows] Template loading failed: {e}")
+                logger.warning("[workflows] Template loading failed: %s", e)
 
         # Wire Control Plane coordinator to handler
         self._control_plane_coordinator = startup_status.get("control_plane_coordinator")
@@ -1083,18 +1081,18 @@ class UnifiedServer:
         logger.info("Starting unified server...")
         logger.info(f"  Init mode:  {init_mode} ({startup_elapsed_ms:.0f}ms)")
         protocol = "https" if self.ssl_enabled else "http"
-        logger.info(f"  HTTP API:   {protocol}://localhost:{self.http_port}")
-        logger.info(f"  WebSocket:  ws://localhost:{self.ws_port}")
-        logger.info(f"  Control Plane WS: ws://localhost:{self.control_plane_port}")
-        logger.info(f"  Nomic Loop WS: ws://localhost:{self.nomic_loop_port}")
+        logger.info("  HTTP API:   %s://localhost:%s", protocol, self.http_port)
+        logger.info("  WebSocket:  ws://localhost:%s", self.ws_port)
+        logger.info("  Control Plane WS: ws://localhost:%s", self.control_plane_port)
+        logger.info("  Nomic Loop WS: ws://localhost:%s", self.nomic_loop_port)
         if self.canvas_stream:
-            logger.info(f"  Canvas WS: ws://localhost:{self.canvas_port}")
+            logger.info("  Canvas WS: ws://localhost:%s", self.canvas_port)
         if self.ssl_enabled:
-            logger.info(f"  SSL:        enabled (cert: {self.ssl_cert})")
+            logger.info("  SSL:        enabled (cert: %s)", self.ssl_cert)
         if self.static_dir:
-            logger.info(f"  Static dir: {self.static_dir}")
+            logger.info("  Static dir: %s", self.static_dir)
         if self.nomic_dir:
-            logger.info(f"  Nomic dir:  {self.nomic_dir}")
+            logger.info("  Nomic dir:  %s", self.nomic_dir)
 
         # Mark server as ready to accept traffic (used by /readyz fallback
         # and readiness_probe_fast to gate K8s traffic routing)
@@ -1103,8 +1101,8 @@ class UnifiedServer:
         # Log security posture
         validation_mode = os.environ.get("ARAGORA_VALIDATION_MODE", "blocking")
         ssrf_strict = os.environ.get("ARAGORA_SSRF_STRICT", "true").lower() in ("true", "1", "yes")
-        logger.info(f"  Validation: {validation_mode}")
-        logger.info(f"  SSRF:       {'strict' if ssrf_strict else 'permissive'}")
+        logger.info("  Validation: %s", validation_mode)
+        logger.info("  SSRF:       %s", 'strict' if ssrf_strict else 'permissive')
 
         # Set up signal handlers for graceful shutdown
         self._setup_signal_handlers()
@@ -1115,7 +1113,7 @@ class UnifiedServer:
 
         if use_fastapi:
             # Start FastAPI (async-native, high concurrency)
-            logger.info(f"  FastAPI:    http://localhost:{fastapi_port} (async mode)")
+            logger.info("  FastAPI:    http://localhost:%s (async mode)", fastapi_port)
             fastapi_task = asyncio.create_task(self._start_fastapi_server(fastapi_port))
             stream_tasks = [
                 fastapi_task,
@@ -1174,7 +1172,7 @@ class UnifiedServer:
 
         def signal_handler(signum: int, frame: "FrameType | None") -> None:
             signame = signal.Signals(signum).name
-            logger.info(f"Received {signame}, initiating graceful shutdown...")
+            logger.info("Received %s, initiating graceful shutdown...", signame)
             task = asyncio.create_task(self.graceful_shutdown())
             task.add_done_callback(
                 lambda t: logger.critical(
@@ -1191,7 +1189,7 @@ class UnifiedServer:
             logger.debug("Signal handlers registered for graceful shutdown")
         except (ValueError, OSError) as e:
             # Signal handling may not work in all contexts (e.g., non-main thread)
-            logger.debug(f"Could not register signal handlers: {e}")
+            logger.debug("Could not register signal handlers: %s", e)
 
     async def graceful_shutdown(self, timeout: float = 30.0) -> None:
         """Gracefully shut down the server.
@@ -1254,7 +1252,7 @@ async def run_unified_server(
 
     if is_minimal_mode():
         applied = apply_minimal_mode()
-        logger.info(f"[server] Running in minimal mode (SQLite + in-memory): {applied}")
+        logger.info("[server] Running in minimal mode (SQLite + in-memory): %s", applied)
 
     # Check environment variables for SSL config
     from aragora.config import SSL_CERT_PATH, SSL_ENABLED, SSL_KEY_PATH
@@ -1270,18 +1268,18 @@ async def run_unified_server(
         validation_result = validate_all(strict=False)
         if validation_result.get("errors"):
             for error in validation_result["errors"]:
-                logger.error(f"[server] Config error: {error}")
+                logger.error("[server] Config error: %s", error)
             raise ValidatorConfigurationError(
                 f"Configuration validation failed with {len(validation_result['errors'])} errors"
             )
         if validation_result.get("warnings"):
             for warning in validation_result["warnings"]:
-                logger.warning(f"[server] Config warning: {warning}")
+                logger.warning("[server] Config warning: %s", warning)
         logger.info("[server] Configuration validated successfully")
     except ValidatorConfigurationError:
         raise
     except (ImportError, OSError, RuntimeError, TypeError, ValueError) as e:
-        logger.warning(f"[server] Config validation skipped: {e}")
+        logger.warning("[server] Config validation skipped: %s", e)
 
     # Initialize storage from nomic directory (or default data dir in offline mode)
     storage = None
@@ -1293,25 +1291,25 @@ async def run_unified_server(
         try:
             default_data.mkdir(parents=True, exist_ok=True)
             nomic_dir = default_data
-            logger.info(f"[server] Using default data directory: {nomic_dir}")
+            logger.info("[server] Using default data directory: %s", nomic_dir)
         except (OSError, PermissionError) as e:
-            logger.warning(f"[server] Cannot create default data directory {default_data}: {e}")
+            logger.warning("[server] Cannot create default data directory %s: %s", default_data, e)
 
     if nomic_dir:
         # Ensure nomic_dir exists - critical for debate persistence
         try:
             nomic_dir.mkdir(parents=True, exist_ok=True)
-            logger.info(f"[server] Nomic directory ready: {nomic_dir}")
+            logger.info("[server] Nomic directory ready: %s", nomic_dir)
         except (OSError, PermissionError) as e:
-            logger.error(f"[server] CRITICAL: Cannot create nomic directory {nomic_dir}: {e}")
+            logger.error("[server] CRITICAL: Cannot create nomic directory %s: %s", nomic_dir, e)
             raise RuntimeError(f"Cannot create nomic directory: {e}") from e
 
         db_path = nomic_dir / "debates.db"
         try:
             storage = DebateStorage(str(db_path))
-            logger.info(f"[server] DebateStorage initialized at {db_path}")
+            logger.info("[server] DebateStorage initialized at %s", db_path)
         except (OSError, RuntimeError) as e:
-            logger.error(f"[server] CRITICAL: Cannot initialize DebateStorage at {db_path}: {e}")
+            logger.error("[server] CRITICAL: Cannot initialize DebateStorage at %s: %s", db_path, e)
             raise RuntimeError(f"Cannot initialize debate storage: {e}") from e
 
     # Enable persistent RBAC audit logging (SOC 2 compliance)
@@ -1321,7 +1319,7 @@ async def run_unified_server(
         enable_persistent_auditing()
         logger.info("[server] Persistent RBAC audit logging enabled")
     except (ImportError, OSError, RuntimeError) as e:
-        logger.debug(f"[server] Persistent audit logging not available: {e}")
+        logger.debug("[server] Persistent audit logging not available: %s", e)
 
     # Ensure demo data is loaded for search functionality
     try:
@@ -1330,7 +1328,7 @@ async def run_unified_server(
         logger.info("[server] Checking demo data initialization...")
         ensure_demo_data()
     except (ImportError, OSError, RuntimeError) as e:
-        logger.warning(f"[server] Demo data initialization failed: {e}")
+        logger.warning("[server] Demo data initialization failed: %s", e)
 
     # Build server kwargs, only passing host params if explicitly provided
     server_kwargs: dict[str, Any] = {

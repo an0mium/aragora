@@ -207,7 +207,7 @@ class RetentionPolicyManager:
         )
 
         self._policies[policy_id] = policy
-        logger.info(f"Created retention policy: {name} ({retention_days} days)")
+        logger.info("Created retention policy: %s (%s days)", name, retention_days)
 
         return policy
 
@@ -249,7 +249,7 @@ class RetentionPolicyManager:
         """Delete a retention policy."""
         if policy_id in self._policies:
             del self._policies[policy_id]
-            logger.info(f"Deleted retention policy: {policy_id}")
+            logger.info("Deleted retention policy: %s", policy_id)
 
     def register_delete_handler(
         self,
@@ -326,7 +326,7 @@ class RetentionPolicyManager:
 
         except (KeyError, ValueError, TypeError, RuntimeError) as e:
             report.errors.append(f"Policy execution error: {e}")
-            logger.exception(f"Error executing policy {policy_id}")
+            logger.exception("Error executing policy %s", policy_id)
 
         report.duration_seconds = (datetime.now(timezone.utc) - started_at).total_seconds()
         return report
@@ -463,7 +463,7 @@ class RetentionPolicyManager:
             return "skipped"
 
         if dry_run:
-            logger.debug(f"[DRY RUN] Would {policy.action.value}: {item['id']}")
+            logger.debug("[DRY RUN] Would %s: %s", policy.action.value, item['id'])
             return policy.action.value
 
         # Execute action
@@ -499,7 +499,7 @@ class RetentionPolicyManager:
                 return "deleted"
             return "failed"
 
-        logger.warning(f"No delete handler for type: {resource_type}")
+        logger.warning("No delete handler for type: %s", resource_type)
         return "skipped"
 
     async def _archive_item(
@@ -509,7 +509,7 @@ class RetentionPolicyManager:
     ) -> str:
         """Archive an item."""
         # Implementation would move to cold storage
-        logger.info(f"Archiving item {item['id']}")
+        logger.info("Archiving item %s", item['id'])
         return "archived"
 
     async def _anonymize_item(
@@ -519,7 +519,7 @@ class RetentionPolicyManager:
     ) -> str:
         """Anonymize an item."""
         # Implementation would remove PII while keeping structure
-        logger.info(f"Anonymizing item {item['id']}")
+        logger.info("Anonymizing item %s", item['id'])
         return "anonymized"
 
     async def _send_notifications(
@@ -533,7 +533,7 @@ class RetentionPolicyManager:
             return 0
 
         # Would integrate with notification service
-        logger.info(f"Would notify {len(policy.notification_recipients)} recipients")
+        logger.info("Would notify %s recipients", len(policy.notification_recipients))
         return len(policy.notification_recipients)
 
 

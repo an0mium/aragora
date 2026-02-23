@@ -53,7 +53,7 @@ class ShellStepExecutor(StepExecutor):
         from aragora.utils.subprocess_runner import SandboxError, run_sandboxed
 
         command = step.config.get("command", "echo 'No command'")
-        logger.info(f"Shell executing: {command}")
+        logger.info("Shell executing: %s", command)
 
         try:
             # Parse command string into arguments for secure execution
@@ -80,7 +80,7 @@ class ShellStepExecutor(StepExecutor):
 
         except SandboxError as e:
             # Command failed security validation
-            logger.warning(f"Step {step.name} blocked by sandbox: {e}")
+            logger.warning("Step %s blocked by sandbox: %s", step.name, e)
             return {
                 "returncode": 1,
                 "stdout": "",
@@ -151,10 +151,10 @@ class ParallelStepExecutor(StepExecutor):
                 "aggregate": aggregate,
             }
         except ImportError as e:
-            logger.warning(f"Agent modules not available: {e}")
+            logger.warning("Agent modules not available: %s", e)
             return {"status": "skipped", "reason": "Agent modules not available"}
         except (RuntimeError, OSError, ValueError) as e:
-            logger.error(f"Parallel execution failed: {e}")
+            logger.error("Parallel execution failed: %s", e)
             raise
 
 
@@ -237,7 +237,7 @@ class ConditionalStepExecutor(StepExecutor):
         elif operator == "not_exists":
             return actual is None
         else:
-            logger.warning(f"Unknown operator: {operator}, defaulting to equality")
+            logger.warning("Unknown operator: %s, defaulting to equality", operator)
             return actual == expected
 
 
@@ -299,7 +299,7 @@ class MoleculeEngine:
         self.checkpoint_dir.mkdir(parents=True, exist_ok=True)
         await self._load_molecules()
         self._initialized = True
-        logger.info(f"MoleculeEngine initialized with {len(self._molecules)} molecules")
+        logger.info("MoleculeEngine initialized with %s molecules", len(self._molecules))
 
     async def _load_molecules(self) -> None:
         """Load molecules from checkpoint files."""
@@ -310,7 +310,7 @@ class MoleculeEngine:
                     molecule = Molecule.from_dict(data)
                     self._molecules[molecule.id] = molecule
             except (RuntimeError, OSError, ValueError) as e:
-                logger.warning(f"Failed to load molecule from {checkpoint_file}: {e}")
+                logger.warning("Failed to load molecule from %s: %s", checkpoint_file, e)
 
     async def _checkpoint(self, molecule: Molecule) -> None:
         """Save a checkpoint for a molecule."""
@@ -321,10 +321,10 @@ class MoleculeEngine:
             with open(checkpoint_file, "w") as f:
                 json.dump(molecule.to_dict(), f, indent=2)
             logger.debug(
-                f"Checkpointed molecule {molecule.id} at step {molecule.current_step_index}"
+                "Checkpointed molecule %s at step %s", molecule.id, molecule.current_step_index
             )
         except (RuntimeError, OSError, ValueError) as e:
-            logger.error(f"Failed to checkpoint molecule {molecule.id}: {e}")
+            logger.error("Failed to checkpoint molecule %s: %s", molecule.id, e)
 
     def validate_dependencies(self, molecule: Molecule) -> tuple[bool, str | None]:
         """
@@ -367,7 +367,7 @@ class MoleculeEngine:
             snapshot=snapshot,
         )
         self._transactions[transaction.transaction_id] = transaction
-        logger.info(f"Started transaction {transaction.transaction_id} for molecule {molecule.id}")
+        logger.info("Started transaction %s for molecule %s", transaction.transaction_id, molecule.id)
         return transaction
 
     async def _commit_transaction(self, transaction: MoleculeTransaction) -> bool:
@@ -383,7 +383,7 @@ class MoleculeEngine:
                 if log_file.exists():
                     log_file.unlink()
             except (RuntimeError, ValueError, OSError) as e:
-                logger.warning(f"Failed to clean up transaction log: {e}")
+                logger.warning("Failed to clean up transaction log: %s", e)
         return success
 
     async def _rollback_transaction(
@@ -401,9 +401,9 @@ class MoleculeEngine:
                 restored = Molecule.from_dict(transaction.pre_transaction_snapshot)
                 self._molecules[molecule.id] = restored
                 await self._checkpoint(restored)
-                logger.info(f"Restored molecule {molecule.id} from pre-transaction state")
+                logger.info("Restored molecule %s from pre-transaction state", molecule.id)
             except (RuntimeError, OSError, ValueError) as e:
-                logger.error(f"Failed to restore molecule state: {e}")
+                logger.error("Failed to restore molecule state: %s", e)
                 success = False
 
         # Release any locks held by this molecule
@@ -430,11 +430,11 @@ class MoleculeEngine:
                 acquired = await detector.acquire_lock(molecule_id, resource_id)
                 if not acquired:
                     logger.warning(
-                        f"Failed to acquire lock on {resource_id} for molecule {molecule_id}"
+                        "Failed to acquire lock on %s for molecule %s", resource_id, molecule_id
                     )
                     return False
             except DeadlockError as e:
-                logger.error(f"Deadlock detected: {e}")
+                logger.error("Deadlock detected: %s", e)
                 raise
 
         return True
@@ -543,7 +543,7 @@ class MoleculeEngine:
                 if not is_valid:
                     molecule.status = MoleculeStatus.FAILED
                     molecule.error_message = error_msg
-                    logger.error(f"Dependency validation failed: {error_msg}")
+                    logger.error("Dependency validation failed: %s", error_msg)
                     return MoleculeResult(
                         molecule_id=molecule.id,
                         status=MoleculeStatus.FAILED,
@@ -588,7 +588,7 @@ class MoleculeEngine:
 
                     # Execute runnable steps (could parallelize here)
                     for step in runnable_steps:
-                        logger.info(f"Executing step: {step.name}")
+                        logger.info("Executing step: %s", step.name)
                         await self._checkpoint(molecule)
 
                         try:
@@ -657,7 +657,7 @@ class MoleculeEngine:
             # Handle transaction commit/rollback
             if transaction:
                 if execution_failed and auto_rollback:
-                    logger.info(f"Auto-rolling back transaction for molecule {molecule.id}")
+                    logger.info("Auto-rolling back transaction for molecule %s", molecule.id)
                     await self._rollback_transaction(transaction, molecule)
                 elif not execution_failed:
                     await self._commit_transaction(transaction)
@@ -715,7 +715,7 @@ class MoleculeEngine:
                 step.status = StepStatus.PENDING
 
         molecule.status = MoleculeStatus.RUNNING
-        logger.info(f"Resuming molecule {molecule_id} from step {molecule.current_step_index}")
+        logger.info("Resuming molecule %s from step %s", molecule_id, molecule.current_step_index)
 
         return await self.execute(molecule)
 
@@ -751,7 +751,7 @@ class MoleculeEngine:
         molecule.completed_at = datetime.now(timezone.utc)
         await self._checkpoint(molecule)
 
-        logger.info(f"Cancelled molecule {molecule_id}")
+        logger.info("Cancelled molecule %s", molecule_id)
         return True
 
     async def get_statistics(self) -> dict[str, Any]:
@@ -814,7 +814,7 @@ class MoleculeEngine:
         """
         molecule = self._molecules.get(molecule_id)
         if not molecule:
-            logger.warning(f"Molecule {molecule_id} not found for rollback")
+            logger.warning("Molecule %s not found for rollback", molecule_id)
             return False
 
         # Find the most recent active/failed transaction for this molecule
@@ -826,7 +826,7 @@ class MoleculeEngine:
         ]
 
         if not matching_txns:
-            logger.warning(f"No active transaction found for molecule {molecule_id}")
+            logger.warning("No active transaction found for molecule %s", molecule_id)
             return False
 
         # Rollback the most recent transaction
@@ -862,7 +862,7 @@ class MoleculeEngine:
                     continue
 
                 # Transaction was incomplete - attempt rollback
-                logger.warning(f"Found incomplete transaction {txn_id} for molecule {molecule_id}")
+                logger.warning("Found incomplete transaction %s for molecule %s", txn_id, molecule_id)
 
                 molecule = self._molecules.get(molecule_id)
                 if molecule:
@@ -879,12 +879,12 @@ class MoleculeEngine:
                     results[txn_id] = success
                 else:
                     logger.error(
-                        f"Cannot recover transaction {txn_id}: molecule {molecule_id} not found"
+                        "Cannot recover transaction %s: molecule %s not found", txn_id, molecule_id
                     )
                     results[txn_id] = False
 
             except (RuntimeError, OSError, ValueError) as e:
-                logger.error(f"Error processing transaction log {log_file}: {e}")
+                logger.error("Error processing transaction log %s: %s", log_file, e)
                 results[str(log_file)] = False
 
         return results

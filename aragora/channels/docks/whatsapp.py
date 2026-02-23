@@ -133,7 +133,7 @@ class WhatsAppDock(ChannelDock):
                     )
 
         except (ConnectionError, TimeoutError, OSError, ValueError) as e:
-            logger.error(f"WhatsApp send error: {e}")
+            logger.error("WhatsApp send error: %s", e)
             return SendResult.fail(
                 error=str(e),
                 platform=self.PLATFORM,
@@ -263,7 +263,7 @@ class WhatsAppDock(ChannelDock):
                     )
 
         except (ConnectionError, TimeoutError, OSError, ValueError) as e:
-            logger.error(f"WhatsApp voice send error: {e}")
+            logger.error("WhatsApp voice send error: %s", e)
             return SendResult.fail(
                 error=str(e),
                 platform=self.PLATFORM,

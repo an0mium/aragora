@@ -185,7 +185,7 @@ async def handle_slack_interactions(request: Any) -> HandlerResult:
 
                         _user_votes[debate_id][user_id] = agent
 
-                        logger.info(f"User {user_name} voted for {agent} in debate {debate_id}")
+                        logger.info("User %s voted for %s in debate %s", user_name, agent, debate_id)
 
                         audit_data(
                             user_id=f"slack:{user_id}",
@@ -364,8 +364,7 @@ async def handle_slack_interactions(request: Any) -> HandlerResult:
                 }
 
                 logger.info(
-                    f"Started debate {debate_id} from Slack modal: "
-                    f"task='{task[:50]}...', agents={agents}, rounds={rounds}"
+                    "Started debate %s from Slack modal: task='%s...', agents=%s, rounds=%s", debate_id, task[:50], agents, rounds
                 )
 
                 audit_data(
@@ -383,7 +382,7 @@ async def handle_slack_interactions(request: Any) -> HandlerResult:
         return json_response({"ok": True})
 
     except (json.JSONDecodeError, KeyError, TypeError, ValueError) as e:
-        logger.error(f"Slack interactions handler error: {e}")
+        logger.error("Slack interactions handler error: %s", e)
         return error_response(safe_error_message(e, "Slack interaction"), 500)
 
 

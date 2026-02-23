@@ -198,7 +198,7 @@ def deprecated(
             func_id = id(func)
 
             if not warn_once or func_id not in warned:
-                logger.warning(f"deprecated_call: {warning_msg}")
+                logger.warning("deprecated_call: %s", warning_msg)
                 warnings.warn(warning_msg, DeprecationWarning, stacklevel=2)
                 if warn_once:
                     warned.add(func_id)

@@ -81,7 +81,7 @@ def _validate_audio_magic(data: bytes, claimed_format: str) -> bool:
 
     # Allow if we couldn't detect (some formats are tricky)
     # But log for monitoring
-    logger.debug(f"Could not validate magic bytes for claimed format {claimed_format}")
+    logger.debug("Could not validate magic bytes for claimed format %s", claimed_format)
     return True  # Permissive for now - log helps identify issues
 
 
@@ -207,7 +207,7 @@ class BroadcastStorage:
         # Write audio data
         path.write_bytes(audio_data)
 
-        logger.info(f"Saved broadcast audio: {path} ({len(audio_data)} bytes)")
+        logger.info("Saved broadcast audio: %s (%s bytes)", path, len(audio_data))
         return path
 
     def get_audio(self, debate_id: str) -> bytes | None:
@@ -278,12 +278,12 @@ class AudioFileStore:
             Path if debate_id is valid, None otherwise (path traversal protection)
         """
         if not _validate_debate_id(debate_id):
-            logger.warning(f"Invalid debate ID rejected: {debate_id!r}")
+            logger.warning("Invalid debate ID rejected: %r", debate_id)
             return None
 
         # Validate format as well
         if not re.match(r"^[a-zA-Z0-9]+$", format):
-            logger.warning(f"Invalid format rejected: {format!r}")
+            logger.warning("Invalid format rejected: %r", format)
             return None
 
         path = self.storage_dir / f"{debate_id}.{format}"
@@ -292,7 +292,7 @@ class AudioFileStore:
         try:
             path.resolve().relative_to(self.storage_dir.resolve())
         except ValueError:
-            logger.warning(f"Path traversal attempt: {debate_id!r}.{format}")
+            logger.warning("Path traversal attempt: %r.%s", debate_id, format)
             return None
 
         return path
@@ -304,7 +304,7 @@ class AudioFileStore:
             Path if debate_id is valid, None otherwise (path traversal protection)
         """
         if not _validate_debate_id(debate_id):
-            logger.warning(f"Invalid debate ID rejected: {debate_id!r}")
+            logger.warning("Invalid debate ID rejected: %r", debate_id)
             return None
 
         path = self.storage_dir / f"{debate_id}.json"
@@ -313,7 +313,7 @@ class AudioFileStore:
         try:
             path.resolve().relative_to(self.storage_dir.resolve())
         except ValueError:
-            logger.warning(f"Path traversal attempt: {debate_id!r}")
+            logger.warning("Path traversal attempt: %r", debate_id)
             return None
 
         return path
@@ -345,19 +345,19 @@ class AudioFileStore:
         format_lower = format.lower()
         if format_lower not in ALLOWED_AUDIO_FORMATS:
             logger.error(
-                f"Rejected audio format '{format}': not in whitelist {ALLOWED_AUDIO_FORMATS}"
+                "Rejected audio format '%s': not in whitelist %s", format, ALLOWED_AUDIO_FORMATS
             )
             return None
 
         dest_path = self._audio_path(debate_id, format_lower)
         if dest_path is None:
-            logger.error(f"Cannot save audio: invalid debate_id {debate_id!r}")
+            logger.error("Cannot save audio: invalid debate_id %r", debate_id)
             return None
 
         # Validate file size
         audio_path = Path(audio_path)
         if not audio_path.exists():
-            logger.error(f"Source audio file not found: {audio_path}")
+            logger.error("Source audio file not found: %s", audio_path)
             return None
 
         file_size = audio_path.stat().st_size
@@ -371,7 +371,7 @@ class AudioFileStore:
         with open(audio_path, "rb") as f:
             header = f.read(12)
         if not _validate_audio_magic(header, format_lower):
-            logger.warning(f"Audio magic bytes don't match format {format_lower} for {audio_path}")
+            logger.warning("Audio magic bytes don't match format %s for %s", format_lower, audio_path)
             # Continue anyway - logged for monitoring
 
         # Copy audio file to storage
@@ -400,7 +400,7 @@ class AudioFileStore:
         # Update cache
         self._cache[debate_id] = metadata
 
-        logger.info(f"Saved audio for debate {debate_id}: {dest_path} ({file_size} bytes)")
+        logger.info("Saved audio for debate %s: %s (%s bytes)", debate_id, dest_path, file_size)
         return dest_path
 
     def save_bytes(
@@ -430,7 +430,7 @@ class AudioFileStore:
         format_lower = format.lower()
         if format_lower not in ALLOWED_AUDIO_FORMATS:
             logger.error(
-                f"Rejected audio format '{format}': not in whitelist {ALLOWED_AUDIO_FORMATS}"
+                "Rejected audio format '%s': not in whitelist %s", format, ALLOWED_AUDIO_FORMATS
             )
             return None
 
@@ -443,12 +443,12 @@ class AudioFileStore:
 
         # Validate magic bytes
         if not _validate_audio_magic(audio_data, format_lower):
-            logger.warning(f"Audio magic bytes don't match claimed format {format_lower}")
+            logger.warning("Audio magic bytes don't match claimed format %s", format_lower)
             # Continue anyway - logged for monitoring
 
         dest_path = self._audio_path(debate_id, format_lower)
         if dest_path is None:
-            logger.error(f"Cannot save audio: invalid debate_id {debate_id!r}")
+            logger.error("Cannot save audio: invalid debate_id %r", debate_id)
             return None
 
         # Write audio data
@@ -475,7 +475,7 @@ class AudioFileStore:
         # Update cache
         self._cache[debate_id] = metadata
 
-        logger.info(f"Saved audio for debate {debate_id}: {dest_path} ({len(audio_data)} bytes)")
+        logger.info("Saved audio for debate %s: %s (%s bytes)", debate_id, dest_path, len(audio_data))
         return dest_path
 
     def get_path(self, debate_id: str) -> Path | None:
@@ -521,7 +521,7 @@ class AudioFileStore:
             self._cache[debate_id] = metadata
             return metadata
         except (json.JSONDecodeError, KeyError) as e:
-            logger.warning(f"Failed to load metadata for {debate_id}: {e}")
+            logger.warning("Failed to load metadata for %s: %s", debate_id, e)
             return None
 
     def exists(self, debate_id: str) -> bool:
@@ -540,7 +540,7 @@ class AudioFileStore:
         """
         # Validate debate_id first (path traversal protection)
         if not _validate_debate_id(debate_id):
-            logger.warning(f"Cannot delete: invalid debate_id {debate_id!r}")
+            logger.warning("Cannot delete: invalid debate_id %r", debate_id)
             return False
 
         # Remove from cache
@@ -561,7 +561,7 @@ class AudioFileStore:
             deleted = True
 
         if deleted:
-            logger.info(f"Deleted audio for debate {debate_id}")
+            logger.info("Deleted audio for debate %s", debate_id)
 
         return deleted
 
@@ -593,7 +593,7 @@ class AudioFileStore:
                         }
                     )
             except (json.JSONDecodeError, KeyError) as e:
-                logger.warning(f"Failed to read metadata {metadata_path}: {e}")
+                logger.warning("Failed to read metadata %s: %s", metadata_path, e)
                 continue
 
         # Sort by generated_at descending
@@ -626,7 +626,7 @@ class AudioFileStore:
                     metadata_path.unlink()
                     self._cache.pop(debate_id, None)
                     removed += 1
-                    logger.info(f"Removed orphaned metadata: {metadata_path}")
+                    logger.info("Removed orphaned metadata: %s", metadata_path)
             except (json.JSONDecodeError, KeyError):
                 # Remove corrupted metadata files
                 metadata_path.unlink()

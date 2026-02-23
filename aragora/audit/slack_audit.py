@@ -154,8 +154,7 @@ class SlackAuditLogger:
 
         event_id = self.audit.log(event)
         logger.debug(
-            f"slack_command_logged workspace={workspace_id} user={user_id} "
-            f"command={command} result={result}"
+            "slack_command_logged workspace=%s user=%s command=%s result=%s", workspace_id, user_id, command, result
         )
         return event_id
 
@@ -206,7 +205,7 @@ class SlackAuditLogger:
 
         event_id = self.audit.log(event)
         logger.debug(
-            f"slack_event_logged workspace={workspace_id} type={event_type} success={success}"
+            "slack_event_logged workspace=%s type=%s success=%s", workspace_id, event_type, success
         )
         return event_id
 
@@ -265,8 +264,7 @@ class SlackAuditLogger:
 
         event_id = self.audit.log(event)
         logger.info(
-            f"slack_oauth_logged workspace={workspace_id or 'unknown'} "
-            f"action={action} success={success}"
+            "slack_oauth_logged workspace=%s action=%s success=%s", workspace_id or 'unknown', action, success
         )
         return event_id
 
@@ -303,8 +301,7 @@ class SlackAuditLogger:
 
         event_id = self.audit.log(event)
         logger.warning(
-            f"slack_rate_limit workspace={workspace_id} user={user_id} "
-            f"command={command} type={limit_type}"
+            "slack_rate_limit workspace=%s user=%s command=%s type=%s", workspace_id, user_id, command, limit_type
         )
         return event_id
 
@@ -341,8 +338,7 @@ class SlackAuditLogger:
 
         event_id = self.audit.log(event)
         logger.error(
-            f"slack_signature_failure workspace={workspace_id or 'unknown'} "
-            f"ip={ip_address} - POTENTIAL ATTACK"
+            "slack_signature_failure workspace=%s ip=%s - POTENTIAL ATTACK", workspace_id or 'unknown', ip_address
         )
         return event_id
 

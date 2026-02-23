@@ -161,12 +161,12 @@ async def batch_with_agents(
             available_agents = cfg.circuit_breaker.filter_available_agents(agents)
             if len(available_agents) < len(agents):
                 skipped = [a.name for a in agents if a not in available_agents]
-                logger.info(f"batch_{operation_name}_circuit_breaker_skip agents={skipped}")
+                logger.info("batch_%s_circuit_breaker_skip agents=%s", operation_name, skipped)
         except (RuntimeError, AttributeError, TypeError) as e:  # noqa: BLE001
-            logger.warning(f"Circuit breaker filter error: {e}")
+            logger.warning("Circuit breaker filter error: %s", e)
 
     if not available_agents:
-        logger.warning(f"batch_{operation_name}_no_available_agents")
+        logger.warning("batch_%s_no_available_agents", operation_name)
         return DebateBatchResult(
             results=[],
             errors=[],
@@ -184,7 +184,7 @@ async def batch_with_agents(
             idx = available_agents.index(agent)
             await asyncio.sleep(idx * cfg.stagger_delay)
 
-        logger.debug(f"batch_{operation_name}_start agent={agent.name}")
+        logger.debug("batch_%s_start agent=%s", operation_name, agent.name)
 
         # Track per-agent response time for SLO metrics
         start_time = time_mod.perf_counter()
@@ -256,7 +256,7 @@ async def batch_with_agents(
             if cfg.record_to_breaker and cfg.circuit_breaker:
                 cfg.circuit_breaker.record_failure(agent_name)
 
-            logger.warning(f"batch_{operation_name}_failed agent={agent_name} error={error}")
+            logger.warning("batch_%s_failed agent=%s error=%s", operation_name, agent_name, error)
 
     # Emit hooks
     if "on_batch_complete" in cfg.hooks:
@@ -326,7 +326,7 @@ async def batch_generate_critiques(
         import time as time_mod
 
         critic, proposer_name, proposal = task_tuple
-        logger.debug(f"batch_critique_start critic={critic.name} target={proposer_name}")
+        logger.debug("batch_critique_start critic=%s target=%s", critic.name, proposer_name)
 
         if cfg.stagger_delay > 0:
             idx = critique_tasks.index(task_tuple)
@@ -358,7 +358,7 @@ async def batch_generate_critiques(
         config=batch_config,
     )
 
-    logger.info(f"batch_critique_results count={len(results)} tasks={len(critique_tasks)}")
+    logger.info("batch_critique_results count=%s tasks=%s", len(results), len(critique_tasks))
     return results
 
 
@@ -429,8 +429,7 @@ async def batch_collect_votes(
             if lead >= min_lead:
                 winning_choice = leader_choice
                 logger.info(
-                    f"batch_vote_early_termination leader={leader_choice} "
-                    f"votes={leader_count}/{len(votes)} lead={lead}"
+                    "batch_vote_early_termination leader=%s votes=%s/%s lead=%s", leader_choice, leader_count, len(votes), lead
                 )
                 return True
 

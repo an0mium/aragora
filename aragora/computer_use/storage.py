@@ -210,7 +210,7 @@ class ComputerUseStorage:
             resolved_path = resolve_db_path(db_path)
             self.db_path = Path(resolved_path)
             self._backend = SQLiteBackend(resolved_path)
-            logger.info(f"ComputerUseStorage using SQLite backend: {resolved_path}")
+            logger.info("ComputerUseStorage using SQLite backend: %s", resolved_path)
 
         self._init_db()
 
@@ -247,7 +247,7 @@ class ComputerUseStorage:
             try:
                 self._backend.execute_write(idx_sql)
             except (RuntimeError, OSError) as e:  # DB index creation errors
-                logger.debug(f"Index creation skipped: {e}")
+                logger.debug("Index creation skipped: %s", e)
 
         # Create policies table
         create_policies_sql = """
@@ -274,7 +274,7 @@ class ComputerUseStorage:
             try:
                 self._backend.execute_write(idx_sql)
             except (RuntimeError, OSError) as e:  # DB index creation errors
-                logger.debug(f"Index creation skipped: {e}")
+                logger.debug("Index creation skipped: %s", e)
 
     # =========================================================================
     # Task Operations

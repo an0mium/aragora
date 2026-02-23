@@ -325,8 +325,7 @@ class ReplicationHealthMonitor:
             self._record_failure_metric(error_type or "unknown")
 
         logger.debug(
-            f"Replication recorded: lag={lag_seconds}s, success={success}, "
-            f"status={self._current_status.value}"
+            "Replication recorded: lag=%ss, success=%s, status=%s", lag_seconds, success, self._current_status.value
         )
 
     def record_standby_disconnect(self) -> None:
@@ -344,7 +343,7 @@ class ReplicationHealthMonitor:
         self._current_status = ReplicationStatus.UNKNOWN
         self._update_metrics()
 
-        logger.info(f"Standby {self._standby_host} connected to primary {self._primary_host}")
+        logger.info("Standby %s connected to primary %s", self._standby_host, self._primary_host)
 
     def _update_status(self) -> None:
         """Update the replication status based on current lag."""
@@ -378,15 +377,14 @@ class ReplicationHealthMonitor:
         health = self.get_health()
 
         logger.warning(
-            f"Replication alert: {alert_type} - lag={self._current_lag}s, "
-            f"status={self._current_status.value}"
+            "Replication alert: %s - lag=%ss, status=%s", alert_type, self._current_lag, self._current_status.value
         )
 
         if self._alert_callback:
             try:
                 self._alert_callback(alert_type, health)
             except (OSError, RuntimeError, ValueError) as e:
-                logger.error(f"Failed to invoke alert callback: {e}")
+                logger.error("Failed to invoke alert callback: %s", e)
 
     def _update_metrics(self) -> None:
         """Update Prometheus metrics."""
@@ -420,7 +418,7 @@ class ReplicationHealthMonitor:
                 REPLICATION_RATE_BYTES.labels(**labels).set(self._replication_rate)
 
         except (OSError, RuntimeError, ValueError) as e:
-            logger.debug(f"Failed to update metrics: {e}")
+            logger.debug("Failed to update metrics: %s", e)
 
     def _record_failure_metric(self, error_type: str) -> None:
         """Record a replication failure metric."""
@@ -432,7 +430,7 @@ class ReplicationHealthMonitor:
             REPLICATION_FAILURES.labels(**labels, error_type=error_type).inc()
             REPLICATION_TOTAL.labels(**labels, status="failure").inc()
         except (OSError, RuntimeError, ValueError) as e:
-            logger.debug(f"Failed to record failure metric: {e}")
+            logger.debug("Failed to record failure metric: %s", e)
 
     def get_health(self) -> ReplicationHealth:
         """
@@ -500,7 +498,7 @@ class ReplicationHealthMonitor:
         self._running = True
         self._monitoring_task = asyncio.create_task(self._monitoring_loop())
         logger.info(
-            f"Started replication monitoring for {self._primary_host} -> {self._standby_host}"
+            "Started replication monitoring for %s -> %s", self._primary_host, self._standby_host
         )
 
     async def stop_monitoring(self) -> None:
@@ -540,7 +538,7 @@ class ReplicationHealthMonitor:
             except asyncio.CancelledError:
                 break
             except (OSError, RuntimeError, ConnectionError) as e:
-                logger.error(f"Error in replication monitoring loop: {e}")
+                logger.error("Error in replication monitoring loop: %s", e)
                 await asyncio.sleep(self._config.check_interval_seconds)
 
     def health_check(self) -> dict[str, Any]:

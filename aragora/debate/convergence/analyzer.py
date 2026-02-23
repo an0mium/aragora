@@ -74,7 +74,7 @@ class AdvancedConvergenceAnalyzer:
 
         if self._enable_cache and debate_id:
             self._similarity_cache = get_pairwise_similarity_cache(debate_id)
-            logger.debug(f"AdvancedConvergenceAnalyzer caching enabled: debate={debate_id}")
+            logger.debug("AdvancedConvergenceAnalyzer caching enabled: debate=%s", debate_id)
 
     def _compute_similarity_cached(self, text1: str, text2: str) -> float:
         """
@@ -106,7 +106,7 @@ class AdvancedConvergenceAnalyzer:
         """Cleanup resources when debate ends."""
         if self._debate_id:
             cleanup_similarity_cache(self._debate_id)
-            logger.debug(f"AdvancedConvergenceAnalyzer cleanup: debate={self._debate_id}")
+            logger.debug("AdvancedConvergenceAnalyzer cleanup: debate=%s", self._debate_id)
 
     def get_cache_stats(self) -> dict | None:
         """Get cache statistics."""
@@ -235,7 +235,7 @@ class AdvancedConvergenceAnalyzer:
                     diversity_score=diversity_score,
                 )
             except (RuntimeError, ValueError, TypeError, AttributeError, OSError) as e:
-                logger.debug(f"Optimized diversity computation failed, using fallback: {e}")
+                logger.debug("Optimized diversity computation failed, using fallback: %s", e)
 
         # Fallback: O(n^2) pairwise comparison with caching
         # Arguments with < 0.7 similarity to all others are "unique"

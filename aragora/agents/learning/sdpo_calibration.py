@@ -188,12 +188,12 @@ class SDPOCalibrationBridge:
             return 0
 
         if trajectory.id in self._synced_trajectories:
-            logger.debug(f"Trajectory {trajectory.id} already synced")
+            logger.debug("Trajectory %s already synced", trajectory.id)
             return 0
 
         # Check if trajectory is complete (has an outcome)
         if trajectory.outcome is None:
-            logger.warning(f"Trajectory {trajectory.id} is not complete")
+            logger.warning("Trajectory %s is not complete", trajectory.id)
             return 0
 
         synced = 0
@@ -221,7 +221,7 @@ class SDPOCalibrationBridge:
             synced += 1
 
         self._synced_trajectories.add(trajectory.id)
-        logger.info(f"Synced {synced} predictions from trajectory {trajectory.id}")
+        logger.info("Synced %s predictions from trajectory %s", synced, trajectory.id)
 
         return synced
 
@@ -390,7 +390,7 @@ def integrate_sdpo_with_calibration(
     )
 
     logger.info(
-        f"Integrated SDPO with CalibrationTracker (sdpo_weight={bridge.config.sdpo_weight})"
+        "Integrated SDPO with CalibrationTracker (sdpo_weight=%s)", bridge.config.sdpo_weight
     )
 
     return bridge

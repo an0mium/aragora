@@ -127,7 +127,7 @@ async def create_workflow(
     # Save initial version
     store.save_version(workflow)
 
-    logger.info(f"Created workflow {workflow_id}: {workflow.name}")
+    logger.info("Created workflow %s: %s", workflow_id, workflow.name)
     _get_audit_fn()(
         user_id=created_by or "system",
         resource_type="workflow",
@@ -187,7 +187,7 @@ async def update_workflow(
     # Save version history
     store.save_version(workflow)
 
-    logger.info(f"Updated workflow {workflow_id} to version {workflow.version}")
+    logger.info("Updated workflow %s to version %s", workflow_id, workflow.version)
     _get_audit_fn()(
         user_id="system",
         resource_type="workflow",
@@ -214,7 +214,7 @@ async def delete_workflow(workflow_id: str, tenant_id: str = "default") -> bool:
     deleted = store.delete_workflow(workflow_id, tenant_id)
 
     if deleted:
-        logger.info(f"Deleted workflow {workflow_id}")
+        logger.info("Deleted workflow %s", workflow_id)
         _get_audit_fn()(
             user_id="system",
             resource_type="workflow",

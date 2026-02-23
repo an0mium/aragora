@@ -377,7 +377,7 @@ If no issues, respond with: []"""
                     logger.debug("Failed to parse JSON data: %s", e)
 
         except (ImportError, AttributeError, ValueError, OSError, RuntimeError) as e:
-            logger.debug(f"Clinical documentation analysis skipped: {e}")
+            logger.debug("Clinical documentation analysis skipped: %s", e)
 
         return findings
 

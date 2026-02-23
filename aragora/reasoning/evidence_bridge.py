@@ -178,7 +178,7 @@ class EvidenceProvenanceBridge:
         # Track mapping
         self._evidence_to_provenance[snippet.id] = record.id
 
-        logger.debug(f"Registered evidence {snippet.id} as provenance {record.id}")
+        logger.debug("Registered evidence %s as provenance %s", snippet.id, record.id)
         return record
 
     def get_provenance_for_evidence(self, evidence_id: str) -> ProvenanceRecord | None:
@@ -251,7 +251,7 @@ class EvidenceProvenanceBridge:
             support_type="supports" if support_direction > 0 else "contradicts",
         )
 
-        logger.debug(f"Linked evidence {snippet.id} to claim {claim_id}")
+        logger.debug("Linked evidence %s to claim %s", snippet.id, claim_id)
         return link
 
     def get_evidence_for_claim(self, claim_id: str) -> list[EvidenceLink]:
@@ -418,7 +418,7 @@ class EvidenceProvenanceBridge:
             if claim_id:
                 self.link_evidence_to_claim(snippet, claim_id)
 
-        logger.info(f"Created evidence chain {chain_id} with {len(snippets)} snippets")
+        logger.info("Created evidence chain %s with %s snippets", chain_id, len(snippets))
         return chain_id
 
     def get_chain_summary(self, chain_id: str) -> dict:

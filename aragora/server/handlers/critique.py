@@ -70,7 +70,7 @@ class CritiqueHandler(BaseHandler):
         # Rate limit check
         client_ip = get_client_ip(handler)
         if not _critique_limiter.is_allowed(client_ip):
-            logger.warning(f"Rate limit exceeded for critique endpoint: {client_ip}")
+            logger.warning("Rate limit exceeded for critique endpoint: %s", client_ip)
             return error_response("Rate limit exceeded. Please try again later.", 429)
 
         nomic_dir = self.ctx.get("nomic_dir")

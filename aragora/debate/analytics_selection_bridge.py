@@ -138,11 +138,11 @@ class AnalyticsSelectionBridge:
 
             self._cache_timestamp = datetime.now()
 
-            logger.info(f"analytics_metrics_refreshed agents={len(self._metrics_cache)}")
+            logger.info("analytics_metrics_refreshed agents=%s", len(self._metrics_cache))
             return len(self._metrics_cache)
 
         except (RuntimeError, ValueError, TypeError, AttributeError, KeyError, OSError, ConnectionError) as e:
-            logger.warning(f"Failed to refresh analytics metrics: {e}")
+            logger.warning("Failed to refresh analytics metrics: %s", e)
             return 0
 
     def _compute_domain_expertise(self, metrics: AgentMetrics) -> None:

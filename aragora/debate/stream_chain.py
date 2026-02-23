@@ -214,7 +214,7 @@ class StreamChain:
         self.register_agent(source)
         self.register_agent(subscriber)
         self._subscriptions[source].add(subscriber)
-        logger.debug(f"StreamChain: {subscriber} subscribed to {source}")
+        logger.debug("StreamChain: %s subscribed to %s", subscriber, source)
 
     def unsubscribe(self, subscriber: str, source: str) -> None:
         """Unsubscribe an agent from a source."""
@@ -296,7 +296,7 @@ class StreamChain:
         accumulated = []
 
         # Phase 1: Stream from source
-        logger.debug(f"StreamChain: Starting source stream from {source_agent.name}")
+        logger.debug("StreamChain: Starting source stream from %s", source_agent.name)
 
         if hasattr(source_agent, "generate_stream"):
             async for chunk in source_agent.generate_stream(prompt, context):
@@ -320,7 +320,7 @@ class StreamChain:
             "Provide your assessment and any additional insights."
         )
 
-        logger.debug(f"StreamChain: Starting target stream from {target_agent.name}")
+        logger.debug("StreamChain: Starting target stream from %s", target_agent.name)
         target_start = time.time()
 
         if hasattr(target_agent, "generate_stream"):
@@ -407,7 +407,7 @@ class ChainedDebate:
                     # Hub subscribes to spoke agents
                     self.chain.subscribe(hub.name, agent.name)
 
-        logger.info(f"ChainedDebate: {self.topology} topology with {len(self.agents)} agents")
+        logger.info("ChainedDebate: %s topology with %s agents", self.topology, len(self.agents))
 
     async def run_round(
         self,

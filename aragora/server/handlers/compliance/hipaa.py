@@ -376,7 +376,7 @@ class HIPAAMixin:
             )
 
         except (KeyError, ValueError, TypeError, RuntimeError, OSError) as e:
-            logger.exception(f"Error fetching PHI access log: {e}")
+            logger.exception("Error fetching PHI access log: %s", e)
             return error_response("Failed to retrieve access log", 500)
 
     @track_handler("compliance/hipaa-breach-assessment", method="POST")
@@ -546,7 +546,7 @@ class HIPAAMixin:
                 },
             )
         except (RuntimeError, OSError, ValueError, KeyError) as e:
-            logger.warning(f"Failed to log breach assessment: {e}")
+            logger.warning("Failed to log breach assessment: %s", e)
 
         emit_handler_event(
             "compliance",
@@ -643,7 +643,7 @@ class HIPAAMixin:
                 metadata=baa_record,
             )
         except (RuntimeError, OSError, ValueError, KeyError) as e:
-            logger.warning(f"Failed to store BAA: {e}")
+            logger.warning("Failed to store BAA: %s", e)
 
         emit_handler_event("compliance", CREATED, {"action": "hipaa_baa_created", "baa_id": baa_id})
         return json_response(

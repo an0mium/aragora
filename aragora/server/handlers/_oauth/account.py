@@ -136,7 +136,7 @@ class AccountManagementMixin:
             if state_vals:
                 state = state_vals[0]
         except (ValueError, KeyError, TypeError, AttributeError) as e:
-            logger.warning(f"Failed to parse state from OAuth URL: {e}")
+            logger.warning("Failed to parse state from OAuth URL: %s", e)
             state = None
 
         return json_response({"auth_url": auth_url, "state": state})
@@ -184,8 +184,7 @@ class AccountManagementMixin:
         if not access_token:
             # Log to help debug token location issues
             logger.warning(
-                f"OAuth callback missing tokens: fragment={bool(parsed.fragment)}, "
-                f"query={bool(parsed.query)}, location_prefix={location[:50]}..."
+                "OAuth callback missing tokens: fragment=%s, query=%s, location_prefix=%s...", bool(parsed.fragment), bool(parsed.query), location[:50]
             )
             return error_response("OAuth callback did not return tokens", 502)
 
@@ -380,7 +379,7 @@ class AccountManagementMixin:
         else:
             logger.warning("UserStore doesn't support OAuth unlinking")
 
-        logger.info(f"Unlinked {provider} from user {auth_ctx.user_id}")
+        logger.info("Unlinked %s from user %s", provider, auth_ctx.user_id)
 
         # Audit OAuth unlink
         audit_action(

@@ -77,7 +77,7 @@ def add_daily_security_scan(
     )
 
     job = scheduler.add_schedule(config)
-    logger.info(f"Added security scan schedule: {name} (cron: {cron})")
+    logger.info("Added security scan schedule: %s (cron: %s)", name, cron)
 
     return job
 
@@ -165,7 +165,7 @@ async def run_security_scan_with_debate(
                 },
             )
 
-            logger.info(f"Triggering security debate for {len(event_findings)} critical findings")
+            logger.info("Triggering security debate for %s critical findings", len(event_findings))
 
             debate_result = await run_security_debate(
                 event,
@@ -189,10 +189,10 @@ async def run_security_scan_with_debate(
             )
 
         except ImportError as e:
-            logger.warning(f"Security debate module not available: {e}")
+            logger.warning("Security debate module not available: %s", e)
             result["debate_error"] = "Security debate module not available"
         except (RuntimeError, ValueError, ConnectionError, TimeoutError) as e:
-            logger.error(f"Security debate failed: {e}")
+            logger.error("Security debate failed: %s", e)
             result["debate_error"] = "Security debate failed"
 
     return result
@@ -247,7 +247,7 @@ def setup_default_security_schedules(scheduler: AuditScheduler) -> list[Schedule
     )
     jobs.append(scheduler.add_schedule(weekly_config))
 
-    logger.info(f"Set up {len(jobs)} default security schedules")
+    logger.info("Set up %s default security schedules", len(jobs))
     return jobs
 
 

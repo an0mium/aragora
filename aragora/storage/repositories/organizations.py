@@ -145,7 +145,7 @@ class OrganizationRepository:
                 (org.id, "owner", datetime.now(timezone.utc).isoformat(), owner_id),
             )
 
-        logger.info(f"organization_created id={org.id} name={name} owner={owner_id}")
+        logger.info("organization_created id=%s name=%s owner=%s", org.id, name, owner_id)
         return org
 
     def get_by_id(self, org_id: str) -> Organization | None:

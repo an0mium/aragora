@@ -282,7 +282,7 @@ async def handle_get_invoice(
         logger.warning("Handler error: %s", e)
         return error_response("AR service temporarily unavailable", status=503)
     except (TypeError, ValueError, AttributeError, OSError) as e:
-        logger.exception(f"Error getting invoice {invoice_id}")
+        logger.exception("Error getting invoice %s", invoice_id)
         return error_response("Failed to retrieve invoice", status=500)
 
 
@@ -334,7 +334,7 @@ async def handle_send_invoice(
         logger.warning("Handler error: %s", e)
         return error_response("AR service temporarily unavailable", status=503)
     except (TypeError, ValueError, AttributeError, ConnectionError, OSError) as e:
-        logger.exception(f"Error sending invoice {invoice_id}")
+        logger.exception("Error sending invoice %s", invoice_id)
         return error_response("Invoice delivery failed", status=500)
 
 
@@ -401,7 +401,7 @@ async def handle_send_reminder(
         logger.warning("Handler error: %s", e)
         return error_response("AR service temporarily unavailable", status=503)
     except (TypeError, ValueError, AttributeError, ConnectionError, OSError) as e:
-        logger.exception(f"Error sending reminder for invoice {invoice_id}")
+        logger.exception("Error sending reminder for invoice %s", invoice_id)
         return error_response("Reminder delivery failed", status=500)
 
 
@@ -482,7 +482,7 @@ async def handle_record_payment(
         logger.warning("Handler error: %s", e)
         return error_response("AR service temporarily unavailable", status=503)
     except (TypeError, ValueError, AttributeError, ArithmeticError, OSError) as e:
-        logger.exception(f"Error recording payment for invoice {invoice_id}")
+        logger.exception("Error recording payment for invoice %s", invoice_id)
         return error_response("Payment recording failed", status=500)
 
 
@@ -684,7 +684,7 @@ async def handle_get_customer_balance(
         logger.warning("Handler error: %s", e)
         return error_response("AR service temporarily unavailable", status=503)
     except (TypeError, ValueError, AttributeError, OSError) as e:
-        logger.exception(f"Error getting balance for customer {customer_id}")
+        logger.exception("Error getting balance for customer %s", customer_id)
         return error_response("Failed to retrieve balance", status=500)
 
 

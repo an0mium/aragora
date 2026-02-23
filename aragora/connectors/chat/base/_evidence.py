@@ -63,7 +63,7 @@ class EvidenceMixin:
             List of ChatEvidence objects with source tracking
         """
         # Default implementation - subclasses should override for platform-specific APIs
-        logger.debug(f"{self.platform_name} collect_evidence not fully implemented")
+        logger.debug("%s collect_evidence not fully implemented", self.platform_name)
         return []
 
     async def get_channel_history(
@@ -87,7 +87,7 @@ class EvidenceMixin:
         Returns:
             List of ChatMessage objects
         """
-        logger.debug(f"{self.platform_name} get_channel_history not implemented")
+        logger.debug("%s get_channel_history not implemented", self.platform_name)
         return []
 
     def _message_matches_query(

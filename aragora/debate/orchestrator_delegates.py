@@ -120,7 +120,7 @@ class ArenaDelegatesMixin:
             )
         except (RuntimeError, AttributeError, TypeError, ConnectionError, OSError) as e:
             logger = logging.getLogger(__name__)
-            logger.debug(f"[supermemory] Context injection failed: {e}")
+            logger.debug("[supermemory] Context injection failed: %s", e)
 
     async def _ingest_debate_outcome(self, result: DebateResult) -> None:
         """Store debate outcome in Knowledge Mound for future retrieval.
@@ -368,7 +368,7 @@ class ArenaDelegatesMixin:
         _logger = get_structured_logger(__name__)
         if self.current_role_assignments:
             roles_str = self._format_role_assignments_for_log()
-            _logger.debug(f"role_assignments round={round_num} roles={roles_str}")
+            _logger.debug("role_assignments round=%s roles=%s", round_num, roles_str)
 
     def _update_role_assignments(self, round_num: int) -> None:
         """Update cognitive role assignments for the current round."""
@@ -466,7 +466,7 @@ class ArenaDelegatesMixin:
         _logger = get_structured_logger(__name__)
         high_priority = self._has_high_priority_needs(needs)
         if high_priority:
-            _logger.debug(f"citations_needed agent={agent_name} count={len(high_priority)}")
+            _logger.debug("citations_needed agent=%s count=%s", agent_name, len(high_priority))
 
     def _extract_citation_needs(self, proposals: dict[str, str]) -> dict[str, list[dict[str, Any]]]:
         """Extract claims that need citations from all proposals."""
@@ -526,7 +526,7 @@ class ArenaDelegatesMixin:
             if self.debate_embeddings:
                 await self.debate_embeddings.index_debate(artifact)
         except (AttributeError, TypeError, ValueError, RuntimeError, OSError, ConnectionError) as e:
-            _logger.warning(f"Async debate indexing failed: {e}")
+            _logger.warning("Async debate indexing failed: %s", e)
 
     def _group_similar_votes(self, votes: list[Vote]) -> dict[str, list[str]]:
         """Group semantically similar vote choices. Delegates to VotingPhase."""

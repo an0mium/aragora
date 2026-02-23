@@ -48,9 +48,9 @@ def init_structured_logging() -> bool:
 
         return use_json
     except ImportError as e:
-        logger.debug(f"Structured logging not available: {e}")
+        logger.debug("Structured logging not available: %s", e)
     except (ValueError, TypeError, OSError, RuntimeError) as e:
-        logger.warning(f"Failed to initialize structured logging: {e}")
+        logger.warning("Failed to initialize structured logging: %s", e)
     return False
 
 
@@ -148,14 +148,13 @@ async def init_otlp_exporter() -> bool:
         if config.enabled:
             if init_otel_bridge(config):
                 logger.info(
-                    f"OTLP bridge initialized: endpoint={config.endpoint}, "
-                    f"service={config.service_name}, sampler={config.sampler_type.value}"
+                    "OTLP bridge initialized: endpoint=%s, service=%s, sampler=%s", config.endpoint, config.service_name, config.sampler_type.value
                 )
                 return True
     except ImportError as e:
-        logger.debug(f"OTEL bridge not available: {e}")
+        logger.debug("OTEL bridge not available: %s", e)
     except (ValueError, TypeError, OSError, RuntimeError, ConnectionError) as e:
-        logger.debug(f"OTEL bridge initialization failed: {e}")
+        logger.debug("OTEL bridge initialization failed: %s", e)
 
     # Fall back to legacy OTLP exporter
     try:
@@ -174,8 +173,7 @@ async def init_otlp_exporter() -> bool:
 
         if provider:
             logger.info(
-                f"OTLP exporter initialized: type={otlp_config.exporter_type.value}, "
-                f"endpoint={otlp_config.get_effective_endpoint()}"
+                "OTLP exporter initialized: type=%s, endpoint=%s", otlp_config.exporter_type.value, otlp_config.get_effective_endpoint()
             )
             return True
         else:
@@ -183,9 +181,9 @@ async def init_otlp_exporter() -> bool:
             return False
 
     except ImportError as e:
-        logger.debug(f"OTLP exporter not available: {e}")
+        logger.debug("OTLP exporter not available: %s", e)
     except (ValueError, TypeError, OSError, RuntimeError, ConnectionError) as e:
-        logger.warning(f"Failed to initialize OTLP exporter: {e}")
+        logger.warning("Failed to initialize OTLP exporter: %s", e)
 
     return False
 
@@ -251,7 +249,7 @@ async def init_prometheus_metrics() -> bool:
             logger.info("Prometheus metrics server started")
             return True
     except ImportError as e:
-        logger.debug(f"Prometheus metrics not available: {e}")
+        logger.debug("Prometheus metrics not available: %s", e)
     except (ValueError, TypeError, OSError, RuntimeError) as e:
-        logger.warning(f"Failed to start metrics server: {e}")
+        logger.warning("Failed to start metrics server: %s", e)
     return False

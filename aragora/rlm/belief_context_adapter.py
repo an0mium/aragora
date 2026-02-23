@@ -232,7 +232,7 @@ class BeliefContextAdapter:
                         ).to_dict()
                     )
             except (AttributeError, KeyError, ValueError, RuntimeError) as e:
-                logger.debug(f"KM crux query failed: {e}")
+                logger.debug("KM crux query failed: %s", e)
 
         # Then check current network for topic-related high-centrality claims
         topic_lower = topic.lower()
@@ -298,7 +298,7 @@ class BeliefContextAdapter:
                         "verification_count": record.verification_count,
                     }
         except (ImportError, AttributeError) as e:
-            logger.debug(f"Provenance lookup not available: {e}")
+            logger.debug("Provenance lookup not available: %s", e)
 
         return {
             "source_id": source_id,
@@ -410,7 +410,7 @@ class BeliefContextAdapter:
             )
             return km_beliefs
         except (AttributeError, KeyError, ValueError, RuntimeError) as e:
-            logger.debug(f"KM belief query failed: {e}")
+            logger.debug("KM belief query failed: %s", e)
 
         # Fallback to local network search
         topic_lower = topic.lower()

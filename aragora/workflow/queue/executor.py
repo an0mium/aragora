@@ -114,7 +114,7 @@ class TaskExecutor(ABC):
             return result
 
         except (RuntimeError, ValueError, TypeError, OSError, ConnectionError) as e:
-            logger.warning(f"Task execution failed: {e}")
+            logger.warning("Task execution failed: %s", e)
             self._stats.tasks_failed += 1
             raise
 
@@ -248,7 +248,7 @@ class ExecutorPool:
         # Start auto-scaling monitor
         self._scale_task = asyncio.create_task(self._scale_loop())
 
-        logger.info(f"Executor pool started with {len(self._executors)} executors")
+        logger.info("Executor pool started with %s executors", len(self._executors))
 
     async def stop(self, drain: bool = True) -> None:
         """Stop the executor pool."""
@@ -281,7 +281,7 @@ class ExecutorPool:
         executor_id = f"executor_{self._executor_count}"
         executor = self._executor_factory(executor_id)
         self._executors[executor_id] = executor
-        logger.debug(f"Added executor {executor_id}")
+        logger.debug("Added executor %s", executor_id)
         return executor
 
     async def _remove_executor(self, executor_id: str) -> None:
@@ -290,7 +290,7 @@ class ExecutorPool:
             executor = self._executors[executor_id]
             if executor.is_available:
                 del self._executors[executor_id]
-                logger.debug(f"Removed executor {executor_id}")
+                logger.debug("Removed executor %s", executor_id)
 
     async def acquire(self, task: WorkflowTask) -> TaskExecutor | None:
         """
@@ -362,7 +362,7 @@ class ExecutorPool:
             except asyncio.CancelledError:
                 break
             except (RuntimeError, ValueError, TypeError, OSError) as e:
-                logger.error(f"Scale loop error: {e}")
+                logger.error("Scale loop error: %s", e)
 
     async def _check_scaling(self) -> None:
         """Check and adjust pool size based on utilization."""
@@ -377,7 +377,7 @@ class ExecutorPool:
         if utilization > self._config.scale_up_threshold:
             if len(self._executors) < self._config.max_executors:
                 await self._add_executor()
-                logger.debug(f"Scaled up to {len(self._executors)} executors")
+                logger.debug("Scaled up to %s executors", len(self._executors))
 
         # Scale down
         elif utilization < self._config.scale_down_threshold:
@@ -386,7 +386,7 @@ class ExecutorPool:
                 for executor_id, executor in list(self._executors.items()):
                     if executor.is_available:
                         await self._remove_executor(executor_id)
-                        logger.debug(f"Scaled down to {len(self._executors)} executors")
+                        logger.debug("Scaled down to %s executors", len(self._executors))
                         break
 
     @property

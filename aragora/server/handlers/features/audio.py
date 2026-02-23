@@ -157,7 +157,7 @@ class AudioHandler(BaseHandler):
 
             return None  # Access granted
         except (ImportError, AttributeError, ValueError, KeyError, RuntimeError) as e:
-            logger.warning(f"Auth check failed for audio access: {e}")
+            logger.warning("Auth check failed for audio access: %s", e)
             return error_response("Authentication required for private debate", 401)
 
     def handle(
@@ -167,7 +167,7 @@ class AudioHandler(BaseHandler):
         # Rate limit check
         client_ip = get_client_ip(handler)
         if not _audio_limiter.is_allowed(client_ip):
-            logger.warning(f"Rate limit exceeded for audio endpoint: {client_ip}")
+            logger.warning("Rate limit exceeded for audio endpoint: %s", client_ip)
             return error_response("Rate limit exceeded. Please try again later.", 429)
 
         # Audio file serving
@@ -211,10 +211,10 @@ class AudioHandler(BaseHandler):
             audio_path_resolved = audio_path.resolve()
             storage_dir_resolved = audio_store.storage_dir.resolve()
             if not str(audio_path_resolved).startswith(str(storage_dir_resolved)):
-                logger.warning(f"Audio path traversal attempt: {debate_id}")
+                logger.warning("Audio path traversal attempt: %s", debate_id)
                 return error_response("Invalid path", status=400)
         except (OSError, ValueError) as e:
-            logger.warning(f"Path validation error for {debate_id}: {e}")
+            logger.warning("Path validation error for %s: %s", debate_id, e)
             return error_response("Path validation failed", status=400)
 
         try:
@@ -230,7 +230,7 @@ class AudioHandler(BaseHandler):
                 },
             )
         except (OSError, ValueError) as e:
-            logger.error(f"Failed to serve audio {debate_id}: {e}")
+            logger.error("Failed to serve audio %s: %s", debate_id, e)
             return error_response("Failed to read audio file", status=500)
 
     def _get_podcast_feed(self, handler: Any) -> HandlerResult:
@@ -321,7 +321,7 @@ class AudioHandler(BaseHandler):
             )
 
         except (RuntimeError, ValueError, TypeError, OSError, AttributeError, KeyError) as e:
-            logger.error(f"Failed to generate podcast feed: {e}")
+            logger.error("Failed to generate podcast feed: %s", e)
             return error_response(_safe_error_message(e, "podcast_feed"), status=500)
 
     def _get_podcast_episodes(self, limit: int, handler: Any) -> HandlerResult:
@@ -369,5 +369,5 @@ class AudioHandler(BaseHandler):
             )
 
         except (RuntimeError, ValueError, TypeError, OSError, AttributeError, KeyError) as e:
-            logger.error(f"Failed to get podcast episodes: {e}")
+            logger.error("Failed to get podcast episodes: %s", e)
             return error_response(_safe_error_message(e, "podcast_episodes"), status=500)

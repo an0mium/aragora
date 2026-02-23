@@ -165,7 +165,7 @@ class ApprovalFlow:
             request.status = ApprovalStatus.AUTO_APPROVED
             request.approved_at = datetime.now()
             request.approved_by = "auto"
-            logger.info(f"Auto-approved low-risk request: {request_id}")
+            logger.info("Auto-approved low-risk request: %s", request_id)
             return request
 
         # Store pending request
@@ -177,9 +177,9 @@ class ApprovalFlow:
             try:
                 self.notification_callback(request)
             except Exception as e:  # noqa: BLE001 - User-supplied callback must not crash the approval flow
-                logger.error(f"Notification callback failed: {e}")
+                logger.error("Notification callback failed: %s", e)
 
-        logger.info(f"Approval requested: {request_id} - {title} ({risk_level} risk)")
+        logger.info("Approval requested: %s - %s (%s risk)", request_id, title, risk_level)
 
         return request
 
@@ -217,7 +217,7 @@ class ApprovalFlow:
         # Timeout
         request.status = ApprovalStatus.TIMEOUT
         self._save_request(request)
-        logger.warning(f"Approval request timed out: {request_id}")
+        logger.warning("Approval request timed out: %s", request_id)
 
         return request
 
@@ -248,7 +248,7 @@ class ApprovalFlow:
         request.approved_at = datetime.now()
         self._save_request(request)
 
-        logger.info(f"Request approved: {request_id} by {approved_by}")
+        logger.info("Request approved: %s by %s", request_id, approved_by)
 
         return request
 
@@ -282,7 +282,7 @@ class ApprovalFlow:
         request.rejection_reason = reason
         self._save_request(request)
 
-        logger.info(f"Request rejected: {request_id} by {rejected_by}: {reason}")
+        logger.info("Request rejected: %s by %s: %s", request_id, rejected_by, reason)
 
         return request
 
@@ -341,7 +341,7 @@ class ApprovalFlow:
                 metadata=data.get("metadata", {}),
             )
         except (json.JSONDecodeError, KeyError, ValueError, TypeError, OSError) as e:
-            logger.error(f"Failed to load approval request {request_id}: {e}")
+            logger.error("Failed to load approval request %s: %s", request_id, e)
             return None
 
 
@@ -416,7 +416,7 @@ class RollbackManager:
             if result.returncode == 0:
                 point.git_commit = result.stdout.strip()
         except (OSError, subprocess.SubprocessError) as e:
-            logger.warning(f"Failed to capture git commit: {e}")
+            logger.warning("Failed to capture git commit: %s", e)
 
         # Backup specific files
         if files_to_backup:
@@ -433,7 +433,7 @@ class RollbackManager:
         self._save_rollback_point(point)
         self._cleanup_old_points()
 
-        logger.info(f"Created rollback point: {point_id} - {description}")
+        logger.info("Created rollback point: %s - %s", point_id, description)
 
         return point
 
@@ -456,7 +456,7 @@ class RollbackManager:
         """
         point = self.get_rollback_point(point_id)
         if not point:
-            logger.error(f"Rollback point not found: {point_id}")
+            logger.error("Rollback point not found: %s", point_id)
             return False
 
         success = True
@@ -467,9 +467,9 @@ class RollbackManager:
                 try:
                     if Path(backup_path).exists():
                         shutil.copy2(backup_path, original_path)
-                        logger.info(f"Restored file: {original_path}")
+                        logger.info("Restored file: %s", original_path)
                 except OSError as e:
-                    logger.error(f"Failed to restore {original_path}: {e}")
+                    logger.error("Failed to restore %s: %s", original_path, e)
                     success = False
 
         # Restore git state
@@ -482,18 +482,18 @@ class RollbackManager:
                     cwd=self.repo_path,
                 )
                 if result.returncode != 0:
-                    logger.error(f"Git reset failed: {result.stderr}")
+                    logger.error("Git reset failed: %s", result.stderr)
                     success = False
                 else:
-                    logger.info(f"Git reset to: {point.git_commit}")
+                    logger.info("Git reset to: %s", point.git_commit)
             except (OSError, subprocess.SubprocessError) as e:
-                logger.error(f"Failed to reset git: {e}")
+                logger.error("Failed to reset git: %s", e)
                 success = False
 
         if success:
-            logger.info(f"Rollback to {point_id} completed successfully")
+            logger.info("Rollback to %s completed successfully", point_id)
         else:
-            logger.warning(f"Rollback to {point_id} completed with errors")
+            logger.warning("Rollback to %s completed with errors", point_id)
 
         return success
 
@@ -530,7 +530,7 @@ class RollbackManager:
 
         self._rollback_points = [p for p in self._rollback_points if p.id != point_id]
 
-        logger.info(f"Deleted rollback point: {point_id}")
+        logger.info("Deleted rollback point: %s", point_id)
         return True
 
     def _save_rollback_point(self, point: RollbackPoint) -> None:
@@ -564,7 +564,7 @@ class RollbackManager:
                 )
                 self._rollback_points.append(point)
             except (json.JSONDecodeError, KeyError, ValueError, TypeError, OSError) as e:
-                logger.warning(f"Failed to load rollback point from {path}: {e}")
+                logger.warning("Failed to load rollback point from %s: %s", path, e)
 
     def _cleanup_old_points(self) -> None:
         """Remove oldest rollback points if over limit."""
@@ -710,7 +710,7 @@ class CodeVerifier:
             if result.stdout:
                 warnings = result.stdout.strip().split("\n")
         except (OSError, subprocess.SubprocessError) as e:
-            logger.warning(f"Lint check failed: {e}")
+            logger.warning("Lint check failed: %s", e)
 
         return warnings
 
@@ -771,7 +771,7 @@ class CodeVerifier:
             logger.warning("Test execution timed out")
             return {"total": 0, "passed": 0, "failed": 0, "timeout": True}
         except (OSError, subprocess.SubprocessError) as e:
-            logger.warning(f"Test execution failed: {e}")
+            logger.warning("Test execution failed: %s", e)
             return {"total": 0, "passed": 0, "failed": 0, "error": str(e)}
 
     async def _run_security_scan(
@@ -801,7 +801,7 @@ class CodeVerifier:
                     if line and not line.startswith("[")
                 ]
         except (OSError, subprocess.SubprocessError) as e:
-            logger.warning(f"Security scan failed: {e}")
+            logger.warning("Security scan failed: %s", e)
 
         return issues
 
@@ -882,7 +882,7 @@ class SelfImprovementManager:
                 request.status != ApprovalStatus.APPROVED
                 and request.status != ApprovalStatus.AUTO_APPROVED
             ):
-                logger.warning(f"Self-improvement rejected: {request.status.value}")
+                logger.warning("Self-improvement rejected: %s", request.status.value)
                 return False, None
 
         # Create rollback point
@@ -893,7 +893,7 @@ class SelfImprovementManager:
         )
         self._current_rollback_point = rollback_point.id
 
-        logger.info(f"Started improvement cycle: {description}")
+        logger.info("Started improvement cycle: %s", description)
 
         return True, rollback_point.id
 
@@ -920,9 +920,7 @@ class SelfImprovementManager:
 
         if not result.passed:
             logger.warning(
-                f"Verification failed: {len(result.syntax_errors)} syntax errors, "
-                f"{result.tests_failed} test failures, "
-                f"{len(result.security_issues)} security issues"
+                "Verification failed: %s syntax errors, %s test failures, %s security issues", len(result.syntax_errors), result.tests_failed, len(result.security_issues)
             )
 
             # Auto-rollback if configured

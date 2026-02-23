@@ -58,7 +58,7 @@ class ProtocolHandler(ABC):
             error: The exception that was raised.
         """
         logger.error(
-            f"Handler {self.__class__.__name__} failed for {message.message_type.value}: {error}",
+            "Handler %s failed for %s: %s", self.__class__.__name__, message.message_type.value, error,
             exc_info=True,
         )
 
@@ -101,7 +101,7 @@ class ProtocolHandlerRegistry:
         self._handlers[message_type].append((priority, handler))
         self._handlers[message_type].sort(key=lambda x: x[0])
 
-        logger.debug(f"Registered handler for {message_type.value} with priority {priority}")
+        logger.debug("Registered handler for %s with priority %s", message_type.value, priority)
 
     def register_handler(self, handler: ProtocolHandler, priority: int = 100) -> None:
         """
@@ -121,8 +121,7 @@ class ProtocolHandlerRegistry:
             self._class_handlers[message_type].sort(key=lambda x: x[0])
 
         logger.debug(
-            f"Registered class handler {handler.__class__.__name__} "
-            f"for {[mt.value for mt in handler.message_types]}"
+            "Registered class handler %s for %s", handler.__class__.__name__, [mt.value for mt in handler.message_types]
         )
 
     def register_global(self, handler: AsyncHandler, priority: int = 100) -> None:
@@ -135,7 +134,7 @@ class ProtocolHandlerRegistry:
         """
         self._global_handlers.append((priority, handler))
         self._global_handlers.sort(key=lambda x: x[0])
-        logger.debug(f"Registered global handler with priority {priority}")
+        logger.debug("Registered global handler with priority %s", priority)
 
     def unregister(
         self,
@@ -184,7 +183,7 @@ class ProtocolHandlerRegistry:
                 handlers_called += 1
             except Exception as e:  # noqa: BLE001 - handler dispatch isolation: user-provided handlers can raise any exception
                 logger.error(
-                    f"Global handler failed for {message.message_type.value}: {e}",
+                    "Global handler failed for %s: %s", message.message_type.value, e,
                     exc_info=True,
                 )
 
@@ -196,7 +195,7 @@ class ProtocolHandlerRegistry:
                     handlers_called += 1
                 except Exception as e:  # noqa: BLE001 - handler dispatch isolation: user-provided handlers can raise any exception
                     logger.error(
-                        f"Handler failed for {message.message_type.value}: {e}",
+                        "Handler failed for %s: %s", message.message_type.value, e,
                         exc_info=True,
                     )
 
@@ -251,7 +250,7 @@ class ProtocolHandlerRegistry:
             return True
         except Exception as e:  # noqa: BLE001 - handler dispatch isolation: user-provided handlers can raise any exception
             logger.error(
-                f"Handler failed for {message.message_type.value}: {e}",
+                "Handler failed for %s: %s", message.message_type.value, e,
                 exc_info=True,
             )
             return False
@@ -328,10 +327,7 @@ class LoggingHandler(ProtocolHandler):
 
     async def handle(self, message: ProtocolMessage) -> None:
         logger.info(
-            f"Protocol: {message.message_type.value} | "
-            f"debate={message.debate_id[:8]}... | "
-            f"agent={message.agent_id or 'N/A'} | "
-            f"round={message.round_number}"
+            "Protocol: %s | debate=%s... | agent=%s | round=%s", message.message_type.value, message.debate_id[:8], message.agent_id or 'N/A', message.round_number
         )
 
 

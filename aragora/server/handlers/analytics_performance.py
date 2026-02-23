@@ -132,7 +132,7 @@ class AnalyticsPerformanceHandler(BaseHandler):
         # Rate limit check
         client_ip = get_client_ip(handler)
         if not _analytics_performance_limiter.is_allowed(client_ip):
-            logger.warning(f"Rate limit exceeded for analytics performance: {client_ip}")
+            logger.warning("Rate limit exceeded for analytics performance: %s", client_ip)
             return error_response(
                 "Rate limit exceeded. Please try again later.",
                 429,
@@ -145,7 +145,7 @@ class AnalyticsPerformanceHandler(BaseHandler):
         elif hasattr(handler, "auth_context"):
             decision = check_permission(handler.auth_context, PERM_ANALYTICS_PERFORMANCE)
             if not decision.allowed:
-                logger.warning(f"RBAC denied analytics performance access: {decision.reason}")
+                logger.warning("RBAC denied analytics performance access: %s", decision.reason)
                 return error_response(
                     "Permission denied",
                     403,

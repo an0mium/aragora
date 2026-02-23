@@ -119,9 +119,9 @@ class ConnectionHealthMonitor:
             except asyncio.CancelledError:
                 break
             except (ConnectionError, TimeoutError, OSError) as e:
-                logger.debug(f"Health check loop error (expected): {e}")
+                logger.debug("Health check loop error (expected): %s", e)
             except (RuntimeError, ValueError, TypeError, AttributeError) as e:  # noqa: BLE001 - adapter isolation
-                logger.warning(f"Health check loop error (unexpected): {e}")
+                logger.warning("Health check loop error (unexpected): %s", e)
 
     def record_success(self) -> None:
         """Record a successful operation."""
@@ -135,7 +135,7 @@ class ConnectionHealthMonitor:
         self._status.last_error = error
         if self._status.consecutive_failures >= self._failure_threshold:
             self._status.healthy = False
-            logger.error(f"Connection unhealthy after {self._status.consecutive_failures} failures")
+            logger.error("Connection unhealthy after %s failures", self._status.consecutive_failures)
 
     def is_healthy(self) -> bool:
         """Check if connections are healthy."""

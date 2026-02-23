@@ -184,7 +184,7 @@ def init_ranking_metrics() -> None:
         _init_noop_metrics()
         _initialized = True
     except (RuntimeError, TypeError) as e:
-        logger.warning(f"Failed to initialize ranking metrics: {e}")
+        logger.warning("Failed to initialize ranking metrics: %s", e)
         _init_noop_metrics()
         _initialized = True
 

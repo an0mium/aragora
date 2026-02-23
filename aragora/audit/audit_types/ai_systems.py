@@ -354,13 +354,13 @@ class AISystemsAuditor(BaseAuditor):
             try:
                 self._compiled_patterns.append((re.compile(p.pattern, p.flags), p))
             except re.error as e:
-                logger.warning(f"Invalid pattern {p.name}: {e}")
+                logger.warning("Invalid pattern %s: %s", p.name, e)
 
         for s in self.SECRET_PATTERNS:
             try:
                 self._compiled_secrets.append((re.compile(s.pattern), s))
             except re.error as e:
-                logger.warning(f"Invalid secret pattern {s.name}: {e}")
+                logger.warning("Invalid secret pattern %s: %s", s.name, e)
 
     @property
     def audit_type_id(self) -> str:

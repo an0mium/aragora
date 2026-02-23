@@ -98,7 +98,7 @@ def _get_cost_tracker():
             _cost_tracker = get_cost_tracker()
             logger.info("[CostHandler] Connected to CostTracker with persistence")
         except (ImportError, RuntimeError, OSError, ValueError, AttributeError) as e:
-            logger.warning(f"[CostHandler] CostTracker unavailable, using fallback: {e}")
+            logger.warning("[CostHandler] CostTracker unavailable, using fallback: %s", e)
             _cost_tracker = None
     return _cost_tracker
 
@@ -149,7 +149,7 @@ def record_cost(
 
             logger.debug(f"[CostHandler] Recorded cost: ${cost:.6f} for {feature}")
         except (ImportError, RuntimeError, OSError, ValueError, TypeError) as e:
-            logger.error(f"[CostHandler] Failed to record cost: {e}")
+            logger.error("[CostHandler] Failed to record cost: %s", e)
     else:
         logger.debug("[CostHandler] CostTracker not available, cost not persisted")
 
@@ -186,7 +186,7 @@ def _get_active_alerts(tracker, workspace_id: str) -> list[dict[str, Any]]:
                     }
                 )
     except (ImportError, RuntimeError, ValueError, TypeError, AttributeError, KeyError) as e:
-        logger.debug(f"[CostHandler] Could not get alerts: {e}")
+        logger.debug("[CostHandler] Could not get alerts: %s", e)
     return alerts
 
 
@@ -310,12 +310,11 @@ async def get_cost_summary(
         except (ImportError, RuntimeError, OSError, ValueError, TypeError, KeyError, AttributeError) as e:
             if demo_mode:
                 logger.warning(
-                    f"[CostHandler] CostTracker query failed, using mock "
-                    f"(ARAGORA_DEMO_MODE=true): {e}"
+                    "[CostHandler] CostTracker query failed, using mock (ARAGORA_DEMO_MODE=true): %s", e
                 )
                 return _generate_mock_summary(time_range)
             else:
-                logger.warning(f"[CostHandler] CostTracker query failed, returning empty: {e}")
+                logger.warning("[CostHandler] CostTracker query failed, returning empty: %s", e)
                 return _empty_cost_summary()
 
     # No tracker available

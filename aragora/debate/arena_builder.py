@@ -267,7 +267,7 @@ class ArenaBuilder:
 
             self._enable_rlm_training = get_settings().integration.rlm_training_enabled
         except (ImportError, AttributeError, KeyError) as e:
-            logger.debug(f"Could not load RLM training setting, using default: {e}")
+            logger.debug("Could not load RLM training setting, using default: %s", e)
 
         # Multilingual support
         self._multilingual_manager: Any = None

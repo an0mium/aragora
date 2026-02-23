@@ -466,7 +466,7 @@ class GenesisLedger:
                 try:
                     data = json.loads(data_json)
                 except json.JSONDecodeError as e:
-                    logger.warning(f"Skipping corrupted genesis event: {e}")
+                    logger.warning("Skipping corrupted genesis event: %s", e)
                     continue
 
                 if "child_debate_id" in data:
@@ -508,7 +508,7 @@ class GenesisLedger:
                 try:
                     data = json.loads(row[5]) if row[5] else {}
                 except json.JSONDecodeError as e:
-                    logger.warning(f"Skipping event with corrupted data: {e}")
+                    logger.warning("Skipping event with corrupted data: %s", e)
                     continue
                 events.append(
                     GenesisEvent(

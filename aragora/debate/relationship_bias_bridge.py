@@ -402,7 +402,7 @@ class RelationshipBiasBridge:
             if metrics:
                 cached += 1
 
-        logger.debug(f"relationship_cache_refreshed cached={cached}")
+        logger.debug("relationship_cache_refreshed cached=%s", cached)
         return cached
 
     def clear_cache(self) -> None:

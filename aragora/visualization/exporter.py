@@ -185,7 +185,7 @@ class RedisCacheBackend(ExportCacheBackend):
             self._misses += 1
             return None
         except (ConnectionError, TimeoutError, OSError, ValueError) as e:
-            logger.debug(f"Redis cache get failed: {e}")
+            logger.debug("Redis cache get failed: %s", e)
             self._misses += 1
             return None
 
@@ -195,7 +195,7 @@ class RedisCacheBackend(ExportCacheBackend):
             key = self._make_key(debate_id, format_name, graph_hash)
             client.setex(key, self._ttl, content)
         except (ConnectionError, TimeoutError, OSError, ValueError) as e:
-            logger.debug(f"Redis cache set failed: {e}")
+            logger.debug("Redis cache set failed: %s", e)
 
     def clear(self) -> int:
         try:
@@ -206,7 +206,7 @@ class RedisCacheBackend(ExportCacheBackend):
                 client.delete(*keys)
             return len(keys)
         except (ConnectionError, TimeoutError, OSError, ValueError) as e:
-            logger.debug(f"Redis cache clear failed: {e}")
+            logger.debug("Redis cache clear failed: %s", e)
             return 0
 
     def cleanup_expired(self) -> int:
@@ -245,7 +245,7 @@ class RedisCacheBackend(ExportCacheBackend):
                 "hit_rate": round(hit_rate, 3),
             }
         except (ConnectionError, TimeoutError, OSError, ValueError) as e:
-            logger.debug(f"Redis stats failed: {e}")
+            logger.debug("Redis stats failed: %s", e)
             return {"backend": "redis", "error": str(e)}
 
 
@@ -268,7 +268,7 @@ def _get_cache_backend() -> ExportCacheBackend:
                         _cache_backend.get_stats()
                         logger.info("Using Redis backend for export cache")
                     except (ImportError, ConnectionError, TimeoutError, OSError, ValueError) as e:
-                        logger.warning(f"Redis unavailable ({e}), using in-memory cache")
+                        logger.warning("Redis unavailable (%s), using in-memory cache", e)
                         _cache_backend = InMemoryCacheBackend()
                 else:
                     _cache_backend = InMemoryCacheBackend()

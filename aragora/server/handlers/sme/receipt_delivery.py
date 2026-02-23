@@ -70,7 +70,7 @@ class ReceiptDeliveryHandler(SecureHandler):
         # Rate limit check
         client_ip = get_client_ip(handler)
         if not _delivery_limiter.is_allowed(client_ip):
-            logger.warning(f"Rate limit exceeded for receipt delivery: {client_ip}")
+            logger.warning("Rate limit exceeded for receipt delivery: %s", client_ip)
             return error_response("Rate limit exceeded. Please try again later.", 429)
 
         # Determine HTTP method from handler if not provided
@@ -283,8 +283,7 @@ class ReceiptDeliveryHandler(SecureHandler):
                     )
 
         logger.info(
-            f"Updated delivery config for org {org.id}: "
-            f"{len(created_subscriptions)} subscriptions, {len(errors)} errors"
+            "Updated delivery config for org %s: %s subscriptions, %s errors", org.id, len(created_subscriptions), len(errors)
         )
 
         return json_response(
@@ -449,7 +448,7 @@ class ReceiptDeliveryHandler(SecureHandler):
             )
 
         except (ConnectionError, TimeoutError, OSError, ValueError) as e:
-            logger.exception(f"Test delivery failed: {e}")
+            logger.exception("Test delivery failed: %s", e)
 
             # Record failure in history
             history_entry = {

@@ -114,7 +114,7 @@ class SecureEndpointMixin:
         except _UnauthorizedError:
             return None, _get_error_response()("Authentication required", 401)
         except (TypeError, ValueError, KeyError, AttributeError, RuntimeError) as e:
-            logger.exception(f"Unexpected auth error: {e}")
+            logger.exception("Unexpected auth error: %s", e)
             return None, _get_error_response()("Authentication failed", 500)
 
     async def require_permission_or_error(
@@ -149,7 +149,7 @@ class SecureEndpointMixin:
             logger.warning("Permission denied: %s", e)
             return None, _get_error_response()("Permission denied", 403)
         except (TypeError, ValueError, KeyError, AttributeError, RuntimeError) as e:
-            logger.exception(f"Unexpected auth error: {e}")
+            logger.exception("Unexpected auth error: %s", e)
             return None, _get_error_response()("Authorization failed", 500)
 
     async def require_any_permission_or_error(
@@ -197,7 +197,7 @@ class SecureEndpointMixin:
         except _UnauthorizedError:
             return None, _get_error_response()("Authentication required", 401)
         except (TypeError, ValueError, KeyError, AttributeError, RuntimeError) as e:
-            logger.exception(f"Unexpected auth error: {e}")
+            logger.exception("Unexpected auth error: %s", e)
             return None, _get_error_response()("Authorization failed", 500)
 
     async def require_all_permissions_or_error(
@@ -240,7 +240,7 @@ class SecureEndpointMixin:
             logger.warning("Permission denied: %s", e)
             return None, _get_error_response()("Permission denied", 403)
         except (TypeError, ValueError, KeyError, AttributeError, RuntimeError) as e:
-            logger.exception(f"Unexpected auth error: {e}")
+            logger.exception("Unexpected auth error: %s", e)
             return None, _get_error_response()("Authorization failed", 500)
 
     async def require_admin_or_error(
@@ -352,7 +352,7 @@ def require_permission(permission: str, handler_arg: int = 0):
                     logger.warning("Handler error: %s", e)
                     return error_response("Permission denied", 403)
                 except (TypeError, ValueError, KeyError, AttributeError, RuntimeError) as e:
-                    logger.exception(f"Auth error in @require_permission: {e}")
+                    logger.exception("Auth error in @require_permission: %s", e)
                     return error_response("Authorization failed", 500)
 
             return await func(self, *args, **kwargs)

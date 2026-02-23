@@ -248,7 +248,7 @@ class FileAuditBackend:
                         last_event = json.loads(lines[-1])
                         self._last_hash = last_event.get("event_hash")
             except (json.JSONDecodeError, OSError) as e:
-                logger.warning(f"Failed to load last audit hash: {e}")
+                logger.warning("Failed to load last audit hash: %s", e)
 
     def write(self, event: AuditEvent) -> None:
         """Write an audit event to file."""
@@ -269,7 +269,7 @@ class FileAuditBackend:
                     f.write(json.dumps(event.to_dict()) + "\n")
                 self._last_hash = event.event_hash
             except OSError as e:
-                logger.error(f"Failed to write audit event: {e}")
+                logger.error("Failed to write audit event: %s", e)
 
     def _rotate_file(self, file_path: Path) -> None:
         """Rotate a log file that has exceeded max size."""
@@ -277,9 +277,9 @@ class FileAuditBackend:
         rotated = file_path.with_suffix(f".{timestamp}.jsonl")
         try:
             file_path.rename(rotated)
-            logger.info(f"Rotated audit log to {rotated}")
+            logger.info("Rotated audit log to %s", rotated)
         except OSError as e:
-            logger.error(f"Failed to rotate audit log: {e}")
+            logger.error("Failed to rotate audit log: %s", e)
 
     def query(
         self,
@@ -343,10 +343,10 @@ class FileAuditBackend:
                             results.append(event)
 
                         except (json.JSONDecodeError, KeyError, ValueError) as e:
-                            logger.warning(f"Failed to parse audit event: {e}")
+                            logger.warning("Failed to parse audit event: %s", e)
 
             except OSError as e:
-                logger.warning(f"Failed to read audit file {log_file}: {e}")
+                logger.warning("Failed to read audit file %s: %s", log_file, e)
 
         return results
 
@@ -587,8 +587,7 @@ class AuditLogger:
             expected_hash = event.compute_hash()
             if event.event_hash != expected_hash:
                 logger.error(
-                    f"Audit chain integrity failure: event {event.event_id} "
-                    f"hash mismatch (expected {expected_hash}, got {event.event_hash})"
+                    "Audit chain integrity failure: event %s hash mismatch (expected %s, got %s)", event.event_id, expected_hash, event.event_hash
                 )
                 return False
 
@@ -596,8 +595,7 @@ class AuditLogger:
             if i > 0:
                 if event.previous_hash != events[i - 1].event_hash:
                     logger.error(
-                        f"Audit chain integrity failure: event {event.event_id} "
-                        f"previous_hash does not match preceding event"
+                        "Audit chain integrity failure: event %s previous_hash does not match preceding event", event.event_id
                     )
                     return False
 

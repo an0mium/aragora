@@ -248,7 +248,7 @@ def with_timeout(
 
             except FuturesTimeoutError:
                 path = args[1] if len(args) >= 2 else "unknown"
-                logger.warning(f"Request timeout after {effective_timeout}s: {path}")
+                logger.warning("Request timeout after %ss: %s", effective_timeout, path)
 
                 # Cancel the running task if possible
                 future.cancel()
@@ -324,7 +324,7 @@ def async_with_timeout(
 
             except asyncio.TimeoutError:
                 path = args[1] if len(args) >= 2 else "unknown"
-                logger.warning(f"Async request timeout after {effective_timeout}s: {path}")
+                logger.warning("Async request timeout after %ss: %s", effective_timeout, path)
 
                 # Return custom error response or default 504
                 if error_response:

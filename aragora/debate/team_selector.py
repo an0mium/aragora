@@ -295,9 +295,9 @@ class TeamSelector:
                                 name, domain=domain
                             )
                         except (KeyError, AttributeError, TypeError) as e:
-                            logger.debug(f"Calibration lookup failed for {name}: {e}")
+                            logger.debug("Calibration lookup failed for %s: %s", name, e)
             except (KeyError, AttributeError, TypeError, ValueError) as e:
-                logger.debug(f"Batch calibration lookup failed: {e}")
+                logger.debug("Batch calibration lookup failed: %s", e)
 
         # 3.5. Pre-fetch Agent CVs in batch for performance
         agent_cvs: dict[str, AgentCV] = {}
@@ -306,7 +306,7 @@ class TeamSelector:
                 agent_names = [a.name for a in domain_filtered if a.name in available_names]
                 agent_cvs = self._get_agent_cvs_batch(agent_names)
             except (AttributeError, TypeError, ValueError, RuntimeError) as e:
-                logger.debug(f"Batch CV lookup failed: {e}")
+                logger.debug("Batch CV lookup failed: %s", e)
 
         # 3.6. Filter unreliable agents if configured
         if self.config.cv_filter_unreliable and agent_cvs:
@@ -326,7 +326,7 @@ class TeamSelector:
         scored: list[tuple[Agent, float]] = []
         for agent in domain_filtered:
             if agent.name not in available_names:
-                logger.info(f"agent_filtered_by_circuit_breaker agent={agent.name}")
+                logger.info("agent_filtered_by_circuit_breaker agent=%s", agent.name)
                 continue
 
             score = self._compute_score(
@@ -348,9 +348,7 @@ class TeamSelector:
 
         selected = [agent for agent, _ in scored]
         logger.info(
-            f"performance_selection domain={domain} "
-            f"selected={[a.name for a in selected]} "
-            f"scores={[f'{s:.2f}' for _, s in scored]}"
+            "performance_selection domain=%s selected=%s scores=%s", domain, [a.name for a in selected], [f'{s:.2f}' for _, s in scored]
         )
 
         return selected
@@ -365,7 +363,7 @@ class TeamSelector:
                     self.circuit_breaker.filter_available_agents([a.name for a in agents])
                 )
             except (AttributeError, TypeError) as e:
-                logger.debug(f"circuit_breaker filter error: {e}")
+                logger.debug("circuit_breaker filter error: %s", e)
 
         return available_names
 
@@ -411,7 +409,7 @@ class TeamSelector:
         )
 
         if not preferred_patterns:
-            logger.debug(f"No domain mapping for '{domain}', using all agents")
+            logger.debug("No domain mapping for '%s', using all agents", domain)
             return agents
 
         # Classify agents into matching / non-matching
@@ -428,9 +426,7 @@ class TeamSelector:
             self._domain_non_preferred = {a.name for a in non_matching_agents}
             if self._domain_non_preferred:
                 logger.info(
-                    f"domain_soft_filter domain={domain} "
-                    f"preferred={[a.name for a in matching_agents]} "
-                    f"penalized={[a.name for a in non_matching_agents]}"
+                    "domain_soft_filter domain=%s preferred=%s penalized=%s", domain, [a.name for a in matching_agents], [a.name for a in non_matching_agents]
                 )
             return agents
 
@@ -438,18 +434,15 @@ class TeamSelector:
         if not matching_agents:
             if self.config.domain_filter_fallback:
                 logger.info(
-                    f"No agents match domain '{domain}' patterns {preferred_patterns}, "
-                    f"falling back to all {len(agents)} agents"
+                    "No agents match domain '%s' patterns %s, falling back to all %s agents", domain, preferred_patterns, len(agents)
                 )
                 return agents
             else:
-                logger.warning(f"No agents match domain '{domain}', returning empty list")
+                logger.warning("No agents match domain '%s', returning empty list", domain)
                 return []
 
         logger.info(
-            f"domain_capability_filter domain={domain} "
-            f"matched={[a.name for a in matching_agents]} "
-            f"from={[a.name for a in agents]}"
+            "domain_capability_filter domain=%s matched=%s from=%s", domain, [a.name for a in matching_agents], [a.name for a in agents]
         )
         return matching_agents
 
@@ -475,8 +468,7 @@ class TeamSelector:
                 domain_weights = self.feedback_loop.get_domain_weights(domain)
                 if domain_weights:
                     logger.debug(
-                        f"domain_filter_auto_soft domain={domain} "
-                        f"feedback_agents={len(domain_weights)}"
+                        "domain_filter_auto_soft domain=%s feedback_agents=%s", domain, len(domain_weights)
                     )
                     return "soft"
             except (AttributeError, TypeError):
@@ -517,8 +509,7 @@ class TeamSelector:
 
             if action == BudgetAction.HARD_LIMIT or action == BudgetAction.SUSPEND:
                 logger.warning(
-                    f"budget_hard_limit org={self.org_id} action={action.value} "
-                    f"agents_blocked={len(agents)}"
+                    "budget_hard_limit org=%s action=%s agents_blocked=%s", self.org_id, action.value, len(agents)
                 )
                 raise BudgetExceededError(
                     f"Budget {action.value} reached for org {self.org_id}. "
@@ -530,8 +521,7 @@ class TeamSelector:
                 if len(agents) > max_agents:
                     reduced = agents[:max_agents]
                     logger.info(
-                        f"budget_soft_limit org={self.org_id} "
-                        f"reduced_agents={len(agents)}->{len(reduced)}"
+                        "budget_soft_limit org=%s reduced_agents=%s->%s", self.org_id, len(agents), len(reduced)
                     )
                     return reduced
                 return agents
@@ -548,9 +538,7 @@ class TeamSelector:
                     if max_agents and len(cheap_agents) > max_agents:
                         cheap_agents = cheap_agents[:max_agents]
                     logger.info(
-                        f"budget_warn_prefer_cheap org={self.org_id} "
-                        f"cheap_agents={[a.name for a in cheap_agents]} "
-                        f"from={[a.name for a in agents]}"
+                        "budget_warn_prefer_cheap org=%s cheap_agents=%s from=%s", self.org_id, [a.name for a in cheap_agents], [a.name for a in agents]
                     )
                     return cheap_agents
                 # No cheap agents available, return all
@@ -559,7 +547,7 @@ class TeamSelector:
         except BudgetExceededError:
             raise
         except (ImportError, AttributeError, TypeError) as e:
-            logger.debug(f"Budget filter skipped: {e}")
+            logger.debug("Budget filter skipped: %s", e)
 
         return agents
 
@@ -599,20 +587,17 @@ class TeamSelector:
         if not matching_agents:
             if self.config.hierarchy_filter_fallback:
                 logger.info(
-                    f"No agents match hierarchy roles {required_roles}, "
-                    f"falling back to all {len(agents)} agents"
+                    "No agents match hierarchy roles %s, falling back to all %s agents", required_roles, len(agents)
                 )
                 return agents
             else:
                 logger.warning(
-                    f"No agents match hierarchy roles {required_roles}, returning empty list"
+                    "No agents match hierarchy roles %s, returning empty list", required_roles
                 )
                 return []
 
         logger.info(
-            f"hierarchy_role_filter roles={required_roles} "
-            f"matched={[a.name for a in matching_agents]} "
-            f"from={[a.name for a in agents]}"
+            "hierarchy_role_filter roles=%s matched=%s from=%s", required_roles, [a.name for a in matching_agents], [a.name for a in agents]
         )
         return matching_agents
 
@@ -664,13 +649,10 @@ class TeamSelector:
             self._hierarchy_assignments[debate_id] = assignments
 
             logger.info(
-                f"hierarchy_roles_assigned debate={debate_id} "
-                f"orchestrator={self.agent_hierarchy.get_orchestrator(debate_id)} "
-                f"monitors={self.agent_hierarchy.get_monitors(debate_id)} "
-                f"workers={self.agent_hierarchy.get_workers(debate_id)}"
+                "hierarchy_roles_assigned debate=%s orchestrator=%s monitors=%s workers=%s", debate_id, self.agent_hierarchy.get_orchestrator(debate_id), self.agent_hierarchy.get_monitors(debate_id), self.agent_hierarchy.get_workers(debate_id)
             )
         except (ImportError, AttributeError, TypeError, ValueError, RuntimeError) as e:
-            logger.warning(f"Failed to assign hierarchy roles: {e}")
+            logger.warning("Failed to assign hierarchy roles: %s", e)
 
     def _get_agent_elo(self, agent: Agent) -> float:
         """Get ELO rating for an agent."""
@@ -680,7 +662,7 @@ class TeamSelector:
                 # Handle both AgentRating objects and raw float values
                 return rating.elo if hasattr(rating, "elo") else float(rating)
             except (KeyError, AttributeError, TypeError) as e:
-                logger.debug(f"ELO lookup failed for {agent.name}: {e}")
+                logger.debug("ELO lookup failed for %s: %s", agent.name, e)
         return 1000.0  # Default ELO
 
     def _get_agent_capabilities(self, agent: Agent) -> set[str]:
@@ -859,7 +841,7 @@ class TeamSelector:
                     recommendations = asyncio.run(self.knowledge_mound.recommend_agents(task_type))
                     self._culture_recommendations_cache[cache_key] = recommendations or []
             except (AttributeError, TypeError, ValueError, RuntimeError, OSError) as e:
-                logger.debug(f"Culture recommendation failed for {task_type}: {e}")
+                logger.debug("Culture recommendation failed for %s: %s", task_type, e)
                 self._culture_recommendations_cache[cache_key] = []
 
         recommendations = self._culture_recommendations_cache.get(cache_key, [])
@@ -902,7 +884,7 @@ class TeamSelector:
                 KeyError,
                 Exception,
             ) as e:
-                logger.debug(f"Culture recommendation failed for {task_type}: {e}")
+                logger.debug("Culture recommendation failed for %s: %s", task_type, e)
                 self._culture_recommendations_cache[cache_key] = []
 
         recommendations = self._culture_recommendations_cache.get(cache_key, [])
@@ -1016,7 +998,7 @@ class TeamSelector:
             return max(0.0, min(1.0, 0.5 + score * 0.5))
 
         except (AttributeError, TypeError, ValueError, KeyError, RuntimeError) as e:
-            logger.debug(f"Memory score failed for {getattr(agent, 'name', agent)}: {e}")
+            logger.debug("Memory score failed for %s: %s", getattr(agent, 'name', agent), e)
             return 0.0
 
     def _compute_pulse_relevance(
@@ -1098,7 +1080,7 @@ class TeamSelector:
             return min(1.0, topic_score * 0.7 + expertise_bonus)
 
         except (AttributeError, TypeError, ValueError, KeyError, RuntimeError) as e:
-            logger.debug(f"Pulse relevance score failed for {getattr(agent, 'name', agent)}: {e}")
+            logger.debug("Pulse relevance score failed for %s: %s", getattr(agent, 'name', agent), e)
             return 0.0
 
     async def _warm_culture_cache(self, cache_key: str, task_type: str) -> None:
@@ -1113,7 +1095,7 @@ class TeamSelector:
             recommendations = await self.knowledge_mound.recommend_agents(task_type)
             self._culture_recommendations_cache[cache_key] = recommendations or []
         except (AttributeError, TypeError, ValueError, RuntimeError, OSError) as e:
-            logger.debug(f"Culture cache warm-up failed for {task_type}: {e}")
+            logger.debug("Culture cache warm-up failed for %s: %s", task_type, e)
             self._culture_recommendations_cache[cache_key] = []
 
     def _get_km_domain_experts(self, domain: str) -> list[Any]:
@@ -1152,10 +1134,10 @@ class TeamSelector:
                 use_cache=True,
             )
             self._km_expertise_cache[cache_key] = (current_time, experts)
-            logger.debug(f"km_expertise_lookup domain={domain} experts={len(experts)}")
+            logger.debug("km_expertise_lookup domain=%s experts=%s", domain, len(experts))
             return experts
         except (AttributeError, TypeError, ValueError, RuntimeError, OSError) as e:
-            logger.debug(f"KM expertise lookup failed for {domain}: {e}")
+            logger.debug("KM expertise lookup failed for %s: %s", domain, e)
             return []
 
     def _compute_km_expertise_score(
@@ -1230,7 +1212,7 @@ class TeamSelector:
                 use_cache=True,
             )
         except (AttributeError, TypeError) as e:
-            logger.debug(f"Performance adapter domain query failed: {e}")
+            logger.debug("Performance adapter domain query failed: %s", e)
             return 0.0
 
         if not experts:
@@ -1297,7 +1279,7 @@ class TeamSelector:
                     return clamped
 
         except (AttributeError, TypeError) as e:
-            logger.debug(f"ELO win rate lookup failed for {agent.name}: {e}")
+            logger.debug("ELO win rate lookup failed for %s: %s", agent.name, e)
 
         return 0.0
 
@@ -1337,7 +1319,7 @@ class TeamSelector:
                 self._pattern_affinities_cache[pattern] = affinities
                 # Log cache population for telemetry
                 logger.info(
-                    f"pattern_affinities_loaded pattern={pattern} agent_count={len(affinities)}"
+                    "pattern_affinities_loaded pattern=%s agent_count=%s", pattern, len(affinities)
                 )
 
             affinities = self._pattern_affinities_cache.get(pattern, {})
@@ -1360,10 +1342,10 @@ class TeamSelector:
                     return affinity_score
 
             # No affinity found for this agent
-            logger.debug(f"pattern_no_affinity agent={agent.name} pattern={pattern}")
+            logger.debug("pattern_no_affinity agent=%s pattern=%s", agent.name, pattern)
             return 0.0
         except (AttributeError, TypeError, ValueError, KeyError, RuntimeError) as e:
-            logger.warning(f"pattern_score_error agent={agent.name} error={e}")
+            logger.warning("pattern_score_error agent=%s error=%s", agent.name, e)
             return 0.0
 
     def _track_pattern_classification(self, pattern: str, task: str) -> None:
@@ -1382,8 +1364,7 @@ class TeamSelector:
         total = sum(self._pattern_classification_counts.values())
         if total % 50 == 0:  # Log summary every 50 classifications
             logger.info(
-                f"pattern_classification_summary total={total} "
-                f"distribution={self._pattern_classification_counts}"
+                "pattern_classification_summary total=%s distribution=%s", total, self._pattern_classification_counts
             )
 
     def get_pattern_telemetry(self) -> dict[str, Any]:
@@ -1448,11 +1429,10 @@ class TeamSelector:
                     result[name] = cv
 
                 logger.debug(
-                    f"cv_batch_fetch cached={len(result) - len(new_cvs)} "
-                    f"fetched={len(new_cvs)} total={len(result)}"
+                    "cv_batch_fetch cached=%s fetched=%s total=%s", len(result) - len(new_cvs), len(new_cvs), len(result)
                 )
             except (AttributeError, TypeError, ValueError, RuntimeError) as e:
-                logger.warning(f"CV batch fetch failed: {e}")
+                logger.warning("CV batch fetch failed: %s", e)
 
         return result
 
@@ -1552,7 +1532,7 @@ class TeamSelector:
                 # Normalize: baseline is average, each 100 points = weight bonus
                 score += (elo - self.config.elo_baseline) / 1000 * self.config.elo_weight
             except (KeyError, AttributeError, TypeError) as e:
-                logger.debug(f"ELO rating not found for {agent.name}: {e}")
+                logger.debug("ELO rating not found for %s: %s", agent.name, e)
 
         # Calibration contribution (well-calibrated agents get a bonus)
         # Uses pre-fetched scores when available for batch performance
@@ -1566,7 +1546,7 @@ class TeamSelector:
                 # Lower Brier = better calibration = higher score
                 score += (1 - brier) * self.config.calibration_weight
             except (KeyError, AttributeError, TypeError) as e:
-                logger.debug(f"Calibration score not found for {agent.name}: {e}")
+                logger.debug("Calibration score not found for %s: %s", agent.name, e)
 
         # Delegation strategy contribution
         if self.delegation_strategy and task:
@@ -1576,7 +1556,7 @@ class TeamSelector:
                 normalized = min(delegation_score / 5.0, 1.0)
                 score += normalized * self.config.delegation_weight
             except (AttributeError, TypeError) as e:
-                logger.debug(f"Delegation score failed for {agent.name}: {e}")
+                logger.debug("Delegation score failed for %s: %s", agent.name, e)
 
         # Domain capability contribution (agents matching domain get bonus)
         if domain and self.config.enable_domain_filtering:
@@ -1619,7 +1599,7 @@ class TeamSelector:
                 adjustment = self.feedback_loop.get_domain_adjustment(agent.name, domain)
                 score += adjustment * self.config.feedback_weight
             except (AttributeError, TypeError) as e:
-                logger.debug(f"Feedback adjustment failed for {agent.name}: {e}")
+                logger.debug("Feedback adjustment failed for %s: %s", agent.name, e)
 
         # Specialist registry bonus (domain experts from ELO + Genesis breeding)
         if self.specialist_registry and self.config.enable_specialist_bonus and domain:

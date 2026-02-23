@@ -583,7 +583,7 @@ class CurriculumPlanner:
         """
         curriculum = self.active_curricula.get(curriculum_id)
         if not curriculum:
-            logger.warning(f"Curriculum not found: {curriculum_id}")
+            logger.warning("Curriculum not found: %s", curriculum_id)
             return
 
         curriculum.results.append(result)

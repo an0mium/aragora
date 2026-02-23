@@ -106,12 +106,12 @@ class TournamentHandler(BaseHandler):
     def handle(self, path: str, query_params: dict, handler: Any) -> HandlerResult | None:
         """Route tournament requests to appropriate handler methods."""
         path = strip_version_prefix(path)
-        logger.debug(f"Tournament request: {path}")
+        logger.debug("Tournament request: %s", path)
 
         # Rate limit check
         client_ip = get_client_ip(handler)
         if not _tournament_limiter.is_allowed(client_ip):
-            logger.warning(f"Rate limit exceeded for tournament endpoint: {client_ip}")
+            logger.warning("Rate limit exceeded for tournament endpoint: %s", client_ip)
             return error_response("Rate limit exceeded. Please try again later.", 429)
 
         if not path.startswith("/api/tournaments"):
@@ -163,12 +163,12 @@ class TournamentHandler(BaseHandler):
     def handle_post(self, path: str, body: dict[str, Any], handler: Any) -> HandlerResult | None:
         """Handle POST requests for tournament creation and updates."""
         path = strip_version_prefix(path)
-        logger.debug(f"Tournament POST request: {path}")
+        logger.debug("Tournament POST request: %s", path)
 
         # Rate limit check
         client_ip = get_client_ip(handler)
         if not _tournament_limiter.is_allowed(client_ip):
-            logger.warning(f"Rate limit exceeded for tournament endpoint: {client_ip}")
+            logger.warning("Rate limit exceeded for tournament endpoint: %s", client_ip)
             return error_response("Rate limit exceeded. Please try again later.", 429)
 
         # POST /api/tournaments - Create tournament
@@ -236,7 +236,7 @@ class TournamentHandler(BaseHandler):
                     )
                     continue
 
-        logger.info(f"Listed {len(tournaments)} tournaments")
+        logger.info("Listed %s tournaments", len(tournaments))
         return json_response(
             {
                 "tournaments": tournaments,
@@ -262,7 +262,7 @@ class TournamentHandler(BaseHandler):
         standings = manager.get_current_standings()
 
         logger.info(
-            f"Retrieved standings for tournament {tournament_id}: {len(standings)} participants"
+            "Retrieved standings for tournament %s: %s participants", tournament_id, len(standings)
         )
         return json_response(
             {
@@ -308,7 +308,7 @@ class TournamentHandler(BaseHandler):
         if not tournament:
             return error_response("Tournament not found", 404)
 
-        logger.info(f"Retrieved tournament {tournament_id}")
+        logger.info("Retrieved tournament %s", tournament_id)
         return json_response(
             {
                 "tournament_id": tournament.tournament_id,
@@ -366,7 +366,7 @@ class TournamentHandler(BaseHandler):
                 }
             )
 
-        logger.info(f"Retrieved bracket for tournament {tournament_id}")
+        logger.info("Retrieved bracket for tournament %s", tournament_id)
         return json_response(
             {
                 "tournament_id": tournament.tournament_id,
@@ -397,7 +397,7 @@ class TournamentHandler(BaseHandler):
         manager = _TournamentManager(db_path=str(tournament_path))
         matches = manager.get_matches(tournament_id=tournament_id, round_num=round_num)
 
-        logger.info(f"Retrieved {len(matches)} matches for tournament {tournament_id}")
+        logger.info("Retrieved %s matches for tournament %s", len(matches), tournament_id)
         return json_response(
             {
                 "tournament_id": tournament_id,
@@ -463,7 +463,7 @@ class TournamentHandler(BaseHandler):
             bracket_type=bracket_type,
         )
 
-        logger.info(f"Created tournament {tournament.tournament_id}")
+        logger.info("Created tournament %s", tournament.tournament_id)
         return json_response(
             {
                 "tournament_id": tournament.tournament_id,
@@ -497,7 +497,7 @@ class TournamentHandler(BaseHandler):
         if advanced:
             tournament = manager.get_tournament(tournament_id)
             logger.info(
-                f"Advanced tournament {tournament_id} to round {tournament.rounds_completed + 1 if tournament else 'unknown'}"
+                "Advanced tournament %s to round %s", tournament_id, tournament.rounds_completed + 1 if tournament else 'unknown'
             )
             return json_response(
                 {
@@ -547,7 +547,7 @@ class TournamentHandler(BaseHandler):
             debate_id=debate_id,
         )
 
-        logger.info(f"Recorded result for match {match_id}: winner={winner}")
+        logger.info("Recorded result for match %s: winner=%s", match_id, winner)
         return json_response(
             {
                 "success": True,

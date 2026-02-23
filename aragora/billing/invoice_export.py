@@ -558,7 +558,7 @@ class InvoiceExporter:
         path = Path(output_path)
         path.parent.mkdir(parents=True, exist_ok=True)
         path.write_bytes(pdf_bytes)
-        logger.info(f"Invoice saved to {output_path}")
+        logger.info("Invoice saved to %s", output_path)
         return str(path)
 
     def _format_date(self, dt: datetime | None) -> str:

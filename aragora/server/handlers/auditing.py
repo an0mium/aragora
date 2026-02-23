@@ -181,7 +181,7 @@ class AuditAgentFactory:
             agent = create_agent(model_type, name=agent_name, role=role)
             return agent, None
         except (ValueError, TypeError, KeyError, AttributeError, RuntimeError) as e:
-            logger.warning(f"Agent creation failed: {type(e).__name__}: {e}")
+            logger.warning("Agent creation failed: %s: %s", type(e).__name__, e)
             return None, error_response("Failed to create agent", 400)
 
     @staticmethod
@@ -208,7 +208,7 @@ class AuditAgentFactory:
                 agent = create_agent(model_type, name=name, role="proposer")
                 agents.append(agent)
             except (ValueError, TypeError, KeyError, AttributeError, RuntimeError) as e:
-                logger.debug(f"Failed to create audit agent {name}: {e}")
+                logger.debug("Failed to create audit agent %s: %s", name, e)
 
         if len(agents) < 2:
             return [], error_response("Need at least 2 agents for deep audit", 400)
@@ -238,7 +238,7 @@ class AuditResultRecorder:
             # Invalidate leaderboard cache after ELO update
             invalidate_leaderboard_cache()
         except (KeyError, ValueError, TypeError, AttributeError, OSError) as e:
-            logger.warning(f"Failed to record ELO result for capability probe: {e}")
+            logger.warning("Failed to record ELO result for capability probe: %s", e)
 
     @staticmethod
     def calculate_audit_elo_adjustments(verdict: Any, elo_system: Any) -> dict[str, int]:
@@ -268,7 +268,7 @@ class AuditResultRecorder:
             probe_file = probes_dir / f"{date_str}_{report.report_id}.json"
             probe_file.write_text(json.dumps(report.to_dict(), indent=2, default=str))
         except (OSError, ValueError, TypeError, AttributeError) as e:
-            logger.error(f"Failed to save probe report to {nomic_dir}: {e}")
+            logger.error("Failed to save probe report to %s: %s", nomic_dir, e)
 
     @staticmethod
     def save_audit_report(
@@ -331,7 +331,7 @@ class AuditResultRecorder:
                 )
             )
         except (OSError, ValueError, TypeError, AttributeError) as e:
-            logger.error(f"Failed to save deep audit report to {nomic_dir}: {e}")
+            logger.error("Failed to save deep audit report to %s: %s", nomic_dir, e)
 
 
 class AuditingHandler(SecureHandler):
@@ -421,13 +421,13 @@ class AuditingHandler(SecureHandler):
             )
 
         except ImportError as e:
-            logger.warning(f"Red team module not available: {e}")
+            logger.warning("Red team module not available: %s", e)
             return error_response("Red team module not available", 503)
         except (ValueError, KeyError, TypeError) as e:
-            logger.warning(f"Data error getting attack types: {e}")
+            logger.warning("Data error getting attack types: %s", e)
             return error_response(safe_error_message(e, "get attack types"), 400)
         except (ValueError, KeyError, TypeError, RuntimeError, OSError) as e:
-            logger.exception(f"Unexpected error getting attack types: {e}")
+            logger.exception("Unexpected error getting attack types: %s", e)
             return error_response(safe_error_message(e, "get attack types"), 500)
 
     def _get_attack_category(self, attack_type: Any) -> str:
@@ -494,7 +494,7 @@ class AuditingHandler(SecureHandler):
                 try:
                     probe_types.append(ProbeType(pt_str))
                 except ValueError as e:
-                    logger.debug(f"Skipping invalid probe type '{pt_str}': {e}")
+                    logger.debug("Skipping invalid probe type '%s': %s", pt_str, e)
             if not probe_types:
                 return error_response("No valid probe types specified", 400)
 
@@ -521,7 +521,7 @@ class AuditingHandler(SecureHandler):
                             raw_output = target_agent.generate(prompt)
                     return OutputSanitizer.sanitize_agent_output(raw_output, target_agent.name)
                 except (ConnectionError, TimeoutError, OSError, ValueError, RuntimeError) as e:
-                    logger.debug(f"Agent generation failed: {type(e).__name__}: {e}")
+                    logger.debug("Agent generation failed: %s: %s", type(e).__name__, e)
                     return "[Agent Error: Generation failed]"
 
             try:
@@ -589,10 +589,10 @@ class AuditingHandler(SecureHandler):
             )
 
         except (ValueError, KeyError, TypeError) as e:
-            logger.warning(f"Invalid capability probe request data: {e}")
+            logger.warning("Invalid capability probe request data: %s", e)
             return error_response(_safe_error_message(e, "capability_probe"), 400)
         except (ValueError, KeyError, TypeError, RuntimeError, OSError) as e:
-            logger.exception(f"Unexpected capability probe error: {e}")
+            logger.exception("Unexpected capability probe error: %s", e)
             return error_response(_safe_error_message(e, "capability_probe"), 500)
 
     def _transform_probe_results(self, by_type: dict[str, Any]) -> dict[str, Any]:
@@ -771,10 +771,10 @@ class AuditingHandler(SecureHandler):
             )
 
         except (ValueError, KeyError, TypeError) as e:
-            logger.warning(f"Invalid deep audit request data: {e}")
+            logger.warning("Invalid deep audit request data: %s", e)
             return error_response(_safe_error_message(e, "deep_audit"), 400)
         except (ValueError, KeyError, TypeError, RuntimeError, OSError) as e:
-            logger.exception(f"Unexpected deep audit error: {e}")
+            logger.exception("Unexpected deep audit error: %s", e)
             return error_response(_safe_error_message(e, "deep_audit"), 500)
 
     def _get_audit_config(
@@ -978,10 +978,10 @@ class AuditingHandler(SecureHandler):
             )
 
         except (ValueError, KeyError, TypeError) as e:
-            logger.warning(f"Invalid red team analysis request data for debate {debate_id}: {e}")
+            logger.warning("Invalid red team analysis request data for debate %s: %s", debate_id, e)
             return error_response(_safe_error_message(e, "red_team_analysis"), 400)
         except (ValueError, KeyError, TypeError, RuntimeError, OSError) as e:
-            logger.exception(f"Unexpected red team analysis error for debate {debate_id}: {e}")
+            logger.exception("Unexpected red team analysis error for debate %s: %s", debate_id, e)
             return error_response(_safe_error_message(e, "red_team_analysis"), 500)
 
     # _read_json_body moved to BaseHandler.read_json_body

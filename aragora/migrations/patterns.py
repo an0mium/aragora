@@ -176,7 +176,7 @@ def safe_add_column(
 
         sql = " ".join(parts)
         backend.execute_write(sql)
-        logger.info(f"Added column {table}.{column} ({data_type})")
+        logger.info("Added column %s.%s (%s)", table, column, data_type)
     else:
         # SQLite: Check if column exists first
         columns = backend.fetch_all(f"PRAGMA table_info({qt})")
@@ -190,9 +190,9 @@ def safe_add_column(
 
             sql = " ".join(parts)
             backend.execute_write(sql)
-            logger.info(f"Added column {table}.{column} ({data_type})")
+            logger.info("Added column %s.%s (%s)", table, column, data_type)
         else:
-            logger.debug(f"Column {table}.{column} already exists")
+            logger.debug("Column %s.%s already exists", table, column)
 
 
 def safe_add_nullable_column(
@@ -250,14 +250,13 @@ def safe_drop_column(
             )
             if indexes:
                 logger.warning(
-                    f"Column {table}.{column} is used by indexes: "
-                    f"{[idx[0] for idx in indexes]}. Drop indexes first."
+                    "Column %s.%s is used by indexes: %s. Drop indexes first.", table, column, [idx[0] for idx in indexes]
                 )
                 raise ValueError(f"Column {column} is still referenced by indexes")
 
         # PostgreSQL: Use IF EXISTS for idempotency
         backend.execute_write(f"ALTER TABLE {qt} DROP COLUMN IF EXISTS {qc}")
-        logger.info(f"Dropped column {table}.{column}")
+        logger.info("Dropped column %s.%s", table, column)
     else:
         # SQLite: Check if column exists
         columns = backend.fetch_all(f"PRAGMA table_info({qt})")
@@ -266,9 +265,9 @@ def safe_drop_column(
         if column in existing_columns:
             # SQLite 3.35+ supports DROP COLUMN
             backend.execute_write(f"ALTER TABLE {qt} DROP COLUMN {qc}")
-            logger.info(f"Dropped column {table}.{column}")
+            logger.info("Dropped column %s.%s", table, column)
         else:
-            logger.debug(f"Column {table}.{column} does not exist")
+            logger.debug("Column %s.%s does not exist", table, column)
 
 
 def safe_rename_column(
@@ -299,7 +298,7 @@ def safe_rename_column(
         backend.execute_write(f"ALTER TABLE {qt} RENAME COLUMN {qo} TO {qn}")
     else:
         backend.execute_write(f"ALTER TABLE {qt} RENAME COLUMN {qo} TO {qn}")
-    logger.info(f"Renamed column {table}.{old_name} to {new_name}")
+    logger.info("Renamed column %s.%s to %s", table, old_name, new_name)
 
 
 def backfill_column(
@@ -367,7 +366,7 @@ def backfill_column(
                 break
 
             total_updated += batch_count
-            logger.debug(f"Backfilled {batch_count} rows in {table}.{column}")
+            logger.debug("Backfilled %s rows in %s.%s", batch_count, table, column)
 
             if batch_count < batch_size:
                 break
@@ -397,7 +396,7 @@ def backfill_column(
             total_updated += batch_size
             time.sleep(sleep_between_batches)
 
-    logger.info(f"Backfilled {total_updated} rows in {table}.{column}")
+    logger.info("Backfilled %s rows in %s.%s", total_updated, table, column)
     return total_updated
 
 
@@ -430,7 +429,7 @@ def safe_set_not_null(
         if default is not None:
             # Backfill remaining NULLs with default
             backend.execute_write(f"UPDATE {qt} SET {qc} = {default} WHERE {qc} IS NULL")
-            logger.info(f"Backfilled {null_count[0]} remaining NULLs in {table}.{column}")
+            logger.info("Backfilled %s remaining NULLs in %s.%s", null_count[0], table, column)
         else:
             raise ValueError(
                 f"Cannot set NOT NULL: {null_count[0]} NULL values remain in {table}.{column}"
@@ -441,12 +440,11 @@ def safe_set_not_null(
     else:
         # SQLite doesn't support ALTER COLUMN, would need table recreation
         logger.warning(
-            f"SQLite doesn't support ALTER COLUMN SET NOT NULL. "
-            f"Column {table}.{column} remains nullable."
+            "SQLite doesn't support ALTER COLUMN SET NOT NULL. Column %s.%s remains nullable.", table, column
         )
         return
 
-    logger.info(f"Set {table}.{column} to NOT NULL")
+    logger.info("Set %s.%s to NOT NULL", table, column)
 
 
 def safe_create_index(
@@ -486,7 +484,7 @@ def safe_create_index(
             f"CREATE {unique_str}INDEX IF NOT EXISTS {qi} ON {qt} ({columns_str})"
         )
 
-    logger.info(f"Created index {index_name} on {table}({', '.join(columns)})")
+    logger.info("Created index %s on %s(%s)", index_name, table, ', '.join(columns))
 
 
 def safe_drop_index(
@@ -508,7 +506,7 @@ def safe_drop_index(
     else:
         backend.execute_write(f"DROP INDEX IF EXISTS {qi}")
 
-    logger.info(f"Dropped index {index_name}")
+    logger.info("Dropped index %s", index_name)
 
 
 def validate_migration_safety(

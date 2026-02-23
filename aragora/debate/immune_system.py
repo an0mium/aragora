@@ -165,12 +165,12 @@ class TransparentImmuneSystem:
                 self.broadcast_callback(event.to_broadcast())
             except (ConnectionError, RuntimeError, AttributeError) as e:
                 # Expected: network/event system issues
-                logger.error(f"immune_broadcast_failed error={e}")
+                logger.error("immune_broadcast_failed error=%s", e)
             except (TypeError, ValueError, KeyError, OSError) as e:
                 # Unexpected: log with more detail
-                logger.error(f"immune_broadcast_failed unexpected error={type(e).__name__}: {e}")
+                logger.error("immune_broadcast_failed unexpected error=%s: %s", type(e).__name__, e)
 
-        logger.debug(f"immune_event type={event.event_type} component={event.component}")
+        logger.debug("immune_event type=%s component=%s", event.event_type, event.component)
 
     def _update_system_status(self) -> None:
         """Update overall system status based on agent states."""

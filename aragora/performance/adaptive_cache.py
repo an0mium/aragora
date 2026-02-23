@@ -193,7 +193,7 @@ class AdaptiveTTLCache(Generic[K, V]):
             return
         self._running = True
         self._cleanup_task = asyncio.create_task(self._cleanup_loop())
-        logger.debug(f"AdaptiveTTLCache '{self._name}' started")
+        logger.debug("AdaptiveTTLCache '%s' started", self._name)
 
     async def stop(self) -> None:
         """Stop background cleanup task."""
@@ -204,7 +204,7 @@ class AdaptiveTTLCache(Generic[K, V]):
                 await self._cleanup_task
             except asyncio.CancelledError:
                 pass
-        logger.debug(f"AdaptiveTTLCache '{self._name}' stopped")
+        logger.debug("AdaptiveTTLCache '%s' stopped", self._name)
 
     async def _cleanup_loop(self) -> None:
         """Background cleanup of expired entries."""
@@ -215,7 +215,7 @@ class AdaptiveTTLCache(Generic[K, V]):
             except asyncio.CancelledError:
                 break
             except (RuntimeError, ValueError, KeyError, OSError) as e:
-                logger.exception(f"Cleanup error in {self._name}: {e}")
+                logger.exception("Cleanup error in %s: %s", self._name, e)
 
     def _cleanup_expired(self) -> None:
         """Remove expired entries."""

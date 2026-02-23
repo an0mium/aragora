@@ -418,7 +418,7 @@ class ConsensusPhase:
                         )
                     )
                     _hook_task.add_done_callback(
-                        lambda t: logger.warning(f"POST_CONSENSUS hook failed: {t.exception()}")
+                        lambda t: logger.warning("POST_CONSENSUS hook failed: %s", t.exception())
                         if not t.cancelled() and t.exception()
                         else None
                     )

@@ -153,7 +153,7 @@ class AgentDashboardHandler(SecureHandler):
         except UnauthorizedError:
             return self._error_response(401, "Authentication required for control plane")
         except ForbiddenError as e:
-            logger.warning(f"Control plane access denied: {e}")
+            logger.warning("Control plane access denied: %s", e)
             return self._error_response(403, "Permission denied")
 
         # Parse agent_id from path if present
@@ -289,7 +289,7 @@ class AgentDashboardHandler(SecureHandler):
                 }
             )
 
-        logger.info(f"Paused agent {agent_id}")
+        logger.info("Paused agent %s", agent_id)
 
         return self._json_response(200, agent)
 
@@ -329,7 +329,7 @@ class AgentDashboardHandler(SecureHandler):
                 }
             )
 
-        logger.info(f"Resumed agent {agent_id}")
+        logger.info("Resumed agent %s", agent_id)
 
         return self._json_response(200, agent)
 
@@ -457,7 +457,7 @@ class AgentDashboardHandler(SecureHandler):
                 }
             )
 
-        logger.info(f"Updated priority for task {task_id}")
+        logger.info("Updated priority for task %s", task_id)
 
         return self._json_response(200, {"success": True, "task": task})
 

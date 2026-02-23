@@ -202,7 +202,7 @@ class PerformanceRouterBridge:
             elif hasattr(self.performance_monitor, "metrics"):
                 return self.performance_monitor.metrics.get(agent_name)
         except (RuntimeError, ValueError, TypeError, AttributeError, KeyError, OSError) as e:
-            logger.debug(f"Could not get metrics for {agent_name}: {e}")
+            logger.debug("Could not get metrics for %s: %s", agent_name, e)
 
         return None
 
@@ -308,13 +308,13 @@ class PerformanceRouterBridge:
                 else:
                     result.agents_skipped += 1
             except (RuntimeError, ValueError, TypeError, AttributeError, OSError, ConnectionError) as e:
-                logger.warning(f"Failed to sync {agent_name} to router: {e}")
+                logger.warning("Failed to sync %s to router: %s", agent_name, e)
                 result.agents_skipped += 1
 
         self._last_sync = datetime.now()
         self._sync_history.append(result)
 
-        logger.debug(f"router_sync synced={result.agents_synced} skipped={result.agents_skipped}")
+        logger.debug("router_sync synced=%s skipped=%s", result.agents_synced, result.agents_skipped)
 
         # Record telemetry
         self._record_sync_metrics(result, time.perf_counter() - start_time)

@@ -187,7 +187,7 @@ class EvidenceEnrichmentHandler(BaseHandler):
             )
 
         except (RuntimeError, ValueError, TypeError, KeyError, OSError, AttributeError) as e:
-            logger.error(f"Failed to get evidence for {finding_id}: {e}")
+            logger.error("Failed to get evidence for %s: %s", finding_id, e)
             return error_response(safe_error_message(e, "Failed to get evidence"), 500)
 
     @_require_user_auth
@@ -241,7 +241,7 @@ class EvidenceEnrichmentHandler(BaseHandler):
             logger.warning("Handler error: %s", e)
             return error_response("Resource not found", 404)
         except (RuntimeError, TypeError, OSError, ConnectionError, TimeoutError) as e:
-            logger.error(f"Failed to enrich finding {finding_id}: {e}")
+            logger.error("Failed to enrich finding %s: %s", finding_id, e)
             return error_response(safe_error_message(e, "Enrichment"), 500)
 
     async def _run_enrichment(
@@ -342,7 +342,7 @@ class EvidenceEnrichmentHandler(BaseHandler):
             )
             return json_response(result)
         except (RuntimeError, ValueError, TypeError, OSError, ConnectionError, TimeoutError) as e:
-            logger.error(f"Batch enrichment failed: {e}")
+            logger.error("Batch enrichment failed: %s", e)
             return error_response(safe_error_message(e, "Batch enrichment"), 500)
 
     async def _run_batch_enrichment(

@@ -135,11 +135,11 @@ class DebateBeliefAnalyzer:
                 result.evidence_suggestions = suggestions[:top_k_evidence]
 
                 if result.cruxes:
-                    logger.debug(f"belief_cruxes count={len(result.cruxes)}")
+                    logger.debug("belief_cruxes count=%s", len(result.cruxes))
 
         except (RuntimeError, AttributeError, ImportError) as e:  # noqa: BLE001
             result.analysis_error = f"Belief analysis failed: {type(e).__name__}"
-            logger.warning(f"belief_analysis_error error={e}")
+            logger.warning("belief_analysis_error error=%s", e)
 
         return result
 
@@ -186,7 +186,7 @@ class DebateBeliefAnalyzer:
             result.cruxes = cruxes
 
             if cruxes:
-                logger.debug(f"belief_cruxes_identified count={len(cruxes)}")
+                logger.debug("belief_cruxes_identified count=%s", len(cruxes))
                 for crux in cruxes[:3]:
                     claim_preview = crux.get("claim", "unknown")[:60]
                     uncertainty = crux.get("uncertainty", 0)
@@ -194,6 +194,6 @@ class DebateBeliefAnalyzer:
 
         except (RuntimeError, AttributeError, ImportError) as e:  # noqa: BLE001
             result.analysis_error = f"Belief analysis failed: {type(e).__name__}"
-            logger.debug(f"Belief analysis failed: {e}")
+            logger.debug("Belief analysis failed: %s", e)
 
         return result

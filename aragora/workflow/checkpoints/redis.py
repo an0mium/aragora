@@ -95,12 +95,10 @@ class RedisCheckpointStore:
                     pool.connection_kwargs["socket_timeout"] = self._socket_timeout
                     pool.connection_kwargs["socket_connect_timeout"] = self._socket_connect_timeout
                     logger.debug(
-                        f"Redis checkpoint store configured with timeouts: "
-                        f"socket_timeout={self._socket_timeout}s, "
-                        f"connect_timeout={self._socket_connect_timeout}s"
+                        "Redis checkpoint store configured with timeouts: socket_timeout=%ss, connect_timeout=%ss", self._socket_timeout, self._socket_connect_timeout
                     )
             except (AttributeError, KeyError, TypeError, RuntimeError) as e:
-                logger.debug(f"Could not configure Redis socket timeouts: {e}")
+                logger.debug("Could not configure Redis socket timeouts: %s", e)
         return self._redis
 
     def _checkpoint_key(self, checkpoint_id: str) -> str:
@@ -158,8 +156,7 @@ class RedisCheckpointStore:
             redis.expire(index_key, self._ttl_seconds)
 
             logger.info(
-                f"Saved checkpoint to Redis: workflow={checkpoint.workflow_id}, "
-                f"id={checkpoint_id}, size={len(data_bytes)}, compressed={is_compressed}"
+                "Saved checkpoint to Redis: workflow=%s, id=%s, size=%s, compressed=%s", checkpoint.workflow_id, checkpoint_id, len(data_bytes), is_compressed
             )
             return checkpoint_id
 
@@ -215,7 +212,7 @@ class RedisCheckpointStore:
             error_name = type(e).__name__
             if "Timeout" in error_name or "ConnectionError" in error_name:
                 raise ConnectionTimeoutError(f"Redis checkpoint load timed out: {e}") from e
-            logger.error(f"Failed to load checkpoint {checkpoint_id} from Redis: {e}")
+            logger.error("Failed to load checkpoint %s from Redis: %s", checkpoint_id, e)
             return None
 
     async def load_latest(self, workflow_id: str) -> WorkflowCheckpoint | None:
@@ -254,7 +251,7 @@ class RedisCheckpointStore:
             error_name = type(e).__name__
             if "Timeout" in error_name or "ConnectionError" in error_name:
                 raise ConnectionTimeoutError(f"Redis checkpoint load_latest timed out: {e}") from e
-            logger.error(f"Failed to load latest checkpoint for {workflow_id}: {e}")
+            logger.error("Failed to load latest checkpoint for %s: %s", workflow_id, e)
             return None
 
     async def list_checkpoints(self, workflow_id: str) -> list[str]:
@@ -275,7 +272,7 @@ class RedisCheckpointStore:
             return [r.decode("utf-8") if isinstance(r, bytes) else r for r in results]
 
         except (ConnectionError, TimeoutError, OSError, RuntimeError) as e:
-            logger.error(f"Failed to list checkpoints for {workflow_id}: {e}")
+            logger.error("Failed to list checkpoints for %s: %s", workflow_id, e)
             return []
 
     async def delete(self, checkpoint_id: str) -> bool:
@@ -306,7 +303,7 @@ class RedisCheckpointStore:
             return deleted > 0
 
         except (ConnectionError, TimeoutError, OSError, RuntimeError) as e:
-            logger.error(f"Failed to delete checkpoint {checkpoint_id}: {e}")
+            logger.error("Failed to delete checkpoint %s: %s", checkpoint_id, e)
             return False
 
     def _checkpoint_to_dict(self, checkpoint: WorkflowCheckpoint) -> dict[str, Any]:

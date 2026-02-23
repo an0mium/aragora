@@ -186,8 +186,7 @@ class WeightCache:
         with self._lock:
             self._elo_version += 1
             logger.debug(
-                f"Weight cache ELO invalidation: session={self.session_id} "
-                f"version={self._elo_version}"
+                "Weight cache ELO invalidation: session=%s version=%s", self.session_id, self._elo_version
             )
 
     def invalidate_agent(self, agent_name: str) -> None:
@@ -262,7 +261,7 @@ def cleanup_weight_cache(session_id: str) -> None:
         if session_id in _weight_cache_manager:
             _weight_cache_manager[session_id].clear()
             del _weight_cache_manager[session_id]
-            logger.debug(f"Cleaned up weight cache for session {session_id}")
+            logger.debug("Cleaned up weight cache for session %s", session_id)
 
 
 @dataclass
@@ -433,7 +432,7 @@ class WeightCalculator:
         if self._enable_cache and session_id:
             self._weight_cache = get_weight_cache(session_id, cache_ttl_seconds)
             logger.debug(
-                f"Weight calculator caching enabled: session={session_id} ttl={cache_ttl_seconds}s"
+                "Weight calculator caching enabled: session=%s ttl=%ss", session_id, cache_ttl_seconds
             )
 
     def compute_weights(self, agents: list[Agent]) -> dict[str, float]:
@@ -578,7 +577,7 @@ class WeightCalculator:
         try:
             self._ratings_cache = self.elo_system.get_ratings_batch(agent_names)
         except Exception as e:  # noqa: BLE001 - graceful degradation, batch prefetch is best-effort
-            logger.debug(f"Batch ratings fetch failed: {e}")
+            logger.debug("Batch ratings fetch failed: %s", e)
             self._ratings_cache = {}
 
     def _compute_factors(self, agent_name: str) -> WeightFactors:
@@ -662,8 +661,7 @@ class WeightCalculator:
 
         if is_self_vote:
             logger.info(
-                f"self_vote_detected agent={agent_name} "
-                f"choice={vote.choice} mode={self.config.self_vote_mode}"
+                "self_vote_detected agent=%s choice=%s mode=%s", agent_name, vote.choice, self.config.self_vote_mode
             )
 
             if self.config.self_vote_mode == "exclude":
@@ -730,7 +728,7 @@ class WeightCalculator:
         try:
             return self.memory.get_vote_weight(agent_name)
         except Exception as e:  # noqa: BLE001 - graceful degradation, return default weight on error
-            logger.debug(f"Reputation weight error for {agent_name}: {e}")
+            logger.debug("Reputation weight error for %s: %s", agent_name, e)
             return 1.0
 
     def _get_reliability_weight(self, agent_name: str) -> float:
@@ -750,7 +748,7 @@ class WeightCalculator:
             # Map 0.0-1.0 consistency score to 0.5-1.0 weight
             return 0.5 + (consistency.consistency_score * 0.5)
         except Exception as e:  # noqa: BLE001 - graceful degradation, return default weight on error
-            logger.debug(f"Consistency weight error for {agent_name}: {e}")
+            logger.debug("Consistency weight error for %s: %s", agent_name, e)
             return 1.0
 
     def _get_calibration_weight_for_agent(self, agent_name: str) -> float:
@@ -765,7 +763,7 @@ class WeightCalculator:
             try:
                 return self._get_calibration_weight(agent_name)
             except Exception as e:  # noqa: BLE001 - graceful degradation, return default weight on error
-                logger.debug(f"Calibration weight callback error for {agent_name}: {e}")
+                logger.debug("Calibration weight callback error for %s: %s", agent_name, e)
 
         return 1.0
 
@@ -844,7 +842,7 @@ class WeightCalculator:
             return weight
 
         except Exception as e:  # noqa: BLE001 - graceful degradation, return default weight on error
-            logger.debug(f"ELO skill weight error for {agent_name}: {e}")
+            logger.debug("ELO skill weight error for %s: %s", agent_name, e)
             return 1.0
 
     def clear_cache(self) -> None:
@@ -859,7 +857,7 @@ class WeightCalculator:
         """
         if self._weight_cache:
             self._weight_cache.invalidate_elo()
-            logger.debug(f"Weight cache invalidated for ELO update: session={self._session_id}")
+            logger.debug("Weight cache invalidated for ELO update: session=%s", self._session_id)
 
     def invalidate_agent_cache(self, agent_name: str) -> None:
         """Invalidate cached weights for a specific agent.
@@ -880,7 +878,7 @@ class WeightCalculator:
         self.clear_cache()
         if self._session_id:
             cleanup_weight_cache(self._session_id)
-            logger.debug(f"Weight calculator cleanup complete: session={self._session_id}")
+            logger.debug("Weight calculator cleanup complete: session=%s", self._session_id)
 
     def get_cache_stats(self) -> dict[str, Any] | None:
         """Get cache statistics for monitoring.

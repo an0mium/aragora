@@ -450,7 +450,7 @@ class KMEloBridge:
             ratings = self._elo_system.get_all_ratings()
             return [r.agent_name for r in ratings]
         except (AttributeError, TypeError, ValueError) as e:
-            logger.error(f"Error getting agents: {e}")
+            logger.error("Error getting agents: %s", e)
             return []
 
     async def _analyze_agent_patterns(
@@ -473,7 +473,7 @@ class KMEloBridge:
         km_items = await self._query_agent_km_items(agent_name)
 
         if len(km_items) < self._config.min_km_items_for_pattern:
-            logger.debug(f"Insufficient KM items for {agent_name}: {len(km_items)}")
+            logger.debug("Insufficient KM items for %s: %s", agent_name, len(km_items))
             return []
 
         # Use adapter's pattern analysis
@@ -514,7 +514,7 @@ class KMEloBridge:
                     limit=100,
                 )
         except (AttributeError, TypeError, ValueError, RuntimeError) as e:
-            logger.error(f"Error querying KM for {agent_name}: {e}")
+            logger.error("Error querying KM for %s: %s", agent_name, e)
 
         return []
 
@@ -578,7 +578,7 @@ class KMEloBridge:
                 applied += 1
                 self._total_adjustments += 1
 
-        logger.info(f"Applied {applied} pending ELO adjustments")
+        logger.info("Applied %s pending ELO adjustments", applied)
         return applied
 
     def get_status(self) -> dict[str, Any]:

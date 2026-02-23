@@ -115,9 +115,9 @@ class RedisTTLCache(Generic[T]):
             self._redis = get_redis_client()
             self._redis_checked = True
             if self._redis:
-                logger.debug(f"RedisTTLCache[{self._prefix}] using Redis backend")
+                logger.debug("RedisTTLCache[%s] using Redis backend", self._prefix)
             else:
-                logger.debug(f"RedisTTLCache[{self._prefix}] using in-memory fallback")
+                logger.debug("RedisTTLCache[%s] using in-memory fallback", self._prefix)
         except ImportError:
             self._redis_checked = True
 
@@ -146,7 +146,7 @@ class RedisTTLCache(Generic[T]):
                 self._redis_misses += 1
                 return None
             except (ConnectionError, OSError, json.JSONDecodeError, TypeError, ValueError) as e:
-                logger.debug(f"Redis get failed, using fallback: {e}")
+                logger.debug("Redis get failed, using fallback: %s", e)
                 # Fall through to memory cache
 
         # In-memory fallback
@@ -178,7 +178,7 @@ class RedisTTLCache(Generic[T]):
                     json.dumps(value, default=str),
                 )
             except (ConnectionError, OSError, TypeError, ValueError) as e:
-                logger.debug(f"Redis set failed: {e}")
+                logger.debug("Redis set failed: %s", e)
 
         # Always write to memory cache (backup and for stats)
         with self._lock:
@@ -200,7 +200,7 @@ class RedisTTLCache(Generic[T]):
                 if redis.delete(redis_key) > 0:
                     found = True
             except (ConnectionError, OSError, TypeError, ValueError) as e:
-                logger.debug(f"Redis invalidate failed: {e}")
+                logger.debug("Redis invalidate failed: %s", e)
 
         with self._lock:
             if key in self._memory_cache:
@@ -221,7 +221,7 @@ class RedisTTLCache(Generic[T]):
                 pattern = self._redis_key("*")
                 _scan_and_delete(redis, pattern)
             except (ConnectionError, OSError, TypeError, ValueError) as e:
-                logger.debug(f"Redis clear failed: {e}")
+                logger.debug("Redis clear failed: %s", e)
 
         with self._lock:
             count = len(self._memory_cache)
@@ -240,7 +240,7 @@ class RedisTTLCache(Generic[T]):
                 pattern = self._redis_key(f"{prefix}*")
                 _scan_and_delete(redis, pattern)
             except (ConnectionError, OSError, TypeError, ValueError) as e:
-                logger.debug(f"Redis clear_prefix failed: {e}")
+                logger.debug("Redis clear_prefix failed: %s", e)
 
         with self._lock:
             keys_to_remove = [k for k in self._memory_cache if k.startswith(prefix)]

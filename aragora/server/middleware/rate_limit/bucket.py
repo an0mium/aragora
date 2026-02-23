@@ -176,7 +176,7 @@ class RedisTokenBucket:
             )
             return bool(result[0])
         except (OSError, ConnectionError, TimeoutError, RuntimeError) as e:
-            logger.warning(f"Redis rate limit error, allowing request: {e}")
+            logger.warning("Redis rate limit error, allowing request: %s", e)
             return True  # Fail open on Redis errors
 
     def get_retry_after(self) -> float:
@@ -191,7 +191,7 @@ class RedisTokenBucket:
             minutes_needed = tokens_needed / self.rate_per_minute
             return minutes_needed * 60
         except (OSError, ConnectionError, TimeoutError, RuntimeError, ValueError) as e:
-            logger.debug(f"Error getting retry_after, defaulting to 0: {e}")
+            logger.debug("Error getting retry_after, defaulting to 0: %s", e)
             return 0
 
     @property
@@ -210,7 +210,7 @@ class RedisTokenBucket:
 
             return max(0, int(tokens))
         except (OSError, ConnectionError, TimeoutError, RuntimeError, ValueError) as e:
-            logger.debug(f"Error getting remaining tokens, defaulting to burst_size: {e}")
+            logger.debug("Error getting remaining tokens, defaulting to burst_size: %s", e)
             return self.burst_size
 
 

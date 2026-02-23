@@ -82,7 +82,7 @@ class AnalyticsOperationsMixin:
 
             return json_response(report.to_dict())
         except (KeyError, ValueError, OSError, TypeError, AttributeError) as e:
-            logger.error(f"Error analyzing coverage: {e}")
+            logger.error("Error analyzing coverage: %s", e)
             return error_response(safe_error_message(e), status=500)
 
     @require_permission("analytics:read")
@@ -119,7 +119,7 @@ class AnalyticsOperationsMixin:
 
             return json_response(report.to_dict())
         except (KeyError, ValueError, OSError, TypeError, AttributeError) as e:
-            logger.error(f"Error analyzing usage: {e}")
+            logger.error("Error analyzing usage: %s", e)
             return error_response(safe_error_message(e), status=500)
 
     @require_permission("analytics:read")
@@ -187,7 +187,7 @@ class AnalyticsOperationsMixin:
                 }
             )
         except (KeyError, ValueError, OSError, TypeError, AttributeError) as e:
-            logger.error(f"Error recording usage event: {e}")
+            logger.error("Error recording usage event: %s", e)
             return error_response(safe_error_message(e), status=500)
 
     @require_permission("analytics:read")
@@ -224,7 +224,7 @@ class AnalyticsOperationsMixin:
 
             return json_response(snapshot.to_dict())
         except (KeyError, ValueError, OSError, TypeError, AttributeError) as e:
-            logger.error(f"Error capturing quality snapshot: {e}")
+            logger.error("Error capturing quality snapshot: %s", e)
             return error_response(safe_error_message(e), status=500)
 
     @require_permission("analytics:read")
@@ -261,7 +261,7 @@ class AnalyticsOperationsMixin:
 
             return json_response(trend.to_dict())
         except (KeyError, ValueError, OSError, TypeError, AttributeError) as e:
-            logger.error(f"Error getting quality trend: {e}")
+            logger.error("Error getting quality trend: %s", e)
             return error_response(safe_error_message(e), status=500)
 
     @require_permission("analytics:read")
@@ -283,5 +283,5 @@ class AnalyticsOperationsMixin:
             stats = mound.get_analytics_stats()
             return json_response(stats)
         except (KeyError, ValueError, OSError, TypeError, AttributeError) as e:
-            logger.error(f"Error getting analytics stats: {e}")
+            logger.error("Error getting analytics stats: %s", e)
             return error_response(safe_error_message(e), status=500)

@@ -54,7 +54,7 @@ def _get_request_timeout(path: str) -> float | None:
         config = _timeout_config_factory()
         return config.get_timeout(path)
     except (ValueError, TypeError, RuntimeError, AttributeError) as e:
-        logger.debug(f"Could not get timeout config: {e}")
+        logger.debug("Could not get timeout config: %s", e)
         return None
 
 
@@ -65,7 +65,7 @@ def _get_executor() -> ThreadPoolExecutor | None:
     try:
         return _timeout_executor_factory()
     except (ValueError, TypeError, RuntimeError, AttributeError) as e:
-        logger.debug(f"Could not get timeout executor: {e}")
+        logger.debug("Could not get timeout executor: %s", e)
         return None
 
 
@@ -230,7 +230,7 @@ class RequestLifecycleManager:
                         future.cancel()
                         self.handler._response_status = 504
                         logger.warning(
-                            f"[request] Request timeout after {timeout_seconds}s: {method} {path}"
+                            "[request] Request timeout after %ss: %s %s", timeout_seconds, method, path
                         )
                         self._send_timeout_response(timeout_seconds, path)
                 else:
@@ -250,7 +250,7 @@ class RequestLifecycleManager:
             # Top-level safety net for handlers (not triggered for timeout)
             if not timed_out:
                 self.handler._response_status = 500
-                logger.exception(f"[request] Unhandled exception in {method} {path}: {e}")
+                logger.exception("[request] Unhandled exception in %s %s: %s", method, path, e)
                 if span:
                     span.set_error(e)
                 self._send_error_response()
@@ -280,7 +280,7 @@ class RequestLifecycleManager:
         try:
             self.handler._send_json({"error": "Internal server error"}, status=500)
         except (OSError, ConnectionError, RuntimeError) as send_err:
-            logger.debug(f"Could not send error response (already sent?): {send_err}")
+            logger.debug("Could not send error response (already sent?): %s", send_err)
 
     def _send_timeout_response(self, timeout_seconds: float, path: str) -> None:
         """Send a 504 Gateway Timeout response.
@@ -311,7 +311,7 @@ class RequestLifecycleManager:
                 },
             )
         except (OSError, ConnectionError, RuntimeError) as send_err:
-            logger.debug(f"Could not send timeout response (already sent?): {send_err}")
+            logger.debug("Could not send timeout response (already sent?): %s", send_err)
 
 
 def create_lifecycle_manager(handler: Any) -> RequestLifecycleManager:

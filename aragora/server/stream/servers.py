@@ -232,9 +232,9 @@ class AiohttpUnifiedServer(  # type: ignore[override]
                 logger.info("[AiohttpUnifiedServer] Wired voice handler to TTS integration")
 
         except ImportError as e:
-            logger.debug(f"[AiohttpUnifiedServer] TTS integration not available: {e}")
+            logger.debug("[AiohttpUnifiedServer] TTS integration not available: %s", e)
         except (AttributeError, TypeError, ValueError) as e:
-            logger.warning(f"[AiohttpUnifiedServer] Failed to wire TTS integration: {e}")
+            logger.warning("[AiohttpUnifiedServer] Failed to wire TTS integration: %s", e)
 
     def _init_stores(self, nomic_dir: Path) -> None:
         """Initialize optional stores from nomic directory."""
@@ -301,7 +301,7 @@ class AiohttpUnifiedServer(  # type: ignore[override]
         results = self.cleanup_all()
         total = sum(results.values())
         if total > 0:
-            logger.debug(f"Cleaned up {total} stale entries")
+            logger.debug("Cleaned up %s stale entries", total)
 
     def _update_debate_state(self, event: StreamEvent) -> None:
         """Update cached debate state based on emitted events.
@@ -506,7 +506,7 @@ class AiohttpUnifiedServer(  # type: ignore[override]
             # Billing module not available, skip check
             return None
         except (AttributeError, TypeError, KeyError, ValueError, OSError) as e:
-            logger.debug(f"Usage limit check failed: {e}")
+            logger.debug("Usage limit check failed: %s", e)
             return None  # Fail open to not block debates
 
     # NOTE: HTTP API handlers (_handle_options, _handle_leaderboard, etc.)
@@ -612,7 +612,7 @@ class AiohttpUnifiedServer(  # type: ignore[override]
         try:
             data = await request.json()
         except (json.JSONDecodeError, ValueError, UnicodeDecodeError) as e:
-            logger.debug(f"Invalid JSON in request: {e}")
+            logger.debug("Invalid JSON in request: %s", e)
             return web.json_response(
                 {"error": "Invalid JSON"}, status=400, headers=self._cors_headers(origin)
             )

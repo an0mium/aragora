@@ -378,7 +378,7 @@ class DelegationManager:
             duration = expires_at - datetime.now(timezone.utc)
             if duration > self._max_duration:
                 logger.warning(
-                    f"Delegation duration {duration} exceeds max {self._max_duration}, capping"
+                    "Delegation duration %s exceeds max %s, capping", duration, self._max_duration
                 )
                 expires_at = datetime.now(timezone.utc) + self._max_duration
         else:
@@ -406,8 +406,7 @@ class DelegationManager:
         self._store_delegation(delegation)
 
         logger.info(
-            f"Created delegation {delegation.id}: {delegator_id} -> {delegatee_id} "
-            f"for {permission_id} (expires: {expires_at})"
+            "Created delegation %s: %s -> %s for %s (expires: %s)", delegation.id, delegator_id, delegatee_id, permission_id, expires_at
         )
 
         return delegation
@@ -435,9 +434,9 @@ class DelegationManager:
         for d in list(self._delegations.values()):
             if d.parent_delegation_id == delegation_id and d.is_valid:
                 d.revoke(revoked_by)
-                logger.info(f"Revoked child delegation {d.id}")
+                logger.info("Revoked child delegation %s", d.id)
 
-        logger.info(f"Revoked delegation {delegation_id} by {revoked_by}")
+        logger.info("Revoked delegation %s by %s", delegation_id, revoked_by)
         return True
 
     def revoke_all_by_delegator(self, delegator_id: str, revoked_by: str) -> int:
@@ -565,7 +564,7 @@ class DelegationManager:
                 self._by_delegator.get(d.delegator_id, set()).discard(d_id)
                 self._by_delegatee.get(d.delegatee_id, set()).discard(d_id)
 
-        logger.info(f"Cleaned up {len(expired_ids)} expired delegations")
+        logger.info("Cleaned up %s expired delegations", len(expired_ids))
         return len(expired_ids)
 
     def get_stats(self) -> dict[str, Any]:

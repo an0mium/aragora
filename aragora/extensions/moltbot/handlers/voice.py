@@ -367,7 +367,7 @@ class MoltbotVoiceHandler(BaseHandler):
         try:
             audio_data = base64.b64decode(audio_b64)
         except (ValueError, TypeError) as e:  # base64 decode errors
-            logger.debug(f"Base64 audio decode failed: {type(e).__name__}: {e}")
+            logger.debug("Base64 audio decode failed: %s: %s", type(e).__name__, e)
             return error_response("Invalid base64 audio data", 400)
 
         processor = get_voice_processor()

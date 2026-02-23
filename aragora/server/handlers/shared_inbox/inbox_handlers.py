@@ -95,7 +95,7 @@ def _log_activity(
                     )
                     store.log_activity(activity)
                 except (KeyError, ValueError, OSError, TypeError) as e:
-                    logger.debug(f"Failed to log inbox activity: {e}")
+                    logger.debug("Failed to log inbox activity: %s", e)
                 return
 
     # Fall back to default implementation
@@ -177,16 +177,16 @@ async def handle_create_shared_inbox(
                         created_by=created_by,
                     )
                 except (OSError, RuntimeError, ValueError, KeyError, TypeError) as e:
-                    logger.warning(f"[SharedInbox] Failed to persist inbox to store: {e}")
+                    logger.warning("[SharedInbox] Failed to persist inbox to store: %s", e)
             except (OSError, RuntimeError, ValueError, KeyError) as e:
-                logger.warning(f"[SharedInbox] Failed to persist inbox to store: {e}")
+                logger.warning("[SharedInbox] Failed to persist inbox to store: %s", e)
 
         # Always keep in-memory cache for fast reads
         with _storage_lock:
             _shared_inboxes[inbox_id] = inbox
             _inbox_messages[inbox_id] = {}
 
-        logger.info(f"[SharedInbox] Created inbox {inbox_id}: {name}")
+        logger.info("[SharedInbox] Created inbox %s: %s", inbox_id, name)
 
         return {
             "success": True,
@@ -194,7 +194,7 @@ async def handle_create_shared_inbox(
         }
 
     except (KeyError, ValueError, OSError, TypeError, RuntimeError) as e:
-        logger.exception(f"Failed to create shared inbox: {e}")
+        logger.exception("Failed to create shared inbox: %s", e)
         return {
             "success": False,
             "error": "Internal server error",
@@ -233,7 +233,7 @@ async def handle_list_shared_inboxes(
                         "total": len(stored_inboxes),
                     }
             except (OSError, RuntimeError, ValueError, KeyError) as e:
-                logger.warning(f"[SharedInbox] Failed to load from store, using cache: {e}")
+                logger.warning("[SharedInbox] Failed to load from store, using cache: %s", e)
 
         # Fallback to in-memory
         with _storage_lock:
@@ -251,7 +251,7 @@ async def handle_list_shared_inboxes(
         }
 
     except (KeyError, ValueError, OSError, TypeError, RuntimeError) as e:
-        logger.exception(f"Failed to list shared inboxes: {e}")
+        logger.exception("Failed to list shared inboxes: %s", e)
         return {
             "success": False,
             "error": "Internal server error",
@@ -279,7 +279,7 @@ async def handle_get_shared_inbox(
                         "inbox": inbox_data,
                     }
             except (OSError, RuntimeError, ValueError, KeyError) as e:
-                logger.warning(f"[SharedInbox] Failed to load from store: {e}")
+                logger.warning("[SharedInbox] Failed to load from store: %s", e)
 
         # Fallback to in-memory
         with _storage_lock:
@@ -298,7 +298,7 @@ async def handle_get_shared_inbox(
             }
 
     except (KeyError, ValueError, OSError, TypeError, RuntimeError) as e:
-        logger.exception(f"Failed to get shared inbox: {e}")
+        logger.exception("Failed to get shared inbox: %s", e)
         return {
             "success": False,
             "error": "Internal server error",
@@ -371,7 +371,7 @@ async def handle_get_inbox_messages(
                                 total_count = len(all_messages)
                         except (OSError, RuntimeError, ValueError, KeyError) as e:
                             # Fall back to page count + offset
-                            logger.debug(f"Error counting messages, using fallback: {e}")
+                            logger.debug("Error counting messages, using fallback: %s", e)
                             total_count = offset + len(messages_data)
 
                     return {
@@ -382,7 +382,7 @@ async def handle_get_inbox_messages(
                         "offset": offset,
                     }
             except (OSError, RuntimeError, ValueError, KeyError) as e:
-                logger.warning(f"[SharedInbox] Failed to load messages from store: {e}")
+                logger.warning("[SharedInbox] Failed to load messages from store: %s", e)
 
         # Fallback to in-memory
         with _storage_lock:
@@ -415,7 +415,7 @@ async def handle_get_inbox_messages(
         }
 
     except (KeyError, ValueError, OSError, TypeError, RuntimeError) as e:
-        logger.exception(f"Failed to get inbox messages: {e}")
+        logger.exception("Failed to get inbox messages: %s", e)
         return {
             "success": False,
             "error": "Internal server error",
@@ -474,9 +474,9 @@ async def handle_assign_message(
                         updates["status"] = new_status
                     store.update_message(message_id, updates)
             except (OSError, RuntimeError, ValueError, KeyError) as e:
-                logger.warning(f"[SharedInbox] Failed to persist assignment to store: {e}")
+                logger.warning("[SharedInbox] Failed to persist assignment to store: %s", e)
 
-        logger.info(f"[SharedInbox] Assigned message {message_id} to {assigned_to}")
+        logger.info("[SharedInbox] Assigned message %s to %s", message_id, assigned_to)
 
         # Log activity
         if org_id:
@@ -499,7 +499,7 @@ async def handle_assign_message(
         }
 
     except (KeyError, ValueError, OSError, TypeError, RuntimeError) as e:
-        logger.exception(f"Failed to assign message: {e}")
+        logger.exception("Failed to assign message: %s", e)
         return {
             "success": False,
             "error": "Internal server error",
@@ -555,9 +555,9 @@ async def handle_update_message_status(
                         updates["resolved_by"] = updated_by
                     store.update_message(message_id, updates)
             except (OSError, RuntimeError, ValueError, KeyError) as e:
-                logger.warning(f"[SharedInbox] Failed to persist status to store: {e}")
+                logger.warning("[SharedInbox] Failed to persist status to store: %s", e)
 
-        logger.info(f"[SharedInbox] Updated message {message_id} status to {status}")
+        logger.info("[SharedInbox] Updated message %s status to %s", message_id, status)
 
         # Log activity
         if org_id:
@@ -581,7 +581,7 @@ async def handle_update_message_status(
     except ValueError:
         return {"success": False, "error": f"Invalid status: {status}"}
     except (KeyError, OSError, TypeError, RuntimeError) as e:
-        logger.exception(f"Failed to update message status: {e}")
+        logger.exception("Failed to update message status: %s", e)
         return {
             "success": False,
             "error": "Internal server error",
@@ -634,7 +634,7 @@ async def handle_add_message_tag(
         }
 
     except (KeyError, ValueError, OSError, TypeError, RuntimeError) as e:
-        logger.exception(f"Failed to add message tag: {e}")
+        logger.exception("Failed to add message tag: %s", e)
         return {
             "success": False,
             "error": "Internal server error",
@@ -701,7 +701,7 @@ async def handle_add_message_to_inbox(
                     priority=priority,
                 )
             except (OSError, RuntimeError, ValueError, KeyError) as e:
-                logger.warning(f"[SharedInbox] Failed to persist message to store: {e}")
+                logger.warning("[SharedInbox] Failed to persist message to store: %s", e)
 
         # Keep in-memory cache
         with _storage_lock:
@@ -716,7 +716,7 @@ async def handle_add_message_to_inbox(
         }
 
     except (KeyError, ValueError, OSError, TypeError, RuntimeError) as e:
-        logger.exception(f"Failed to add message to inbox: {e}")
+        logger.exception("Failed to add message to inbox: %s", e)
         return {
             "success": False,
             "error": "Internal server error",

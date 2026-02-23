@@ -375,7 +375,7 @@ class AuditLog:
                     StorageMode.MEMORY,
                     f"Failed to connect to Redis for audit log: {e}",
                 )
-            logger.error(f"Failed to connect to Redis for audit log: {e}")
+            logger.error("Failed to connect to Redis for audit log: %s", e)
             self._redis = None
 
     async def close(self) -> None:
@@ -434,7 +434,7 @@ class AuditLog:
         await self._store_entry(entry)
 
         logger.debug(
-            f"Audit logged: {action.value}",
+            "Audit logged: %s", action.value,
             extra={
                 "entry_id": entry.entry_id,
                 "actor": actor.actor_id,
@@ -492,8 +492,7 @@ class AuditLog:
             # Verify previous hash link
             if entry.previous_hash != previous_hash:
                 logger.error(
-                    f"Audit integrity violation at sequence {entry.sequence_number}: "
-                    f"previous_hash mismatch"
+                    "Audit integrity violation at sequence %s: previous_hash mismatch", entry.sequence_number
                 )
                 return False
 
@@ -501,8 +500,7 @@ class AuditLog:
             computed_hash = entry.compute_hash()
             if entry.entry_hash != computed_hash:
                 logger.error(
-                    f"Audit integrity violation at sequence {entry.sequence_number}: "
-                    f"entry_hash mismatch"
+                    "Audit integrity violation at sequence %s: entry_hash mismatch", entry.sequence_number
                 )
                 return False
 
@@ -724,7 +722,7 @@ class AuditLog:
             original_count = len(self._local_entries)
             self._local_entries = [e for e in self._local_entries if e.timestamp >= cutoff]
             removed = original_count - len(self._local_entries)
-            logger.info(f"Retention enforcement removed {removed} local entries")
+            logger.info("Retention enforcement removed %s local entries", removed)
             return removed
 
         # Redis mode: use XTRIM with MINID
@@ -749,11 +747,11 @@ class AuditLog:
             count_after = info_after.get("length", 0)
 
             removed = count_before - count_after
-            logger.info(f"Retention enforcement removed {removed} Redis entries")
+            logger.info("Retention enforcement removed %s Redis entries", removed)
             return removed
 
         except (OSError, ConnectionError, RuntimeError) as e:
-            logger.error(f"Failed to enforce retention: {e}")
+            logger.error("Failed to enforce retention: %s", e)
             return 0
 
     async def get_retention_status(self) -> dict[str, Any]:
@@ -773,7 +771,7 @@ class AuditLog:
                     entry_data = json.loads(data.get("data", "{}"))
                     oldest_entry = datetime.fromisoformat(entry_data.get("timestamp", ""))
             except (OSError, ConnectionError, RuntimeError) as e:
-                logger.error(f"Failed to get retention status: {e}")
+                logger.error("Failed to get retention status: %s", e)
         else:
             total_entries = len(self._local_entries)
             if self._local_entries:
@@ -822,7 +820,7 @@ class AuditLog:
                 self._sequence_number = entry_data.get("sequence_number", 0)
                 self._last_hash = entry_data.get("entry_hash")
         except (OSError, ConnectionError, RuntimeError) as e:
-            logger.error(f"Failed to initialize audit chain: {e}")
+            logger.error("Failed to initialize audit chain: %s", e)
 
     async def _store_entry(self, entry: AuditEntry) -> None:
         """Store an entry in the log."""
@@ -836,7 +834,7 @@ class AuditLog:
                     },
                 )
             except (OSError, ConnectionError, RuntimeError) as e:
-                logger.error(f"Failed to store audit entry: {e}")
+                logger.error("Failed to store audit entry: %s", e)
                 # Fall back to local storage
                 self._local_entries.append(entry)
         else:
@@ -872,7 +870,7 @@ class AuditLog:
                     entries.append(entry)
 
         except (OSError, ConnectionError, RuntimeError, json.JSONDecodeError) as e:
-            logger.error(f"Failed to query audit log: {e}")
+            logger.error("Failed to query audit log: %s", e)
 
         # Apply pagination
         return entries[query.offset : query.offset + query.limit]

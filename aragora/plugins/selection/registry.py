@@ -69,11 +69,11 @@ class SelectionPluginRegistry:
     ) -> None:
         """Register a scorer plugin."""
         if name in self._scorers:
-            logger.warning(f"Overwriting existing scorer: {name}")
+            logger.warning("Overwriting existing scorer: %s", name)
         self._scorers[name] = scorer_class
         if set_default:
             self._default_scorer = name
-        logger.debug(f"Registered scorer: {name}")
+        logger.debug("Registered scorer: %s", name)
 
     def register_team_selector(
         self,
@@ -83,11 +83,11 @@ class SelectionPluginRegistry:
     ) -> None:
         """Register a team selector plugin."""
         if name in self._team_selectors:
-            logger.warning(f"Overwriting existing team selector: {name}")
+            logger.warning("Overwriting existing team selector: %s", name)
         self._team_selectors[name] = selector_class
         if set_default:
             self._default_team_selector = name
-        logger.debug(f"Registered team selector: {name}")
+        logger.debug("Registered team selector: %s", name)
 
     def register_role_assigner(
         self,
@@ -97,11 +97,11 @@ class SelectionPluginRegistry:
     ) -> None:
         """Register a role assigner plugin."""
         if name in self._role_assigners:
-            logger.warning(f"Overwriting existing role assigner: {name}")
+            logger.warning("Overwriting existing role assigner: %s", name)
         self._role_assigners[name] = assigner_class
         if set_default:
             self._default_role_assigner = name
-        logger.debug(f"Registered role assigner: {name}")
+        logger.debug("Registered role assigner: %s", name)
 
     def get_scorer(self, name: str | None = None) -> ScorerProtocol:
         """Get a scorer instance by name (or default)."""

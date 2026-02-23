@@ -80,7 +80,7 @@ class InboxSyncEmitter:
                 self._subscriptions[user_id] = set()
             self._subscriptions[user_id].add(websocket)
             logger.debug(
-                f"[InboxSync] User {user_id} subscribed, total: {len(self._subscriptions[user_id])}"
+                "[InboxSync] User %s subscribed, total: %s", user_id, len(self._subscriptions[user_id])
             )
 
     async def unsubscribe(self, user_id: str, websocket: Any) -> None:
@@ -90,7 +90,7 @@ class InboxSyncEmitter:
                 self._subscriptions[user_id].discard(websocket)
                 if not self._subscriptions[user_id]:
                     del self._subscriptions[user_id]
-                logger.debug(f"[InboxSync] User {user_id} unsubscribed")
+                logger.debug("[InboxSync] User %s unsubscribed", user_id)
 
     async def emit(self, event: InboxSyncEvent) -> int:
         """
@@ -106,7 +106,7 @@ class InboxSyncEmitter:
             try:
                 callback(event)
             except (RuntimeError, TypeError, ValueError) as e:
-                logger.error(f"[InboxSync] Callback error: {e}")
+                logger.error("[InboxSync] Callback error: %s", e)
 
         async with self._lock:
             clients = self._subscriptions.get(user_id, set()).copy()
@@ -122,7 +122,7 @@ class InboxSyncEmitter:
                 await websocket.send(message)
                 sent_count += 1
             except (ConnectionError, OSError, RuntimeError) as e:
-                logger.debug(f"[InboxSync] Failed to send to client: {e}")
+                logger.debug("[InboxSync] Failed to send to client: %s", e)
                 dead_clients.append(websocket)
 
         # Clean up dead connections

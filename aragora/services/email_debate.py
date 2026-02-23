@@ -254,7 +254,7 @@ class EmailDebateService:
             if reputation:
                 return reputation.reputation_score
         except (ValueError, OSError, ConnectionError, RuntimeError) as e:
-            logger.debug(f"Failed to get sender reputation: {e}")
+            logger.debug("Failed to get sender reputation: %s", e)
         return None
 
     def _build_debate_prompt(
@@ -343,7 +343,7 @@ Consider:
             )
 
         except (ValueError, OSError, ConnectionError, RuntimeError) as e:
-            logger.error(f"Debate failed: {e}")
+            logger.error("Debate failed: %s", e)
             return self._fallback_prioritization(email, sender_reputation)
 
     def _parse_debate_result(

@@ -626,7 +626,7 @@ class ChainExecutor:
                     try:
                         self._progress_callback(execution)
                     except (RuntimeError, ValueError, TypeError) as e:  # noqa: BLE001 - user-provided progress callback
-                        logger.warning(f"Progress callback failed: {e}")
+                        logger.warning("Progress callback failed: %s", e)
 
                 # Determine next stage based on result
                 next_stage_id = self._determine_next_stage(stage, result)

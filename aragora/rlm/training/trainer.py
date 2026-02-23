@@ -261,7 +261,7 @@ class Trainer:
             )
 
         except (RuntimeError, ValueError, TimeoutError, ConnectionError, OSError) as e:
-            logger.error(f"Error collecting trajectory: {e}")
+            logger.error("Error collecting trajectory: %s", e)
             trajectory.finalize(
                 answer="",
                 outcome={"success": False, "error": str(e)},
@@ -458,7 +458,7 @@ class Trainer:
             try:
                 callback(metrics)
             except Exception as e:  # noqa: BLE001 - callback errors must not break training loop
-                logger.error(f"Callback error: {e}")
+                logger.error("Callback error: %s", e)
 
         return metrics
 
@@ -511,7 +511,7 @@ class Trainer:
 
     def _save_checkpoint(self, epoch: int) -> None:
         """Save training checkpoint."""
-        logger.info(f"Saving checkpoint at epoch {epoch}")
+        logger.info("Saving checkpoint at epoch %s", epoch)
         # Save experience buffer
         self.experience_buffer.save(f"rlm_buffer_epoch_{epoch}.json")
 
