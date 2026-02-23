@@ -70,7 +70,7 @@ class DocumentBatchHandler(BaseHandler):
         if path.startswith("/api/v1/documents/batch/") and path.count("/") >= 4:
             return True
         # Handle /api/documents/{doc_id}/chunks and /api/documents/{doc_id}/context
-        if path.startswith("/api/v1/documents/") and path.count("/") == 4:
+        if path.startswith("/api/v1/documents/") and path.count("/") == 5:
             if path.endswith("/chunks") or path.endswith("/context"):
                 return True
         # Handle /api/knowledge/jobs/{job_id}

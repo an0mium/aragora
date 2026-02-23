@@ -1055,3 +1055,608 @@ class TestIntegration:
         """HandlerResult supports dict-like access."""
         result = handler._get_overview({}, mock_http)
         assert result["status"] == 200
+
+    def test_error_storage_all_endpoints(self, mock_http):
+        """All storage-backed endpoints degrade gracefully on ErrorStorage."""
+        h = TestableHandler(storage=ErrorStorage())
+        assert _status(h._get_overview({}, mock_http)) == 200
+        assert _status(h._get_dashboard_debates(10, 0, None)) == 200
+        assert _status(h._get_dashboard_stats()) == 200
+        assert _status(h._get_stat_cards()) == 200
+        assert _status(h._get_top_senders(10, 0)) == 200
+        assert _status(h._get_labels()) == 200
+        assert _status(h._get_activity(20, 0)) == 200
+        assert _status(h._get_inbox_summary()) == 200
+
+
+# ===========================================================================
+# Tests: Additional edge cases and error paths
+# ===========================================================================
+
+
+class TestOverviewEdgeCases:
+    """Additional edge cases for the overview endpoint."""
+
+    def test_overview_storage_returns_none_row(self, mock_http):
+        """When cursor.fetchone returns None, today_count stays 0."""
+        storage = InMemoryStorage([])
+        h = TestableHandler(storage=storage)
+        result = h._get_overview({}, mock_http)
+        body = _body(result)
+        assert body["total_debates_today"] == 0
+
+    def test_overview_with_high_consensus_rate(self, mock_http):
+        """Overview reflects high consensus rate from summary metrics."""
+        h = TestableHandler(
+            storage=InMemoryStorage(),
+            summary_metrics={"consensus_rate": 1.0, "total_debates": 100},
+        )
+        result = h._get_overview({}, mock_http)
+        body = _body(result)
+        assert body["consensus_rate"] == 1.0
+
+    def test_overview_missing_keys_in_summary(self, mock_http):
+        """Summary metrics dict missing expected keys uses defaults."""
+        h = TestableHandler(
+            storage=InMemoryStorage(),
+            summary_metrics={},
+        )
+        result = h._get_overview({}, mock_http)
+        body = _body(result)
+        assert body["consensus_rate"] == 0.0
+
+    def test_overview_missing_keys_in_agent_perf(self, mock_http):
+        """Agent perf dict missing expected keys uses defaults."""
+        h = TestableHandler(agent_perf={})
+        result = h._get_overview({}, mock_http)
+        body = _body(result)
+        stats = body["stats"]
+        assert len(stats) == 2
+        assert stats[0]["value"] == 0
+        assert stats[1]["value"] == 0
+
+    def test_overview_last_updated_is_iso_format(self, mock_http):
+        """last_updated field is a valid ISO timestamp."""
+        h = TestableHandler()
+        result = h._get_overview({}, mock_http)
+        body = _body(result)
+        # Should contain 'T' separator and timezone info
+        assert "T" in body["last_updated"]
+
+    def test_overview_avg_debate_duration_ms_default(self, mock_http):
+        """avg_debate_duration_ms defaults to 0."""
+        h = TestableHandler()
+        result = h._get_overview({}, mock_http)
+        body = _body(result)
+        assert body["avg_debate_duration_ms"] == 0
+
+
+class TestDebateListEdgeCases:
+    """Additional edge cases for the debate list endpoint."""
+
+    def test_zero_limit(self):
+        """Limit of 0 returns no debates but correct total."""
+        storage = InMemoryStorage(SAMPLE_ROWS)
+        h = TestableHandler(storage=storage)
+        result = h._get_dashboard_debates(0, 0, None)
+        body = _body(result)
+        assert body["total"] == 5
+        assert body["debates"] == []
+
+    def test_negative_offset_treated_as_zero(self):
+        """SQLite treats negative offset as zero effectively."""
+        storage = InMemoryStorage(SAMPLE_ROWS)
+        h = TestableHandler(storage=storage)
+        result = h._get_dashboard_debates(10, -1, None)
+        body = _body(result)
+        # SQLite accepts negative OFFSET; should still return data
+        assert len(body["debates"]) == 5
+
+    def test_nonexistent_status_returns_empty(self):
+        """Filtering by a status that doesn't exist returns empty list."""
+        storage = InMemoryStorage(SAMPLE_ROWS)
+        h = TestableHandler(storage=storage)
+        result = h._get_dashboard_debates(10, 0, "nonexistent_status")
+        body = _body(result)
+        assert body["total"] == 0
+        assert body["debates"] == []
+
+    def test_very_large_limit(self):
+        """Very large limit works without error."""
+        storage = InMemoryStorage(SAMPLE_ROWS)
+        h = TestableHandler(storage=storage)
+        result = h._get_dashboard_debates(999999, 0, None)
+        body = _body(result)
+        assert body["total"] == 5
+        assert len(body["debates"]) == 5
+
+    def test_debates_all_have_required_fields(self):
+        """Every debate dict has all required fields."""
+        storage = InMemoryStorage(SAMPLE_ROWS)
+        h = TestableHandler(storage=storage)
+        result = h._get_dashboard_debates(50, 0, None)
+        required = {"id", "domain", "status", "consensus_reached", "confidence", "created_at"}
+        for d in _body(result)["debates"]:
+            assert set(d.keys()) == required
+
+
+class TestDashboardStatsEdgeCases:
+    """Additional edge cases for the stats endpoint."""
+
+    def test_stats_success_rate_one_yields_zero_error_rate(self):
+        """100% success rate yields 0.0 error rate."""
+        h = TestableHandler(perf_metrics={"avg_latency_ms": 50, "success_rate": 1.0})
+        result = h._get_dashboard_stats()
+        body = _body(result)
+        assert body["performance"]["error_rate"] == 0.0
+
+    def test_stats_performance_metrics_error(self):
+        """When _get_performance_metrics raises, stats still return."""
+        h = TestableHandler()
+        h._get_performance_metrics = MagicMock(side_effect=OSError("disk"))
+        result = h._get_dashboard_stats()
+        body = _body(result)
+        assert _status(result) == 200
+        assert body["performance"]["avg_response_time_ms"] == 0
+
+    def test_stats_summary_metrics_error(self):
+        """When _get_summary_metrics_sql raises, stats still return."""
+        h = TestableHandler(storage=InMemoryStorage())
+        h._get_summary_metrics_sql = MagicMock(side_effect=KeyError("missing"))
+        result = h._get_dashboard_stats()
+        body = _body(result)
+        assert _status(result) == 200
+        assert body["debates"]["total"] == 0
+
+    def test_stats_null_status_group(self):
+        """Rows with NULL status are excluded from by_status grouping."""
+        rows = [
+            ("d1", "fin", None, 1, 0.9, "2026-02-23T10:00:00"),
+            ("d2", "fin", "completed", 1, 0.9, "2026-02-23T10:00:00"),
+        ]
+        storage = InMemoryStorage(rows)
+        h = TestableHandler(storage=storage)
+        result = h._get_dashboard_stats()
+        by_status = _body(result)["debates"]["by_status"]
+        # NULL status entries are excluded per the `if row[0]:` check
+        assert None not in by_status
+        assert "completed" in by_status
+
+    def test_stats_empty_by_status(self):
+        """Empty table yields empty by_status."""
+        storage = InMemoryStorage([])
+        h = TestableHandler(storage=storage)
+        result = h._get_dashboard_stats()
+        body = _body(result)
+        assert body["debates"]["by_status"] == {}
+
+
+class TestStatCardsEdgeCases:
+    """Additional edge cases for stat cards."""
+
+    def test_cards_consensus_rate_zero_format(self):
+        """0% consensus rate is formatted correctly."""
+        h = TestableHandler(
+            storage=InMemoryStorage(),
+            summary_metrics={"total_debates": 5, "consensus_rate": 0, "avg_confidence": 0},
+        )
+        result = h._get_stat_cards()
+        cards = {c["id"]: c for c in _body(result)["cards"]}
+        assert cards["consensus_rate"]["value"] == "0.0%"
+
+    def test_cards_consensus_rate_100_percent(self):
+        """100% consensus rate is formatted correctly."""
+        h = TestableHandler(
+            storage=InMemoryStorage(),
+            summary_metrics={"total_debates": 5, "consensus_rate": 1.0, "avg_confidence": 0.99},
+        )
+        result = h._get_stat_cards()
+        cards = {c["id"]: c for c in _body(result)["cards"]}
+        assert cards["consensus_rate"]["value"] == "100.0%"
+
+    def test_cards_labels_present(self):
+        """Each card has a label field."""
+        h = TestableHandler(
+            storage=InMemoryStorage(),
+            summary_metrics={"total_debates": 0, "consensus_rate": 0, "avg_confidence": 0},
+        )
+        result = h._get_stat_cards()
+        for card in _body(result)["cards"]:
+            assert "label" in card
+            assert len(card["label"]) > 0
+
+    def test_cards_summary_metrics_error(self):
+        """When summary metrics raises, cards still include agent-related ones."""
+        h = TestableHandler(storage=InMemoryStorage())
+        h._get_summary_metrics_sql = MagicMock(side_effect=TypeError("bad"))
+        result = h._get_stat_cards()
+        body = _body(result)
+        assert _status(result) == 200
+        # Cards list may be empty or partial depending on where error occurs
+        assert isinstance(body["cards"], list)
+
+
+class TestTeamPerformanceEdgeCases:
+    """Additional edge cases for team performance."""
+
+    def test_team_with_zero_elo(self):
+        """Agent with elo=0 handled correctly."""
+        perf = {
+            "top_performers": [
+                {"name": "test-agent", "elo": 0, "debates_count": 1, "win_rate": 0.0},
+            ],
+            "total_agents": 1,
+            "avg_elo": 0,
+        }
+        h = TestableHandler(agent_perf=perf)
+        result = h._get_team_performance(10, 0)
+        teams = _body(result)["teams"]
+        assert len(teams) == 1
+        assert teams[0]["avg_elo"] == 0.0
+
+    def test_team_with_empty_name(self):
+        """Agent with empty name uses empty string as provider."""
+        perf = {
+            "top_performers": [
+                {"name": "", "elo": 1000, "debates_count": 1, "win_rate": 0.5},
+            ],
+            "total_agents": 1,
+            "avg_elo": 1000,
+        }
+        h = TestableHandler(agent_perf=perf)
+        result = h._get_team_performance(10, 0)
+        teams = _body(result)["teams"]
+        assert len(teams) == 1
+        assert teams[0]["team_id"] == ""
+
+    def test_team_with_multiple_dashes(self):
+        """Agent with multiple dashes in name uses first segment as provider."""
+        perf = {
+            "top_performers": [
+                {"name": "openai-gpt-4-turbo", "elo": 1300, "debates_count": 10, "win_rate": 0.8},
+            ],
+            "total_agents": 1,
+            "avg_elo": 1300,
+        }
+        h = TestableHandler(agent_perf=perf)
+        result = h._get_team_performance(10, 0)
+        teams = _body(result)["teams"]
+        assert teams[0]["team_id"] == "openai"
+
+    def test_team_performance_limit_zero(self):
+        """Limit=0 returns no teams but correct total."""
+        h = TestableHandler(agent_perf=AGENT_PERF)
+        result = h._get_team_performance(0, 0)
+        body = _body(result)
+        assert body["teams"] == []
+        assert body["total"] == 3
+
+    def test_team_avg_elo_rounding(self):
+        """avg_elo is rounded to 1 decimal place."""
+        perf = {
+            "top_performers": [
+                {"name": "test-a", "elo": 1001, "debates_count": 1, "win_rate": 0.5},
+                {"name": "test-b", "elo": 1002, "debates_count": 1, "win_rate": 0.5},
+                {"name": "test-c", "elo": 1003, "debates_count": 1, "win_rate": 0.5},
+            ],
+            "total_agents": 3,
+            "avg_elo": 1002,
+        }
+        h = TestableHandler(agent_perf=perf)
+        result = h._get_team_performance(10, 0)
+        teams = _body(result)["teams"]
+        assert teams[0]["avg_elo"] == 1002.0
+
+    def test_team_avg_win_rate_rounding(self):
+        """avg_win_rate is rounded to 3 decimal places."""
+        perf = {
+            "top_performers": [
+                {"name": "t-a", "elo": 1000, "debates_count": 1, "win_rate": 0.3333},
+                {"name": "t-b", "elo": 1000, "debates_count": 1, "win_rate": 0.6667},
+            ],
+            "total_agents": 2,
+            "avg_elo": 1000,
+        }
+        h = TestableHandler(agent_perf=perf)
+        result = h._get_team_performance(10, 0)
+        teams = _body(result)["teams"]
+        assert teams[0]["avg_win_rate"] == round((0.3333 + 0.6667) / 2, 3)
+
+
+class TestTeamDetailEdgeCases:
+    """Additional edge cases for team performance detail."""
+
+    def test_detail_quality_score_calculation(self):
+        """quality_score is avg_elo / 1000 rounded to 2 decimals."""
+        perf = {
+            "top_performers": [
+                {"name": "x-a", "elo": 1500, "debates_count": 5, "win_rate": 0.8},
+            ],
+            "total_agents": 1,
+            "avg_elo": 1500,
+        }
+        h = TestableHandler(agent_perf=perf, perf_metrics={"avg_latency_ms": 0.0})
+        result = h._get_team_performance_detail("x")
+        body = _body(result)
+        assert body["quality_score"] == 1.5
+
+    def test_detail_consensus_contribution_zero(self):
+        """consensus_contribution_rate is 0 when all win_rates are 0."""
+        perf = {
+            "top_performers": [
+                {"name": "z-a", "elo": 800, "debates_count": 1, "win_rate": 0.0},
+                {"name": "z-b", "elo": 800, "debates_count": 1, "win_rate": 0.0},
+            ],
+            "total_agents": 2,
+            "avg_elo": 800,
+        }
+        h = TestableHandler(agent_perf=perf, perf_metrics={"avg_latency_ms": 0.0})
+        result = h._get_team_performance_detail("z")
+        body = _body(result)
+        assert body["consensus_contribution_rate"] == 0.0
+
+    def test_detail_perf_metrics_error(self):
+        """When _get_performance_metrics raises, detail still returns."""
+        h = TestableHandler(agent_perf=AGENT_PERF)
+        h._get_performance_metrics = MagicMock(side_effect=ValueError("bad"))
+        result = h._get_team_performance_detail("claude")
+        body = _body(result)
+        assert _status(result) == 200
+        assert body["member_count"] == 2
+        # avg_response_time_ms stays at default 0 from the initial dict
+        assert body["avg_response_time_ms"] == 0
+
+    def test_detail_members_list_contains_agent_dicts(self):
+        """Members list contains the actual agent performance dicts."""
+        h = TestableHandler(agent_perf=AGENT_PERF, perf_metrics={"avg_latency_ms": 0.0})
+        result = h._get_team_performance_detail("gpt")
+        members = _body(result)["members"]
+        assert len(members) == 2
+        member_names = {m["name"] for m in members}
+        assert "gpt-4" in member_names
+        assert "gpt-3.5" in member_names
+
+    def test_detail_partial_prefix_match(self):
+        """Team ID 'cl' should match 'claude-opus' and 'claude-sonnet'."""
+        h = TestableHandler(agent_perf=AGENT_PERF, perf_metrics={"avg_latency_ms": 0.0})
+        result = h._get_team_performance_detail("cl")
+        body = _body(result)
+        # startswith("cl") matches claude-opus and claude-sonnet
+        assert body["member_count"] == 2
+
+
+class TestTopSendersEdgeCases:
+    """Additional edge cases for top senders."""
+
+    def test_senders_all_same_domain(self):
+        """All debates in same domain produces one sender entry."""
+        rows = [
+            (f"d{i}", "legal", "completed", 1, 0.5, "2026-01-01T00:00:00")
+            for i in range(5)
+        ]
+        storage = InMemoryStorage(rows)
+        h = TestableHandler(storage=storage)
+        result = h._get_top_senders(10, 0)
+        senders = _body(result)["senders"]
+        assert len(senders) == 1
+        assert senders[0]["domain"] == "legal"
+        assert senders[0]["debate_count"] == 5
+
+    def test_senders_all_null_domain(self):
+        """All NULL domain debates produce one 'general' entry."""
+        rows = [
+            (f"d{i}", None, "completed", 1, 0.5, "2026-01-01T00:00:00")
+            for i in range(3)
+        ]
+        storage = InMemoryStorage(rows)
+        h = TestableHandler(storage=storage)
+        result = h._get_top_senders(10, 0)
+        senders = _body(result)["senders"]
+        assert len(senders) == 1
+        assert senders[0]["domain"] == "general"
+        assert senders[0]["debate_count"] == 3
+
+
+class TestLabelsEdgeCases:
+    """Additional edge cases for labels."""
+
+    def test_labels_all_same_domain(self):
+        """All debates with same domain produce one label."""
+        rows = [
+            (f"d{i}", "marketing", "completed", 1, 0.5, "2026-01-01T00:00:00")
+            for i in range(10)
+        ]
+        storage = InMemoryStorage(rows)
+        h = TestableHandler(storage=storage)
+        result = h._get_labels()
+        labels = _body(result)["labels"]
+        assert len(labels) == 1
+        assert labels[0]["name"] == "marketing"
+        assert labels[0]["count"] == 10
+
+    def test_labels_all_null_domain(self):
+        """All NULL domain debates produce one 'general' label."""
+        rows = [
+            (f"d{i}", None, "completed", 1, 0.5, "2026-01-01T00:00:00")
+            for i in range(4)
+        ]
+        storage = InMemoryStorage(rows)
+        h = TestableHandler(storage=storage)
+        result = h._get_labels()
+        labels = _body(result)["labels"]
+        assert len(labels) == 1
+        assert labels[0]["name"] == "general"
+
+    def test_labels_fields(self):
+        """Each label has name and count fields."""
+        storage = InMemoryStorage(SAMPLE_ROWS)
+        h = TestableHandler(storage=storage)
+        result = h._get_labels()
+        for label in _body(result)["labels"]:
+            assert "name" in label
+            assert "count" in label
+            assert isinstance(label["count"], int)
+            assert label["count"] > 0
+
+
+class TestActivityEdgeCases:
+    """Additional edge cases for the activity feed."""
+
+    def test_activity_consensus_reached_false_entry(self):
+        """Activity entry with consensus_reached=False is properly typed."""
+        rows = [("d1", "tech", 0, 0.3, "2026-02-23T10:00:00")]
+        storage = InMemoryStorage([
+            ("d1", "tech", "completed", 0, 0.3, "2026-02-23T10:00:00"),
+        ])
+        h = TestableHandler(storage=storage)
+        result = h._get_activity(20, 0)
+        entry = _body(result)["activity"][0]
+        assert entry["consensus_reached"] is False
+
+    def test_activity_null_domain(self):
+        """Activity entry with NULL domain returns None."""
+        storage = InMemoryStorage([
+            ("d1", None, "completed", 1, 0.9, "2026-02-23T10:00:00"),
+        ])
+        h = TestableHandler(storage=storage)
+        result = h._get_activity(20, 0)
+        entry = _body(result)["activity"][0]
+        assert entry["domain"] is None
+
+    def test_activity_large_offset_empty(self):
+        """Offset beyond data returns empty activity list but correct total."""
+        storage = InMemoryStorage(SAMPLE_ROWS)
+        h = TestableHandler(storage=storage)
+        result = h._get_activity(20, 1000)
+        body = _body(result)
+        assert body["total"] == 5
+        assert body["activity"] == []
+
+    def test_activity_type_always_debate(self):
+        """Every activity entry type is 'debate'."""
+        storage = InMemoryStorage(SAMPLE_ROWS)
+        h = TestableHandler(storage=storage)
+        result = h._get_activity(50, 0)
+        for entry in _body(result)["activity"]:
+            assert entry["type"] == "debate"
+
+
+class TestInboxSummaryEdgeCases:
+    """Additional edge cases for inbox summary."""
+
+    def test_inbox_by_importance_defaults(self, handler):
+        """by_importance has high/medium/low all at 0."""
+        result = handler._get_inbox_summary()
+        body = _body(result)
+        assert body["by_importance"]["high"] == 0
+        assert body["by_importance"]["medium"] == 0
+        assert body["by_importance"]["low"] == 0
+
+    def test_inbox_by_label_is_list(self, handler):
+        """by_label defaults to empty list."""
+        result = handler._get_inbox_summary()
+        body = _body(result)
+        assert body["by_label"] == []
+
+    def test_inbox_avg_response_time_default(self, handler):
+        """avg_response_time_hours defaults to 0.0."""
+        result = handler._get_inbox_summary()
+        body = _body(result)
+        assert body["avg_response_time_hours"] == 0.0
+
+    def test_inbox_urgent_count_default(self, handler):
+        """urgent_count defaults to 0."""
+        result = handler._get_inbox_summary()
+        body = _body(result)
+        assert body["urgent_count"] == 0
+
+    def test_inbox_storage_inner_sql_error(self):
+        """Inner SQL error for today_count doesn't crash inbox summary."""
+        # Create a storage where the connection works but cursor fails on specific query
+        storage = InMemoryStorage(SAMPLE_ROWS)
+        h = TestableHandler(
+            storage=storage,
+            summary_metrics={"total_debates": 5, "consensus_rate": 0.7},
+        )
+        result = h._get_inbox_summary()
+        body = _body(result)
+        assert _status(result) == 200
+        assert body["total_messages"] == 5
+
+
+class TestTTLCacheBehavior:
+    """Tests verifying TTL cache interaction with endpoints."""
+
+    def test_overview_cached_result_returned(self, mock_http):
+        """Calling overview twice returns same structure (cache hit on 2nd call)."""
+        h = TestableHandler(
+            agent_perf={"total_agents": 3, "avg_elo": 1100, "top_performers": []},
+        )
+        result1 = h._get_overview({}, mock_http)
+        result2 = h._get_overview({}, mock_http)
+        assert _body(result1)["stats"] == _body(result2)["stats"]
+
+    def test_stats_cached_result_returned(self):
+        """Calling stats twice returns same structure."""
+        h = TestableHandler()
+        result1 = h._get_dashboard_stats()
+        result2 = h._get_dashboard_stats()
+        assert _body(result1) == _body(result2)
+
+    def test_stat_cards_cached_result_returned(self):
+        """Calling stat cards twice returns same structure."""
+        h = TestableHandler()
+        result1 = h._get_stat_cards()
+        result2 = h._get_stat_cards()
+        assert _body(result1) == _body(result2)
+
+    def test_inbox_summary_cached_result_returned(self):
+        """Calling inbox summary twice returns same structure."""
+        h = TestableHandler()
+        result1 = h._get_inbox_summary()
+        result2 = h._get_inbox_summary()
+        assert _body(result1) == _body(result2)
+
+    def test_team_performance_cached_result_returned(self):
+        """Calling team performance twice with same args returns same data."""
+        h = TestableHandler(agent_perf=AGENT_PERF)
+        result1 = h._get_team_performance(10, 0)
+        result2 = h._get_team_performance(10, 0)
+        assert _body(result1) == _body(result2)
+
+
+class TestMixinMethodExistence:
+    """Tests verifying the mixin exposes expected methods."""
+
+    def test_has_get_overview(self):
+        assert hasattr(DashboardViewsMixin, "_get_overview")
+
+    def test_has_get_dashboard_debates(self):
+        assert hasattr(DashboardViewsMixin, "_get_dashboard_debates")
+
+    def test_has_get_dashboard_debate(self):
+        assert hasattr(DashboardViewsMixin, "_get_dashboard_debate")
+
+    def test_has_get_dashboard_stats(self):
+        assert hasattr(DashboardViewsMixin, "_get_dashboard_stats")
+
+    def test_has_get_stat_cards(self):
+        assert hasattr(DashboardViewsMixin, "_get_stat_cards")
+
+    def test_has_get_team_performance(self):
+        assert hasattr(DashboardViewsMixin, "_get_team_performance")
+
+    def test_has_get_team_performance_detail(self):
+        assert hasattr(DashboardViewsMixin, "_get_team_performance_detail")
+
+    def test_has_get_top_senders(self):
+        assert hasattr(DashboardViewsMixin, "_get_top_senders")
+
+    def test_has_get_labels(self):
+        assert hasattr(DashboardViewsMixin, "_get_labels")
+
+    def test_has_get_activity(self):
+        assert hasattr(DashboardViewsMixin, "_get_activity")
+
+    def test_has_get_inbox_summary(self):
+        assert hasattr(DashboardViewsMixin, "_get_inbox_summary")

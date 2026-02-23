@@ -137,9 +137,9 @@ class GmailLabelsHandler(SecureHandler):
         # Message modifications
         if path.startswith("/api/v1/gmail/messages/"):
             parts = path.split("/")
-            if len(parts) >= 6:
-                message_id = parts[4]
-                action = parts[5] if len(parts) > 5 else ""
+            if len(parts) >= 7:
+                message_id = parts[5]
+                action = parts[6]
 
                 if action == "labels":
                     return await self._modify_message_labels(state, message_id, body)

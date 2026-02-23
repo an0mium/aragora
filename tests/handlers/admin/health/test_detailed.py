@@ -13,6 +13,7 @@ Tests the four public functions in aragora/server/handlers/admin/health/detailed
 from __future__ import annotations
 
 import json
+import sys
 import time
 from pathlib import Path
 from typing import Any
@@ -101,26 +102,26 @@ def tmp_nomic_dir(tmp_path):
 
 
 # ---------------------------------------------------------------------------
-# Common patches for health_utils functions called by detailed.py
+# Common patch targets
 # ---------------------------------------------------------------------------
 
+# Top-level imports in detailed.py (imported at module load via __init__.py)
+_P_FS = "aragora.server.handlers.admin.health.detailed.check_filesystem_health"
+_P_REDIS = "aragora.server.handlers.admin.health.detailed.check_redis_health"
+_P_AI = "aragora.server.handlers.admin.health.detailed.check_ai_providers_health"
+_P_SEC = "aragora.server.handlers.admin.health.detailed.check_security_services"
+
+# Locally imported inside deep_health_check from ..health_utils
+_P_STRIPE = "aragora.server.handlers.admin.health_utils.check_stripe_health"
+_P_SLACK = "aragora.server.handlers.admin.health_utils.check_slack_health"
+
+# Healthy defaults
 _HEALTHY_FS = {"healthy": True, "path": "/tmp"}
 _HEALTHY_REDIS = {"healthy": True, "configured": False, "note": "Redis not configured"}
 _HEALTHY_AI = {"healthy": True, "any_available": True, "available_count": 1, "providers": {}}
 _HEALTHY_SECURITY = {"healthy": True, "encryption_configured": True}
-
-
-def _patch_health_utils(
-    fs=None, redis=None, ai=None, security=None, stripe=None, slack=None
-):
-    """Return a dict of patch kwargs for health_utils functions."""
-    patches = {
-        "aragora.server.handlers.admin.health.detailed.check_filesystem_health": fs or _HEALTHY_FS,
-        "aragora.server.handlers.admin.health.detailed.check_redis_health": redis or _HEALTHY_REDIS,
-        "aragora.server.handlers.admin.health.detailed.check_ai_providers_health": ai or _HEALTHY_AI,
-        "aragora.server.handlers.admin.health.detailed.check_security_services": security or _HEALTHY_SECURITY,
-    }
-    return patches
+_HEALTHY_STRIPE = {"healthy": True, "configured": False}
+_HEALTHY_SLACK = {"healthy": True, "configured": False}
 
 
 # ============================================================================
@@ -135,10 +136,10 @@ class TestHealthCheck:
         """Invoke health_check on the handler."""
         return handler._health_check()
 
-    @patch("aragora.server.handlers.admin.health.detailed.check_filesystem_health", return_value=_HEALTHY_FS)
-    @patch("aragora.server.handlers.admin.health.detailed.check_redis_health", return_value=_HEALTHY_REDIS)
-    @patch("aragora.server.handlers.admin.health.detailed.check_ai_providers_health", return_value=_HEALTHY_AI)
-    @patch("aragora.server.handlers.admin.health.detailed.check_security_services", return_value=_HEALTHY_SECURITY)
+    @patch(_P_FS, return_value=_HEALTHY_FS)
+    @patch(_P_REDIS, return_value=_HEALTHY_REDIS)
+    @patch(_P_AI, return_value=_HEALTHY_AI)
+    @patch(_P_SEC, return_value=_HEALTHY_SECURITY)
     def test_healthy_status(self, _sec, _ai, _redis, _fs):
         """All checks pass yields status=healthy and 200."""
         h = _make_handler()
@@ -147,26 +148,21 @@ class TestHealthCheck:
         assert _status(result) == 200
         assert body["status"] == "healthy"
 
-    @patch("aragora.server.handlers.admin.health.detailed.check_filesystem_health", return_value=_HEALTHY_FS)
-    @patch("aragora.server.handlers.admin.health.detailed.check_redis_health", return_value=_HEALTHY_REDIS)
-    @patch("aragora.server.handlers.admin.health.detailed.check_ai_providers_health", return_value=_HEALTHY_AI)
-    @patch("aragora.server.handlers.admin.health.detailed.check_security_services", return_value=_HEALTHY_SECURITY)
+    @patch(_P_FS, return_value=_HEALTHY_FS)
+    @patch(_P_REDIS, return_value=_HEALTHY_REDIS)
+    @patch(_P_AI, return_value=_HEALTHY_AI)
+    @patch(_P_SEC, return_value=_HEALTHY_SECURITY)
     def test_response_has_required_fields(self, _sec, _ai, _redis, _fs):
         """Response contains all required top-level fields."""
         h = _make_handler()
         body = _body(self._call(h))
-        assert "status" in body
-        assert "version" in body
-        assert "uptime_seconds" in body
-        assert "checks" in body
-        assert "timestamp" in body
-        assert "response_time_ms" in body
-        assert "demo_mode" in body
+        for key in ("status", "version", "uptime_seconds", "checks", "timestamp", "response_time_ms", "demo_mode"):
+            assert key in body, f"Missing key: {key}"
 
-    @patch("aragora.server.handlers.admin.health.detailed.check_filesystem_health", return_value=_HEALTHY_FS)
-    @patch("aragora.server.handlers.admin.health.detailed.check_redis_health", return_value=_HEALTHY_REDIS)
-    @patch("aragora.server.handlers.admin.health.detailed.check_ai_providers_health", return_value=_HEALTHY_AI)
-    @patch("aragora.server.handlers.admin.health.detailed.check_security_services", return_value=_HEALTHY_SECURITY)
+    @patch(_P_FS, return_value=_HEALTHY_FS)
+    @patch(_P_REDIS, return_value=_HEALTHY_REDIS)
+    @patch(_P_AI, return_value=_HEALTHY_AI)
+    @patch(_P_SEC, return_value=_HEALTHY_SECURITY)
     def test_demo_mode_false_by_default(self, _sec, _ai, _redis, _fs):
         """Demo mode is False when env var not set."""
         h = _make_handler()
@@ -174,10 +170,10 @@ class TestHealthCheck:
         assert body["demo_mode"] is False
 
     @patch.dict("os.environ", {"ARAGORA_DEMO_MODE": "true"})
-    @patch("aragora.server.handlers.admin.health.detailed.check_filesystem_health", return_value=_HEALTHY_FS)
-    @patch("aragora.server.handlers.admin.health.detailed.check_redis_health", return_value=_HEALTHY_REDIS)
-    @patch("aragora.server.handlers.admin.health.detailed.check_ai_providers_health", return_value=_HEALTHY_AI)
-    @patch("aragora.server.handlers.admin.health.detailed.check_security_services", return_value=_HEALTHY_SECURITY)
+    @patch(_P_FS, return_value=_HEALTHY_FS)
+    @patch(_P_REDIS, return_value=_HEALTHY_REDIS)
+    @patch(_P_AI, return_value=_HEALTHY_AI)
+    @patch(_P_SEC, return_value=_HEALTHY_SECURITY)
     def test_demo_mode_true_when_set(self, _sec, _ai, _redis, _fs):
         """Demo mode detects ARAGORA_DEMO_MODE=true."""
         h = _make_handler()
@@ -185,22 +181,33 @@ class TestHealthCheck:
         assert body["demo_mode"] is True
 
     @patch.dict("os.environ", {"ARAGORA_DEMO_MODE": "1"})
-    @patch("aragora.server.handlers.admin.health.detailed.check_filesystem_health", return_value=_HEALTHY_FS)
-    @patch("aragora.server.handlers.admin.health.detailed.check_redis_health", return_value=_HEALTHY_REDIS)
-    @patch("aragora.server.handlers.admin.health.detailed.check_ai_providers_health", return_value=_HEALTHY_AI)
-    @patch("aragora.server.handlers.admin.health.detailed.check_security_services", return_value=_HEALTHY_SECURITY)
+    @patch(_P_FS, return_value=_HEALTHY_FS)
+    @patch(_P_REDIS, return_value=_HEALTHY_REDIS)
+    @patch(_P_AI, return_value=_HEALTHY_AI)
+    @patch(_P_SEC, return_value=_HEALTHY_SECURITY)
     def test_demo_mode_accepts_1(self, _sec, _ai, _redis, _fs):
         """Demo mode detects ARAGORA_DEMO_MODE=1."""
         h = _make_handler()
         body = _body(self._call(h))
         assert body["demo_mode"] is True
 
+    @patch.dict("os.environ", {"ARAGORA_DEMO_MODE": "yes"})
+    @patch(_P_FS, return_value=_HEALTHY_FS)
+    @patch(_P_REDIS, return_value=_HEALTHY_REDIS)
+    @patch(_P_AI, return_value=_HEALTHY_AI)
+    @patch(_P_SEC, return_value=_HEALTHY_SECURITY)
+    def test_demo_mode_accepts_yes(self, _sec, _ai, _redis, _fs):
+        """Demo mode detects ARAGORA_DEMO_MODE=yes."""
+        h = _make_handler()
+        body = _body(self._call(h))
+        assert body["demo_mode"] is True
+
     # -- Degraded mode checks --
 
-    @patch("aragora.server.handlers.admin.health.detailed.check_filesystem_health", return_value=_HEALTHY_FS)
-    @patch("aragora.server.handlers.admin.health.detailed.check_redis_health", return_value=_HEALTHY_REDIS)
-    @patch("aragora.server.handlers.admin.health.detailed.check_ai_providers_health", return_value=_HEALTHY_AI)
-    @patch("aragora.server.handlers.admin.health.detailed.check_security_services", return_value=_HEALTHY_SECURITY)
+    @patch(_P_FS, return_value=_HEALTHY_FS)
+    @patch(_P_REDIS, return_value=_HEALTHY_REDIS)
+    @patch(_P_AI, return_value=_HEALTHY_AI)
+    @patch(_P_SEC, return_value=_HEALTHY_SECURITY)
     def test_degraded_mode_not_degraded(self, _sec, _ai, _redis, _fs):
         """Non-degraded server shows healthy degraded_mode check."""
         h = _make_handler()
@@ -208,10 +215,10 @@ class TestHealthCheck:
         dm = body["checks"]["degraded_mode"]
         assert dm["healthy"] is True
 
-    @patch("aragora.server.handlers.admin.health.detailed.check_filesystem_health", return_value=_HEALTHY_FS)
-    @patch("aragora.server.handlers.admin.health.detailed.check_redis_health", return_value=_HEALTHY_REDIS)
-    @patch("aragora.server.handlers.admin.health.detailed.check_ai_providers_health", return_value=_HEALTHY_AI)
-    @patch("aragora.server.handlers.admin.health.detailed.check_security_services", return_value=_HEALTHY_SECURITY)
+    @patch(_P_FS, return_value=_HEALTHY_FS)
+    @patch(_P_REDIS, return_value=_HEALTHY_REDIS)
+    @patch(_P_AI, return_value=_HEALTHY_AI)
+    @patch(_P_SEC, return_value=_HEALTHY_SECURITY)
     def test_degraded_mode_is_degraded(self, _sec, _ai, _redis, _fs):
         """When server is degraded, check marks unhealthy and overall = 503."""
         mock_state = MagicMock()
@@ -220,37 +227,38 @@ class TestHealthCheck:
         mock_state.recovery_hint = "restart"
         mock_state.timestamp = "2026-01-01T00:00:00Z"
 
-        with patch(
-            "aragora.server.handlers.admin.health.detailed.is_degraded",
-            return_value=True,
-        ), patch(
-            "aragora.server.handlers.admin.health.detailed.get_degraded_state",
-            return_value=mock_state,
-        ):
-            # We need the import to succeed inside health_check, so patch at module level
-            import aragora.server.handlers.admin.health.detailed as dm_mod
+        mock_degraded_mod = MagicMock()
+        mock_degraded_mod.is_degraded.return_value = True
+        mock_degraded_mod.get_degraded_state.return_value = mock_state
 
-            # The function does `from aragora.server.degraded_mode import is_degraded, get_degraded_state`
-            # We patch those in sys.modules entry
-            with patch.dict("sys.modules", {
-                "aragora.server.degraded_mode": MagicMock(
-                    is_degraded=MagicMock(return_value=True),
-                    get_degraded_state=MagicMock(return_value=mock_state),
-                )
-            }):
-                h = _make_handler()
-                result = self._call(h)
-                body = _body(result)
-                assert _status(result) == 503
-                assert body["status"] == "degraded"
-                assert body["checks"]["degraded_mode"]["healthy"] is False
+        with patch.dict("sys.modules", {"aragora.server.degraded_mode": mock_degraded_mod}):
+            h = _make_handler()
+            result = self._call(h)
+            body = _body(result)
+            assert _status(result) == 503
+            assert body["status"] == "degraded"
+            assert body["checks"]["degraded_mode"]["healthy"] is False
+            assert body["checks"]["degraded_mode"]["reason"] == "startup failure"
+
+    @patch(_P_FS, return_value=_HEALTHY_FS)
+    @patch(_P_REDIS, return_value=_HEALTHY_REDIS)
+    @patch(_P_AI, return_value=_HEALTHY_AI)
+    @patch(_P_SEC, return_value=_HEALTHY_SECURITY)
+    def test_degraded_mode_import_error(self, _sec, _ai, _redis, _fs):
+        """degraded_mode module not available -> healthy with module_not_available."""
+        with patch.dict("sys.modules", {"aragora.server.degraded_mode": None}):
+            h = _make_handler()
+            body = _body(self._call(h))
+            dm = body["checks"]["degraded_mode"]
+            assert dm["healthy"] is True
+            assert dm["status"] == "module_not_available"
 
     # -- Database check --
 
-    @patch("aragora.server.handlers.admin.health.detailed.check_filesystem_health", return_value=_HEALTHY_FS)
-    @patch("aragora.server.handlers.admin.health.detailed.check_redis_health", return_value=_HEALTHY_REDIS)
-    @patch("aragora.server.handlers.admin.health.detailed.check_ai_providers_health", return_value=_HEALTHY_AI)
-    @patch("aragora.server.handlers.admin.health.detailed.check_security_services", return_value=_HEALTHY_SECURITY)
+    @patch(_P_FS, return_value=_HEALTHY_FS)
+    @patch(_P_REDIS, return_value=_HEALTHY_REDIS)
+    @patch(_P_AI, return_value=_HEALTHY_AI)
+    @patch(_P_SEC, return_value=_HEALTHY_SECURITY)
     def test_database_healthy(self, _sec, _ai, _redis, _fs):
         """Database check passes when storage is available."""
         mock_storage = MagicMock()
@@ -260,10 +268,10 @@ class TestHealthCheck:
         assert body["checks"]["database"]["healthy"] is True
         assert "latency_ms" in body["checks"]["database"]
 
-    @patch("aragora.server.handlers.admin.health.detailed.check_filesystem_health", return_value=_HEALTHY_FS)
-    @patch("aragora.server.handlers.admin.health.detailed.check_redis_health", return_value=_HEALTHY_REDIS)
-    @patch("aragora.server.handlers.admin.health.detailed.check_ai_providers_health", return_value=_HEALTHY_AI)
-    @patch("aragora.server.handlers.admin.health.detailed.check_security_services", return_value=_HEALTHY_SECURITY)
+    @patch(_P_FS, return_value=_HEALTHY_FS)
+    @patch(_P_REDIS, return_value=_HEALTHY_REDIS)
+    @patch(_P_AI, return_value=_HEALTHY_AI)
+    @patch(_P_SEC, return_value=_HEALTHY_SECURITY)
     def test_database_not_initialized(self, _sec, _ai, _redis, _fs):
         """No storage -> warning but still healthy."""
         h = _make_handler()
@@ -273,10 +281,10 @@ class TestHealthCheck:
         assert "warning" in db
         assert db["initialized"] is False
 
-    @patch("aragora.server.handlers.admin.health.detailed.check_filesystem_health", return_value=_HEALTHY_FS)
-    @patch("aragora.server.handlers.admin.health.detailed.check_redis_health", return_value=_HEALTHY_REDIS)
-    @patch("aragora.server.handlers.admin.health.detailed.check_ai_providers_health", return_value=_HEALTHY_AI)
-    @patch("aragora.server.handlers.admin.health.detailed.check_security_services", return_value=_HEALTHY_SECURITY)
+    @patch(_P_FS, return_value=_HEALTHY_FS)
+    @patch(_P_REDIS, return_value=_HEALTHY_REDIS)
+    @patch(_P_AI, return_value=_HEALTHY_AI)
+    @patch(_P_SEC, return_value=_HEALTHY_SECURITY)
     def test_database_error_is_non_critical(self, _sec, _ai, _redis, _fs):
         """Database error is downgraded to warning (healthy=True)."""
         mock_storage = MagicMock()
@@ -289,10 +297,10 @@ class TestHealthCheck:
 
     # -- ELO system check --
 
-    @patch("aragora.server.handlers.admin.health.detailed.check_filesystem_health", return_value=_HEALTHY_FS)
-    @patch("aragora.server.handlers.admin.health.detailed.check_redis_health", return_value=_HEALTHY_REDIS)
-    @patch("aragora.server.handlers.admin.health.detailed.check_ai_providers_health", return_value=_HEALTHY_AI)
-    @patch("aragora.server.handlers.admin.health.detailed.check_security_services", return_value=_HEALTHY_SECURITY)
+    @patch(_P_FS, return_value=_HEALTHY_FS)
+    @patch(_P_REDIS, return_value=_HEALTHY_REDIS)
+    @patch(_P_AI, return_value=_HEALTHY_AI)
+    @patch(_P_SEC, return_value=_HEALTHY_SECURITY)
     def test_elo_system_healthy(self, _sec, _ai, _redis, _fs):
         """ELO system check passes when available."""
         mock_elo = MagicMock()
@@ -301,10 +309,10 @@ class TestHealthCheck:
         body = _body(self._call(h))
         assert body["checks"]["elo_system"]["healthy"] is True
 
-    @patch("aragora.server.handlers.admin.health.detailed.check_filesystem_health", return_value=_HEALTHY_FS)
-    @patch("aragora.server.handlers.admin.health.detailed.check_redis_health", return_value=_HEALTHY_REDIS)
-    @patch("aragora.server.handlers.admin.health.detailed.check_ai_providers_health", return_value=_HEALTHY_AI)
-    @patch("aragora.server.handlers.admin.health.detailed.check_security_services", return_value=_HEALTHY_SECURITY)
+    @patch(_P_FS, return_value=_HEALTHY_FS)
+    @patch(_P_REDIS, return_value=_HEALTHY_REDIS)
+    @patch(_P_AI, return_value=_HEALTHY_AI)
+    @patch(_P_SEC, return_value=_HEALTHY_SECURITY)
     def test_elo_system_not_initialized(self, _sec, _ai, _redis, _fs):
         """No ELO system -> warning but healthy."""
         h = _make_handler()
@@ -313,10 +321,10 @@ class TestHealthCheck:
         assert elo["healthy"] is True
         assert "warning" in elo
 
-    @patch("aragora.server.handlers.admin.health.detailed.check_filesystem_health", return_value=_HEALTHY_FS)
-    @patch("aragora.server.handlers.admin.health.detailed.check_redis_health", return_value=_HEALTHY_REDIS)
-    @patch("aragora.server.handlers.admin.health.detailed.check_ai_providers_health", return_value=_HEALTHY_AI)
-    @patch("aragora.server.handlers.admin.health.detailed.check_security_services", return_value=_HEALTHY_SECURITY)
+    @patch(_P_FS, return_value=_HEALTHY_FS)
+    @patch(_P_REDIS, return_value=_HEALTHY_REDIS)
+    @patch(_P_AI, return_value=_HEALTHY_AI)
+    @patch(_P_SEC, return_value=_HEALTHY_SECURITY)
     def test_elo_system_error_non_critical(self, _sec, _ai, _redis, _fs):
         """ELO error is downgraded to warning."""
         mock_elo = MagicMock()
@@ -328,10 +336,10 @@ class TestHealthCheck:
 
     # -- Nomic directory check --
 
-    @patch("aragora.server.handlers.admin.health.detailed.check_filesystem_health", return_value=_HEALTHY_FS)
-    @patch("aragora.server.handlers.admin.health.detailed.check_redis_health", return_value=_HEALTHY_REDIS)
-    @patch("aragora.server.handlers.admin.health.detailed.check_ai_providers_health", return_value=_HEALTHY_AI)
-    @patch("aragora.server.handlers.admin.health.detailed.check_security_services", return_value=_HEALTHY_SECURITY)
+    @patch(_P_FS, return_value=_HEALTHY_FS)
+    @patch(_P_REDIS, return_value=_HEALTHY_REDIS)
+    @patch(_P_AI, return_value=_HEALTHY_AI)
+    @patch(_P_SEC, return_value=_HEALTHY_SECURITY)
     def test_nomic_dir_exists(self, _sec, _ai, _redis, _fs, tmp_nomic_dir):
         """Nomic dir exists -> healthy with path."""
         h = _make_handler({"nomic_dir": tmp_nomic_dir})
@@ -339,10 +347,10 @@ class TestHealthCheck:
         assert body["checks"]["nomic_dir"]["healthy"] is True
         assert body["checks"]["nomic_dir"]["path"] == str(tmp_nomic_dir)
 
-    @patch("aragora.server.handlers.admin.health.detailed.check_filesystem_health", return_value=_HEALTHY_FS)
-    @patch("aragora.server.handlers.admin.health.detailed.check_redis_health", return_value=_HEALTHY_REDIS)
-    @patch("aragora.server.handlers.admin.health.detailed.check_ai_providers_health", return_value=_HEALTHY_AI)
-    @patch("aragora.server.handlers.admin.health.detailed.check_security_services", return_value=_HEALTHY_SECURITY)
+    @patch(_P_FS, return_value=_HEALTHY_FS)
+    @patch(_P_REDIS, return_value=_HEALTHY_REDIS)
+    @patch(_P_AI, return_value=_HEALTHY_AI)
+    @patch(_P_SEC, return_value=_HEALTHY_SECURITY)
     def test_nomic_dir_not_configured(self, _sec, _ai, _redis, _fs):
         """No nomic dir -> downgraded to warning."""
         h = _make_handler()
@@ -353,15 +361,12 @@ class TestHealthCheck:
 
     # -- Filesystem check --
 
-    @patch("aragora.server.handlers.admin.health.detailed.check_redis_health", return_value=_HEALTHY_REDIS)
-    @patch("aragora.server.handlers.admin.health.detailed.check_ai_providers_health", return_value=_HEALTHY_AI)
-    @patch("aragora.server.handlers.admin.health.detailed.check_security_services", return_value=_HEALTHY_SECURITY)
+    @patch(_P_REDIS, return_value=_HEALTHY_REDIS)
+    @patch(_P_AI, return_value=_HEALTHY_AI)
+    @patch(_P_SEC, return_value=_HEALTHY_SECURITY)
     def test_filesystem_unhealthy_causes_503(self, _sec, _ai, _redis):
         """Filesystem failure makes overall status degraded."""
-        with patch(
-            "aragora.server.handlers.admin.health.detailed.check_filesystem_health",
-            return_value={"healthy": False, "error": "Permission denied"},
-        ):
+        with patch(_P_FS, return_value={"healthy": False, "error": "Permission denied"}):
             h = _make_handler()
             result = self._call(h)
             assert _status(result) == 503
@@ -369,43 +374,34 @@ class TestHealthCheck:
 
     # -- Redis check --
 
-    @patch("aragora.server.handlers.admin.health.detailed.check_filesystem_health", return_value=_HEALTHY_FS)
-    @patch("aragora.server.handlers.admin.health.detailed.check_ai_providers_health", return_value=_HEALTHY_AI)
-    @patch("aragora.server.handlers.admin.health.detailed.check_security_services", return_value=_HEALTHY_SECURITY)
+    @patch(_P_FS, return_value=_HEALTHY_FS)
+    @patch(_P_AI, return_value=_HEALTHY_AI)
+    @patch(_P_SEC, return_value=_HEALTHY_SECURITY)
     def test_redis_configured_and_failing_causes_503(self, _sec, _ai, _fs):
         """Redis configured but failing makes health degraded."""
-        with patch(
-            "aragora.server.handlers.admin.health.detailed.check_redis_health",
-            return_value={"healthy": False, "configured": True, "error": "Connection failed"},
-        ):
+        with patch(_P_REDIS, return_value={"healthy": False, "configured": True, "error": "Connection failed"}):
             h = _make_handler()
             result = self._call(h)
             assert _status(result) == 503
 
-    @patch("aragora.server.handlers.admin.health.detailed.check_filesystem_health", return_value=_HEALTHY_FS)
-    @patch("aragora.server.handlers.admin.health.detailed.check_ai_providers_health", return_value=_HEALTHY_AI)
-    @patch("aragora.server.handlers.admin.health.detailed.check_security_services", return_value=_HEALTHY_SECURITY)
+    @patch(_P_FS, return_value=_HEALTHY_FS)
+    @patch(_P_AI, return_value=_HEALTHY_AI)
+    @patch(_P_SEC, return_value=_HEALTHY_SECURITY)
     def test_redis_not_configured_is_ok(self, _sec, _ai, _fs):
         """Redis not configured does not fail health."""
-        with patch(
-            "aragora.server.handlers.admin.health.detailed.check_redis_health",
-            return_value={"healthy": True, "configured": False},
-        ):
+        with patch(_P_REDIS, return_value={"healthy": True, "configured": False}):
             h = _make_handler()
             result = self._call(h)
             assert _status(result) == 200
 
     # -- AI providers check --
 
-    @patch("aragora.server.handlers.admin.health.detailed.check_filesystem_health", return_value=_HEALTHY_FS)
-    @patch("aragora.server.handlers.admin.health.detailed.check_redis_health", return_value=_HEALTHY_REDIS)
-    @patch("aragora.server.handlers.admin.health.detailed.check_security_services", return_value=_HEALTHY_SECURITY)
+    @patch(_P_FS, return_value=_HEALTHY_FS)
+    @patch(_P_REDIS, return_value=_HEALTHY_REDIS)
+    @patch(_P_SEC, return_value=_HEALTHY_SECURITY)
     def test_no_ai_providers_adds_warning(self, _sec, _redis, _fs):
         """No AI providers -> warning added but still healthy."""
-        with patch(
-            "aragora.server.handlers.admin.health.detailed.check_ai_providers_health",
-            return_value={"healthy": True, "any_available": False, "available_count": 0},
-        ):
+        with patch(_P_AI, return_value={"healthy": True, "any_available": False, "available_count": 0}):
             h = _make_handler()
             result = self._call(h)
             body = _body(result)
@@ -414,10 +410,10 @@ class TestHealthCheck:
 
     # -- WebSocket check in health_check --
 
-    @patch("aragora.server.handlers.admin.health.detailed.check_filesystem_health", return_value=_HEALTHY_FS)
-    @patch("aragora.server.handlers.admin.health.detailed.check_redis_health", return_value=_HEALTHY_REDIS)
-    @patch("aragora.server.handlers.admin.health.detailed.check_ai_providers_health", return_value=_HEALTHY_AI)
-    @patch("aragora.server.handlers.admin.health.detailed.check_security_services", return_value=_HEALTHY_SECURITY)
+    @patch(_P_FS, return_value=_HEALTHY_FS)
+    @patch(_P_REDIS, return_value=_HEALTHY_REDIS)
+    @patch(_P_AI, return_value=_HEALTHY_AI)
+    @patch(_P_SEC, return_value=_HEALTHY_SECURITY)
     def test_websocket_with_manager(self, _sec, _ai, _redis, _fs):
         """WebSocket manager present -> reports client count."""
         ws = MagicMock()
@@ -428,10 +424,10 @@ class TestHealthCheck:
         assert ws_check["healthy"] is True
         assert ws_check["active_clients"] == 2
 
-    @patch("aragora.server.handlers.admin.health.detailed.check_filesystem_health", return_value=_HEALTHY_FS)
-    @patch("aragora.server.handlers.admin.health.detailed.check_redis_health", return_value=_HEALTHY_REDIS)
-    @patch("aragora.server.handlers.admin.health.detailed.check_ai_providers_health", return_value=_HEALTHY_AI)
-    @patch("aragora.server.handlers.admin.health.detailed.check_security_services", return_value=_HEALTHY_SECURITY)
+    @patch(_P_FS, return_value=_HEALTHY_FS)
+    @patch(_P_REDIS, return_value=_HEALTHY_REDIS)
+    @patch(_P_AI, return_value=_HEALTHY_AI)
+    @patch(_P_SEC, return_value=_HEALTHY_SECURITY)
     def test_websocket_no_manager(self, _sec, _ai, _redis, _fs):
         """No ws_manager -> note about separate aiohttp server."""
         h = _make_handler()
@@ -440,62 +436,61 @@ class TestHealthCheck:
         assert ws_check["healthy"] is True
         assert "note" in ws_check
 
-    @patch("aragora.server.handlers.admin.health.detailed.check_filesystem_health", return_value=_HEALTHY_FS)
-    @patch("aragora.server.handlers.admin.health.detailed.check_redis_health", return_value=_HEALTHY_REDIS)
-    @patch("aragora.server.handlers.admin.health.detailed.check_ai_providers_health", return_value=_HEALTHY_AI)
-    @patch("aragora.server.handlers.admin.health.detailed.check_security_services", return_value=_HEALTHY_SECURITY)
-    def test_websocket_manager_error(self, _sec, _ai, _redis, _fs):
-        """ws_manager raises -> unhealthy websocket check."""
-        ws = MagicMock()
-        type(ws).clients = PropertyMock(side_effect=AttributeError("no clients"))
+    @patch(_P_FS, return_value=_HEALTHY_FS)
+    @patch(_P_REDIS, return_value=_HEALTHY_REDIS)
+    @patch(_P_AI, return_value=_HEALTHY_AI)
+    @patch(_P_SEC, return_value=_HEALTHY_SECURITY)
+    def test_websocket_manager_type_error(self, _sec, _ai, _redis, _fs):
+        """ws_manager.clients raises TypeError -> unhealthy websocket check."""
+        # getattr(ws, "clients", []) succeeds, but len() on result raises TypeError
+        ws = MagicMock(spec=[])  # empty spec so getattr uses default
+        # Override __getattr__ to return an un-lenable object
+        ws.clients = MagicMock()
+        ws.clients.__len__ = MagicMock(side_effect=TypeError("bad len"))
         h = _make_handler({"ws_manager": ws})
         body = _body(self._call(h))
         assert body["checks"]["websocket"]["healthy"] is False
 
     # -- Circuit breaker check --
 
-    @patch("aragora.server.handlers.admin.health.detailed.check_filesystem_health", return_value=_HEALTHY_FS)
-    @patch("aragora.server.handlers.admin.health.detailed.check_redis_health", return_value=_HEALTHY_REDIS)
-    @patch("aragora.server.handlers.admin.health.detailed.check_ai_providers_health", return_value=_HEALTHY_AI)
-    @patch("aragora.server.handlers.admin.health.detailed.check_security_services", return_value=_HEALTHY_SECURITY)
+    @patch(_P_FS, return_value=_HEALTHY_FS)
+    @patch(_P_REDIS, return_value=_HEALTHY_REDIS)
+    @patch(_P_AI, return_value=_HEALTHY_AI)
+    @patch(_P_SEC, return_value=_HEALTHY_SECURITY)
     def test_circuit_breakers_healthy(self, _sec, _ai, _redis, _fs):
         """Circuit breakers with <3 open -> healthy."""
-        with patch.dict("sys.modules", {
-            "aragora.resilience": MagicMock(
-                get_circuit_breaker_metrics=MagicMock(return_value={
-                    "summary": {"open_count": 1, "half_open_count": 0, "closed_count": 5}
-                })
-            )
-        }):
+        mock_mod = MagicMock()
+        mock_mod.get_circuit_breaker_metrics.return_value = {
+            "summary": {"open_count": 1, "half_open_count": 0, "closed_count": 5}
+        }
+        with patch.dict("sys.modules", {"aragora.resilience": mock_mod}):
             h = _make_handler()
             body = _body(self._call(h))
             cb = body["checks"]["circuit_breakers"]
             assert cb["healthy"] is True
             assert cb["open"] == 1
 
-    @patch("aragora.server.handlers.admin.health.detailed.check_filesystem_health", return_value=_HEALTHY_FS)
-    @patch("aragora.server.handlers.admin.health.detailed.check_redis_health", return_value=_HEALTHY_REDIS)
-    @patch("aragora.server.handlers.admin.health.detailed.check_ai_providers_health", return_value=_HEALTHY_AI)
-    @patch("aragora.server.handlers.admin.health.detailed.check_security_services", return_value=_HEALTHY_SECURITY)
+    @patch(_P_FS, return_value=_HEALTHY_FS)
+    @patch(_P_REDIS, return_value=_HEALTHY_REDIS)
+    @patch(_P_AI, return_value=_HEALTHY_AI)
+    @patch(_P_SEC, return_value=_HEALTHY_SECURITY)
     def test_circuit_breakers_many_open_503(self, _sec, _ai, _redis, _fs):
         """>=3 open circuit breakers -> degraded."""
-        with patch.dict("sys.modules", {
-            "aragora.resilience": MagicMock(
-                get_circuit_breaker_metrics=MagicMock(return_value={
-                    "summary": {"open_count": 5, "half_open_count": 0, "closed_count": 1}
-                })
-            )
-        }):
+        mock_mod = MagicMock()
+        mock_mod.get_circuit_breaker_metrics.return_value = {
+            "summary": {"open_count": 5, "half_open_count": 0, "closed_count": 1}
+        }
+        with patch.dict("sys.modules", {"aragora.resilience": mock_mod}):
             h = _make_handler()
             result = self._call(h)
             assert _status(result) == 503
 
     # -- Rate limiter check --
 
-    @patch("aragora.server.handlers.admin.health.detailed.check_filesystem_health", return_value=_HEALTHY_FS)
-    @patch("aragora.server.handlers.admin.health.detailed.check_redis_health", return_value=_HEALTHY_REDIS)
-    @patch("aragora.server.handlers.admin.health.detailed.check_ai_providers_health", return_value=_HEALTHY_AI)
-    @patch("aragora.server.handlers.admin.health.detailed.check_security_services", return_value=_HEALTHY_SECURITY)
+    @patch(_P_FS, return_value=_HEALTHY_FS)
+    @patch(_P_REDIS, return_value=_HEALTHY_REDIS)
+    @patch(_P_AI, return_value=_HEALTHY_AI)
+    @patch(_P_SEC, return_value=_HEALTHY_SECURITY)
     def test_rate_limiter_stats(self, _sec, _ai, _redis, _fs):
         """Rate limiter stats are included when available."""
         mock_auth_config = MagicMock()
@@ -504,9 +499,9 @@ class TestHealthCheck:
             "token_entries": 5,
             "revoked_tokens": 2,
         }
-        with patch.dict("sys.modules", {
-            "aragora.server.auth": MagicMock(auth_config=mock_auth_config),
-        }):
+        mock_mod = MagicMock()
+        mock_mod.auth_config = mock_auth_config
+        with patch.dict("sys.modules", {"aragora.server.auth": mock_mod}):
             h = _make_handler()
             body = _body(self._call(h))
             rl = body["checks"]["rate_limiters"]
@@ -516,25 +511,22 @@ class TestHealthCheck:
     # -- Security services in production --
 
     @patch.dict("os.environ", {"ARAGORA_ENV": "production"})
-    @patch("aragora.server.handlers.admin.health.detailed.check_filesystem_health", return_value=_HEALTHY_FS)
-    @patch("aragora.server.handlers.admin.health.detailed.check_redis_health", return_value=_HEALTHY_REDIS)
-    @patch("aragora.server.handlers.admin.health.detailed.check_ai_providers_health", return_value=_HEALTHY_AI)
+    @patch(_P_FS, return_value=_HEALTHY_FS)
+    @patch(_P_REDIS, return_value=_HEALTHY_REDIS)
+    @patch(_P_AI, return_value=_HEALTHY_AI)
     def test_security_not_configured_in_production_degrades(self, _ai, _redis, _fs):
         """Missing encryption in production -> degraded."""
-        with patch(
-            "aragora.server.handlers.admin.health.detailed.check_security_services",
-            return_value={"healthy": True, "encryption_configured": False},
-        ):
+        with patch(_P_SEC, return_value={"healthy": True, "encryption_configured": False}):
             h = _make_handler()
             result = self._call(h)
             assert _status(result) == 503
 
     # -- Version --
 
-    @patch("aragora.server.handlers.admin.health.detailed.check_filesystem_health", return_value=_HEALTHY_FS)
-    @patch("aragora.server.handlers.admin.health.detailed.check_redis_health", return_value=_HEALTHY_REDIS)
-    @patch("aragora.server.handlers.admin.health.detailed.check_ai_providers_health", return_value=_HEALTHY_AI)
-    @patch("aragora.server.handlers.admin.health.detailed.check_security_services", return_value=_HEALTHY_SECURITY)
+    @patch(_P_FS, return_value=_HEALTHY_FS)
+    @patch(_P_REDIS, return_value=_HEALTHY_REDIS)
+    @patch(_P_AI, return_value=_HEALTHY_AI)
+    @patch(_P_SEC, return_value=_HEALTHY_SECURITY)
     def test_version_included(self, _sec, _ai, _redis, _fs):
         """Version is included in the response."""
         h = _make_handler()
@@ -543,15 +535,27 @@ class TestHealthCheck:
 
     # -- Timestamp --
 
-    @patch("aragora.server.handlers.admin.health.detailed.check_filesystem_health", return_value=_HEALTHY_FS)
-    @patch("aragora.server.handlers.admin.health.detailed.check_redis_health", return_value=_HEALTHY_REDIS)
-    @patch("aragora.server.handlers.admin.health.detailed.check_ai_providers_health", return_value=_HEALTHY_AI)
-    @patch("aragora.server.handlers.admin.health.detailed.check_security_services", return_value=_HEALTHY_SECURITY)
+    @patch(_P_FS, return_value=_HEALTHY_FS)
+    @patch(_P_REDIS, return_value=_HEALTHY_REDIS)
+    @patch(_P_AI, return_value=_HEALTHY_AI)
+    @patch(_P_SEC, return_value=_HEALTHY_SECURITY)
     def test_timestamp_is_utc(self, _sec, _ai, _redis, _fs):
         """Timestamp ends with Z (UTC)."""
         h = _make_handler()
         body = _body(self._call(h))
         assert body["timestamp"].endswith("Z")
+
+    # -- Uptime --
+
+    @patch(_P_FS, return_value=_HEALTHY_FS)
+    @patch(_P_REDIS, return_value=_HEALTHY_REDIS)
+    @patch(_P_AI, return_value=_HEALTHY_AI)
+    @patch(_P_SEC, return_value=_HEALTHY_SECURITY)
+    def test_uptime_is_positive(self, _sec, _ai, _redis, _fs):
+        """Uptime seconds should be non-negative."""
+        h = _make_handler()
+        body = _body(self._call(h))
+        assert body["uptime_seconds"] >= 0
 
 
 # ============================================================================
@@ -573,6 +577,12 @@ class TestWebsocketHealth:
         assert _status(result) == 200
         assert body["status"] == "unavailable"
         assert body["clients"] == 0
+
+    def test_no_ws_manager_message(self):
+        """No ws_manager -> message indicates not configured."""
+        h = _make_handler()
+        body = _body(self._call(h))
+        assert "message" in body
 
     def test_healthy_ws(self):
         """WS manager present with clients."""
@@ -596,7 +606,7 @@ class TestWebsocketHealth:
         assert body["clients"] == 0
 
     def test_ws_error_returns_503(self):
-        """WS manager raises -> 503 error."""
+        """WS manager raises RuntimeError -> 503 error."""
         ws = MagicMock()
         type(ws).clients = PropertyMock(side_effect=RuntimeError("ws broken"))
         h = _make_handler({"ws_manager": ws})
@@ -605,13 +615,17 @@ class TestWebsocketHealth:
         body = _body(result)
         assert body["status"] == "error"
 
-    def test_ws_attribute_error(self):
-        """WS manager raises AttributeError -> 503."""
-        ws = MagicMock()
-        type(ws).clients = PropertyMock(side_effect=AttributeError("no clients attr"))
+    def test_ws_attribute_error_fallback(self):
+        """WS manager with no 'clients' attr uses getattr default -> healthy with 0."""
+        # websocket_health uses getattr(ws, "clients", []) so AttributeError
+        # is swallowed by getattr's default. This tests the fallback path.
+        ws = MagicMock(spec=[])  # empty spec: no .clients attribute
         h = _make_handler({"ws_manager": ws})
         result = self._call(h)
-        assert _status(result) == 503
+        body = _body(result)
+        assert _status(result) == 200
+        assert body["status"] == "healthy"
+        assert body["clients"] == 0
 
     def test_ws_type_error(self):
         """WS manager raises TypeError -> 503."""
@@ -637,10 +651,8 @@ class TestDetailedHealthCheck:
         """Response has required top-level keys."""
         h = _make_handler()
         body = _body(self._call(h))
-        assert "status" in body
-        assert "components" in body
-        assert "version" in body
-        assert "warnings" in body
+        for key in ("status", "components", "version", "warnings"):
+            assert key in body, f"Missing key: {key}"
 
     def test_components_reflect_context(self):
         """Components dict reflects what is available in context."""
@@ -674,36 +686,27 @@ class TestDetailedHealthCheck:
     def test_observer_unavailable(self):
         """SimpleObserver not importable -> observer status unavailable."""
         with patch.dict("sys.modules", {"aragora.monitoring.simple_observer": None}):
-            # The import will raise ImportError
             h = _make_handler()
             body = _body(self._call(h))
-            # Observer section should be present with unavailable or error
             if "observer" in body:
                 assert body["observer"]["status"] in ("unavailable", "error")
 
     def test_observer_high_failure_rate_degrades(self):
         """Failure rate > 50% -> status = degraded."""
         mock_observer = MagicMock()
-        mock_observer.get_report.return_value = {
-            "failure_rate": 0.6,
-            "total_calls": 100,
-        }
+        mock_observer.get_report.return_value = {"failure_rate": 0.6, "total_calls": 100}
         mock_module = MagicMock()
         mock_module.SimpleObserver.return_value = mock_observer
         with patch.dict("sys.modules", {"aragora.monitoring.simple_observer": mock_module}):
             h = _make_handler()
             body = _body(self._call(h))
             assert body["status"] == "degraded"
-            # Should have a warning about high failure rate
             assert any("High failure rate" in w for w in body.get("warnings", []))
 
     def test_observer_elevated_failure_rate_warns(self):
         """Failure rate 30-50% -> warning added."""
         mock_observer = MagicMock()
-        mock_observer.get_report.return_value = {
-            "failure_rate": 0.35,
-            "total_calls": 100,
-        }
+        mock_observer.get_report.return_value = {"failure_rate": 0.35, "total_calls": 100}
         mock_module = MagicMock()
         mock_module.SimpleObserver.return_value = mock_observer
         with patch.dict("sys.modules", {"aragora.monitoring.simple_observer": mock_module}):
@@ -714,10 +717,7 @@ class TestDetailedHealthCheck:
     def test_observer_low_failure_rate_healthy(self):
         """Failure rate < 30% -> no warnings from observer."""
         mock_observer = MagicMock()
-        mock_observer.get_report.return_value = {
-            "failure_rate": 0.1,
-            "total_calls": 100,
-        }
+        mock_observer.get_report.return_value = {"failure_rate": 0.1, "total_calls": 100}
         mock_module = MagicMock()
         mock_module.SimpleObserver.return_value = mock_observer
         with patch.dict("sys.modules", {"aragora.monitoring.simple_observer": mock_module}):
@@ -734,7 +734,6 @@ class TestDetailedHealthCheck:
         with patch.dict("sys.modules", {"aragora.monitoring.simple_observer": mock_module}):
             h = _make_handler()
             body = _body(self._call(h))
-            # observer should not contain the report data
             if "observer" in body:
                 assert "failure_rate" not in body.get("observer", {})
 
@@ -781,7 +780,7 @@ class TestDetailedHealthCheck:
     def test_memory_stats_with_psutil(self):
         """Memory stats included when psutil available."""
         mock_process = MagicMock()
-        mock_process.memory_info.return_value.rss = 100 * 1024 * 1024  # 100 MB
+        mock_process.memory_info.return_value.rss = 100 * 1024 * 1024
         mock_process.memory_percent.return_value = 5.0
         mock_psutil = MagicMock()
         mock_psutil.Process.return_value = mock_process
@@ -796,7 +795,6 @@ class TestDetailedHealthCheck:
         with patch.dict("sys.modules", {"psutil": None}):
             h = _make_handler()
             body = _body(self._call(h))
-            # memory key may or may not be present, should not crash
             assert body["status"] in ("healthy", "degraded")
 
     # -- HTTP connector --
@@ -807,9 +805,7 @@ class TestDetailedHealthCheck:
         mock_connector.closed = False
         mock_module = MagicMock()
         mock_module.get_shared_connector.return_value = mock_connector
-        with patch.dict("sys.modules", {
-            "aragora.agents.api_agents.common": mock_module,
-        }):
+        with patch.dict("sys.modules", {"aragora.agents.api_agents.common": mock_module}):
             h = _make_handler()
             body = _body(self._call(h))
             assert body["http_connector"]["status"] == "healthy"
@@ -820,9 +816,7 @@ class TestDetailedHealthCheck:
         mock_connector.closed = True
         mock_module = MagicMock()
         mock_module.get_shared_connector.return_value = mock_connector
-        with patch.dict("sys.modules", {
-            "aragora.agents.api_agents.common": mock_module,
-        }):
+        with patch.dict("sys.modules", {"aragora.agents.api_agents.common": mock_module}):
             h = _make_handler()
             body = _body(self._call(h))
             assert body["http_connector"]["status"] == "closed"
@@ -842,9 +836,7 @@ class TestDetailedHealthCheck:
         """Export cache reports entries."""
         mock_module = MagicMock()
         mock_module.get_export_cache_stats.return_value = {"total_entries": 42}
-        with patch.dict("sys.modules", {
-            "aragora.visualization.exporter": mock_module,
-        }):
+        with patch.dict("sys.modules", {"aragora.visualization.exporter": mock_module}):
             h = _make_handler()
             body = _body(self._call(h))
             assert body["export_cache"]["status"] == "healthy"
@@ -864,9 +856,7 @@ class TestDetailedHealthCheck:
         """Handler cache returns stats."""
         mock_module = MagicMock()
         mock_module.get_cache_stats.return_value = {"hits": 10, "misses": 2}
-        with patch.dict("sys.modules", {
-            "aragora.server.handlers.admin.cache": mock_module,
-        }):
+        with patch.dict("sys.modules", {"aragora.server.handlers.admin.cache": mock_module}):
             h = _make_handler()
             body = _body(self._call(h))
             assert body["handler_cache"]["status"] == "healthy"
@@ -898,14 +888,14 @@ class TestDeepHealthCheck:
         return handler._deep_health_check()
 
     def _make_deep_handler(self, ctx=None):
-        """Create handler with common deep health patches."""
+        """Create handler with given context."""
         return _make_handler(ctx or {})
 
-    @patch("aragora.server.handlers.admin.health.detailed.check_filesystem_health", return_value=_HEALTHY_FS)
-    @patch("aragora.server.handlers.admin.health.detailed.check_redis_health", return_value=_HEALTHY_REDIS)
-    @patch("aragora.server.handlers.admin.health.detailed.check_ai_providers_health", return_value=_HEALTHY_AI)
-    @patch("aragora.server.handlers.admin.health.detailed.check_stripe_health", return_value={"healthy": True, "configured": False})
-    @patch("aragora.server.handlers.admin.health.detailed.check_slack_health", return_value={"healthy": True, "configured": False})
+    @patch(_P_FS, return_value=_HEALTHY_FS)
+    @patch(_P_REDIS, return_value=_HEALTHY_REDIS)
+    @patch(_P_AI, return_value=_HEALTHY_AI)
+    @patch(_P_STRIPE, return_value=_HEALTHY_STRIPE)
+    @patch(_P_SLACK, return_value=_HEALTHY_SLACK)
     def test_healthy_response(self, _slack, _stripe, _ai, _redis, _fs):
         """All checks pass -> status=healthy, 200."""
         h = self._make_deep_handler()
@@ -914,26 +904,23 @@ class TestDeepHealthCheck:
         assert _status(result) == 200
         assert body["status"] in ("healthy", "healthy_with_warnings")
 
-    @patch("aragora.server.handlers.admin.health.detailed.check_filesystem_health", return_value=_HEALTHY_FS)
-    @patch("aragora.server.handlers.admin.health.detailed.check_redis_health", return_value=_HEALTHY_REDIS)
-    @patch("aragora.server.handlers.admin.health.detailed.check_ai_providers_health", return_value=_HEALTHY_AI)
-    @patch("aragora.server.handlers.admin.health.detailed.check_stripe_health", return_value={"healthy": True, "configured": False})
-    @patch("aragora.server.handlers.admin.health.detailed.check_slack_health", return_value={"healthy": True, "configured": False})
+    @patch(_P_FS, return_value=_HEALTHY_FS)
+    @patch(_P_REDIS, return_value=_HEALTHY_REDIS)
+    @patch(_P_AI, return_value=_HEALTHY_AI)
+    @patch(_P_STRIPE, return_value=_HEALTHY_STRIPE)
+    @patch(_P_SLACK, return_value=_HEALTHY_SLACK)
     def test_response_has_required_fields(self, _slack, _stripe, _ai, _redis, _fs):
         """Response contains standard fields."""
         h = self._make_deep_handler()
         body = _body(self._call(h))
-        assert "status" in body
-        assert "version" in body
-        assert "checks" in body
-        assert "response_time_ms" in body
-        assert "timestamp" in body
+        for key in ("status", "version", "checks", "response_time_ms", "timestamp"):
+            assert key in body, f"Missing key: {key}"
 
-    @patch("aragora.server.handlers.admin.health.detailed.check_filesystem_health", return_value=_HEALTHY_FS)
-    @patch("aragora.server.handlers.admin.health.detailed.check_redis_health", return_value=_HEALTHY_REDIS)
-    @patch("aragora.server.handlers.admin.health.detailed.check_ai_providers_health", return_value=_HEALTHY_AI)
-    @patch("aragora.server.handlers.admin.health.detailed.check_stripe_health", return_value={"healthy": True, "configured": False})
-    @patch("aragora.server.handlers.admin.health.detailed.check_slack_health", return_value={"healthy": True, "configured": False})
+    @patch(_P_FS, return_value=_HEALTHY_FS)
+    @patch(_P_REDIS, return_value=_HEALTHY_REDIS)
+    @patch(_P_AI, return_value=_HEALTHY_AI)
+    @patch(_P_STRIPE, return_value=_HEALTHY_STRIPE)
+    @patch(_P_SLACK, return_value=_HEALTHY_SLACK)
     def test_timestamp_is_utc(self, _slack, _stripe, _ai, _redis, _fs):
         """Timestamp ends with Z."""
         h = self._make_deep_handler()
@@ -942,11 +929,11 @@ class TestDeepHealthCheck:
 
     # -- Storage deep check --
 
-    @patch("aragora.server.handlers.admin.health.detailed.check_filesystem_health", return_value=_HEALTHY_FS)
-    @patch("aragora.server.handlers.admin.health.detailed.check_redis_health", return_value=_HEALTHY_REDIS)
-    @patch("aragora.server.handlers.admin.health.detailed.check_ai_providers_health", return_value=_HEALTHY_AI)
-    @patch("aragora.server.handlers.admin.health.detailed.check_stripe_health", return_value={"healthy": True, "configured": False})
-    @patch("aragora.server.handlers.admin.health.detailed.check_slack_health", return_value={"healthy": True, "configured": False})
+    @patch(_P_FS, return_value=_HEALTHY_FS)
+    @patch(_P_REDIS, return_value=_HEALTHY_REDIS)
+    @patch(_P_AI, return_value=_HEALTHY_AI)
+    @patch(_P_STRIPE, return_value=_HEALTHY_STRIPE)
+    @patch(_P_SLACK, return_value=_HEALTHY_SLACK)
     def test_storage_connected(self, _slack, _stripe, _ai, _redis, _fs):
         """Storage accessible -> connected."""
         mock_storage = MagicMock()
@@ -956,11 +943,11 @@ class TestDeepHealthCheck:
         assert body["checks"]["storage"]["healthy"] is True
         assert body["checks"]["storage"]["status"] == "connected"
 
-    @patch("aragora.server.handlers.admin.health.detailed.check_filesystem_health", return_value=_HEALTHY_FS)
-    @patch("aragora.server.handlers.admin.health.detailed.check_redis_health", return_value=_HEALTHY_REDIS)
-    @patch("aragora.server.handlers.admin.health.detailed.check_ai_providers_health", return_value=_HEALTHY_AI)
-    @patch("aragora.server.handlers.admin.health.detailed.check_stripe_health", return_value={"healthy": True, "configured": False})
-    @patch("aragora.server.handlers.admin.health.detailed.check_slack_health", return_value={"healthy": True, "configured": False})
+    @patch(_P_FS, return_value=_HEALTHY_FS)
+    @patch(_P_REDIS, return_value=_HEALTHY_REDIS)
+    @patch(_P_AI, return_value=_HEALTHY_AI)
+    @patch(_P_STRIPE, return_value=_HEALTHY_STRIPE)
+    @patch(_P_SLACK, return_value=_HEALTHY_SLACK)
     def test_storage_not_configured(self, _slack, _stripe, _ai, _redis, _fs):
         """No storage -> not_configured (still healthy)."""
         h = self._make_deep_handler()
@@ -968,28 +955,27 @@ class TestDeepHealthCheck:
         assert body["checks"]["storage"]["healthy"] is True
         assert body["checks"]["storage"]["status"] == "not_configured"
 
-    @patch("aragora.server.handlers.admin.health.detailed.check_filesystem_health", return_value=_HEALTHY_FS)
-    @patch("aragora.server.handlers.admin.health.detailed.check_redis_health", return_value=_HEALTHY_REDIS)
-    @patch("aragora.server.handlers.admin.health.detailed.check_ai_providers_health", return_value=_HEALTHY_AI)
-    @patch("aragora.server.handlers.admin.health.detailed.check_stripe_health", return_value={"healthy": True, "configured": False})
-    @patch("aragora.server.handlers.admin.health.detailed.check_slack_health", return_value={"healthy": True, "configured": False})
+    @patch(_P_FS, return_value=_HEALTHY_FS)
+    @patch(_P_REDIS, return_value=_HEALTHY_REDIS)
+    @patch(_P_AI, return_value=_HEALTHY_AI)
+    @patch(_P_STRIPE, return_value=_HEALTHY_STRIPE)
+    @patch(_P_SLACK, return_value=_HEALTHY_SLACK)
     def test_storage_error_degrades(self, _slack, _stripe, _ai, _redis, _fs):
         """Storage raises -> unhealthy, status=degraded."""
         mock_storage = MagicMock()
         mock_storage.list_recent.side_effect = RuntimeError("db error")
         h = self._make_deep_handler({"storage": mock_storage})
-        result = self._call(h)
-        body = _body(result)
+        body = _body(self._call(h))
         assert body["checks"]["storage"]["healthy"] is False
         assert body["status"] == "degraded"
 
     # -- ELO deep check --
 
-    @patch("aragora.server.handlers.admin.health.detailed.check_filesystem_health", return_value=_HEALTHY_FS)
-    @patch("aragora.server.handlers.admin.health.detailed.check_redis_health", return_value=_HEALTHY_REDIS)
-    @patch("aragora.server.handlers.admin.health.detailed.check_ai_providers_health", return_value=_HEALTHY_AI)
-    @patch("aragora.server.handlers.admin.health.detailed.check_stripe_health", return_value={"healthy": True, "configured": False})
-    @patch("aragora.server.handlers.admin.health.detailed.check_slack_health", return_value={"healthy": True, "configured": False})
+    @patch(_P_FS, return_value=_HEALTHY_FS)
+    @patch(_P_REDIS, return_value=_HEALTHY_REDIS)
+    @patch(_P_AI, return_value=_HEALTHY_AI)
+    @patch(_P_STRIPE, return_value=_HEALTHY_STRIPE)
+    @patch(_P_SLACK, return_value=_HEALTHY_SLACK)
     def test_elo_connected(self, _slack, _stripe, _ai, _redis, _fs):
         """ELO system accessible -> connected."""
         mock_elo = MagicMock()
@@ -998,11 +984,11 @@ class TestDeepHealthCheck:
         body = _body(self._call(h))
         assert body["checks"]["elo_system"]["healthy"] is True
 
-    @patch("aragora.server.handlers.admin.health.detailed.check_filesystem_health", return_value=_HEALTHY_FS)
-    @patch("aragora.server.handlers.admin.health.detailed.check_redis_health", return_value=_HEALTHY_REDIS)
-    @patch("aragora.server.handlers.admin.health.detailed.check_ai_providers_health", return_value=_HEALTHY_AI)
-    @patch("aragora.server.handlers.admin.health.detailed.check_stripe_health", return_value={"healthy": True, "configured": False})
-    @patch("aragora.server.handlers.admin.health.detailed.check_slack_health", return_value={"healthy": True, "configured": False})
+    @patch(_P_FS, return_value=_HEALTHY_FS)
+    @patch(_P_REDIS, return_value=_HEALTHY_REDIS)
+    @patch(_P_AI, return_value=_HEALTHY_AI)
+    @patch(_P_STRIPE, return_value=_HEALTHY_STRIPE)
+    @patch(_P_SLACK, return_value=_HEALTHY_SLACK)
     def test_elo_error_degrades(self, _slack, _stripe, _ai, _redis, _fs):
         """ELO raises -> unhealthy, degrades."""
         mock_elo = MagicMock()
@@ -1014,11 +1000,11 @@ class TestDeepHealthCheck:
 
     # -- Supabase check --
 
-    @patch("aragora.server.handlers.admin.health.detailed.check_filesystem_health", return_value=_HEALTHY_FS)
-    @patch("aragora.server.handlers.admin.health.detailed.check_redis_health", return_value=_HEALTHY_REDIS)
-    @patch("aragora.server.handlers.admin.health.detailed.check_ai_providers_health", return_value=_HEALTHY_AI)
-    @patch("aragora.server.handlers.admin.health.detailed.check_stripe_health", return_value={"healthy": True, "configured": False})
-    @patch("aragora.server.handlers.admin.health.detailed.check_slack_health", return_value={"healthy": True, "configured": False})
+    @patch(_P_FS, return_value=_HEALTHY_FS)
+    @patch(_P_REDIS, return_value=_HEALTHY_REDIS)
+    @patch(_P_AI, return_value=_HEALTHY_AI)
+    @patch(_P_STRIPE, return_value=_HEALTHY_STRIPE)
+    @patch(_P_SLACK, return_value=_HEALTHY_SLACK)
     def test_supabase_not_configured(self, _slack, _stripe, _ai, _redis, _fs):
         """Supabase not configured -> healthy with not_configured status."""
         mock_client = MagicMock()
@@ -1026,19 +1012,17 @@ class TestDeepHealthCheck:
         mock_client.client = None
         mock_module = MagicMock()
         mock_module.SupabaseClient.return_value = mock_client
-        with patch.dict("sys.modules", {
-            "aragora.persistence.supabase_client": mock_module,
-        }):
+        with patch.dict("sys.modules", {"aragora.persistence.supabase_client": mock_module}):
             h = self._make_deep_handler()
             body = _body(self._call(h))
             assert body["checks"]["supabase"]["healthy"] is True
             assert body["checks"]["supabase"]["status"] == "not_configured"
 
-    @patch("aragora.server.handlers.admin.health.detailed.check_filesystem_health", return_value=_HEALTHY_FS)
-    @patch("aragora.server.handlers.admin.health.detailed.check_redis_health", return_value=_HEALTHY_REDIS)
-    @patch("aragora.server.handlers.admin.health.detailed.check_ai_providers_health", return_value=_HEALTHY_AI)
-    @patch("aragora.server.handlers.admin.health.detailed.check_stripe_health", return_value={"healthy": True, "configured": False})
-    @patch("aragora.server.handlers.admin.health.detailed.check_slack_health", return_value={"healthy": True, "configured": False})
+    @patch(_P_FS, return_value=_HEALTHY_FS)
+    @patch(_P_REDIS, return_value=_HEALTHY_REDIS)
+    @patch(_P_AI, return_value=_HEALTHY_AI)
+    @patch(_P_STRIPE, return_value=_HEALTHY_STRIPE)
+    @patch(_P_SLACK, return_value=_HEALTHY_SLACK)
     def test_supabase_import_error(self, _slack, _stripe, _ai, _redis, _fs):
         """Supabase module missing -> module_not_available."""
         with patch.dict("sys.modules", {"aragora.persistence.supabase_client": None}):
@@ -1048,11 +1032,11 @@ class TestDeepHealthCheck:
 
     # -- User store check --
 
-    @patch("aragora.server.handlers.admin.health.detailed.check_filesystem_health", return_value=_HEALTHY_FS)
-    @patch("aragora.server.handlers.admin.health.detailed.check_redis_health", return_value=_HEALTHY_REDIS)
-    @patch("aragora.server.handlers.admin.health.detailed.check_ai_providers_health", return_value=_HEALTHY_AI)
-    @patch("aragora.server.handlers.admin.health.detailed.check_stripe_health", return_value={"healthy": True, "configured": False})
-    @patch("aragora.server.handlers.admin.health.detailed.check_slack_health", return_value={"healthy": True, "configured": False})
+    @patch(_P_FS, return_value=_HEALTHY_FS)
+    @patch(_P_REDIS, return_value=_HEALTHY_REDIS)
+    @patch(_P_AI, return_value=_HEALTHY_AI)
+    @patch(_P_STRIPE, return_value=_HEALTHY_STRIPE)
+    @patch(_P_SLACK, return_value=_HEALTHY_SLACK)
     def test_user_store_not_configured(self, _slack, _stripe, _ai, _redis, _fs):
         """No user store -> not_configured."""
         h = self._make_deep_handler()
@@ -1062,47 +1046,43 @@ class TestDeepHealthCheck:
 
     # -- Billing check --
 
-    @patch("aragora.server.handlers.admin.health.detailed.check_filesystem_health", return_value=_HEALTHY_FS)
-    @patch("aragora.server.handlers.admin.health.detailed.check_redis_health", return_value=_HEALTHY_REDIS)
-    @patch("aragora.server.handlers.admin.health.detailed.check_ai_providers_health", return_value=_HEALTHY_AI)
-    @patch("aragora.server.handlers.admin.health.detailed.check_stripe_health", return_value={"healthy": True, "configured": False})
-    @patch("aragora.server.handlers.admin.health.detailed.check_slack_health", return_value={"healthy": True, "configured": False})
+    @patch(_P_FS, return_value=_HEALTHY_FS)
+    @patch(_P_REDIS, return_value=_HEALTHY_REDIS)
+    @patch(_P_AI, return_value=_HEALTHY_AI)
+    @patch(_P_STRIPE, return_value=_HEALTHY_STRIPE)
+    @patch(_P_SLACK, return_value=_HEALTHY_SLACK)
     def test_billing_not_configured(self, _slack, _stripe, _ai, _redis, _fs):
         """Billing module present but not configured."""
         mock_client = MagicMock()
         mock_client._is_configured.return_value = False
         mock_module = MagicMock()
         mock_module.StripeClient.return_value = mock_client
-        with patch.dict("sys.modules", {
-            "aragora.billing.stripe_client": mock_module,
-        }):
+        with patch.dict("sys.modules", {"aragora.billing.stripe_client": mock_module}):
             h = self._make_deep_handler()
             body = _body(self._call(h))
             assert body["checks"]["billing"]["status"] == "not_configured"
 
-    @patch("aragora.server.handlers.admin.health.detailed.check_filesystem_health", return_value=_HEALTHY_FS)
-    @patch("aragora.server.handlers.admin.health.detailed.check_redis_health", return_value=_HEALTHY_REDIS)
-    @patch("aragora.server.handlers.admin.health.detailed.check_ai_providers_health", return_value=_HEALTHY_AI)
-    @patch("aragora.server.handlers.admin.health.detailed.check_stripe_health", return_value={"healthy": True, "configured": False})
-    @patch("aragora.server.handlers.admin.health.detailed.check_slack_health", return_value={"healthy": True, "configured": False})
+    @patch(_P_FS, return_value=_HEALTHY_FS)
+    @patch(_P_REDIS, return_value=_HEALTHY_REDIS)
+    @patch(_P_AI, return_value=_HEALTHY_AI)
+    @patch(_P_STRIPE, return_value=_HEALTHY_STRIPE)
+    @patch(_P_SLACK, return_value=_HEALTHY_SLACK)
     def test_billing_configured(self, _slack, _stripe, _ai, _redis, _fs):
         """Billing configured -> status configured."""
         mock_client = MagicMock()
         mock_client._is_configured.return_value = True
         mock_module = MagicMock()
         mock_module.StripeClient.return_value = mock_client
-        with patch.dict("sys.modules", {
-            "aragora.billing.stripe_client": mock_module,
-        }):
+        with patch.dict("sys.modules", {"aragora.billing.stripe_client": mock_module}):
             h = self._make_deep_handler()
             body = _body(self._call(h))
             assert body["checks"]["billing"]["status"] == "configured"
 
-    @patch("aragora.server.handlers.admin.health.detailed.check_filesystem_health", return_value=_HEALTHY_FS)
-    @patch("aragora.server.handlers.admin.health.detailed.check_redis_health", return_value=_HEALTHY_REDIS)
-    @patch("aragora.server.handlers.admin.health.detailed.check_ai_providers_health", return_value=_HEALTHY_AI)
-    @patch("aragora.server.handlers.admin.health.detailed.check_stripe_health", return_value={"healthy": True, "configured": False})
-    @patch("aragora.server.handlers.admin.health.detailed.check_slack_health", return_value={"healthy": True, "configured": False})
+    @patch(_P_FS, return_value=_HEALTHY_FS)
+    @patch(_P_REDIS, return_value=_HEALTHY_REDIS)
+    @patch(_P_AI, return_value=_HEALTHY_AI)
+    @patch(_P_STRIPE, return_value=_HEALTHY_STRIPE)
+    @patch(_P_SLACK, return_value=_HEALTHY_SLACK)
     def test_billing_import_error(self, _slack, _stripe, _ai, _redis, _fs):
         """Billing module missing -> module_not_available."""
         with patch.dict("sys.modules", {"aragora.billing.stripe_client": None}):
@@ -1112,27 +1092,24 @@ class TestDeepHealthCheck:
 
     # -- Filesystem deep check --
 
-    @patch("aragora.server.handlers.admin.health.detailed.check_redis_health", return_value=_HEALTHY_REDIS)
-    @patch("aragora.server.handlers.admin.health.detailed.check_ai_providers_health", return_value=_HEALTHY_AI)
-    @patch("aragora.server.handlers.admin.health.detailed.check_stripe_health", return_value={"healthy": True, "configured": False})
-    @patch("aragora.server.handlers.admin.health.detailed.check_slack_health", return_value={"healthy": True, "configured": False})
+    @patch(_P_REDIS, return_value=_HEALTHY_REDIS)
+    @patch(_P_AI, return_value=_HEALTHY_AI)
+    @patch(_P_STRIPE, return_value=_HEALTHY_STRIPE)
+    @patch(_P_SLACK, return_value=_HEALTHY_SLACK)
     def test_filesystem_failure_degrades(self, _slack, _stripe, _ai, _redis):
         """Filesystem failure in deep check -> degraded."""
-        with patch(
-            "aragora.server.handlers.admin.health.detailed.check_filesystem_health",
-            return_value={"healthy": False, "error": "Permission denied"},
-        ):
+        with patch(_P_FS, return_value={"healthy": False, "error": "Permission denied"}):
             h = self._make_deep_handler()
             body = _body(self._call(h))
             assert body["status"] == "degraded"
 
     # -- System resources (psutil) --
 
-    @patch("aragora.server.handlers.admin.health.detailed.check_filesystem_health", return_value=_HEALTHY_FS)
-    @patch("aragora.server.handlers.admin.health.detailed.check_redis_health", return_value=_HEALTHY_REDIS)
-    @patch("aragora.server.handlers.admin.health.detailed.check_ai_providers_health", return_value=_HEALTHY_AI)
-    @patch("aragora.server.handlers.admin.health.detailed.check_stripe_health", return_value={"healthy": True, "configured": False})
-    @patch("aragora.server.handlers.admin.health.detailed.check_slack_health", return_value={"healthy": True, "configured": False})
+    @patch(_P_FS, return_value=_HEALTHY_FS)
+    @patch(_P_REDIS, return_value=_HEALTHY_REDIS)
+    @patch(_P_AI, return_value=_HEALTHY_AI)
+    @patch(_P_STRIPE, return_value=_HEALTHY_STRIPE)
+    @patch(_P_SLACK, return_value=_HEALTHY_SLACK)
     def test_high_memory_usage_degrades(self, _slack, _stripe, _ai, _redis, _fs):
         """Memory >=90% -> degraded."""
         mock_psutil = MagicMock()
@@ -1152,11 +1129,11 @@ class TestDeepHealthCheck:
             assert body["checks"]["memory"]["healthy"] is False
             assert body["status"] == "degraded"
 
-    @patch("aragora.server.handlers.admin.health.detailed.check_filesystem_health", return_value=_HEALTHY_FS)
-    @patch("aragora.server.handlers.admin.health.detailed.check_redis_health", return_value=_HEALTHY_REDIS)
-    @patch("aragora.server.handlers.admin.health.detailed.check_ai_providers_health", return_value=_HEALTHY_AI)
-    @patch("aragora.server.handlers.admin.health.detailed.check_stripe_health", return_value={"healthy": True, "configured": False})
-    @patch("aragora.server.handlers.admin.health.detailed.check_slack_health", return_value={"healthy": True, "configured": False})
+    @patch(_P_FS, return_value=_HEALTHY_FS)
+    @patch(_P_REDIS, return_value=_HEALTHY_REDIS)
+    @patch(_P_AI, return_value=_HEALTHY_AI)
+    @patch(_P_STRIPE, return_value=_HEALTHY_STRIPE)
+    @patch(_P_SLACK, return_value=_HEALTHY_SLACK)
     def test_elevated_memory_warning(self, _slack, _stripe, _ai, _redis, _fs):
         """Memory 80-89% -> warning."""
         mock_psutil = MagicMock()
@@ -1176,11 +1153,11 @@ class TestDeepHealthCheck:
             warnings = body.get("warnings") or []
             assert any("Elevated memory" in w for w in warnings)
 
-    @patch("aragora.server.handlers.admin.health.detailed.check_filesystem_health", return_value=_HEALTHY_FS)
-    @patch("aragora.server.handlers.admin.health.detailed.check_redis_health", return_value=_HEALTHY_REDIS)
-    @patch("aragora.server.handlers.admin.health.detailed.check_ai_providers_health", return_value=_HEALTHY_AI)
-    @patch("aragora.server.handlers.admin.health.detailed.check_stripe_health", return_value={"healthy": True, "configured": False})
-    @patch("aragora.server.handlers.admin.health.detailed.check_slack_health", return_value={"healthy": True, "configured": False})
+    @patch(_P_FS, return_value=_HEALTHY_FS)
+    @patch(_P_REDIS, return_value=_HEALTHY_REDIS)
+    @patch(_P_AI, return_value=_HEALTHY_AI)
+    @patch(_P_STRIPE, return_value=_HEALTHY_STRIPE)
+    @patch(_P_SLACK, return_value=_HEALTHY_SLACK)
     def test_high_disk_usage_degrades(self, _slack, _stripe, _ai, _redis, _fs):
         """Disk >=90% -> degraded."""
         mock_psutil = MagicMock()
@@ -1200,11 +1177,11 @@ class TestDeepHealthCheck:
             assert body["checks"]["disk"]["healthy"] is False
             assert body["status"] == "degraded"
 
-    @patch("aragora.server.handlers.admin.health.detailed.check_filesystem_health", return_value=_HEALTHY_FS)
-    @patch("aragora.server.handlers.admin.health.detailed.check_redis_health", return_value=_HEALTHY_REDIS)
-    @patch("aragora.server.handlers.admin.health.detailed.check_ai_providers_health", return_value=_HEALTHY_AI)
-    @patch("aragora.server.handlers.admin.health.detailed.check_stripe_health", return_value={"healthy": True, "configured": False})
-    @patch("aragora.server.handlers.admin.health.detailed.check_slack_health", return_value={"healthy": True, "configured": False})
+    @patch(_P_FS, return_value=_HEALTHY_FS)
+    @patch(_P_REDIS, return_value=_HEALTHY_REDIS)
+    @patch(_P_AI, return_value=_HEALTHY_AI)
+    @patch(_P_STRIPE, return_value=_HEALTHY_STRIPE)
+    @patch(_P_SLACK, return_value=_HEALTHY_SLACK)
     def test_disk_space_warning(self, _slack, _stripe, _ai, _redis, _fs):
         """Disk 80-89% -> warning."""
         mock_psutil = MagicMock()
@@ -1224,11 +1201,11 @@ class TestDeepHealthCheck:
             warnings = body.get("warnings") or []
             assert any("Disk space warning" in w for w in warnings)
 
-    @patch("aragora.server.handlers.admin.health.detailed.check_filesystem_health", return_value=_HEALTHY_FS)
-    @patch("aragora.server.handlers.admin.health.detailed.check_redis_health", return_value=_HEALTHY_REDIS)
-    @patch("aragora.server.handlers.admin.health.detailed.check_ai_providers_health", return_value=_HEALTHY_AI)
-    @patch("aragora.server.handlers.admin.health.detailed.check_stripe_health", return_value={"healthy": True, "configured": False})
-    @patch("aragora.server.handlers.admin.health.detailed.check_slack_health", return_value={"healthy": True, "configured": False})
+    @patch(_P_FS, return_value=_HEALTHY_FS)
+    @patch(_P_REDIS, return_value=_HEALTHY_REDIS)
+    @patch(_P_AI, return_value=_HEALTHY_AI)
+    @patch(_P_STRIPE, return_value=_HEALTHY_STRIPE)
+    @patch(_P_SLACK, return_value=_HEALTHY_SLACK)
     def test_high_cpu_warning(self, _slack, _stripe, _ai, _redis, _fs):
         """CPU >=90% -> warning."""
         mock_psutil = MagicMock()
@@ -1248,33 +1225,29 @@ class TestDeepHealthCheck:
             warnings = body.get("warnings") or []
             assert any("High CPU" in w for w in warnings)
 
-    @patch("aragora.server.handlers.admin.health.detailed.check_filesystem_health", return_value=_HEALTHY_FS)
-    @patch("aragora.server.handlers.admin.health.detailed.check_redis_health", return_value=_HEALTHY_REDIS)
-    @patch("aragora.server.handlers.admin.health.detailed.check_ai_providers_health", return_value=_HEALTHY_AI)
-    @patch("aragora.server.handlers.admin.health.detailed.check_stripe_health", return_value={"healthy": True, "configured": False})
-    @patch("aragora.server.handlers.admin.health.detailed.check_slack_health", return_value={"healthy": True, "configured": False})
+    @patch(_P_FS, return_value=_HEALTHY_FS)
+    @patch(_P_REDIS, return_value=_HEALTHY_REDIS)
+    @patch(_P_AI, return_value=_HEALTHY_AI)
+    @patch(_P_STRIPE, return_value=_HEALTHY_STRIPE)
+    @patch(_P_SLACK, return_value=_HEALTHY_SLACK)
     def test_psutil_not_available(self, _slack, _stripe, _ai, _redis, _fs):
         """No psutil -> system_resources with psutil_not_available."""
         with patch.dict("sys.modules", {"psutil": None}):
             h = self._make_deep_handler()
             body = _body(self._call(h))
-            # Should have system_resources key or no memory/cpu/disk keys
             if "system_resources" in body["checks"]:
                 assert body["checks"]["system_resources"]["status"] == "psutil_not_available"
             assert body["status"] in ("healthy", "healthy_with_warnings")
 
     # -- Stripe check --
 
-    @patch("aragora.server.handlers.admin.health.detailed.check_filesystem_health", return_value=_HEALTHY_FS)
-    @patch("aragora.server.handlers.admin.health.detailed.check_redis_health", return_value=_HEALTHY_REDIS)
-    @patch("aragora.server.handlers.admin.health.detailed.check_ai_providers_health", return_value=_HEALTHY_AI)
-    @patch("aragora.server.handlers.admin.health.detailed.check_slack_health", return_value={"healthy": True, "configured": False})
+    @patch(_P_FS, return_value=_HEALTHY_FS)
+    @patch(_P_REDIS, return_value=_HEALTHY_REDIS)
+    @patch(_P_AI, return_value=_HEALTHY_AI)
+    @patch(_P_SLACK, return_value=_HEALTHY_SLACK)
     def test_stripe_configured_and_failing(self, _slack, _ai, _redis, _fs):
         """Stripe configured but failing -> degraded + warning."""
-        with patch(
-            "aragora.server.handlers.admin.health.detailed.check_stripe_health",
-            return_value={"healthy": False, "configured": True, "error": "Auth failed"},
-        ):
+        with patch(_P_STRIPE, return_value={"healthy": False, "configured": True, "error": "Auth failed"}):
             h = self._make_deep_handler()
             body = _body(self._call(h))
             assert body["status"] == "degraded"
@@ -1283,16 +1256,13 @@ class TestDeepHealthCheck:
 
     # -- Slack check --
 
-    @patch("aragora.server.handlers.admin.health.detailed.check_filesystem_health", return_value=_HEALTHY_FS)
-    @patch("aragora.server.handlers.admin.health.detailed.check_redis_health", return_value=_HEALTHY_REDIS)
-    @patch("aragora.server.handlers.admin.health.detailed.check_ai_providers_health", return_value=_HEALTHY_AI)
-    @patch("aragora.server.handlers.admin.health.detailed.check_stripe_health", return_value={"healthy": True, "configured": False})
+    @patch(_P_FS, return_value=_HEALTHY_FS)
+    @patch(_P_REDIS, return_value=_HEALTHY_REDIS)
+    @patch(_P_AI, return_value=_HEALTHY_AI)
+    @patch(_P_STRIPE, return_value=_HEALTHY_STRIPE)
     def test_slack_configured_and_failing(self, _stripe, _ai, _redis, _fs):
         """Slack configured but failing -> degraded + warning."""
-        with patch(
-            "aragora.server.handlers.admin.health.detailed.check_slack_health",
-            return_value={"healthy": False, "configured": True, "error": "Connection failed"},
-        ):
+        with patch(_P_SLACK, return_value={"healthy": False, "configured": True, "error": "Connection failed"}):
             h = self._make_deep_handler()
             body = _body(self._call(h))
             assert body["status"] == "degraded"
@@ -1301,30 +1271,26 @@ class TestDeepHealthCheck:
 
     # -- Healthy with warnings status --
 
-    @patch("aragora.server.handlers.admin.health.detailed.check_filesystem_health", return_value=_HEALTHY_FS)
-    @patch("aragora.server.handlers.admin.health.detailed.check_redis_health", return_value=_HEALTHY_REDIS)
-    @patch("aragora.server.handlers.admin.health.detailed.check_stripe_health", return_value={"healthy": True, "configured": False})
-    @patch("aragora.server.handlers.admin.health.detailed.check_slack_health", return_value={"healthy": True, "configured": False})
+    @patch(_P_FS, return_value=_HEALTHY_FS)
+    @patch(_P_REDIS, return_value=_HEALTHY_REDIS)
+    @patch(_P_STRIPE, return_value=_HEALTHY_STRIPE)
+    @patch(_P_SLACK, return_value=_HEALTHY_SLACK)
     def test_healthy_with_warnings_status(self, _slack, _stripe, _redis, _fs):
         """Warnings but no failures -> healthy_with_warnings."""
-        with patch(
-            "aragora.server.handlers.admin.health.detailed.check_ai_providers_health",
-            return_value={"healthy": True, "any_available": False, "available_count": 0},
-        ):
+        with patch(_P_AI, return_value={"healthy": True, "any_available": False, "available_count": 0}):
             h = self._make_deep_handler()
             body = _body(self._call(h))
-            # No AI providers produces a warning
             assert body["status"] == "healthy_with_warnings"
             warnings = body.get("warnings") or []
             assert any("No AI providers" in w for w in warnings)
 
     # -- Email services --
 
-    @patch("aragora.server.handlers.admin.health.detailed.check_filesystem_health", return_value=_HEALTHY_FS)
-    @patch("aragora.server.handlers.admin.health.detailed.check_redis_health", return_value=_HEALTHY_REDIS)
-    @patch("aragora.server.handlers.admin.health.detailed.check_ai_providers_health", return_value=_HEALTHY_AI)
-    @patch("aragora.server.handlers.admin.health.detailed.check_stripe_health", return_value={"healthy": True, "configured": False})
-    @patch("aragora.server.handlers.admin.health.detailed.check_slack_health", return_value={"healthy": True, "configured": False})
+    @patch(_P_FS, return_value=_HEALTHY_FS)
+    @patch(_P_REDIS, return_value=_HEALTHY_REDIS)
+    @patch(_P_AI, return_value=_HEALTHY_AI)
+    @patch(_P_STRIPE, return_value=_HEALTHY_STRIPE)
+    @patch(_P_SLACK, return_value=_HEALTHY_SLACK)
     def test_email_services_not_available(self, _slack, _stripe, _ai, _redis, _fs):
         """Email services module missing -> not_available."""
         with patch.dict("sys.modules", {
@@ -1337,11 +1303,11 @@ class TestDeepHealthCheck:
 
     # -- Dependency analyzer --
 
-    @patch("aragora.server.handlers.admin.health.detailed.check_filesystem_health", return_value=_HEALTHY_FS)
-    @patch("aragora.server.handlers.admin.health.detailed.check_redis_health", return_value=_HEALTHY_REDIS)
-    @patch("aragora.server.handlers.admin.health.detailed.check_ai_providers_health", return_value=_HEALTHY_AI)
-    @patch("aragora.server.handlers.admin.health.detailed.check_stripe_health", return_value={"healthy": True, "configured": False})
-    @patch("aragora.server.handlers.admin.health.detailed.check_slack_health", return_value={"healthy": True, "configured": False})
+    @patch(_P_FS, return_value=_HEALTHY_FS)
+    @patch(_P_REDIS, return_value=_HEALTHY_REDIS)
+    @patch(_P_AI, return_value=_HEALTHY_AI)
+    @patch(_P_STRIPE, return_value=_HEALTHY_STRIPE)
+    @patch(_P_SLACK, return_value=_HEALTHY_SLACK)
     def test_dependency_analyzer_not_available(self, _slack, _stripe, _ai, _redis, _fs):
         """Dependency analyzer module missing -> not_available."""
         with patch.dict("sys.modules", {"aragora.audit.dependency_analyzer": None}):
@@ -1351,41 +1317,50 @@ class TestDeepHealthCheck:
 
     # -- Warnings list is None when empty --
 
-    @patch("aragora.server.handlers.admin.health.detailed.check_filesystem_health", return_value=_HEALTHY_FS)
-    @patch("aragora.server.handlers.admin.health.detailed.check_redis_health", return_value=_HEALTHY_REDIS)
-    @patch("aragora.server.handlers.admin.health.detailed.check_ai_providers_health", return_value=_HEALTHY_AI)
-    @patch("aragora.server.handlers.admin.health.detailed.check_stripe_health", return_value={"healthy": True, "configured": False})
-    @patch("aragora.server.handlers.admin.health.detailed.check_slack_health", return_value={"healthy": True, "configured": False})
+    @patch(_P_FS, return_value=_HEALTHY_FS)
+    @patch(_P_REDIS, return_value=_HEALTHY_REDIS)
+    @patch(_P_AI, return_value=_HEALTHY_AI)
+    @patch(_P_STRIPE, return_value=_HEALTHY_STRIPE)
+    @patch(_P_SLACK, return_value=_HEALTHY_SLACK)
     def test_warnings_none_when_empty(self, _slack, _stripe, _ai, _redis, _fs):
         """No warnings -> warnings field is None."""
-        h = self._make_deep_handler()
-        body = _body(self._call(h))
-        # The code does `"warnings": warnings if warnings else None`
-        assert body.get("warnings") is None
+        # Mock psutil so real system stats don't add warnings
+        mock_psutil = MagicMock()
+        mock_memory = MagicMock()
+        mock_memory.percent = 50.0
+        mock_memory.available = 8 * 1024**3
+        mock_psutil.virtual_memory.return_value = mock_memory
+        mock_psutil.cpu_percent.return_value = 30.0
+        mock_psutil.cpu_count.return_value = 4
+        mock_disk = MagicMock()
+        mock_disk.percent = 50.0
+        mock_disk.free = 100 * 1024**3
+        mock_psutil.disk_usage.return_value = mock_disk
+        with patch.dict("sys.modules", {"psutil": mock_psutil}):
+            h = self._make_deep_handler()
+            body = _body(self._call(h))
+            assert body.get("warnings") is None
 
     # -- Redis deep check --
 
-    @patch("aragora.server.handlers.admin.health.detailed.check_filesystem_health", return_value=_HEALTHY_FS)
-    @patch("aragora.server.handlers.admin.health.detailed.check_ai_providers_health", return_value=_HEALTHY_AI)
-    @patch("aragora.server.handlers.admin.health.detailed.check_stripe_health", return_value={"healthy": True, "configured": False})
-    @patch("aragora.server.handlers.admin.health.detailed.check_slack_health", return_value={"healthy": True, "configured": False})
+    @patch(_P_FS, return_value=_HEALTHY_FS)
+    @patch(_P_AI, return_value=_HEALTHY_AI)
+    @patch(_P_STRIPE, return_value=_HEALTHY_STRIPE)
+    @patch(_P_SLACK, return_value=_HEALTHY_SLACK)
     def test_redis_configured_failing_degrades(self, _slack, _stripe, _ai, _fs):
         """Redis configured but unhealthy -> degrades."""
-        with patch(
-            "aragora.server.handlers.admin.health.detailed.check_redis_health",
-            return_value={"healthy": False, "configured": True, "error": "Connection refused"},
-        ):
+        with patch(_P_REDIS, return_value={"healthy": False, "configured": True, "error": "Connection refused"}):
             h = self._make_deep_handler()
             body = _body(self._call(h))
             assert body["status"] == "degraded"
 
     # -- Version --
 
-    @patch("aragora.server.handlers.admin.health.detailed.check_filesystem_health", return_value=_HEALTHY_FS)
-    @patch("aragora.server.handlers.admin.health.detailed.check_redis_health", return_value=_HEALTHY_REDIS)
-    @patch("aragora.server.handlers.admin.health.detailed.check_ai_providers_health", return_value=_HEALTHY_AI)
-    @patch("aragora.server.handlers.admin.health.detailed.check_stripe_health", return_value={"healthy": True, "configured": False})
-    @patch("aragora.server.handlers.admin.health.detailed.check_slack_health", return_value={"healthy": True, "configured": False})
+    @patch(_P_FS, return_value=_HEALTHY_FS)
+    @patch(_P_REDIS, return_value=_HEALTHY_REDIS)
+    @patch(_P_AI, return_value=_HEALTHY_AI)
+    @patch(_P_STRIPE, return_value=_HEALTHY_STRIPE)
+    @patch(_P_SLACK, return_value=_HEALTHY_SLACK)
     def test_version_included(self, _slack, _stripe, _ai, _redis, _fs):
         """Version field is present."""
         h = self._make_deep_handler()
@@ -1395,11 +1370,11 @@ class TestDeepHealthCheck:
 
     # -- Response time --
 
-    @patch("aragora.server.handlers.admin.health.detailed.check_filesystem_health", return_value=_HEALTHY_FS)
-    @patch("aragora.server.handlers.admin.health.detailed.check_redis_health", return_value=_HEALTHY_REDIS)
-    @patch("aragora.server.handlers.admin.health.detailed.check_ai_providers_health", return_value=_HEALTHY_AI)
-    @patch("aragora.server.handlers.admin.health.detailed.check_stripe_health", return_value={"healthy": True, "configured": False})
-    @patch("aragora.server.handlers.admin.health.detailed.check_slack_health", return_value={"healthy": True, "configured": False})
+    @patch(_P_FS, return_value=_HEALTHY_FS)
+    @patch(_P_REDIS, return_value=_HEALTHY_REDIS)
+    @patch(_P_AI, return_value=_HEALTHY_AI)
+    @patch(_P_STRIPE, return_value=_HEALTHY_STRIPE)
+    @patch(_P_SLACK, return_value=_HEALTHY_SLACK)
     def test_response_time_is_numeric(self, _slack, _stripe, _ai, _redis, _fs):
         """response_time_ms is a number."""
         h = self._make_deep_handler()
