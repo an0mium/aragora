@@ -12,6 +12,7 @@ import { CostSummaryWidget } from '@/components/costs/CostSummaryWidget';
 import { TrialStatusWidget } from '@/components/billing/TrialStatusWidget';
 import { TemplateMarketplace } from '@/components/templates/TemplateMarketplace';
 import { useSWRFetch } from '@/hooks/useSWRFetch';
+import { useDashboardEvents } from '@/hooks/useDashboardEvents';
 
 // Backend API response shape for debates list
 interface BackendDebatesResponse {
@@ -178,6 +179,9 @@ export default function DashboardPage() {
 
   const { setContext, clearContext } = useRightSidebar();
 
+  // WebSocket-driven live refresh — invalidates SWR cache on debate lifecycle events
+  const { isConnected: wsConnected } = useDashboardEvents();
+
   // Fetch debates from backend API
   const { data: backendDebates, error: backendError, isLoading: backendLoading } = useSWRFetch<BackendDebatesResponse>(
     '/api/v1/debates?limit=5&sort=created_at:desc',
@@ -302,8 +306,12 @@ export default function DashboardPage() {
                 </p>
               </div>
               <div className="flex items-center gap-2">
-                <span className="px-2 py-1 text-xs font-mono bg-green-500/20 text-green-400 border border-green-500/30">
-                   LIVE
+                <span className={`px-2 py-1 text-xs font-mono border ${
+                  wsConnected
+                    ? 'bg-green-500/20 text-green-400 border-green-500/30'
+                    : 'bg-yellow-500/20 text-yellow-400 border-yellow-500/30'
+                }`}>
+                  {wsConnected ? ' LIVE' : ' POLLING'}
                 </span>
               </div>
             </div>

@@ -22,6 +22,7 @@ from typing import Any
 import httpx
 
 from aragora.connectors.base import BaseConnector, Evidence
+from aragora.connectors.exceptions import ConnectorError
 from aragora.reasoning.provenance import SourceType
 
 logger = logging.getLogger(__name__)
@@ -117,7 +118,7 @@ class QuickBooksConnector(BaseConnector):
 
         try:
             data = await self._request_with_retry(_do_request, "search")
-        except Exception:
+        except (ConnectorError, httpx.HTTPError, OSError, ValueError):
             logger.warning("QuickBooks search failed", exc_info=True)
             return []
 
@@ -163,7 +164,7 @@ class QuickBooksConnector(BaseConnector):
 
         try:
             data = await self._request_with_retry(_do_request, "fetch")
-        except Exception:
+        except (ConnectorError, httpx.HTTPError, OSError, ValueError):
             logger.warning("QuickBooks fetch failed", exc_info=True)
             return None
 

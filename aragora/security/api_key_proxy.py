@@ -355,7 +355,7 @@ class UsageTracker:
                     self._config.anomaly_callback(
                         service, anomaly.anomaly_type, anomaly.details
                     )
-                except Exception:
+                except (TypeError, ValueError, RuntimeError, OSError):
                     logger.exception("Anomaly callback failed")
 
         return anomalies
@@ -463,7 +463,7 @@ class KeyVault:
             key = get_secret(svc_config.secret_manager_key)
             if key:
                 return key
-        except Exception:
+        except (ImportError, RuntimeError, OSError, ValueError):
             logger.debug("Could not load %s key via secrets module", service)
 
         # Direct env fallback
@@ -588,7 +588,7 @@ class FrequencyHoppingRotator:
 
             except asyncio.CancelledError:
                 break
-            except Exception:
+            except (ConnectionError, TimeoutError, OSError, RuntimeError, ValueError):
                 logger.exception("Rotation loop error")
                 await asyncio.sleep(300)
 

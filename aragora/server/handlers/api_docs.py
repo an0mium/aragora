@@ -16,7 +16,6 @@ __all__ = ["ApiDocsHandler"]
 
 import json
 import logging
-import time
 from typing import Any
 
 from aragora.server.handlers.base import (

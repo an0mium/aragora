@@ -31,6 +31,46 @@ def _isolate_debate_databases(tmp_path, monkeypatch):
 
 
 @pytest.fixture(autouse=True)
+def _clear_similarity_backend_state():
+    """Clear all similarity backend caches after each test.
+
+    Prevents cross-test pollution from:
+    - Cached similarity computations (JaccardBackend, TFIDFBackend)
+    - Factory registry state (SimilarityFactory)
+    - Cached ML models (SentenceTransformerBackend)
+
+    Without this, pytest-randomly can cause failures when tests that populate
+    caches run before tests that expect clean state.
+    """
+    yield
+
+    try:
+        from aragora.debate.similarity.backends import (
+            JaccardBackend,
+            TFIDFBackend,
+            SentenceTransformerBackend,
+        )
+
+        JaccardBackend.clear_cache()
+        TFIDFBackend.clear_cache()
+        SentenceTransformerBackend.clear_cache()
+        SentenceTransformerBackend._model_cache = None
+        SentenceTransformerBackend._model_name_cache = None
+        SentenceTransformerBackend._nli_model_cache = None
+        SentenceTransformerBackend._nli_model_name_cache = None
+    except ImportError:
+        pass
+
+    try:
+        from aragora.debate.similarity.factory import SimilarityFactory
+
+        SimilarityFactory._registry.clear()
+        SimilarityFactory._initialized = False
+    except ImportError:
+        pass
+
+
+@pytest.fixture(autouse=True)
 def _resync_convergence_after_backend_reload():
     """Re-synchronize convergence module class references after each test.
 

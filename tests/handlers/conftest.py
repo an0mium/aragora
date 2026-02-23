@@ -4,11 +4,50 @@ from dataclasses import dataclass
 from datetime import datetime, timezone
 from enum import Enum
 from typing import Any, Optional
-from unittest.mock import AsyncMock, MagicMock
+from unittest.mock import AsyncMock, MagicMock, NonCallableMock
 
 import pytest
 
 from aragora.rbac.models import AuthorizationContext
+
+# ============================================================================
+# Mock side_effect Descriptor Guard
+# ============================================================================
+#
+# Capture the original side_effect property descriptor before any test can
+# destroy it.  Some tests incorrectly set MagicMock.side_effect on a CLASS
+# (e.g. via ``spec.adapter_class = MagicMock; spec.adapter_class.side_effect = ...``),
+# which replaces the property descriptor with a plain value on the class dict,
+# breaking list-to-iterator conversion for ALL future MagicMock instances.
+
+_handler_side_effect_descriptor = None
+for _klass in NonCallableMock.__mro__:
+    if "side_effect" in _klass.__dict__:
+        _handler_side_effect_descriptor = _klass.__dict__["side_effect"]
+        break
+
+
+@pytest.fixture(autouse=True)
+def _restore_mock_side_effect_descriptor():
+    """Restore the side_effect property descriptor after each test.
+
+    Runs before AND after every test in ``tests/handlers/`` to repair the
+    ``NonCallableMock.side_effect`` property descriptor if it was destroyed
+    by a test that set ``side_effect`` on a mock CLASS instead of an instance.
+    """
+    # Setup: repair before the test runs
+    if _handler_side_effect_descriptor is not None:
+        current = NonCallableMock.__dict__.get("side_effect")
+        if current is not _handler_side_effect_descriptor:
+            NonCallableMock.side_effect = _handler_side_effect_descriptor
+
+    yield
+
+    # Teardown: repair after the test runs
+    if _handler_side_effect_descriptor is not None:
+        current = NonCallableMock.__dict__.get("side_effect")
+        if current is not _handler_side_effect_descriptor:
+            NonCallableMock.side_effect = _handler_side_effect_descriptor
 
 
 # ============================================================================
@@ -572,3 +611,48 @@ def mock_handler():
         return MockHandler(body=body)
 
     return _create_handler
+
+
+# ============================================================================
+# SAST Scanner Isolation
+# ============================================================================
+
+
+@pytest.fixture(autouse=True)
+def _mock_sast_scanner(monkeypatch):
+    """Prevent real SAST file scanning during handler tests.
+
+    The SASTScanner performs synchronous file I/O across the entire repo
+    (thousands of files) which causes hangs when the full handler test suite
+    runs together.  This fixture mocks the scanning entry points to return
+    empty results immediately.
+    """
+    try:
+        from aragora.analysis.codebase.sast import scanner as sast_mod
+
+        mock_scanner = AsyncMock()
+        mock_scanner.initialize = AsyncMock()
+        mock_scanner.scan_repository = AsyncMock(return_value=MagicMock(
+            findings=[], scanned_files=0, skipped_files=0,
+            scan_duration_ms=0, languages_detected=[], rules_used=[], errors=[],
+        ))
+        mock_scanner.scan_file = AsyncMock(return_value=[])
+        monkeypatch.setattr(sast_mod, "get_sast_scanner", lambda: mock_scanner)
+    except (ImportError, AttributeError):
+        pass
+
+    try:
+        from aragora.server.handlers.features.codebase_audit import scanning
+
+        for fn_name in (
+            "run_sast_scan", "run_bug_scan", "run_secrets_scan",
+            "run_dependency_scan", "run_metrics_analysis",
+        ):
+            mock_fn_name = f"_get_mock_{fn_name.removeprefix('run_')}"
+            fallback = getattr(scanning, mock_fn_name, None)
+            if fallback and hasattr(scanning, fn_name):
+                async def _mock(tp, sid, tid, _fb=fallback, _sid_ref=fn_name, **kw):
+                    return _fb(sid)
+                monkeypatch.setattr(scanning, fn_name, _mock)
+    except (ImportError, AttributeError):
+        pass

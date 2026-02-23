@@ -1620,16 +1620,15 @@ def _restore_module_level_functions():
 
 @pytest.fixture(autouse=True)
 def _prevent_orchestration_handler_http():
-    """Prevent the orchestration handler from making real HTTP calls.
+    """Prevent the orchestration handler from blocking on real HTTP calls.
 
     The sync deliberation path calls ``run_async(_execute_deliberation(...))``.
     Under certain test orderings (e.g. seed 99999), this can block on actual
-    HTTP requests and hang the test suite.  The async path fires a background
-    task that can similarly hang event loop teardown.
+    HTTP requests and hang the test suite indefinitely.
 
-    This fixture patches both paths to return safe results.  Tests that
-    explicitly mock ``run_async`` or ``_execute_deliberation`` override these
-    patches (inner patches win).
+    This fixture replaces ``run_async`` in the orchestration handler module
+    with a safe stub.  Tests that explicitly patch ``run_async`` via
+    ``with patch(...)`` override this fixture's patch (inner patches win).
     """
     import sys
 
@@ -1650,7 +1649,6 @@ def _prevent_orchestration_handler_http():
         from aragora.server.handlers.orchestration.models import OrchestrationResult
 
         _orig_run_async = getattr(orch_handler_mod, "run_async", None)
-        _orig_create_task = getattr(orch_handler_mod, "asyncio", None)
 
         def _safe_run_async(coro, timeout=30.0):
             if hasattr(coro, "close"):
@@ -1665,8 +1663,6 @@ def _prevent_orchestration_handler_http():
 
         yield
 
-        # Restore real run_async so the conftest doesn't mask real bugs
-        # when tests explicitly verify run_async behaviour.
         if _orig_run_async is not None:
             orch_handler_mod.run_async = _orig_run_async
     else:

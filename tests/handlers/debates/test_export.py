@@ -1014,14 +1014,23 @@ class TestStreamBatchExportProgress:
         # No queue created intentionally
 
         handler = _make_handler()
-        chunks = []
-        async for chunk in handler._stream_batch_export_progress("j1"):
+        gen = handler._stream_batch_export_progress("j1")
+
+        # First chunk triggers queue creation
+        first = await gen.__anext__()
+        assert "j1" in _batch_export_events
+        assert "connected" in first
+
+        # Put a terminal event so the generator can finish
+        await _batch_export_events["j1"].put({"type": "completed"})
+
+        chunks = [first]
+        async for chunk in gen:
             chunks.append(chunk)
             if len(chunks) > 5:
                 break  # Safety exit
 
-        # Should have created a queue
-        assert "j1" in _batch_export_events
+        assert len(chunks) >= 2
 
 
 # ===========================================================================

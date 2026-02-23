@@ -25,7 +25,6 @@ from aragora.server.handlers.base import (
     safe_error_message,
 )
 from aragora.server.handlers.utils.decorators import (
-    handle_errors,
     require_permission,
 )
 from aragora.server.handlers.openapi_decorator import api_endpoint

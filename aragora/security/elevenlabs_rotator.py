@@ -114,7 +114,7 @@ async def rotate_elevenlabs_key(
     try:
         from aragora.config.secrets import refresh_secrets
         refresh_secrets()
-    except Exception:
+    except (ImportError, RuntimeError, OSError, ValueError):
         logger.debug("Could not refresh secrets cache")
 
     logger.info("ElevenLabs key rotation completed successfully")
@@ -129,8 +129,8 @@ def _get_current_key(svc_config: Any) -> str | None:
         key = get_secret(svc_config.secret_manager_key)
         if key:
             return key
-    except Exception:
-        pass
+    except (ImportError, RuntimeError, OSError, ValueError):
+        logger.debug("Could not load ElevenLabs key via secrets module")
 
     # Env fallback
     return os.environ.get(svc_config.secret_manager_key)

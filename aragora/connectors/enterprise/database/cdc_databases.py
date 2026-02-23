@@ -445,7 +445,7 @@ class MySQLCDCHandler(BaseCDCHandler):
             host="localhost",
             database="mydb",
             username="replicator",
-            password="secret",
+            password="<your-password>",
             event_handler=KnowledgeMoundHandler(),
         )
         await handler.start()

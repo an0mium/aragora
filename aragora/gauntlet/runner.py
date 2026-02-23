@@ -197,14 +197,13 @@ class GauntletRunner:
             )
             if critical_count > 0:
                 try:
-                    from aragora.nomic.improvement_queue import ImprovementQueue
-                    from aragora.nomic.outcome_feedback import FeedbackGoal
+                    from aragora.nomic.feedback_orchestrator import ImprovementGoal, ImprovementQueue
                     queue = ImprovementQueue()
-                    queue.enqueue(FeedbackGoal(
+                    queue.push(ImprovementGoal(
+                        goal=f"Fix {critical_count} critical gauntlet findings from {gauntlet_id}",
                         source="gauntlet",
-                        description=f"Fix {critical_count} critical gauntlet findings from {gauntlet_id}",
-                        priority="high",
-                        metadata={"gauntlet_id": gauntlet_id, "critical_count": critical_count},
+                        priority=0.95,
+                        context={"gauntlet_id": gauntlet_id, "critical_count": critical_count},
                     ))
                     logger.info("Enqueued %d critical findings to ImprovementQueue", critical_count)
                 except (ImportError, RuntimeError, ValueError, OSError) as e:
