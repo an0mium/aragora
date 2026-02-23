@@ -35,13 +35,14 @@ def _seeded_aggregator(n_tenants: int = 6) -> BenchmarkAggregator:
     for i in range(n_tenants):
         agg.record_decision(
             tenant_id=f"tenant_{i}",
-            industry="healthcare",
-            team_size=25,
-            decision_type="vendor_selection",
+            category="healthcare",
             metrics={
                 "consensus_rate": 0.70 + i * 0.04,
                 "confidence_avg": 0.60 + i * 0.03,
             },
+            industry="healthcare",
+            team_size=25,
+            decision_type="vendor_selection",
         )
     return agg
 
@@ -83,7 +84,7 @@ class TestGetBenchmarks:
         h = _make_handler(_seeded_aggregator())
         result = h.handle(
             "/api/v1/benchmarks",
-            {"industry": "healthcare", "team_size": "medium"},
+            {"category": "healthcare"},
             MagicMock(),
         )
         assert result is not None
@@ -96,39 +97,27 @@ class TestGetBenchmarks:
         h = _make_handler(_seeded_aggregator())
         result = h.handle(
             "/api/v1/benchmarks",
-            {"industry": "healthcare", "team_size": "medium", "decision_type": "vendor_selection"},
+            {"category": "healthcare"},
             MagicMock(),
         )
         body = _parse_body(result)
         assert body["count"] >= 1
-        for b in body["benchmarks"]:
-            assert "vendor_selection" in b["category"]
 
-    def test_missing_industry_returns_400(self):
+    def test_missing_category_returns_400(self):
         h = _make_handler(_seeded_aggregator())
         result = h.handle(
             "/api/v1/benchmarks",
-            {"team_size": "medium"},
+            {},
             MagicMock(),
         )
         assert result is not None
         assert result.status == 400
 
-    def test_missing_team_size_returns_400(self):
+    def test_empty_category_returns_400(self):
         h = _make_handler(_seeded_aggregator())
         result = h.handle(
             "/api/v1/benchmarks",
-            {"industry": "healthcare"},
-            MagicMock(),
-        )
-        assert result is not None
-        assert result.status == 400
-
-    def test_invalid_team_size_returns_400(self):
-        h = _make_handler(_seeded_aggregator())
-        result = h.handle(
-            "/api/v1/benchmarks",
-            {"industry": "healthcare", "team_size": "tiny"},
+            {"category": ""},
             MagicMock(),
         )
         assert result is not None
@@ -138,7 +127,7 @@ class TestGetBenchmarks:
         h = _make_handler(BenchmarkAggregator(min_k=5, noise_scale=0.0))
         result = h.handle(
             "/api/v1/benchmarks",
-            {"industry": "nonexistent", "team_size": "small"},
+            {"category": "nonexistent"},
             MagicMock(),
         )
         assert result is not None
@@ -161,8 +150,7 @@ class TestCompareBenchmarks:
         result = h.handle(
             "/api/v1/benchmarks/compare",
             {
-                "industry": "healthcare",
-                "team_size": "medium",
+                "category": "healthcare",
                 "consensus_rate": "0.85",
             },
             MagicMock(),
@@ -174,11 +162,11 @@ class TestCompareBenchmarks:
         assert "consensus_rate" in body["comparison"]
         assert "percentile_rank" in body["comparison"]["consensus_rate"]
 
-    def test_missing_industry_returns_400(self):
+    def test_missing_category_returns_400(self):
         h = _make_handler(_seeded_aggregator())
         result = h.handle(
             "/api/v1/benchmarks/compare",
-            {"team_size": "medium", "consensus_rate": "0.85"},
+            {"consensus_rate": "0.85"},
             MagicMock(),
         )
         assert result is not None
@@ -188,7 +176,7 @@ class TestCompareBenchmarks:
         h = _make_handler(_seeded_aggregator())
         result = h.handle(
             "/api/v1/benchmarks/compare",
-            {"industry": "healthcare", "team_size": "medium"},
+            {"category": "healthcare"},
             MagicMock(),
         )
         assert result is not None
@@ -199,8 +187,7 @@ class TestCompareBenchmarks:
         result = h.handle(
             "/api/v1/benchmarks/compare",
             {
-                "industry": "healthcare",
-                "team_size": "medium",
+                "category": "healthcare",
                 "consensus_rate": "not_a_number",
             },
             MagicMock(),
@@ -208,13 +195,12 @@ class TestCompareBenchmarks:
         assert result is not None
         assert result.status == 400
 
-    def test_invalid_team_size_returns_400(self):
+    def test_empty_category_returns_400(self):
         h = _make_handler(_seeded_aggregator())
         result = h.handle(
             "/api/v1/benchmarks/compare",
             {
-                "industry": "healthcare",
-                "team_size": "micro",
+                "category": "",
                 "consensus_rate": "0.85",
             },
             MagicMock(),

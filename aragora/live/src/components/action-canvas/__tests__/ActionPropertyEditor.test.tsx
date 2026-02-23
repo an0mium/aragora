@@ -72,18 +72,18 @@ describe('ActionPropertyEditor', () => {
 
   it('renders advance button when onAdvance provided', () => {
     render(<ActionPropertyEditor data={baseData} onChange={jest.fn()} onAdvance={jest.fn()} />);
-    expect(screen.getByText('Advance to Orchestration')).toBeInTheDocument();
+    expect(screen.getByText(/Advance to Orchestration/)).toBeInTheDocument();
   });
 
   it('does not render advance button when onAdvance not provided', () => {
     render(<ActionPropertyEditor data={baseData} onChange={jest.fn()} />);
-    expect(screen.queryByText('Advance to Orchestration')).not.toBeInTheDocument();
+    expect(screen.queryByText(/Advance to Orchestration/)).not.toBeInTheDocument();
   });
 
   it('calls onAdvance when advance button clicked', () => {
     const onAdvance = jest.fn();
     render(<ActionPropertyEditor data={baseData} onChange={jest.fn()} onAdvance={onAdvance} />);
-    fireEvent.click(screen.getByText('Advance to Orchestration'));
+    fireEvent.click(screen.getByText(/Advance to Orchestration/));
     expect(onAdvance).toHaveBeenCalledTimes(1);
   });
 

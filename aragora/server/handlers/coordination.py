@@ -22,6 +22,7 @@ from __future__ import annotations
 import logging
 from typing import Any
 
+from aragora.rbac.decorators import require_permission
 from .base import (
     BaseHandler,
     HandlerResult,
@@ -234,6 +235,7 @@ class CoordinationHandler(BaseHandler):
     # =================================================================
 
     @handle_errors("workspace registration")
+    @require_permission("coordination:write")
     def _handle_register_workspace(self, body: dict[str, Any]) -> HandlerResult:
         """POST /api/v1/coordination/workspaces -- register a workspace."""
         if not _HAS_COORDINATION or self._coordinator is None:
@@ -274,6 +276,7 @@ class CoordinationHandler(BaseHandler):
             status=201,
         )
 
+    @require_permission("coordination:read")
     def _handle_list_workspaces(self, query_params: dict[str, Any]) -> HandlerResult:
         """GET /api/v1/coordination/workspaces -- list workspaces."""
         if not _HAS_COORDINATION or self._coordinator is None:
@@ -288,6 +291,7 @@ class CoordinationHandler(BaseHandler):
         )
 
     @handle_errors("workspace unregistration")
+    @require_permission("coordination:delete")
     def _handle_unregister_workspace(self, workspace_id: str) -> HandlerResult:
         """DELETE /api/v1/coordination/workspaces/{id} -- unregister workspace."""
         if not _HAS_COORDINATION or self._coordinator is None:
@@ -304,6 +308,7 @@ class CoordinationHandler(BaseHandler):
     # =================================================================
 
     @handle_errors("federation policy creation")
+    @require_permission("coordination:write")
     def _handle_create_policy(self, body: dict[str, Any]) -> HandlerResult:
         """POST /api/v1/coordination/federation -- create federation policy."""
         if not _HAS_COORDINATION or self._coordinator is None:
@@ -360,6 +365,7 @@ class CoordinationHandler(BaseHandler):
             status=201,
         )
 
+    @require_permission("coordination:read")
     def _handle_list_policies(self, query_params: dict[str, Any]) -> HandlerResult:
         """GET /api/v1/coordination/federation -- list federation policies."""
         if not _HAS_COORDINATION or self._coordinator is None:
@@ -401,6 +407,7 @@ class CoordinationHandler(BaseHandler):
     # =================================================================
 
     @handle_errors("cross-workspace execution")
+    @require_permission("coordination:execute")
     def _handle_execute(self, body: dict[str, Any]) -> HandlerResult:
         """POST /api/v1/coordination/execute -- cross-workspace execution."""
         if not _HAS_COORDINATION or self._coordinator is None:
@@ -455,6 +462,7 @@ class CoordinationHandler(BaseHandler):
 
         return json_response(result.to_dict(), status=status)
 
+    @require_permission("coordination:read")
     def _handle_list_executions(self, query_params: dict[str, Any]) -> HandlerResult:
         """GET /api/v1/coordination/executions -- list pending executions."""
         if not _HAS_COORDINATION or self._coordinator is None:
@@ -475,6 +483,7 @@ class CoordinationHandler(BaseHandler):
     # =================================================================
 
     @handle_errors("consent granting")
+    @require_permission("coordination:write")
     def _handle_grant_consent(self, body: dict[str, Any]) -> HandlerResult:
         """POST /api/v1/coordination/consent -- grant consent."""
         if not _HAS_COORDINATION or self._coordinator is None:
@@ -517,6 +526,7 @@ class CoordinationHandler(BaseHandler):
             status=201,
         )
 
+    @require_permission("coordination:read")
     def _handle_list_consents(self, query_params: dict[str, Any]) -> HandlerResult:
         """GET /api/v1/coordination/consent -- list consents."""
         if not _HAS_COORDINATION or self._coordinator is None:
@@ -533,6 +543,7 @@ class CoordinationHandler(BaseHandler):
         )
 
     @handle_errors("consent revocation")
+    @require_permission("coordination:delete")
     def _handle_revoke_consent(self, consent_id: str) -> HandlerResult:
         """DELETE /api/v1/coordination/consent/{id} -- revoke consent."""
         if not _HAS_COORDINATION or self._coordinator is None:
@@ -551,6 +562,7 @@ class CoordinationHandler(BaseHandler):
     # =================================================================
 
     @handle_errors("execution approval")
+    @require_permission("coordination:admin")
     def _handle_approve(self, request_id: str, body: dict[str, Any]) -> HandlerResult:
         """POST /api/v1/coordination/approve/{id} -- approve pending execution."""
         if not _HAS_COORDINATION or self._coordinator is None:
@@ -570,6 +582,7 @@ class CoordinationHandler(BaseHandler):
     # Stats and health
     # =================================================================
 
+    @require_permission("coordination:read")
     def _handle_stats(self) -> HandlerResult:
         """GET /api/v1/coordination/stats -- coordination statistics."""
         if not _HAS_COORDINATION or self._coordinator is None:

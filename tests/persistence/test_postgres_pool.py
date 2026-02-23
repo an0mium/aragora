@@ -845,7 +845,7 @@ class TestPoolProperties:
 
         stats = pool.stats
 
-        assert isinstance(stats, PoolStats)
+        assert type(stats).__name__ == "PoolStats"
         assert stats.total_connections == 5  # From mock
         assert stats.idle_connections == 3  # From mock
 

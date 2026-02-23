@@ -4,12 +4,20 @@ Tests for FindingWorkflowStore backends.
 Tests all three backends: InMemory, SQLite, and Redis (with fallback).
 """
 
+import os
 import tempfile
 import time
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
 import pytest
+
+try:
+    import redis  # noqa: F401
+
+    REDIS_AVAILABLE = bool(os.getenv("REDIS_URL", ""))
+except ImportError:
+    REDIS_AVAILABLE = False
 
 from aragora.storage.finding_workflow_store import (
     WorkflowDataItem,
@@ -317,6 +325,7 @@ class TestSQLiteFindingWorkflowStore:
         assert len(investigating) == 1
 
 
+@pytest.mark.skipif(not REDIS_AVAILABLE, reason="Redis not available (set REDIS_URL)")
 class TestRedisFindingWorkflowStore:
     """Tests for RedisFindingWorkflowStore (with SQLite fallback)."""
 

@@ -4,11 +4,19 @@ Tests for FederationRegistryStore backends.
 Tests all three backends: InMemory, SQLite, and Redis (with fallback).
 """
 
+import os
 import tempfile
 from datetime import datetime, timezone
 from pathlib import Path
 
 import pytest
+
+try:
+    import redis  # noqa: F401
+
+    REDIS_AVAILABLE = bool(os.getenv("REDIS_URL", ""))
+except ImportError:
+    REDIS_AVAILABLE = False
 
 from aragora.storage.federation_registry_store import (
     FederatedRegionConfig,
@@ -338,6 +346,7 @@ class TestSQLiteFederationRegistryStore:
         assert updated.total_nodes_synced == 23  # 15 + 8
 
 
+@pytest.mark.skipif(not REDIS_AVAILABLE, reason="Redis not available (set REDIS_URL)")
 class TestRedisFederationRegistryStore:
     """Tests for RedisFederationRegistryStore (with SQLite fallback)."""
 

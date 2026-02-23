@@ -38,6 +38,7 @@ ModerationHandler = _safe_import("aragora.server.handlers.moderation", "Moderati
 AudienceSuggestionsHandler = _safe_import(
     "aragora.server.handlers.audience_suggestions", "AudienceSuggestionsHandler"
 )
+CoordinationHandler = _safe_import("aragora.server.handlers.coordination", "CoordinationHandler")
 
 # =============================================================================
 # Auth Handler Imports
@@ -384,6 +385,7 @@ ADMIN_HANDLER_REGISTRY: list[tuple[str, object]] = [
     ("_security_handler", SecurityHandler),
     ("_moderation_handler", ModerationHandler),
     ("_audience_suggestions_handler", AudienceSuggestionsHandler),
+    ("_coordination_handler", CoordinationHandler),
     # Auth
     ("_auth_handler", AuthHandler),
     ("_oauth_handler", OAuthHandler),
@@ -540,6 +542,7 @@ __all__ = [
     "PolicyHandler",
     "SecurityHandler",
     "AudienceSuggestionsHandler",
+    "CoordinationHandler",
     # Auth
     "AuthHandler",
     "OAuthHandler",

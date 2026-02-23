@@ -640,7 +640,7 @@ jobs:
       - name: Smoke - boot server
         run: |
           set -e
-          aragora serve --offline --api-port 8090 --ws-port 8765 --host 127.0.0.1 >/tmp/aragora-server.log 2>&1 &
+          aragora serve --demo --api-port 8090 --ws-port 8765 --host 127.0.0.1 >/tmp/aragora-server.log 2>&1 &
           SERVER_PID=$!
           trap "kill $SERVER_PID 2>/dev/null || true" EXIT
           # Wait for server to be ready (handler init can take ~30s in CI)
