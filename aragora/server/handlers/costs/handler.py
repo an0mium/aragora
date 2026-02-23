@@ -155,18 +155,11 @@ class CostHandler:
         try:
             time_range = request.query.get("range", "7d")
             workspace_id = request.query.get("workspace_id", "default")
-            group_by = request.query.get("group_by", "provider")  # provider, feature, model
+            _group_by = request.query.get("group_by", "provider")  # provider, feature, model
 
             summary = await _models.get_cost_summary(
                 workspace_id=workspace_id, time_range=time_range
             )
-
-            if group_by == "provider":
-                breakdown = summary.cost_by_provider
-            elif group_by == "feature":
-                breakdown = summary.cost_by_feature
-            else:
-                breakdown = summary.cost_by_provider
 
             # Build breakdown in the format the frontend expects
             by_provider = summary.cost_by_provider or []
@@ -305,7 +298,7 @@ class CostHandler:
             else:
                 active_alerts = []
 
-            return web.json_response({"alerts": active_alerts})
+            return web.json_response({"data": {"alerts": active_alerts}})
 
         except (
             ValueError,
@@ -476,8 +469,10 @@ class CostHandler:
 
             return web.json_response(
                 {
-                    "recommendations": [r.to_dict() for r in recommendations],
-                    "summary": summary.to_dict(),
+                    "data": {
+                        "recommendations": [r.to_dict() for r in recommendations],
+                        "summary": summary.to_dict(),
+                    }
                 }
             )
 
@@ -641,7 +636,7 @@ class CostHandler:
         """
         try:
             workspace_id = request.query.get("workspace_id", "default")
-            time_range = request.query.get("range", "7d")
+            _time_range = request.query.get("range", "7d")  # reserved for future filtering
 
             tracker = _models._get_cost_tracker()
             if not tracker:
@@ -670,19 +665,18 @@ class CostHandler:
                     }
                 )
 
+            # Efficiency score: higher is better (0-100)
+            efficiency_score = max(0.0, min(100.0, 100 - (cost_per_1k_tokens / 0.01 * 50))) if cost_per_1k_tokens > 0 else 50.0
+
             return web.json_response(
                 {
-                    "workspace_id": workspace_id,
-                    "time_range": time_range,
-                    "metrics": {
+                    "data": {
                         "cost_per_1k_tokens": round(cost_per_1k_tokens, 4),
-                        "tokens_per_call": round(tokens_per_call, 0),
                         "cost_per_call": round(cost_per_call, 4),
-                        "total_tokens": total_tokens,
-                        "total_calls": total_calls,
-                        "total_cost": round(total_cost, 2),
-                    },
-                    "model_utilization": sorted(model_utilization, key=lambda x: -x["percentage"]),
+                        "cache_hit_rate": stats.get("cache_hit_rate", 0),
+                        "avg_tokens_per_call": round(tokens_per_call, 0),
+                        "efficiency_score": round(efficiency_score, 1),
+                    }
                 }
             )
 
@@ -730,7 +724,18 @@ class CostHandler:
                 forecast_days=forecast_days,
             )
 
-            return web.json_response(report.to_dict())
+            report_data = report.to_dict()
+            return web.json_response(
+                {
+                    "data": {
+                        "projected_monthly_cost": report_data.get("projected_monthly_cost", 0),
+                        "projected_end_of_month": report_data.get("projected_end_of_month", 0),
+                        "trend": report_data.get("trend", "stable"),
+                        "confidence": report_data.get("confidence", 0),
+                        "recommended_tier": report_data.get("recommended_tier"),
+                    }
+                }
+            )
 
         except (
             ValueError,

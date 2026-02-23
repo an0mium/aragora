@@ -11,6 +11,12 @@ Aragora orchestrates 42 AI agents to adversarially vet decisions through structu
 
 **New here?** Start with the [Getting Started Guide](docs/START_HERE.md) -- you'll have a working demo in 30 seconds.
 
+| I want to... | Install |
+|--------------|---------|
+| Try a debate in 30 seconds | `pip install aragora-debate` |
+| Call the Aragora API from Python | `pip install aragora-sdk` |
+| Self-host the full platform | `docker compose -f deploy/demo/docker-compose.yml up` |
+
 **Individual LLMs are unreliable. Their personas shift with context, their confidence doesn't correlate with accuracy, and they say what you want to hear. For consequential decisions, you need infrastructure that treats this as a feature to be engineered around, not a problem to be ignored.**
 
 Aragora orchestrates 42 agent types in structured adversarial debates -- forcing models to challenge each other's reasoning, surface blind spots, and produce decisions with complete audit trails showing where they agreed, where they disagreed, and why.
@@ -30,7 +36,7 @@ aragora quickstart --demo
 **Or run with Docker (includes dashboard UI):**
 
 ```bash
-docker compose -f docker-compose.quickstart.yml up
+docker compose -f deploy/demo/docker-compose.yml up
 # Open http://localhost:3000
 ```
 
@@ -312,7 +318,14 @@ aragora/
 | API response time (cached) | < 200ms |
 | Memory tier lookup (fast tier) | < 10ms |
 
-Costs vary by model mix. Claude Haiku + GPT-4o-mini debates cost ~$0.05; Claude Opus + GPT-4 debates cost ~$0.30. Use `aragora decide --dry-run` to preview costs before execution.
+Costs vary by model mix. Use `aragora decide --dry-run` to preview costs before execution.
+
+| Model Mix | Agents | Rounds | Typical Cost |
+|-----------|--------|--------|--------------|
+| Haiku + GPT-4o-mini | 3 | 2 | ~$0.05 |
+| Sonnet + GPT-4o | 3 | 3 | ~$0.15 |
+| Opus + GPT-4 | 5 | 3 | ~$0.30 |
+| Mock agents (demo mode) | Any | Any | $0.00 |
 
 ### How Aragora Compares
 
@@ -420,7 +433,7 @@ Safety: automatic backups, protected file checksums, rollback on failure, human 
 
 | Goal | Command | Requirements |
 |------|---------|-------------|
-| **Try it** | `docker compose -f docker-compose.quickstart.yml up` | Docker only |
+| **Try it** | `docker compose -f deploy/demo/docker-compose.yml up` | Docker only |
 | **Self-hosted** | `cd deploy/self-hosted && docker compose up -d` | Docker + API key |
 | **Local dev** | `aragora serve --api-port 8080 --ws-port 8765` | Python + API key |
 

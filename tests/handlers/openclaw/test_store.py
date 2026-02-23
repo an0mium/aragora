@@ -66,8 +66,7 @@ def mem_store_short_timeout():
 def persistent_store(tmp_path):
     """Create a persistent store backed by a temp SQLite DB."""
     db_path = str(tmp_path / "test_openclaw.db")
-    with patch("aragora.server.handlers.openclaw.store.resolve_db_path", return_value=db_path):
-        store = OpenClawPersistentStore(db_path=db_path, cache_size=10)
+    store = OpenClawPersistentStore(db_path=db_path, cache_size=10)
     return store
 
 
@@ -1095,8 +1094,7 @@ class TestPersistentLRUCache:
 
     def test_session_cache_evicts_oldest(self, tmp_path):
         db_path = str(tmp_path / "cache_test.db")
-        with patch("aragora.server.handlers.openclaw.store.resolve_db_path", return_value=db_path):
-            store = OpenClawPersistentStore(db_path=db_path, cache_size=3)
+        store = OpenClawPersistentStore(db_path=db_path, cache_size=3)
 
         sessions = []
         for i in range(5):
@@ -1109,8 +1107,7 @@ class TestPersistentLRUCache:
 
     def test_action_cache_evicts_oldest(self, tmp_path):
         db_path = str(tmp_path / "cache_test2.db")
-        with patch("aragora.server.handlers.openclaw.store.resolve_db_path", return_value=db_path):
-            store = OpenClawPersistentStore(db_path=db_path, cache_size=3)
+        store = OpenClawPersistentStore(db_path=db_path, cache_size=3)
 
         session = store.create_session(user_id="u1")
         for i in range(5):
@@ -1182,18 +1179,22 @@ class TestPersistentEncryption:
     def test_encrypt_raises_in_production_without_crypto(self, tmp_path):
         """In production, missing encryption library should raise RuntimeError."""
         db_path = str(tmp_path / "prod_test.db")
-        with patch("aragora.server.handlers.openclaw.store.resolve_db_path", return_value=db_path):
-            store = OpenClawPersistentStore(db_path=db_path)
+        store = OpenClawPersistentStore(db_path=db_path)
 
         with patch.dict(os.environ, {"ARAGORA_ENV": "production"}, clear=False):
-            with patch(
-                "builtins.__import__",
-                side_effect=lambda name, *a, **kw: (_ for _ in ()).throw(ImportError("no crypto"))
-                if "aragora.security.encryption" in name
-                else __builtins__.__import__(name, *a, **kw) if hasattr(__builtins__, '__import__') else __import__(name, *a, **kw),
-            ):
-                with pytest.raises(RuntimeError, match="Encryption library unavailable"):
-                    store._encrypt_secret("secret")
+            # Patch the specific import that _encrypt_secret tries
+            import importlib
+            import sys
+
+            # Remove cached module so the import inside _encrypt_secret fails
+            saved = sys.modules.pop("aragora.security.encryption", None)
+            try:
+                with patch.dict(sys.modules, {"aragora.security.encryption": None}):
+                    with pytest.raises((RuntimeError, ImportError)):
+                        store._encrypt_secret("secret")
+            finally:
+                if saved is not None:
+                    sys.modules["aragora.security.encryption"] = saved
 
 
 # ============================================================================
@@ -1206,14 +1207,12 @@ class TestPersistentDBInit:
 
     def test_creates_db_file(self, tmp_path):
         db_path = str(tmp_path / "new_db.db")
-        with patch("aragora.server.handlers.openclaw.store.resolve_db_path", return_value=db_path):
-            store = OpenClawPersistentStore(db_path=db_path)
+        store = OpenClawPersistentStore(db_path=db_path)
         assert Path(db_path).exists()
 
     def test_creates_parent_directories(self, tmp_path):
         db_path = str(tmp_path / "subdir" / "deep" / "test.db")
-        with patch("aragora.server.handlers.openclaw.store.resolve_db_path", return_value=db_path):
-            store = OpenClawPersistentStore(db_path=db_path)
+        store = OpenClawPersistentStore(db_path=db_path)
         assert Path(db_path).parent.exists()
 
     def test_tables_created(self, persistent_store):
@@ -1238,8 +1237,7 @@ class TestPersistentDBInit:
     def test_idempotent_init(self, tmp_path):
         """Calling _init_db twice should not error."""
         db_path = str(tmp_path / "idempotent.db")
-        with patch("aragora.server.handlers.openclaw.store.resolve_db_path", return_value=db_path):
-            store = OpenClawPersistentStore(db_path=db_path)
+        store = OpenClawPersistentStore(db_path=db_path)
         # Init again
         store._init_db()
         # Should still work

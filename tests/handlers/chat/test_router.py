@@ -931,29 +931,16 @@ class TestHandleInteraction:
         handler.assert_called_once_with(event)
 
     @pytest.mark.asyncio
-    async def test_approval_router_import_error(self):
+    async def test_approval_router_import_error_no_connector(self):
+        """When no connector is available, approval routing is skipped."""
         handler = AsyncMock()
         router = ChatWebhookRouter(event_handler=handler)
         interaction = _make_interaction()
-        event = _make_event(interaction=interaction)
-        mock_conn = MagicMock()
-        router._connectors["slack"] = mock_conn
-        router._approval_router = None
-
-        with patch(
-            "aragora.server.handlers.chat.router.ApprovalInteractionRouter",
-            side_effect=ImportError("nope"),
-        ):
-            # Should fall through to event_handler despite import error
-            # The import happens inside the method, so we need to patch the import
-            pass
-
-        # Alternatively test with no connector
-        router2 = ChatWebhookRouter(event_handler=handler)
-        event2 = _make_event(interaction=interaction, platform="missing")
+        event = _make_event(interaction=interaction, platform="missing")
         with patch("aragora.server.handlers.chat.router.get_connector", return_value=None):
-            result = await router2._handle_interaction(event2)
+            result = await router._handle_interaction(event)
             assert result["success"] is True
+            handler.assert_called_once_with(event)
 
     @pytest.mark.asyncio
     async def test_interaction_event_handler_error_caught(self):
@@ -1042,7 +1029,7 @@ class TestHandleVoice:
 
         event = _make_event(voice_message=_make_voice())
         with patch(
-            "aragora.server.handlers.chat.router.get_voice_bridge",
+            "aragora.connectors.chat.get_voice_bridge",
             return_value=mock_bridge,
         ):
             result = await router._handle_voice(event)
@@ -1057,7 +1044,7 @@ class TestHandleVoice:
         event = _make_event(voice_message=_make_voice())
 
         with patch(
-            "aragora.server.handlers.chat.router.get_voice_bridge",
+            "aragora.connectors.chat.get_voice_bridge",
             side_effect=ImportError("no bridge"),
         ):
             result = await router._handle_voice(event)
@@ -1076,7 +1063,7 @@ class TestHandleVoice:
         event = _make_event(voice_message=_make_voice())
 
         with patch(
-            "aragora.server.handlers.chat.router.get_voice_bridge",
+            "aragora.connectors.chat.get_voice_bridge",
             return_value=mock_bridge,
         ):
             result = await router._handle_voice(event)
@@ -1519,23 +1506,15 @@ class TestChatHandlerHandlePost:
             assert result is not None
 
     @pytest.mark.asyncio
-    async def test_webhook_auth_failure_returns_error(self):
-        handler = ChatHandler(ctx={})
-        mock_h = MockHTTPHandler(method="POST", body={})
+    async def test_webhook_auth_failure_from_router(self):
+        """When webhook verification fails, the inner router returns 401."""
+        router = ChatWebhookRouter()
         mock_conn = MagicMock()
         mock_conn.verify_webhook.return_value = False
-
-        with patch(
-            "aragora.server.handlers.chat.router._chat_limiter"
-        ) as mock_limiter, patch(
-            "aragora.server.handlers.chat.router.get_connector", return_value=mock_conn
-        ):
-            mock_limiter.is_allowed.return_value = True
-            result = await handler.handle_post(
-                "/api/v1/chat/slack/webhook", {}, mock_h
-            )
-            # Auth failure returns 401 from handle_webhook
-            assert _status(result) in (400, 401)
+        with patch("aragora.server.handlers.chat.router.get_connector", return_value=mock_conn):
+            result = await router.handle_webhook("slack", {}, b"body")
+            # Inner router returns HandlerResult with 401
+            assert _status(result) == 401
 
     @pytest.mark.asyncio
     async def test_no_rfile_uses_body_dict(self):
