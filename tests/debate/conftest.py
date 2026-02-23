@@ -12,6 +12,25 @@ import pytest
 
 
 @pytest.fixture(autouse=True)
+def _isolate_debate_databases(tmp_path, monkeypatch):
+    """Isolate SQLite databases to a temp directory for each test.
+
+    Arena initialization creates CalibrationTracker and other stores that
+    open real SQLite database files.  If those files are locked by another
+    process (e.g. the dev server), tests block indefinitely on the WAL
+    mutex.  Pointing ARAGORA_DATA_DIR at a fresh tmp directory avoids
+    contention entirely.
+
+    Also forces the Jaccard similarity backend to prevent
+    SentenceTransformer model downloads from HuggingFace, which can hang
+    in CI or air-gapped environments.
+    """
+    monkeypatch.setenv("ARAGORA_DATA_DIR", str(tmp_path))
+    monkeypatch.setenv("ARAGORA_CONVERGENCE_BACKEND", "jaccard")
+    monkeypatch.setenv("ARAGORA_SIMILARITY_BACKEND", "jaccard")
+
+
+@pytest.fixture(autouse=True)
 def _resync_convergence_after_backend_reload():
     """Re-synchronize convergence module class references after each test.
 
