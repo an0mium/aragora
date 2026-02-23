@@ -45,7 +45,7 @@ from aragora.server.handlers.cross_pollination import (
 _PATCH_MGR = "aragora.events.cross_subscribers.get_cross_subscriber_manager"
 _PATCH_BRIDGE = "aragora.events.arena_bridge.EVENT_TYPE_MAP"
 _PATCH_METRICS = "aragora.server.prometheus_cross_pollination.get_cross_pollination_metrics_text"
-_PATCH_RANKING = "aragora.knowledge.mound.adapters.ranking_adapter.RankingAdapter"
+_PATCH_RANKING = "aragora.knowledge.mound.adapters.RankingAdapter"
 _PATCH_RLM = "aragora.knowledge.mound.adapters.rlm_adapter.RlmAdapter"
 _PATCH_MOUND = "aragora.knowledge.mound.get_knowledge_mound"
 _PATCH_STALENESS = "aragora.knowledge.mound.staleness.StalenessDetector"
@@ -796,13 +796,19 @@ class TestCrossPollinationKMSyncHandler:
         mock_rlm = MagicMock()
         mock_rlm.get_stats.return_value = {"total_patterns": 0}
 
-        with (
-            patch(_PATCH_MGR, return_value=mgr),
-            patch.dict("sys.modules", {"aragora.knowledge.mound.adapters.ranking_adapter": None}),
-            patch(_PATCH_RLM, return_value=mock_rlm),
-            patch(_PATCH_RECORD_SYNC),
-        ):
-            result = await h.post.__wrapped__(h)
+        import aragora.knowledge.mound.adapters as _adapters_pkg
+
+        _orig = _adapters_pkg.RankingAdapter
+        delattr(_adapters_pkg, "RankingAdapter")
+        try:
+            with (
+                patch(_PATCH_MGR, return_value=mgr),
+                patch(_PATCH_RLM, return_value=mock_rlm),
+                patch(_PATCH_RECORD_SYNC),
+            ):
+                result = await h.post.__wrapped__(h)
+        finally:
+            _adapters_pkg.RankingAdapter = _orig
         body = _body(result)
         assert body["results"]["ranking"]["status"] == "unavailable"
         assert body["status"] == "ok"
