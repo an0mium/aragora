@@ -325,6 +325,7 @@ jobs:
 
       - name: Lint primary Helm chart
         run: |
+          helm dependency build deploy/helm/aragora/
           helm lint deploy/helm/aragora/ --strict
           echo "Primary chart passed lint!"
 
