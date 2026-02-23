@@ -1185,6 +1185,9 @@ class TeamSelector:
 
             agent_name = getattr(agent, "name", str(agent))
             snapshot = get_agent_introspection(agent_name)
+            # Only score agents with actual debate data to avoid default bias
+            if getattr(snapshot, "debate_count", 0) == 0:
+                return 0.0
             rep = getattr(snapshot, "reputation_score", 0.0)
             cal = getattr(snapshot, "calibration_score", 0.0)
             return (rep + cal) / 2.0

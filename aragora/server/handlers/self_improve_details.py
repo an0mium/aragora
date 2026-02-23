@@ -49,6 +49,7 @@ class SelfImproveDetailsHandler(SecureEndpointMixin, SecureHandler):  # type: ig
         "/api/self-improve/execution/timeline",
         "/api/self-improve/learning/insights",
         "/api/self-improve/metrics/comparison",
+        "/api/self-improve/trends/cycles",
     ]
 
     def can_handle(self, path: str, method: str = "GET") -> bool:
@@ -68,6 +69,7 @@ class SelfImproveDetailsHandler(SecureEndpointMixin, SecureHandler):  # type: ig
             "/api/self-improve/execution/timeline": self._get_execution_timeline,
             "/api/self-improve/learning/insights": self._get_learning_insights,
             "/api/self-improve/metrics/comparison": self._get_metrics_comparison,
+            "/api/self-improve/trends/cycles": self._get_cycle_trends,
         }
 
         endpoint_handler = handlers.get(path)
@@ -496,6 +498,112 @@ class SelfImproveDetailsHandler(SecureEndpointMixin, SecureHandler):  # type: ig
                 "data": {
                     "comparisons": comparisons,
                     "regressions": regressions,
+                }
+            }
+        )
+
+    async def _get_cycle_trends(self) -> HandlerResult:
+        """Get self-improvement cycle trends over time.
+
+        Aggregates data from CycleLearningStore and SelfImproveRunStore
+        to show success rate, duration, code churn, and cost trends.
+
+        Returns:
+            {"data": {"cycles": [...], "summary": {...}, "run_costs": [...]}}
+        """
+        cycles_data: list[dict[str, Any]] = []
+        summary: dict[str, Any] = {
+            "total_cycles": 0,
+            "success_rate": 0.0,
+            "avg_duration_seconds": 0.0,
+            "total_lines_changed": 0,
+            "avg_tests_passed": 0.0,
+        }
+
+        # Get cycle records from CycleLearningStore
+        try:
+            from aragora.nomic.cycle_store import get_cycle_store
+
+            store = get_cycle_store()
+            recent = store.get_recent_cycles(50)
+
+            total_duration = 0.0
+            total_success = 0
+            total_tests = 0
+            duration_count = 0
+
+            for cycle in recent:
+                cycle_entry: dict[str, Any] = {
+                    "cycle_id": cycle.cycle_id,
+                    "started_at": cycle.started_at,
+                    "completed_at": cycle.completed_at,
+                    "duration_seconds": cycle.duration_seconds,
+                    "success": cycle.success,
+                    "topics": cycle.topics_debated[:5],
+                    "lines_added": cycle.lines_added,
+                    "lines_removed": cycle.lines_removed,
+                    "tests_passed": cycle.tests_passed,
+                    "tests_failed": cycle.tests_failed,
+                    "files_modified": len(cycle.files_modified),
+                    "files_created": len(cycle.files_created),
+                    "phases_completed": cycle.phases_completed,
+                    "agent_count": len(cycle.agent_contributions),
+                    "evidence_quality": cycle.evidence_quality_scores,
+                }
+                cycles_data.append(cycle_entry)
+
+                if cycle.success:
+                    total_success += 1
+                if cycle.duration_seconds and cycle.duration_seconds > 0:
+                    total_duration += cycle.duration_seconds
+                    duration_count += 1
+                summary["total_lines_changed"] += cycle.lines_added + cycle.lines_removed
+                total_tests += cycle.tests_passed
+
+            n = len(recent)
+            summary["total_cycles"] = n
+            if n > 0:
+                summary["success_rate"] = round(total_success / n, 4)
+                summary["avg_tests_passed"] = round(total_tests / n, 1)
+            if duration_count > 0:
+                summary["avg_duration_seconds"] = round(total_duration / duration_count, 1)
+
+        except ImportError:
+            logger.debug("CycleLearningStore not available")
+        except (RuntimeError, ValueError, OSError) as exc:
+            logger.debug("Failed to get cycle trends: %s", exc)
+
+        # Get cost data from SelfImproveRunStore
+        run_costs: list[dict[str, Any]] = []
+        try:
+            from aragora.nomic.stores.run_store import SelfImproveRunStore
+
+            run_store = SelfImproveRunStore()
+            for run in run_store.list_runs(limit=50):
+                if run.cost_usd > 0 or run.status.value in ("completed", "failed"):
+                    run_costs.append(
+                        {
+                            "run_id": run.run_id,
+                            "goal": run.goal[:200],
+                            "status": run.status.value,
+                            "cost_usd": run.cost_usd,
+                            "created_at": run.created_at,
+                            "completed_at": run.completed_at,
+                            "subtasks_completed": run.completed_subtasks,
+                            "subtasks_failed": run.failed_subtasks,
+                        }
+                    )
+        except ImportError:
+            logger.debug("SelfImproveRunStore not available")
+        except (RuntimeError, ValueError, OSError) as exc:
+            logger.debug("Failed to get run costs: %s", exc)
+
+        return json_response(
+            {
+                "data": {
+                    "cycles": cycles_data,
+                    "summary": summary,
+                    "run_costs": run_costs,
                 }
             }
         )

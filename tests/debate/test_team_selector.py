@@ -530,6 +530,8 @@ class TestAgentScoring:
             enable_km_expertise=False,
             enable_pattern_selection=False,
             enable_cv_selection=False,
+            enable_regression_penalty=False,
+            enable_introspection_scoring=False,
         )
         selector = TeamSelector(config=config)
 
@@ -1303,6 +1305,8 @@ class TestDelegationStrategy:
             enable_km_expertise=False,
             enable_pattern_selection=False,
             enable_cv_selection=False,
+            enable_regression_penalty=False,
+            enable_introspection_scoring=False,
         )
         selector = TeamSelector(delegation_strategy=delegation, config=config)
 
