@@ -141,6 +141,9 @@ export default function Home() {
   const [showBoot, setShowBoot] = useState(false);
   const [skipBoot, setSkipBoot] = useState(true);
 
+  // Demo mode state (populated after backendConfig is available)
+  const [isDemoMode, setIsDemoMode] = useState(false);
+
   // Show onboarding for new users (after boot sequence completes)
   useEffect(() => {
     if (prefsLoaded && !preferences.hasSeenOnboarding && !showBoot) {
@@ -158,6 +161,21 @@ export default function Home() {
     setApiBase(backendConfig.api);
     setWsUrl(backendConfig.ws);
   }, [backendConfig]);
+
+  // Demo mode: detect from backend health endpoint (skips auth gate)
+  useEffect(() => {
+    if (isAuthenticated) return;
+    const controller = new AbortController();
+    fetch(`${backendConfig.api}/api/health`, { signal: controller.signal })
+      .then(r => r.ok ? r.json() : null)
+      .then(data => {
+        if (data?.demo_mode || data?.mode === 'demo' || data?.offline) {
+          setIsDemoMode(true);
+        }
+      })
+      .catch(() => { /* backend not available */ });
+    return () => controller.abort();
+  }, [backendConfig.api, isAuthenticated]);
 
   const { events, connected, nomicState: wsNomicState, activeLoops, selectedLoopId, selectLoop, sendMessage, onAck, onError } = useNomicStream(wsUrl);
 
@@ -371,8 +389,8 @@ export default function Home() {
     });
   };
 
-  // Show marketing landing page for unauthenticated visitors
-  if (!authLoading && !isAuthenticated) {
+  // Show marketing landing page for unauthenticated visitors (skip in demo mode)
+  if (!authLoading && !isAuthenticated && !isDemoMode) {
     return (
       <LandingPage
         apiBase={apiBase}
@@ -382,7 +400,7 @@ export default function Home() {
   }
 
   // Simple mode: clean dashboard with just debate input + recent debates
-  if (progressiveMode === 'simple' && isAuthenticated) {
+  if (progressiveMode === 'simple' && (isAuthenticated || isDemoMode)) {
     const isNewUser = prefsLoaded && !preferences.hasSeenOnboarding;
     return (
       <FeaturesProvider apiBase={apiBase}>

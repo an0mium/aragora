@@ -1,23 +1,43 @@
 'use client';
 
+import { useState, useEffect } from 'react';
 import { usePathname } from 'next/navigation';
 import { AppShell } from '@/components/layout';
 import { TopBar } from '@/components/layout/TopBar';
 import { useAuth } from '@/context/AuthContext';
+import { useBackend } from '@/components/BackendSelector';
 
 const NO_SHELL_PREFIXES = ['/auth'];
 
 export default function AppLayout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname() || '';
   const { isAuthenticated, isLoading: authLoading } = useAuth();
+  const { config: backendConfig } = useBackend();
   const hideShell = NO_SHELL_PREFIXES.some((prefix) => pathname.startsWith(prefix));
+
+  // Demo mode detection from backend health endpoint
+  const [isDemoMode, setIsDemoMode] = useState(false);
+  useEffect(() => {
+    if (isAuthenticated) return;
+    const controller = new AbortController();
+    fetch(`${backendConfig.api}/api/health`, { signal: controller.signal })
+      .then(r => r.ok ? r.json() : null)
+      .then(data => {
+        if (data?.demo_mode || data?.mode === 'demo' || data?.offline) {
+          setIsDemoMode(true);
+        }
+      })
+      .catch(() => { /* backend not available */ });
+    return () => controller.abort();
+  }, [backendConfig.api, isAuthenticated]);
 
   // Onboarding is accessible at /onboarding but we don't force-redirect to it.
   // Forced redirects were causing crash loops for OAuth users whose
   // Zustand store defaults needsOnboarding=true before they can interact.
 
   // Unauthenticated users at root see LandingPage (which has its own nav) — skip AppShell
-  if (!hideShell && pathname === '/' && !authLoading && !isAuthenticated) {
+  // In demo mode, show AppShell so sidebar navigation works
+  if (!hideShell && pathname === '/' && !authLoading && !isAuthenticated && !isDemoMode) {
     return <>{children}</>;
   }
 
