@@ -3,46 +3,92 @@
   "title": "Aragora Helm Chart Values",
   "description": "JSON Schema for validating Aragora Helm chart values",
   "type": "object",
-  "required": ["replicaCount", "image", "service", "resources"],
+  "required": ["backend", "config", "secrets"],
   "properties": {
-    "replicaCount": {
-      "type": "integer",
-      "minimum": 1,
-      "description": "Number of replicas for the deployment"
-    },
-    "image": {
-      "type": "object",
-      "required": ["repository"],
-      "properties": {
-        "repository": {
-          "type": "string",
-          "description": "Container image repository"
-        },
-        "tag": {
-          "type": "string",
-          "description": "Container image tag"
-        },
-        "pullPolicy": {
-          "type": "string",
-          "enum": ["Always", "IfNotPresent", "Never"],
-          "description": "Image pull policy"
-        }
-      }
-    },
+    "nameOverride": { "type": "string" },
+    "fullnameOverride": { "type": "string" },
     "imagePullSecrets": {
       "type": "array",
       "items": {
         "type": "object",
-        "properties": {
-          "name": { "type": "string" }
-        }
+        "properties": { "name": { "type": "string" } }
       }
     },
-    "nameOverride": {
-      "type": "string"
+    "backend": {
+      "type": "object",
+      "description": "Backend API server configuration",
+      "required": ["replicaCount", "image"],
+      "properties": {
+        "replicaCount": { "type": "integer", "minimum": 1 },
+        "image": {
+          "type": "object",
+          "required": ["repository"],
+          "properties": {
+            "repository": { "type": "string" },
+            "tag": { "type": "string" },
+            "pullPolicy": {
+              "type": "string",
+              "enum": ["Always", "IfNotPresent", "Never"]
+            }
+          }
+        },
+        "resources": { "$ref": "#/$defs/resources" },
+        "extraEnv": { "type": "array", "items": { "type": "object" } },
+        "podAnnotations": { "type": "object" },
+        "nodeSelector": { "type": "object" },
+        "tolerations": { "type": "array", "items": { "type": "object" } },
+        "affinity": { "type": "object" },
+        "topologySpreadConstraints": { "type": "array", "items": { "type": "object" } },
+        "service": {
+          "type": "object",
+          "properties": {
+            "type": { "type": "string", "enum": ["ClusterIP", "NodePort", "LoadBalancer"] },
+            "port": { "type": "integer", "minimum": 1, "maximum": 65535 },
+            "wsPort": { "type": "integer", "minimum": 1, "maximum": 65535 },
+            "annotations": { "type": "object" }
+          }
+        },
+        "livenessProbe": { "$ref": "#/$defs/httpProbe" },
+        "readinessProbe": { "$ref": "#/$defs/httpProbe" },
+        "startupProbe": { "$ref": "#/$defs/httpProbe" },
+        "autoscaling": { "$ref": "#/$defs/autoscaling" }
+      }
     },
-    "fullnameOverride": {
-      "type": "string"
+    "frontend": {
+      "type": "object",
+      "description": "Frontend Next.js application configuration",
+      "properties": {
+        "enabled": { "type": "boolean" },
+        "replicaCount": { "type": "integer", "minimum": 1 },
+        "image": {
+          "type": "object",
+          "properties": {
+            "repository": { "type": "string" },
+            "tag": { "type": "string" },
+            "pullPolicy": {
+              "type": "string",
+              "enum": ["Always", "IfNotPresent", "Never"]
+            }
+          }
+        },
+        "resources": { "$ref": "#/$defs/resources" },
+        "extraEnv": { "type": "array", "items": { "type": "object" } },
+        "podAnnotations": { "type": "object" },
+        "nodeSelector": { "type": "object" },
+        "tolerations": { "type": "array", "items": { "type": "object" } },
+        "affinity": { "type": "object" },
+        "service": {
+          "type": "object",
+          "properties": {
+            "type": { "type": "string", "enum": ["ClusterIP", "NodePort", "LoadBalancer"] },
+            "port": { "type": "integer", "minimum": 1, "maximum": 65535 },
+            "annotations": { "type": "object" }
+          }
+        },
+        "livenessProbe": { "$ref": "#/$defs/httpProbe" },
+        "readinessProbe": { "$ref": "#/$defs/httpProbe" },
+        "autoscaling": { "$ref": "#/$defs/autoscaling" }
+      }
     },
     "serviceAccount": {
       "type": "object",
@@ -51,9 +97,6 @@
         "annotations": { "type": "object" },
         "name": { "type": "string" }
       }
-    },
-    "podAnnotations": {
-      "type": "object"
     },
     "podSecurityContext": {
       "type": "object",
@@ -81,34 +124,10 @@
         "capabilities": {
           "type": "object",
           "properties": {
-            "drop": {
-              "type": "array",
-              "items": { "type": "string" }
-            },
-            "add": {
-              "type": "array",
-              "items": { "type": "string" }
-            }
+            "drop": { "type": "array", "items": { "type": "string" } },
+            "add": { "type": "array", "items": { "type": "string" } }
           }
         }
-      }
-    },
-    "service": {
-      "type": "object",
-      "required": ["type", "port"],
-      "properties": {
-        "type": {
-          "type": "string",
-          "enum": ["ClusterIP", "NodePort", "LoadBalancer"],
-          "description": "Kubernetes service type"
-        },
-        "port": {
-          "type": "integer",
-          "minimum": 1,
-          "maximum": 65535,
-          "description": "Service port"
-        },
-        "annotations": { "type": "object" }
       }
     },
     "ingress": {
@@ -117,205 +136,64 @@
         "enabled": { "type": "boolean" },
         "className": { "type": "string" },
         "annotations": { "type": "object" },
-        "hosts": {
-          "type": "array",
-          "items": {
-            "type": "object",
-            "properties": {
-              "host": { "type": "string" },
-              "paths": {
-                "type": "array",
-                "items": {
-                  "type": "object",
-                  "properties": {
-                    "path": { "type": "string" },
-                    "pathType": {
-                      "type": "string",
-                      "enum": ["ImplementationSpecific", "Prefix", "Exact"]
-                    }
-                  }
-                }
-              }
-            }
-          }
-        },
+        "host": { "type": "string" },
         "tls": {
-          "type": "array",
-          "items": {
-            "type": "object",
-            "properties": {
-              "secretName": { "type": "string" },
-              "hosts": {
-                "type": "array",
-                "items": { "type": "string" }
-              }
-            }
+          "type": "object",
+          "properties": {
+            "enabled": { "type": "boolean" },
+            "secretName": { "type": "string" }
           }
         }
-      }
-    },
-    "resources": {
-      "type": "object",
-      "required": ["requests", "limits"],
-      "properties": {
-        "limits": {
-          "type": "object",
-          "properties": {
-            "cpu": { "type": "string" },
-            "memory": { "type": "string" }
-          }
-        },
-        "requests": {
-          "type": "object",
-          "properties": {
-            "cpu": { "type": "string" },
-            "memory": { "type": "string" }
-          }
-        }
-      }
-    },
-    "autoscaling": {
-      "type": "object",
-      "properties": {
-        "enabled": { "type": "boolean" },
-        "minReplicas": { "type": "integer", "minimum": 1 },
-        "maxReplicas": { "type": "integer", "minimum": 1 },
-        "targetCPUUtilizationPercentage": { "type": "integer", "minimum": 1, "maximum": 100 },
-        "targetMemoryUtilizationPercentage": { "type": "integer", "minimum": 1, "maximum": 100 },
-        "scaleDown": {
-          "type": "object",
-          "properties": {
-            "stabilizationWindowSeconds": { "type": "integer", "minimum": 0 },
-            "percentValue": { "type": "integer", "minimum": 1, "maximum": 100 },
-            "periodSeconds": { "type": "integer", "minimum": 1 }
-          }
-        },
-        "scaleUp": {
-          "type": "object",
-          "properties": {
-            "stabilizationWindowSeconds": { "type": "integer", "minimum": 0 },
-            "percentValue": { "type": "integer", "minimum": 1, "maximum": 100 },
-            "podsValue": { "type": "integer", "minimum": 1 },
-            "periodSeconds": { "type": "integer", "minimum": 1 }
-          }
-        }
-      }
-    },
-    "podDisruptionBudget": {
-      "type": "object",
-      "properties": {
-        "enabled": { "type": "boolean" },
-        "minAvailable": { "type": "integer", "minimum": 0 },
-        "maxUnavailable": { "type": "integer", "minimum": 0 }
-      }
-    },
-    "nodeSelector": { "type": "object" },
-    "tolerations": {
-      "type": "array",
-      "items": { "type": "object" }
-    },
-    "affinity": { "type": "object" },
-    "livenessProbe": {
-      "type": "object",
-      "properties": {
-        "httpGet": {
-          "type": "object",
-          "properties": {
-            "path": { "type": "string" },
-            "port": { "type": ["string", "integer"] }
-          }
-        },
-        "initialDelaySeconds": { "type": "integer", "minimum": 0 },
-        "periodSeconds": { "type": "integer", "minimum": 1 },
-        "timeoutSeconds": { "type": "integer", "minimum": 1 },
-        "failureThreshold": { "type": "integer", "minimum": 1 }
-      }
-    },
-    "readinessProbe": {
-      "type": "object",
-      "properties": {
-        "httpGet": {
-          "type": "object",
-          "properties": {
-            "path": { "type": "string" },
-            "port": { "type": ["string", "integer"] }
-          }
-        },
-        "initialDelaySeconds": { "type": "integer", "minimum": 0 },
-        "periodSeconds": { "type": "integer", "minimum": 1 },
-        "timeoutSeconds": { "type": "integer", "minimum": 1 },
-        "failureThreshold": { "type": "integer", "minimum": 1 }
       }
     },
     "config": {
       "type": "object",
+      "description": "Non-secret application configuration",
       "properties": {
-        "port": { "type": "integer", "minimum": 1, "maximum": 65535 },
+        "bindHost": { "type": "string" },
+        "apiPort": { "type": "string" },
+        "wsPort": { "type": "string" },
         "logLevel": {
           "type": "string",
           "enum": ["DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"]
         },
-        "logFormat": {
-          "type": "string",
-          "enum": ["json", "text"]
-        },
-        "anthropicApiKey": { "type": "string" },
-        "openaiApiKey": { "type": "string" },
-        "openrouterApiKey": { "type": "string" },
-        "supabaseUrl": { "type": "string" },
-        "supabaseKey": { "type": "string" },
-        "redisUrl": { "type": "string" },
+        "logFormat": { "type": "string", "enum": ["json", "text"] },
+        "environment": { "type": "string" },
         "allowedOrigins": { "type": "string" },
-        "rateLimitEnabled": { "type": "boolean" },
-        "rateLimitWindow": { "type": "integer", "minimum": 1 },
-        "rateLimitMaxRequests": { "type": "integer", "minimum": 1 }
+        "canonicalStorePersist": { "type": "string" },
+        "storeDir": { "type": "string" },
+        "rateLimitEnabled": { "type": "string" },
+        "rateLimitWindow": { "type": "string" },
+        "rateLimitMaxRequests": { "type": "string" },
+        "dbBackend": { "type": "string", "enum": ["auto", "postgres", "sqlite"] }
       }
     },
-    "existingSecrets": {
+    "secrets": {
       "type": "object",
+      "description": "Secret configuration for API keys and credentials",
       "properties": {
-        "apiKeys": { "type": "string" },
-        "database": { "type": "string" }
-      }
-    },
-    "redis": {
-      "type": "object",
-      "properties": {
-        "enabled": { "type": "boolean" },
-        "architecture": {
-          "type": "string",
-          "enum": ["standalone", "replication"]
-        },
-        "auth": {
-          "type": "object",
-          "properties": {
-            "enabled": { "type": "boolean" }
-          }
-        }
-      }
-    },
-    "postgresql": {
-      "type": "object",
-      "properties": {
-        "enabled": { "type": "boolean" },
-        "auth": {
-          "type": "object",
-          "properties": {
-            "database": { "type": "string" },
-            "username": { "type": "string" },
-            "existingSecret": { "type": "string" }
-          }
-        }
-      }
-    },
-    "postgres": {
-      "type": "object",
-      "properties": {
-        "enabled": { "type": "boolean" },
-        "dsn": { "type": "string" },
+        "create": { "type": "boolean" },
         "existingSecret": { "type": "string" },
-        "poolMinSize": { "type": "integer", "minimum": 1 },
-        "poolMaxSize": { "type": "integer", "minimum": 1 }
+        "apiKeys": {
+          "type": "object",
+          "properties": {
+            "anthropicApiKey": { "type": "string" },
+            "openaiApiKey": { "type": "string" },
+            "openrouterApiKey": { "type": "string" },
+            "mistralApiKey": { "type": "string" },
+            "geminiApiKey": { "type": "string" },
+            "xaiApiKey": { "type": "string" }
+          }
+        },
+        "aragoraApiToken": { "type": "string" },
+        "aragoraSecretKey": { "type": "string" },
+        "database": {
+          "type": "object",
+          "properties": {
+            "postgresUrl": { "type": "string" },
+            "redisUrl": { "type": "string" }
+          }
+        }
       }
     },
     "persistence": {
@@ -334,26 +212,121 @@
         "annotations": { "type": "object" }
       }
     },
+    "postgresql": {
+      "type": "object",
+      "properties": {
+        "enabled": { "type": "boolean" },
+        "auth": {
+          "type": "object",
+          "properties": {
+            "database": { "type": "string" },
+            "username": { "type": "string" },
+            "password": { "type": "string" },
+            "existingSecret": { "type": "string" }
+          }
+        }
+      }
+    },
+    "redis": {
+      "type": "object",
+      "properties": {
+        "enabled": { "type": "boolean" },
+        "architecture": {
+          "type": "string",
+          "enum": ["standalone", "replication"]
+        },
+        "auth": {
+          "type": "object",
+          "properties": {
+            "enabled": { "type": "boolean" }
+          }
+        }
+      }
+    },
+    "externalDatabase": {
+      "type": "object",
+      "properties": {
+        "host": { "type": "string" },
+        "port": { "type": "integer", "minimum": 1, "maximum": 65535 },
+        "database": { "type": "string" },
+        "existingSecret": { "type": "string" }
+      }
+    },
+    "externalRedis": {
+      "type": "object",
+      "properties": {
+        "host": { "type": "string" },
+        "port": { "type": "integer", "minimum": 1, "maximum": 65535 },
+        "existingSecret": { "type": "string" }
+      }
+    },
+    "networkPolicy": {
+      "type": "object",
+      "properties": {
+        "enabled": { "type": "boolean" }
+      }
+    },
     "serviceMonitor": {
       "type": "object",
       "properties": {
         "enabled": { "type": "boolean" },
-        "port": { "type": "string" },
-        "path": { "type": "string" },
         "interval": { "type": "string" },
-        "scrapeTimeout": { "type": "string" },
-        "honorLabels": { "type": "boolean" },
-        "labels": { "type": "object" },
-        "metricRelabelings": { "type": "array" },
-        "relabelings": { "type": "array" }
+        "path": { "type": "string" },
+        "labels": { "type": "object" }
       }
     },
-    "prometheusRule": {
+    "podDisruptionBudget": {
       "type": "object",
       "properties": {
         "enabled": { "type": "boolean" },
-        "labels": { "type": "object" },
-        "rules": { "type": "array" }
+        "minAvailable": { "type": "integer", "minimum": 0 }
+      }
+    }
+  },
+  "$defs": {
+    "resources": {
+      "type": "object",
+      "properties": {
+        "requests": {
+          "type": "object",
+          "properties": {
+            "cpu": { "type": "string" },
+            "memory": { "type": "string" }
+          }
+        },
+        "limits": {
+          "type": "object",
+          "properties": {
+            "cpu": { "type": "string" },
+            "memory": { "type": "string" }
+          }
+        }
+      }
+    },
+    "httpProbe": {
+      "type": "object",
+      "properties": {
+        "httpGet": {
+          "type": "object",
+          "properties": {
+            "path": { "type": "string" },
+            "port": { "type": ["string", "integer"] }
+          }
+        },
+        "initialDelaySeconds": { "type": "integer", "minimum": 0 },
+        "periodSeconds": { "type": "integer", "minimum": 1 },
+        "timeoutSeconds": { "type": "integer", "minimum": 1 },
+        "failureThreshold": { "type": "integer", "minimum": 1 }
+      }
+    },
+    "autoscaling": {
+      "type": "object",
+      "properties": {
+        "enabled": { "type": "boolean" },
+        "minReplicas": { "type": "integer", "minimum": 1 },
+        "maxReplicas": { "type": "integer", "minimum": 1 },
+        "targetCPUUtilizationPercentage": { "type": "integer", "minimum": 1, "maximum": 100 },
+        "targetMemoryUtilizationPercentage": { "type": "integer", "minimum": 1, "maximum": 100 }
       }
     }
   }

@@ -1,9 +1,13 @@
 apiVersion: v2
 name: aragora
-description: Control plane for multi-agent vetted decisionmaking across org knowledge and channels
+description: >-
+  Aragora Decision Integrity Platform - orchestrates multi-agent adversarial
+  vetting of decisions against organizational knowledge, delivering audit-ready
+  decision receipts to any channel.
 type: application
-version: 0.8.0
+version: 0.1.0
 appVersion: "0.8.0"
+kubeVersion: ">=1.25.0-0"
 keywords:
   - ai
   - debate
@@ -11,10 +15,21 @@ keywords:
   - llm
   - anthropic
   - openai
+  - decision-making
+  - self-hosted
+icon: https://aragora.ai/icon.png
 maintainers:
   - name: Aragora Team
     url: https://github.com/aragora/aragora
 home: https://aragora.ai
 sources:
   - https://github.com/aragora/aragora
-dependencies: []
+dependencies:
+  - name: redis
+    version: "~18.0"
+    repository: https://charts.bitnami.com/bitnami
+    condition: redis.enabled
+  - name: postgresql
+    version: "~13.0"
+    repository: https://charts.bitnami.com/bitnami
+    condition: postgresql.enabled

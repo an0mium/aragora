@@ -1,32 +1,211 @@
-# Default values for Aragora
-# This is a YAML-formatted file.
+# =============================================================================
+# Aragora Helm Chart - Default Values
+# =============================================================================
+# Override these values for your environment. At minimum, you must provide
+# at least one AI provider API key via secrets.apiKeys.
+# =============================================================================
 
-# Replica count
-replicaCount: 1
-
-# Image configuration
-image:
-  repository: aragora/aragora
-  tag: "latest"
-  pullPolicy: IfNotPresent
-
-# Image pull secrets
-imagePullSecrets: []
-
-# Override name
+# -- Override chart name
 nameOverride: ""
+# -- Override fully qualified chart name
 fullnameOverride: ""
 
-# Service account
+# -- Global image pull secrets
+imagePullSecrets: []
+
+# =============================================================================
+# Backend Configuration
+# =============================================================================
+backend:
+  # -- Number of backend replicas (ignored when autoscaling is enabled)
+  replicaCount: 2
+
+  image:
+    # -- Backend image repository
+    repository: ghcr.io/aragora/aragora
+    # -- Backend image tag (defaults to Chart.appVersion)
+    tag: ""
+    # -- Image pull policy
+    pullPolicy: IfNotPresent
+
+  # -- Backend resource requests and limits
+  resources:
+    requests:
+      cpu: 250m
+      memory: 512Mi
+    limits:
+      cpu: 2000m
+      memory: 4Gi
+
+  # -- Additional environment variables for the backend
+  # Example:
+  #   extraEnv:
+  #     - name: ARAGORA_ENV
+  #       value: production
+  extraEnv: []
+
+  # -- Pod annotations for backend pods
+  podAnnotations: {}
+
+  # -- Node selector for backend pods
+  nodeSelector: {}
+
+  # -- Tolerations for backend pods
+  tolerations: []
+
+  # -- Affinity rules for backend pods
+  affinity: {}
+
+  # -- Topology spread constraints for backend pods
+  topologySpreadConstraints: []
+
+  service:
+    # -- Backend service type
+    type: ClusterIP
+    # -- Backend HTTP API port
+    port: 8080
+    # -- Backend WebSocket port
+    wsPort: 8765
+    # -- Service annotations
+    annotations: {}
+
+  # -- Liveness probe for backend
+  livenessProbe:
+    httpGet:
+      path: /healthz
+      port: http
+    initialDelaySeconds: 30
+    periodSeconds: 10
+    timeoutSeconds: 5
+    failureThreshold: 3
+
+  # -- Readiness probe for backend
+  readinessProbe:
+    httpGet:
+      path: /healthz
+      port: http
+    initialDelaySeconds: 5
+    periodSeconds: 5
+    timeoutSeconds: 3
+    failureThreshold: 3
+
+  # -- Startup probe for backend (generous for cold starts)
+  startupProbe:
+    httpGet:
+      path: /healthz
+      port: http
+    initialDelaySeconds: 10
+    periodSeconds: 5
+    timeoutSeconds: 5
+    failureThreshold: 12
+
+  autoscaling:
+    # -- Enable Horizontal Pod Autoscaler for backend
+    enabled: false
+    # -- Minimum replicas
+    minReplicas: 2
+    # -- Maximum replicas
+    maxReplicas: 10
+    # -- Target CPU utilization percentage
+    targetCPUUtilizationPercentage: 70
+    # -- Target memory utilization percentage
+    targetMemoryUtilizationPercentage: 80
+
+# =============================================================================
+# Frontend Configuration
+# =============================================================================
+frontend:
+  # -- Enable frontend deployment
+  enabled: true
+
+  # -- Number of frontend replicas
+  replicaCount: 2
+
+  image:
+    # -- Frontend image repository
+    repository: ghcr.io/aragora/aragora-frontend
+    # -- Frontend image tag (defaults to Chart.appVersion)
+    tag: ""
+    # -- Image pull policy
+    pullPolicy: IfNotPresent
+
+  # -- Frontend resource requests and limits
+  resources:
+    requests:
+      cpu: 100m
+      memory: 128Mi
+    limits:
+      cpu: 500m
+      memory: 512Mi
+
+  # -- Additional environment variables for the frontend
+  extraEnv: []
+
+  # -- Pod annotations for frontend pods
+  podAnnotations: {}
+
+  # -- Node selector for frontend pods
+  nodeSelector: {}
+
+  # -- Tolerations for frontend pods
+  tolerations: []
+
+  # -- Affinity rules for frontend pods
+  affinity: {}
+
+  service:
+    # -- Frontend service type
+    type: ClusterIP
+    # -- Frontend port
+    port: 3000
+    # -- Service annotations
+    annotations: {}
+
+  # -- Liveness probe for frontend
+  livenessProbe:
+    httpGet:
+      path: /
+      port: http
+    initialDelaySeconds: 10
+    periodSeconds: 10
+    timeoutSeconds: 3
+    failureThreshold: 3
+
+  # -- Readiness probe for frontend
+  readinessProbe:
+    httpGet:
+      path: /
+      port: http
+    initialDelaySeconds: 5
+    periodSeconds: 5
+    timeoutSeconds: 3
+    failureThreshold: 3
+
+  autoscaling:
+    # -- Enable Horizontal Pod Autoscaler for frontend
+    enabled: false
+    # -- Minimum replicas
+    minReplicas: 2
+    # -- Maximum replicas
+    maxReplicas: 6
+    # -- Target CPU utilization percentage
+    targetCPUUtilizationPercentage: 70
+
+# =============================================================================
+# Service Account
+# =============================================================================
 serviceAccount:
+  # -- Create a dedicated service account
   create: true
+  # -- Annotations for the service account (e.g., for IAM roles)
   annotations: {}
+  # -- Service account name (auto-generated if empty)
   name: ""
 
-# Pod annotations
-podAnnotations: {}
-
-# Pod security context (PSS restricted-compatible)
+# =============================================================================
+# Pod Security
+# =============================================================================
+# -- Pod-level security context (applies to all containers in the pod)
 podSecurityContext:
   runAsNonRoot: true
   runAsUser: 1000
@@ -35,7 +214,7 @@ podSecurityContext:
   seccompProfile:
     type: RuntimeDefault
 
-# Container security context (PSS restricted-compatible)
+# -- Container-level security context
 securityContext:
   allowPrivilegeEscalation: false
   readOnlyRootFilesystem: true
@@ -43,189 +222,186 @@ securityContext:
     drop:
       - ALL
 
-# Service configuration
-service:
-  type: ClusterIP
-  port: 8080
-  annotations: {}
-
-# Ingress configuration
+# =============================================================================
+# Ingress
+# =============================================================================
 ingress:
+  # -- Enable ingress resource
   enabled: false
+  # -- Ingress class name (e.g., nginx, traefik, alb)
   className: ""
+  # -- Ingress annotations
   annotations: {}
-    # kubernetes.io/ingress.class: nginx
-    # kubernetes.io/tls-acme: "true"
-  hosts:
-    - host: aragora.local
-      paths:
-        - path: /
-          pathType: ImplementationSpecific
-  tls: []
-  #  - secretName: aragora-tls
-  #    hosts:
-  #      - aragora.local
+    # cert-manager.io/cluster-issuer: letsencrypt-prod
+    # nginx.ingress.kubernetes.io/proxy-body-size: 50m
+    # nginx.ingress.kubernetes.io/proxy-read-timeout: "120"
 
-# Resource limits
-resources:
-  limits:
-    cpu: 1000m
-    memory: 1Gi
-  requests:
-    cpu: 100m
-    memory: 256Mi
+  # -- Hostname for the ingress
+  host: aragora.example.com
 
-# Autoscaling (Horizontal Pod Autoscaler)
-autoscaling:
-  enabled: false  # Set to true for production
-  minReplicas: 2
-  maxReplicas: 10
-  targetCPUUtilizationPercentage: 70
-  targetMemoryUtilizationPercentage: 80
-  # Scale down behavior (conservative to prevent flapping)
-  scaleDown:
-    stabilizationWindowSeconds: 300  # 5 min cooldown before scaling down
-    percentValue: 25  # Scale down by max 25% at a time
-    periodSeconds: 60
-  # Scale up behavior (aggressive to handle load spikes)
-  scaleUp:
-    stabilizationWindowSeconds: 60  # Quick scale up on demand
-    percentValue: 100  # Can double pods if needed
-    podsValue: 4  # Or add up to 4 pods
-    periodSeconds: 15
+  tls:
+    # -- Enable TLS
+    enabled: false
+    # -- TLS secret name (auto-generated by cert-manager if annotations set)
+    secretName: aragora-tls
 
-# Pod Disruption Budget (ensures HA during maintenance)
-podDisruptionBudget:
-  enabled: false  # Set to true for production
-  minAvailable: 1
-  # Alternative: maxUnavailable: 1
-
-# Rollback configuration
-# Controls automatic rollback behavior based on health checks
-rollback:
-  enabled: true
-  # Number of revision history to keep (for kubectl rollout undo)
-  historyLimit: 10
-  # Seconds pod must be ready before considered stable
-  minReadySeconds: 30
-  # Number of failed health checks before pod marked unhealthy
-  healthThreshold: 3
-
-# Node selector
-nodeSelector: {}
-
-# Tolerations
-tolerations: []
-
-# Affinity
-affinity: {}
-
-# Liveness probe
-livenessProbe:
-  httpGet:
-    path: /healthz
-    port: http
-  initialDelaySeconds: 30
-  periodSeconds: 10
-  timeoutSeconds: 5
-  failureThreshold: 3
-
-# Readiness probe
-readinessProbe:
-  httpGet:
-    path: /readyz
-    port: http
-  initialDelaySeconds: 5
-  periodSeconds: 5
-  timeoutSeconds: 3
-  failureThreshold: 3
-
-# Application configuration
+# =============================================================================
+# Application Configuration (non-secret)
+# =============================================================================
 config:
-  # Server settings
-  port: 8080
-  logLevel: INFO
-  logFormat: json  # json or text
-  # Canonical bead/convoy store (requires persistence.enabled)
-  canonicalStorePersist: true
-  storeDir: "/app/data/.aragora_beads"
-
-  # API keys (use secrets in production)
-  anthropicApiKey: ""
-  openaiApiKey: ""
-  openrouterApiKey: ""
-
-  # Supabase (optional)
-  supabaseUrl: ""
-  supabaseKey: ""
-
-  # Redis (for rate limiting and caching)
-  redisUrl: ""
-
-  # CORS
+  # -- Server bind host
+  bindHost: "0.0.0.0"
+  # -- HTTP API port (internal)
+  apiPort: "8080"
+  # -- WebSocket port (internal)
+  wsPort: "8765"
+  # -- Log level (DEBUG, INFO, WARNING, ERROR)
+  logLevel: "INFO"
+  # -- Log format (json or text)
+  logFormat: "json"
+  # -- Environment name
+  environment: "production"
+  # -- CORS allowed origins (comma-separated or *)
   allowedOrigins: "*"
+  # -- Enable canonical bead/convoy store persistence
+  canonicalStorePersist: "1"
+  # -- Bead/convoy store directory
+  storeDir: "/app/data/.aragora_beads"
+  # -- Enable rate limiting
+  rateLimitEnabled: "true"
+  # -- Rate limit window in seconds
+  rateLimitWindow: "60"
+  # -- Maximum requests per window
+  rateLimitMaxRequests: "100"
+  # -- Database backend (auto, postgres, sqlite)
+  dbBackend: "auto"
 
-  # Rate limiting
-  rateLimitEnabled: true
-  rateLimitWindow: 60
-  rateLimitMaxRequests: 100
+# =============================================================================
+# Secrets
+# =============================================================================
+secrets:
+  # -- Create a Kubernetes Secret with API keys and credentials.
+  # Set to false if you manage secrets externally (e.g., External Secrets Operator).
+  create: true
 
-# External secrets (reference existing secrets)
-existingSecrets:
-  apiKeys: ""  # Name of secret containing API keys
-  database: ""  # Name of secret containing database credentials
+  apiKeys:
+    # -- Anthropic API key (at least one AI provider key is required)
+    anthropicApiKey: ""
+    # -- OpenAI API key
+    openaiApiKey: ""
+    # -- OpenRouter API key (fallback provider)
+    openrouterApiKey: ""
+    # -- Mistral API key
+    mistralApiKey: ""
+    # -- Gemini API key
+    geminiApiKey: ""
+    # -- xAI / Grok API key
+    xaiApiKey: ""
 
-# Redis subchart (disabled by default, use external)
+  # -- Aragora API token for authenticating requests
+  aragoraApiToken: ""
+  # -- Aragora secret key for session signing
+  aragoraSecretKey: ""
+
+  database:
+    # -- PostgreSQL connection string
+    postgresUrl: ""
+    # -- Redis connection string
+    redisUrl: ""
+
+  # -- Reference an existing secret instead of creating one.
+  # When set, secrets.create is ignored and this secret is used.
+  existingSecret: ""
+
+# =============================================================================
+# Persistence (PVC for data directory)
+# =============================================================================
+persistence:
+  # -- Enable persistent volume for backend data
+  enabled: true
+  # -- Storage class (empty string uses cluster default)
+  storageClass: ""
+  # -- Access modes
+  accessModes:
+    - ReadWriteOnce
+  # -- Volume size
+  size: 10Gi
+  # -- PVC annotations
+  annotations: {}
+
+# =============================================================================
+# PostgreSQL Subchart
+# =============================================================================
+postgresql:
+  # -- Deploy PostgreSQL as a subchart
+  enabled: false
+  auth:
+    database: aragora
+    username: aragora
+    # -- Use an existing secret for PostgreSQL password
+    existingSecret: ""
+    # -- Password (only if existingSecret is empty; not recommended for production)
+    password: ""
+
+# =============================================================================
+# Redis Subchart
+# =============================================================================
 redis:
+  # -- Deploy Redis as a subchart
   enabled: false
   architecture: standalone
   auth:
     enabled: false
 
-# PostgreSQL subchart (disabled by default)
-postgresql:
-  enabled: false
-  auth:
-    database: aragora
-    username: aragora
-    existingSecret: ""  # Name of secret containing postgresql-password
+# =============================================================================
+# External Database (when postgresql.enabled is false)
+# =============================================================================
+externalDatabase:
+  # -- External PostgreSQL host
+  host: ""
+  # -- External PostgreSQL port
+  port: 5432
+  # -- Database name
+  database: "aragora"
+  # -- Existing secret containing the DATABASE_URL key
+  existingSecret: ""
 
-# PostgreSQL configuration (when using external Postgres)
-postgres:
-  enabled: false
-  dsn: ""  # Full connection string (use existingSecret in production)
-  existingSecret: ""  # Secret containing DATABASE_URL
-  # Connection pool settings
-  poolMinSize: 5
-  poolMaxSize: 20
+# =============================================================================
+# External Redis (when redis.enabled is false)
+# =============================================================================
+externalRedis:
+  # -- External Redis host
+  host: ""
+  # -- External Redis port
+  port: 6379
+  # -- Existing secret containing the REDIS_URL key
+  existingSecret: ""
 
-# Persistence (for local storage mode)
-persistence:
+# =============================================================================
+# Network Policies
+# =============================================================================
+networkPolicy:
+  # -- Enable network policies for pod-level firewalling
   enabled: false
-  storageClass: ""
-  accessModes:
-    - ReadWriteOnce
-  size: 10Gi
-  annotations: {}
 
-# ServiceMonitor for Prometheus Operator
+# =============================================================================
+# ServiceMonitor (Prometheus Operator)
+# =============================================================================
 serviceMonitor:
-  enabled: false  # Set to true when using Prometheus Operator
-  port: metrics
-  path: /metrics
-  interval: 15s
-  scrapeTimeout: 10s
-  honorLabels: false
-  labels: {}
-  # Additional labels for ServiceMonitor (e.g., for Prometheus selector)
-  # labels:
-  #   release: prometheus
-  metricRelabelings: []
-  relabelings: []
-
-# PrometheusRule for alerts (requires Prometheus Operator)
-prometheusRule:
+  # -- Enable ServiceMonitor for Prometheus scraping
   enabled: false
+  # -- Scrape interval
+  interval: "15s"
+  # -- Metrics path
+  path: "/metrics"
+  # -- Additional labels for the ServiceMonitor
   labels: {}
-  # Alerting rules - see deploy/monitoring/alerts.yaml for examples
-  rules: []
+
+# =============================================================================
+# Pod Disruption Budget
+# =============================================================================
+podDisruptionBudget:
+  # -- Enable PDB for backend pods
+  enabled: false
+  # -- Minimum available pods during disruptions
+  minAvailable: 1

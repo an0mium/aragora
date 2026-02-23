@@ -1,0 +1,133 @@
+{{- if .Values.networkPolicy.enabled }}
+# Backend network policy: allow ingress from frontend and ingress controller only
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: {{ include "aragora.fullname" . }}-backend
+  labels:
+    {{- include "aragora.labels" . | nindent 4 }}
+    app.kubernetes.io/component: backend
+spec:
+  podSelector:
+    matchLabels:
+      {{- include "aragora.backend.selectorLabels" . | nindent 6 }}
+  policyTypes:
+    - Ingress
+    - Egress
+  ingress:
+    # Allow traffic from frontend pods
+    {{- if .Values.frontend.enabled }}
+    - from:
+        - podSelector:
+            matchLabels:
+              {{- include "aragora.frontend.selectorLabels" . | nindent 14 }}
+      ports:
+        - port: 8080
+          protocol: TCP
+        - port: 8765
+          protocol: TCP
+    {{- end }}
+    # Allow traffic from ingress controller (namespace with label)
+    - from:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: ingress-nginx
+      ports:
+        - port: 8080
+          protocol: TCP
+        - port: 8765
+          protocol: TCP
+    # Allow Prometheus scraping
+    - from:
+        - namespaceSelector: {}
+          podSelector:
+            matchLabels:
+              app.kubernetes.io/name: prometheus
+      ports:
+        - port: 8080
+          protocol: TCP
+  egress:
+    # Allow DNS resolution
+    - to:
+        - namespaceSelector: {}
+          podSelector:
+            matchLabels:
+              k8s-app: kube-dns
+      ports:
+        - port: 53
+          protocol: UDP
+        - port: 53
+          protocol: TCP
+    # Allow egress to PostgreSQL
+    - to:
+        - podSelector: {}
+      ports:
+        - port: 5432
+          protocol: TCP
+    # Allow egress to Redis
+    - to:
+        - podSelector: {}
+      ports:
+        - port: 6379
+          protocol: TCP
+    # Allow egress to external AI APIs (HTTPS)
+    - to:
+        - ipBlock:
+            cidr: 0.0.0.0/0
+            except:
+              - 10.0.0.0/8
+              - 172.16.0.0/12
+              - 192.168.0.0/16
+      ports:
+        - port: 443
+          protocol: TCP
+---
+{{- if .Values.frontend.enabled }}
+# Frontend network policy: allow ingress from ingress controller only
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: {{ include "aragora.fullname" . }}-frontend
+  labels:
+    {{- include "aragora.labels" . | nindent 4 }}
+    app.kubernetes.io/component: frontend
+spec:
+  podSelector:
+    matchLabels:
+      {{- include "aragora.frontend.selectorLabels" . | nindent 6 }}
+  policyTypes:
+    - Ingress
+    - Egress
+  ingress:
+    # Allow traffic from ingress controller
+    - from:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: ingress-nginx
+      ports:
+        - port: 3000
+          protocol: TCP
+  egress:
+    # Allow DNS resolution
+    - to:
+        - namespaceSelector: {}
+          podSelector:
+            matchLabels:
+              k8s-app: kube-dns
+      ports:
+        - port: 53
+          protocol: UDP
+        - port: 53
+          protocol: TCP
+    # Allow egress to backend
+    - to:
+        - podSelector:
+            matchLabels:
+              {{- include "aragora.backend.selectorLabels" . | nindent 14 }}
+      ports:
+        - port: 8080
+          protocol: TCP
+        - port: 8765
+          protocol: TCP
+{{- end }}
+{{- end }}

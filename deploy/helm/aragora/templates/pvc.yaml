@@ -1,0 +1,23 @@
+{{- if .Values.persistence.enabled }}
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: {{ include "aragora.fullname" . }}-data
+  labels:
+    {{- include "aragora.labels" . | nindent 4 }}
+  {{- with .Values.persistence.annotations }}
+  annotations:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+spec:
+  accessModes:
+    {{- range .Values.persistence.accessModes }}
+    - {{ . }}
+    {{- end }}
+  {{- if .Values.persistence.storageClass }}
+  storageClassName: {{ .Values.persistence.storageClass | quote }}
+  {{- end }}
+  resources:
+    requests:
+      storage: {{ .Values.persistence.size }}
+{{- end }}

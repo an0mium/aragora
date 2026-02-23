@@ -1,50 +1,90 @@
-{{- if .Values.autoscaling.enabled }}
----
-# Aragora Horizontal Pod Autoscaler
-# Automatically scales based on CPU/memory utilization
+{{- if .Values.backend.autoscaling.enabled }}
 apiVersion: autoscaling/v2
 kind: HorizontalPodAutoscaler
 metadata:
-  name: {{ include "aragora.fullname" . }}
-  namespace: {{ .Release.Namespace }}
+  name: {{ include "aragora.fullname" . }}-backend
   labels:
     {{- include "aragora.labels" . | nindent 4 }}
-    app.kubernetes.io/component: autoscaler
+    app.kubernetes.io/component: backend
 spec:
   scaleTargetRef:
     apiVersion: apps/v1
     kind: Deployment
-    name: {{ include "aragora.fullname" . }}
-  minReplicas: {{ .Values.autoscaling.minReplicas }}
-  maxReplicas: {{ .Values.autoscaling.maxReplicas }}
+    name: {{ include "aragora.fullname" . }}-backend
+  minReplicas: {{ .Values.backend.autoscaling.minReplicas }}
+  maxReplicas: {{ .Values.backend.autoscaling.maxReplicas }}
   metrics:
+    {{- if .Values.backend.autoscaling.targetCPUUtilizationPercentage }}
     - type: Resource
       resource:
         name: cpu
         target:
           type: Utilization
-          averageUtilization: {{ .Values.autoscaling.targetCPUUtilizationPercentage }}
+          averageUtilization: {{ .Values.backend.autoscaling.targetCPUUtilizationPercentage }}
+    {{- end }}
+    {{- if .Values.backend.autoscaling.targetMemoryUtilizationPercentage }}
     - type: Resource
       resource:
         name: memory
         target:
           type: Utilization
-          averageUtilization: {{ .Values.autoscaling.targetMemoryUtilizationPercentage }}
+          averageUtilization: {{ .Values.backend.autoscaling.targetMemoryUtilizationPercentage }}
+    {{- end }}
   behavior:
     scaleDown:
-      stabilizationWindowSeconds: {{ .Values.autoscaling.scaleDown.stabilizationWindowSeconds | default 300 }}
+      stabilizationWindowSeconds: 300
       policies:
         - type: Percent
-          value: {{ .Values.autoscaling.scaleDown.percentValue | default 25 }}
-          periodSeconds: {{ .Values.autoscaling.scaleDown.periodSeconds | default 60 }}
+          value: 25
+          periodSeconds: 60
     scaleUp:
-      stabilizationWindowSeconds: {{ .Values.autoscaling.scaleUp.stabilizationWindowSeconds | default 60 }}
+      stabilizationWindowSeconds: 60
       policies:
         - type: Percent
-          value: {{ .Values.autoscaling.scaleUp.percentValue | default 100 }}
-          periodSeconds: {{ .Values.autoscaling.scaleUp.periodSeconds | default 15 }}
+          value: 100
+          periodSeconds: 15
         - type: Pods
-          value: {{ .Values.autoscaling.scaleUp.podsValue | default 4 }}
-          periodSeconds: {{ .Values.autoscaling.scaleUp.periodSeconds | default 15 }}
+          value: 4
+          periodSeconds: 15
+      selectPolicy: Max
+{{- end }}
+---
+{{- if and .Values.frontend.enabled .Values.frontend.autoscaling.enabled }}
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: {{ include "aragora.fullname" . }}-frontend
+  labels:
+    {{- include "aragora.labels" . | nindent 4 }}
+    app.kubernetes.io/component: frontend
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: {{ include "aragora.fullname" . }}-frontend
+  minReplicas: {{ .Values.frontend.autoscaling.minReplicas }}
+  maxReplicas: {{ .Values.frontend.autoscaling.maxReplicas }}
+  metrics:
+    {{- if .Values.frontend.autoscaling.targetCPUUtilizationPercentage }}
+    - type: Resource
+      resource:
+        name: cpu
+        target:
+          type: Utilization
+          averageUtilization: {{ .Values.frontend.autoscaling.targetCPUUtilizationPercentage }}
+    {{- end }}
+  behavior:
+    scaleDown:
+      stabilizationWindowSeconds: 300
+      policies:
+        - type: Percent
+          value: 25
+          periodSeconds: 60
+    scaleUp:
+      stabilizationWindowSeconds: 30
+      policies:
+        - type: Percent
+          value: 100
+          periodSeconds: 15
       selectPolicy: Max
 {{- end }}

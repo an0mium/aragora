@@ -1,0 +1,72 @@
+
+===========================================================================
+  Aragora Decision Integrity Platform
+===========================================================================
+
+Thank you for installing {{ .Chart.Name }} (v{{ .Chart.Version }}).
+
+{{- if .Values.ingress.enabled }}
+
+Your Aragora instance is available at:
+
+  {{- if .Values.ingress.tls.enabled }}
+  Dashboard:  https://{{ .Values.ingress.host }}
+  API:        https://{{ .Values.ingress.host }}/api
+  WebSocket:  wss://{{ .Values.ingress.host }}/ws
+  {{- else }}
+  Dashboard:  http://{{ .Values.ingress.host }}
+  API:        http://{{ .Values.ingress.host }}/api
+  WebSocket:  ws://{{ .Values.ingress.host }}/ws
+  {{- end }}
+
+{{- else }}
+
+To access Aragora, set up port forwarding:
+
+  # Backend API
+  kubectl port-forward svc/{{ include "aragora.fullname" . }}-backend {{ .Values.backend.service.port }}:{{ .Values.backend.service.port }} -n {{ .Release.Namespace }}
+
+  {{- if .Values.frontend.enabled }}
+  # Frontend dashboard
+  kubectl port-forward svc/{{ include "aragora.fullname" . }}-frontend {{ .Values.frontend.service.port }}:{{ .Values.frontend.service.port }} -n {{ .Release.Namespace }}
+  {{- end }}
+
+  Then open:
+    API:        http://localhost:{{ .Values.backend.service.port }}/api
+    Health:     http://localhost:{{ .Values.backend.service.port }}/healthz
+  {{- if .Values.frontend.enabled }}
+    Dashboard:  http://localhost:{{ .Values.frontend.service.port }}
+  {{- end }}
+
+{{- end }}
+
+HEALTH CHECK:
+
+  kubectl get pods -l app.kubernetes.io/instance={{ .Release.Name }} -n {{ .Release.Namespace }}
+
+{{- if not (or .Values.secrets.apiKeys.anthropicApiKey .Values.secrets.apiKeys.openaiApiKey .Values.secrets.existingSecret) }}
+
+WARNING: No AI provider API keys configured. At least one of the following
+must be set for Aragora to function:
+
+  --set secrets.apiKeys.anthropicApiKey=sk-ant-...
+  --set secrets.apiKeys.openaiApiKey=sk-...
+
+Or provide an existing secret:
+  --set secrets.existingSecret=my-aragora-keys
+
+{{- end }}
+
+USEFUL COMMANDS:
+
+  # View logs
+  kubectl logs -l app.kubernetes.io/component=backend -n {{ .Release.Namespace }} -f
+
+  # Check configuration
+  helm get values {{ .Release.Name }} -n {{ .Release.Namespace }}
+
+  # Upgrade
+  helm upgrade {{ .Release.Name }} deploy/helm/aragora/ -n {{ .Release.Namespace }} -f my-values.yaml
+
+For documentation, visit: https://aragora.ai/docs
+===========================================================================

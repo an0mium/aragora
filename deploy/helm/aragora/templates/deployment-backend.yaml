@@ -1,0 +1,190 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "aragora.fullname" . }}-backend
+  labels:
+    {{- include "aragora.labels" . | nindent 4 }}
+    app.kubernetes.io/component: backend
+spec:
+  {{- if not .Values.backend.autoscaling.enabled }}
+  replicas: {{ .Values.backend.replicaCount }}
+  {{- end }}
+  revisionHistoryLimit: 10
+  selector:
+    matchLabels:
+      {{- include "aragora.backend.selectorLabels" . | nindent 6 }}
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxSurge: 1
+      maxUnavailable: 0
+  template:
+    metadata:
+      annotations:
+        checksum/config: {{ include (print $.Template.BasePath "/configmap.yaml") . | sha256sum }}
+        checksum/secret: {{ include (print $.Template.BasePath "/secret.yaml") . | sha256sum }}
+        {{- with .Values.backend.podAnnotations }}
+        {{- toYaml . | nindent 8 }}
+        {{- end }}
+      labels:
+        {{- include "aragora.backend.selectorLabels" . | nindent 8 }}
+    spec:
+      {{- with .Values.imagePullSecrets }}
+      imagePullSecrets:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      serviceAccountName: {{ include "aragora.serviceAccountName" . }}
+      securityContext:
+        {{- toYaml .Values.podSecurityContext | nindent 8 }}
+      terminationGracePeriodSeconds: 30
+      containers:
+        - name: backend
+          securityContext:
+            {{- toYaml .Values.securityContext | nindent 12 }}
+          image: {{ include "aragora.backend.image" . | quote }}
+          imagePullPolicy: {{ .Values.backend.image.pullPolicy }}
+          ports:
+            - name: http
+              containerPort: 8080
+              protocol: TCP
+            - name: websocket
+              containerPort: 8765
+              protocol: TCP
+          envFrom:
+            - configMapRef:
+                name: {{ include "aragora.fullname" . }}-config
+          env:
+            # --- AI Provider API Keys (from Secret) ---
+            - name: ANTHROPIC_API_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "aragora.secretName" . }}
+                  key: ANTHROPIC_API_KEY
+                  optional: true
+            - name: OPENAI_API_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "aragora.secretName" . }}
+                  key: OPENAI_API_KEY
+                  optional: true
+            - name: OPENROUTER_API_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "aragora.secretName" . }}
+                  key: OPENROUTER_API_KEY
+                  optional: true
+            - name: MISTRAL_API_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "aragora.secretName" . }}
+                  key: MISTRAL_API_KEY
+                  optional: true
+            - name: GEMINI_API_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "aragora.secretName" . }}
+                  key: GEMINI_API_KEY
+                  optional: true
+            - name: XAI_API_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "aragora.secretName" . }}
+                  key: XAI_API_KEY
+                  optional: true
+            # --- Aragora Auth (from Secret) ---
+            - name: ARAGORA_API_TOKEN
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "aragora.secretName" . }}
+                  key: ARAGORA_API_TOKEN
+                  optional: true
+            - name: ARAGORA_SECRET_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "aragora.secretName" . }}
+                  key: ARAGORA_SECRET_KEY
+                  optional: true
+            # --- Database (from Secret) ---
+            {{- if or .Values.secrets.database.postgresUrl .Values.postgresql.enabled .Values.externalDatabase.host }}
+            - name: DATABASE_URL
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "aragora.secretName" . }}
+                  key: DATABASE_URL
+                  optional: true
+            - name: ARAGORA_POSTGRES_DSN
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "aragora.secretName" . }}
+                  key: DATABASE_URL
+                  optional: true
+            {{- end }}
+            {{- if or .Values.secrets.database.redisUrl .Values.redis.enabled .Values.externalRedis.host }}
+            - name: REDIS_URL
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "aragora.secretName" . }}
+                  key: REDIS_URL
+                  optional: true
+            - name: ARAGORA_REDIS_URL
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "aragora.secretName" . }}
+                  key: REDIS_URL
+                  optional: true
+            {{- end }}
+            # --- Pod metadata ---
+            - name: POD_NAME
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.name
+            - name: POD_NAMESPACE
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.namespace
+            {{- with .Values.backend.extraEnv }}
+            {{- toYaml . | nindent 12 }}
+            {{- end }}
+          livenessProbe:
+            {{- toYaml .Values.backend.livenessProbe | nindent 12 }}
+          readinessProbe:
+            {{- toYaml .Values.backend.readinessProbe | nindent 12 }}
+          startupProbe:
+            {{- toYaml .Values.backend.startupProbe | nindent 12 }}
+          resources:
+            {{- toYaml .Values.backend.resources | nindent 12 }}
+          volumeMounts:
+            {{- if .Values.persistence.enabled }}
+            - name: data
+              mountPath: /app/data
+            {{- end }}
+            - name: tmp
+              mountPath: /tmp
+            - name: logs
+              mountPath: /app/logs
+      volumes:
+        {{- if .Values.persistence.enabled }}
+        - name: data
+          persistentVolumeClaim:
+            claimName: {{ include "aragora.fullname" . }}-data
+        {{- end }}
+        - name: tmp
+          emptyDir: {}
+        - name: logs
+          emptyDir: {}
+      {{- with .Values.backend.nodeSelector }}
+      nodeSelector:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.backend.affinity }}
+      affinity:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.backend.tolerations }}
+      tolerations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.backend.topologySpreadConstraints }}
+      topologySpreadConstraints:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
