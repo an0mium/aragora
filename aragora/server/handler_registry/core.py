@@ -924,9 +924,14 @@ def check_handler_coverage(handler_registry: list[tuple[str, Any]]) -> None:
     """
     import ast
 
-    registered_names = {
-        handler_class.__name__ for _, handler_class in handler_registry if handler_class is not None
-    }
+    registered_names = set()
+    for _, handler_class in handler_registry:
+        if handler_class is None:
+            continue
+        if isinstance(handler_class, _DeferredImport):
+            registered_names.add(handler_class._class_name)
+        else:
+            registered_names.add(handler_class.__name__)
 
     # Also include intended registrations from _safe_import calls in registry files.
     # This prevents false positives when a handler fails to import at runtime
