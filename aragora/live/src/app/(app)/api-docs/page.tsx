@@ -368,8 +368,8 @@ export default function ApiDocsPage() {
 
 function EndpointDetails({
   operation,
-  path,
-  method,
+  path: _path,
+  method: _method,
 }: {
   operation: OpenAPIOperation;
   path: string;

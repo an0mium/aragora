@@ -358,24 +358,52 @@ class RiskScorer:
         return "No specific risk keywords detected"
 
     def _score_file_scope(self, file_scope: list[str]) -> float:
-        """Score based on the files that will be modified."""
+        """Score based on the files that will be modified.
+
+        Combines two signals:
+        - **Path risk**: Whether files fall in critical/high/low risk directories.
+        - **File count**: How many files are touched (more files = more risk).
+
+        The two signals are blended with path risk weighted at 60% and file
+        count at 40%, so that touching a security file still matters but
+        touching 6 innocuous files no longer triggers a CRITICAL score.
+        """
         if not file_scope:
             return 0.15  # Unknown scope adds mild risk
 
-        max_file_risk = 0.0
+        # --- Path-based risk (unchanged logic) ---
+        max_path_risk = 0.0
         for fp in file_scope:
             fp_lower = fp.lower()
             for path in CRITICAL_RISK_PATHS:
                 if path.lower() in fp_lower:
-                    max_file_risk = max(max_file_risk, 0.9)
+                    max_path_risk = max(max_path_risk, 0.9)
             for path in HIGH_RISK_PATHS:
                 if path.lower() in fp_lower:
-                    max_file_risk = max(max_file_risk, 0.6)
+                    max_path_risk = max(max_path_risk, 0.6)
             for path in LOW_RISK_PATHS:
                 if path.lower() in fp_lower:
-                    max_file_risk = max(max_file_risk, 0.05)
+                    max_path_risk = max(max_path_risk, 0.05)
 
-        return max_file_risk if max_file_risk > 0 else 0.15
+        path_risk = max_path_risk if max_path_risk > 0 else 0.15
+
+        # --- File-count risk (graduated scale) ---
+        n = len(file_scope)
+        if n >= 51:
+            count_risk = 0.90
+        elif n >= 21:
+            count_risk = 0.70
+        elif n >= 11:
+            count_risk = 0.50
+        elif n >= 6:
+            count_risk = 0.30
+        elif n >= 3:
+            count_risk = 0.15
+        else:
+            count_risk = 0.05  # 1-2 files: trivial
+
+        # Blend: path risk dominates, but count moderates
+        return 0.6 * path_risk + 0.4 * count_risk
 
     def _detect_protected_files(
         self, goal_lower: str, file_scope: list[str]
@@ -474,8 +502,15 @@ class RiskScorer:
         """Aggregate factor weights into a final score.
 
         Protected file hits immediately push score to CRITICAL range.
-        Critical-risk file paths (>= 0.9) also push to critical range.
-        Otherwise, uses max-dominated blend.
+        Otherwise, uses a named-factor weighting scheme where keyword
+        analysis carries more influence than file scope or scale.
+
+        Factor weights (when present):
+            keyword_analysis  - 0.40  (domain risk matters most)
+            file_scope        - 0.20  (which files + count)
+            change_scale      - 0.15  (breadth of change)
+            test_coverage     - 0.15  (safety net presence)
+            protected_files   - 0.10  (handled above, but kept for edge cases)
         """
         if protected_hits:
             # Protected files always push to critical
@@ -484,20 +519,29 @@ class RiskScorer:
         if not factors:
             return 0.1  # No signals = low risk
 
-        # If any factor is in the critical range (file_scope hitting
-        # CRITICAL_RISK_PATHS), preserve that signal
-        file_scope_factor = next(
-            (f for f in factors if f.name == "file_scope"), None
-        )
-        if file_scope_factor and file_scope_factor.weight >= 0.85:
-            return max(0.8, file_scope_factor.weight)
+        # Named factor importance weights
+        factor_importance: dict[str, float] = {
+            "keyword_analysis": 0.40,
+            "file_scope": 0.20,
+            "change_scale": 0.15,
+            "test_coverage": 0.15,
+            "protected_files": 0.10,
+        }
 
-        # Use a combination of max factor and weighted average
-        max_weight = max(f.weight for f in factors)
-        avg_weight = sum(f.weight for f in factors) / len(factors)
+        # Weighted sum of present factors, normalized by total importance
+        # of factors actually present so that missing factors don't deflate
+        # the score.
+        weighted_sum = 0.0
+        total_importance = 0.0
+        for f in factors:
+            importance = factor_importance.get(f.name, 0.10)
+            weighted_sum += importance * f.weight
+            total_importance += importance
 
-        # Blend: 75% max factor, 25% average (max strongly dominates)
-        return 0.75 * max_weight + 0.25 * avg_weight
+        if total_importance == 0:
+            return 0.1
+
+        return weighted_sum / total_importance
 
     def _categorize(self, score: float) -> RiskCategory:
         """Map a numeric score to a risk category."""

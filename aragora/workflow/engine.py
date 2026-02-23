@@ -565,7 +565,7 @@ class WorkflowEngine:
             final_output = None
 
         except (RuntimeError, ValueError, TypeError, OSError, ConnectionError, KeyError, AttributeError) as e:
-            logger.exception(f"Workflow resume failed: {e}")
+            logger.exception("Workflow resume failed: %s", e)
             success = False
             error = "Workflow resume failed"
             final_output = None

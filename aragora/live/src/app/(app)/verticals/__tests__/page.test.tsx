@@ -60,7 +60,9 @@ describe('VerticalsPage', () => {
         json: () => Promise.resolve({ verticals: [] }),
       });
 
-      render(<VerticalsPage />);
+      await act(async () => {
+        render(<VerticalsPage />);
+      });
 
       expect(screen.getByTestId('scanlines')).toBeInTheDocument();
       expect(screen.getByTestId('crt-vignette')).toBeInTheDocument();
@@ -72,7 +74,9 @@ describe('VerticalsPage', () => {
         json: () => Promise.resolve({ verticals: [] }),
       });
 
-      render(<VerticalsPage />);
+      await act(async () => {
+        render(<VerticalsPage />);
+      });
 
       expect(screen.getByTestId('ascii-banner')).toBeInTheDocument();
       expect(screen.getByTestId('theme-toggle')).toBeInTheDocument();
@@ -85,7 +89,9 @@ describe('VerticalsPage', () => {
         json: () => Promise.resolve({ verticals: [] }),
       });
 
-      render(<VerticalsPage />);
+      await act(async () => {
+        render(<VerticalsPage />);
+      });
 
       expect(screen.getByText('Domain Verticals')).toBeInTheDocument();
     });
