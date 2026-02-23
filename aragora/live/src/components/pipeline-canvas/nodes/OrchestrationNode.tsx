@@ -26,6 +26,9 @@ export const OrchestrationNode = memo(function OrchestrationNode({
   const capabilities = data.capabilities as string[] | undefined;
   const status = (data.status || 'pending') as OrchStatus;
   const lockedBy = data.lockedBy as string | undefined;
+  const executionStatus = data.executionStatus as string | undefined;
+  const executionDuration = data.executionDuration as string | undefined;
+  const executionAgent = data.executionAgent as string | undefined;
 
   const isAgent = orchType === 'agent_task' || orchType === 'debate';
   const isHumanGate = orchType === 'human_gate';
@@ -104,6 +107,28 @@ export const OrchestrationNode = memo(function OrchestrationNode({
               +{capabilities.length - 3}
             </span>
           )}
+        </div>
+      )}
+
+      {/* Execution status */}
+      {executionStatus && (
+        <div className={`mt-2 flex items-center gap-1.5 text-xs font-mono ${
+          executionStatus === 'running' ? 'text-amber-400' :
+          executionStatus === 'completed' ? 'text-emerald-400' :
+          executionStatus === 'failed' ? 'text-red-400' : 'text-text-muted'
+        }`}>
+          {executionStatus === 'running' && (
+            <span className="inline-block w-2 h-2 border border-current border-t-transparent rounded-full animate-spin" />
+          )}
+          {executionStatus === 'completed' && <span>✓</span>}
+          {executionStatus === 'failed' && <span>✗</span>}
+          <span>{executionStatus}</span>
+          {executionDuration && <span className="text-text-muted">({executionDuration})</span>}
+        </div>
+      )}
+      {executionAgent && executionStatus && (
+        <div className="text-xs text-text-muted mt-0.5">
+          via {executionAgent}
         </div>
       )}
 

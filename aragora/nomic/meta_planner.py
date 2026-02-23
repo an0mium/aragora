@@ -1419,6 +1419,30 @@ IMPORTANT: Avoid repeating past failures listed above. Learn from history.
             except (ImportError, RuntimeError, OSError, ValueError) as exc:
                 logger.debug("Strategic memory persistence skipped: %s", exc)
 
+        # Signal 10: Pipeline Goal Canvas — approved but unexecuted goals
+        try:
+            from aragora.server.handlers.pipeline.universal_graph import UniversalGraph
+
+            graph = UniversalGraph()
+            # Query goals stage for approved, unexecuted items
+            pipeline_goals = graph.query(stage="goals", status="approved")
+            for pg in (pipeline_goals or [])[:10]:
+                pg_data = pg if isinstance(pg, dict) else getattr(pg, "__dict__", {})
+                track_name = pg_data.get("track", "core")
+                if track_name in track_signals:
+                    track_signals[track_name].append(
+                        f"pipeline_goal: {pg_data.get('label', pg_data.get('description', ''))[:100]}"
+                    )
+            if pipeline_goals:
+                logger.info(
+                    "scan_mode_pipeline_goals count=%d",
+                    len(pipeline_goals),
+                )
+        except ImportError:
+            pass
+        except (RuntimeError, ValueError, OSError, TypeError, AttributeError) as exc:
+            logger.debug("Pipeline Goal Canvas scan skipped: %s", exc)
+
         # Build goals from signals, ranked by signal count
         ranked = sorted(
             track_signals.items(),

@@ -189,6 +189,26 @@ class GauntletRunner:
         result.completed_at = completed_at.isoformat()
         result.duration_seconds = (completed_at - started_at).total_seconds()
 
+        # Write critical findings to ImprovementQueue for self-improvement
+        if result.vulnerabilities:
+            critical_count = sum(
+                1 for v in result.vulnerabilities
+                if v.severity == SeverityLevel.CRITICAL
+            )
+            if critical_count > 0:
+                try:
+                    from aragora.nomic.improvement_queue import ImprovementQueue, FeedbackGoal
+                    queue = ImprovementQueue()
+                    queue.enqueue(FeedbackGoal(
+                        source="gauntlet",
+                        description=f"Fix {critical_count} critical gauntlet findings from {gauntlet_id}",
+                        priority="high",
+                        metadata={"gauntlet_id": gauntlet_id, "critical_count": critical_count},
+                    ))
+                    logger.info("Enqueued %d critical findings to ImprovementQueue", critical_count)
+                except (ImportError, RuntimeError, ValueError, OSError) as e:
+                    logger.debug("ImprovementQueue feedback skipped: %s", type(e).__name__)
+
         return result
 
     async def _run_red_team(

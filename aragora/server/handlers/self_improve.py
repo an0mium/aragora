@@ -94,6 +94,17 @@ class SelfImproveHandler(SecureEndpointMixin, SecureHandler):  # type: ignore[mi
                 return None
         return self._store
 
+    def _get_stream_server(self) -> Any:
+        """Lazy-load the Nomic Loop stream server for WebSocket events."""
+        try:
+            from aragora.server.stream.nomic_loop_stream import NomicLoopStreamServer
+
+            if not hasattr(self, '_stream_server'):
+                self._stream_server = NomicLoopStreamServer()
+            return self._stream_server
+        except ImportError:
+            return None
+
     def can_handle(self, path: str, method: str = "GET") -> bool:
         """Check if this handler can handle the given path."""
         path = strip_version_prefix(path)
@@ -280,6 +291,13 @@ class SelfImproveHandler(SecureEndpointMixin, SecureHandler):  # type: ignore[mi
                 plan=plan,
                 completed_at=datetime.now(timezone.utc).isoformat(),
             )
+            # Emit phase_completed for dry-run planning
+            try:
+                stream = self._get_stream_server()
+                if stream:
+                    await stream.emit_phase_completed("planning", cycle=1, duration_sec=0.0, result_summary="Dry-run plan generated")
+            except (RuntimeError, OSError) as e:
+                logger.debug("WebSocket emit skipped: %s", type(e).__name__)
             return json_response(
                 {"run_id": run.run_id, "status": "preview", "plan": plan},
             )
@@ -540,6 +558,15 @@ class SelfImproveHandler(SecureEndpointMixin, SecureHandler):  # type: ignore[mi
             await self._execute_coordination(run_id, goal, tracks, max_cycles=max_cycles)
             return
 
+        stream = self._get_stream_server()
+
+        # Emit loop_started
+        try:
+            if stream:
+                await stream.emit_loop_started(cycles=max_cycles, auto_approve=not require_approval)
+        except (RuntimeError, OSError) as e:
+            logger.debug("WebSocket emit skipped: %s", type(e).__name__)
+
         # Try SelfImprovePipeline first
         try:
             from aragora.nomic.self_improve import SelfImproveConfig, SelfImprovePipeline
@@ -553,8 +580,17 @@ class SelfImproveHandler(SecureEndpointMixin, SecureHandler):  # type: ignore[mi
                 max_goals=max_cycles,
             )
             pipeline = SelfImprovePipeline(config=config)
+
+            # Emit phase_started before pipeline execution
+            try:
+                if stream:
+                    await stream.emit_phase_started("planning", cycle=1)
+            except (RuntimeError, OSError) as e:
+                logger.debug("WebSocket emit skipped: %s", type(e).__name__)
+
             result = await pipeline.run(goal)
 
+            summary = f"Completed {result.subtasks_completed}/{result.subtasks_total} subtasks"
             store.update_run(
                 run_id,
                 status="completed" if result.subtasks_completed > 0 else "failed",
@@ -562,8 +598,15 @@ class SelfImproveHandler(SecureEndpointMixin, SecureHandler):  # type: ignore[mi
                 total_subtasks=result.subtasks_total,
                 completed_subtasks=result.subtasks_completed,
                 failed_subtasks=result.subtasks_failed,
-                summary=f"Completed {result.subtasks_completed}/{result.subtasks_total} subtasks",
+                summary=summary,
             )
+
+            # Emit loop_stopped with summary
+            try:
+                if stream:
+                    await stream.emit_loop_stopped(reason=summary)
+            except (RuntimeError, OSError) as e:
+                logger.debug("WebSocket emit skipped: %s", type(e).__name__)
             return
 
         except ImportError:
@@ -577,6 +620,12 @@ class SelfImproveHandler(SecureEndpointMixin, SecureHandler):  # type: ignore[mi
             return
         except (RuntimeError, ValueError, TypeError, OSError) as e:
             logger.warning("SelfImprovePipeline failed, falling back: %s", type(e).__name__)
+            # Emit error event
+            try:
+                if stream:
+                    await stream.emit_error("SelfImprovePipeline failed, falling back to orchestrator")
+            except (RuntimeError, OSError):
+                pass
 
         # Fallback to HardenedOrchestrator
         try:
@@ -605,6 +654,13 @@ class SelfImproveHandler(SecureEndpointMixin, SecureHandler):  # type: ignore[mi
                 error=result.error,
             )
 
+            # Emit loop_stopped
+            try:
+                if stream:
+                    await stream.emit_loop_stopped(reason=result.summary or "Orchestration complete")
+            except (RuntimeError, OSError) as e:
+                logger.debug("WebSocket emit skipped: %s", type(e).__name__)
+
         except asyncio.CancelledError:
             store.update_run(
                 run_id,
@@ -619,6 +675,12 @@ class SelfImproveHandler(SecureEndpointMixin, SecureHandler):  # type: ignore[mi
                 completed_at=datetime.now(timezone.utc).isoformat(),
                 error="Orchestration failed",
             )
+            # Emit error event
+            try:
+                if stream:
+                    await stream.emit_error("Orchestration failed")
+            except (RuntimeError, OSError):
+                pass
         finally:
             _active_tasks.pop(run_id, None)
 

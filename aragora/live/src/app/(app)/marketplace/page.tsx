@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { Scanlines, CRTVignette } from '@/components/MatrixRain';
 import { useRightSidebar } from '@/context/RightSidebarContext';
+import { useAuth } from '@/context/AuthContext';
 import {
   useMarketplaceStore,
   CATEGORY_STYLES,
@@ -60,6 +61,7 @@ export default function MarketplacePage() {
 
   const router = useRouter();
   const { setContext, clearContext } = useRightSidebar();
+  const { user } = useAuth();
   const [showPublish, setShowPublish] = useState(false);
 
   // Fetch data on mount
@@ -596,6 +598,7 @@ interface PublishModalProps {
 
 function PublishModal({ onClose }: PublishModalProps) {
   const { publishTemplate, isLoading } = useMarketplaceStore();
+  const { user } = useAuth();
   const [templateType, setTemplateType] = useState<TemplateType>('agent');
   const [name, setName] = useState('');
   const [description, setDescription] = useState('');
@@ -610,7 +613,7 @@ function PublishModal({ onClose }: PublishModalProps) {
       name,
       description,
       version: '1.0.0',
-      author: 'me', // TODO: Get from auth context
+      author: user?.name || user?.email || 'anonymous',
       category,
       tags: tags.split(',').map((t) => t.trim()).filter(Boolean),
       downloads: 0,

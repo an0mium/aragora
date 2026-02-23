@@ -63,6 +63,7 @@ export function useOracleWebSocket(): UseOracleWebSocket {
   const reconnectAttempts = useRef(0);
   const reconnectTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const mountedRef = useRef(true);
+  const phaseRef = useRef<OraclePhase>('idle');
   const audio = useStreamingAudio();
 
   const cleanup = useCallback(() => {
@@ -153,6 +154,7 @@ export function useOracleWebSocket(): UseOracleWebSocket {
             break;
 
           case 'reflex_start':
+            phaseRef.current = 'reflex';
             setPhase('reflex');
             setTokens('');
             setTentacles(new Map());
@@ -161,7 +163,8 @@ export function useOracleWebSocket(): UseOracleWebSocket {
 
           case 'token':
             setTokens(prev => prev + (data.text || ''));
-            if (data.phase === 'deep' && phase !== 'deep') {
+            if (data.phase === 'deep' && phaseRef.current !== 'deep') {
+              phaseRef.current = 'deep';
               setPhase('deep');
             }
             break;
@@ -172,12 +175,14 @@ export function useOracleWebSocket(): UseOracleWebSocket {
 
           case 'phase_done':
             if (data.phase === 'deep') {
+              phaseRef.current = 'tentacles';
               setPhase('tentacles');
             }
             audio.endSegment();
             break;
 
           case 'tentacle_start':
+            phaseRef.current = 'tentacles';
             setPhase('tentacles');
             setTentacles(prev => {
               const next = new Map(prev);
@@ -208,6 +213,7 @@ export function useOracleWebSocket(): UseOracleWebSocket {
             break;
 
           case 'synthesis':
+            phaseRef.current = 'synthesis';
             setPhase('synthesis');
             setSynthesis(data.text || '');
             break;
@@ -225,7 +231,7 @@ export function useOracleWebSocket(): UseOracleWebSocket {
         // Non-JSON text frame — ignore
       }
     };
-  }, [cleanup, audio, phase]);
+  }, [cleanup, audio]);
 
   // Connect on mount
   useEffect(() => {
@@ -245,6 +251,7 @@ export function useOracleWebSocket(): UseOracleWebSocket {
 
     // Reset state for new question
     setTokens('');
+    phaseRef.current = 'idle';
     setPhase('idle');
     setTentacles(new Map());
     setSynthesis('');
@@ -257,6 +264,7 @@ export function useOracleWebSocket(): UseOracleWebSocket {
     if (wsRef.current?.readyState === WebSocket.OPEN) {
       wsRef.current.send(JSON.stringify({ type: 'stop' }));
     }
+    phaseRef.current = 'idle';
     setPhase('idle');
     audio.stop();
   }, [audio]);

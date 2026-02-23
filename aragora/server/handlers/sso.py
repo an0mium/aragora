@@ -117,6 +117,19 @@ class SSOHandler(SecureHandler):
         if not self._initialized:
             try:
                 self._provider = get_sso_provider()
+                # Warn if callback URL is missing — OAuth will silently fail
+                if self._provider:
+                    cb_url = getattr(
+                        getattr(self._provider, "config", None),
+                        "callback_url", "",
+                    )
+                    if not cb_url:
+                        logger.warning(
+                            "ARAGORA_SSO_CALLBACK_URL is not set. "
+                            "OAuth callbacks will fail silently. "
+                            "Set this to your public callback URL "
+                            "(e.g. https://your-domain/api/v1/auth/sso/callback)"
+                        )
             except ImportError:
                 logger.warning("SSO auth module not available")
             self._initialized = True
