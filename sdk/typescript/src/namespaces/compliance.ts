@@ -554,10 +554,76 @@ export class ComplianceAPI {
   }
 
   /**
+   * Run a compliance check against current configuration.
+   *
+   * @param params - Check parameters (scope, frameworks, etc.)
+   * @returns Compliance check results with pass/fail per framework
+   */
+  async check(params?: Record<string, unknown>): Promise<Record<string, unknown>> {
+    return this.client.request('GET', '/api/v1/compliance/check', { params });
+  }
+
+  /**
+   * Get compliance statistics (violation counts, trends, scores).
+   *
+   * @returns Statistics across all compliance frameworks
+   */
+  async getStats(): Promise<Record<string, unknown>> {
+    return this.client.request('GET', '/api/v1/compliance/stats');
+  }
+
+  /**
+   * List compliance violations.
+   *
+   * @param options - Pagination options
+   * @returns List of compliance violations
+   */
+  async listViolations(options?: {
+    limit?: number;
+    offset?: number;
+  }): Promise<Record<string, unknown>> {
+    return this.client.request('GET', '/api/v1/compliance/violations', {
+      params: {
+        limit: options?.limit ?? 50,
+        offset: options?.offset ?? 0,
+      },
+    });
+  }
+
+  /**
    * Get compliance violation details.
+   *
+   * @param violationId - Violation identifier
+   * @returns Violation details
    */
   async getViolation(violationId: string): Promise<Record<string, unknown>> {
-    return this.client.request('GET', `/api/v1/compliance/violations/${violationId}`) as Promise<Record<string, unknown>>;
+    return this.client.request('GET', `/api/v1/compliance/violations/${encodeURIComponent(violationId)}`);
+  }
+
+  /**
+   * Update a compliance violation (status, assignment, remediation).
+   *
+   * @param violationId - Violation identifier
+   * @param updates - Fields to update
+   * @returns Updated violation details
+   */
+  async updateViolation(
+    violationId: string,
+    updates: {
+      status?: string;
+      assignedTo?: string;
+      remediationNotes?: string;
+      dueDate?: string;
+    }
+  ): Promise<Record<string, unknown>> {
+    const body: Record<string, unknown> = {};
+    if (updates.status) body.status = updates.status;
+    if (updates.assignedTo) body.assigned_to = updates.assignedTo;
+    if (updates.remediationNotes) body.remediation_notes = updates.remediationNotes;
+    if (updates.dueDate) body.due_date = updates.dueDate;
+    return this.client.request('PUT', `/api/v1/compliance/violations/${encodeURIComponent(violationId)}`, {
+      json: body,
+    });
   }
 
   // ===========================================================================

@@ -35,11 +35,303 @@ class ReceiptsAPI:
         self._client = client
 
     # =========================================================================
-    # General Receipts
+    # General Receipts (v2)
     # =========================================================================
 
+    def list(
+        self,
+        limit: int = 20,
+        offset: int = 0,
+    ) -> dict[str, Any]:
+        """
+        List decision receipts.
+
+        Args:
+            limit: Maximum results.
+            offset: Pagination offset.
+
+        Returns:
+            List of receipts with pagination info.
+        """
+        return self._client.request(
+            "GET", "/api/v2/receipts", params={"limit": limit, "offset": offset},
+        )
+
+    def get(self, receipt_id: str) -> dict[str, Any]:
+        """
+        Get a decision receipt by ID.
+
+        Args:
+            receipt_id: Receipt identifier.
+
+        Returns:
+            Receipt details.
+        """
+        return self._client.request("GET", f"/api/v2/receipts/{receipt_id}")
+
+    def export(
+        self,
+        receipt_id: str,
+        format: ExportFormat = "json",
+    ) -> dict[str, Any]:
+        """
+        Export a decision receipt.
+
+        Args:
+            receipt_id: Receipt identifier.
+            format: Export format (json, html, markdown, pdf, sarif, csv).
+
+        Returns:
+            Exported receipt data.
+        """
+        format_value = "md" if format == "markdown" else format
+        return self._client.request(
+            "GET", f"/api/v2/receipts/{receipt_id}/export",
+            params={"format": format_value},
+        )
+
+    def formatted(
+        self,
+        receipt_id: str,
+        channel_type: str,
+        *,
+        compact: bool = False,
+    ) -> dict[str, Any]:
+        """
+        Get a receipt formatted for a specific channel (Slack, Teams, Email, etc.).
+
+        Args:
+            receipt_id: Receipt identifier.
+            channel_type: Target channel type (slack, teams, email, discord, etc.).
+            compact: If True, return a compact version.
+
+        Returns:
+            Formatted receipt for the specified channel.
+        """
+        params: dict[str, Any] = {}
+        if compact:
+            params["compact"] = "true"
+        return self._client.request(
+            "GET", f"/api/v2/receipts/{receipt_id}/formatted/{channel_type}",
+            params=params,
+        )
+
+    def send_to_channel(
+        self,
+        receipt_id: str,
+        channel_type: str,
+        channel_id: str,
+        *,
+        workspace_id: str | None = None,
+        options: dict[str, Any] | None = None,
+    ) -> dict[str, Any]:
+        """
+        Send a decision receipt to a channel (Slack, Teams, Email, etc.).
+
+        Args:
+            receipt_id: Receipt identifier.
+            channel_type: Target channel type.
+            channel_id: Target channel/conversation/email ID.
+            workspace_id: Workspace ID (for Slack/Teams).
+            options: Additional delivery options.
+
+        Returns:
+            Delivery confirmation with status.
+        """
+        payload: dict[str, Any] = {
+            "channel_type": channel_type,
+            "channel_id": channel_id,
+        }
+        if workspace_id:
+            payload["workspace_id"] = workspace_id
+        if options:
+            payload["options"] = options
+        return self._client.request(
+            "POST", f"/api/v2/receipts/{receipt_id}/send-to-channel", json=payload,
+        )
+
+    def share(self, receipt_id: str, **kwargs: Any) -> dict[str, Any]:
+        """
+        Share a receipt (generate shareable link or send to recipients).
+
+        Args:
+            receipt_id: Receipt identifier.
+            **kwargs: Share options (recipients, expiry, permissions, etc.).
+
+        Returns:
+            Share result with link or delivery status.
+        """
+        return self._client.request(
+            "POST", f"/api/v2/receipts/{receipt_id}/share", json=kwargs,
+        )
+
+    def verify(self, receipt_id: str) -> dict[str, Any]:
+        """
+        Verify a decision receipt's integrity (hash validation).
+
+        Args:
+            receipt_id: Receipt identifier.
+
+        Returns:
+            Verification result with valid status and hash.
+        """
+        return self._client.request(
+            "POST", f"/api/v2/receipts/{receipt_id}/verify",
+        )
+
+    def verify_signature(self, receipt_id: str) -> dict[str, Any]:
+        """
+        Verify a receipt's cryptographic signature.
+
+        Args:
+            receipt_id: Receipt identifier.
+
+        Returns:
+            Signature verification result.
+        """
+        return self._client.request(
+            "POST", f"/api/v2/receipts/{receipt_id}/verify-signature",
+        )
+
     # =========================================================================
-    # Gauntlet Receipts / Results
+    # Gauntlet Receipts (v1 API)
+    # =========================================================================
+
+    def list_v1(
+        self,
+        *,
+        debate_id: str | None = None,
+        from_date: str | None = None,
+        to_date: str | None = None,
+        consensus_reached: bool | None = None,
+        min_confidence: float | None = None,
+        limit: int = 20,
+        offset: int = 0,
+    ) -> dict[str, Any]:
+        """
+        List decision receipts via the v1 gauntlet API with advanced filtering.
+
+        Args:
+            debate_id: Filter by debate ID.
+            from_date: Filter by start date (ISO format).
+            to_date: Filter by end date (ISO format).
+            consensus_reached: Filter by consensus status.
+            min_confidence: Minimum confidence threshold.
+            limit: Maximum results.
+            offset: Pagination offset.
+
+        Returns:
+            List of receipts with pagination info.
+        """
+        params: dict[str, Any] = {"limit": limit, "offset": offset}
+        if debate_id:
+            params["debate_id"] = debate_id
+        if from_date:
+            params["from_date"] = from_date
+        if to_date:
+            params["to_date"] = to_date
+        if consensus_reached is not None:
+            params["consensus_reached"] = str(consensus_reached).lower()
+        if min_confidence is not None:
+            params["min_confidence"] = str(min_confidence)
+        return self._client.request("GET", "/api/v1/gauntlet/receipts", params=params)
+
+    def get_v1(self, receipt_id: str) -> dict[str, Any]:
+        """
+        Get a decision receipt via the v1 gauntlet API.
+
+        Args:
+            receipt_id: Receipt identifier.
+
+        Returns:
+            Receipt details.
+        """
+        return self._client.request("GET", f"/api/v1/gauntlet/receipts/{receipt_id}")
+
+    def export_v1(
+        self,
+        receipt_id: str,
+        *,
+        format: str = "json",
+        include_metadata: bool = True,
+        include_evidence: bool = False,
+        include_dissent: bool = True,
+        pretty_print: bool = False,
+    ) -> dict[str, Any]:
+        """
+        Export a receipt via the v1 gauntlet API with detailed options.
+
+        Args:
+            receipt_id: Receipt identifier.
+            format: Export format (json, html, markdown, sarif).
+            include_metadata: Include decision metadata.
+            include_evidence: Include supporting evidence.
+            include_dissent: Include dissenting views.
+            pretty_print: Format output for readability.
+
+        Returns:
+            Exported receipt data.
+        """
+        params: dict[str, Any] = {
+            "format": format,
+            "include_metadata": str(include_metadata).lower(),
+            "include_evidence": str(include_evidence).lower(),
+            "include_dissent": str(include_dissent).lower(),
+            "pretty_print": str(pretty_print).lower(),
+        }
+        return self._client.request(
+            "GET", f"/api/v1/gauntlet/receipts/{receipt_id}/export", params=params,
+        )
+
+    def export_bundle(
+        self,
+        receipt_ids: _List[str],
+        *,
+        format: str = "json",
+        include_metadata: bool = True,
+        include_evidence: bool = False,
+        include_dissent: bool = True,
+    ) -> dict[str, Any]:
+        """
+        Export multiple receipts as a bundle.
+
+        Args:
+            receipt_ids: List of receipt IDs to include.
+            format: Export format.
+            include_metadata: Include decision metadata.
+            include_evidence: Include supporting evidence.
+            include_dissent: Include dissenting views.
+
+        Returns:
+            Bundle export with all requested receipts.
+        """
+        payload: dict[str, Any] = {
+            "receipt_ids": receipt_ids,
+            "format": format,
+            "include_metadata": include_metadata,
+            "include_evidence": include_evidence,
+            "include_dissent": include_dissent,
+        }
+        return self._client.request(
+            "POST", "/api/v1/gauntlet/receipts/export/bundle", json=payload,
+        )
+
+    def stream(self, receipt_id: str) -> dict[str, Any]:
+        """
+        Stream receipt export data (for large receipts).
+
+        Args:
+            receipt_id: Receipt identifier.
+
+        Returns:
+            Streamed receipt data.
+        """
+        return self._client.request(
+            "GET", f"/api/v1/gauntlet/receipts/{receipt_id}/stream",
+        )
+
+    # =========================================================================
+    # Gauntlet Receipts / Results (v2 Gauntlet API)
     # =========================================================================
 
     def list_gauntlet(
@@ -200,11 +492,175 @@ class AsyncReceiptsAPI:
         self._client = client
 
     # =========================================================================
-    # General Receipts
+    # General Receipts (v2)
     # =========================================================================
 
+    async def list(
+        self,
+        limit: int = 20,
+        offset: int = 0,
+    ) -> dict[str, Any]:
+        """List decision receipts."""
+        return await self._client.request(
+            "GET", "/api/v2/receipts", params={"limit": limit, "offset": offset},
+        )
+
+    async def get(self, receipt_id: str) -> dict[str, Any]:
+        """Get a decision receipt by ID."""
+        return await self._client.request("GET", f"/api/v2/receipts/{receipt_id}")
+
+    async def export(
+        self,
+        receipt_id: str,
+        format: ExportFormat = "json",
+    ) -> dict[str, Any]:
+        """Export a decision receipt."""
+        format_value = "md" if format == "markdown" else format
+        return await self._client.request(
+            "GET", f"/api/v2/receipts/{receipt_id}/export",
+            params={"format": format_value},
+        )
+
+    async def formatted(
+        self,
+        receipt_id: str,
+        channel_type: str,
+        *,
+        compact: bool = False,
+    ) -> dict[str, Any]:
+        """Get a receipt formatted for a specific channel."""
+        params: dict[str, Any] = {}
+        if compact:
+            params["compact"] = "true"
+        return await self._client.request(
+            "GET", f"/api/v2/receipts/{receipt_id}/formatted/{channel_type}",
+            params=params,
+        )
+
+    async def send_to_channel(
+        self,
+        receipt_id: str,
+        channel_type: str,
+        channel_id: str,
+        *,
+        workspace_id: str | None = None,
+        options: dict[str, Any] | None = None,
+    ) -> dict[str, Any]:
+        """Send a decision receipt to a channel."""
+        payload: dict[str, Any] = {
+            "channel_type": channel_type,
+            "channel_id": channel_id,
+        }
+        if workspace_id:
+            payload["workspace_id"] = workspace_id
+        if options:
+            payload["options"] = options
+        return await self._client.request(
+            "POST", f"/api/v2/receipts/{receipt_id}/send-to-channel", json=payload,
+        )
+
+    async def share(self, receipt_id: str, **kwargs: Any) -> dict[str, Any]:
+        """Share a receipt."""
+        return await self._client.request(
+            "POST", f"/api/v2/receipts/{receipt_id}/share", json=kwargs,
+        )
+
+    async def verify(self, receipt_id: str) -> dict[str, Any]:
+        """Verify a decision receipt's integrity."""
+        return await self._client.request(
+            "POST", f"/api/v2/receipts/{receipt_id}/verify",
+        )
+
+    async def verify_signature(self, receipt_id: str) -> dict[str, Any]:
+        """Verify a receipt's cryptographic signature."""
+        return await self._client.request(
+            "POST", f"/api/v2/receipts/{receipt_id}/verify-signature",
+        )
+
     # =========================================================================
-    # Gauntlet Receipts / Results
+    # Gauntlet Receipts (v1 API)
+    # =========================================================================
+
+    async def list_v1(
+        self,
+        *,
+        debate_id: str | None = None,
+        from_date: str | None = None,
+        to_date: str | None = None,
+        consensus_reached: bool | None = None,
+        min_confidence: float | None = None,
+        limit: int = 20,
+        offset: int = 0,
+    ) -> dict[str, Any]:
+        """List decision receipts via the v1 gauntlet API with advanced filtering."""
+        params: dict[str, Any] = {"limit": limit, "offset": offset}
+        if debate_id:
+            params["debate_id"] = debate_id
+        if from_date:
+            params["from_date"] = from_date
+        if to_date:
+            params["to_date"] = to_date
+        if consensus_reached is not None:
+            params["consensus_reached"] = str(consensus_reached).lower()
+        if min_confidence is not None:
+            params["min_confidence"] = str(min_confidence)
+        return await self._client.request("GET", "/api/v1/gauntlet/receipts", params=params)
+
+    async def get_v1(self, receipt_id: str) -> dict[str, Any]:
+        """Get a decision receipt via the v1 gauntlet API."""
+        return await self._client.request("GET", f"/api/v1/gauntlet/receipts/{receipt_id}")
+
+    async def export_v1(
+        self,
+        receipt_id: str,
+        *,
+        format: str = "json",
+        include_metadata: bool = True,
+        include_evidence: bool = False,
+        include_dissent: bool = True,
+        pretty_print: bool = False,
+    ) -> dict[str, Any]:
+        """Export a receipt via the v1 gauntlet API with detailed options."""
+        params: dict[str, Any] = {
+            "format": format,
+            "include_metadata": str(include_metadata).lower(),
+            "include_evidence": str(include_evidence).lower(),
+            "include_dissent": str(include_dissent).lower(),
+            "pretty_print": str(pretty_print).lower(),
+        }
+        return await self._client.request(
+            "GET", f"/api/v1/gauntlet/receipts/{receipt_id}/export", params=params,
+        )
+
+    async def export_bundle(
+        self,
+        receipt_ids: list[str],
+        *,
+        format: str = "json",
+        include_metadata: bool = True,
+        include_evidence: bool = False,
+        include_dissent: bool = True,
+    ) -> dict[str, Any]:
+        """Export multiple receipts as a bundle."""
+        payload: dict[str, Any] = {
+            "receipt_ids": receipt_ids,
+            "format": format,
+            "include_metadata": include_metadata,
+            "include_evidence": include_evidence,
+            "include_dissent": include_dissent,
+        }
+        return await self._client.request(
+            "POST", "/api/v1/gauntlet/receipts/export/bundle", json=payload,
+        )
+
+    async def stream(self, receipt_id: str) -> dict[str, Any]:
+        """Stream receipt export data (for large receipts)."""
+        return await self._client.request(
+            "GET", f"/api/v1/gauntlet/receipts/{receipt_id}/stream",
+        )
+
+    # =========================================================================
+    # Gauntlet Receipts / Results (v2 Gauntlet API)
     # =========================================================================
 
     async def list_gauntlet(

@@ -289,6 +289,80 @@ class PipelineAPI:
             json={"workflow_data": workflow_data},
         )
 
+    # =========================================================================
+    # Pipeline Graphs & Transitions
+    # =========================================================================
+
+    def get_graph(self) -> dict[str, Any]:
+        """Get the current pipeline execution graph."""
+        return self._client.request("GET", "/api/v1/pipeline/graph")
+
+    def list_graphs(self) -> dict[str, Any]:
+        """List saved pipeline graphs."""
+        return self._client.request("GET", "/api/v1/pipeline/graphs")
+
+    def create_graph(self, graph_data: dict[str, Any]) -> dict[str, Any]:
+        """Create a new pipeline graph.
+
+        Args:
+            graph_data: Graph definition (nodes, edges, metadata).
+
+        Returns:
+            Created graph with ID.
+        """
+        return self._client.request("POST", "/api/v1/pipeline/graphs", json=graph_data)
+
+    def update_graph(self, graph_data: dict[str, Any]) -> dict[str, Any]:
+        """Update an existing pipeline graph.
+
+        Args:
+            graph_data: Updated graph definition (must include graph_id).
+
+        Returns:
+            Updated graph.
+        """
+        return self._client.request("PUT", "/api/v1/pipeline/graphs", json=graph_data)
+
+    def delete_graph(self, **kwargs: Any) -> dict[str, Any]:
+        """Delete a pipeline graph.
+
+        Args:
+            **kwargs: Delete parameters (graph_id, etc.).
+
+        Returns:
+            Deletion confirmation.
+        """
+        return self._client.request("DELETE", "/api/v1/pipeline/graphs", json=kwargs)
+
+    def create_transition(
+        self,
+        from_stage: str,
+        to_stage: str,
+        *,
+        pipeline_id: str | None = None,
+        conditions: dict[str, Any] | None = None,
+    ) -> dict[str, Any]:
+        """Create a pipeline stage transition.
+
+        Args:
+            from_stage: Source stage.
+            to_stage: Target stage.
+            pipeline_id: Pipeline identifier (optional).
+            conditions: Transition conditions/guards.
+
+        Returns:
+            Created transition details.
+        """
+        payload: dict[str, Any] = {
+            "from_stage": from_stage,
+            "to_stage": to_stage,
+        }
+        if pipeline_id:
+            payload["pipeline_id"] = pipeline_id
+        if conditions:
+            payload["conditions"] = conditions
+        return self._client.request("POST", "/api/v1/pipeline/transitions", json=payload)
+
 
 class AsyncPipelineAPI:
     """Asynchronous Pipeline API."""
@@ -520,3 +594,46 @@ class AsyncPipelineAPI:
             "/api/v1/canvas/convert/workflow",
             json={"workflow_data": workflow_data},
         )
+
+    # =========================================================================
+    # Pipeline Graphs & Transitions
+    # =========================================================================
+
+    async def get_graph(self) -> dict[str, Any]:
+        """Get the current pipeline execution graph."""
+        return await self._client.request("GET", "/api/v1/pipeline/graph")
+
+    async def list_graphs(self) -> dict[str, Any]:
+        """List saved pipeline graphs."""
+        return await self._client.request("GET", "/api/v1/pipeline/graphs")
+
+    async def create_graph(self, graph_data: dict[str, Any]) -> dict[str, Any]:
+        """Create a new pipeline graph."""
+        return await self._client.request("POST", "/api/v1/pipeline/graphs", json=graph_data)
+
+    async def update_graph(self, graph_data: dict[str, Any]) -> dict[str, Any]:
+        """Update an existing pipeline graph."""
+        return await self._client.request("PUT", "/api/v1/pipeline/graphs", json=graph_data)
+
+    async def delete_graph(self, **kwargs: Any) -> dict[str, Any]:
+        """Delete a pipeline graph."""
+        return await self._client.request("DELETE", "/api/v1/pipeline/graphs", json=kwargs)
+
+    async def create_transition(
+        self,
+        from_stage: str,
+        to_stage: str,
+        *,
+        pipeline_id: str | None = None,
+        conditions: dict[str, Any] | None = None,
+    ) -> dict[str, Any]:
+        """Create a pipeline stage transition."""
+        payload: dict[str, Any] = {
+            "from_stage": from_stage,
+            "to_stage": to_stage,
+        }
+        if pipeline_id:
+            payload["pipeline_id"] = pipeline_id
+        if conditions:
+            payload["conditions"] = conditions
+        return await self._client.request("POST", "/api/v1/pipeline/transitions", json=payload)

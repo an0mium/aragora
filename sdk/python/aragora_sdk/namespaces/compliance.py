@@ -102,6 +102,83 @@ class ComplianceAPI:
         """Get policy violations."""
         return self._client.request("GET", "/api/v1/policies/violations", params={"limit": limit, "offset": offset})
 
+    def check(self, **kwargs: Any) -> dict[str, Any]:
+        """Run a compliance check against current configuration.
+
+        Args:
+            **kwargs: Check parameters (scope, frameworks, etc.)
+
+        Returns:
+            Compliance check results with pass/fail per framework.
+        """
+        return self._client.request("GET", "/api/v1/compliance/check", params=kwargs)
+
+    def get_stats(self) -> dict[str, Any]:
+        """Get compliance statistics (violation counts, trends, scores).
+
+        Returns:
+            Compliance statistics across all frameworks.
+        """
+        return self._client.request("GET", "/api/v1/compliance/stats")
+
+    def get_violations_list(self, limit: int = 50, offset: int = 0) -> dict[str, Any]:
+        """Get compliance violations list.
+
+        Args:
+            limit: Maximum results.
+            offset: Pagination offset.
+
+        Returns:
+            List of compliance violations.
+        """
+        return self._client.request(
+            "GET", "/api/v1/compliance/violations",
+            params={"limit": limit, "offset": offset},
+        )
+
+    def get_violation(self, violation_id: str) -> dict[str, Any]:
+        """Get a compliance violation by ID.
+
+        Args:
+            violation_id: Violation identifier.
+
+        Returns:
+            Violation details.
+        """
+        return self._client.request("GET", f"/api/v1/compliance/violations/{violation_id}")
+
+    def update_violation(
+        self,
+        violation_id: str,
+        *,
+        status: str | None = None,
+        assigned_to: str | None = None,
+        remediation_notes: str | None = None,
+        due_date: str | None = None,
+    ) -> dict[str, Any]:
+        """Update a compliance violation.
+
+        Args:
+            violation_id: Violation identifier.
+            status: New status (open, investigating, remediated, accepted).
+            assigned_to: Assignee user ID or email.
+            remediation_notes: Notes on remediation actions.
+            due_date: Due date for remediation (ISO format).
+
+        Returns:
+            Updated violation details.
+        """
+        payload: dict[str, Any] = {}
+        if status:
+            payload["status"] = status
+        if assigned_to:
+            payload["assigned_to"] = assigned_to
+        if remediation_notes:
+            payload["remediation_notes"] = remediation_notes
+        if due_date:
+            payload["due_date"] = due_date
+        return self._client.request("PUT", f"/api/v1/compliance/violations/{violation_id}", json=payload)
+
     # ===========================================================================
     # EU AI Act
 
@@ -458,6 +535,46 @@ class AsyncComplianceAPI:
     async def get_violations(self, limit: int = 50, offset: int = 0) -> dict[str, Any]:
         """Get policy violations."""
         return await self._client.request("GET", "/api/v1/policies/violations", params={"limit": limit, "offset": offset})
+
+    async def check(self, **kwargs: Any) -> dict[str, Any]:
+        """Run a compliance check against current configuration."""
+        return await self._client.request("GET", "/api/v1/compliance/check", params=kwargs)
+
+    async def get_stats(self) -> dict[str, Any]:
+        """Get compliance statistics."""
+        return await self._client.request("GET", "/api/v1/compliance/stats")
+
+    async def get_violations_list(self, limit: int = 50, offset: int = 0) -> dict[str, Any]:
+        """Get compliance violations list."""
+        return await self._client.request(
+            "GET", "/api/v1/compliance/violations",
+            params={"limit": limit, "offset": offset},
+        )
+
+    async def get_violation(self, violation_id: str) -> dict[str, Any]:
+        """Get a compliance violation by ID."""
+        return await self._client.request("GET", f"/api/v1/compliance/violations/{violation_id}")
+
+    async def update_violation(
+        self,
+        violation_id: str,
+        *,
+        status: str | None = None,
+        assigned_to: str | None = None,
+        remediation_notes: str | None = None,
+        due_date: str | None = None,
+    ) -> dict[str, Any]:
+        """Update a compliance violation."""
+        payload: dict[str, Any] = {}
+        if status:
+            payload["status"] = status
+        if assigned_to:
+            payload["assigned_to"] = assigned_to
+        if remediation_notes:
+            payload["remediation_notes"] = remediation_notes
+        if due_date:
+            payload["due_date"] = due_date
+        return await self._client.request("PUT", f"/api/v1/compliance/violations/{violation_id}", json=payload)
 
     # ===========================================================================
     # EU AI Act

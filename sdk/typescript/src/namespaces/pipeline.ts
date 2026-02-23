@@ -383,4 +383,86 @@ export class PipelineNamespace {
       { body: { workflow_data: workflowData } }
     );
   }
+
+  // ===========================================================================
+  // Pipeline Graphs & Transitions
+  // ===========================================================================
+
+  /**
+   * Get the current pipeline execution graph.
+   */
+  async getGraph(): Promise<Record<string, unknown>> {
+    return this.client.request<Record<string, unknown>>(
+      'GET',
+      '/api/v1/pipeline/graph'
+    );
+  }
+
+  /**
+   * Create a new pipeline graph.
+   *
+   * @param graphData - Graph definition (nodes, edges, metadata)
+   * @returns Created graph with ID
+   */
+  async createGraph(graphData: Record<string, unknown>): Promise<Record<string, unknown>> {
+    return this.client.request<Record<string, unknown>>(
+      'POST',
+      '/api/v1/pipeline/graphs',
+      { body: graphData }
+    );
+  }
+
+  /**
+   * Update an existing pipeline graph.
+   *
+   * @param graphData - Updated graph definition (must include graph_id)
+   * @returns Updated graph
+   */
+  async updateGraph(graphData: Record<string, unknown>): Promise<Record<string, unknown>> {
+    return this.client.request<Record<string, unknown>>(
+      'PUT',
+      '/api/v1/pipeline/graphs',
+      { body: graphData }
+    );
+  }
+
+  /**
+   * Delete a pipeline graph.
+   *
+   * @param options - Delete parameters (graph_id, etc.)
+   * @returns Deletion confirmation
+   */
+  async deleteGraph(options?: Record<string, unknown>): Promise<Record<string, unknown>> {
+    return this.client.request<Record<string, unknown>>(
+      'DELETE',
+      '/api/v1/pipeline/graphs',
+      { body: options }
+    );
+  }
+
+  /**
+   * Create a pipeline stage transition.
+   *
+   * @param fromStage - Source stage
+   * @param toStage - Target stage
+   * @param options - Transition options
+   * @returns Created transition details
+   */
+  async createTransition(
+    fromStage: string,
+    toStage: string,
+    options?: { pipelineId?: string; conditions?: Record<string, unknown> },
+  ): Promise<Record<string, unknown>> {
+    const body: Record<string, unknown> = {
+      from_stage: fromStage,
+      to_stage: toStage,
+    };
+    if (options?.pipelineId) body.pipeline_id = options.pipelineId;
+    if (options?.conditions) body.conditions = options.conditions;
+    return this.client.request<Record<string, unknown>>(
+      'POST',
+      '/api/v1/pipeline/transitions',
+      { body }
+    );
+  }
 }

@@ -58,7 +58,247 @@ export class ReceiptsAPI {
   constructor(private client: ReceiptsClientInterface) {}
 
   // ===========================================================================
-  // Generic Receipt Methods
+  // v2 Receipt Methods
+  // ===========================================================================
+
+  /**
+   * List decision receipts (v2 API).
+   *
+   * @param params - Pagination parameters
+   * @returns List of receipts
+   */
+  async listV2(params?: PaginationParams): Promise<Record<string, unknown>> {
+    return this.client.request('GET', '/api/v2/receipts', {
+      params: params as Record<string, unknown>,
+    });
+  }
+
+  /**
+   * Get a receipt by ID (v2 API).
+   *
+   * @param receiptId - Receipt identifier
+   * @returns Receipt details
+   */
+  async getV2(receiptId: string): Promise<Record<string, unknown>> {
+    return this.client.request('GET', `/api/v2/receipts/${encodeURIComponent(receiptId)}`);
+  }
+
+  /**
+   * Search receipts with query and filters.
+   *
+   * @param params - Search parameters (query, date range, verdict, etc.)
+   * @returns Search results with pagination
+   */
+  async search(params?: Record<string, unknown>): Promise<Record<string, unknown>> {
+    return this.client.request('GET', '/api/v2/receipts/search', { params });
+  }
+
+  /**
+   * Get receipt statistics (totals, verdicts, trends).
+   *
+   * @returns Statistics and breakdowns
+   */
+  async stats(): Promise<Record<string, unknown>> {
+    return this.client.request('GET', '/api/v2/receipts/stats');
+  }
+
+  /**
+   * Export a receipt in various formats (v2 API).
+   *
+   * @param receiptId - Receipt identifier
+   * @param format - Export format (json, html, markdown, sarif, csv, pdf)
+   * @returns Exported receipt data
+   */
+  async exportV2(
+    receiptId: string,
+    format: 'json' | 'html' | 'markdown' | 'sarif' | 'csv' | 'pdf' = 'json'
+  ): Promise<Record<string, unknown>> {
+    const formatValue = format === 'markdown' ? 'md' : format;
+    return this.client.request('GET', `/api/v2/receipts/${encodeURIComponent(receiptId)}/export`, {
+      params: { format: formatValue },
+    });
+  }
+
+  /**
+   * Get a receipt formatted for a specific channel (Slack, Teams, Email, etc.).
+   *
+   * @param receiptId - Receipt identifier
+   * @param channelType - Target channel type (slack, teams, email, discord)
+   * @param options - Formatting options
+   * @returns Channel-formatted receipt
+   */
+  async formatted(
+    receiptId: string,
+    channelType: string,
+    options?: { compact?: boolean }
+  ): Promise<Record<string, unknown>> {
+    const params: Record<string, unknown> = {};
+    if (options?.compact) {
+      params.compact = 'true';
+    }
+    return this.client.request(
+      'GET',
+      `/api/v2/receipts/${encodeURIComponent(receiptId)}/formatted/${encodeURIComponent(channelType)}`,
+      { params }
+    );
+  }
+
+  /**
+   * Send a receipt to a channel (Slack, Teams, Email, etc.).
+   *
+   * @param receiptId - Receipt identifier
+   * @param channelType - Target channel type
+   * @param channelId - Target channel/conversation/email ID
+   * @param options - Delivery options
+   * @returns Delivery confirmation
+   */
+  async sendToChannel(
+    receiptId: string,
+    channelType: string,
+    channelId: string,
+    options?: { workspaceId?: string; deliveryOptions?: Record<string, unknown> }
+  ): Promise<Record<string, unknown>> {
+    const body: Record<string, unknown> = {
+      channel_type: channelType,
+      channel_id: channelId,
+    };
+    if (options?.workspaceId) body.workspace_id = options.workspaceId;
+    if (options?.deliveryOptions) body.options = options.deliveryOptions;
+    return this.client.request('POST', `/api/v2/receipts/${encodeURIComponent(receiptId)}/send-to-channel`, {
+      json: body,
+    });
+  }
+
+  /**
+   * Share a receipt (generate shareable link or send to recipients).
+   *
+   * @param receiptId - Receipt identifier
+   * @param options - Share options (recipients, expiry, permissions)
+   * @returns Share result
+   */
+  async share(receiptId: string, options?: Record<string, unknown>): Promise<Record<string, unknown>> {
+    return this.client.request('POST', `/api/v2/receipts/${encodeURIComponent(receiptId)}/share`, {
+      json: options ?? {},
+    });
+  }
+
+  /**
+   * Verify a receipt's cryptographic signature (v2 API).
+   *
+   * @param receiptId - Receipt identifier
+   * @returns Signature verification result
+   */
+  async verifySignature(receiptId: string): Promise<Record<string, unknown>> {
+    return this.client.request('POST', `/api/v2/receipts/${encodeURIComponent(receiptId)}/verify-signature`);
+  }
+
+  // ===========================================================================
+  // v1 Gauntlet Receipt Methods
+  // ===========================================================================
+
+  /**
+   * List decision receipts via the v1 gauntlet API with advanced filtering.
+   *
+   * @param params - Filter parameters
+   * @returns List of receipts
+   */
+  async listV1(params?: {
+    debate_id?: string;
+    from_date?: string;
+    to_date?: string;
+    consensus_reached?: boolean;
+    min_confidence?: number;
+    limit?: number;
+    offset?: number;
+  }): Promise<Record<string, unknown>> {
+    const queryParams: Record<string, unknown> = {};
+    if (params?.debate_id) queryParams.debate_id = params.debate_id;
+    if (params?.from_date) queryParams.from_date = params.from_date;
+    if (params?.to_date) queryParams.to_date = params.to_date;
+    if (params?.consensus_reached !== undefined) queryParams.consensus_reached = String(params.consensus_reached);
+    if (params?.min_confidence !== undefined) queryParams.min_confidence = String(params.min_confidence);
+    if (params?.limit !== undefined) queryParams.limit = params.limit;
+    if (params?.offset !== undefined) queryParams.offset = params.offset;
+    return this.client.request('GET', '/api/v1/gauntlet/receipts', { params: queryParams });
+  }
+
+  /**
+   * Get a decision receipt via the v1 gauntlet API.
+   *
+   * @param receiptId - Receipt identifier
+   * @returns Receipt details
+   */
+  async getV1(receiptId: string): Promise<Record<string, unknown>> {
+    return this.client.request('GET', `/api/v1/gauntlet/receipts/${encodeURIComponent(receiptId)}`);
+  }
+
+  /**
+   * Export a receipt via the v1 gauntlet API with detailed options.
+   *
+   * @param receiptId - Receipt identifier
+   * @param options - Export options
+   * @returns Exported receipt data
+   */
+  async exportV1(
+    receiptId: string,
+    options?: {
+      format?: string;
+      includeMetadata?: boolean;
+      includeEvidence?: boolean;
+      includeDissent?: boolean;
+      prettyPrint?: boolean;
+    }
+  ): Promise<Record<string, unknown>> {
+    return this.client.request('GET', `/api/v1/gauntlet/receipts/${encodeURIComponent(receiptId)}/export`, {
+      params: {
+        format: options?.format ?? 'json',
+        include_metadata: String(options?.includeMetadata ?? true),
+        include_evidence: String(options?.includeEvidence ?? false),
+        include_dissent: String(options?.includeDissent ?? true),
+        pretty_print: String(options?.prettyPrint ?? false),
+      },
+    });
+  }
+
+  /**
+   * Export multiple receipts as a bundle.
+   *
+   * @param receiptIds - List of receipt IDs to include
+   * @param options - Bundle export options
+   * @returns Bundle export with all requested receipts
+   */
+  async exportBundle(
+    receiptIds: string[],
+    options?: {
+      format?: string;
+      includeMetadata?: boolean;
+      includeEvidence?: boolean;
+      includeDissent?: boolean;
+    }
+  ): Promise<Record<string, unknown>> {
+    return this.client.request('POST', '/api/v1/gauntlet/receipts/export/bundle', {
+      json: {
+        receipt_ids: receiptIds,
+        format: options?.format ?? 'json',
+        include_metadata: options?.includeMetadata ?? true,
+        include_evidence: options?.includeEvidence ?? false,
+        include_dissent: options?.includeDissent ?? true,
+      },
+    });
+  }
+
+  /**
+   * Stream receipt export data (for large receipts).
+   *
+   * @param receiptId - Receipt identifier
+   * @returns Streamed receipt data
+   */
+  async stream(receiptId: string): Promise<Record<string, unknown>> {
+    return this.client.request('GET', `/api/v1/gauntlet/receipts/${encodeURIComponent(receiptId)}/stream`);
+  }
+
+  // ===========================================================================
+  // Generic Receipt Methods (legacy)
   // ===========================================================================
 
   /**

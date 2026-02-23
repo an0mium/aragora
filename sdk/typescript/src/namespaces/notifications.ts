@@ -206,4 +206,23 @@ export class NotificationsAPI {
   }): Promise<{ deliveries: NotificationDelivery[]; total: number }> {
     return this.client.request('GET', '/api/notifications/history', { params: options });
   }
+
+  /**
+   * Get notification delivery statistics (success rate, latency, failures).
+   */
+  async getDeliveryStats(): Promise<Record<string, unknown>> {
+    return this.client.request('GET', '/api/v1/notifications/delivery-stats');
+  }
+
+  /**
+   * Update notification preferences for the current user.
+   *
+   * @param preferences - Notification preferences (channels, frequency, quiet hours, etc.)
+   * @returns Updated preferences
+   */
+  async updatePreferences(preferences: Record<string, unknown>): Promise<Record<string, unknown>> {
+    return this.client.request('PUT', '/api/v1/notifications/preferences', {
+      json: preferences,
+    });
+  }
 }
