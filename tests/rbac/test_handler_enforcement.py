@@ -425,6 +425,8 @@ ALLOWED_WITHOUT_RBAC = frozenset(
         "knowledge/velocity",
         # Observability package re-export (dashboard.py has RBAC via SecureHandler)
         "observability/__init__",
+        # Federation package re-export (status.py has RBAC via require_permission)
+        "federation/__init__",
     }
 )
 
