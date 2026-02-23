@@ -423,7 +423,7 @@ class GlobalWorkQueue:
                         await callback("push", work)
                     else:
                         callback("push", work)
-                except Exception as e:  # noqa: BLE001 - callback errors must not break queue operations
+                except (TypeError, ValueError, RuntimeError, AttributeError, KeyError, OSError) as e:
                     logger.error("Callback error: %s", e)
 
             return work
