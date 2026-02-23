@@ -474,6 +474,14 @@ class ComplianceAPI:
             json={"content": content, "min_confidence": min_confidence},
         )
 
+    def get_compliance_overview(self) -> dict[str, Any]:
+        """Get compliance overview (v2).
+
+        Returns:
+            Dict with overall compliance status, scores, and framework summaries.
+        """
+        return self._client.request("GET", "/api/v1/compliance")
+
 
 class AsyncComplianceAPI:
     """
@@ -754,3 +762,7 @@ class AsyncComplianceAPI:
             "/api/v2/compliance/hipaa/detect-phi",
             json={"content": content, "min_confidence": min_confidence},
         )
+
+    async def get_compliance_overview(self) -> dict[str, Any]:
+        """Get compliance overview (v2)."""
+        return await self._client.request("GET", "/api/v1/compliance")

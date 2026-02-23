@@ -186,6 +186,17 @@ class MomentsAPI:
             "GET", "/api/v1/moments/recent", params=params if params else None
         )
 
+    def list(self, **params: Any) -> dict[str, Any]:
+        """List all moments.
+
+        Args:
+            **params: Filter parameters (limit, offset, type, etc.).
+
+        Returns:
+            Dict with moments array and pagination.
+        """
+        return self._client.request("GET", "/api/v1/moments", params=params or None)
+
 
 class AsyncMomentsAPI:
     """
@@ -271,3 +282,7 @@ class AsyncMomentsAPI:
         return await self._client.request(
             "GET", "/api/v1/moments/recent", params=params if params else None
         )
+
+    async def list(self, **params: Any) -> dict[str, Any]:
+        """List all moments."""
+        return await self._client.request("GET", "/api/v1/moments", params=params or None)

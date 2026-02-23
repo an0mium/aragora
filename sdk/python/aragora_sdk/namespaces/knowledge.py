@@ -637,6 +637,14 @@ class KnowledgeAPI:
         params: dict[str, Any] = {"q": query, "limit": limit}
         return self._client.request("GET", "/api/v1/index/search", params=params)
 
+    def list_adapters(self) -> dict[str, Any]:
+        """List registered knowledge adapters.
+
+        Returns:
+            Dict with adapters array and their configurations.
+        """
+        return self._client.request("GET", "/api/v1/knowledge/adapters")
+
 
 class AsyncKnowledgeAPI:
     """Asynchronous Knowledge Base API."""
@@ -1599,3 +1607,7 @@ class AsyncKnowledgeAPI:
         """Search the index (short alias)."""
         params: dict[str, Any] = {"q": query, "limit": limit}
         return await self._client.request("GET", "/api/v1/index/search", params=params)
+
+    async def list_adapters(self) -> dict[str, Any]:
+        """List registered knowledge adapters."""
+        return await self._client.request("GET", "/api/v1/knowledge/adapters")

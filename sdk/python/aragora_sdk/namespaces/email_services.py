@@ -162,6 +162,55 @@ class EmailServicesAPI:
         return self._client.request("POST", "/api/v1/email/categories/learn", json=data)
 
 
+    # ===========================================================================
+    # Email Triage
+    # ===========================================================================
+
+    def create_triage_rule(self, **kwargs: Any) -> dict[str, Any]:
+        """Create an email triage rule.
+
+        Args:
+            **kwargs: Rule configuration (name, conditions, actions, etc.).
+
+        Returns:
+            Dict with created rule details.
+        """
+        return self._client.request("POST", "/api/v1/email/triage/rules", json=kwargs)
+
+    def update_triage_rule(self, **kwargs: Any) -> dict[str, Any]:
+        """Update an email triage rule.
+
+        Args:
+            **kwargs: Updated rule configuration.
+
+        Returns:
+            Dict with updated rule details.
+        """
+        return self._client.request("PUT", "/api/v1/email/triage/rules", json=kwargs)
+
+    def create_triage_test(self, **kwargs: Any) -> dict[str, Any]:
+        """Create an email triage test.
+
+        Args:
+            **kwargs: Test configuration (email_content, rules, etc.).
+
+        Returns:
+            Dict with test results.
+        """
+        return self._client.request("POST", "/api/v1/email/triage/test", json=kwargs)
+
+    def update_triage_test(self, **kwargs: Any) -> dict[str, Any]:
+        """Update an email triage test.
+
+        Args:
+            **kwargs: Updated test configuration.
+
+        Returns:
+            Dict with updated test details.
+        """
+        return self._client.request("PUT", "/api/v1/email/triage/test", json=kwargs)
+
+
 class AsyncEmailServicesAPI:
     """
     Asynchronous Email Services API.
@@ -251,3 +300,23 @@ class AsyncEmailServicesAPI:
             data["correct_category"] = correct_category
 
         return await self._client.request("POST", "/api/v1/email/categories/learn", json=data)
+
+    # ===========================================================================
+    # Email Triage
+    # ===========================================================================
+
+    async def create_triage_rule(self, **kwargs: Any) -> dict[str, Any]:
+        """Create an email triage rule."""
+        return await self._client.request("POST", "/api/v1/email/triage/rules", json=kwargs)
+
+    async def update_triage_rule(self, **kwargs: Any) -> dict[str, Any]:
+        """Update an email triage rule."""
+        return await self._client.request("PUT", "/api/v1/email/triage/rules", json=kwargs)
+
+    async def create_triage_test(self, **kwargs: Any) -> dict[str, Any]:
+        """Create an email triage test."""
+        return await self._client.request("POST", "/api/v1/email/triage/test", json=kwargs)
+
+    async def update_triage_test(self, **kwargs: Any) -> dict[str, Any]:
+        """Update an email triage test."""
+        return await self._client.request("PUT", "/api/v1/email/triage/test", json=kwargs)

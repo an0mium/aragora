@@ -30,6 +30,7 @@ from __future__ import annotations
 import asyncio
 import json
 import logging
+import time
 from typing import TYPE_CHECKING, Any, BinaryIO
 from collections.abc import Callable
 
@@ -50,6 +51,7 @@ from .core import (
     HandlerType,
     HandlerValidationError,
     RouteIndex,
+    _DeferredImport,
     _run_handler_coroutine,
     _safe_import,
     check_handler_coverage,
@@ -103,7 +105,10 @@ HANDLER_REGISTRY: list[tuple[str, Any]] = [
     *SOCIAL_HANDLER_REGISTRY,
 ]
 
-# Compute availability: critical handlers must import + most registry entries must resolve
+# Compute availability: with deferred imports, handler classes are _DeferredImport
+# proxies (always truthy). Actual import failures are caught later in _init_handlers().
+# This is intentional — it allows the server to start fast and defer handler loading
+# to first-request time.
 HANDLERS_AVAILABLE = all(
     [
         SystemHandler is not None,
@@ -111,20 +116,6 @@ HANDLERS_AVAILABLE = all(
         DebatesHandler is not None,
     ]
 )
-
-# Check that core-tier handlers in the registry all resolved (not None)
-_core_handlers = [
-    (name, cls)
-    for name, cls in HANDLER_REGISTRY
-    if HANDLER_TIERS.get(name) == "core"
-]
-_failed_core = [name for name, cls in _core_handlers if cls is None]
-if _failed_core:
-    logger.warning(
-        "Core handler(s) failed to import: %s — server may be degraded",
-        ", ".join(_failed_core),
-    )
-    HANDLERS_AVAILABLE = False
 
 
 class HandlerRegistryMixin:
@@ -181,6 +172,11 @@ class HandlerRegistryMixin:
         Called lazily on first request. Creates handler instances with
         references to storage, ELO system, and other shared resources.
 
+        Deferred imports: Handler classes are stored as _DeferredImport
+        proxies at module load time. The actual module imports happen here,
+        on first request, avoiding the cost of importing 165+ handler
+        modules during server startup.
+
         Thread-safe: uses double-checked locking to prevent race conditions
         in ThreadingHTTPServer where concurrent requests could see partially
         initialized state (handlers created but route index not yet built).
@@ -194,6 +190,8 @@ class HandlerRegistryMixin:
             # Double-check after acquiring lock
             if cls._handlers_initialized:
                 return
+
+            t_start = time.monotonic()
 
             # Build server context for handlers
             nomic_dir = None
@@ -222,8 +220,18 @@ class HandlerRegistryMixin:
             active_tiers = get_active_tiers()
             active_registry = filter_registry_by_tier(HANDLER_REGISTRY, active_tiers)
 
+            t_filter = time.monotonic()
+            import_failures = 0
+            init_count = 0
+
             # Initialize handlers from filtered registry with auto-instrumentation
-            for attr_name, handler_class in active_registry:
+            for attr_name, handler_ref in active_registry:
+                # Resolve deferred imports (lazy → actual class)
+                if isinstance(handler_ref, _DeferredImport):
+                    handler_class = handler_ref.resolve()
+                else:
+                    handler_class = handler_ref
+
                 if handler_class is not None:
                     try:
                         instance = handler_class(ctx)
@@ -239,6 +247,11 @@ class HandlerRegistryMixin:
                         continue
                     auto_instrument_handler(instance)
                     setattr(cls, attr_name, instance)
+                    init_count += 1
+                else:
+                    import_failures += 1
+
+            t_init = time.monotonic()
 
             # Build route index for O(1) dispatch BEFORE setting initialized flag.
             # This prevents other threads from seeing _handlers_initialized=True
@@ -249,10 +262,18 @@ class HandlerRegistryMixin:
             # Mark as initialized only AFTER routes are fully built
             cls._handlers_initialized = True
 
+            t_done = time.monotonic()
+
             skipped = len(HANDLER_REGISTRY) - len(active_registry)
             tier_info = ",".join(sorted(active_tiers))
             logger.info(
-                "[handlers] Initialized %s/%s handlers (tiers=%s, skipped=%s)", len(active_registry), len(HANDLER_REGISTRY), tier_info, skipped
+                "[handlers] Initialized %d/%d handlers in %.1fms "
+                "(resolve+init=%.1fms, routes=%.1fms, tiers=%s, skipped=%d, failed=%d)",
+                init_count, len(HANDLER_REGISTRY),
+                (t_done - t_start) * 1000,
+                (t_init - t_filter) * 1000,
+                (t_done - t_init) * 1000,
+                tier_info, skipped, import_failures,
             )
 
             # Check for unregistered handler classes in the codebase

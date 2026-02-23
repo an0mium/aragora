@@ -64,6 +64,14 @@ class EvolutionAPI:
         """
         return self._client.request("GET", "/api/v1/evolution/summary")
 
+    def get_overview(self) -> dict[str, Any]:
+        """Get evolution overview.
+
+        Returns:
+            Dict with overall evolution status and metrics.
+        """
+        return self._client.request("GET", "/api/v1/evolution")
+
 
 class AsyncEvolutionAPI:
     """Asynchronous Evolution API for agent evolution tracking."""
@@ -116,3 +124,7 @@ class AsyncEvolutionAPI:
             Summary of evolution metrics.
         """
         return await self._client.request("GET", "/api/v1/evolution/summary")
+
+    async def get_overview(self) -> dict[str, Any]:
+        """Get evolution overview."""
+        return await self._client.request("GET", "/api/v1/evolution")

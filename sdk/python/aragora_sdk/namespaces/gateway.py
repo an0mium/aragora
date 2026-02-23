@@ -375,6 +375,32 @@ class GatewayAPI:
     # OpenClaw Gateway (legacy /api/gateway/openclaw/ paths)
     # =========================================================================
 
+    # =========================================================================
+    # Gateway Config
+    # =========================================================================
+
+    def create_config(self, **kwargs: Any) -> dict[str, Any]:
+        """Create a gateway configuration.
+
+        Args:
+            **kwargs: Configuration parameters.
+
+        Returns:
+            Dict with created configuration details.
+        """
+        return self._client.request("POST", "/api/v1/gateway/config", json=kwargs)
+
+    def create_config_defaults(self, **kwargs: Any) -> dict[str, Any]:
+        """Create default gateway configuration.
+
+        Args:
+            **kwargs: Default configuration parameters.
+
+        Returns:
+            Dict with created default configuration.
+        """
+        return self._client.request("POST", "/api/v1/gateway/config/defaults", json=kwargs)
+
     def openclaw_sessions(
         self,
         skip: int = 0,
@@ -765,3 +791,15 @@ class AsyncGatewayAPI:
         return await self._client.request(
             "GET", "/api/gateway/openclaw/audit", params=params or None
         )
+
+    # =========================================================================
+    # Gateway Config
+    # =========================================================================
+
+    async def create_config(self, **kwargs: Any) -> dict[str, Any]:
+        """Create a gateway configuration."""
+        return await self._client.request("POST", "/api/v1/gateway/config", json=kwargs)
+
+    async def create_config_defaults(self, **kwargs: Any) -> dict[str, Any]:
+        """Create default gateway configuration."""
+        return await self._client.request("POST", "/api/v1/gateway/config/defaults", json=kwargs)

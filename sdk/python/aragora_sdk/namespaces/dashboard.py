@@ -283,6 +283,48 @@ class DashboardAPI:
         """Get recent activity (convenience wrapper)."""
         return self.get_activity(limit=limit)
 
+    # --- Gastown Dashboard ---
+
+    def get_gastown_overview(self) -> dict[str, Any]:
+        """Get Gastown dashboard overview.
+
+        Returns:
+            Dict with Gastown overview metrics.
+        """
+        return self._client.request("GET", "/api/v1/dashboard/gastown/overview")
+
+    def get_gastown_agents(self) -> dict[str, Any]:
+        """Get Gastown agent metrics.
+
+        Returns:
+            Dict with agent performance data.
+        """
+        return self._client.request("GET", "/api/v1/dashboard/gastown/agents")
+
+    def get_gastown_beads(self) -> dict[str, Any]:
+        """Get Gastown bead metrics.
+
+        Returns:
+            Dict with bead statistics.
+        """
+        return self._client.request("GET", "/api/v1/dashboard/gastown/beads")
+
+    def get_gastown_convoys(self) -> dict[str, Any]:
+        """Get Gastown convoy metrics.
+
+        Returns:
+            Dict with convoy statistics.
+        """
+        return self._client.request("GET", "/api/v1/dashboard/gastown/convoys")
+
+    def get_gastown_metrics(self) -> dict[str, Any]:
+        """Get Gastown detailed metrics.
+
+        Returns:
+            Dict with detailed Gastown metrics.
+        """
+        return self._client.request("GET", "/api/v1/dashboard/gastown/metrics")
+
 class AsyncDashboardAPI:
     """Asynchronous Dashboard API."""
 
@@ -485,3 +527,25 @@ class AsyncDashboardAPI:
     async def get_recent_activity(self, limit: int = 20) -> dict[str, Any]:
         """Get recent activity (convenience wrapper)."""
         return await self.get_activity(limit=limit)
+
+    # --- Gastown Dashboard ---
+
+    async def get_gastown_overview(self) -> dict[str, Any]:
+        """Get Gastown dashboard overview."""
+        return await self._client.request("GET", "/api/v1/dashboard/gastown/overview")
+
+    async def get_gastown_agents(self) -> dict[str, Any]:
+        """Get Gastown agent metrics."""
+        return await self._client.request("GET", "/api/v1/dashboard/gastown/agents")
+
+    async def get_gastown_beads(self) -> dict[str, Any]:
+        """Get Gastown bead metrics."""
+        return await self._client.request("GET", "/api/v1/dashboard/gastown/beads")
+
+    async def get_gastown_convoys(self) -> dict[str, Any]:
+        """Get Gastown convoy metrics."""
+        return await self._client.request("GET", "/api/v1/dashboard/gastown/convoys")
+
+    async def get_gastown_metrics(self) -> dict[str, Any]:
+        """Get Gastown detailed metrics."""
+        return await self._client.request("GET", "/api/v1/dashboard/gastown/metrics")

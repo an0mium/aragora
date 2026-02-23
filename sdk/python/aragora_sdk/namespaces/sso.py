@@ -55,6 +55,14 @@ class SSOAPI:
         """Get SSO provider metadata."""
         return self._client.request("GET", "/api/v2/sso/metadata")
 
+    def sso_login(self) -> dict[str, Any]:
+        """Initiate SSO login via auth endpoint.
+
+        Returns:
+            Dict with SSO login redirect URL and session data.
+        """
+        return self._client.request("GET", "/auth/sso/login")
+
 
 class AsyncSSOAPI:
     """
@@ -91,3 +99,7 @@ class AsyncSSOAPI:
     async def get_metadata(self) -> dict[str, Any]:
         """Get SSO provider metadata."""
         return await self._client.request("GET", "/api/v2/sso/metadata")
+
+    async def sso_login(self) -> dict[str, Any]:
+        """Initiate SSO login via auth endpoint."""
+        return await self._client.request("GET", "/auth/sso/login")

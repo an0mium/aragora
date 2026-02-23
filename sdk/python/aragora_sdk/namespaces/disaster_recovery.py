@@ -82,6 +82,14 @@ class DisasterRecoveryAPI:
     # Convenience Methods
     # ===========================================================================
 
+    def get_dr_overview(self) -> dict[str, Any]:
+        """Get disaster recovery overview.
+
+        Returns:
+            Dict with DR status, readiness, and recovery metrics.
+        """
+        return self._client.request("GET", "/api/v1/dr")
+
     def is_ready(self) -> bool:
         """Check if DR is ready for production."""
         status = self.get_status()
@@ -160,6 +168,10 @@ class AsyncDisasterRecoveryAPI:
     # ===========================================================================
     # Convenience Methods
     # ===========================================================================
+
+    async def get_dr_overview(self) -> dict[str, Any]:
+        """Get disaster recovery overview."""
+        return await self._client.request("GET", "/api/v1/dr")
 
     async def is_ready(self) -> bool:
         """Check if DR is ready for production."""

@@ -260,11 +260,68 @@ def filter_registry_by_tier(
     return filtered
 
 
-def _safe_import(module_path: str, class_name: str) -> HandlerType:
-    """Safely import a handler class with graceful fallback.
+_SENTINEL = object()
 
-    Returns the handler class if import succeeds, None otherwise.
-    Individual failures are logged as warnings and don't cascade.
+
+class _DeferredImport:
+    """Lazy handler class proxy that defers module import until resolution.
+
+    Instead of eagerly importing handler modules at server startup,
+    stores the import spec (module_path, class_name) and only triggers
+    the actual import when resolve() is called during _init_handlers().
+
+    This reduces server module load time from ~165 handler imports to 0,
+    deferring the cost to first-request handler initialization.
+    """
+
+    __slots__ = ("_module_path", "_class_name", "_resolved")
+
+    def __init__(self, module_path: str, class_name: str):
+        self._module_path = module_path
+        self._class_name = class_name
+        self._resolved = _SENTINEL
+
+    def resolve(self) -> HandlerType:
+        """Resolve the deferred import, returning the handler class or None."""
+        if self._resolved is _SENTINEL:
+            try:
+                mod = importlib.import_module(self._module_path)
+                self._resolved = getattr(mod, self._class_name)
+            except (ImportError, AttributeError, TypeError) as e:
+                logger.warning(
+                    "Failed to import %s from %s: %s",
+                    self._class_name, self._module_path, e,
+                )
+                self._resolved = None
+        return self._resolved
+
+    def __bool__(self) -> bool:
+        # Always truthy before resolution — assume import will succeed
+        return True
+
+    def __repr__(self) -> str:
+        if self._resolved is not _SENTINEL:
+            return repr(self._resolved)
+        return f"<DeferredImport {self._module_path}:{self._class_name}>"
+
+
+def _safe_import(module_path: str, class_name: str) -> _DeferredImport:
+    """Create a deferred import spec for a handler class.
+
+    Returns a _DeferredImport proxy that defers the actual module import
+    until resolve() is called. This avoids eagerly importing all 165+
+    handler modules at server startup.
+
+    Call .resolve() to get the actual handler class (or None on failure).
+    """
+    return _DeferredImport(module_path, class_name)
+
+
+def _eager_import(module_path: str, class_name: str) -> HandlerType:
+    """Eagerly import a handler class (for critical handlers only).
+
+    Use this instead of _safe_import when the handler MUST be available
+    at module load time (e.g., for health checks).
     """
     try:
         mod = importlib.import_module(module_path)

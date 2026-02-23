@@ -462,6 +462,82 @@ class IntegrationsAPI:
         """Get integration health."""
         return self._client.request("GET", f"/api/v2/integrations/{integration_id}/health")
 
+    # =========================================================================
+    # Integrations Health (top-level)
+    # =========================================================================
+
+    def get_health(self) -> dict[str, Any]:
+        """Get overall integrations health status.
+
+        Returns:
+            Dict with health status for all integrations.
+        """
+        return self._client.request("GET", "/api/v1/integrations/health")
+
+    # =========================================================================
+    # Slack OAuth
+    # =========================================================================
+
+    def slack_install(self) -> dict[str, Any]:
+        """Initiate Slack OAuth installation flow.
+
+        Returns:
+            Dict with installation URL and state.
+        """
+        return self._client.request("GET", "/api/v1/integrations/slack/install")
+
+    def slack_callback(self) -> dict[str, Any]:
+        """Handle Slack OAuth callback.
+
+        Returns:
+            Dict with OAuth result.
+        """
+        return self._client.request("GET", "/api/v1/integrations/slack/callback")
+
+    def slack_preview(self) -> dict[str, Any]:
+        """Get Slack integration preview.
+
+        Returns:
+            Dict with preview information.
+        """
+        return self._client.request("GET", "/api/v1/integrations/slack/preview")
+
+    def slack_workspaces(self) -> dict[str, Any]:
+        """List connected Slack workspaces.
+
+        Returns:
+            Dict with connected workspaces.
+        """
+        return self._client.request("GET", "/api/v1/integrations/slack/workspaces")
+
+    def slack_uninstall(self) -> dict[str, Any]:
+        """Uninstall Slack integration.
+
+        Returns:
+            Dict with uninstall confirmation.
+        """
+        return self._client.request("POST", "/api/v1/integrations/slack/uninstall")
+
+    # =========================================================================
+    # Teams Management
+    # =========================================================================
+
+    def teams_disconnect(self) -> dict[str, Any]:
+        """Disconnect Microsoft Teams integration.
+
+        Returns:
+            Dict with disconnection confirmation.
+        """
+        return self._client.request("GET", "/api/v1/integrations/teams/disconnect")
+
+    def teams_tenants(self) -> dict[str, Any]:
+        """List connected Teams tenants.
+
+        Returns:
+            Dict with tenant list.
+        """
+        return self._client.request("GET", "/api/v1/integrations/teams/tenants")
+
 
 class AsyncIntegrationsAPI:
     """Asynchronous integrations API."""
@@ -822,3 +898,47 @@ class AsyncIntegrationsAPI:
     async def get_integration_health(self, integration_id: str) -> dict[str, Any]:
         """Get integration health."""
         return await self._client.request("GET", f"/api/v2/integrations/{integration_id}/health")
+
+    # =========================================================================
+    # Integrations Health (top-level)
+    # =========================================================================
+
+    async def get_health(self) -> dict[str, Any]:
+        """Get overall integrations health status."""
+        return await self._client.request("GET", "/api/v1/integrations/health")
+
+    # =========================================================================
+    # Slack OAuth
+    # =========================================================================
+
+    async def slack_install(self) -> dict[str, Any]:
+        """Initiate Slack OAuth installation flow."""
+        return await self._client.request("GET", "/api/v1/integrations/slack/install")
+
+    async def slack_callback(self) -> dict[str, Any]:
+        """Handle Slack OAuth callback."""
+        return await self._client.request("GET", "/api/v1/integrations/slack/callback")
+
+    async def slack_preview(self) -> dict[str, Any]:
+        """Get Slack integration preview."""
+        return await self._client.request("GET", "/api/v1/integrations/slack/preview")
+
+    async def slack_workspaces(self) -> dict[str, Any]:
+        """List connected Slack workspaces."""
+        return await self._client.request("GET", "/api/v1/integrations/slack/workspaces")
+
+    async def slack_uninstall(self) -> dict[str, Any]:
+        """Uninstall Slack integration."""
+        return await self._client.request("POST", "/api/v1/integrations/slack/uninstall")
+
+    # =========================================================================
+    # Teams Management
+    # =========================================================================
+
+    async def teams_disconnect(self) -> dict[str, Any]:
+        """Disconnect Microsoft Teams integration."""
+        return await self._client.request("GET", "/api/v1/integrations/teams/disconnect")
+
+    async def teams_tenants(self) -> dict[str, Any]:
+        """List connected Teams tenants."""
+        return await self._client.request("GET", "/api/v1/integrations/teams/tenants")
