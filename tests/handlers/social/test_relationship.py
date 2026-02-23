@@ -296,17 +296,16 @@ class TestCanHandle:
 class TestRateLimiting:
     """Tests for rate-limit enforcement on the handle() method."""
 
-    def test_rate_limit_exceeded(self, handler, mock_http_handler):
+    def test_rate_limit_exceeded(self, handler, mock_http_handler, monkeypatch):
         """When rate limiter rejects, return 429."""
-        with patch(
-            "aragora.server.handlers.social.relationship._relationship_limiter"
-        ) as mock_limiter:
-            mock_limiter.is_allowed.return_value = False
-            result = handler.handle(
-                "/api/v1/relationships/summary", {}, mock_http_handler
-            )
-            assert _status(result) == 429
-            assert "Rate limit" in _body(result).get("error", "")
+        import aragora.server.handlers.social.relationship as mod
+
+        monkeypatch.setattr(mod._relationship_limiter, "is_allowed", lambda key: False)
+        result = handler.handle(
+            "/api/v1/relationships/summary", {}, mock_http_handler
+        )
+        assert _status(result) == 429
+        assert "Rate limit" in _body(result).get("error", "")
 
 
 # ============================================================================
