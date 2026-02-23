@@ -523,7 +523,7 @@ AUTH_ENDPOINTS = {
                                         "format": "date-time",
                                     },
                                     "expires_at": {
-                                        "type": "string",
+                                        "type": ["string", "null"],
                                         "format": "date-time",
                                     },
                                     "last_used": {

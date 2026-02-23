@@ -1073,33 +1073,19 @@ class TestStartDebateOnTopic:
     def test_debate_import_error(self, handler, mock_http):
         """ImportError for debate modules returns feature_unavailable (503)."""
         h = mock_http(body={"topic": "Test topic"})
-        # We need the local import inside _start_debate_on_topic to fail.
-        # The function does: from aragora import Arena, DebateProtocol, Environment
-        # Patching at the module level to raise ImportError
-        orig_import = __builtins__.__import__ if hasattr(__builtins__, "__import__") else __import__
+        # Intercept the `from aragora import Arena, ...` inside the handler
+        import builtins
 
-        def mock_import(name, *args, **kwargs):
-            if (
-                name == "aragora"
-                and args
-                and args[0]
-                and ("Arena" in args[0] if isinstance(args[0], dict) else False)
-            ):
-                raise ImportError("no aragora")
-            return orig_import(name, *args, **kwargs)
+        original_import = builtins.__import__
 
-        # Simpler: just ensure the real import path fails
-        with patch("aragora.Arena", side_effect=ImportError("no")):
-            # The from aragora import Arena will succeed because aragora exists,
-            # but Arena isn't there. Actually, Arena might exist. Let's use a different approach.
-            pass
+        def mock_import(name, globals=None, locals=None, fromlist=(), level=0):
+            if name == "aragora" and fromlist and "Arena" in fromlist:
+                raise ImportError("debate not available")
+            return original_import(name, globals, locals, fromlist, level)
 
-        # The cleanest approach: patch the feature_unavailable_response path
-        # by temporarily making the import fail
-        result = handler._start_debate_on_topic(h)
-        # The import of aragora will succeed in a real env, so we just verify
-        # it handles the case where no agents are available
-        assert _status(result) in (400, 500, 503)
+        with patch.object(builtins, "__import__", side_effect=mock_import):
+            result = handler._start_debate_on_topic(h)
+        assert _status(result) == 503
 
     def test_agents_as_comma_string(self, handler, mock_http):
         """Agents provided as comma-separated string are split into a list."""

@@ -2570,3 +2570,72 @@ class TestCoordinatedGoldPath:
             )
         assert report.cycle_id == "coordinated_test"
         assert report.steps_completed >= 0  # At least some steps run
+
+    @pytest.mark.asyncio
+    async def test_feedback_orchestrator_called_after_coordinated_execution(self):
+        """FeedbackOrchestrator is called after coordinated execution completes."""
+        orch = HardenedOrchestrator(
+            enable_debug_loop=False,
+            enable_execution_bridge=False,
+            enable_prompt_defense=False,
+            generate_receipts=False,
+        )
+
+        success_result = OrchestrationResult(
+            goal="test", success=True,
+            total_subtasks=1, completed_subtasks=1, failed_subtasks=0,
+            skipped_subtasks=0, assignments=[], duration_seconds=1.0,
+        )
+        mock_goal = MagicMock()
+        mock_goal.track.value = "developer"
+        mock_goal.description = "Add feature"
+        mock_goal.file_hints = []
+
+        mock_coord_result = MagicMock()
+        mock_coord_result.success = True
+        mock_coord_result.merged_branches = 1
+        mock_coord_result.failed_branches = 0
+        mock_coord_result.total_branches = 1
+        mock_coord_result.completed_branches = 1
+        mock_coord_result.duration_seconds = 2.0
+        mock_coord_result.summary = "done"
+
+        async def fake_coordinate(assignments, run_nomic_fn):
+            await run_nomic_fn(assignments[0])
+            return mock_coord_result
+
+        mock_feedback_report = MagicMock()
+        mock_feedback_report.improvement_goals = [{"goal": "next step"}]
+
+        from aragora.nomic.autonomous_orchestrator import AutonomousOrchestrator
+
+        with (
+            patch.object(
+                orch,
+                "_run_meta_planner_for_coordination",
+                new_callable=AsyncMock,
+                return_value=[mock_goal],
+            ),
+            patch(
+                "aragora.nomic.branch_coordinator.BranchCoordinator",
+            ) as MockCoord,
+            patch.object(
+                AutonomousOrchestrator,
+                "execute_goal",
+                new_callable=AsyncMock,
+                return_value=success_result,
+            ),
+            patch(
+                "aragora.nomic.feedback_orchestrator.SelfImproveFeedbackOrchestrator",
+            ) as MockFeedback,
+        ):
+            MockFeedback.return_value.run.return_value = mock_feedback_report
+            MockCoord.return_value.coordinate_parallel_work = AsyncMock(
+                side_effect=fake_coordinate,
+            )
+            MockCoord.return_value.cleanup_all_worktrees = MagicMock()
+
+            await orch.execute_goal_coordinated("Add feature")
+
+        # FeedbackOrchestrator.run() should have been called
+        MockFeedback.return_value.run.assert_called_once()
