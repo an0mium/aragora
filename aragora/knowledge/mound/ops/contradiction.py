@@ -352,12 +352,16 @@ class ContradictionDetector:
                     items.append(item)
         else:
             # Query all items in workspace
-            result = await mound.query(
-                workspace_id=workspace_id,
-                query="",  # Empty query to get all
-                limit=10000,
-            )
-            items = result.items if hasattr(result, "items") else []
+            try:
+                result = await mound.query(
+                    workspace_id=workspace_id,
+                    query="*",  # Wildcard query to get all
+                    limit=10000,
+                )
+                items = result.items if hasattr(result, "items") else []
+            except (ValueError, Exception) as exc:
+                logger.debug("contradiction_scan_query_failed: %s", exc)
+                items = []
 
         contradictions: list[Contradiction] = []
         scanned_pairs = set()

@@ -978,6 +978,11 @@ class TestFeedbackLoopClosure:
                 orch,
                 "_emit_event",
             ),
+            patch.object(
+                orch,
+                "_detect_km_contradictions",
+                new_callable=AsyncMock,
+            ),
         ):
             await orch.execute_goal("test goal")
 
