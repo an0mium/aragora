@@ -356,7 +356,7 @@ class IdeaToExecutionPipeline:
         _spectate("pipeline.stage_started", "stage=ideation")
         result.ideas_canvas = debate_to_ideas_canvas(
             cartographer_data,
-            canvas_name=f"Ideas from Debate",
+            canvas_name="Ideas from Debate",
         )
         result.stage_status[PipelineStage.IDEAS.value] = "complete"
         self._emit_sync(event_callback, "stage_completed", {"stage": "ideas"})
@@ -876,7 +876,7 @@ class IdeaToExecutionPipeline:
                 protocol = DebateProtocol(rounds=cfg.debate_rounds)
                 # Apply DeliberationTemplate defaults if provided
                 if cfg.template:
-                    template_agents = getattr(cfg.template, "default_agents", None)
+                    getattr(cfg.template, "default_agents", None)
                     consensus = getattr(cfg.template, "consensus_threshold", None)
                     max_rounds = getattr(cfg.template, "max_rounds", None)
                     if consensus is not None:

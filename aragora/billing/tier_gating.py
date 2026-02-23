@@ -99,7 +99,7 @@ def _resolve_org_tier(context: Any) -> str | None:
         return None
 
     try:
-        from aragora.billing.models import Organization
+        from aragora.billing.models import Organization  # noqa: F401 — availability check
 
         # Try to get org from server-side store (if available)
         try:

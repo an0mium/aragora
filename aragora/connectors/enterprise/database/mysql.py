@@ -580,7 +580,6 @@ class MySQLConnector(EnterpriseConnector):
         from aragora.connectors.base import ConnectorHealth
 
         start_time = time.time()
-        error_msg: str | None = None
 
         try:
             pool = await self._get_pool()

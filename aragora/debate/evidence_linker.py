@@ -471,5 +471,5 @@ __all__ = [
     "ClaimAnalysis",
     "EvidenceCoverageResult",
     "EvidenceClaimLinker",
-    "EMBEDDINGS_AVAILABLE",
+    "EMBEDDINGS_AVAILABLE",  # noqa: F822 — provided via __getattr__
 ]

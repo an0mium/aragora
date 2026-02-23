@@ -111,7 +111,7 @@ class PostDebateWorkflowSubscriber:
             debate_id_short = context.get("debate_id", "unknown")[:8]
             outcome = context.get("outcome", "unknown")
 
-            definition = WorkflowDefinition(
+            WorkflowDefinition(
                 id=f"pdw_{debate_id_short}",
                 name=f"{template_name}_{debate_id_short}",
                 description=f"Auto-triggered by debate outcome: {outcome}",
@@ -125,7 +125,7 @@ class PostDebateWorkflowSubscriber:
                 ],
             )
 
-            engine = WorkflowEngine(config=WorkflowConfig())
+            WorkflowEngine(config=WorkflowConfig())
             # Queue for async execution -- don't block the event handler
             logger.info(
                 "Queued post-debate workflow: template=%s debate=%s outcome=%s",

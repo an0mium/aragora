@@ -427,7 +427,7 @@ class WorktreeManager:
                 + config.post_merge_test_paths
                 + ["--tb=short", "-q"]
             )
-            start = datetime.now(timezone.utc)
+            datetime.now(timezone.utc)
             try:
                 post_proc = await asyncio.wait_for(
                     asyncio.to_thread(

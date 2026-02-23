@@ -142,7 +142,7 @@ class CanvasPipelineHandler:
 
     def handle(self, path: str, query_params: dict[str, Any], handler: Any) -> Any:
         """Dispatch GET requests to the appropriate handler method."""
-        body = self._get_request_body(handler)
+        self._get_request_body(handler)
 
         # GET /api/v1/canvas/pipeline/templates
         if path.endswith("/pipeline/templates"):

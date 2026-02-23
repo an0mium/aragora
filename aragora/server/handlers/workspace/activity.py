@@ -119,7 +119,7 @@ def _describe_event(evt: Any) -> str:
         "member_invited": f"{actor} invited {target} to the workspace",
         "role_changed": f"{actor}'s role was changed",
         "debate_created": f"{actor} started a new debate",
-        "debate_completed": f"Debate completed",
+        "debate_completed": "Debate completed",
         "settings_updated": f"{actor} updated workspace settings",
         "invite_sent": f"Invite sent to {target}",
         "invite_revoked": f"Invite to {target} was revoked",

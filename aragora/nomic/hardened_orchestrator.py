@@ -1158,7 +1158,7 @@ class HardenedOrchestrator(AutonomousOrchestrator):
         ]
 
         added_lines = [
-            l[1:] for l in diff_text.split("\n") if l.startswith("+") and not l.startswith("+++")
+            line[1:] for line in diff_text.split("\n") if line.startswith("+") and not line.startswith("+++")
         ]
         added_text = "\n".join(added_lines)
 
@@ -1177,7 +1177,7 @@ class HardenedOrchestrator(AutonomousOrchestrator):
 
         # Large deletions without corresponding additions are suspicious
         deletions = sum(
-            1 for l in diff_text.split("\n") if l.startswith("-") and not l.startswith("---")
+            1 for line in diff_text.split("\n") if line.startswith("-") and not line.startswith("---")
         )
         additions = len(added_lines)
         if deletions > 50 and additions < deletions * 0.3:

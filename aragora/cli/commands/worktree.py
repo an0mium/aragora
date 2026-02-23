@@ -195,7 +195,7 @@ def cmd_worktree(args: argparse.Namespace) -> None:
                     cwd=wt_path, capture_output=True, text=True, check=False,
                 )
                 if result.returncode != 0:
-                    print(f"  Tests FAILED, skipping.")
+                    print("  Tests FAILED, skipping.")
                     failed += 1
                     continue
 

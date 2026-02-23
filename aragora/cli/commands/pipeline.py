@@ -105,7 +105,7 @@ def _run_pipeline_dry_run(ideas: list[str]) -> None:
 
         # Stage results
         if result.stage_results:
-            print(f"\nStage Results:")
+            print("\nStage Results:")
             for sr in result.stage_results:
                 print(f"  [{sr.status}] {sr.stage_name} ({sr.duration:.2f}s)")
 
@@ -151,7 +151,7 @@ def _run_pipeline_execute(
         print(f"Duration: {result.duration:.1f}s")
 
         if result.stage_results:
-            print(f"\nStage Results:")
+            print("\nStage Results:")
             for sr in result.stage_results:
                 status_icon = "OK" if sr.status == "completed" else sr.status.upper()
                 print(f"  [{status_icon}] {sr.stage_name} ({sr.duration:.2f}s)")
@@ -281,7 +281,7 @@ def _cmd_pipeline_self_improve(args: argparse.Namespace) -> None:
                 print(f"  - {title}")
 
         if result.stage_results:
-            print(f"\nStage Results:")
+            print("\nStage Results:")
             for sr in result.stage_results:
                 status_icon = "OK" if sr.status == "completed" else sr.status.upper()
                 print(f"  [{status_icon}] {sr.stage_name} ({sr.duration:.2f}s)")

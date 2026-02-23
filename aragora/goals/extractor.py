@@ -1012,7 +1012,7 @@ class GoalExtractor:
         # DFS cycle detection
         WHITE, GRAY, BLACK = 0, 1, 2
         color: dict[str, int] = {gid: WHITE for gid in goal_ids}
-        parent: dict[str, str | None] = {gid: None for gid in goal_ids}
+        {gid: None for gid in goal_ids}
 
         def _dfs(node: str, path: list[str]) -> list[str] | None:
             """Return cycle path if found, else None."""

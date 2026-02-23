@@ -62,9 +62,9 @@ def cmd_self_improve(args: argparse.Namespace) -> None:
             print(f"Budget limit: ${budget_limit:.2f}")
         if sessions:
             print(f"Sessions: {sessions}")
-        print(f"Worktree isolation: ON")
-        print(f"Gauntlet validation: ON")
-        print(f"Mode enforcement: ON")
+        print("Worktree isolation: ON")
+        print("Gauntlet validation: ON")
+        print("Mode enforcement: ON")
         print(f"Coordination: {'hierarchical' if hierarchical else 'flat'}")
         print(f"Spectate: {'ON' if spectate else 'OFF'}")
         print(f"Receipts: {'ON' if generate_receipts else 'OFF'}")

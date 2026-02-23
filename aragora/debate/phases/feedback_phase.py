@@ -633,7 +633,7 @@ class FeedbackPhase:
                 return
 
             mermaid = self.argument_cartographer.export_mermaid()
-            json_graph = self.argument_cartographer.export_json()
+            self.argument_cartographer.export_json()
 
             logger.info(
                 "[argument_map] Exported map for debate %s: %d nodes, %d edges",
@@ -2470,7 +2470,6 @@ class FeedbackPhase:
         if not result:
             return
 
-        domain = ctx.domain or "general"
 
         for agent in ctx.agents:
             genome_id = getattr(agent, "genome_id", None)

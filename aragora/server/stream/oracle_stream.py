@@ -643,13 +643,13 @@ async def _handle_ask(
     deep_prompt = session.prebuilt_prompt or _build_oracle_prompt(mode, question)
     session.prebuilt_prompt = None  # consumed
 
-    reflex_text = await reflex_task
+    await reflex_task
 
     if session.cancelled:
         return
 
     # Stream deep response
-    deep_text = await _stream_deep(ws, deep_prompt, session)
+    await _stream_deep(ws, deep_prompt, session)
 
     if session.cancelled:
         return

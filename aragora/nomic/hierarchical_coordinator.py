@@ -504,7 +504,7 @@ class HierarchicalCoordinator:
     ) -> str:
         """Build prompt for judge debate."""
         lines = [
-            f"Evaluate whether the following goal has been satisfactorily achieved:\n",
+            "Evaluate whether the following goal has been satisfactorily achieved:\n",
             f"GOAL: {goal}\n",
             f"SUBTASKS ({len(decomposition.subtasks)}):",
         ]

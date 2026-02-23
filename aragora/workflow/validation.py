@@ -217,7 +217,7 @@ def validate_workflow(definition: Any) -> ValidationResult:
                 info = get_step_type_info(step.step_type)
                 if not info or not info.config_schema:
                     continue
-                schema_props = info.config_schema.get("properties", {})
+                info.config_schema.get("properties", {})
                 required = info.config_schema.get("required", [])
                 for req_field in required:
                     if req_field not in step.config:

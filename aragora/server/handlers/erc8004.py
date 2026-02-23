@@ -444,8 +444,7 @@ async def handle_blockchain_health() -> HandlerResult:
     responses={
         "200": {"description": "Agent list returned"},
         "500": {"description": "Listing error"},
-        "503": {"description": "Blockchain dependencies not installed"},
-        "503": {"description": "Circuit breaker open"},
+        "503": {"description": "Blockchain dependencies not installed or circuit breaker open"},
     },
 )
 @require_permission("blockchain:read")
@@ -537,8 +536,7 @@ async def handle_list_agents(skip: int = 0, limit: int = 100) -> HandlerResult:
         "201": {"description": "Agent registered"},
         "400": {"description": "Invalid request"},
         "500": {"description": "Registration error"},
-        "503": {"description": "Blockchain dependencies not installed"},
-        "503": {"description": "Circuit breaker open"},
+        "503": {"description": "Blockchain dependencies not installed or circuit breaker open"},
     },
 )
 @require_permission("blockchain:write")

@@ -209,7 +209,7 @@ def _save_batch_job(job: BatchJob) -> None:
     store = get_batch_job_store()
     store_job = _convert_to_store_job(job)
     try:
-        loop = asyncio.get_running_loop()
+        asyncio.get_running_loop()
         # If loop is already running, run in a thread to avoid blocking
         import concurrent.futures
         with concurrent.futures.ThreadPoolExecutor() as pool:
@@ -223,7 +223,7 @@ def _get_batch_job(batch_id: str) -> BatchJob | None:
     """Get batch job from storage (sync wrapper for async store)."""
     store = get_batch_job_store()
     try:
-        loop = asyncio.get_running_loop()
+        asyncio.get_running_loop()
         # If loop is already running, run in a thread to avoid blocking
         import concurrent.futures
         with concurrent.futures.ThreadPoolExecutor() as pool:

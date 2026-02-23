@@ -1242,7 +1242,7 @@ IMPORTANT: Avoid repeating past failures listed above. Learn from history.
             from aragora.nomic.codebase_indexer import CodebaseIndexer
 
             indexer = CodebaseIndexer(repo_path=".", max_modules=50)
-            stats = await indexer.index()
+            await indexer.index()
             for module in indexer._modules:
                 test_paths = indexer._test_map.get(str(module.path), [])
                 if not test_paths:

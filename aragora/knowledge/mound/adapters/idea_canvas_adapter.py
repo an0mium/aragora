@@ -96,7 +96,7 @@ class IdeaCanvasAdapter(KnowledgeMoundAdapter):
 
         km_node_id = f"kn_idea_{_content_hash(canvas_node.get('id', ''))}"
 
-        km_node = KnowledgeNode(
+        KnowledgeNode(
             id=km_node_id,
             node_type=km_type,
             content=content,
@@ -160,7 +160,7 @@ class IdeaCanvasAdapter(KnowledgeMoundAdapter):
         edge_type = edge.get("edge_type", edge.get("type", "related_to"))
         relationship_type = self._map_edge_type(edge_type)
 
-        rel = KnowledgeRelationship(
+        KnowledgeRelationship(
             id=kr_id,
             from_node_id=self._node_map.get(
                 edge.get("source_id", edge.get("source", "")), ""

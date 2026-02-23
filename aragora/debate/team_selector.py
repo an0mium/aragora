@@ -1063,7 +1063,7 @@ class TeamSelector:
 
             # Agent expertise alignment: boost agents whose domain/expertise
             # matches the trending topic
-            agent_name = getattr(agent, "name", str(agent))
+            getattr(agent, "name", str(agent))
             expertise = getattr(agent, "expertise", []) or []
             if isinstance(expertise, str):
                 expertise = [expertise]

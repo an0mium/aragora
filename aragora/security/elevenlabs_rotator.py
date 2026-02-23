@@ -117,7 +117,7 @@ async def rotate_elevenlabs_key(
     except Exception:
         logger.debug("Could not refresh secrets cache")
 
-    logger.info(f"ElevenLabs key rotation completed successfully")
+    logger.info("ElevenLabs key rotation completed successfully")
     return new_key
 
 

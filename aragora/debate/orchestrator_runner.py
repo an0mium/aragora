@@ -825,7 +825,7 @@ async def handle_debate_completion(
     # coordinator can actually execute plans and create PRs.
     if getattr(arena, "enable_auto_execution", False) and isinstance(effective_config, PostDebateConfig):
         auto_mode = getattr(arena, "auto_approval_mode", "risk_based")
-        auto_risk = getattr(arena, "auto_max_risk", "low")
+        getattr(arena, "auto_max_risk", "low")
         effective_config = PostDebateConfig(
             auto_explain=effective_config.auto_explain,
             auto_create_plan=True,

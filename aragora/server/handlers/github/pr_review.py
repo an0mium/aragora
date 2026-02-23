@@ -769,7 +769,7 @@ async def _perform_review(
                                 suggestions.extend(gap.suggested_tests[:2])
                         if suggestions:
                             test_body = (
-                                f"Missing test coverage. Suggested tests:\n"
+                                "Missing test coverage. Suggested tests:\n"
                                 + "\n".join(f"- `{s}`" for s in suggestions[:5])
                             )
                 except (ImportError, ValueError, TypeError, AttributeError):
