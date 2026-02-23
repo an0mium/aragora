@@ -22,14 +22,17 @@ from .auditing import AsyncAuditingAPI, AuditingAPI
 from .auth import AsyncAuthAPI, AuthAPI
 from .backups import AsyncBackupsAPI, BackupsAPI
 from .batch import AsyncBatchAPI, BatchAPI
+from .benchmarks import AsyncBenchmarksAPI, BenchmarksAPI
 from .belief import AsyncBeliefAPI, BeliefAPI
 from .belief_network import AsyncBeliefNetworkAPI, BeliefNetworkAPI
 from .billing import AsyncBillingAPI, BillingAPI
 from .blockchain import AsyncBlockchainAPI, BlockchainAPI
+from .breakpoints import AsyncBreakpointsAPI, BreakpointsAPI
 from .bots import AsyncBotsAPI, BotsAPI
 from .budgets import AsyncBudgetsAPI, BudgetsAPI
 from .calibration import AsyncCalibrationAPI, CalibrationAPI
 from .canvas import AsyncCanvasAPI, CanvasAPI
+from .channels import AsyncChannelsAPI, ChannelsAPI
 from .chat import AsyncChatAPI, ChatAPI
 from .checkpoints import AsyncCheckpointsAPI, CheckpointsAPI
 from .classify import AsyncClassifyAPI, ClassifyAPI
@@ -37,6 +40,7 @@ from .code_review import AsyncCodeReviewAPI, CodeReviewAPI
 from .codebase import AsyncCodebaseAPI, CodebaseAPI
 from .compliance import AsyncComplianceAPI, ComplianceAPI
 from .connectors import AsyncConnectorsAPI, ConnectorsAPI
+from .context import AsyncContextAPI, ContextAPI
 from .consensus import AsyncConsensusAPI, ConsensusAPI
 from .control_plane import AsyncControlPlaneAPI, ControlPlaneAPI
 from .coordination import AsyncCoordinationAPI, CoordinationAPI
@@ -60,6 +64,7 @@ from .expenses import AsyncExpensesAPI, ExpensesAPI
 from .explainability import AsyncExplainabilityAPI, ExplainabilityAPI
 from .external_agents import AsyncExternalAgentsAPI, ExternalAgentsAPI
 from .facts import AsyncFactsAPI, FactsAPI
+from .feature_flags import AsyncFeatureFlagsAPI, FeatureFlagsAPI
 from .feedback import AsyncFeedbackAPI, FeedbackAPI
 from .flips import AsyncFlipsAPI, FlipsAPI
 from .gauntlet import AsyncGauntletAPI, GauntletAPI
@@ -87,6 +92,7 @@ from .moderation import AsyncModerationAPI, ModerationAPI
 from .modes import AsyncModesAPI, ModesAPI
 from .moments import AsyncMomentsAPI, MomentsAPI
 from .monitoring import AsyncMonitoringAPI, MonitoringAPI
+from .n8n import AsyncN8nAPI, N8nAPI
 from .nomic import AsyncNomicAPI, NomicAPI
 from .notifications import AsyncNotificationsAPI, NotificationsAPI
 from .oauth import AsyncOAuthAPI, OAuthAPI
@@ -185,6 +191,8 @@ __all__ = [
     "AsyncBackupsAPI",
     "BatchAPI",
     "AsyncBatchAPI",
+    "BenchmarksAPI",
+    "AsyncBenchmarksAPI",
     "BeliefAPI",
     "AsyncBeliefAPI",
     "BotsAPI",
@@ -195,12 +203,16 @@ __all__ = [
     "AsyncBillingAPI",
     "BlockchainAPI",
     "AsyncBlockchainAPI",
+    "BreakpointsAPI",
+    "AsyncBreakpointsAPI",
     "BudgetsAPI",
     "AsyncBudgetsAPI",
     "CalibrationAPI",
     "AsyncCalibrationAPI",
     "CanvasAPI",
     "AsyncCanvasAPI",
+    "ChannelsAPI",
+    "AsyncChannelsAPI",
     "ChatAPI",
     "AsyncChatAPI",
     "CheckpointsAPI",
@@ -215,6 +227,8 @@ __all__ = [
     "AsyncComplianceAPI",
     "ConnectorsAPI",
     "AsyncConnectorsAPI",
+    "ContextAPI",
+    "AsyncContextAPI",
     "ConsensusAPI",
     "AsyncConsensusAPI",
     "ControlPlaneAPI",
@@ -261,6 +275,8 @@ __all__ = [
     "AsyncExplainabilityAPI",
     "FactsAPI",
     "AsyncFactsAPI",
+    "FeatureFlagsAPI",
+    "AsyncFeatureFlagsAPI",
     "FeedbackAPI",
     "AsyncFeedbackAPI",
     "FlipsAPI",
@@ -315,6 +331,8 @@ __all__ = [
     "AsyncMomentsAPI",
     "MonitoringAPI",
     "AsyncMonitoringAPI",
+    "N8nAPI",
+    "AsyncN8nAPI",
     "NomicAPI",
     "AsyncNomicAPI",
     "NotificationsAPI",
