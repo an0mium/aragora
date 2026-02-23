@@ -270,6 +270,7 @@ export default function Oracle() {
   const cannedCacheRef = useRef<Map<number, string>>(new Map());
   const prefetchedRef = useRef(false);
   const usedVoiceRef = useRef(false);
+  const ttsAvailableRef = useRef(true); // Track if ElevenLabs TTS works
   const [fillerDisplayText, setFillerDisplayText] = useState('');
   const typewriterRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const fillerCharIndexRef = useRef(0);
@@ -387,9 +388,25 @@ export default function Oracle() {
     };
   }, []);
 
+  // Browser TTS fallback — used when ElevenLabs is unavailable
+  const browserTTSSpeak = useCallback((text: string, onEnd?: () => void) => {
+    if (!('speechSynthesis' in window)) { onEnd?.(); return; }
+    speechSynthesis.cancel(); // Clear any queued utterances
+    const utterance = new SpeechSynthesisUtterance(text);
+    utterance.rate = 0.92;
+    utterance.pitch = 0.8;
+    if (onEnd) utterance.onend = onEnd;
+    utterance.onerror = () => onEnd?.();
+    speechSynthesis.speak(utterance);
+  }, []);
+
+  const stopBrowserTTS = useCallback(() => {
+    if ('speechSynthesis' in window) speechSynthesis.cancel();
+  }, []);
+
   // Prefetch canned filler audio clips on first interaction
   const prefetchFillers = useCallback(async () => {
-    if (prefetchedRef.current) return;
+    if (prefetchedRef.current || !ttsAvailableRef.current) return;
     prefetchedRef.current = true;
     // Fetch first 6 eagerly, rest lazily
     for (let i = 0; i < selectedDeck.length; i++) {
@@ -403,8 +420,14 @@ export default function Oracle() {
         if (res.ok) {
           const blob = await res.blob();
           cannedCacheRef.current.set(i, URL.createObjectURL(blob));
+        } else {
+          ttsAvailableRef.current = false;
+          break; // Stop prefetching — TTS is down
         }
-      } catch { /* prefetch is best-effort */ }
+      } catch {
+        ttsAvailableRef.current = false;
+        break; // Stop prefetching — TTS is down
+      }
       // Small delay between prefetch requests to avoid hammering
       if (i < selectedDeck.length - 1) {
         await new Promise(r => setTimeout(r, 300));
@@ -423,6 +446,20 @@ export default function Oracle() {
       const idx = fillerIndexRef.current;
       if (idx >= selectedDeck.length) return; // ran out of fillers
 
+      // Browser TTS fallback when ElevenLabs is unavailable
+      if (!ttsAvailableRef.current) {
+        if (usedVoiceRef.current) {
+          startTypewriter(selectedDeck[idx], 70);
+        }
+        browserTTSSpeak(selectedDeck[idx], () => {
+          if (fillerStopRef.current) return;
+          if (usedVoiceRef.current) setFillerDisplayText(selectedDeck[idx]);
+          fillerIndexRef.current = idx + 1;
+          if (!fillerStopRef.current) setTimeout(playNext, 400);
+        });
+        return;
+      }
+
       let url = cannedCacheRef.current.get(idx);
 
       // Fetch on-demand if not yet cached (prefetch may still be running)
@@ -437,16 +474,25 @@ export default function Oracle() {
             const blob = await res.blob();
             url = URL.createObjectURL(blob);
             cannedCacheRef.current.set(idx, url);
+          } else {
+            ttsAvailableRef.current = false;
           }
-        } catch { /* best effort */ }
+        } catch {
+          ttsAvailableRef.current = false;
+        }
       }
 
       if (fillerStopRef.current) return; // check again after async fetch
 
       if (!url) {
-        // TTS failed for this clip — skip to next
-        fillerIndexRef.current = idx + 1;
-        setTimeout(playNext, 200);
+        // TTS failed — switch to browser TTS for this and future clips
+        if (usedVoiceRef.current) startTypewriter(selectedDeck[idx], 70);
+        browserTTSSpeak(selectedDeck[idx], () => {
+          if (fillerStopRef.current) return;
+          if (usedVoiceRef.current) setFillerDisplayText(selectedDeck[idx]);
+          fillerIndexRef.current = idx + 1;
+          if (!fillerStopRef.current) setTimeout(playNext, 400);
+        });
         return;
       }
 
@@ -494,7 +540,7 @@ export default function Oracle() {
     }
 
     playNext();
-  }, [apiBase, selectedDeck, startTypewriter]);
+  }, [apiBase, selectedDeck, startTypewriter, browserTTSSpeak]);
 
   // Crossfade: fetch real TTS while filler continues, then fade and play
   const crossfadeToReal = useCallback(async (text: string) => {
@@ -502,7 +548,7 @@ export default function Oracle() {
     const ttsText = (!text || text.length < 5) ? null : (text.length > 1500 ? text.slice(0, 1500) + '...' : text);
 
     let ttsBlob: Blob | null = null;
-    if (ttsText) {
+    if (ttsText && ttsAvailableRef.current) {
       try {
         const res = await fetch(`${apiBase}/api/v1/playground/tts`, {
           method: 'POST',
@@ -511,13 +557,18 @@ export default function Oracle() {
         });
         if (res.ok) {
           ttsBlob = await res.blob();
+        } else {
+          ttsAvailableRef.current = false;
         }
-      } catch { /* TTS fetch failed */ }
+      } catch {
+        ttsAvailableRef.current = false;
+      }
     }
 
     // NOW stop filler — real audio is ready (or failed)
     fillerStopRef.current = true;
     stopTypewriter();
+    stopBrowserTTS();
 
     // Fade out current filler audio
     const filler = fillerAudioRef.current;
@@ -532,7 +583,15 @@ export default function Oracle() {
     }
     fillerAudioRef.current = null;
 
-    if (!ttsBlob) { setSpeaking(false); return; }
+    if (!ttsBlob) {
+      // Browser TTS fallback for the real response
+      if (ttsText) {
+        browserTTSSpeak(ttsText, () => setSpeaking(false));
+      } else {
+        setSpeaking(false);
+      }
+      return;
+    }
 
     // Play the real response TTS
     const url = URL.createObjectURL(ttsBlob);
@@ -549,13 +608,21 @@ export default function Oracle() {
       audioRef.current = null;
     };
     await audio.play();
-  }, [apiBase, stopTypewriter]);
+  }, [apiBase, stopTypewriter, browserTTSSpeak, stopBrowserTTS]);
 
   // Direct speak (no filler, used for Phase 2 synthesis)
   const speakText = useCallback(async (text: string) => {
     if (audioRef.current) { audioRef.current.pause(); audioRef.current = null; }
     if (!text || text.length < 5) return;
     const ttsText = text.length > 1500 ? text.slice(0, 1500) + '...' : text;
+
+    // Use browser TTS if ElevenLabs is known to be down
+    if (!ttsAvailableRef.current) {
+      setSpeaking(true);
+      browserTTSSpeak(ttsText, () => setSpeaking(false));
+      return;
+    }
+
     try {
       setSpeaking(true);
       const res = await fetch(`${apiBase}/api/v1/playground/tts`, {
@@ -563,7 +630,11 @@ export default function Oracle() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ text: ttsText }),
       });
-      if (!res.ok) { setSpeaking(false); return; }
+      if (!res.ok) {
+        ttsAvailableRef.current = false;
+        browserTTSSpeak(ttsText, () => setSpeaking(false));
+        return;
+      }
       const blob = await res.blob();
       const url = URL.createObjectURL(blob);
       const audio = new Audio(url);
@@ -571,16 +642,20 @@ export default function Oracle() {
       audio.onended = () => { setSpeaking(false); URL.revokeObjectURL(url); audioRef.current = null; };
       audio.onerror = () => { setSpeaking(false); URL.revokeObjectURL(url); audioRef.current = null; };
       await audio.play();
-    } catch { setSpeaking(false); }
-  }, [apiBase]);
+    } catch {
+      ttsAvailableRef.current = false;
+      browserTTSSpeak(ttsText, () => setSpeaking(false));
+    }
+  }, [apiBase, browserTTSSpeak]);
 
   const stopSpeaking = useCallback(() => {
     fillerStopRef.current = true;
     stopTypewriter();
+    stopBrowserTTS();
     if (fillerAudioRef.current) { fillerAudioRef.current.pause(); fillerAudioRef.current = null; }
     if (audioRef.current) { audioRef.current.pause(); audioRef.current = null; }
     setSpeaking(false);
-  }, [stopTypewriter]);
+  }, [stopTypewriter, stopBrowserTTS]);
 
   // ------------------------------------------------------------------
   // Speech-to-text — browser SpeechRecognition API
