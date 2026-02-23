@@ -31,6 +31,7 @@ import pytest
 # Helpers
 # ---------------------------------------------------------------------------
 
+
 @dataclass
 class FakeHandler:
     """Minimal handler object for get_client_ip tests."""
@@ -56,6 +57,7 @@ class DictHeaders:
 @dataclass
 class FakeHandlerWithDictHeaders:
     """Handler using DictHeaders."""
+
     client_address: tuple[str, int] | None = None
     headers: DictHeaders | None = None
 
@@ -63,6 +65,7 @@ class FakeHandlerWithDictHeaders:
 # ---------------------------------------------------------------------------
 # Fixtures
 # ---------------------------------------------------------------------------
+
 
 @pytest.fixture(autouse=True)
 def _clean_limiters():
@@ -80,6 +83,7 @@ def _clean_limiters():
 def limiter():
     """Create a fresh RateLimiter instance."""
     from aragora.server.handlers.utils.rate_limit import RateLimiter
+
     return RateLimiter(requests_per_minute=10, cleanup_interval=5)
 
 
@@ -87,6 +91,7 @@ def limiter():
 def fast_limiter():
     """Create a limiter with very low RPM for quick tests."""
     from aragora.server.handlers.utils.rate_limit import RateLimiter
+
     return RateLimiter(requests_per_minute=3, cleanup_interval=1)
 
 
@@ -100,12 +105,14 @@ class TestRateLimiterBasic:
 
     def test_init_defaults(self):
         from aragora.server.handlers.utils.rate_limit import RateLimiter
+
         rl = RateLimiter()
         assert rl.rpm == 60
         assert rl.cleanup_interval == 300
 
     def test_init_custom(self):
         from aragora.server.handlers.utils.rate_limit import RateLimiter
+
         rl = RateLimiter(requests_per_minute=100, cleanup_interval=600)
         assert rl.rpm == 100
         assert rl.cleanup_interval == 600
@@ -301,28 +308,34 @@ class TestNormalizeIp:
 
     def test_ipv4(self):
         from aragora.server.handlers.utils.rate_limit import _normalize_ip
+
         assert _normalize_ip("192.168.1.1") == "192.168.1.1"
 
     def test_ipv6_full(self):
         from aragora.server.handlers.utils.rate_limit import _normalize_ip
+
         result = _normalize_ip("::1")
         assert result == "::1"
 
     def test_ipv6_expanded(self):
         from aragora.server.handlers.utils.rate_limit import _normalize_ip
+
         result = _normalize_ip("0000:0000:0000:0000:0000:0000:0000:0001")
         assert result == "::1"
 
     def test_empty_string(self):
         from aragora.server.handlers.utils.rate_limit import _normalize_ip
+
         assert _normalize_ip("") == ""
 
     def test_invalid_ip(self):
         from aragora.server.handlers.utils.rate_limit import _normalize_ip
+
         assert _normalize_ip("not-an-ip") == "not-an-ip"
 
     def test_whitespace_stripped(self):
         from aragora.server.handlers.utils.rate_limit import _normalize_ip
+
         assert _normalize_ip("  10.0.0.1  ") == "10.0.0.1"
 
 
@@ -336,20 +349,24 @@ class TestGetClientIp:
 
     def test_none_handler(self):
         from aragora.server.handlers.utils.rate_limit import get_client_ip
+
         assert get_client_ip(None) == "unknown"
 
     def test_basic_client_address(self):
         from aragora.server.handlers.utils.rate_limit import get_client_ip
+
         handler = FakeHandler(client_address=("10.0.0.5", 12345))
         assert get_client_ip(handler) == "10.0.0.5"
 
     def test_no_client_address(self):
         from aragora.server.handlers.utils.rate_limit import get_client_ip
+
         handler = MagicMock(spec=[])
         assert get_client_ip(handler) == "unknown"
 
     def test_x_forwarded_for_trusted_proxy(self):
         from aragora.server.handlers.utils.rate_limit import get_client_ip
+
         handler = FakeHandler(
             client_address=("127.0.0.1", 80),
             headers={"X-Forwarded-For": "203.0.113.50, 70.41.3.18"},
@@ -358,6 +375,7 @@ class TestGetClientIp:
 
     def test_x_forwarded_for_untrusted_proxy(self):
         from aragora.server.handlers.utils.rate_limit import get_client_ip
+
         handler = FakeHandler(
             client_address=("10.99.99.99", 80),
             headers={"X-Forwarded-For": "203.0.113.50"},
@@ -367,6 +385,7 @@ class TestGetClientIp:
 
     def test_x_real_ip_trusted_proxy(self):
         from aragora.server.handlers.utils.rate_limit import get_client_ip
+
         handler = FakeHandler(
             client_address=("127.0.0.1", 80),
             headers={"X-Real-IP": "198.51.100.1"},
@@ -375,6 +394,7 @@ class TestGetClientIp:
 
     def test_cloudflare_cf_connecting_ip(self):
         from aragora.server.handlers.utils.rate_limit import get_client_ip
+
         handler = FakeHandler(
             client_address=("172.16.0.1", 80),
             headers={
@@ -386,6 +406,7 @@ class TestGetClientIp:
 
     def test_cloudflare_true_client_ip(self):
         from aragora.server.handlers.utils.rate_limit import get_client_ip
+
         handler = FakeHandler(
             client_address=("172.16.0.1", 80),
             headers={
@@ -397,6 +418,7 @@ class TestGetClientIp:
 
     def test_cloudflare_without_cf_ray_ignored(self):
         from aragora.server.handlers.utils.rate_limit import get_client_ip
+
         handler = FakeHandler(
             client_address=("10.0.0.1", 80),
             headers={"CF-Connecting-IP": "198.51.100.42"},
@@ -406,6 +428,7 @@ class TestGetClientIp:
 
     def test_handler_with_dict_headers(self):
         from aragora.server.handlers.utils.rate_limit import get_client_ip
+
         h = FakeHandlerWithDictHeaders(
             client_address=("127.0.0.1", 80),
             headers=DictHeaders({"X-Forwarded-For": "1.2.3.4"}),
@@ -414,6 +437,7 @@ class TestGetClientIp:
 
     def test_client_address_not_tuple(self):
         from aragora.server.handlers.utils.rate_limit import get_client_ip
+
         handler = MagicMock()
         handler.client_address = "10.0.0.1"  # string, not tuple
         handler.headers = {}
@@ -424,6 +448,7 @@ class TestGetClientIp:
 
     def test_lowercase_header_variants(self):
         from aragora.server.handlers.utils.rate_limit import get_client_ip
+
         handler = FakeHandler(
             client_address=("127.0.0.1", 80),
             headers={"x-forwarded-for": "5.6.7.8"},
@@ -432,11 +457,13 @@ class TestGetClientIp:
 
     def test_ipv6_client(self):
         from aragora.server.handlers.utils.rate_limit import get_client_ip
+
         handler = FakeHandler(client_address=("::1", 80))
         assert get_client_ip(handler) == "::1"
 
     def test_trusted_proxy_ipv6_loopback(self):
         from aragora.server.handlers.utils.rate_limit import get_client_ip
+
         handler = FakeHandler(
             client_address=("::1", 80),
             headers={"X-Forwarded-For": "203.0.113.1"},
@@ -456,39 +483,46 @@ class TestIsMultiInstanceMode:
         monkeypatch.delenv("ARAGORA_MULTI_INSTANCE", raising=False)
         monkeypatch.delenv("ARAGORA_REPLICA_COUNT", raising=False)
         from aragora.server.handlers.utils.rate_limit import _is_multi_instance_mode
+
         assert _is_multi_instance_mode() is False
 
     def test_explicit_true(self, monkeypatch):
         monkeypatch.setenv("ARAGORA_MULTI_INSTANCE", "true")
         from aragora.server.handlers.utils.rate_limit import _is_multi_instance_mode
+
         assert _is_multi_instance_mode() is True
 
     def test_explicit_1(self, monkeypatch):
         monkeypatch.setenv("ARAGORA_MULTI_INSTANCE", "1")
         from aragora.server.handlers.utils.rate_limit import _is_multi_instance_mode
+
         assert _is_multi_instance_mode() is True
 
     def test_explicit_yes(self, monkeypatch):
         monkeypatch.setenv("ARAGORA_MULTI_INSTANCE", "yes")
         from aragora.server.handlers.utils.rate_limit import _is_multi_instance_mode
+
         assert _is_multi_instance_mode() is True
 
     def test_replica_count_2(self, monkeypatch):
         monkeypatch.delenv("ARAGORA_MULTI_INSTANCE", raising=False)
         monkeypatch.setenv("ARAGORA_REPLICA_COUNT", "2")
         from aragora.server.handlers.utils.rate_limit import _is_multi_instance_mode
+
         assert _is_multi_instance_mode() is True
 
     def test_replica_count_1(self, monkeypatch):
         monkeypatch.delenv("ARAGORA_MULTI_INSTANCE", raising=False)
         monkeypatch.setenv("ARAGORA_REPLICA_COUNT", "1")
         from aragora.server.handlers.utils.rate_limit import _is_multi_instance_mode
+
         assert _is_multi_instance_mode() is False
 
     def test_replica_count_invalid(self, monkeypatch):
         monkeypatch.delenv("ARAGORA_MULTI_INSTANCE", raising=False)
         monkeypatch.setenv("ARAGORA_REPLICA_COUNT", "abc")
         from aragora.server.handlers.utils.rate_limit import _is_multi_instance_mode
+
         assert _is_multi_instance_mode() is False
 
 
@@ -499,29 +533,34 @@ class TestIsRedisConfigured:
         monkeypatch.delenv("REDIS_URL", raising=False)
         monkeypatch.delenv("ARAGORA_REDIS_URL", raising=False)
         from aragora.server.handlers.utils.rate_limit import _is_redis_configured
+
         assert _is_redis_configured() is False
 
     def test_redis_url(self, monkeypatch):
         monkeypatch.setenv("REDIS_URL", "redis://localhost:6379")
         from aragora.server.handlers.utils.rate_limit import _is_redis_configured
+
         assert _is_redis_configured() is True
 
     def test_aragora_redis_url(self, monkeypatch):
         monkeypatch.delenv("REDIS_URL", raising=False)
         monkeypatch.setenv("ARAGORA_REDIS_URL", "redis://localhost:6379")
         from aragora.server.handlers.utils.rate_limit import _is_redis_configured
+
         assert _is_redis_configured() is True
 
     def test_empty_redis_url(self, monkeypatch):
         monkeypatch.setenv("REDIS_URL", "")
         monkeypatch.delenv("ARAGORA_REDIS_URL", raising=False)
         from aragora.server.handlers.utils.rate_limit import _is_redis_configured
+
         assert _is_redis_configured() is False
 
     def test_whitespace_only(self, monkeypatch):
         monkeypatch.setenv("REDIS_URL", "   ")
         monkeypatch.delenv("ARAGORA_REDIS_URL", raising=False)
         from aragora.server.handlers.utils.rate_limit import _is_redis_configured
+
         assert _is_redis_configured() is False
 
 
@@ -533,22 +572,26 @@ class TestIsProductionMode:
         monkeypatch.delenv("NODE_ENV", raising=False)
         monkeypatch.delenv("ENVIRONMENT", raising=False)
         from aragora.server.handlers.utils.rate_limit import _is_production_mode
+
         assert _is_production_mode() is False
 
     def test_aragora_env_production(self, monkeypatch):
         monkeypatch.setenv("ARAGORA_ENV", "production")
         from aragora.server.handlers.utils.rate_limit import _is_production_mode
+
         assert _is_production_mode() is True
 
     def test_aragora_env_prod(self, monkeypatch):
         monkeypatch.setenv("ARAGORA_ENV", "prod")
         from aragora.server.handlers.utils.rate_limit import _is_production_mode
+
         assert _is_production_mode() is True
 
     def test_node_env_production(self, monkeypatch):
         monkeypatch.delenv("ARAGORA_ENV", raising=False)
         monkeypatch.setenv("NODE_ENV", "production")
         from aragora.server.handlers.utils.rate_limit import _is_production_mode
+
         assert _is_production_mode() is True
 
     def test_environment_prod(self, monkeypatch):
@@ -556,16 +599,19 @@ class TestIsProductionMode:
         monkeypatch.delenv("NODE_ENV", raising=False)
         monkeypatch.setenv("ENVIRONMENT", "prod")
         from aragora.server.handlers.utils.rate_limit import _is_production_mode
+
         assert _is_production_mode() is True
 
     def test_development_mode(self, monkeypatch):
         monkeypatch.setenv("ARAGORA_ENV", "development")
         from aragora.server.handlers.utils.rate_limit import _is_production_mode
+
         assert _is_production_mode() is False
 
     def test_case_insensitive(self, monkeypatch):
         monkeypatch.setenv("ARAGORA_ENV", "PRODUCTION")
         from aragora.server.handlers.utils.rate_limit import _is_production_mode
+
         assert _is_production_mode() is True
 
 
@@ -575,6 +621,7 @@ class TestShouldUseStrictMode:
     def test_explicit_true(self, monkeypatch):
         monkeypatch.setenv("ARAGORA_RATE_LIMIT_STRICT", "true")
         from aragora.server.handlers.utils.rate_limit import _should_use_strict_mode
+
         assert _should_use_strict_mode() is True
 
     def test_explicit_false(self, monkeypatch):
@@ -582,6 +629,7 @@ class TestShouldUseStrictMode:
         monkeypatch.setenv("ARAGORA_ENV", "production")
         monkeypatch.setenv("ARAGORA_MULTI_INSTANCE", "true")
         from aragora.server.handlers.utils.rate_limit import _should_use_strict_mode
+
         assert _should_use_strict_mode() is False
 
     def test_auto_production_multi_instance(self, monkeypatch):
@@ -589,6 +637,7 @@ class TestShouldUseStrictMode:
         monkeypatch.setenv("ARAGORA_ENV", "production")
         monkeypatch.setenv("ARAGORA_MULTI_INSTANCE", "true")
         from aragora.server.handlers.utils.rate_limit import _should_use_strict_mode
+
         assert _should_use_strict_mode() is True
 
     def test_production_single_instance(self, monkeypatch):
@@ -597,6 +646,7 @@ class TestShouldUseStrictMode:
         monkeypatch.delenv("ARAGORA_MULTI_INSTANCE", raising=False)
         monkeypatch.delenv("ARAGORA_REPLICA_COUNT", raising=False)
         from aragora.server.handlers.utils.rate_limit import _should_use_strict_mode
+
         assert _should_use_strict_mode() is False
 
     def test_dev_multi_instance(self, monkeypatch):
@@ -606,16 +656,19 @@ class TestShouldUseStrictMode:
         monkeypatch.delenv("ENVIRONMENT", raising=False)
         monkeypatch.setenv("ARAGORA_MULTI_INSTANCE", "true")
         from aragora.server.handlers.utils.rate_limit import _should_use_strict_mode
+
         assert _should_use_strict_mode() is False
 
     def test_explicit_1(self, monkeypatch):
         monkeypatch.setenv("ARAGORA_RATE_LIMIT_STRICT", "1")
         from aragora.server.handlers.utils.rate_limit import _should_use_strict_mode
+
         assert _should_use_strict_mode() is True
 
     def test_explicit_0(self, monkeypatch):
         monkeypatch.setenv("ARAGORA_RATE_LIMIT_STRICT", "0")
         from aragora.server.handlers.utils.rate_limit import _should_use_strict_mode
+
         assert _should_use_strict_mode() is False
 
 
@@ -631,6 +684,7 @@ class TestValidateRateLimitConfiguration:
         monkeypatch.delenv("ARAGORA_MULTI_INSTANCE", raising=False)
         monkeypatch.delenv("ARAGORA_REPLICA_COUNT", raising=False)
         from aragora.server.handlers.utils.rate_limit import validate_rate_limit_configuration
+
         # Should not raise or log critical
         validate_rate_limit_configuration()
 
@@ -638,6 +692,7 @@ class TestValidateRateLimitConfiguration:
         monkeypatch.setenv("ARAGORA_MULTI_INSTANCE", "true")
         monkeypatch.setenv("REDIS_URL", "redis://localhost:6379")
         from aragora.server.handlers.utils.rate_limit import validate_rate_limit_configuration
+
         validate_rate_limit_configuration()
 
     def test_multi_instance_strict_no_redis_raises(self, monkeypatch):
@@ -646,6 +701,7 @@ class TestValidateRateLimitConfiguration:
         monkeypatch.delenv("ARAGORA_REDIS_URL", raising=False)
         monkeypatch.setenv("ARAGORA_RATE_LIMIT_STRICT", "true")
         from aragora.server.handlers.utils.rate_limit import validate_rate_limit_configuration
+
         with pytest.raises(RuntimeError, match="Redis is required"):
             validate_rate_limit_configuration()
 
@@ -658,6 +714,7 @@ class TestValidateRateLimitConfiguration:
         monkeypatch.delenv("NODE_ENV", raising=False)
         monkeypatch.delenv("ENVIRONMENT", raising=False)
         from aragora.server.handlers.utils.rate_limit import validate_rate_limit_configuration
+
         # Should not raise, just log
         validate_rate_limit_configuration()
 
@@ -670,6 +727,7 @@ class TestValidateRateLimitConfiguration:
         monkeypatch.setenv("ARAGORA_RATE_LIMIT_STRICT", "false")
         import logging
         from aragora.server.handlers.utils.rate_limit import validate_rate_limit_configuration
+
         with caplog.at_level(logging.CRITICAL):
             validate_rate_limit_configuration()
         assert "CRITICAL" in caplog.text or "Multi-instance" in caplog.text
@@ -685,17 +743,20 @@ class TestGetLimiter:
 
     def test_creates_new_limiter(self):
         from aragora.server.handlers.utils.rate_limit import _get_limiter
+
         lim = _get_limiter("test_ep", 30)
         assert lim.rpm == 30
 
     def test_returns_same_instance(self):
         from aragora.server.handlers.utils.rate_limit import _get_limiter
+
         lim1 = _get_limiter("ep", 30)
         lim2 = _get_limiter("ep", 30)
         assert lim1 is lim2
 
     def test_different_names_different_instances(self):
         from aragora.server.handlers.utils.rate_limit import _get_limiter
+
         lim1 = _get_limiter("ep1", 30)
         lim2 = _get_limiter("ep2", 30)
         assert lim1 is not lim2
@@ -706,6 +767,7 @@ class TestClearAllLimiters:
 
     def test_returns_count(self):
         from aragora.server.handlers.utils.rate_limit import _get_limiter, clear_all_limiters
+
         _get_limiter("a", 10)
         _get_limiter("b", 10)
         count = clear_all_limiters()
@@ -713,6 +775,7 @@ class TestClearAllLimiters:
 
     def test_clears_buckets(self):
         from aragora.server.handlers.utils.rate_limit import _get_limiter, clear_all_limiters
+
         lim = _get_limiter("ep", 5)
         for _ in range(5):
             lim.is_allowed("k")
@@ -722,6 +785,7 @@ class TestClearAllLimiters:
 
     def test_returns_zero_when_empty(self):
         from aragora.server.handlers.utils.rate_limit import clear_all_limiters
+
         assert clear_all_limiters() == 0
 
 
@@ -1021,7 +1085,9 @@ class TestRateLimitDecoratorTenantAware:
     def test_tenant_id_from_handler_attr(self):
         from aragora.server.handlers.utils.rate_limit import rate_limit
 
-        @rate_limit(rpm=10, use_distributed=False, tenant_aware=True, limiter_name="test_tenant_attr")
+        @rate_limit(
+            rpm=10, use_distributed=False, tenant_aware=True, limiter_name="test_tenant_attr"
+        )
         def my_handler(handler):
             return "ok"
 
@@ -1033,7 +1099,9 @@ class TestRateLimitDecoratorTenantAware:
     def test_tenant_id_from_header(self):
         from aragora.server.handlers.utils.rate_limit import rate_limit
 
-        @rate_limit(rpm=10, use_distributed=False, tenant_aware=True, limiter_name="test_tenant_hdr")
+        @rate_limit(
+            rpm=10, use_distributed=False, tenant_aware=True, limiter_name="test_tenant_hdr"
+        )
         def my_handler(handler):
             return "ok"
 
@@ -1128,7 +1196,10 @@ class TestAuthRateLimitDecorator:
         login(h)
         result = login(h)
         body = json_mod.loads(result.body)
-        assert "authentication" in body.get("error", "").lower() or "auth" in body.get("error", "").lower()
+        assert (
+            "authentication" in body.get("error", "").lower()
+            or "auth" in body.get("error", "").lower()
+        )
 
     def test_rate_limited_attribute(self):
         from aragora.server.handlers.utils.rate_limit import auth_rate_limit
@@ -1294,6 +1365,7 @@ class TestEdgeCases:
 
     def test_normalize_ip_ipv4_mapped_ipv6(self):
         from aragora.server.handlers.utils.rate_limit import _normalize_ip
+
         # IPv4-mapped IPv6 addresses get normalized by Python's ipaddress module
         result = _normalize_ip("::ffff:192.168.1.1")
         # Python normalizes to hex form: ::ffff:c0a8:101
@@ -1302,6 +1374,7 @@ class TestEdgeCases:
     def test_get_client_ip_no_headers_attr(self):
         """Handler without headers attribute."""
         from aragora.server.handlers.utils.rate_limit import get_client_ip
+
         handler = MagicMock(spec=["client_address"])
         handler.client_address = ("5.5.5.5", 80)
         result = get_client_ip(handler)
@@ -1327,6 +1400,7 @@ class TestModuleExports:
 
     def test_all_exports(self):
         import sys
+
         rl_module = sys.modules["aragora.server.handlers.utils.rate_limit"]
         assert hasattr(rl_module, "RateLimiter")
         assert hasattr(rl_module, "rate_limit")
@@ -1343,12 +1417,14 @@ class TestModuleExports:
 
     def test_rate_limiting_disabled_attr(self):
         import sys
+
         rl_module = sys.modules["aragora.server.handlers.utils.rate_limit"]
         assert hasattr(rl_module, "RATE_LIMITING_DISABLED")
         assert isinstance(rl_module.RATE_LIMITING_DISABLED, bool)
 
     def test_trusted_proxies_attr(self):
         import sys
+
         rl_module = sys.modules["aragora.server.handlers.utils.rate_limit"]
         assert hasattr(rl_module, "TRUSTED_PROXIES")
         assert isinstance(rl_module.TRUSTED_PROXIES, frozenset)
@@ -1359,12 +1435,15 @@ class TestTrustedProxiesDefault:
 
     def test_default_includes_loopback(self):
         from aragora.server.handlers.utils.rate_limit import TRUSTED_PROXIES
+
         assert "127.0.0.1" in TRUSTED_PROXIES
 
     def test_default_includes_ipv6_loopback(self):
         from aragora.server.handlers.utils.rate_limit import TRUSTED_PROXIES
+
         assert "::1" in TRUSTED_PROXIES
 
     def test_default_includes_localhost(self):
         from aragora.server.handlers.utils.rate_limit import TRUSTED_PROXIES
+
         assert "localhost" in TRUSTED_PROXIES

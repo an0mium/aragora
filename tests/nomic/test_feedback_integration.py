@@ -265,9 +265,7 @@ class TestTargetedFixGuardConditions:
         ]
         test_result = _make_test_result(failures=failures)
 
-        result = await orch._attempt_targeted_fix(
-            _make_assignment(), test_result
-        )
+        result = await orch._attempt_targeted_fix(_make_assignment(), test_result)
         assert result is False
 
     @pytest.mark.asyncio
@@ -292,9 +290,7 @@ class TestTargetedFixGuardConditions:
         ]
         test_result = _make_test_result(failures=failures)
 
-        result = await orch._attempt_targeted_fix(
-            _make_assignment(), test_result
-        )
+        result = await orch._attempt_targeted_fix(_make_assignment(), test_result)
         assert result is False
 
     @pytest.mark.asyncio
@@ -320,9 +316,7 @@ class TestTargetedFixGuardConditions:
         # Block the testfixer.analyzer import inside _attempt_targeted_fix
         monkeypatch.setitem(sys.modules, "aragora.nomic.testfixer.analyzer", None)
 
-        result = await orch._attempt_targeted_fix(
-            _make_assignment(), test_result
-        )
+        result = await orch._attempt_targeted_fix(_make_assignment(), test_result)
         assert result is False
 
     @pytest.mark.asyncio
@@ -336,9 +330,7 @@ class TestTargetedFixGuardConditions:
         )
 
         test_result = _make_test_result(failures=[])
-        result = await orch._attempt_targeted_fix(
-            _make_assignment(), test_result
-        )
+        result = await orch._attempt_targeted_fix(_make_assignment(), test_result)
         assert result is False
 
 
