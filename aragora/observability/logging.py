@@ -316,8 +316,10 @@ class StructuredLogger:
         self._logger = logger
         self._config = config
 
-    def _log(self, level: int, message: str, **kwargs: Any) -> None:
+    def _log(self, level: int, message: str, *args: Any, **kwargs: Any) -> None:
         """Internal log method with extra fields."""
+        if args:
+            message = message % args
         record = self._logger.makeRecord(
             self._logger.name,
             level,
@@ -330,22 +332,22 @@ class StructuredLogger:
         record.extra_fields = kwargs
         self._logger.handle(record)
 
-    def debug(self, message: str, **kwargs: Any) -> None:
+    def debug(self, message: str, *args: Any, **kwargs: Any) -> None:
         """Log at DEBUG level with structured data."""
         if self._logger.isEnabledFor(logging.DEBUG):
-            self._log(logging.DEBUG, message, **kwargs)
+            self._log(logging.DEBUG, message, *args, **kwargs)
 
-    def info(self, message: str, **kwargs: Any) -> None:
+    def info(self, message: str, *args: Any, **kwargs: Any) -> None:
         """Log at INFO level with structured data."""
         if self._logger.isEnabledFor(logging.INFO):
-            self._log(logging.INFO, message, **kwargs)
+            self._log(logging.INFO, message, *args, **kwargs)
 
-    def warning(self, message: str, **kwargs: Any) -> None:
+    def warning(self, message: str, *args: Any, **kwargs: Any) -> None:
         """Log at WARNING level with structured data."""
         if self._logger.isEnabledFor(logging.WARNING):
-            self._log(logging.WARNING, message, **kwargs)
+            self._log(logging.WARNING, message, *args, **kwargs)
 
-    def error(self, message: str, exc_info: bool = False, **kwargs: Any) -> None:
+    def error(self, message: str, *args: Any, exc_info: bool = False, **kwargs: Any) -> None:
         """Log at ERROR level with structured data."""
         if self._logger.isEnabledFor(logging.ERROR):
             record = self._logger.makeRecord(

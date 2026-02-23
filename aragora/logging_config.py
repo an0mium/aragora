@@ -219,6 +219,7 @@ class StructuredLogger:
         self,
         level: int,
         message: str,
+        *args: Any,
         exc_info: bool = False,
         **fields: Any,
     ) -> None:
@@ -226,33 +227,37 @@ class StructuredLogger:
         if not self._logger.isEnabledFor(level):
             return
 
+        # Apply %-formatting if positional args provided
+        if args:
+            message = message % args
+
         # Create log record with extra fields
         extra = {"structured_fields": fields}
         self._logger.log(level, message, exc_info=exc_info, extra=extra)
 
-    def debug(self, message: str, **fields: Any) -> None:
+    def debug(self, message: str, *args: Any, **fields: Any) -> None:
         """Log at DEBUG level with optional structured fields."""
-        self._log(logging.DEBUG, message, **fields)
+        self._log(logging.DEBUG, message, *args, **fields)
 
-    def info(self, message: str, **fields: Any) -> None:
+    def info(self, message: str, *args: Any, **fields: Any) -> None:
         """Log at INFO level with optional structured fields."""
-        self._log(logging.INFO, message, **fields)
+        self._log(logging.INFO, message, *args, **fields)
 
-    def warning(self, message: str, **fields: Any) -> None:
+    def warning(self, message: str, *args: Any, **fields: Any) -> None:
         """Log at WARNING level with optional structured fields."""
-        self._log(logging.WARNING, message, **fields)
+        self._log(logging.WARNING, message, *args, **fields)
 
-    def error(self, message: str, exc_info: bool = False, **fields: Any) -> None:
+    def error(self, message: str, *args: Any, exc_info: bool = False, **fields: Any) -> None:
         """Log at ERROR level with optional structured fields and exception."""
-        self._log(logging.ERROR, message, exc_info=exc_info, **fields)
+        self._log(logging.ERROR, message, *args, exc_info=exc_info, **fields)
 
-    def exception(self, message: str, **fields: Any) -> None:
+    def exception(self, message: str, *args: Any, **fields: Any) -> None:
         """Log at ERROR level with exception info."""
-        self._log(logging.ERROR, message, exc_info=True, **fields)
+        self._log(logging.ERROR, message, *args, exc_info=True, **fields)
 
-    def critical(self, message: str, exc_info: bool = False, **fields: Any) -> None:
+    def critical(self, message: str, *args: Any, exc_info: bool = False, **fields: Any) -> None:
         """Log at CRITICAL level with optional structured fields."""
-        self._log(logging.CRITICAL, message, exc_info=exc_info, **fields)
+        self._log(logging.CRITICAL, message, *args, exc_info=exc_info, **fields)
 
     @property
     def level(self) -> int:
