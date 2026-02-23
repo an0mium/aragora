@@ -23,6 +23,7 @@ import {
 import { KnowledgeGraphView } from './KnowledgeGraphView';
 import { KnowledgeFlowDiagram } from '@/components/knowledge/KnowledgeFlowDiagram';
 import { AdapterHealthGrid } from '@/components/knowledge/AdapterHealthGrid';
+import { ContradictionsBrowser } from '@/components/knowledge/ContradictionsBrowser';
 
 export default function KnowledgeMoundPage() {
   // Core data operations via hook (replaces manual fetch + state)
@@ -86,7 +87,7 @@ export default function KnowledgeMoundPage() {
   const [exporting, setExporting] = useState(false);
 
   // View mode state
-  const [viewMode, setViewMode] = useState<'list' | 'graph' | 'flow' | 'adapters'>('list');
+  const [viewMode, setViewMode] = useState<'list' | 'graph' | 'flow' | 'adapters' | 'contradictions'>('list');
 
   const { setContext, clearContext } = useRightSidebar();
 

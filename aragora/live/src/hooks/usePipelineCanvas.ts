@@ -167,9 +167,9 @@ export function usePipelineCanvas(
         setStageStatus(result.stage_status);
       }
 
-      const stages: PipelineStageType[] = ['ideas', 'goals', 'actions', 'orchestration'];
+      const stages: PipelineStageType[] = ['ideas', 'principles', 'goals', 'actions', 'orchestration'];
       for (const stage of stages) {
-        const stageData = result[stage] as ReactFlowData | Record<string, unknown> | null;
+        const stageData = (result as Record<string, unknown>)[stage] as ReactFlowData | Record<string, unknown> | null;
         stageNodesRef.current[stage] = parseStageNodes(stage, stageData);
         stageEdgesRef.current[stage] = parseStageEdges(stage, stageData);
       }
@@ -441,7 +441,7 @@ export function usePipelineCanvas(
         stages: {} as Record<string, unknown>,
       };
 
-      const stages: PipelineStageType[] = ['ideas', 'goals', 'actions', 'orchestration'];
+      const stages: PipelineStageType[] = ['ideas', 'principles', 'goals', 'actions', 'orchestration'];
       const stagesPayload: Record<string, unknown> = {};
       for (const stage of stages) {
         stagesPayload[stage] = {
