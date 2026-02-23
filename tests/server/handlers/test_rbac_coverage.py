@@ -33,6 +33,7 @@ EXEMPT_HANDLERS = frozenset(
         "HealthHandler",
         "GatewayHealthHandler",
         "ReadinessHandler",
+        "ReadinessCheckHandler",
         "LivenessHandler",
         "StatusPageHandler",
         # OpenAPI/docs endpoints - public documentation
