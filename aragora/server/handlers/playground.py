@@ -520,6 +520,60 @@ if _ORACLE_ESSAY_CONDENSED:
     )
 
 
+# ---------------------------------------------------------------------------
+# Model-specific essay summaries — each frontier LLM's analysis of the essay.
+# Generated offline via scripts/generate_essay_summaries.py, loaded at init.
+# ---------------------------------------------------------------------------
+
+_MODEL_SUMMARIES: dict[str, str] = {}
+_summaries_dir = os.path.join(os.path.dirname(__file__), "essay_summaries")
+if os.path.isdir(_summaries_dir):
+    for _fname in os.listdir(_summaries_dir):
+        if _fname.endswith("_summary.md"):
+            _model_name = _fname.replace("_summary.md", "")
+            with open(os.path.join(_summaries_dir, _fname)) as _f:
+                _MODEL_SUMMARIES[_model_name] = _f.read()
+    if _MODEL_SUMMARIES:
+        logger.info(
+            "Loaded %d model-specific essay summaries: %s",
+            len(_MODEL_SUMMARIES),
+            list(_MODEL_SUMMARIES.keys()),
+        )
+
+
+# ---------------------------------------------------------------------------
+# Session memory — follow-up questions reference previous answers
+# ---------------------------------------------------------------------------
+
+_oracle_sessions: dict[str, list[dict[str, str]]] = {}
+_MAX_SESSION_TURNS = 5
+_MAX_SESSIONS = 1000  # prevent unbounded memory growth
+
+
+def _get_session_history(session_id: str | None) -> list[dict[str, str]]:
+    """Return conversation history for a session, or empty list."""
+    if not session_id:
+        return []
+    return _oracle_sessions.get(session_id, [])
+
+
+def _append_session_turn(
+    session_id: str | None, role: str, content: str
+) -> None:
+    """Append a turn to session history, pruning to max turns."""
+    if not session_id:
+        return
+    # Evict oldest sessions if at capacity
+    if session_id not in _oracle_sessions and len(_oracle_sessions) >= _MAX_SESSIONS:
+        oldest = next(iter(_oracle_sessions))
+        del _oracle_sessions[oldest]
+    history = _oracle_sessions.setdefault(session_id, [])
+    history.append({"role": role, "content": content[:1000]})
+    # Keep only the last N turns
+    if len(history) > _MAX_SESSION_TURNS:
+        _oracle_sessions[session_id] = history[-_MAX_SESSION_TURNS:]
+
+
 def _sanitize_oracle_input(question: str) -> str:
     """Strip prompt injection attempts from user questions."""
     # Remove common injection patterns
@@ -546,16 +600,30 @@ def _filter_oracle_response(text: str) -> str:
     return text
 
 
-def _build_oracle_prompt(mode: str, question: str) -> str:
+def _build_oracle_prompt(
+    mode: str, question: str, *, session_id: str | None = None
+) -> str:
     """Build the Oracle prompt server-side using focused essay excerpts.
 
     Uses ~3K tokens of essay context (thesis + P-doom + practical advice +
     clover conclusion) for fast Phase 1 responses (~15-25s through OpenRouter).
+
+    When *session_id* is provided, prepends up to 4 previous conversation turns
+    so the Oracle can reference prior exchanges.
     """
     question = _sanitize_oracle_input(question)
     essay_block = ""
     if _ORACLE_ESSAY_FOCUSED:
         essay_block = "\n\n<essay>\n" + _ORACLE_ESSAY_FOCUSED + "\n</essay>\n"
+
+    # Build conversation history block
+    history_block = ""
+    session_history = _get_session_history(session_id)
+    if session_history:
+        history_block = "\nPREVIOUS CONVERSATION:\n"
+        for turn in session_history[-4:]:
+            history_block += f"{turn['role'].upper()}: {turn['content'][:500]}\n"
+        history_block += "\n"
 
     if mode == "consult":
         return (
@@ -578,7 +646,8 @@ def _build_oracle_prompt(mode: str, question: str) -> str:
             "- If the seeker's argument is genuinely strong, acknowledge it. The $2,000 "
             "debate challenge is real.\n"
             "- Be terse when terseness serves clarity. Be expansive when complexity demands it.\n"
-            "- Preserve dissent. End with the strongest unresolved tension.\n\n"
+            "- Preserve dissent. End with the strongest unresolved tension.\n"
+            f"{history_block}\n"
             f"The seeker asks: {question}"
         )
 
@@ -654,6 +723,7 @@ def _try_oracle_response(
     mode: str,
     question: str,
     topic: str | None = None,
+    session_id: str | None = None,
 ) -> dict[str, Any] | None:
     """Generate a real LLM response for Oracle Phase 1 (initial take).
 
@@ -661,9 +731,14 @@ def _try_oracle_response(
     Falls back to the client-provided topic if mode is not recognized.
     Returns a debate-shaped result dict, or None on failure.
     """
+    # Record the seeker's question in session history
+    _append_session_turn(session_id, "seeker", question)
+
     start = time.monotonic()
     prompt = (
-        _build_oracle_prompt(mode, question) if _ORACLE_ESSAY_CONDENSED else (topic or question)
+        _build_oracle_prompt(mode, question, session_id=session_id)
+        if _ORACLE_ESSAY_CONDENSED
+        else (topic or question)
     )
     text = _call_llm(prompt, max_tokens=2000)
     if not text:
@@ -672,6 +747,9 @@ def _try_oracle_response(
         )
         return None
     text = _filter_oracle_response(text)
+
+    # Record the oracle's response in session history
+    _append_session_turn(session_id, "oracle", text)
 
     duration = time.monotonic() - start
     debate_id = uuid.uuid4().hex[:16]
@@ -759,15 +837,26 @@ _TENTACLE_ROLE_PROMPTS: list[str] = [
 
 
 def _build_tentacle_prompt(
-    mode: str, question: str, role_prompt: str, *, source: str = "oracle"
+    mode: str,
+    question: str,
+    role_prompt: str,
+    *,
+    source: str = "oracle",
+    model_name: str | None = None,
+    summary_depth: str = "light",
 ) -> str:
-    """Build a lightweight prompt for tentacle calls (NO full essay).
+    """Build a prompt for tentacle calls, optionally with essay summary context.
 
-    Phase 1 already gave the deep essay-informed answer.  Phase 2 tentacles
-    provide multi-perspective debate — each AI model answers from its own
-    knowledge and training data, which is the whole point of using different
-    models.  Sending the 88K-token essay to 5+ models in parallel would be
-    prohibitively expensive and slow.
+    Each tentacle can receive its own model-specific essay summary (generated
+    offline via ``scripts/generate_essay_summaries.py``).  This gives the
+    tentacle deep essay awareness without sending the full 88K-token essay.
+
+    Parameters
+    ----------
+    summary_depth : str
+        ``"none"``  — no essay context (fastest, cheapest).
+        ``"light"`` — first ~8K tokens of the model's summary (default).
+        ``"full"``  — full ~40K token summary (expensive, for deep inquiries).
 
     When *source* is ``"oracle"`` the prompt uses Oracle/tentacle language.
     For any other source (e.g. ``"landing"``) it uses neutral debate language
@@ -805,7 +894,27 @@ def _build_tentacle_prompt(
             "over agreement."
         )
 
-    return f"{context}\n\nYOUR ROLE: {role_prompt}\n\nThe question: {question}"
+    # Inject model-specific essay summary if available
+    summary_block = ""
+    if (
+        model_name
+        and summary_depth != "none"
+        and model_name in _MODEL_SUMMARIES
+    ):
+        summary = _MODEL_SUMMARIES[model_name]
+        if summary_depth == "light":
+            summary = summary[:32000]  # ~8K tokens
+        summary_block = (
+            "\n\nESSAY CONTEXT (your analysis of the Oracle's foundational essay):\n"
+            f"<essay-analysis>\n{summary}\n</essay-analysis>\n"
+            "Draw on this analysis ONLY when it genuinely illuminates the question.\n"
+        )
+
+    return (
+        f"{context}{summary_block}\n\n"
+        f"YOUR ROLE: {role_prompt}\n\n"
+        f"The question: {question}"
+    )
 
 
 def _try_oracle_tentacles(
@@ -814,6 +923,7 @@ def _try_oracle_tentacles(
     agent_count: int,
     topic: str | None = None,
     source: str = "oracle",
+    summary_depth: str = "light",
 ) -> dict[str, Any] | None:
     """Generate multi-perspective Oracle responses using genuinely different AI models.
 
@@ -842,7 +952,13 @@ def _try_oracle_tentacles(
         model_cfg: dict[str, str],
         role_prompt: str,
     ) -> tuple[str, str | None]:
-        prompt = _build_tentacle_prompt(mode, question, role_prompt, source=source)
+        prompt = _build_tentacle_prompt(
+            mode,
+            question,
+            role_prompt,
+            source=source,
+            model_name=model_cfg["name"],
+        )
         text = _call_provider_llm(
             model_cfg["provider"],
             model_cfg["model"],
@@ -1276,6 +1392,9 @@ class PlaygroundHandler(BaseHandler):
         # Oracle mode (consult / divine / commune)
         mode = str(body.get("mode", "") or "").strip() or "consult"
 
+        # Session ID for follow-up conversation memory
+        session_id = str(body.get("session_id", "") or "").strip() or None
+
         try:
             rounds = int(body.get("rounds", _DEFAULT_ROUNDS))
         except (TypeError, ValueError):
@@ -1288,7 +1407,9 @@ class PlaygroundHandler(BaseHandler):
             agent_count = _DEFAULT_AGENTS
         agent_count = max(_MIN_AGENTS, min(agent_count, _MAX_AGENTS))
 
-        return self._run_debate(topic, rounds, agent_count, question=question, mode=mode)
+        return self._run_debate(
+            topic, rounds, agent_count, question=question, mode=mode, session_id=session_id
+        )
 
     def _run_debate(
         self,
@@ -1297,10 +1418,13 @@ class PlaygroundHandler(BaseHandler):
         agent_count: int,
         question: str | None = None,
         mode: str = "consult",
+        session_id: str | None = None,
     ) -> HandlerResult:
         if question:
             # Oracle mode: try real LLM response first
-            oracle_result = _try_oracle_response(mode=mode, question=question, topic=topic)
+            oracle_result = _try_oracle_response(
+                mode=mode, question=question, topic=topic, session_id=session_id
+            )
             if oracle_result:
                 return json_response(oracle_result)
             logger.info("Oracle LLM call failed — returning placeholder instead of irrelevant mock")
@@ -1531,6 +1655,14 @@ class PlaygroundHandler(BaseHandler):
         # Source: "oracle" for Oracle page, "landing" for main site, etc.
         source = str(body.get("source", "") or "").strip() or "oracle"
 
+        # Session ID for follow-up conversation memory
+        session_id = str(body.get("session_id", "") or "").strip() or None
+
+        # Summary depth for tentacle essay context
+        summary_depth = str(body.get("summary_depth", "") or "").strip() or "light"
+        if summary_depth not in ("none", "light", "full"):
+            summary_depth = "light"
+
         try:
             agent_count = int(body.get("agents", _DEFAULT_AGENTS))
         except (TypeError, ValueError):
@@ -1569,7 +1701,12 @@ class PlaygroundHandler(BaseHandler):
         # "oracle" source uses tentacle language, "landing" uses neutral debate language.
         if question:
             tentacle_result = _try_oracle_tentacles(
-                mode=mode, question=question, agent_count=agent_count, topic=topic, source=source
+                mode=mode,
+                question=question,
+                agent_count=agent_count,
+                topic=topic,
+                source=source,
+                summary_depth=summary_depth,
             )
             if tentacle_result:
                 tentacle_result["upgrade_cta"] = _build_upgrade_cta()

@@ -55,6 +55,16 @@ logger = logging.getLogger(__name__)
 _TTS_VOICE_ID = "flHkNRp1BlvT73UL6gyz"
 _TTS_MODEL = "eleven_multilingual_v2"
 
+# Per-tentacle TTS voices — each model gets a distinct voice
+_TENTACLE_VOICES: dict[str, str] = {
+    "claude": "flHkNRp1BlvT73UL6gyz",    # Deep, measured (default Oracle voice)
+    "gpt": "pNInz6obpgDQGcFmaJgB",       # Adam - warm, authoritative
+    "grok": "ErXwobaYiN019PkySvjV",       # Antoni - sharp, direct
+    "deepseek": "VR6AewLTigWG4xSOukaG",   # Arnold - deep, deliberate
+    "gemini": "21m00Tcm4TlvDq8ikWAM",     # Rachel - clear, analytical
+    "mistral": "AZnzlk1XvdvUeBnXmlld",    # Domi - European, refined
+}
+
 _PHASE_TAG_REFLEX = 0x00
 _PHASE_TAG_DEEP = 0x01
 _PHASE_TAG_TENTACLE = 0x02
@@ -348,13 +358,15 @@ async def _stream_tts(
     ws: web.WebSocketResponse,
     text: str,
     phase_tag: int = _PHASE_TAG_DEEP,
+    voice_id: str | None = None,
 ) -> None:
     """Stream TTS audio as binary WebSocket frames with phase tag prefix."""
     key = _get_api_key("ELEVENLABS_API_KEY")
     if not key:
         return
 
-    url = f"https://api.elevenlabs.io/v1/text-to-speech/{_TTS_VOICE_ID}/stream"
+    effective_voice = voice_id or _TTS_VOICE_ID
+    url = f"https://api.elevenlabs.io/v1/text-to-speech/{effective_voice}/stream"
     headers = {
         "xi-api-key": key,
         "Content-Type": "application/json",
@@ -629,21 +641,50 @@ async def _stream_tentacles(
     if not models:
         return
 
-    prompt = _build_oracle_prompt(mode, question)
+    # Try to import tentacle-specific prompt builder and roles
+    try:
+        from aragora.server.handlers.playground import (
+            _build_tentacle_prompt,
+            _TENTACLE_ROLE_PROMPTS,
+        )
 
-    async def run_tentacle(m: dict[str, str]) -> None:
+        has_tentacle_prompts = True
+    except ImportError:
+        has_tentacle_prompts = False
+
+    # Fallback prompt (used when tentacle prompt imports fail)
+    fallback_prompt = _build_oracle_prompt(mode, question)
+
+    async def run_tentacle(m: dict[str, str], role_idx: int) -> None:
         name = m["name"]
         if session.cancelled or ws.closed:
             return
 
+        # Build model-specific tentacle prompt with role
+        if has_tentacle_prompts:
+            role = _TENTACLE_ROLE_PROMPTS[role_idx % len(_TENTACLE_ROLE_PROMPTS)]
+            tent_prompt = _build_tentacle_prompt(
+                mode, question, role, source="oracle",
+            )
+            # Append model identity so the LLM knows which perspective it represents
+            tent_prompt += f"\n\nYou are responding as the {name} model."
+        else:
+            tent_prompt = fallback_prompt
+
+        # Select per-model TTS voice
+        voice_key = name.lower().split("-")[0].split("/")[-1]
+        voice_id = _TENTACLE_VOICES.get(voice_key)
+
         await ws.send_json({"type": "tentacle_start", "agent": name})
 
+        accumulator = SentenceAccumulator()
+        tts_tasks: list[asyncio.Task[None]] = []
         full_text = ""
         try:
             async for token in _call_provider_llm_stream(
                 m["provider"],
                 m["model"],
-                prompt,
+                tent_prompt,
                 max_tokens=1000,
                 timeout=30.0,
             ):
@@ -657,6 +698,14 @@ async def _stream_tentacles(
                         "text": token,
                     }
                 )
+
+                # Stream TTS per sentence with the tentacle's voice
+                sentence = accumulator.add(token)
+                if sentence and voice_id:
+                    task = asyncio.create_task(
+                        _stream_tts(ws, sentence, _PHASE_TAG_TENTACLE, voice_id=voice_id)
+                    )
+                    tts_tasks.append(task)
         except (
             OSError,
             RuntimeError,
@@ -669,6 +718,18 @@ async def _stream_tentacles(
         ):
             logger.warning("Tentacle %s failed", name, exc_info=True)
 
+        # Flush remaining sentence for TTS
+        remainder = accumulator.flush()
+        if remainder and voice_id and not session.cancelled and not ws.closed:
+            task = asyncio.create_task(
+                _stream_tts(ws, remainder, _PHASE_TAG_TENTACLE, voice_id=voice_id)
+            )
+            tts_tasks.append(task)
+
+        # Wait for TTS to finish for this tentacle
+        if tts_tasks:
+            await asyncio.gather(*tts_tasks, return_exceptions=True)
+
         if full_text and not session.cancelled and not ws.closed:
             await ws.send_json(
                 {
@@ -679,7 +740,7 @@ async def _stream_tentacles(
             )
 
     # Run tentacles concurrently (max 5)
-    tasks = [asyncio.create_task(run_tentacle(m)) for m in models[:5]]
+    tasks = [asyncio.create_task(run_tentacle(m, i)) for i, m in enumerate(models[:5])]
     await asyncio.gather(*tasks, return_exceptions=True)
 
 
@@ -742,6 +803,35 @@ def _handle_interim(session: OracleSession, text: str) -> None:
 
 
 # ---------------------------------------------------------------------------
+# Per-IP WebSocket rate limiting and session tracking
+# ---------------------------------------------------------------------------
+
+_ws_sessions: dict[str, int] = {}  # IP -> active session count
+_MAX_WS_SESSIONS_PER_IP = 3
+_WS_RATE_LIMIT = 10  # asks per minute
+_WS_RATE_WINDOW = 60.0
+_ws_ask_timestamps: dict[str, list[float]] = {}
+
+
+def _check_ws_rate_limit(client_ip: str) -> tuple[bool, int]:
+    """Check per-IP rate limit for WebSocket ask messages.
+
+    Returns ``(allowed, retry_after_seconds)``.
+    """
+    now = time.monotonic()
+    cutoff = now - _WS_RATE_WINDOW
+    timestamps = _ws_ask_timestamps.get(client_ip, [])
+    timestamps = [t for t in timestamps if t > cutoff]
+    if len(timestamps) >= _WS_RATE_LIMIT:
+        retry_after = int(timestamps[0] + _WS_RATE_WINDOW - now) + 1
+        _ws_ask_timestamps[client_ip] = timestamps
+        return False, max(retry_after, 1)
+    timestamps.append(now)
+    _ws_ask_timestamps[client_ip] = timestamps
+    return True, 0
+
+
+# ---------------------------------------------------------------------------
 # WebSocket handler
 # ---------------------------------------------------------------------------
 
@@ -751,6 +841,25 @@ async def oracle_websocket_handler(request: web.Request) -> web.WebSocketRespons
 
     Endpoint: /ws/oracle
     """
+    # Get client IP (supports X-Forwarded-For behind reverse proxy)
+    client_ip = request.headers.get("X-Forwarded-For", "").split(",")[0].strip()
+    if not client_ip:
+        client_ip = request.remote or "unknown"
+
+    # Check concurrent session limit
+    current = _ws_sessions.get(client_ip, 0)
+    if current >= _MAX_WS_SESSIONS_PER_IP:
+        ws = web.WebSocketResponse()
+        await ws.prepare(request)
+        await ws.send_json({
+            "type": "error",
+            "message": f"Too many concurrent sessions (max {_MAX_WS_SESSIONS_PER_IP})",
+        })
+        await ws.close()
+        return ws
+
+    _ws_sessions[client_ip] = current + 1
+
     ws = web.WebSocketResponse(heartbeat=30)
     await ws.prepare(request)
 
@@ -778,6 +887,15 @@ async def oracle_websocket_handler(request: web.Request) -> web.WebSocketRespons
                                     "message": "Missing question",
                                 }
                             )
+                            continue
+
+                        # Per-IP rate limiting on ask messages
+                        allowed, retry_after = _check_ws_rate_limit(client_ip)
+                        if not allowed:
+                            await ws.send_json({
+                                "type": "error",
+                                "message": f"Rate limited. Retry in {retry_after}s",
+                            })
                             continue
 
                         # Cancel any running task
@@ -821,6 +939,7 @@ async def oracle_websocket_handler(request: web.Request) -> web.WebSocketRespons
                 break
 
     finally:
+        _ws_sessions[client_ip] = max(0, _ws_sessions.get(client_ip, 1) - 1)
         session.cancelled = True
         if session.active_task and not session.active_task.done():
             session.active_task.cancel()

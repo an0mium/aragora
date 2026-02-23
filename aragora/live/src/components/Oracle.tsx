@@ -198,6 +198,84 @@ function TentacleMessage({ msg, index }: { msg: ChatMessage; index: number }) {
 }
 
 // ---------------------------------------------------------------------------
+// Convergence Map — analyzes tentacle responses for agreement/disagreement
+// ---------------------------------------------------------------------------
+
+function ConvergenceMap({ tentacles }: { tentacles: Map<string, { text: string; done: boolean }> }) {
+  const entries = Array.from(tentacles.entries()).filter(([, s]) => s.done && s.text);
+  if (entries.length < 2) return null;
+
+  // Simple keyword-based convergence detection
+  // Check which tentacles mention similar key concepts
+  const conceptMentions: Record<string, string[]> = {};
+  const keywords = ['risk', 'opportunity', 'agree', 'disagree', 'however', 'but', 'critical',
+                     'essential', 'unlikely', 'inevitable', 'uncertain', 'dangerous', 'promising',
+                     'adapt', 'transform', 'disrupt', 'regulate', 'innovate'];
+
+  for (const [agent, state] of entries) {
+    const lower = state.text.toLowerCase();
+    for (const kw of keywords) {
+      if (lower.includes(kw)) {
+        if (!conceptMentions[kw]) conceptMentions[kw] = [];
+        conceptMentions[kw].push(agent);
+      }
+    }
+  }
+
+  const convergent = Object.entries(conceptMentions)
+    .filter(([, agents]) => agents.length >= Math.ceil(entries.length * 0.6))
+    .map(([concept]) => concept);
+
+  const divergent = Object.entries(conceptMentions)
+    .filter(([, agents]) => agents.length >= 2 && agents.length <= Math.floor(entries.length * 0.5))
+    .map(([concept, agents]) => ({ concept, agents }));
+
+  const unique = Object.entries(conceptMentions)
+    .filter(([, agents]) => agents.length === 1)
+    .slice(0, 3)
+    .map(([concept, agents]) => ({ concept, agent: agents[0] }));
+
+  if (!convergent.length && !divergent.length && !unique.length) return null;
+
+  return (
+    <div className="prophecy-reveal mt-4 mb-2">
+      <div className="text-xs mb-2">
+        <span className="text-[var(--acid-cyan)]" style={{ filter: 'drop-shadow(0 0 5px var(--acid-cyan))' }}>
+          CONVERGENCE MAP
+        </span>
+        <span className="text-[var(--text-muted)]"> &middot; {entries.length} perspectives analyzed</span>
+      </div>
+      <div className="border border-[var(--border)]/30 bg-[#0c0c14] p-3 rounded-lg text-xs space-y-2">
+        {convergent.length > 0 && (
+          <div>
+            <span className="text-[var(--acid-green)] font-bold">CONVERGENT: </span>
+            <span className="text-[var(--text-muted)]">
+              {entries.length >= 3 ? `${Math.ceil(entries.length * 0.6)}+ tentacles` : 'All tentacles'} emphasize: {convergent.join(', ')}
+            </span>
+          </div>
+        )}
+        {divergent.length > 0 && (
+          <div>
+            <span className="text-[var(--crimson,#ff3333)] font-bold">DIVERGENT: </span>
+            <span className="text-[var(--text-muted)]">
+              Split on: {divergent.slice(0, 3).map(d => `${d.concept} (${d.agents.join(' vs rest')})`).join('; ')}
+            </span>
+          </div>
+        )}
+        {unique.length > 0 && (
+          <div>
+            <span className="text-[var(--gold,#ffd700)] font-bold">OUTLIER: </span>
+            <span className="text-[var(--text-muted)]">
+              Only {unique.map(u => `${u.agent} raised "${u.concept}"`).join('; ')}
+            </span>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+// ---------------------------------------------------------------------------
 // Oracle component
 // ---------------------------------------------------------------------------
 
@@ -1304,6 +1382,11 @@ export default function Oracle() {
                     </div>
                   </div>
                 ))}
+
+                {/* Convergence map — shows after tentacles complete */}
+                {oracle.phase === 'synthesis' && oracle.tentacles.size >= 2 && (
+                  <ConvergenceMap tentacles={oracle.tentacles} />
+                )}
 
                 {/* Synthesis */}
                 {oracle.synthesis && (
