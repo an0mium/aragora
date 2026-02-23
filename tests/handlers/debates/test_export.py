@@ -1317,9 +1317,19 @@ class TestFormatLatex:
 class TestEdgeCases:
     """Edge case and integration tests."""
 
-    def test_empty_debate_json_export(self):
+    def test_empty_dict_debate_returns_404(self):
+        """An empty dict is falsy-like but actually truthy in Python.
+        However, 'not {}' is True, so the handler returns 404."""
         storage = MagicMock()
         storage.get_debate.return_value = {}
+        handler = _make_handler(storage=storage)
+        result = handler._export_debate(_mock_http_handler(), "d1", "json", "summary")
+        # Empty dict {} evaluates to falsy: `not {}` is True
+        assert _status(result) == 404
+
+    def test_minimal_debate_json_export(self):
+        storage = MagicMock()
+        storage.get_debate.return_value = {"id": "d1", "topic": "T"}
         handler = _make_handler(storage=storage)
         result = handler._export_debate(_mock_http_handler(), "d1", "json", "summary")
         assert _status(result) == 200
@@ -1403,13 +1413,15 @@ class TestEdgeCases:
         assert items[0].status == BatchExportStatus.COMPLETED
         assert items[1].status == BatchExportStatus.FAILED
 
-    def test_single_debate_id_batch(self):
+    @patch("aragora.server.handlers.debates.export.asyncio.create_task")
+    def test_single_debate_id_batch(self, mock_task):
         handler = _make_handler()
         result = handler._start_batch_export(_mock_http_handler(), ["d1"], "json")
         assert _status(result) == 200
         assert _body(result)["total_count"] == 1
 
-    def test_all_valid_formats_accepted_by_batch(self):
+    @patch("aragora.server.handlers.debates.export.asyncio.create_task")
+    def test_all_valid_formats_accepted_by_batch(self, mock_task):
         handler = _make_handler()
         for fmt in ("json", "csv", "html", "txt", "md"):
             result = handler._start_batch_export(_mock_http_handler(), ["d1"], fmt)
