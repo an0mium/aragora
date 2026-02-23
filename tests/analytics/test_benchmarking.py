@@ -513,12 +513,11 @@ class TestBenchmarkingHandler:
 
         result = handler._get_benchmarks({"category": "healthcare"})
         assert result is not None
-        status, body_bytes, _ = result
-        assert status == 200
+        assert result.status_code == 200
 
         import json
 
-        body = json.loads(body_bytes)
+        body = json.loads(result.body)
         assert "benchmarks" in body
         assert body["count"] == len(body["benchmarks"])
         assert body["count"] > 0
@@ -548,12 +547,11 @@ class TestBenchmarkingHandler:
 
         result = handler._get_categories()
         assert result is not None
-        status, body_bytes, _ = result
-        assert status == 200
+        assert result.status_code == 200
 
         import json
 
-        body = json.loads(body_bytes)
+        body = json.loads(result.body)
         assert "categories" in body
         assert "healthcare" in body["categories"]
         assert "financial" in body["categories"]
@@ -577,12 +575,11 @@ class TestBenchmarkingHandler:
             }
         )
         assert result is not None
-        status, body_bytes, _ = result
-        assert status == 200
+        assert result.status_code == 200
 
         import json
 
-        body = json.loads(body_bytes)
+        body = json.loads(result.body)
         assert "comparison" in body
         assert "category" in body
         assert body["category"] == "healthcare"
