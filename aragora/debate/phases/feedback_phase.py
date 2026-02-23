@@ -147,7 +147,7 @@ class FeedbackPhase:
         enable_post_debate_workflow: bool = False,  # Auto-trigger workflow after debates
         post_debate_workflow_threshold: float = 0.7,  # Min confidence to trigger workflow
         # Knowledge extraction from debates (auto-extract claims/relationships)
-        enable_knowledge_extraction: bool = False,  # Extract structured knowledge from debates
+        enable_knowledge_extraction: bool = True,  # Extract structured knowledge from debates
         extraction_min_confidence: float = 0.3,  # Min debate confidence to trigger extraction
         extraction_promote_threshold: float = 0.6,  # Min claim confidence to promote to mound
         # Auto-receipt generation for SME starter pack
@@ -490,6 +490,9 @@ class FeedbackPhase:
         # 36. Record convergence speed metrics for future round optimization
         self._record_convergence_history(ctx)
 
+        # 37. Queue outcome-driven improvement suggestions into the Nomic Loop
+        self._queue_outcome_feedback(ctx)
+
     def _record_convergence_history(self, ctx: DebateContext) -> None:
         """Record convergence speed metrics for the completed debate.
 
@@ -545,6 +548,34 @@ class FeedbackPhase:
             pass  # Convergence history store not available
         except (TypeError, ValueError, AttributeError, RuntimeError) as e:
             logger.debug("[convergence_history] Failed to record metrics: %s", e)
+
+    def _queue_outcome_feedback(self, ctx: DebateContext) -> None:
+        """Queue outcome-driven improvement suggestions into the Nomic Loop.
+
+        When auto_outcome_feedback is enabled in the protocol's post-debate
+        config, analyzes systematic errors from past outcomes and queues
+        improvement goals for the MetaPlanner to act on.
+        """
+        protocol = getattr(ctx, "protocol", None)
+        post_config = getattr(protocol, "post_debate_config", None)
+        if not post_config or not getattr(post_config, "auto_outcome_feedback", False):
+            return
+
+        try:
+            from aragora.nomic.outcome_feedback import OutcomeFeedbackBridge
+
+            bridge = OutcomeFeedbackBridge()
+            queued = bridge.queue_improvement_suggestions()
+            if queued:
+                logger.info(
+                    "[outcome_feedback] Queued %d improvement suggestions from debate %s",
+                    queued,
+                    ctx.debate_id,
+                )
+        except (ImportError, OSError) as e:
+            logger.debug("[outcome_feedback] OutcomeFeedbackBridge not available: %s", e)
+        except (TypeError, ValueError, AttributeError, RuntimeError) as e:
+            logger.debug("[outcome_feedback] Feedback queueing failed: %s", e)
 
     def _update_introspection_feedback(self, ctx: DebateContext) -> None:
         """Update agent introspection data based on debate performance.
