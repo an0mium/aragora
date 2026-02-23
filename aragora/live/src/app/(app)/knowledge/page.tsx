@@ -271,7 +271,7 @@ export default function KnowledgeMoundPage() {
     } finally {
       setIndexing(false);
     }
-  }, [repoUrl, fetchNodes, fetchStats]);
+  }, [repoUrl, refreshNodes, loadStats]);
 
   // Fetch stale items
   const fetchStaleItems = useCallback(async () => {

@@ -15,10 +15,12 @@ import { SharedWithMeTab, type SharedItem } from './SharedWithMeTab';
 import { FederationStatus } from './FederationStatus';
 import { ShareDialog, type ShareGrant } from './ShareDialog';
 import { QualityTab } from './QualityTab';
+import { AdaptersTab } from './AdaptersTab';
+import { ContradictionsTab } from './ContradictionsTab';
 import type { VisibilityLevel } from './VisibilitySelector';
 import type { KnowledgeNode, GraphNode } from '@/store/knowledgeExplorerStore';
 
-export type ExplorerTab = 'search' | 'browse' | 'graph' | 'stale' | 'shared' | 'federation' | 'quality';
+export type ExplorerTab = 'search' | 'browse' | 'graph' | 'stale' | 'shared' | 'federation' | 'quality' | 'adapters' | 'contradictions';
 
 export interface KnowledgeExplorerProps {
   /** Initial tab to show */
@@ -381,6 +383,14 @@ export function KnowledgeExplorer({
       />
     ),
 
+    adapters: (
+      <AdaptersTab />
+    ),
+
+    contradictions: (
+      <ContradictionsTab />
+    ),
+
     quality: (
       <QualityTab
         workspaceId={workspaceId}
@@ -409,6 +419,8 @@ export function KnowledgeExplorer({
     { id: 'search', label: 'Search', content: tabContent.search },
     { id: 'browse', label: 'Browse', badge: totalNodes, content: tabContent.browse },
     { id: 'graph', label: 'Graph', content: tabContent.graph },
+    { id: 'adapters', label: 'Adapters', content: tabContent.adapters },
+    { id: 'contradictions', label: 'Conflicts', content: tabContent.contradictions },
     { id: 'quality', label: 'Quality', content: tabContent.quality },
     { id: 'stale', label: 'Stale', badge: stats?.stale_nodes_count, content: tabContent.stale },
     { id: 'shared', label: 'Shared', badge: sharedItems.length || undefined, content: tabContent.shared },

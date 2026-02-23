@@ -70,6 +70,7 @@ function PipelinePageContent() {
     createFromDebate,
     advanceStage,
     executePipeline,
+    executeWithSelfImprove,
     approveTransition,
     rejectTransition,
     loadDemo,
@@ -549,7 +550,7 @@ function PipelinePageContent() {
             <button
               onClick={async () => {
                 if (pipelineData?.pipeline_id) {
-                  const res = await executePipeline(pipelineData.pipeline_id, siDryRun);
+                  const res = await executeWithSelfImprove(pipelineData.pipeline_id, { dryRun: siDryRun });
                   if (res) {
                     window.location.href = `/self-improve?from=pipeline&id=${pipelineData.pipeline_id}`;
                   }

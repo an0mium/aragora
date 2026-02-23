@@ -3,9 +3,9 @@
 import { useBudgetStatus } from '@/hooks/useSystemHealth';
 
 export function BudgetTracker() {
-  const { budget, loading } = useBudgetStatus();
+  const { budget, isLoading } = useBudgetStatus();
 
-  if (loading) return <div className="animate-pulse p-4 text-[var(--text-muted)] font-mono">Loading budget...</div>;
+  if (isLoading) return <div className="animate-pulse p-4 text-[var(--text-muted)] font-mono">Loading budget...</div>;
   if (!budget) return <div className="text-[var(--text-muted)] font-mono text-sm p-4">Budget tracking not configured.</div>;
 
   const pct = Math.min(100, budget.utilization * 100);
@@ -20,10 +20,12 @@ export function BudgetTracker() {
       <div className="h-2 bg-[var(--bg)] rounded overflow-hidden">
         <div className={`h-full transition-all ${barColor}`} style={{ width: `${pct}%` }} />
       </div>
-      <div className="flex items-center justify-between text-[10px] font-mono text-[var(--text-muted)]">
-        <span>Forecast EOM: ${budget.forecast.eom.toFixed(2)}</span>
-        <span>Trend: {budget.forecast.trend}</span>
-      </div>
+      {budget.forecast && (
+        <div className="flex items-center justify-between text-[10px] font-mono text-[var(--text-muted)]">
+          <span>Forecast EOM: ${budget.forecast.eom.toFixed(2)}</span>
+          <span>Trend: {budget.forecast.trend}</span>
+        </div>
+      )}
     </div>
   );
 }

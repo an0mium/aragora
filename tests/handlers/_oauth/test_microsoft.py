@@ -766,6 +766,12 @@ class TestMicrosoftCallback:
 class TestExchangeMicrosoftCodeSync:
     """Tests for _exchange_microsoft_code when no event loop is running."""
 
+    @pytest.fixture(autouse=True)
+    def _force_sync(self):
+        """Force sync path by hiding the running event loop."""
+        with patch("asyncio.get_running_loop", side_effect=RuntimeError("no loop")):
+            yield
+
     def _make_urlopen_response(self, body: bytes) -> MagicMock:
         """Create a context manager mock that returns body bytes."""
         mock_resp = MagicMock()
@@ -784,9 +790,6 @@ class TestExchangeMicrosoftCodeSync:
             return_value=resp,
         ):
             result = handler._exchange_microsoft_code("test-code")
-        if asyncio.iscoroutine(result):
-            result.close()
-            pytest.skip("Running in async context - sync path not reachable")
         assert result["access_token"] == "ms-tok-123"
 
     def test_sync_exchange_empty_body_returns_empty_dict(self, handler, impl):
@@ -798,9 +801,6 @@ class TestExchangeMicrosoftCodeSync:
             return_value=resp,
         ):
             result = handler._exchange_microsoft_code("test-code")
-        if asyncio.iscoroutine(result):
-            result.close()
-            pytest.skip("Running in async context")
         assert result == {}
 
     def test_sync_exchange_uses_correct_url(self, handler, impl):
@@ -813,9 +813,6 @@ class TestExchangeMicrosoftCodeSync:
             return_value=resp,
         ) as mock_urlopen:
             result = handler._exchange_microsoft_code("test-code")
-        if asyncio.iscoroutine(result):
-            result.close()
-            pytest.skip("Running in async context")
         req = mock_urlopen.call_args[0][0]
         assert req.full_url == "https://login.microsoftonline.com/common/oauth2/v2.0/token"
 
@@ -829,9 +826,6 @@ class TestExchangeMicrosoftCodeSync:
             return_value=resp,
         ) as mock_urlopen:
             result = handler._exchange_microsoft_code("my-auth-code")
-        if asyncio.iscoroutine(result):
-            result.close()
-            pytest.skip("Running in async context")
         req = mock_urlopen.call_args[0][0]
         data_str = req.data.decode("utf-8")
         assert "code=my-auth-code" in data_str

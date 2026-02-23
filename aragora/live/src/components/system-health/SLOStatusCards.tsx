@@ -3,32 +3,98 @@
 import { useSLOStatus } from '@/hooks/useSystemHealth';
 
 export function SLOStatusCards() {
-  const { slos, loading } = useSLOStatus();
+  const { slos, isLoading, available, overallHealthy } = useSLOStatus();
 
-  if (loading) return <div className="animate-pulse p-4 text-[var(--text-muted)] font-mono">Loading SLOs...</div>;
+  if (isLoading) {
+    return (
+      <div className="card p-6 animate-pulse">
+        <div className="h-4 bg-surface rounded w-36 mb-4" />
+        <div className="grid grid-cols-3 gap-3">
+          {[1, 2, 3].map((i) => (
+            <div key={i} className="h-24 bg-surface rounded" />
+          ))}
+        </div>
+      </div>
+    );
+  }
 
   return (
-    <div className="space-y-3">
-      <h3 className="font-mono text-xs text-[var(--text-muted)] uppercase tracking-wider">SLO Compliance</h3>
-      {slos.length === 0 ? (
-        <p className="text-[var(--text-muted)] font-mono text-sm">No SLOs configured.</p>
+    <div className="card p-6">
+      <div className="flex items-center justify-between mb-4">
+        <h3 className="font-mono text-acid-green">SLO Compliance</h3>
+        {available && (
+          <span
+            className={`text-[10px] font-mono px-2 py-0.5 rounded border ${
+              overallHealthy
+                ? 'text-acid-green border-acid-green/40 bg-acid-green/10'
+                : 'text-acid-red border-acid-red/40 bg-acid-red/10'
+            }`}
+          >
+            {overallHealthy ? 'ALL COMPLIANT' : 'BREACH DETECTED'}
+          </span>
+        )}
+      </div>
+      {!available ? (
+        <p className="text-text-muted font-mono text-xs">SLO tracking unavailable</p>
+      ) : slos.length === 0 ? (
+        <p className="text-text-muted font-mono text-xs">No SLOs configured</p>
       ) : (
-        <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
-          {slos.map((s) => (
-            <div key={s.name} className={`card p-3 space-y-2 border-l-2 ${s.compliant ? 'border-emerald-400' : 'border-red-400'}`}>
-              <span className="font-mono text-xs text-[var(--text)]">{s.name}</span>
-              <div className="flex justify-between text-[10px] font-mono">
-                <span className="text-[var(--text-muted)]">Target: {(s.target * 100).toFixed(2)}%</span>
-                <span className={s.compliant ? 'text-emerald-400' : 'text-red-400'}>{(s.current * 100).toFixed(2)}%</span>
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+          {slos.map((s) => {
+            const compliantColor = s.compliant ? 'acid-green' : 'acid-red';
+            const burnColor =
+              s.burn_rate > 5 ? 'text-acid-red' : s.burn_rate > 1 ? 'text-acid-yellow' : 'text-text-muted';
+            // For latency SLO (lte comparison), gauge shows target/current
+            const isLatency = s.key === 'latency_p99';
+            const gaugePct = isLatency
+              ? Math.min(100, s.target > 0 ? (s.target / Math.max(s.current, 0.001)) * 100 : 100)
+              : Math.min(100, s.target > 0 ? (s.current / s.target) * 100 : 100);
+
+            return (
+              <div
+                key={s.key}
+                className={`card p-3 space-y-2 border-l-2 ${s.compliant ? 'border-acid-green' : 'border-acid-red'}`}
+              >
+                <div className="flex items-center justify-between">
+                  <span className="font-mono text-xs text-text">{s.name}</span>
+                  <span
+                    className={`text-[10px] font-mono px-1.5 py-0.5 rounded border ${
+                      s.compliant
+                        ? 'text-acid-green border-acid-green/40'
+                        : 'text-acid-red border-acid-red/40'
+                    }`}
+                  >
+                    {s.compliant ? 'OK' : 'BREACH'}
+                  </span>
+                </div>
+                {/* Target vs current */}
+                <div className="flex justify-between text-[10px] font-mono">
+                  <span className="text-text-muted">
+                    Target: {isLatency ? `${(s.target * 1000).toFixed(0)}ms` : `${(s.target * 100).toFixed(2)}%`}
+                  </span>
+                  <span className={`text-${compliantColor}`}>
+                    {isLatency ? `${(s.current * 1000).toFixed(0)}ms` : `${(s.current * 100).toFixed(2)}%`}
+                  </span>
+                </div>
+                {/* Compliance gauge */}
+                <div className="h-1.5 bg-surface rounded overflow-hidden border border-border">
+                  <div
+                    className={`h-full bg-${compliantColor} transition-all duration-500`}
+                    style={{ width: `${gaugePct}%` }}
+                  />
+                </div>
+                {/* Error budget and burn rate */}
+                <div className="flex justify-between text-[10px] font-mono">
+                  <span className="text-text-muted">
+                    Budget: {s.error_budget_remaining.toFixed(1)}%
+                  </span>
+                  <span className={burnColor}>
+                    Burn: {s.burn_rate.toFixed(2)}x
+                  </span>
+                </div>
               </div>
-              <div className="h-1.5 bg-[var(--bg)] rounded overflow-hidden">
-                <div className={`h-full ${s.compliant ? 'bg-emerald-400' : 'bg-red-400'}`} style={{ width: `${Math.min(100, (s.current / s.target) * 100)}%` }} />
-              </div>
-              <div className="text-[10px] font-mono text-[var(--text-muted)]">
-                Burn rate: {s.burn_rate.toFixed(2)}x
-              </div>
-            </div>
-          ))}
+            );
+          })}
         </div>
       )}
     </div>
