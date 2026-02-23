@@ -650,6 +650,9 @@ class HardenedOrchestrator(AutonomousOrchestrator):
         # Cross-cycle learning: record outcome for future runs
         await self._record_orchestration_outcome(goal, result)
 
+        # Contradiction detection: scan KM after recording new outcome
+        await self._detect_km_contradictions(goal, result)
+
         self._emit_event(
             "orchestration_completed",
             success=result.success,
@@ -818,6 +821,100 @@ class HardenedOrchestrator(AutonomousOrchestrator):
             )
         except (RuntimeError, OSError, ValueError) as e:
             logger.debug("cross_cycle_record_error: %s", e)
+
+    async def _detect_km_contradictions(
+        self,
+        goal: str,
+        result: OrchestrationResult,
+    ) -> None:
+        """Detect contradictions in KnowledgeMound after recording a new outcome.
+
+        Scans the 'nomic' workspace for contradictory knowledge items that may
+        have been introduced by this or prior cycles. High-severity contradictions
+        are emitted as events and injected into the ImprovementQueue so that
+        MetaPlanner picks them up as Signal 8 on the next cycle.
+        """
+        try:
+            from aragora.knowledge.mound import get_knowledge_mound
+            from aragora.knowledge.mound.ops.contradiction import (
+                ContradictionDetector,
+            )
+
+            mound = get_knowledge_mound(workspace_id="nomic")
+            detector = ContradictionDetector()
+            report = await detector.detect_contradictions(
+                mound, workspace_id="nomic",
+            )
+
+            if report.contradictions_found == 0:
+                logger.debug("km_contradiction_scan clean, no contradictions found")
+                return
+
+            logger.info(
+                "km_contradiction_scan found=%d by_severity=%s",
+                report.contradictions_found,
+                report.by_severity,
+            )
+
+            self._emit_event(
+                "km_contradictions_detected",
+                count=report.contradictions_found,
+                by_severity=report.by_severity,
+                by_type=report.by_type,
+            )
+
+            # Inject high/critical contradictions into improvement queue
+            critical_or_high = [
+                c for c in report.contradictions
+                if c.severity in ("critical", "high")
+            ]
+
+            if not critical_or_high:
+                return
+
+            from aragora.nomic.feedback_orchestrator import (
+                FeedbackGoal,
+                ImprovementQueue,
+            )
+
+            queue = ImprovementQueue.load()
+            for contradiction in critical_or_high[:5]:  # Cap at 5 to avoid flooding
+                queue.add(FeedbackGoal(
+                    description=(
+                        f"KM contradiction ({contradiction.severity}): "
+                        f"{contradiction.contradiction_type.value} conflict "
+                        f"between items {contradiction.item_a_id} and "
+                        f"{contradiction.item_b_id} "
+                        f"(score={contradiction.conflict_score:.2f})"
+                    ),
+                    source="km_contradiction",
+                    track="core",
+                    priority=1 if contradiction.severity == "critical" else 2,
+                    estimated_impact="high",
+                    metadata={
+                        "contradiction_type": contradiction.contradiction_type.value,
+                        "severity": contradiction.severity,
+                        "conflict_score": contradiction.conflict_score,
+                        "item_a_id": contradiction.item_a_id,
+                        "item_b_id": contradiction.item_b_id,
+                        "goal": goal[:200],
+                    },
+                ))
+
+            queue.save()
+
+            logger.info(
+                "km_contradictions_queued count=%d for next meta-planning cycle",
+                len(critical_or_high[:5]),
+            )
+
+        except ImportError:
+            logger.debug(
+                "KnowledgeMound or ContradictionDetector unavailable, "
+                "skipping contradiction scan"
+            )
+        except (RuntimeError, OSError, ValueError) as e:
+            logger.debug("km_contradiction_scan_error: %s", e)
 
     # =========================================================================
     # G. MetaPlanner Integration

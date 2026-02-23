@@ -1,6 +1,6 @@
 """Self-Improvement Feedback Orchestrator.
 
-Runs after each self-improvement cycle to bridge 6 audit subsystems
+Runs after each self-improvement cycle to bridge 7 audit subsystems
 into active feedback that informs the next improvement cycle.
 
 Steps:
@@ -10,6 +10,7 @@ Steps:
 4. Learning: adjust hyperparameters from cycle outcomes
 5. Workspace: deduplicate work via bead fingerprints
 6. Pulse: inject trending topics into improvement queue
+7. Knowledge Contradiction: detect conflicting knowledge in KnowledgeMound
 
 Results are persisted to the ImprovementQueue (SQLite-backed) which
 MetaPlanner._scan_prioritize() reads as Signal 8 on the next cycle.
@@ -123,10 +124,11 @@ class FeedbackResult:
     learning_adjustments: int = 0
     workspace_deduped: int = 0
     pulse_injections: int = 0
+    contradiction_detections: int = 0
 
 
 class SelfImproveFeedbackOrchestrator:
-    """6-step feedback pipeline bridging audit subsystems to active improvement.
+    """7-step feedback pipeline bridging audit subsystems to active improvement.
 
     Each step is wrapped in try/except for graceful degradation — any
     subsystem failure logs a warning but doesn't block the pipeline.
@@ -213,6 +215,18 @@ class SelfImproveFeedbackOrchestrator:
             result.steps_completed += 1
         except (ImportError, RuntimeError, ValueError, OSError) as e:
             logger.warning("feedback_step_pulse_failed: %s", e)
+            result.steps_failed += 1
+
+        # Step 7: Knowledge Contradiction — detect conflicting knowledge in KM
+        try:
+            goals = self._step_knowledge_contradiction(cycle_id)
+            result.contradiction_detections = len(goals)
+            for g in goals:
+                self._queue.add(g)
+                result.goals_generated += 1
+            result.steps_completed += 1
+        except (ImportError, RuntimeError, ValueError, OSError) as e:
+            logger.warning("feedback_step_knowledge_contradiction_failed: %s", e)
             result.steps_failed += 1
 
         # Persist the queue
@@ -400,6 +414,94 @@ class SelfImproveFeedbackOrchestrator:
             ))
 
         return goals
+
+    def _step_knowledge_contradiction(
+        self,
+        cycle_id: str,
+    ) -> list[FeedbackGoal]:
+        """Step 7: Detect contradictions in KnowledgeMound.
+
+        Scans the 'nomic' workspace for conflicting knowledge items and
+        generates feedback goals for high-severity contradictions so they
+        can be resolved in the next improvement cycle.
+        """
+        import asyncio
+
+        from aragora.knowledge.mound import get_knowledge_mound
+        from aragora.knowledge.mound.ops.contradiction import (
+            ContradictionDetector,
+        )
+
+        goals: list[FeedbackGoal] = []
+
+        mound = get_knowledge_mound(workspace_id="nomic")
+        detector = ContradictionDetector()
+
+        # Run the async detection in a sync context
+        try:
+            loop = asyncio.get_running_loop()
+        except RuntimeError:
+            loop = None
+
+        if loop and loop.is_running():
+            # Already in an async context — create a task via nest_asyncio
+            # or fall back to a new thread. Use thread for safety.
+            import concurrent.futures
+
+            with concurrent.futures.ThreadPoolExecutor(max_workers=1) as pool:
+                report = pool.submit(
+                    asyncio.run,
+                    detector.detect_contradictions(mound, workspace_id="nomic"),
+                ).result(timeout=30)
+        else:
+            report = asyncio.run(
+                detector.detect_contradictions(mound, workspace_id="nomic")
+            )
+
+        if report.contradictions_found == 0:
+            logger.debug(
+                "feedback_contradiction_scan cycle=%s clean", cycle_id,
+            )
+            return goals
+
+        logger.info(
+            "feedback_contradiction_scan cycle=%s found=%d by_severity=%s",
+            cycle_id,
+            report.contradictions_found,
+            report.by_severity,
+        )
+
+        # Generate goals for medium+ severity contradictions
+        for contradiction in report.contradictions:
+            if contradiction.severity in ("low",):
+                continue
+
+            priority_map = {"critical": 1, "high": 2, "medium": 3}
+            impact_map = {"critical": "high", "high": "high", "medium": "medium"}
+
+            goals.append(FeedbackGoal(
+                description=(
+                    f"KM contradiction ({contradiction.severity}): "
+                    f"{contradiction.contradiction_type.value} conflict "
+                    f"between items {contradiction.item_a_id} and "
+                    f"{contradiction.item_b_id} "
+                    f"(score={contradiction.conflict_score:.2f})"
+                ),
+                source="km_contradiction",
+                track="core",
+                priority=priority_map.get(contradiction.severity, 3),
+                estimated_impact=impact_map.get(contradiction.severity, "medium"),
+                metadata={
+                    "contradiction_type": contradiction.contradiction_type.value,
+                    "severity": contradiction.severity,
+                    "conflict_score": contradiction.conflict_score,
+                    "item_a_id": contradiction.item_a_id,
+                    "item_b_id": contradiction.item_b_id,
+                    "cycle_id": cycle_id,
+                },
+            ))
+
+        return goals[:10]  # Cap at 10 to avoid flooding the queue
 
 
 __all__ = [
