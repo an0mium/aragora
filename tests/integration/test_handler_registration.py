@@ -12,6 +12,15 @@ import pytest
 from unittest.mock import MagicMock, patch
 import json
 
+from aragora.server.handler_registry.core import _DeferredImport
+
+
+def _resolve(handler_class):
+    """Resolve _DeferredImport proxies to actual handler classes."""
+    if isinstance(handler_class, _DeferredImport):
+        return handler_class.resolve()
+    return handler_class
+
 
 class TestHandlerRegistry:
     """Test HANDLER_REGISTRY configuration."""
@@ -54,6 +63,10 @@ class TestHandlerRegistry:
         from aragora.server.handler_registry import HANDLER_REGISTRY
 
         for attr_name, handler_class in HANDLER_REGISTRY:
+            if handler_class is None:
+                continue
+
+            handler_class = _resolve(handler_class)
             if handler_class is None:
                 continue
 
@@ -222,8 +235,11 @@ class TestHandlerValidation:
             validate_all_handlers,
         )
 
+        # Resolve deferred imports before validation
+        resolved_registry = [(name, _resolve(cls)) for name, cls in HANDLER_REGISTRY]
+
         results = validate_all_handlers(
-            handler_registry=HANDLER_REGISTRY,
+            handler_registry=resolved_registry,
             handlers_available=HANDLERS_AVAILABLE,
             raise_on_error=False,
         )
@@ -320,7 +336,7 @@ class TestHandlerCanHandlePaths:
         """HealthHandler should handle health paths."""
         from aragora.server.handler_registry import HealthHandler
 
-        handler = HealthHandler({})
+        handler = _resolve(HealthHandler)({})
 
         assert handler.can_handle("/healthz")
         assert handler.can_handle("/readyz")
@@ -331,7 +347,7 @@ class TestHandlerCanHandlePaths:
         """DebatesHandler should handle debate paths."""
         from aragora.server.handler_registry import DebatesHandler
 
-        handler = DebatesHandler({})
+        handler = _resolve(DebatesHandler)({})
 
         assert handler.can_handle("/api/v1/debates")
         assert handler.can_handle("/api/v1/debates/123")
@@ -365,6 +381,10 @@ class TestHandlerRoutes:
             if handler_class is None:
                 continue
 
+            handler_class = _resolve(handler_class)
+            if handler_class is None:
+                continue
+
             if hasattr(handler_class, "ROUTES"):
                 routes = handler_class.ROUTES
                 # ROUTES can be a list, tuple, or dict (mapping paths to method names)
@@ -381,6 +401,10 @@ class TestHandlerRoutes:
         from aragora.server.handler_registry import HANDLER_REGISTRY
 
         for attr_name, handler_class in HANDLER_REGISTRY:
+            if handler_class is None:
+                continue
+
+            handler_class = _resolve(handler_class)
             if handler_class is None:
                 continue
 

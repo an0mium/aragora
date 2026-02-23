@@ -2487,7 +2487,10 @@ class HardenedOrchestrator(BudgetMixin, GauntletMixin, AuditMixin, AutonomousOrc
 
 
 __all__ = [
+    "AuditMixin",
     "BudgetEnforcementConfig",
+    "BudgetMixin",
+    "GauntletMixin",
     "HardenedConfig",
     "HardenedOrchestrator",
     "PHASE_MODE_MAP",
