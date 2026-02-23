@@ -481,6 +481,8 @@
     "POST /api/privacy/preferences",
     "POST /api/replays/{param}/fork",
     "POST /api/self-improve/runs/{param}/cancel",
+    "POST /api/sme/teams/subscribe",
+    "POST /api/sme/workflows",
     "POST /api/tenants",
     "POST /api/tenants/{param}/members/invite",
     "POST /api/tenants/{param}/reactivate",
