@@ -5,3 +5,7 @@ export { TemplateStep } from './TemplateStep';
 export { CompletionStep } from './CompletionStep';
 export { IndustryStep } from './IndustryStep';
 export { TryDebateStep } from './TryDebateStep';
+export { ChooseTemplateStep } from './ChooseTemplateStep';
+export { WatchDemoStep } from './WatchDemoStep';
+export { YourTurnStep } from './YourTurnStep';
+export { ConnectChannelsStep } from './ConnectChannelsStep';

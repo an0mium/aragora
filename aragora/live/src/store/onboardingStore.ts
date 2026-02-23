@@ -12,6 +12,10 @@ export type OnboardingStep =
   | 'industry'
   | 'try-debate'
   | 'create-account'
+  | 'choose-template'
+  | 'watch-demo'
+  | 'your-turn'
+  | 'connect-channels'
   | 'connect-tools'
   | 'launch'
   | 'organization'
@@ -41,6 +45,15 @@ export interface OnboardingProgress {
   firstDebateStarted: boolean;
   firstDebateCompleted: boolean;
   receiptViewed: boolean;
+  teamMemberInvited: boolean;
+  channelConnected: boolean;
+}
+
+export interface OnboardingChecklist {
+  accountCreated: boolean;
+  firstDebateRun: boolean;
+  teamMemberInvited: boolean;
+  channelConnected: boolean;
 }
 
 // ============================================================================
@@ -55,6 +68,13 @@ interface OnboardingState {
   // Progressive onboarding (no-auth steps)
   selectedIndustry: string | null;
   trialDebateResult: Record<string, unknown> | null;
+
+  // Guided first-debate tutorial
+  chosenTemplateId: string | null;
+  demoWatched: boolean;
+
+  // Onboarding checklist
+  checklist: OnboardingChecklist;
 
   // Organization setup
   organizationName: string;
@@ -97,6 +117,13 @@ interface OnboardingActions {
   setSelectedIndustry: (industry: string | null) => void;
   setTrialDebateResult: (result: Record<string, unknown> | null) => void;
 
+  // Guided first-debate tutorial
+  setChosenTemplateId: (id: string | null) => void;
+  setDemoWatched: (watched: boolean) => void;
+
+  // Checklist
+  updateChecklist: (updates: Partial<OnboardingChecklist>) => void;
+
   // Organization
   setOrganizationName: (name: string) => void;
   setOrganizationSlug: (slug: string) => void;
@@ -136,7 +163,10 @@ const STEP_ORDER: OnboardingStep[] = [
   'industry',
   'try-debate',
   'create-account',
-  'connect-tools',
+  'choose-template',
+  'watch-demo',
+  'your-turn',
+  'connect-channels',
   'launch',
 ];
 
@@ -163,6 +193,16 @@ const initialState: OnboardingState = {
   selectedIndustry: null,
   trialDebateResult: null,
 
+  chosenTemplateId: null,
+  demoWatched: false,
+
+  checklist: {
+    accountCreated: false,
+    firstDebateRun: false,
+    teamMemberInvited: false,
+    channelConnected: false,
+  },
+
   organizationName: '',
   organizationSlug: '',
   teamSize: null,
@@ -185,6 +225,8 @@ const initialState: OnboardingState = {
     firstDebateStarted: false,
     firstDebateCompleted: false,
     receiptViewed: false,
+    teamMemberInvited: false,
+    channelConnected: false,
   },
   startedAt: null,
   completedAt: null,
@@ -228,6 +270,16 @@ export const useOnboardingStore = create<OnboardingState & OnboardingActions>()(
         // Progressive onboarding
         setSelectedIndustry: (industry) => set({ selectedIndustry: industry }),
         setTrialDebateResult: (result) => set({ trialDebateResult: result }),
+
+        // Guided first-debate tutorial
+        setChosenTemplateId: (id) => set({ chosenTemplateId: id }),
+        setDemoWatched: (watched) => set({ demoWatched: watched }),
+
+        // Checklist
+        updateChecklist: (updates) =>
+          set((state) => ({
+            checklist: { ...state.checklist, ...updates },
+          })),
 
         // Organization
         setOrganizationName: (name) => set({ organizationName: name }),
@@ -301,6 +353,7 @@ export const useOnboardingStore = create<OnboardingState & OnboardingActions>()(
           organizationSlug: state.organizationSlug,
           startedAt: state.startedAt,
           completedAt: state.completedAt,
+          checklist: state.checklist,
         }),
       }
     ),
@@ -334,6 +387,14 @@ export const selectCanProceed = (state: OnboardingState): boolean => {
       return state.trialDebateResult !== null;
     case 'create-account':
       return true; // Auth transition handled externally
+    case 'choose-template':
+      return state.chosenTemplateId !== null;
+    case 'watch-demo':
+      return true; // Can always proceed after viewing demo
+    case 'your-turn':
+      return true; // CTA step, always proceed
+    case 'connect-channels':
+      return true; // Optional step
     case 'connect-tools':
       return true; // Optional step
     case 'launch':

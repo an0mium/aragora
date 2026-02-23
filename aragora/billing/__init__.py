@@ -133,7 +133,10 @@ from aragora.billing.tier_gating import (
     TIER_ORDER,
     DebateRateLimiter,
     TierInsufficientError,
+    TrialExpiredError,
+    TrialStatus,
     get_debate_rate_limiter,
+    get_trial_status,
     require_tier,
     tier_sufficient,
 )
@@ -241,7 +244,10 @@ __all__ = [
     # Tier Gating
     "require_tier",
     "TierInsufficientError",
+    "TrialExpiredError",
+    "TrialStatus",
     "tier_sufficient",
+    "get_trial_status",
     "TIER_ORDER",
     "TIER_DISPLAY_NAMES",
     "FEATURE_TIER_MAP",

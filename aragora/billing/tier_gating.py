@@ -29,6 +29,7 @@ from __future__ import annotations
 import asyncio
 import functools
 import logging
+from dataclasses import dataclass
 from typing import Any, TypeVar, ParamSpec, cast
 from collections.abc import Callable, Coroutine
 
@@ -125,6 +126,74 @@ def _resolve_org_tier(context: Any) -> str | None:
         pass
 
     return None
+
+
+def _resolve_org(org_id: str) -> Any | None:
+    """Resolve the Organization object for a given org_id.
+
+    Returns the Organization instance or None if resolution fails.
+    """
+    try:
+        from aragora.storage.repositories.org import get_org_repository
+
+        repo = get_org_repository()
+        return repo.get(org_id)
+    except (ImportError, AttributeError, RuntimeError, TypeError):
+        return None
+
+
+# --- Trial status -----------------------------------------------------------
+
+@dataclass
+class TrialStatus:
+    """Status of an organization's trial period."""
+
+    is_expired: bool
+    days_remaining: int
+    upgrade_url: str = "/pricing"
+
+
+class TrialExpiredError(Exception):
+    """Raised when a free-tier user's trial period has expired."""
+
+    def __init__(self, org_id: str) -> None:
+        self.org_id = org_id
+        super().__init__("Your free trial has expired. Please upgrade to continue.")
+
+    def to_response(self) -> dict[str, Any]:
+        """Build a JSON-serializable error response with upgrade prompt."""
+        return {
+            "error": str(self),
+            "code": "trial_expired",
+            "upgrade_url": "/pricing",
+            "upgrade_prompt": "Your free trial has expired. Upgrade to a paid plan to continue using Aragora.",
+        }
+
+
+def get_trial_status(org_id: str) -> TrialStatus:
+    """Get the trial status for an organization.
+
+    Args:
+        org_id: The organization ID to check.
+
+    Returns:
+        TrialStatus with expiry state and days remaining.
+        If the org cannot be resolved, returns a non-expired status
+        with 0 days remaining (graceful degradation).
+    """
+    org = _resolve_org(org_id)
+    if org is None:
+        # Check if the org was passed via a context-like object
+        return TrialStatus(is_expired=False, days_remaining=0)
+
+    if hasattr(org, "is_trial_expired") and org.is_trial_expired:
+        return TrialStatus(is_expired=True, days_remaining=0)
+
+    days = 0
+    if hasattr(org, "trial_days_remaining"):
+        days = org.trial_days_remaining
+
+    return TrialStatus(is_expired=False, days_remaining=days)
 
 
 # --- Error class for tier violations ----------------------------------------
@@ -242,6 +311,14 @@ def require_tier(
                     current_tier=org_tier,
                     feature=feature_name,
                 )
+            # For free-tier users, check trial expiry
+            if org_tier == "free":
+                org_id = getattr(context, "org_id", None)
+                if org_id and isinstance(org_id, str):
+                    org = _resolve_org(org_id)
+                    if org is not None and hasattr(org, "is_trial_expired"):
+                        if org.is_trial_expired:
+                            raise TrialExpiredError(org_id)
 
         @functools.wraps(func)
         def sync_wrapper(*args: P.args, **kwargs: P.kwargs) -> T:
@@ -333,6 +410,9 @@ __all__ = [
     "FEATURE_TIER_MAP",
     "tier_sufficient",
     "TierInsufficientError",
+    "TrialExpiredError",
+    "TrialStatus",
+    "get_trial_status",
     "require_tier",
     "DebateRateLimiter",
     "get_debate_rate_limiter",

@@ -196,6 +196,7 @@ export {
   type TeamMember,
   type SelectedTemplate,
   type OnboardingProgress,
+  type OnboardingChecklist,
   // Selectors
   selectIsOnboardingNeeded,
   selectCurrentStepIndex,

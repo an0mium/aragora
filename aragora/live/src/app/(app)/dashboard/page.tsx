@@ -9,6 +9,8 @@ import { fetchRecentDebates, type DebateArtifact } from '@/utils/supabase';
 import { getAgentColors } from '@/utils/agentColors';
 import { logger } from '@/utils/logger';
 import { CostSummaryWidget } from '@/components/costs/CostSummaryWidget';
+import { TrialStatusWidget } from '@/components/billing/TrialStatusWidget';
+import { TemplateMarketplace } from '@/components/templates/TemplateMarketplace';
 import { useSWRFetch } from '@/hooks/useSWRFetch';
 
 // Backend API response shape for debates list
@@ -310,6 +312,11 @@ export default function DashboardPage() {
           {/* Executive Summary KPIs */}
           <ExecutiveSummary refreshInterval={30000} />
 
+          {/* Trial / Subscription Status */}
+          <div className="mt-6">
+            <TrialStatusWidget />
+          </div>
+
           {/* Recent Activity Section */}
           <div className="mt-8 grid grid-cols-1 lg:grid-cols-2 gap-6">
             {/* Recent Debates */}
@@ -402,6 +409,9 @@ export default function DashboardPage() {
             <CostSummaryWidget />
           </div>
 
+          {/* Debate Templates */}
+          <TemplateMarketplace />
+
           {/* Feature Grid */}
           <div className="mt-8">
             <h3 className="text-sm font-mono text-[var(--acid-green)] mb-4">
@@ -420,6 +430,7 @@ export default function DashboardPage() {
                 { href: '/audit', label: 'Audit', icon: '', desc: 'Compliance' },
                 { href: '/connectors', label: 'Connectors', icon: '', desc: 'Data sources' },
                 { href: '/pulse', label: 'Pulse', icon: '', desc: 'Trending' },
+                { href: '/intelligence', label: 'Intelligence', icon: '', desc: 'Decision AI' },
                 { href: '/settings', label: 'Settings', icon: '', desc: 'Configure' },
               ].map((item) => (
                 <Link

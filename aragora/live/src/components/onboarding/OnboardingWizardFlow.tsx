@@ -6,7 +6,11 @@ import { useOnboardingStore, useOnboardingStep } from '@/store';
 import { useAuth } from '@/context/AuthContext';
 import { IndustryStep } from './steps/IndustryStep';
 import { TryDebateStep } from './steps/TryDebateStep';
-import { IntegrationSelector } from './IntegrationSelector';
+import { ChooseTemplateStep } from './steps/ChooseTemplateStep';
+import { WatchDemoStep } from './steps/WatchDemoStep';
+import { YourTurnStep } from './steps/YourTurnStep';
+import { ConnectChannelsStep } from './steps/ConnectChannelsStep';
+import { OnboardingChecklist } from './OnboardingChecklist';
 import { ProgressBar } from './ProgressBar';
 
 interface OnboardingWizardFlowProps {
@@ -18,14 +22,17 @@ const STEP_LABELS: Record<string, string> = {
   industry: '1. INDUSTRY',
   'try-debate': '2. TRY IT',
   'create-account': '3. ACCOUNT',
-  'connect-tools': '4. CONNECT',
-  launch: '5. LAUNCH',
+  'choose-template': '4. TEMPLATE',
+  'watch-demo': '5. DEMO',
+  'your-turn': '6. YOUR TURN',
+  'connect-channels': '7. CHANNELS',
+  launch: '8. LAUNCH',
 };
 
 /**
  * Progressive commitment onboarding flow.
  * Steps 1-2 require no auth. Step 3 is the auth transition.
- * Steps 4-5 require auth.
+ * Steps 4-8 guide the user through their first debate experience.
  */
 export function OnboardingWizardFlow({ onComplete, onSkip }: OnboardingWizardFlowProps) {
   const {
@@ -46,16 +53,21 @@ export function OnboardingWizardFlow({ onComplete, onSkip }: OnboardingWizardFlo
     previousStep,
     skipOnboarding,
     completeOnboarding,
+    updateChecklist,
   } = useOnboardingStore();
 
   const handleNext = useCallback(() => {
+    // Mark account as created when passing the create-account step while authenticated
+    if (currentStep === 'create-account' && isAuthenticated) {
+      updateChecklist({ accountCreated: true });
+    }
     if (isLastStep) {
       completeOnboarding();
       onComplete?.();
     } else {
       nextStep();
     }
-  }, [isLastStep, completeOnboarding, onComplete, nextStep]);
+  }, [currentStep, isAuthenticated, isLastStep, completeOnboarding, onComplete, nextStep, updateChecklist]);
 
   const handleBack = useCallback(() => {
     previousStep();
@@ -74,13 +86,14 @@ export function OnboardingWizardFlow({ onComplete, onSkip }: OnboardingWizardFlo
         return <TryDebateStep />;
       case 'create-account':
         return <CreateAccountStep isAuthenticated={isAuthenticated} />;
-      case 'connect-tools':
-        return (
-          <IntegrationSelector
-            onComplete={() => nextStep()}
-            onSkip={() => nextStep()}
-          />
-        );
+      case 'choose-template':
+        return <ChooseTemplateStep />;
+      case 'watch-demo':
+        return <WatchDemoStep />;
+      case 'your-turn':
+        return <YourTurnStep />;
+      case 'connect-channels':
+        return <ConnectChannelsStep />;
       case 'launch':
         return (
           <LaunchStep
@@ -110,11 +123,11 @@ export function OnboardingWizardFlow({ onComplete, onSkip }: OnboardingWizardFlo
           </div>
 
           {/* Step indicator pills */}
-          <div className="flex items-center gap-1 mb-2">
+          <div className="flex items-center gap-0.5 mb-2">
             {Object.entries(STEP_LABELS).map(([key, label], i) => (
               <div
                 key={key}
-                className={`flex-1 text-center text-[10px] font-mono py-1 border-b-2 transition-colors ${
+                className={`flex-1 text-center text-[9px] font-mono py-1 border-b-2 transition-colors ${
                   i < stepIndex
                     ? 'text-acid-green border-acid-green'
                     : i === stepIndex
@@ -143,7 +156,7 @@ export function OnboardingWizardFlow({ onComplete, onSkip }: OnboardingWizardFlo
               disabled={isFirstStep}
               className="px-4 py-2 text-sm font-mono text-text-muted hover:text-acid-green disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
             >
-              ← BACK
+              &larr; BACK
             </button>
 
             {/* For create-account step, show login link instead of continue when not authed */}
@@ -152,7 +165,7 @@ export function OnboardingWizardFlow({ onComplete, onSkip }: OnboardingWizardFlo
                 href="/signup"
                 className="px-6 py-2 bg-acid-green text-bg font-mono text-sm hover:bg-acid-green/90 transition-colors inline-block text-center"
               >
-                CREATE ACCOUNT →
+                CREATE ACCOUNT &rarr;
               </Link>
             ) : (
               <button
@@ -160,7 +173,7 @@ export function OnboardingWizardFlow({ onComplete, onSkip }: OnboardingWizardFlo
                 disabled={!canProceed}
                 className="px-6 py-2 bg-acid-green text-bg font-mono text-sm hover:bg-acid-green/90 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
               >
-                {isLastStep ? 'FINISH' : 'CONTINUE →'}
+                {isLastStep ? 'FINISH' : 'CONTINUE \u2192'}
               </button>
             )}
           </div>
@@ -183,7 +196,7 @@ function CreateAccountStep({ isAuthenticated }: { isAuthenticated: boolean }) {
           You&apos;re Signed In
         </h2>
         <p className="text-sm font-mono text-[var(--text-muted)]">
-          Great -- you&apos;re ready to connect your tools and launch a real debate.
+          Great -- you&apos;re ready to choose a template and run your first debate.
         </p>
       </div>
     );
@@ -234,7 +247,7 @@ function CreateAccountStep({ isAuthenticated }: { isAuthenticated: boolean }) {
 }
 
 /**
- * Step 5: Launch -- start a real debate with the same topic.
+ * Step 8: Launch -- finalize onboarding with checklist summary.
  */
 function LaunchStep({
   selectedIndustry,
@@ -246,6 +259,7 @@ function LaunchStep({
   onComplete?: () => void;
 }) {
   const completeOnboarding = useOnboardingStore((s) => s.completeOnboarding);
+  const chosenTemplateId = useOnboardingStore((s) => s.chosenTemplateId);
 
   const trialTopic = trialDebateResult
     ? String((trialDebateResult as Record<string, unknown>).topic || '')
@@ -256,20 +270,25 @@ function LaunchStep({
     onComplete?.();
   };
 
-  const arenaUrl = trialTopic
+  const arenaUrl = chosenTemplateId
+    ? `/arena?template=${encodeURIComponent(chosenTemplateId)}${selectedIndustry ? `&vertical=${selectedIndustry}` : ''}`
+    : trialTopic
     ? `/arena?topic=${encodeURIComponent(trialTopic)}${selectedIndustry ? `&vertical=${selectedIndustry}` : ''}`
     : `/arena${selectedIndustry ? `?vertical=${selectedIndustry}` : ''}`;
 
   return (
-    <div className="space-y-6 text-center py-4">
-      <div>
+    <div className="space-y-6 py-4">
+      <div className="text-center">
         <h2 className="text-xl font-mono text-[var(--acid-green)] mb-2">
           Ready to Launch
         </h2>
         <p className="text-sm font-mono text-[var(--text-muted)]">
-          Everything is set up. Start a real multi-agent debate with your topic.
+          Everything is set up. Here is your onboarding progress.
         </p>
       </div>
+
+      {/* Onboarding checklist */}
+      <OnboardingChecklist />
 
       {trialTopic && (
         <div className="border border-[var(--border)] bg-[var(--surface)] p-4 text-left">
@@ -280,7 +299,7 @@ function LaunchStep({
         </div>
       )}
 
-      <div className="flex flex-col gap-3">
+      <div className="flex flex-col gap-3 text-center">
         <Link
           href={arenaUrl}
           onClick={handleLaunch}

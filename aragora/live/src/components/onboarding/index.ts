@@ -12,6 +12,7 @@ export { OnboardingWizardFlow } from './OnboardingWizardFlow';
 
 // Shared components
 export { ProgressBar } from './ProgressBar';
+export { OnboardingChecklist } from './OnboardingChecklist';
 
 // Individual step components
 export { WelcomeStep } from './WelcomeStep';
@@ -35,4 +36,8 @@ export {
   OrganizationStep,
   TemplateStep,
   CompletionStep as EnhancedCompletionStep,
+  ChooseTemplateStep,
+  WatchDemoStep,
+  YourTurnStep,
+  ConnectChannelsStep,
 } from './steps';

@@ -262,6 +262,7 @@ class AnalyticsPerformanceHandler(BaseHandler):
             return json_response(
                 {
                     "time_range": time_range,
+                    "org_id": org_id,
                     "total_agents": 0,
                     "agents": [],
                     "summary": {
