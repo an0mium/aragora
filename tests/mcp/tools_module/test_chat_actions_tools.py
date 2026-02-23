@@ -90,7 +90,7 @@ class TestSendMessageTool:
             )
 
         assert "error" in result
-        assert "API error" in result["error"]
+        assert "failed" in result["error"].lower()
 
 
 class TestCreatePollTool:

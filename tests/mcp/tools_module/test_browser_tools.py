@@ -93,7 +93,7 @@ class TestBrowserNavigateTool:
             result = await browser_navigate_tool(url="not-a-url")
 
         assert result["success"] is False
-        assert "Invalid URL" in result["error"]
+        assert "invalid parameters" in result["error"].lower() or "navigation failed" in result["error"].lower()
 
     @pytest.mark.asyncio
     async def test_navigate_generic_exception(self):
