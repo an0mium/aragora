@@ -21,7 +21,6 @@ from __future__ import annotations
 
 import hashlib
 import logging
-import sqlite3
 import threading
 from collections import OrderedDict
 

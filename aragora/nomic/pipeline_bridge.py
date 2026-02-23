@@ -40,7 +40,7 @@ from aragora.nomic.task_decomposer import SubTask, TaskDecomposition
 
 if TYPE_CHECKING:
     from aragora.nomic.autonomous_orchestrator import OrchestrationResult
-    from aragora.pipeline.universal_node import UniversalEdge, UniversalGraph, UniversalNode
+    from aragora.pipeline.universal_node import UniversalGraph
 
 logger = logging.getLogger(__name__)
 
@@ -200,7 +200,7 @@ class NomicPipelineBridge:
         Returns:
             A DecisionPlan ready for approval and execution.
         """
-        from aragora.implement.types import ImplementPlan, ImplementTask
+        from aragora.implement.types import ImplementPlan
         from aragora.pipeline.decision_plan.core import ApprovalMode
         from aragora.pipeline.decision_plan.factory import DecisionPlanFactory
 
@@ -440,7 +440,7 @@ class NomicPipelineBridge:
         Returns:
             A UniversalGraph ready for /pipeline visualization.
         """
-        from aragora.canvas.stages import PipelineStage, StageEdgeType, content_hash
+        from aragora.canvas.stages import PipelineStage, StageEdgeType
         from aragora.pipeline.universal_node import UniversalEdge, UniversalGraph, UniversalNode
 
         graph = UniversalGraph(

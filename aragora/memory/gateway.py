@@ -25,7 +25,7 @@ import time
 from dataclasses import dataclass, field
 from typing import TYPE_CHECKING, Any
 
-from aragora.memory.dedup import CrossSystemDedupEngine, dedup_results
+from aragora.memory.dedup import CrossSystemDedupEngine
 from aragora.memory.gateway_config import MemoryGatewayConfig
 
 if TYPE_CHECKING:

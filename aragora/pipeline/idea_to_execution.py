@@ -38,7 +38,6 @@ from typing import Any
 from aragora.canvas.converters import (
     debate_to_ideas_canvas,
     execution_to_orchestration_canvas,
-    goals_to_canvas,
     to_react_flow,
     workflow_to_actions_canvas,
 )
@@ -50,7 +49,7 @@ from aragora.canvas.stages import (
     StageTransition,
     content_hash,
 )
-from aragora.goals.extractor import GoalExtractionConfig, GoalExtractor, GoalGraph, GoalNode
+from aragora.goals.extractor import GoalExtractionConfig, GoalExtractor, GoalGraph
 
 logger = logging.getLogger(__name__)
 
@@ -63,7 +62,7 @@ def _spectate(event_type: str, details: str) -> None:
     module-level instance is reused across calls to avoid repeated allocations.
     """
     try:
-        from aragora.spectate.stream import SpectatorStream
+        from aragora.spectate.stream import SpectatorStream  # noqa: F401
 
         stream = _get_spectator_stream()
         stream.emit(event_type=event_type, details=details)
@@ -468,7 +467,7 @@ class IdeaToExecutionPipeline:
         )
         # Add idea nodes to canvas
         from aragora.canvas.converters import _radial_layout
-        from aragora.canvas.models import CanvasNode, CanvasNodeType, Position, Size
+        from aragora.canvas.models import CanvasNode, CanvasNodeType, Position
 
         positions = _radial_layout(len(ideas))
         for i, idea in enumerate(ideas):

@@ -145,7 +145,7 @@ class VerticalProfileSkill(Skill):
         # Check compliance artifacts
         if self._config.compliance_frameworks:
             try:
-                from aragora.compliance.eu_ai_act import ComplianceArtifactGenerator
+                from aragora.compliance.eu_ai_act import ComplianceArtifactGenerator  # noqa: F401
                 checks.append({"check": "compliance_generator", "status": "pass"})
             except ImportError:
                 checks.append({"check": "compliance_generator", "status": "skip",

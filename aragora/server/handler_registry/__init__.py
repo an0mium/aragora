@@ -30,7 +30,6 @@ from __future__ import annotations
 import asyncio
 import json
 import logging
-import threading
 from typing import TYPE_CHECKING, Any, BinaryIO
 from collections.abc import Callable
 

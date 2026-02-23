@@ -10,10 +10,8 @@ Endpoints for recording, querying, and analyzing decision outcomes:
 
 from __future__ import annotations
 
-import hashlib
 import json
 import logging
-import time
 import uuid
 from collections import OrderedDict
 from datetime import datetime, timezone
@@ -25,7 +23,6 @@ from ..base import (
     handle_errors,
     json_response,
 )
-from ..utils.decorators import require_permission
 from ..utils.rate_limit import rate_limit
 
 logger = logging.getLogger(__name__)

@@ -9,9 +9,8 @@ from __future__ import annotations
 
 import logging
 import uuid
-from typing import Any
 
-from .models import Canvas, CanvasEdge, CanvasNode, CanvasNodeType, EdgeType, Position, Size
+from .models import Canvas, CanvasNode, CanvasNodeType, Position, Size
 from .stages import (
     NODE_TYPE_COLORS,
     PipelineStage,

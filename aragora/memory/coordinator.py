@@ -1348,7 +1348,6 @@ class MemoryCoordinator:
         max_targets: int,
     ) -> list[str]:
         """Find and penalize related KM entries."""
-        from aragora.knowledge.mound.ops.confidence_decay import ConfidenceEvent
 
         # Query KM for items matching the content keywords
         query_text = " ".join(list(content_keywords)[:10])

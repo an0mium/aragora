@@ -7,7 +7,6 @@ This module handles OAuth2 installation flow for Slack apps including:
 - Token storage and management
 """
 
-import json
 import logging
 import os
 from typing import Any

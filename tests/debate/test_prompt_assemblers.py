@@ -81,6 +81,9 @@ class ConcreteAssembler(PromptAssemblyMixin):
     def get_knowledge_mound_context(self):
         return ""
 
+    def get_outcome_context(self):
+        return ""
+
     def get_codebase_context(self):
         return ""
 

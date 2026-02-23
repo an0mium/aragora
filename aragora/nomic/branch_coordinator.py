@@ -27,7 +27,7 @@ from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
-from collections.abc import Callable, Coroutine
+from collections.abc import Callable
 
 from aragora.nomic.meta_planner import PrioritizedGoal, Track
 

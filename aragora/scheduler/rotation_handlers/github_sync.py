@@ -10,7 +10,6 @@ from __future__ import annotations
 import base64
 import logging
 import os
-from typing import Any
 
 logger = logging.getLogger(__name__)
 
@@ -64,9 +63,6 @@ class GitHubSecretsSyncBackend:
                 "iss": app_id,
             }
             encoded_jwt = jwt.encode(payload, private_key, algorithm="RS256")
-
-            from aragora.server.http_client_pool import get_http_pool
-            import asyncio
 
             # This is sync context, but we need async HTTP. Use a simple httpx call.
             import httpx

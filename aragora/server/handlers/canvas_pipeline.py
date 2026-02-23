@@ -924,7 +924,6 @@ class CanvasPipelineHandler:
             # If no raw data provided, try loading from store
             if not canvas_data and canvas_id:
                 try:
-                    from aragora.canvas.idea_store import get_idea_canvas_store
                     from aragora.canvas import get_canvas_manager
 
                     manager = get_canvas_manager()

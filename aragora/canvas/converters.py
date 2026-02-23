@@ -21,10 +21,8 @@ from typing import Any
 from .models import Canvas, CanvasEdge, CanvasNode, CanvasNodeType, EdgeType, Position, Size
 from .stages import (
     NODE_TYPE_COLORS,
-    STAGE_COLORS,
     PipelineStage,
     ProvenanceLink,
-    StageEdgeType,
     content_hash,
 )
 

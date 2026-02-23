@@ -52,7 +52,7 @@ async def rotate_elevenlabs_key(
         New API key string, or None on failure.
     """
     try:
-        import httpx
+        import httpx  # noqa: F401
     except ImportError:
         logger.error("httpx required for ElevenLabs rotation. Install with: pip install httpx")
         return None

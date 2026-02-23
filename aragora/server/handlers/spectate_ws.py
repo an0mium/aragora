@@ -18,7 +18,6 @@ from typing import Any
 from .base import (
     BaseHandler,
     HandlerResult,
-    error_response,
     handle_errors,
     json_response,
 )

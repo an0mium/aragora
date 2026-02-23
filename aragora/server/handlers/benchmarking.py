@@ -21,7 +21,6 @@ from .base import (
     handle_errors,
     json_response,
 )
-from .utils.decorators import require_permission
 
 logger = logging.getLogger(__name__)
 
@@ -79,7 +78,6 @@ class BenchmarkingHandler(BaseHandler):
                 400,
             )
 
-        from aragora.analytics.benchmarking import BenchmarkAggregator
 
         aggregator = self._get_aggregator()
         benchmarks = aggregator.get_benchmarks(industry, team_size, decision_type)

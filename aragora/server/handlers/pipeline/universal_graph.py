@@ -20,7 +20,6 @@ Provides CRUD and query endpoints for UniversalGraph objects:
 
 from __future__ import annotations
 
-import json
 import logging
 import uuid
 from typing import Any
@@ -38,7 +37,6 @@ from ..base import (
     validate_path_segment,
     handle_errors,
 )
-from ..utils.decorators import require_permission
 from ..utils.rate_limit import RateLimiter, get_client_ip
 
 logger = logging.getLogger(__name__)

@@ -24,7 +24,6 @@ if TYPE_CHECKING:
     from aragora.knowledge.mound.adapters.belief_adapter import BeliefAdapter
 
 from aragora.rbac.checker import get_permission_checker
-from aragora.rbac.decorators import require_permission
 from aragora.rbac.models import AuthorizationContext
 from aragora.server.validation import validate_debate_id, validate_id
 from aragora.server.versioning.compat import strip_version_prefix

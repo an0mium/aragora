@@ -14,7 +14,7 @@ import logging
 from typing import Any
 
 from aragora.canvas.stages import PipelineStage
-from aragora.pipeline.universal_node import UniversalGraph, UniversalNode
+from aragora.pipeline.universal_node import UniversalGraph
 
 logger = logging.getLogger(__name__)
 

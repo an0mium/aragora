@@ -23,7 +23,6 @@ from aragora.server.versioning.compat import strip_version_prefix
 
 from ..base import (
     SAFE_ID_PATTERN,
-    BaseHandler,
     HandlerResult,
     error_response,
     handle_errors,

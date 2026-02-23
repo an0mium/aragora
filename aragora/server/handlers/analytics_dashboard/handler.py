@@ -16,7 +16,6 @@ from ._shared import (
     PERM_ANALYTICS_COST,
     PERM_ANALYTICS_DELIBERATIONS,
     PERM_ANALYTICS_FLIPS,
-    PERM_ANALYTICS_READ,
     PERM_ANALYTICS_TOKENS,
     RBAC_AVAILABLE,
     AuthorizationContext,
@@ -30,7 +29,6 @@ from ._shared import (
     PermissionDeniedError,
     rate_limit,
     record_rbac_check,
-    require_permission,
     strip_version_prefix,
 )
 from .agents import AgentAnalyticsMixin

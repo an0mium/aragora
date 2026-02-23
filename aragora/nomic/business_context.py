@@ -7,7 +7,6 @@ revenue relevance, unblocking potential, and tech debt importance.
 from __future__ import annotations
 
 import logging
-import re
 from dataclasses import dataclass, field
 from typing import Any
 

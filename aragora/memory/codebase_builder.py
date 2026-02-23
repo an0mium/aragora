@@ -13,7 +13,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
-from aragora.memory.fabric import FabricResult, MemoryFabric, RememberResult
+from aragora.memory.fabric import FabricResult, MemoryFabric
 from aragora.memory.surprise import ContentSurpriseScorer
 
 logger = logging.getLogger(__name__)

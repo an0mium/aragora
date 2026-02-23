@@ -14,14 +14,12 @@ Key concepts:
 from __future__ import annotations
 
 import logging
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from typing import Any
 
 from aragora.memory.surprise import (
     ContentSurpriseScorer,
     SurpriseScorer,
-    calculate_surprise,
-    update_surprise_ema,
     DEFAULT_SURPRISE_ALPHA,
 )
 

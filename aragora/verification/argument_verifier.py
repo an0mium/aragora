@@ -46,8 +46,6 @@ from aragora.verification.formal import (
 )
 from aragora.visualization.mapper import (
     ArgumentCartographer,
-    ArgumentEdge,
-    ArgumentNode,
     EdgeRelation,
     NodeType,
 )
