@@ -113,7 +113,7 @@ def patterns_handler(handler_module):
 @pytest.fixture
 def pattern_templates_handler(handler_module):
     """Create a WorkflowPatternTemplatesHandler instance."""
-    return handler_module.WorkflowPatternTemplatesHandler(ctx={})
+    return handler_module.WorkflowPatternTemplatesHandler(server_context={})
 
 
 @pytest.fixture
@@ -131,9 +131,11 @@ def sme_handler(handler_module):
 @pytest.fixture(autouse=True)
 def _reset_rate_limiter(handler_module):
     """Reset the module-level rate limiter between tests."""
-    handler_module._template_limiter._buckets = {}
+    from collections import defaultdict
+
+    handler_module._template_limiter._buckets = defaultdict(list)
     yield
-    handler_module._template_limiter._buckets = {}
+    handler_module._template_limiter._buckets = defaultdict(list)
 
 
 # ---------------------------------------------------------------------------
@@ -1758,7 +1760,7 @@ class TestAsyncWorkflowExecution:
         from unittest.mock import AsyncMock
         mock_engine.execute = AsyncMock(return_value=mock_result)
 
-        mock_execution = {}
+        mock_execution = {"id": "exec-1", "status": "running"}
         mock_store.get_execution.return_value = mock_execution
 
         await handler_module._execute_workflow_async(
@@ -1901,7 +1903,7 @@ class TestHandlerConstructors:
         assert handler.ctx == ctx
 
     def test_pattern_templates_handler_with_empty_ctx(self, handler_module):
-        handler = handler_module.WorkflowPatternTemplatesHandler(ctx={})
+        handler = handler_module.WorkflowPatternTemplatesHandler(server_context={})
         assert handler is not None
 
     def test_sme_handler_with_ctx(self, handler_module):

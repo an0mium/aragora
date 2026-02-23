@@ -14,6 +14,11 @@ Pattern-based workflow templates:
 - HiveMind: Parallel agent execution with consensus merge
 - MapReduce: Split work, parallel processing, aggregate results
 - ReviewCycle: Iterative refinement with convergence check
+
+Vertical playbook templates (catalog/verticals/):
+- Healthcare: HIPAA/HITECH clinical decision playbook with evidence grading
+- Financial: SOX/Basel III/MiFID II regulatory decision playbook
+- Legal: Precedent-driven analysis with privilege preservation
 """
 
 from __future__ import annotations
@@ -106,6 +111,12 @@ from aragora.workflow.templates.decision import (
     create_sme_decision_template,
     create_quick_decision_template,
 )
+from aragora.workflow.templates.catalog.verticals import (
+    HEALTHCARE_CLINICAL_DECISION_TEMPLATE,
+    FINANCIAL_REGULATORY_DECISION_TEMPLATE,
+    LEGAL_ANALYSIS_DECISION_TEMPLATE,
+    VERTICAL_TEMPLATES,
+)
 
 # Template registry
 WORKFLOW_TEMPLATES = {
@@ -147,6 +158,8 @@ WORKFLOW_TEMPLATES = {
     "ecommerce/order-sync": ECOMMERCE_ORDER_SYNC_TEMPLATE,
     # Decision Pipeline
     **DECISION_TEMPLATES,
+    # Vertical Playbooks
+    **VERTICAL_TEMPLATES,
     # Note: Pattern templates (hive-mind, map-reduce, review-cycle) are not included
     # in WORKFLOW_TEMPLATES as they are factory patterns with a different schema.
     # Use PATTERN_TEMPLATES or create_*_workflow() functions instead.
@@ -280,4 +293,9 @@ __all__ = [
     "DECISION_TEMPLATES",
     "create_sme_decision_template",
     "create_quick_decision_template",
+    # Vertical Playbook Templates
+    "HEALTHCARE_CLINICAL_DECISION_TEMPLATE",
+    "FINANCIAL_REGULATORY_DECISION_TEMPLATE",
+    "LEGAL_ANALYSIS_DECISION_TEMPLATE",
+    "VERTICAL_TEMPLATES",
 ]
