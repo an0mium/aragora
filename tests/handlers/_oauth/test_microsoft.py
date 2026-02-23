@@ -1037,14 +1037,8 @@ class TestGetMicrosoftUserInfoSync:
             "aragora.server.handlers._oauth.microsoft.urlopen",
             return_value=resp,
         ):
-            try:
-                result = handler._get_microsoft_user_info("access-token")
-                if asyncio.iscoroutine(result):
-                    result.close()
-                    pytest.skip("Running in async context")
-                pytest.fail("Expected ValueError")
-            except ValueError as e:
-                assert "email" in str(e).lower()
+            with pytest.raises(ValueError, match="(?i)email"):
+                handler._get_microsoft_user_info("access-token")
 
     def test_email_without_at_raises_value_error(self, handler, impl):
         """When email does not contain '@', ValueError is raised."""
@@ -1059,14 +1053,8 @@ class TestGetMicrosoftUserInfoSync:
             "aragora.server.handlers._oauth.microsoft.urlopen",
             return_value=resp,
         ):
-            try:
-                result = handler._get_microsoft_user_info("access-token")
-                if asyncio.iscoroutine(result):
-                    result.close()
-                    pytest.skip("Running in async context")
-                pytest.fail("Expected ValueError")
-            except ValueError as e:
-                assert "email" in str(e).lower()
+            with pytest.raises(ValueError, match="(?i)email"):
+                handler._get_microsoft_user_info("access-token")
 
     def test_missing_id_raises_value_error(self, handler, impl):
         """When user data has no 'id' field, ValueError is raised."""
@@ -1080,14 +1068,8 @@ class TestGetMicrosoftUserInfoSync:
             "aragora.server.handlers._oauth.microsoft.urlopen",
             return_value=resp,
         ):
-            try:
-                result = handler._get_microsoft_user_info("access-token")
-                if asyncio.iscoroutine(result):
-                    result.close()
-                    pytest.skip("Running in async context")
-                pytest.fail("Expected ValueError")
-            except ValueError as e:
-                assert "id" in str(e).lower()
+            with pytest.raises(ValueError, match="(?i)id"):
+                handler._get_microsoft_user_info("access-token")
 
     def test_sends_bearer_authorization_header(self, handler, impl):
         """Sync path sends Bearer token in Authorization header."""

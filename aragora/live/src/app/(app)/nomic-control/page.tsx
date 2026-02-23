@@ -484,6 +484,7 @@ export default function NomicControlPage() {
                 <div className="animate-pulse font-mono text-text-muted">Loading...</div>
               </div>
             ) : (
+              <>
               <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
                 {/* Left Column - Status and Controls */}
                 <div className="lg:col-span-2 space-y-6">
@@ -813,6 +814,7 @@ export default function NomicControlPage() {
                   </PanelErrorBoundary>
                 </div>
               </div>
+              </>
             )}
           </PanelErrorBoundary>
         </div>

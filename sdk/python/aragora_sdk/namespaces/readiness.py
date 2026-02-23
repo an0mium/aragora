@@ -26,6 +26,14 @@ class ReadinessAPI:
         """
         return self._client.request("GET", "/api/v1/readiness")
 
+    def health(self) -> dict[str, Any]:
+        """Get health check status (lightweight liveness probe)."""
+        return self._client.request("GET", "/api/v1/health")
+
+    def detailed(self) -> dict[str, Any]:
+        """Get detailed health with subsystem diagnostics."""
+        return self._client.request("GET", "/api/v1/health/detailed")
+
 
 class AsyncReadinessAPI:
     """Asynchronous Readiness API."""
@@ -36,3 +44,11 @@ class AsyncReadinessAPI:
     async def check(self) -> dict[str, Any]:
         """Check system readiness status."""
         return await self._client.request("GET", "/api/v1/readiness")
+
+    async def health(self) -> dict[str, Any]:
+        """Get health check status (lightweight liveness probe)."""
+        return await self._client.request("GET", "/api/v1/health")
+
+    async def detailed(self) -> dict[str, Any]:
+        """Get detailed health with subsystem diagnostics."""
+        return await self._client.request("GET", "/api/v1/health/detailed")

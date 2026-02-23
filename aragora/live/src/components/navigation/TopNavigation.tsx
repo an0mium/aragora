@@ -78,6 +78,7 @@ export const USE_CASE_TABS: NavTab[] = [
       { label: 'Incident Analysis', href: '/gauntlet/incident', icon: '!', description: 'Root cause analysis' },
       { label: 'Graph Debate', href: '/debates/graph', icon: '*', description: 'Multi-agent topology', advancedOnly: true },
       { label: 'Design Review', href: '/architecture/review', icon: '?', advancedOnly: true },
+      { label: 'Nomic Loop', href: '/nomic-control', icon: '@', description: 'Self-improvement observatory' },
     ],
   },
   {
@@ -92,6 +93,20 @@ export const USE_CASE_TABS: NavTab[] = [
       { label: 'Knowledge Base', href: '/knowledge', icon: '?', description: 'Search synthesized insights' },
       { label: 'Evidence', href: '/evidence', icon: '|', description: 'Source chain tracking', advancedOnly: true },
       { label: 'Gallery', href: '/gallery', icon: '*', description: 'Public research debates' },
+      { label: 'MCP Tools', href: '/tools', icon: '>', description: 'Explore 70+ AI tools' },
+    ],
+  },
+  {
+    id: 'intelligence',
+    label: 'Intelligence',
+    icon: '*',
+    description: 'Memory, knowledge, and cross-debate learning',
+    href: '/intelligence',
+    subItems: [
+      { label: 'Overview', href: '/intelligence', icon: '#' },
+      { label: 'Memory', href: '/memory', icon: '~' },
+      { label: 'Knowledge', href: '/knowledge', icon: '?' },
+      { label: 'Facts', href: '/intelligence#facts', icon: '|' },
     ],
   },
   {
@@ -299,6 +314,9 @@ function getActiveTab(pathname: string): NavTab | null {
     '/gallery': 'research',
     '/verticals': 'industry',
     '/evidence': 'research',
+    '/intelligence': 'intelligence',
+    '/tools': 'research',
+    '/nomic-control': 'architecture',
   };
 
   for (const [prefix, tabId] of Object.entries(routeTabMap)) {

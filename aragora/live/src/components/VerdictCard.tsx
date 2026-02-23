@@ -133,6 +133,18 @@ export function VerdictCard({ events, debateId, apiUrl }: VerdictCardProps) {
         </div>
       </div>
 
+      {/* Hollow Consensus Warning */}
+      {events.filter((e) => e.type === 'hollow_consensus').length > 0 && (
+        <div className="mx-4 mt-3 p-3 border border-acid-yellow/50 bg-acid-yellow/10 rounded">
+          <div className="flex items-center gap-2">
+            <span className="text-acid-yellow font-mono text-sm font-bold">[!] HOLLOW CONSENSUS</span>
+          </div>
+          <p className="text-xs font-mono text-acid-yellow/80 mt-1">
+            Agents may have converged superficially without genuine agreement. Review individual positions carefully.
+          </p>
+        </div>
+      )}
+
       {/* Content */}
       <div className="p-4">
         {/* Recommendation */}

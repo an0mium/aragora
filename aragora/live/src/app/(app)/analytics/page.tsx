@@ -96,6 +96,207 @@ interface TopicData {
   avg_rounds: number;
 }
 
+/* ── Consensus Donut Chart ─────────────────────────────────────────── */
+
+function ConsensusDonut({
+  outcomes,
+}: {
+  outcomes: ConsensusOutcomeData['outcomes'];
+}) {
+  const total =
+    outcomes.consensus + outcomes.no_consensus + outcomes.timeout + outcomes.error;
+  if (total === 0) {
+    return (
+      <svg viewBox="0 0 200 200" className="w-48 h-48">
+        <circle
+          cx="100"
+          cy="100"
+          r="70"
+          fill="none"
+          stroke="#374151"
+          strokeWidth="20"
+        />
+        <text
+          x="100"
+          y="105"
+          textAnchor="middle"
+          className="fill-text-muted"
+          fontSize="14"
+          fontFamily="monospace"
+        >
+          No data
+        </text>
+      </svg>
+    );
+  }
+
+  const segments = [
+    { value: outcomes.consensus, color: '#22c55e' },
+    { value: outcomes.no_consensus, color: '#ef4444' },
+    { value: outcomes.timeout, color: '#eab308' },
+    { value: outcomes.error, color: '#6b7280' },
+  ];
+
+  const circumference = 2 * Math.PI * 70;
+  let offset = 0;
+  const arcs: ReactNode[] = [];
+
+  for (const seg of segments) {
+    if (seg.value === 0) continue;
+    const pct = seg.value / total;
+    const dashLen = pct * circumference;
+    arcs.push(
+      <circle
+        key={seg.color}
+        cx="100"
+        cy="100"
+        r="70"
+        fill="none"
+        stroke={seg.color}
+        strokeWidth="20"
+        strokeDasharray={`${dashLen} ${circumference - dashLen}`}
+        strokeDashoffset={-offset}
+        transform="rotate(-90 100 100)"
+      />
+    );
+    offset += dashLen;
+  }
+
+  return (
+    <svg viewBox="0 0 200 200" className="w-48 h-48">
+      {arcs}
+      <text
+        x="100"
+        y="98"
+        textAnchor="middle"
+        className="fill-acid-green"
+        fontSize="22"
+        fontFamily="monospace"
+        fontWeight="bold"
+      >
+        {((outcomes.consensus / total) * 100).toFixed(0)}%
+      </text>
+      <text
+        x="100"
+        y="116"
+        textAnchor="middle"
+        className="fill-text-muted"
+        fontSize="10"
+        fontFamily="monospace"
+      >
+        consensus
+      </text>
+    </svg>
+  );
+}
+
+function DonutLegendItem({
+  color,
+  label,
+  value,
+}: {
+  color: string;
+  label: string;
+  value: number;
+}) {
+  return (
+    <div className="flex items-center gap-3">
+      <span
+        className="inline-block w-3 h-3 rounded-sm"
+        style={{ backgroundColor: color }}
+      />
+      <span className="text-text">{label}</span>
+      <span className="text-text-muted ml-auto">{value}</span>
+    </div>
+  );
+}
+
+/* ── Topic Table ──────────────────────────────────────────────────── */
+
+type TopicSortKey = 'topic' | 'debate_count' | 'consensus_rate' | 'avg_rounds';
+
+function TopicTable({ topics }: { topics: TopicData[] }) {
+  const [sortKey, setSortKey] = useState<TopicSortKey>('debate_count');
+  const [sortAsc, setSortAsc] = useState(false);
+
+  const sorted = useMemo(() => {
+    const copy = [...topics];
+    copy.sort((a, b) => {
+      const av = a[sortKey];
+      const bv = b[sortKey];
+      if (typeof av === 'string' && typeof bv === 'string')
+        return sortAsc ? av.localeCompare(bv) : bv.localeCompare(av);
+      return sortAsc ? (av as number) - (bv as number) : (bv as number) - (av as number);
+    });
+    return copy;
+  }, [topics, sortKey, sortAsc]);
+
+  const handleSort = (key: TopicSortKey) => {
+    if (key === sortKey) {
+      setSortAsc(!sortAsc);
+    } else {
+      setSortKey(key);
+      setSortAsc(false);
+    }
+  };
+
+  const sortIndicator = (key: TopicSortKey) =>
+    sortKey === key ? (sortAsc ? ' ^' : ' v') : '';
+
+  const rateColor = (rate: number) => {
+    if (rate > 70) return 'text-green-400';
+    if (rate > 50) return 'text-yellow-400';
+    return 'text-red-400';
+  };
+
+  return (
+    <table className="w-full font-mono text-sm">
+      <thead>
+        <tr className="border-b border-acid-green/30">
+          {(
+            [
+              ['topic', 'Topic'],
+              ['debate_count', 'Debates'],
+              ['consensus_rate', 'Consensus Rate'],
+              ['avg_rounds', 'Avg Rounds'],
+            ] as [TopicSortKey, string][]
+          ).map(([key, label]) => (
+            <th
+              key={key}
+              onClick={() => handleSort(key)}
+              className={`py-2 px-3 text-acid-green cursor-pointer select-none hover:text-acid-cyan transition-colors ${
+                key === 'topic' ? 'text-left' : 'text-right'
+              }`}
+            >
+              {label}
+              {sortIndicator(key)}
+            </th>
+          ))}
+        </tr>
+      </thead>
+      <tbody>
+        {sorted.map((t, i) => (
+          <tr
+            key={t.topic}
+            className={`border-b border-acid-green/10 ${
+              i % 2 === 0 ? 'bg-acid-green/5' : ''
+            }`}
+          >
+            <td className="py-2 px-3 text-acid-cyan">{t.topic}</td>
+            <td className="py-2 px-3 text-right text-text">{t.debate_count}</td>
+            <td className={`py-2 px-3 text-right ${rateColor(t.consensus_rate)}`}>
+              {t.consensus_rate.toFixed(1)}%
+            </td>
+            <td className="py-2 px-3 text-right text-text-muted">
+              {t.avg_rounds.toFixed(1)}
+            </td>
+          </tr>
+        ))}
+      </tbody>
+    </table>
+  );
+}
+
 export default function AnalyticsPage() {
   const { config: backendConfig } = useBackend();
   // Client available for future SDK-based fetching

@@ -1,464 +1,372 @@
 'use client';
 
-import { useState } from 'react';
-import Link from 'next/link';
-import { useAuth } from '@/context/AuthContext';
-import { UsageChart } from '@/components/admin/UsageChart';
-import type { DataPoint } from '@/components/admin/UsageChart';
+import { useState, useCallback } from 'react';
+import { Scanlines, CRTVignette } from '@/components/MatrixRain';
+import { useBackend } from '@/components/BackendSelector';
+import { PanelErrorBoundary } from '@/components/PanelErrorBoundary';
+import { useAsyncData } from '@/hooks/useAsyncData';
+import { MemoryTierViz } from '@/components/intelligence/MemoryTierViz';
+import { PressureGauge } from '@/components/intelligence/PressureGauge';
+import { KnowledgeDashboard } from '@/components/intelligence/KnowledgeDashboard';
+import { FactsBrowser } from '@/components/intelligence/FactsBrowser';
 
-// ---------------------------------------------------------------------------
-// Mock data -- will be replaced by real API calls once endpoints are wired
-// ---------------------------------------------------------------------------
+type TabType = 'memory' | 'knowledge' | 'search';
 
-interface AgentPerformance {
+interface TierStats {
   name: string;
-  elo: number;
-  winRate: number;
-  acceptanceRate: number;
-  totalDebates: number;
+  count: number;
+  avg_importance: number;
+  size_bytes: number;
 }
 
-const MOCK_TOP_AGENTS: AgentPerformance[] = [
-  { name: 'claude-3-opus', elo: 1847, winRate: 0.72, acceptanceRate: 0.81, totalDebates: 412 },
-  { name: 'gpt-4-turbo', elo: 1793, winRate: 0.68, acceptanceRate: 0.76, totalDebates: 389 },
-  { name: 'gemini-pro', elo: 1721, winRate: 0.61, acceptanceRate: 0.69, totalDebates: 274 },
-  { name: 'mistral-large', elo: 1688, winRate: 0.58, acceptanceRate: 0.65, totalDebates: 198 },
-  { name: 'grok-2', elo: 1654, winRate: 0.55, acceptanceRate: 0.62, totalDebates: 153 },
-];
+interface PressureData {
+  pressure: number;
+  by_tier?: Record<string, number>;
+  recommendation?: string;
+}
 
-const MOCK_TOPICS = [
-  { topic: 'Technical Architecture', count: 87, consensusRate: 0.82, avgConfidence: 0.88 },
-  { topic: 'Risk Assessment', count: 64, consensusRate: 0.71, avgConfidence: 0.79 },
-  { topic: 'Product Strategy', count: 52, consensusRate: 0.65, avgConfidence: 0.74 },
-  { topic: 'Hiring Decisions', count: 41, consensusRate: 0.58, avgConfidence: 0.71 },
-  { topic: 'Budget Allocation', count: 38, consensusRate: 0.76, avgConfidence: 0.83 },
-  { topic: 'Compliance Review', count: 29, consensusRate: 0.89, avgConfidence: 0.91 },
-];
+interface KnowledgeStats {
+  coverage: number;
+  quality: number;
+  total_nodes: number;
+  contradictions: number;
+  top_queries?: string[];
+  recommendations?: string[];
+}
 
-const MOCK_INSIGHTS = [
-  {
-    id: 'insight-1',
-    text: 'Teams reach consensus 23% faster on technical decisions when including a devil\'s advocate agent.',
-    category: 'consensus',
-    impact: 'high' as const,
-  },
-  {
-    id: 'insight-2',
-    text: 'Risk assessments with 4+ agents have 15% higher confidence than those with 2.',
-    category: 'confidence',
-    impact: 'high' as const,
-  },
-  {
-    id: 'insight-3',
-    text: 'Monday decisions have lower confidence scores than Friday decisions on average.',
-    category: 'timing',
-    impact: 'medium' as const,
-  },
-  {
-    id: 'insight-4',
-    text: 'Debates that reference KnowledgeMound entries reach consensus in 1.4 fewer rounds.',
-    category: 'knowledge',
-    impact: 'high' as const,
-  },
-];
+interface FactEntry {
+  id: string;
+  content: string;
+  confidence: number;
+  verified: boolean;
+  source?: string;
+  created_at: string;
+}
 
-const MOCK_NOMIC = {
-  latestCycleStatus: 'completed' as const,
-  latestCycleId: 'nomic-cycle-47',
-  goalsCompletedThisMonth: 12,
-  kmEntriesAdded: 847,
-  lastRunTimestamp: '2026-02-21T14:32:00Z',
-};
+interface FactsResponse {
+  facts: FactEntry[];
+  total: number;
+  page: number;
+  per_page: number;
+  total_pages: number;
+}
 
-function generateMockChartData(days: number, min: number, max: number): DataPoint[] {
-  return Array.from({ length: days }, (_, i) => {
-    const date = new Date();
-    date.setDate(date.getDate() - (days - 1 - i));
-    return {
-      label: date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' }),
-      value: Math.floor(Math.random() * (max - min)) + min,
-      date: date.toISOString(),
-    };
+interface SearchResult {
+  id: string;
+  content: string;
+  tier: string;
+  importance: number;
+  created_at: string;
+}
+
+export default function IntelligencePage() {
+  const { config: backendConfig } = useBackend();
+  const [activeTab, setActiveTab] = useState<TabType>('memory');
+  const [factsPage, setFactsPage] = useState(0);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [searchInput, setSearchInput] = useState('');
+
+  // --- MEMORY TAB fetchers ---
+
+  const tierStatsFetcher = useCallback(async (): Promise<TierStats[]> => {
+    try {
+      const res = await fetch(`${backendConfig.api}/api/v1/memory/tier-stats`);
+      if (!res.ok) return [];
+      const data = await res.json();
+      return data.tiers ?? data.data?.tiers ?? data ?? [];
+    } catch {
+      return [];
+    }
+  }, [backendConfig.api]);
+
+  const pressureFetcher = useCallback(async (): Promise<PressureData | null> => {
+    try {
+      const res = await fetch(`${backendConfig.api}/api/v1/memory/pressure`);
+      if (!res.ok) return null;
+      const data = await res.json();
+      return data.data ?? data;
+    } catch {
+      return null;
+    }
+  }, [backendConfig.api]);
+
+  // --- KNOWLEDGE TAB fetchers ---
+
+  const knowledgeStatsFetcher = useCallback(async (): Promise<KnowledgeStats | null> => {
+    try {
+      const [coverageRes, qualityRes, statsRes] = await Promise.all([
+        fetch(`${backendConfig.api}/api/v1/knowledge/mound/analytics/coverage`),
+        fetch(`${backendConfig.api}/api/v1/knowledge/mound/analytics/quality`),
+        fetch(`${backendConfig.api}/api/v1/knowledge/mound/analytics/stats`),
+      ]);
+
+      const coverage = coverageRes.ok ? await coverageRes.json() : {};
+      const quality = qualityRes.ok ? await qualityRes.json() : {};
+      const stats = statsRes.ok ? await statsRes.json() : {};
+
+      return {
+        coverage: coverage.data?.coverage ?? coverage.coverage ?? 0,
+        quality: quality.data?.quality ?? quality.quality ?? 0,
+        total_nodes: stats.data?.total_nodes ?? stats.total_nodes ?? 0,
+        contradictions: stats.data?.contradictions ?? stats.contradictions ?? 0,
+        top_queries: stats.data?.top_queries ?? stats.top_queries,
+        recommendations: quality.data?.recommendations ?? quality.recommendations,
+      };
+    } catch {
+      return null;
+    }
+  }, [backendConfig.api]);
+
+  const factsFetcher = useCallback(async (): Promise<FactsResponse | null> => {
+    try {
+      const res = await fetch(
+        `${backendConfig.api}/api/knowledge/facts?page=${factsPage}&per_page=20`
+      );
+      if (!res.ok) return null;
+      const data = await res.json();
+      return data.data ?? data;
+    } catch {
+      return null;
+    }
+  }, [backendConfig.api, factsPage]);
+
+  // --- SEARCH TAB fetcher ---
+
+  const searchFetcher = useCallback(async (): Promise<SearchResult[]> => {
+    if (!searchQuery) return [];
+    try {
+      const res = await fetch(
+        `${backendConfig.api}/api/v1/memory/search?q=${encodeURIComponent(searchQuery)}&tier=fast,medium,slow,glacial&limit=20`
+      );
+      if (!res.ok) return [];
+      const data = await res.json();
+      return data.data?.results ?? data.results ?? data ?? [];
+    } catch {
+      return [];
+    }
+  }, [backendConfig.api, searchQuery]);
+
+  // --- Hook up data ---
+
+  const { data: tierStats, loading: tierLoading } = useAsyncData(tierStatsFetcher, {
+    immediate: true,
   });
-}
 
-const agentQualityData = generateMockChartData(30, 60, 95);
-const consensusRateData = generateMockChartData(30, 50, 90);
+  const { data: pressure, loading: pressureLoading } = useAsyncData(pressureFetcher, {
+    immediate: true,
+  });
 
-// ---------------------------------------------------------------------------
-// Enterprise gate overlay
-// ---------------------------------------------------------------------------
+  const { data: knowledgeStats, loading: knowledgeLoading } = useAsyncData(knowledgeStatsFetcher, {
+    immediate: true,
+  });
 
-function EnterpriseGateOverlay() {
-  return (
-    <div className="absolute inset-0 z-40 bg-[var(--bg)]/80 backdrop-blur-sm flex items-center justify-center">
-      <div className="card p-8 max-w-md text-center border-acid-yellow/40 bg-[var(--surface)]">
-        <div className="font-mono text-4xl text-acid-yellow mb-4">{'>'}_</div>
-        <h2 className="font-mono text-xl text-acid-green mb-3">
-          Decision Intelligence
-        </h2>
-        <p className="font-mono text-sm text-[var(--text-muted)] mb-6">
-          Requires Enterprise Plan. Unlock AI-powered decision analytics,
-          agent performance insights, and self-improvement tracking.
-        </p>
-        <Link
-          href="/settings/billing"
-          className="inline-block px-6 py-3 bg-acid-green/20 border border-acid-green/40 text-acid-green font-mono text-sm rounded hover:bg-acid-green/30 transition-colors"
-        >
-          Upgrade to Enterprise
-        </Link>
-        <p className="font-mono text-xs text-[var(--text-muted)] mt-4">
-          or contact sales@aragora.ai for a demo
-        </p>
-      </div>
-    </div>
-  );
-}
+  const { data: factsData, loading: factsLoading } = useAsyncData(factsFetcher, {
+    immediate: true,
+    deps: [factsPage],
+  });
 
-// ---------------------------------------------------------------------------
-// Sub-components
-// ---------------------------------------------------------------------------
+  const { data: searchResults, loading: searchLoading } = useAsyncData(searchFetcher, {
+    immediate: false,
+    deps: [searchQuery],
+  });
 
-function ImpactBadge({ impact }: { impact: 'high' | 'medium' | 'low' }) {
-  const styles = {
-    high: 'bg-acid-green/20 text-acid-green border-acid-green/40',
-    medium: 'bg-acid-yellow/20 text-acid-yellow border-acid-yellow/40',
-    low: 'bg-[var(--text-muted)]/20 text-[var(--text-muted)] border-[var(--text-muted)]/40',
+  const handleSearch = () => {
+    if (searchInput.trim()) {
+      setSearchQuery(searchInput.trim());
+    }
   };
-  return (
-    <span className={`px-2 py-0.5 text-[10px] font-mono rounded border ${styles[impact]}`}>
-      {impact.toUpperCase()}
-    </span>
-  );
-}
 
-function NomicStatusBadge({ status }: { status: string }) {
-  const styles: Record<string, string> = {
-    completed: 'bg-acid-green/20 text-acid-green border-acid-green/40',
-    running: 'bg-acid-cyan/20 text-acid-cyan border-acid-cyan/40 animate-pulse',
-    failed: 'bg-red-500/20 text-red-400 border-red-500/40',
-    pending: 'bg-acid-yellow/20 text-acid-yellow border-acid-yellow/40',
+  const handleSearchKeyDown = (e: React.KeyboardEvent) => {
+    if (e.key === 'Enter') handleSearch();
   };
-  return (
-    <span className={`px-2 py-0.5 text-xs font-mono rounded border ${styles[status] || styles.pending}`}>
-      {status.toUpperCase()}
-    </span>
-  );
-}
 
-// ---------------------------------------------------------------------------
-// Main page
-// ---------------------------------------------------------------------------
-
-export default function DecisionIntelligencePage() {
-  const { organization } = useAuth();
-  const [activeSection, setActiveSection] = useState<string | null>(null);
-
-  const isEnterprise =
-    organization?.tier === 'enterprise' ||
-    organization?.tier === 'enterprise_plus';
-
-  const sections = [
-    { id: 'agents', label: 'AGENT PERFORMANCE' },
-    { id: 'patterns', label: 'DECISION PATTERNS' },
-    { id: 'insights', label: 'IMPROVEMENT INSIGHTS' },
-    { id: 'nomic', label: 'NOMIC LOOP STATUS' },
+  const tabs: { id: TabType; label: string }[] = [
+    { id: 'memory', label: 'MEMORY' },
+    { id: 'knowledge', label: 'KNOWLEDGE' },
+    { id: 'search', label: 'SEARCH' },
   ];
 
-  return (
-    <div className="relative min-h-[calc(100vh-4rem)]">
-      {/* Enterprise gate */}
-      {!isEnterprise && <EnterpriseGateOverlay />}
+  const TIER_TEXT: Record<string, string> = {
+    fast: 'text-acid-green',
+    medium: 'text-acid-cyan',
+    slow: 'text-acid-yellow',
+    glacial: 'text-text-muted',
+  };
 
-      <div className="container mx-auto px-4 py-6">
-        {/* Header */}
-        <div className="mb-6">
-          <div className="flex items-center justify-between flex-wrap gap-4">
-            <div>
-              <h1 className="text-xl font-mono text-[var(--acid-green)] mb-2">
-                {'>'} DECISION INTELLIGENCE
-              </h1>
-              <p className="text-xs text-[var(--text-muted)] font-mono">
-                AI-powered analytics across agent performance, decision patterns, and self-improvement cycles.
-              </p>
-            </div>
-            <div className="flex items-center gap-2">
-              <span className="px-2 py-1 text-xs font-mono bg-acid-magenta/20 text-acid-magenta border border-acid-magenta/30">
-                ENTERPRISE
-              </span>
-            </div>
+  return (
+    <>
+      <Scanlines opacity={0.02} />
+      <CRTVignette />
+
+      <main className="min-h-screen bg-bg text-text relative z-10">
+        <div className="container mx-auto px-4 py-6">
+          {/* Header */}
+          <div className="mb-6">
+            <h1 className="text-2xl font-mono text-acid-green mb-2">
+              {'>'} INTELLIGENCE HUB
+            </h1>
+            <p className="text-text-muted font-mono text-sm">
+              Memory tiers, knowledge graph, and unified search across all intelligence systems.
+            </p>
+          </div>
+
+          {/* Tab Navigation */}
+          <div className="flex flex-wrap gap-1 border-b border-acid-green/20 pb-2 mb-6">
+            {tabs.map((tab) => (
+              <button
+                key={tab.id}
+                onClick={() => setActiveTab(tab.id)}
+                className={`px-4 py-2 text-xs font-mono transition-colors ${
+                  activeTab === tab.id
+                    ? 'bg-acid-green text-bg'
+                    : 'text-text-muted hover:text-acid-green'
+                }`}
+              >
+                [{tab.label}]
+              </button>
+            ))}
+          </div>
+
+          {/* Tab Content */}
+          <div className="space-y-6">
+            {/* Memory Tab */}
+            {activeTab === 'memory' && (
+              <PanelErrorBoundary panelName="Memory">
+                <div className="space-y-6">
+                  <section>
+                    <h2 className="text-lg font-mono text-acid-green mb-4">{'>'} TIER DISTRIBUTION</h2>
+                    <MemoryTierViz
+                      tiers={tierStats ?? []}
+                      loading={tierLoading}
+                    />
+                  </section>
+
+                  <section>
+                    <h2 className="text-lg font-mono text-acid-green mb-4">{'>'} PRESSURE MONITOR</h2>
+                    <PressureGauge
+                      pressure={pressure?.pressure ?? 0}
+                      byTier={pressure?.by_tier}
+                      recommendation={pressure?.recommendation}
+                      loading={pressureLoading}
+                    />
+                  </section>
+                </div>
+              </PanelErrorBoundary>
+            )}
+
+            {/* Knowledge Tab */}
+            {activeTab === 'knowledge' && (
+              <PanelErrorBoundary panelName="Knowledge">
+                <div className="space-y-6">
+                  <section>
+                    <h2 className="text-lg font-mono text-acid-green mb-4">{'>'} KNOWLEDGE MOUND</h2>
+                    <KnowledgeDashboard
+                      stats={knowledgeStats ?? { coverage: 0, quality: 0, total_nodes: 0, contradictions: 0 }}
+                      loading={knowledgeLoading}
+                    />
+                  </section>
+
+                  <section>
+                    <h2 className="text-lg font-mono text-acid-green mb-4">{'>'} FACTS BROWSER</h2>
+                    <FactsBrowser
+                      facts={factsData?.facts ?? []}
+                      onPageChange={setFactsPage}
+                      totalPages={factsData?.total_pages ?? 1}
+                      currentPage={factsPage}
+                      loading={factsLoading}
+                    />
+                  </section>
+                </div>
+              </PanelErrorBoundary>
+            )}
+
+            {/* Search Tab */}
+            {activeTab === 'search' && (
+              <PanelErrorBoundary panelName="Search">
+                <div className="space-y-6">
+                  <section>
+                    <h2 className="text-lg font-mono text-acid-green mb-4">{'>'} UNIFIED SEARCH</h2>
+
+                    {/* Search input */}
+                    <div className="flex gap-2 mb-4">
+                      <input
+                        type="text"
+                        value={searchInput}
+                        onChange={(e) => setSearchInput(e.target.value)}
+                        onKeyDown={handleSearchKeyDown}
+                        placeholder="Search across all memory tiers..."
+                        className="flex-1 bg-surface border border-acid-green/20 rounded px-4 py-2 font-mono text-sm text-text placeholder:text-text-muted/50 focus:outline-none focus:border-acid-green/50"
+                      />
+                      <button
+                        onClick={handleSearch}
+                        disabled={!searchInput.trim()}
+                        className="px-4 py-2 bg-acid-green/10 border border-acid-green/30 rounded font-mono text-sm text-acid-green hover:bg-acid-green/20 transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
+                      >
+                        SEARCH
+                      </button>
+                    </div>
+
+                    {/* Search results */}
+                    {searchLoading ? (
+                      <div className="animate-pulse space-y-3">
+                        {[1, 2, 3].map((i) => (
+                          <div key={i} className="h-16 bg-surface rounded" />
+                        ))}
+                      </div>
+                    ) : searchQuery && searchResults && searchResults.length > 0 ? (
+                      <div className="space-y-2">
+                        {searchResults.map((result) => (
+                          <div
+                            key={result.id}
+                            className="border border-acid-green/10 rounded p-3 hover:bg-acid-green/5 transition-colors"
+                          >
+                            <div className="flex items-start justify-between gap-3">
+                              <p className="text-text font-mono text-sm flex-1 leading-relaxed">
+                                {result.content}
+                              </p>
+                              <div className="flex items-center gap-2 shrink-0">
+                                {/* Tier badge */}
+                                <span
+                                  className={`text-xs font-mono px-1.5 py-0.5 rounded border border-current/30 ${TIER_TEXT[result.tier] ?? 'text-text-muted'}`}
+                                >
+                                  {result.tier.toUpperCase()}
+                                </span>
+                                {/* Importance */}
+                                <span className="text-text-muted text-xs font-mono">
+                                  imp: {result.importance.toFixed(2)}
+                                </span>
+                              </div>
+                            </div>
+                            <div className="mt-2">
+                              <span className="text-text-muted text-xs font-mono">
+                                {new Date(result.created_at).toLocaleDateString()}
+                              </span>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    ) : searchQuery ? (
+                      <p className="text-text-muted text-sm font-mono text-center py-8">
+                        No results found for &quot;{searchQuery}&quot;
+                      </p>
+                    ) : (
+                      <p className="text-text-muted text-sm font-mono text-center py-8">
+                        Enter a query to search across all memory tiers.
+                      </p>
+                    )}
+                  </section>
+                </div>
+              </PanelErrorBoundary>
+            )}
           </div>
         </div>
 
-        {/* Section Navigation */}
-        <div className="flex gap-2 mb-6 overflow-x-auto pb-2">
-          {sections.map((s) => (
-            <button
-              key={s.id}
-              onClick={() => setActiveSection(activeSection === s.id ? null : s.id)}
-              className={`px-3 py-1.5 text-xs font-mono rounded border transition-colors whitespace-nowrap ${
-                activeSection === s.id || activeSection === null
-                  ? 'bg-[var(--acid-green)]/10 text-[var(--acid-green)] border-[var(--acid-green)]/30'
-                  : 'text-[var(--text-muted)] border-transparent hover:border-[var(--acid-green)]/20'
-              }`}
-            >
-              {s.label}
-            </button>
-          ))}
-        </div>
-
-        {/* ============================================================= */}
-        {/* SECTION 1: Agent Performance                                  */}
-        {/* ============================================================= */}
-        {(activeSection === null || activeSection === 'agents') && (
-          <section className="mb-8">
-            <h2 className="font-mono text-sm text-[var(--acid-cyan)] mb-4">
-              {'>'} AGENT PERFORMANCE
-            </h2>
-
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-              {/* Top agents table */}
-              <div className="lg:col-span-2 bg-[var(--surface)] border border-[var(--border)] p-4">
-                <h3 className="font-mono text-xs text-[var(--text-muted)] mb-3">TOP 5 AGENTS BY ACCEPTANCE RATE</h3>
-                <div className="overflow-x-auto">
-                  <table className="w-full font-mono text-sm">
-                    <thead>
-                      <tr className="border-b border-[var(--acid-green)]/20 text-[var(--text-muted)] text-xs">
-                        <th className="text-left py-2 pr-4">#</th>
-                        <th className="text-left py-2 pr-4">AGENT</th>
-                        <th className="text-right py-2 pr-4">ELO</th>
-                        <th className="text-right py-2 pr-4">WIN RATE</th>
-                        <th className="text-right py-2 pr-4">ACCEPT %</th>
-                        <th className="text-right py-2">DEBATES</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {MOCK_TOP_AGENTS.map((agent, idx) => (
-                        <tr
-                          key={agent.name}
-                          className="border-b border-[var(--acid-green)]/10 hover:bg-[var(--acid-green)]/5 transition-colors"
-                        >
-                          <td className="py-2 pr-4 text-[var(--text-muted)]">{idx + 1}</td>
-                          <td className="py-2 pr-4 text-[var(--acid-green)]">{agent.name}</td>
-                          <td className="py-2 pr-4 text-right text-[var(--acid-cyan)]">{agent.elo}</td>
-                          <td className="py-2 pr-4 text-right text-[var(--text)]">
-                            {(agent.winRate * 100).toFixed(0)}%
-                          </td>
-                          <td className="py-2 pr-4 text-right text-[var(--acid-yellow)]">
-                            {(agent.acceptanceRate * 100).toFixed(0)}%
-                          </td>
-                          <td className="py-2 text-right text-[var(--text-muted)]">{agent.totalDebates}</td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-              </div>
-
-              {/* Agent quality trend chart */}
-              <div>
-                <UsageChart
-                  title="AGENT QUALITY TREND"
-                  data={agentQualityData}
-                  type="line"
-                  color="acid-green"
-                  height={260}
-                  formatValue={(v) => `${v}%`}
-                />
-              </div>
-            </div>
-          </section>
-        )}
-
-        {/* ============================================================= */}
-        {/* SECTION 2: Decision Patterns                                  */}
-        {/* ============================================================= */}
-        {(activeSection === null || activeSection === 'patterns') && (
-          <section className="mb-8">
-            <h2 className="font-mono text-sm text-[var(--acid-cyan)] mb-4">
-              {'>'} DECISION PATTERNS
-            </h2>
-
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-              {/* Topic list with bar visualization */}
-              <div className="lg:col-span-2 bg-[var(--surface)] border border-[var(--border)] p-4">
-                <h3 className="font-mono text-xs text-[var(--text-muted)] mb-3">MOST COMMON DEBATE TOPICS</h3>
-                <div className="space-y-3">
-                  {MOCK_TOPICS.map((t) => {
-                    const maxCount = MOCK_TOPICS[0].count;
-                    const barWidth = (t.count / maxCount) * 100;
-                    return (
-                      <div key={t.topic} className="group">
-                        <div className="flex items-center justify-between mb-1">
-                          <span className="font-mono text-sm text-[var(--text)] group-hover:text-[var(--acid-green)] transition-colors">
-                            {t.topic}
-                          </span>
-                          <div className="flex items-center gap-4">
-                            <span className="font-mono text-xs text-[var(--text-muted)]">
-                              {t.count} debates
-                            </span>
-                            <span className="font-mono text-xs text-[var(--acid-cyan)]">
-                              {(t.avgConfidence * 100).toFixed(0)}% conf
-                            </span>
-                          </div>
-                        </div>
-                        <div className="h-2 bg-[var(--bg)] rounded overflow-hidden">
-                          <div
-                            className="h-full bg-[var(--acid-green)]/60 rounded transition-all group-hover:bg-[var(--acid-green)]/80"
-                            style={{ width: `${barWidth}%` }}
-                          />
-                        </div>
-                      </div>
-                    );
-                  })}
-                </div>
-
-                {/* Confidence by category */}
-                <div className="mt-6 pt-4 border-t border-[var(--acid-green)]/20">
-                  <h3 className="font-mono text-xs text-[var(--text-muted)] mb-3">AVERAGE CONFIDENCE BY CATEGORY</h3>
-                  <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
-                    {MOCK_TOPICS.map((t) => (
-                      <div key={t.topic} className="bg-[var(--bg)] border border-[var(--border)] p-3">
-                        <div className="font-mono text-[10px] text-[var(--text-muted)] mb-1 truncate">
-                          {t.topic}
-                        </div>
-                        <div className="font-mono text-lg text-[var(--acid-green)]">
-                          {(t.avgConfidence * 100).toFixed(0)}%
-                        </div>
-                        <div className="font-mono text-[10px] text-[var(--text-muted)]">
-                          consensus {(t.consensusRate * 100).toFixed(0)}%
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              </div>
-
-              {/* Consensus rate trend chart */}
-              <div>
-                <UsageChart
-                  title="CONSENSUS RATE TREND"
-                  data={consensusRateData}
-                  type="line"
-                  color="acid-cyan"
-                  height={260}
-                  formatValue={(v) => `${v}%`}
-                />
-              </div>
-            </div>
-          </section>
-        )}
-
-        {/* ============================================================= */}
-        {/* SECTION 3: Improvement Insights                               */}
-        {/* ============================================================= */}
-        {(activeSection === null || activeSection === 'insights') && (
-          <section className="mb-8">
-            <h2 className="font-mono text-sm text-[var(--acid-cyan)] mb-4">
-              {'>'} IMPROVEMENT INSIGHTS
-            </h2>
-
-            <div className="bg-[var(--surface)] border border-[var(--border)] p-6">
-              <p className="font-mono text-sm text-[var(--text-muted)] mb-4">
-                Aragora analyzed your last 100 debates and found:
-              </p>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                {MOCK_INSIGHTS.map((insight) => (
-                  <div
-                    key={insight.id}
-                    className="bg-[var(--bg)] border border-[var(--border)] p-4 hover:border-[var(--acid-green)]/40 transition-colors"
-                  >
-                    <div className="flex items-start justify-between gap-3 mb-2">
-                      <span className="font-mono text-xs text-[var(--acid-yellow)] uppercase">
-                        {insight.category}
-                      </span>
-                      <ImpactBadge impact={insight.impact} />
-                    </div>
-                    <p className="font-mono text-sm text-[var(--text)] leading-relaxed">
-                      {insight.text}
-                    </p>
-                  </div>
-                ))}
-              </div>
-            </div>
-          </section>
-        )}
-
-        {/* ============================================================= */}
-        {/* SECTION 4: Nomic Loop Status                                  */}
-        {/* ============================================================= */}
-        {(activeSection === null || activeSection === 'nomic') && (
-          <section className="mb-8">
-            <h2 className="font-mono text-sm text-[var(--acid-cyan)] mb-4">
-              {'>'} NOMIC LOOP STATUS
-            </h2>
-
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-              {/* Latest cycle */}
-              <div className="bg-[var(--surface)] border border-[var(--border)] p-6">
-                <div className="font-mono text-xs text-[var(--text-muted)] mb-2">Latest Cycle</div>
-                <div className="flex items-center gap-3 mb-2">
-                  <span className="font-mono text-lg text-[var(--acid-green)]">
-                    {MOCK_NOMIC.latestCycleId}
-                  </span>
-                  <NomicStatusBadge status={MOCK_NOMIC.latestCycleStatus} />
-                </div>
-                <div className="font-mono text-xs text-[var(--text-muted)]">
-                  {new Date(MOCK_NOMIC.lastRunTimestamp).toLocaleString()}
-                </div>
-              </div>
-
-              {/* Goals completed */}
-              <div className="bg-[var(--surface)] border border-[var(--border)] p-6">
-                <div className="font-mono text-xs text-[var(--text-muted)] mb-2">Goals Completed This Month</div>
-                <div className="font-mono text-4xl text-[var(--acid-cyan)]">
-                  {MOCK_NOMIC.goalsCompletedThisMonth}
-                </div>
-                <div className="font-mono text-xs text-[var(--text-muted)] mt-1">
-                  self-improvement goals executed
-                </div>
-              </div>
-
-              {/* KM entries */}
-              <div className="bg-[var(--surface)] border border-[var(--border)] p-6">
-                <div className="font-mono text-xs text-[var(--text-muted)] mb-2">KnowledgeMound Entries Added</div>
-                <div className="font-mono text-4xl text-[var(--acid-yellow)]">
-                  {MOCK_NOMIC.kmEntriesAdded.toLocaleString()}
-                </div>
-                <div className="font-mono text-xs text-[var(--text-muted)] mt-1">
-                  across 34 adapters
-                </div>
-              </div>
-            </div>
-
-            {/* Nomic phases */}
-            <div className="bg-[var(--surface)] border border-[var(--border)] p-4 mt-4">
-              <h3 className="font-mono text-xs text-[var(--text-muted)] mb-3">SELF-IMPROVEMENT PIPELINE</h3>
-              <div className="flex items-center gap-2 overflow-x-auto pb-2">
-                {['Context', 'Debate', 'Design', 'Implement', 'Verify'].map((phase, idx) => (
-                  <div key={phase} className="flex items-center gap-2">
-                    <div className="flex flex-col items-center min-w-[80px]">
-                      <div
-                        className={`w-8 h-8 rounded-full flex items-center justify-center font-mono text-xs border ${
-                          idx <= 4
-                            ? 'bg-[var(--acid-green)]/20 text-[var(--acid-green)] border-[var(--acid-green)]/40'
-                            : 'bg-[var(--surface)] text-[var(--text-muted)] border-[var(--acid-green)]/20'
-                        }`}
-                      >
-                        {idx}
-                      </div>
-                      <span className="font-mono text-[10px] text-[var(--text-muted)] mt-1">{phase}</span>
-                    </div>
-                    {idx < 4 && (
-                      <div className="w-8 h-px bg-[var(--acid-green)]/30 flex-shrink-0" />
-                    )}
-                  </div>
-                ))}
-              </div>
-            </div>
-          </section>
-        )}
-      </div>
-    </div>
+        {/* Footer */}
+        <footer className="text-center text-xs font-mono py-8 border-t border-acid-green/20 mt-8">
+          <div className="text-acid-green/50 mb-2">{'='.repeat(40)}</div>
+          <p className="text-text-muted">{'>'} ARAGORA // INTELLIGENCE HUB</p>
+        </footer>
+      </main>
+    </>
   );
 }
