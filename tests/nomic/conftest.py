@@ -35,7 +35,7 @@ def _isolate_nomic_databases(tmp_path, monkeypatch):
 
 
 @pytest.fixture(autouse=True)
-def _mock_codebase_indexer(monkeypatch):
+def _mock_codebase_indexer(request, monkeypatch):
     """Prevent CodebaseIndexer from scanning real source files.
 
     The indexer's ``index()`` method walks the entire repo, AST-parsing
@@ -43,7 +43,11 @@ def _mock_codebase_indexer(monkeypatch):
     codebases this can take minutes and block the event loop, causing
     tests to hang.  Patching ``index()`` to return empty stats avoids
     this entirely while still exercising the pipeline logic that calls it.
+
+    Skipped for test_codebase_indexer.py which tests the indexer itself.
     """
+    if "test_codebase_indexer" in request.fspath.basename:
+        return
     try:
         from aragora.nomic.codebase_indexer import CodebaseIndexer, IndexStats
 

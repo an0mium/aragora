@@ -1342,11 +1342,14 @@ class TestTenantIsolation:
         body = _body(result)
         assert body["data"]["total"] == 1
 
-    @pytest.mark.asyncio
-    async def test_default_tenant_id(self, handler):
+    def test_default_tenant_id(self, handler):
         """When request has no tenant_id attribute, default to 'default'."""
-        req = MockRequest()
-        delattr(req, "tenant_id")
+
+        class BareRequest:
+            """Request object with no tenant_id attribute."""
+            pass
+
+        req = BareRequest()
         tid = handler._get_tenant_id(req)
         assert tid == "default"
 

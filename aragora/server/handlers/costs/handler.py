@@ -114,15 +114,15 @@ class CostHandler:
 
             return web.json_response(
                 {
-                    "totalCost": summary.total_cost,
-                    "budget": summary.budget,
-                    "tokensUsed": summary.tokens_used,
-                    "apiCalls": summary.api_calls,
-                    "lastUpdated": summary.last_updated.isoformat(),
-                    "costByProvider": summary.cost_by_provider,
-                    "costByFeature": summary.cost_by_feature,
-                    "dailyCosts": summary.daily_costs,
-                    "alerts": summary.alerts,
+                    "data": {
+                        "total_cost_usd": summary.total_cost,
+                        "budget_usd": summary.budget,
+                        "tokens_in": getattr(summary, "tokens_in", summary.tokens_used),
+                        "tokens_out": getattr(summary, "tokens_out", 0),
+                        "api_calls": summary.api_calls,
+                        "period_start": getattr(summary, "period_start", ""),
+                        "period_end": getattr(summary, "period_end", ""),
+                    }
                 }
             )
 
@@ -168,11 +168,31 @@ class CostHandler:
             else:
                 breakdown = summary.cost_by_provider
 
+            # Build breakdown in the format the frontend expects
+            by_provider = summary.cost_by_provider or []
+            by_feature = summary.cost_by_feature or []
+            total = summary.total_cost or 0
+
+            def _to_items(raw_list: list, total_cost: float) -> list[dict]:
+                items = []
+                for entry in raw_list:
+                    if isinstance(entry, dict):
+                        cost = float(entry.get("cost", 0))
+                        items.append({
+                            "name": entry.get("name", entry.get("provider", "unknown")),
+                            "cost": cost,
+                            "percentage": (cost / total_cost * 100) if total_cost > 0 else 0,
+                            "tokens": entry.get("tokens"),
+                            "calls": entry.get("calls"),
+                        })
+                return items
+
             return web.json_response(
                 {
-                    "groupBy": group_by,
-                    "breakdown": breakdown,
-                    "total": summary.total_cost,
+                    "data": {
+                        "by_provider": _to_items(by_provider, total),
+                        "by_feature": _to_items(by_feature, total),
+                    }
                 }
             )
 
@@ -210,13 +230,25 @@ class CostHandler:
                 workspace_id=workspace_id, time_range=time_range
             )
 
+            daily = summary.daily_costs or []
+            total_cost = summary.total_cost or 0
+
             return web.json_response(
                 {
-                    "timeline": summary.daily_costs,
-                    "total": summary.total_cost,
-                    "average": (
-                        summary.total_cost / len(summary.daily_costs) if summary.daily_costs else 0
-                    ),
+                    "data": {
+                        "data_points": [
+                            {
+                                "date": d.get("date", "") if isinstance(d, dict) else "",
+                                "cost": float(d.get("cost", 0)) if isinstance(d, dict) else 0,
+                                "tokens": d.get("tokens", 0) if isinstance(d, dict) else 0,
+                            }
+                            for d in daily
+                        ],
+                        "total_cost": total_cost,
+                        "average_daily_cost": (
+                            total_cost / len(daily) if daily else 0
+                        ),
+                    }
                 }
             )
 

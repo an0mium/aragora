@@ -475,11 +475,32 @@ class TestPostDeliberateSync:
             confidence=0.85,
             agents_participated=["anthropic-api", "openai-api"],
         )
+
+        # run_async is called from sync context; since we're in an async test
+        # we mock it to just return the result directly (the coro is already
+        # patched out via _execute_deliberation).
+        def mock_run_async(coro, timeout=30.0):
+            """Synchronously resolve the coroutine by scheduling on the running loop."""
+            import asyncio as _aio
+            loop = _aio.get_event_loop()
+            task = loop.create_task(coro)
+            # The task won't complete until the event loop yields, but
+            # since _execute_deliberation is mocked, it completes immediately.
+            # We need nest_asyncio to allow run_until_complete inside a running loop.
+            try:
+                import nest_asyncio
+                nest_asyncio.apply(loop)
+                return loop.run_until_complete(task)
+            except ImportError:
+                # Fallback: just return the fake result directly
+                task.cancel()
+                return fake_result
+
         with patch.object(
             handler, "_execute_deliberation", new_callable=AsyncMock, return_value=fake_result
         ), patch(
             "aragora.server.handlers.orchestration.handler.run_async",
-            side_effect=lambda coro: asyncio.get_event_loop().run_until_complete(coro),
+            side_effect=mock_run_async,
         ):
             result = await handler.handle_post(
                 "/api/v1/orchestration/deliberate/sync",
@@ -499,11 +520,22 @@ class TestPostDeliberateSync:
             request_id="sync-store",
             success=True,
         )
+
+        def mock_run_async(coro, timeout=30.0):
+            import asyncio as _aio
+            loop = _aio.get_event_loop()
+            try:
+                import nest_asyncio
+                nest_asyncio.apply(loop)
+                return loop.run_until_complete(coro)
+            except ImportError:
+                return fake_result
+
         with patch.object(
             handler, "_execute_deliberation", new_callable=AsyncMock, return_value=fake_result
         ), patch(
             "aragora.server.handlers.orchestration.handler.run_async",
-            side_effect=lambda coro: asyncio.get_event_loop().run_until_complete(coro),
+            side_effect=mock_run_async,
         ):
             await handler.handle_post(
                 "/api/v1/orchestration/deliberate/sync",
