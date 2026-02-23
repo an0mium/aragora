@@ -250,6 +250,28 @@ export const DEFAULT_SHORTCUTS: ShortcutDefinition[] = [
     category: 'selection',
     context: 'list',
   },
+
+  // ============================================
+  // PIPELINE - Pipeline canvas shortcuts
+  // ============================================
+  {
+    id: 'pipeline-execute',
+    keys: cmdKey('e'),
+    description: 'Execute Pipeline',
+    category: 'application',
+  },
+  {
+    id: 'pipeline-new',
+    keys: cmdShiftKey('n'),
+    description: 'New Pipeline',
+    category: 'application',
+  },
+  {
+    id: 'pipeline-save',
+    keys: cmdKey('s'),
+    description: 'Save Pipeline',
+    category: 'application',
+  },
 ];
 
 /**

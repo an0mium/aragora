@@ -209,6 +209,12 @@ export function KeyboardShortcutsProvider({ children }: KeyboardShortcutsProvide
           router.back();
           break;
 
+        // Pipeline shortcuts (handled by page-level useEffect in pipeline page)
+        case 'pipeline-execute':
+        case 'pipeline-new':
+        case 'pipeline-save':
+          break;
+
         // TODO: Implement debate-specific and list-specific shortcuts
         // These need to be wired up to the actual components
         default:

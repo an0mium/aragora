@@ -373,6 +373,36 @@ function PipelinePageContent() {
 
   const _isPageLoading = loading || (swrLoading && !pipelineData);
 
+  // Pipeline keyboard shortcuts
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      const isMod = e.metaKey || e.ctrlKey;
+      if (!isMod) return;
+
+      switch (e.key.toLowerCase()) {
+        case 'e':
+          e.preventDefault();
+          if (pipelineData?.pipeline_id && orchestrationReady && !executing) {
+            handleExecute();
+          }
+          break;
+        case 's':
+          e.preventDefault();
+          // Save is handled by the pipeline - prevent browser save dialog
+          break;
+        case 'n':
+          if (e.shiftKey) {
+            e.preventDefault();
+            handleNew();
+          }
+          break;
+      }
+    };
+
+    document.addEventListener('keydown', handleKeyDown);
+    return () => document.removeEventListener('keydown', handleKeyDown);
+  }, [pipelineData, orchestrationReady, executing, handleExecute, handleNew]);
+
   return (
     <div className="flex flex-col h-screen bg-bg">
       {/* Header */}

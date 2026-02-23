@@ -637,6 +637,35 @@ def merge_config_objects(  # noqa: C901 - complexity inherent in config merging
         "rlm_compression_round_threshold",
     )
     _CROSS_DEBATE_PARAMS = ("cross_debate_memory", "enable_cross_debate_memory")
+    _KNOWLEDGE_PARAMS = (
+        "auto_create_knowledge_mound",
+        "enable_knowledge_retrieval",
+        "enable_knowledge_ingestion",
+        "enable_knowledge_extraction",
+        "extraction_min_confidence",
+        "enable_auto_revalidation",
+        "revalidation_staleness_threshold",
+        "revalidation_check_interval_seconds",
+        "revalidation_scheduler",
+        "enable_belief_guidance",
+        "enable_outcome_context",
+    )
+    _EVOLUTION_PARAMS = (
+        "population_manager",
+        "auto_evolve",
+        "breeding_threshold",
+        "prompt_evolver",
+        "enable_prompt_evolution",
+    )
+    _ML_PARAMS = (
+        "enable_ml_delegation",
+        "ml_delegation_strategy",
+        "ml_delegation_weight",
+        "enable_quality_gates",
+        "quality_gate_threshold",
+        "enable_consensus_estimation",
+        "consensus_early_termination_threshold",
+    )
 
     _SM_DEFAULTS = {
         "enable_supermemory": False,
@@ -660,6 +689,37 @@ def merge_config_objects(  # noqa: C901 - complexity inherent in config merging
         "rlm_compression_round_threshold": 3,
     }
     _CD_DEFAULTS = {"cross_debate_memory": None, "enable_cross_debate_memory": True}
+    # Note: knowledge_mound is excluded because it uses a sentinel (_KNOWLEDGE_MOUND_UNSET)
+    # which is not comparable via simple != check.
+    _KN_DEFAULTS: dict[str, Any] = {
+        "auto_create_knowledge_mound": True,
+        "enable_knowledge_retrieval": True,
+        "enable_knowledge_ingestion": True,
+        "enable_knowledge_extraction": False,
+        "extraction_min_confidence": 0.3,
+        "enable_auto_revalidation": False,
+        "revalidation_staleness_threshold": 0.8,
+        "revalidation_check_interval_seconds": 3600,
+        "revalidation_scheduler": None,
+        "enable_belief_guidance": True,
+        "enable_outcome_context": True,
+    }
+    _EV_DEFAULTS: dict[str, Any] = {
+        "population_manager": None,
+        "auto_evolve": False,
+        "breeding_threshold": 0.8,
+        "prompt_evolver": None,
+        "enable_prompt_evolution": False,
+    }
+    _ML_DEFAULTS: dict[str, Any] = {
+        "enable_ml_delegation": True,
+        "ml_delegation_strategy": None,
+        "ml_delegation_weight": 0.3,
+        "enable_quality_gates": True,
+        "quality_gate_threshold": 0.6,
+        "enable_consensus_estimation": True,
+        "consensus_early_termination_threshold": 0.85,
+    }
 
     local_vars = locals()
     if memory_config is None:
@@ -686,6 +746,36 @@ def merge_config_objects(  # noqa: C901 - complexity inherent in config merging
                 warnings.warn(
                     "Pass cross_debate_memory params via MemoryConfig instead of individual kwargs. "
                     "Individual cross-debate memory params are deprecated.",
+                    DeprecationWarning,
+                    stacklevel=3,
+                )
+                break
+    if knowledge_config is None:
+        for name in _KNOWLEDGE_PARAMS:
+            if local_vars.get(name) != _KN_DEFAULTS.get(name):
+                warnings.warn(
+                    "Pass knowledge_* params via KnowledgeConfig instead of individual kwargs. "
+                    "Individual knowledge params are deprecated since v2.7.",
+                    DeprecationWarning,
+                    stacklevel=3,
+                )
+                break
+    if evolution_config is None:
+        for name in _EVOLUTION_PARAMS:
+            if local_vars.get(name) != _EV_DEFAULTS.get(name):
+                warnings.warn(
+                    "Pass evolution_* params via EvolutionConfig instead of individual kwargs. "
+                    "Individual evolution params are deprecated since v2.7.",
+                    DeprecationWarning,
+                    stacklevel=3,
+                )
+                break
+    if ml_config is None:
+        for name in _ML_PARAMS:
+            if local_vars.get(name) != _ML_DEFAULTS.get(name):
+                warnings.warn(
+                    "Pass ml_* params via MLConfig instead of individual kwargs. "
+                    "Individual ML params are deprecated since v2.7.",
                     DeprecationWarning,
                     stacklevel=3,
                 )
