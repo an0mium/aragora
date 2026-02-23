@@ -384,7 +384,7 @@ class StuckDetector:
                         await callback(item, action)
                     else:
                         callback(item, action)
-                except Exception as e:  # noqa: BLE001 - callback errors must not break detector
+                except (TypeError, ValueError, RuntimeError, AttributeError, KeyError, OSError) as e:
                     logger.error("Callback error: %s", e)
 
             # Take action

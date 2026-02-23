@@ -913,7 +913,7 @@ class HardenedOrchestrator(AutonomousOrchestrator):
                 "KnowledgeMound or ContradictionDetector unavailable, "
                 "skipping contradiction scan"
             )
-        except Exception as e:  # noqa: BLE001 — contradiction scan is non-critical
+        except (ImportError, RuntimeError, ValueError, TypeError, OSError, AttributeError, KeyError) as e:
             logger.debug("km_contradiction_scan_error: %s", e)
 
     # =========================================================================
@@ -1324,7 +1324,7 @@ class HardenedOrchestrator(AutonomousOrchestrator):
                         review_deduction,
                         len(code_review_result.issues),
                     )
-            except Exception as exc:
+            except (ImportError, RuntimeError, ValueError, TypeError, OSError, AttributeError, KeyError) as exc:
                 logger.debug("review_gate code_reviewer unavailable: %s", exc)
 
         score = max(0, score)
@@ -1379,7 +1379,7 @@ class HardenedOrchestrator(AutonomousOrchestrator):
                     diagnosis.failure_type.value,
                     len(diagnosis.fixes),
                 )
-            except Exception as exc:
+            except (ImportError, RuntimeError, ValueError, TypeError, OSError, AttributeError, KeyError) as exc:
                 logger.debug("forward_fixer unavailable: %s", exc)
 
             logger.warning(

@@ -776,7 +776,7 @@ DO NOT propose features that already exist below.
             if hooks.on_belief_network_built:
                 await self._safe_call(hooks.on_belief_network_built, result)
 
-        except Exception as e:  # noqa: BLE001 - hook errors must not break debate flow
+        except (TypeError, ValueError, RuntimeError, AttributeError, KeyError, OSError) as e:
             self._log(f"  Post-debate hooks error: {e}")
 
     async def _safe_call(self, fn: Callable, *args) -> None:
@@ -785,7 +785,7 @@ DO NOT propose features that already exist below.
             result = fn(*args)
             if asyncio.iscoroutine(result):
                 await result
-        except Exception as e:  # noqa: BLE001 - hook errors must not break debate flow
+        except (TypeError, ValueError, RuntimeError, AttributeError, KeyError, OSError) as e:
             self._log(f"  Hook error: {e}")
 
 

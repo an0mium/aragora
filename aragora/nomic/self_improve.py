@@ -194,8 +194,8 @@ class SelfImprovePipeline:
         if self.config.progress_callback:
             try:
                 self.config.progress_callback(event, data)
-            except Exception:
-                pass
+            except (TypeError, ValueError, RuntimeError, AttributeError):
+                logger.debug("progress_callback failed")
 
     async def run(self, objective: str | None = None) -> SelfImproveResult:
         """Run a full self-improvement cycle.
@@ -1879,7 +1879,7 @@ class SelfImprovePipeline:
             )
         except ImportError:
             logger.debug("FeedbackOrchestrator not available")
-        except Exception:  # noqa: BLE001 — feedback is non-critical
+        except (RuntimeError, ValueError, TypeError, OSError, AttributeError, KeyError):
             logger.warning("feedback_orchestrator_failed")
 
     def _publish_to_pipeline_graph(

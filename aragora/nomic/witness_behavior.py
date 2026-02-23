@@ -595,7 +595,7 @@ class WitnessBehavior:
                         await callback(alert)
                     else:
                         callback(alert)
-                except Exception as e:  # noqa: BLE001 - callback errors must not break alert dispatch
+                except (TypeError, ValueError, RuntimeError, AttributeError, KeyError, OSError) as e:
                     logger.error("Alert callback error: %s", e)
 
             # Notify mayor if critical

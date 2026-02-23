@@ -233,10 +233,10 @@ class MayorCoordinator:
                         result = self._on_become_mayor()
                         if asyncio.iscoroutine(result):
                             await result
-                    except Exception as e:  # noqa: BLE001 - callback errors must not break coordinator
+                    except (TypeError, ValueError, RuntimeError, AttributeError, KeyError, OSError) as e:
                         logger.error("on_become_mayor callback error: %s", e)
 
-            except Exception as e:  # noqa: BLE001 - callback errors must not break coordinator
+            except (RuntimeError, ValueError, TypeError, OSError, AttributeError, KeyError, ConnectionError, TimeoutError) as e:
                 logger.error("Failed to promote to MAYOR: %s", e)
 
     async def _demote_from_mayor(self) -> None:
@@ -275,10 +275,10 @@ class MayorCoordinator:
                         result = self._on_lose_mayor()
                         if asyncio.iscoroutine(result):
                             await result
-                    except Exception as e:  # noqa: BLE001 - callback errors must not break coordinator
+                    except (TypeError, ValueError, RuntimeError, AttributeError, KeyError, OSError) as e:
                         logger.error("on_lose_mayor callback error: %s", e)
 
-            except Exception as e:  # noqa: BLE001 - callback errors must not break coordinator
+            except (RuntimeError, ValueError, TypeError, OSError, AttributeError, KeyError, ConnectionError, TimeoutError) as e:
                 logger.error("Failed to demote from MAYOR: %s", e)
 
 

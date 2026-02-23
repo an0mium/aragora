@@ -404,7 +404,7 @@ class SelfImproveFeedbackOrchestrator:
                 self._queue.add(g)
                 report.goals_generated += 1
             report.steps_completed += 1
-        except Exception as exc:  # noqa: BLE001
+        except (ImportError, RuntimeError, ValueError, TypeError, OSError, AttributeError, KeyError) as exc:
             logger.warning("feedback_step_gauntlet_failed: %s", exc)
             report.errors.append("gauntlet")
             report.steps_failed += 1
@@ -420,7 +420,7 @@ class SelfImproveFeedbackOrchestrator:
                 self._queue.add(g)
                 report.goals_generated += 1
             report.steps_completed += 1
-        except Exception as exc:  # noqa: BLE001
+        except (ImportError, RuntimeError, ValueError, TypeError, OSError, AttributeError, KeyError) as exc:
             logger.warning("feedback_step_introspection_failed: %s", exc)
             report.errors.append("introspection")
             report.steps_failed += 1
@@ -434,7 +434,7 @@ class SelfImproveFeedbackOrchestrator:
                     {"action": "breed", "new_genomes": breeds}
                 )
             report.steps_completed += 1
-        except Exception as exc:  # noqa: BLE001
+        except (ImportError, RuntimeError, ValueError, TypeError, OSError, AttributeError, KeyError) as exc:
             logger.warning("feedback_step_genesis_failed: %s", exc)
             report.errors.append("genesis")
             report.steps_failed += 1
@@ -444,7 +444,7 @@ class SelfImproveFeedbackOrchestrator:
             adjustments = self._step_learning(cycle_id, execution_results)
             report.learning_adjustments = {"adjustment_count": adjustments}
             report.steps_completed += 1
-        except Exception as exc:  # noqa: BLE001
+        except (ImportError, RuntimeError, ValueError, TypeError, OSError, AttributeError, KeyError) as exc:
             logger.warning("feedback_step_learning_failed: %s", exc)
             report.errors.append("learning")
             report.steps_failed += 1
@@ -455,7 +455,7 @@ class SelfImproveFeedbackOrchestrator:
             report.workspace_dedup_results = {"duplicates_found": deduped}
             report.workspace_deduped = deduped
             report.steps_completed += 1
-        except Exception as exc:  # noqa: BLE001
+        except (ImportError, RuntimeError, ValueError, TypeError, OSError, AttributeError, KeyError) as exc:
             logger.warning("feedback_step_workspace_failed: %s", exc)
             report.errors.append("workspace")
             report.steps_failed += 1
@@ -469,7 +469,7 @@ class SelfImproveFeedbackOrchestrator:
                 self._queue.add(g)
                 report.goals_generated += 1
             report.steps_completed += 1
-        except Exception as exc:  # noqa: BLE001
+        except (ImportError, RuntimeError, ValueError, TypeError, OSError, AttributeError, KeyError) as exc:
             logger.warning("feedback_step_pulse_failed: %s", exc)
             report.errors.append("pulse")
             report.steps_failed += 1
@@ -482,7 +482,7 @@ class SelfImproveFeedbackOrchestrator:
                 self._queue.add(g)
                 report.goals_generated += 1
             report.steps_completed += 1
-        except Exception as exc:  # noqa: BLE001
+        except (ImportError, RuntimeError, ValueError, TypeError, OSError, AttributeError, KeyError) as exc:
             logger.warning("feedback_step_knowledge_contradiction_failed: %s", exc)
             report.errors.append("knowledge_contradiction")
             report.steps_failed += 1

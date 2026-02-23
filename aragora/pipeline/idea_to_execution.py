@@ -1493,8 +1493,8 @@ class IdeaToExecutionPipeline:
                 "status": "failed",
                 "output": {"error": "Task execution failed"},
             }
-        except Exception as exc:
-            # Catch-all: harness config errors, path validation, etc.
+        except (ImportError, RuntimeError, ValueError, TypeError, OSError, AttributeError, KeyError, ConnectionError, TimeoutError) as exc:
+            # Harness config errors, path validation, etc.
             # Individual task failures must not crash the entire stage.
             logger.warning("Task %s failed unexpectedly: %s", task["id"], exc)
             return {
@@ -1945,7 +1945,7 @@ class IdeaToExecutionPipeline:
 
             graph.transitions = list(result.transitions)
             result.universal_graph = graph
-        except Exception as exc:
+        except (ImportError, RuntimeError, ValueError, TypeError, OSError, AttributeError, KeyError) as exc:
             logger.warning("Failed to build universal graph: %s", exc)
 
     # =========================================================================

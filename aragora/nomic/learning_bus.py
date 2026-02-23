@@ -140,7 +140,7 @@ class LearningBus:
             )
             self._km_adapter = NomicCycleAdapter()
             return self._km_adapter
-        except Exception:  # noqa: BLE001 - graceful degradation
+        except (ImportError, RuntimeError, ValueError, TypeError, OSError, AttributeError):
             logger.debug("KM adapter not available for LearningBus persistence")
             return None
 
@@ -151,7 +151,7 @@ class LearningBus:
             return None
         try:
             return adapter.mound
-        except Exception:  # noqa: BLE001 - graceful degradation
+        except (RuntimeError, ValueError, TypeError, AttributeError):
             return None
 
     # ------------------------------------------------------------------
@@ -178,7 +178,7 @@ class LearningBus:
             else:
                 # No running loop - run synchronously
                 asyncio.run(self._persist_finding_async(finding))
-        except Exception:  # noqa: BLE001 - never break publish for KM
+        except (ImportError, RuntimeError, ValueError, TypeError, OSError, AttributeError, KeyError):
             logger.debug("Failed to persist finding to KM")
 
     async def _persist_finding_async(self, finding: Finding) -> None:
@@ -231,7 +231,7 @@ class LearningBus:
                 finding.topic,
                 finding.agent_id,
             )
-        except Exception:  # noqa: BLE001 - never break publish for KM
+        except (ImportError, RuntimeError, ValueError, TypeError, OSError, AttributeError, KeyError):
             logger.debug("Failed to persist finding to KM")
 
     # ------------------------------------------------------------------
@@ -261,7 +261,7 @@ class LearningBus:
                 logger.info(
                     "Loaded %d historical findings from KM", len(findings)
                 )
-        except Exception:  # noqa: BLE001 - graceful degradation
+        except (ImportError, RuntimeError, ValueError, TypeError, OSError, AttributeError, KeyError):
             logger.debug("Could not load historical findings from KM")
 
     async def _load_historical_findings_async(self) -> list[Finding]:
@@ -302,7 +302,7 @@ class LearningBus:
             findings.sort(key=lambda f: f.timestamp)
             return findings[: self._config.max_historical]
 
-        except Exception:  # noqa: BLE001 - graceful degradation
+        except (ImportError, RuntimeError, ValueError, TypeError, OSError, AttributeError, KeyError):
             logger.debug("Failed to load historical findings from KM")
             return []
 
@@ -411,7 +411,7 @@ class LearningBus:
 
             return True
 
-        except Exception:  # noqa: BLE001 - graceful degradation
+        except (ImportError, RuntimeError, ValueError, TypeError, OSError, AttributeError, KeyError):
             logger.warning("Failed to save cycle summary for %s", cycle_id)
             return False
 
@@ -463,7 +463,7 @@ class LearningBus:
                 else:
                     asyncio.run(adapter.ingest_cycle_outcome(outcome))
 
-        except Exception:  # noqa: BLE001 - best effort
+        except (ImportError, RuntimeError, ValueError, TypeError, OSError, AttributeError, KeyError):
             logger.debug("Failed to persist cycle to KM adapter")
 
     # ------------------------------------------------------------------
@@ -483,7 +483,7 @@ class LearningBus:
         for cb in callbacks:
             try:
                 cb(finding)
-            except Exception:
+            except (TypeError, ValueError, RuntimeError, AttributeError, KeyError, OSError):
                 logger.warning("Subscriber callback failed for topic %s", finding.topic)
 
         # Write-through to KM (non-blocking, best-effort)
