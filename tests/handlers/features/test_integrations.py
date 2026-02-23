@@ -897,8 +897,9 @@ class TestPatchUpdate:
 
     @pytest.mark.asyncio
     async def test_patch_no_handler_defaults_empty(self, handler, mem_store):
+        # Auth mock returns user_id="test-user-001", so save under that
         config = IntegrationConfig(
-            type="teams", enabled=False, settings={}, user_id="default"
+            type="teams", enabled=False, settings={}, user_id="test-user-001"
         )
         await mem_store.save(config)
         result = await handler.handle_patch("/api/v1/integrations/teams", {}, None)

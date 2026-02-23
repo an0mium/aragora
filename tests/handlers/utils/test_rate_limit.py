@@ -1323,7 +1323,8 @@ class TestModuleExports:
     """Verify module-level exports and re-exports."""
 
     def test_all_exports(self):
-        import aragora.server.handlers.utils.rate_limit as rl_module
+        import sys
+        rl_module = sys.modules["aragora.server.handlers.utils.rate_limit"]
         assert hasattr(rl_module, "RateLimiter")
         assert hasattr(rl_module, "rate_limit")
         assert hasattr(rl_module, "auth_rate_limit")
@@ -1338,12 +1339,14 @@ class TestModuleExports:
         assert hasattr(rl_module, "USE_DISTRIBUTED_LIMITER")
 
     def test_rate_limiting_disabled_attr(self):
-        import aragora.server.handlers.utils.rate_limit as rl_module
+        import sys
+        rl_module = sys.modules["aragora.server.handlers.utils.rate_limit"]
         assert hasattr(rl_module, "RATE_LIMITING_DISABLED")
         assert isinstance(rl_module.RATE_LIMITING_DISABLED, bool)
 
     def test_trusted_proxies_attr(self):
-        import aragora.server.handlers.utils.rate_limit as rl_module
+        import sys
+        rl_module = sys.modules["aragora.server.handlers.utils.rate_limit"]
         assert hasattr(rl_module, "TRUSTED_PROXIES")
         assert isinstance(rl_module.TRUSTED_PROXIES, frozenset)
 

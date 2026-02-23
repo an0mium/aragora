@@ -375,6 +375,24 @@ def readiness_dependencies(handler: Any) -> HandlerResult:
         logger.warning("PostgreSQL readiness check failed: %s: %s", type(e).__name__, e)
         checks["postgresql"] = {"error": "PostgreSQL check failed"}
 
+    # Check AI provider API keys (fast - env var lookup only)
+    api_key_vars = [
+        "ANTHROPIC_API_KEY",
+        "OPENAI_API_KEY",
+        "OPENROUTER_API_KEY",
+        "MISTRAL_API_KEY",
+        "GEMINI_API_KEY",
+        "XAI_API_KEY",
+    ]
+    configured_keys = [k for k in api_key_vars if os.environ.get(k)]
+    checks["api_keys"] = {
+        "configured_count": len(configured_keys),
+        "providers": [k.replace("_API_KEY", "").lower() for k in configured_keys],
+    }
+    if not configured_keys:
+        checks["api_keys"]["warning"] = "No AI provider API keys configured"
+        # Don't fail readiness — server can still serve cached/offline requests
+
     status_code = 200 if ready else 503
     latency_ms = (time.time() - start_time) * 1000
     result = {

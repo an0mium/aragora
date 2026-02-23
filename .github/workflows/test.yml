@@ -657,10 +657,10 @@ jobs:
           pip install -e ".[dev,research,test]"
           pip install pytest-timeout
 
-      - name: Run slow/load/e2e tier
+      - name: Run slow/load/e2e/benchmark tier
         run: |
           pytest tests/ \
-            -m "slow or load or e2e" \
+            -m "slow or load or e2e or benchmark" \
             --timeout=600 \
             -v \
             --tb=short \
