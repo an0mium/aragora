@@ -403,7 +403,7 @@ class NomicStateMachine:
                         )
                     else:
                         callback(current, next_state, trigger_event)
-            except (TypeError, ValueError, RuntimeError, AttributeError, KeyError, OSError) as e:
+            except Exception as e:  # noqa: BLE001 - external callbacks must not break state machine
                 logger.error("Transition callback error: %s", e)
 
         # Checkpoint if required
@@ -508,14 +508,7 @@ class NomicStateMachine:
                             await callback(state, e)
                         else:
                             callback(state, e)
-                    except (
-                        TypeError,
-                        ValueError,
-                        RuntimeError,
-                        AttributeError,
-                        KeyError,
-                        OSError,
-                    ) as cb_err:
+                    except Exception as cb_err:  # noqa: BLE001 - external callbacks must not break error handling
                         logger.error("Error callback failed: %s", cb_err)
 
                 event = error_event(
