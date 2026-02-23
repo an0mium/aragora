@@ -95,7 +95,7 @@ def _resolve_org_tier(context: Any) -> str | None:
     tier string (e.g. "free", "professional") or None if resolution fails.
     """
     org_id = getattr(context, "org_id", None)
-    if not org_id:
+    if not org_id or not isinstance(org_id, str):
         return None
 
     try:
@@ -108,14 +108,18 @@ def _resolve_org_tier(context: Any) -> str | None:
             repo = get_org_repository()
             org = repo.get(org_id)
             if org and hasattr(org, "tier"):
-                return org.tier.value if hasattr(org.tier, "value") else str(org.tier)
+                tier_val = org.tier.value if hasattr(org.tier, "value") else str(org.tier)
+                if isinstance(tier_val, str) and tier_val in TIER_ORDER:
+                    return tier_val
         except (ImportError, AttributeError, RuntimeError, TypeError):
             pass
 
         # Fallback: check if context itself carries tier metadata
         tier = getattr(context, "subscription_tier", None)
-        if tier:
-            return tier.value if hasattr(tier, "value") else str(tier)
+        if tier is not None:
+            tier_str = tier.value if hasattr(tier, "value") else str(tier)
+            if isinstance(tier_str, str) and tier_str in TIER_ORDER:
+                return tier_str
 
     except ImportError:
         pass
@@ -187,21 +191,38 @@ def require_tier(
 
     def decorator(func: Callable[P, T]) -> Callable[P, T]:
 
+        def _is_auth_context(obj: Any) -> bool:
+            """Check if obj is an AuthorizationContext (by type or duck-typing)."""
+            try:
+                from aragora.rbac.models import AuthorizationContext
+                if isinstance(obj, AuthorizationContext):
+                    return True
+            except ImportError:
+                pass
+            # Duck-type: must have user_id (str) and optionally org_id (str or None)
+            user_id = getattr(obj, "user_id", None)
+            if not isinstance(user_id, str):
+                return False
+            org_id = getattr(obj, "org_id", None)
+            return org_id is None or isinstance(org_id, str)
+
         def _get_context(
             args: tuple[Any, ...], kwargs: dict[str, Any]
         ) -> Any | None:
             """Extract AuthorizationContext from arguments."""
             # Check kwargs
             if context_param in kwargs:
-                return kwargs[context_param]
-            # Check positional args (first or second if self/cls)
+                ctx = kwargs[context_param]
+                if _is_auth_context(ctx):
+                    return ctx
+            # Check positional args
             for arg in args:
-                if hasattr(arg, "org_id") and hasattr(arg, "user_id"):
+                if _is_auth_context(arg):
                     return arg
             # Check if handler has _auth_context attribute
             for arg in args:
                 ctx = getattr(arg, "_auth_context", None)
-                if ctx is not None:
+                if ctx is not None and _is_auth_context(ctx):
                     return ctx
             return None
 

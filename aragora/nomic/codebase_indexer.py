@@ -21,12 +21,17 @@ Usage:
 from __future__ import annotations
 
 import ast
+import json
 import logging
+import subprocess
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
 logger = logging.getLogger(__name__)
+
+# Cache directory for index data
+_CACHE_DIR = Path.home() / ".aragora" / "index_cache"
 
 
 @dataclass
@@ -102,12 +107,113 @@ class CodebaseIndexer:
         self._modules: list[ModuleInfo] = []
         self._test_map: dict[str, list[str]] = {}  # source_path -> [test_paths]
 
+    def _get_git_hash(self) -> str:
+        """Get current git HEAD hash for cache invalidation."""
+        try:
+            result = subprocess.run(
+                ["git", "rev-parse", "HEAD"],
+                capture_output=True,
+                text=True,
+                cwd=self.repo_path,
+                timeout=5,
+            )
+            if result.returncode == 0:
+                return result.stdout.strip()
+        except (subprocess.TimeoutExpired, OSError):
+            pass
+        return ""
+
+    def _load_cached_index(self) -> IndexStats | None:
+        """Load cached index if git hash matches.
+
+        Returns IndexStats and populates self._modules and self._test_map
+        from cache, or None if cache is invalid/missing.
+        """
+        git_hash = self._get_git_hash()
+        if not git_hash:
+            return None
+
+        cache_file = _CACHE_DIR / f"index_{git_hash[:12]}.json"
+        if not cache_file.exists():
+            return None
+
+        try:
+            data = json.loads(cache_file.read_text())
+            self._modules = [
+                ModuleInfo(
+                    path=m["path"],
+                    docstring=m["docstring"],
+                    classes=m["classes"],
+                    functions=m["functions"],
+                    imports_from=m["imports_from"],
+                    line_count=m.get("line_count", 0),
+                )
+                for m in data.get("modules", [])
+            ]
+            self._test_map = data.get("test_map", {})
+            stats = IndexStats(
+                modules_indexed=data.get("modules_indexed", len(self._modules)),
+                classes_found=data.get("classes_found", 0),
+                functions_found=data.get("functions_found", 0),
+                test_files_found=data.get("test_files_found", 0),
+                total_lines=data.get("total_lines", 0),
+            )
+            logger.info(
+                "codebase_index_cache_hit hash=%s modules=%d",
+                git_hash[:12],
+                stats.modules_indexed,
+            )
+            return stats
+        except (json.JSONDecodeError, KeyError, OSError) as exc:
+            logger.debug("Index cache load failed: %s", exc)
+            return None
+
+    def _save_index_cache(self, stats: IndexStats) -> None:
+        """Save index to cache keyed by git hash."""
+        git_hash = self._get_git_hash()
+        if not git_hash:
+            return
+
+        try:
+            _CACHE_DIR.mkdir(parents=True, exist_ok=True)
+            cache_file = _CACHE_DIR / f"index_{git_hash[:12]}.json"
+            data = {
+                "modules": [m.to_km_entry() for m in self._modules],
+                "test_map": self._test_map,
+                "modules_indexed": stats.modules_indexed,
+                "classes_found": stats.classes_found,
+                "functions_found": stats.functions_found,
+                "test_files_found": stats.test_files_found,
+                "total_lines": stats.total_lines,
+            }
+            cache_file.write_text(json.dumps(data))
+            logger.debug("codebase_index_cached hash=%s", git_hash[:12])
+
+            # Clean old cache files (keep last 5)
+            cache_files = sorted(
+                _CACHE_DIR.glob("index_*.json"),
+                key=lambda p: p.stat().st_mtime,
+                reverse=True,
+            )
+            for old_file in cache_files[5:]:
+                old_file.unlink(missing_ok=True)
+        except OSError as exc:
+            logger.debug("Index cache save failed: %s", exc)
+
     async def index(self) -> IndexStats:
         """Scan the codebase and build the index.
+
+        Uses a git-hash-based cache to skip re-indexing when the
+        codebase hasn't changed.
 
         Returns:
             IndexStats with counts and any errors encountered.
         """
+        # Try cache first
+        cached = self._load_cached_index()
+        if cached is not None:
+            return cached
+
         stats = IndexStats()
 
         # Scan source modules
@@ -145,6 +251,9 @@ class CodebaseIndexer:
 
         # Persist to KM if available
         await self._persist_to_km(stats)
+
+        # Save to local cache for fast subsequent loads
+        self._save_index_cache(stats)
 
         logger.info(
             "codebase_index_complete modules=%d classes=%d functions=%d tests=%d",

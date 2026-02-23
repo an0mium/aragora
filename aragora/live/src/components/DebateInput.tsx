@@ -491,7 +491,7 @@ export function DebateInput({ apiBase, onDebateStarted, onError, onQuestionChang
 
           // Auto-fallback to playground if server suggests it (e.g. no API keys configured)
           if (errorData.use_playground && !usePlayground) {
-            logger.info('[DebateInput] Server suggests playground fallback, retrying in playground mode');
+            logger.debug('[DebateInput] Server suggests playground fallback, retrying in playground mode');
             const playgroundUrl = `${apiBase}/api/v1/playground/debate`;
             const playgroundBody = {
               topic: trimmedQuestion,

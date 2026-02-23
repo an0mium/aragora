@@ -273,6 +273,52 @@ class GauntletResult:
             if v.severity in [SeverityLevel.CRITICAL, SeverityLevel.HIGH]
         ]
 
+    def get_rejection_summary(self) -> dict[str, Any]:
+        """Generate a user-friendly rejection summary with action items.
+
+        Returns a dict with:
+        - reason: Why the gauntlet failed/was conditional
+        - action_items: Specific steps to resolve each issue
+        - severity_breakdown: Count by severity level
+        - estimated_effort: rough effort to remediate
+        """
+        if self.verdict == Verdict.PASS:
+            return {
+                "reason": "Gauntlet passed — no rejection.",
+                "action_items": [],
+                "severity_breakdown": self.risk_summary.to_dict(),
+                "estimated_effort": "none",
+            }
+
+        action_items = []
+        for vuln in self.get_critical_vulnerabilities():
+            item: dict[str, Any] = {
+                "vulnerability": vuln.title,
+                "severity": vuln.severity.value,
+                "description": vuln.description,
+            }
+            if vuln.mitigation:
+                item["fix"] = vuln.mitigation
+            if vuln.evidence:
+                item["evidence"] = vuln.evidence[:200]
+            action_items.append(item)
+
+        # Estimate effort based on finding count and severity
+        total = self.risk_summary.critical + self.risk_summary.high
+        if total == 0:
+            effort = "low"
+        elif total <= 3:
+            effort = "medium"
+        else:
+            effort = "high"
+
+        return {
+            "reason": self.verdict_reasoning,
+            "action_items": action_items,
+            "severity_breakdown": self.risk_summary.to_dict(),
+            "estimated_effort": effort,
+        }
+
     def to_dict(self) -> dict:
         return {
             "gauntlet_id": self.gauntlet_id,
@@ -293,4 +339,5 @@ class GauntletResult:
             "consensus_points": self.consensus_points,
             "config_used": self.config_used,
             "agents_used": self.agents_used,
+            "rejection_summary": self.get_rejection_summary() if self.verdict != Verdict.PASS else None,
         }

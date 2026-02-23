@@ -238,10 +238,21 @@ export function usePipeline() {
     [executeApi]
   );
 
-  const loadDemo = useCallback(() => {
+  const loadDemo = useCallback(async () => {
+    // Try server-side demo (creates a stored pipeline that can be executed)
+    try {
+      const result = await api.post('/api/v1/canvas/pipeline/demo', {});
+      if (result?.result) {
+        setPipelineData(result.result);
+        setIsDemo(true);
+        return;
+      }
+    } catch {
+      // Server unavailable — fall back to client-side demo data
+    }
     setPipelineData(getDemoPipeline());
     setIsDemo(true);
-  }, []);
+  }, [api]);
 
   const reset = useCallback(() => {
     setPipelineData(null);
