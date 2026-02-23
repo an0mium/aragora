@@ -537,12 +537,13 @@ class TestGetUsage:
         result = handler_no_store.handle("/api/v1/billing/usage", {}, http, method="GET")
         assert result.status_code == 503
 
-    def test_unknown_user_returns_404(self, handler):
+    def test_unknown_user_returns_404(self):
         """When the auth context user is not in the store, return 404."""
-        # The conftest auto-auth fixture injects user_id="test-user-001"
-        # which is not in our mock store, so we get "User not found"
+        # Create a store without the auto-auth user "test-user-001"
+        empty_store = MockUserStore()
+        empty_handler = BillingHandler(ctx={"user_store": empty_store})
         http = MockHTTPHandler()
-        result = handler.handle("/api/v1/billing/usage", {}, http, method="GET")
+        result = empty_handler.handle("/api/v1/billing/usage", {}, http, method="GET")
         assert result.status_code == 404
 
 
