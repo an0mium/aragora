@@ -356,7 +356,7 @@ class TestGoogleCallback:
 
     def test_error_from_google_redirects_with_error(self, handler, impl, mock_http_handler):
         """Google error parameter triggers redirect with error."""
-        result = asyncio.get_event_loop().run_until_complete(
+        result = asyncio.run(
             handler._handle_google_callback.__wrapped__.__wrapped__(
                 handler, mock_http_handler, {"error": "access_denied", "error_description": "User denied"}
             )
@@ -366,7 +366,7 @@ class TestGoogleCallback:
 
     def test_error_without_description_uses_error_code(self, handler, impl, mock_http_handler):
         """When no error_description, error code itself is used."""
-        result = asyncio.get_event_loop().run_until_complete(
+        result = asyncio.run(
             handler._handle_google_callback.__wrapped__.__wrapped__(
                 handler, mock_http_handler, {"error": "server_error"}
             )
@@ -376,7 +376,7 @@ class TestGoogleCallback:
 
     def test_missing_state_returns_error(self, handler, impl, mock_http_handler):
         """Missing state parameter triggers redirect with error."""
-        result = asyncio.get_event_loop().run_until_complete(
+        result = asyncio.run(
             handler._handle_google_callback.__wrapped__.__wrapped__(
                 handler, mock_http_handler, {"code": "auth-code"}
             )
@@ -387,7 +387,7 @@ class TestGoogleCallback:
     def test_invalid_state_returns_error(self, handler, impl, mock_http_handler):
         """Invalid/expired state triggers redirect with error."""
         impl._validate_state = lambda state: None
-        result = asyncio.get_event_loop().run_until_complete(
+        result = asyncio.run(
             handler._handle_google_callback.__wrapped__.__wrapped__(
                 handler, mock_http_handler, {"state": "bad-state", "code": "auth-code"}
             )
@@ -397,7 +397,7 @@ class TestGoogleCallback:
 
     def test_missing_code_returns_error(self, handler, impl, mock_http_handler):
         """Missing authorization code triggers redirect with error."""
-        result = asyncio.get_event_loop().run_until_complete(
+        result = asyncio.run(
             handler._handle_google_callback.__wrapped__.__wrapped__(
                 handler, mock_http_handler, {"state": "valid-state"}
             )
@@ -412,7 +412,7 @@ class TestGoogleCallback:
         handler._exchange_code_for_tokens = MagicMock(
             side_effect=httpx.ConnectError("connection failed")
         )
-        result = asyncio.get_event_loop().run_until_complete(
+        result = asyncio.run(
             handler._handle_google_callback.__wrapped__.__wrapped__(
                 handler, mock_http_handler, {"state": "valid", "code": "auth-code"}
             )
@@ -425,7 +425,7 @@ class TestGoogleCallback:
         handler._exchange_code_for_tokens = MagicMock(
             return_value={"token_type": "Bearer"}
         )
-        result = asyncio.get_event_loop().run_until_complete(
+        result = asyncio.run(
             handler._handle_google_callback.__wrapped__.__wrapped__(
                 handler, mock_http_handler, {"state": "valid", "code": "auth-code"}
             )
@@ -441,7 +441,7 @@ class TestGoogleCallback:
         handler._get_google_user_info = MagicMock(
             side_effect=ConnectionError("timeout")
         )
-        result = asyncio.get_event_loop().run_until_complete(
+        result = asyncio.run(
             handler._handle_google_callback.__wrapped__.__wrapped__(
                 handler, mock_http_handler, {"state": "valid", "code": "auth-code"}
             )
@@ -457,7 +457,7 @@ class TestGoogleCallback:
         handler._get_google_user_info = MagicMock(return_value=sample_user_info)
         handler._user_store = None
         handler._get_user_store = lambda: None
-        result = asyncio.get_event_loop().run_until_complete(
+        result = asyncio.run(
             handler._handle_google_callback.__wrapped__.__wrapped__(
                 handler, mock_http_handler, {"state": "valid", "code": "auth-code"}
             )
@@ -477,7 +477,7 @@ class TestGoogleCallback:
             return_value={"access_token": "tok"}
         )
         handler._get_google_user_info = MagicMock(return_value=sample_user_info)
-        result = asyncio.get_event_loop().run_until_complete(
+        result = asyncio.run(
             handler._handle_google_callback.__wrapped__.__wrapped__(
                 handler, mock_http_handler, {"state": "valid", "code": "auth-code"}
             )
@@ -505,7 +505,7 @@ class TestGoogleCallback:
             "aragora.billing.jwt_auth.create_token_pair",
             return_value=tokens,
         ):
-            result = asyncio.get_event_loop().run_until_complete(
+            result = asyncio.run(
                 handler._handle_google_callback.__wrapped__.__wrapped__(
                     handler, mock_http_handler, {"state": "valid", "code": "auth-code"}
                 )
@@ -528,7 +528,7 @@ class TestGoogleCallback:
         handler._find_user_by_oauth = MagicMock(
             side_effect=RuntimeError("DB connection lost")
         )
-        result = asyncio.get_event_loop().run_until_complete(
+        result = asyncio.run(
             handler._handle_google_callback.__wrapped__.__wrapped__(
                 handler, mock_http_handler, {"state": "valid", "code": "auth-code"}
             )
@@ -549,7 +549,7 @@ class TestGoogleCallback:
             pass
 
         handler._find_user_by_oauth = MagicMock(side_effect=InterfaceError("pool closed"))
-        result = asyncio.get_event_loop().run_until_complete(
+        result = asyncio.run(
             handler._handle_google_callback.__wrapped__.__wrapped__(
                 handler, mock_http_handler, {"state": "valid", "code": "auth-code"}
             )
@@ -575,7 +575,7 @@ class TestGoogleCallback:
             "aragora.billing.jwt_auth.create_token_pair",
             return_value=tokens,
         ):
-            result = asyncio.get_event_loop().run_until_complete(
+            result = asyncio.run(
                 handler._handle_google_callback.__wrapped__.__wrapped__(
                     handler, mock_http_handler, {"state": "valid", "code": "auth-code"}
                 )
@@ -603,7 +603,7 @@ class TestGoogleCallback:
         handler._user_store.find_by_oauth.return_value = None
         handler._user_store.get_user_by_email.return_value = user
 
-        result = asyncio.get_event_loop().run_until_complete(
+        result = asyncio.run(
             handler._handle_google_callback.__wrapped__.__wrapped__(
                 handler, mock_http_handler, {"state": "valid", "code": "auth-code"}
             )
@@ -630,7 +630,7 @@ class TestGoogleCallback:
             "aragora.billing.jwt_auth.create_token_pair",
             return_value=tokens,
         ):
-            result = asyncio.get_event_loop().run_until_complete(
+            result = asyncio.run(
                 handler._handle_google_callback.__wrapped__.__wrapped__(
                     handler, mock_http_handler, {"state": "valid", "code": "auth-code"}
                 )
@@ -654,7 +654,7 @@ class TestGoogleCallback:
             side_effect=RuntimeError("DB write failed")
         )
 
-        result = asyncio.get_event_loop().run_until_complete(
+        result = asyncio.run(
             handler._handle_google_callback.__wrapped__.__wrapped__(
                 handler, mock_http_handler, {"state": "valid", "code": "auth-code"}
             )
@@ -674,7 +674,7 @@ class TestGoogleCallback:
         handler._user_store.get_user_by_email.return_value = None
         handler._user_store.create_oauth_user.return_value = None
 
-        result = asyncio.get_event_loop().run_until_complete(
+        result = asyncio.run(
             handler._handle_google_callback.__wrapped__.__wrapped__(
                 handler, mock_http_handler, {"state": "valid", "code": "auth-code"}
             )
@@ -699,7 +699,7 @@ class TestGoogleCallback:
             "aragora.billing.jwt_auth.create_token_pair",
             return_value=tokens,
         ):
-            result = asyncio.get_event_loop().run_until_complete(
+            result = asyncio.run(
                 handler._handle_google_callback.__wrapped__.__wrapped__(
                     handler, mock_http_handler, {"state": "valid", "code": "auth-code"}
                 )
@@ -727,7 +727,7 @@ class TestGoogleCallback:
             "aragora.billing.jwt_auth.create_token_pair",
             side_effect=ConfigurationError("jwt_auth", "JWT secret not set"),
         ):
-            result = asyncio.get_event_loop().run_until_complete(
+            result = asyncio.run(
                 handler._handle_google_callback.__wrapped__.__wrapped__(
                     handler, mock_http_handler, {"state": "valid", "code": "auth-code"}
                 )
@@ -752,7 +752,7 @@ class TestGoogleCallback:
             "aragora.billing.jwt_auth.create_token_pair",
             side_effect=ValueError("bad value"),
         ):
-            result = asyncio.get_event_loop().run_until_complete(
+            result = asyncio.run(
                 handler._handle_google_callback.__wrapped__.__wrapped__(
                     handler, mock_http_handler, {"state": "valid", "code": "auth-code"}
                 )
@@ -781,7 +781,7 @@ class TestGoogleCallback:
             "aragora.billing.jwt_auth.create_token_pair",
             return_value=tokens,
         ):
-            result = asyncio.get_event_loop().run_until_complete(
+            result = asyncio.run(
                 handler._handle_google_callback.__wrapped__.__wrapped__(
                     handler, mock_http_handler, {"state": "valid", "code": "auth-code"}
                 )
@@ -808,7 +808,7 @@ class TestGoogleCallback:
             "aragora.billing.jwt_auth.create_token_pair",
             return_value=tokens,
         ):
-            result = asyncio.get_event_loop().run_until_complete(
+            result = asyncio.run(
                 handler._handle_google_callback.__wrapped__.__wrapped__(
                     handler, mock_http_handler, {"state": "valid", "code": "auth-code"}
                 )
@@ -846,7 +846,7 @@ class TestGoogleCallback:
             "aragora.billing.jwt_auth.create_token_pair",
             return_value=tokens,
         ):
-            result = asyncio.get_event_loop().run_until_complete(
+            result = asyncio.run(
                 handler._handle_google_callback.__wrapped__.__wrapped__(
                     handler, mock_http_handler, {"state": "valid", "code": "auth-code"}
                 )
@@ -868,7 +868,7 @@ class TestGoogleCallback:
         # Ensure no async variant
         handler._user_store.get_user_by_email_async = None
 
-        result = asyncio.get_event_loop().run_until_complete(
+        result = asyncio.run(
             handler._handle_google_callback.__wrapped__.__wrapped__(
                 handler, mock_http_handler, {"state": "valid", "code": "auth-code"}
             )
@@ -881,7 +881,7 @@ class TestGoogleCallback:
         handler._exchange_code_for_tokens = MagicMock(
             side_effect=TimeoutError("request timed out")
         )
-        result = asyncio.get_event_loop().run_until_complete(
+        result = asyncio.run(
             handler._handle_google_callback.__wrapped__.__wrapped__(
                 handler, mock_http_handler, {"state": "valid", "code": "auth-code"}
             )
@@ -894,7 +894,7 @@ class TestGoogleCallback:
         handler._exchange_code_for_tokens = MagicMock(
             side_effect=OSError("network unreachable")
         )
-        result = asyncio.get_event_loop().run_until_complete(
+        result = asyncio.run(
             handler._handle_google_callback.__wrapped__.__wrapped__(
                 handler, mock_http_handler, {"state": "valid", "code": "auth-code"}
             )
@@ -921,7 +921,7 @@ class TestGoogleCallback:
             "aragora.billing.jwt_auth.create_token_pair",
             return_value=tokens,
         ):
-            result = asyncio.get_event_loop().run_until_complete(
+            result = asyncio.run(
                 handler._handle_google_callback.__wrapped__.__wrapped__(
                     handler, mock_http_handler, {"state": "valid", "code": "auth-code"}
                 )
@@ -951,7 +951,7 @@ class TestGoogleCallback:
             "aragora.billing.jwt_auth.create_token_pair",
             return_value=tokens,
         ):
-            result = asyncio.get_event_loop().run_until_complete(
+            result = asyncio.run(
                 handler._handle_google_callback.__wrapped__.__wrapped__(
                     handler, mock_http_handler, {"state": "valid", "code": "auth-code"}
                 )
@@ -1278,7 +1278,7 @@ class TestEdgeCases:
             "aragora.billing.jwt_auth.create_token_pair",
             side_effect=KeyError("missing"),
         ):
-            result = asyncio.get_event_loop().run_until_complete(
+            result = asyncio.run(
                 handler._handle_google_callback.__wrapped__.__wrapped__(
                     handler, mock_http_handler, {"state": "valid", "code": "auth-code"}
                 )
@@ -1310,7 +1310,7 @@ class TestEdgeCases:
             "aragora.billing.jwt_auth.create_token_pair",
             side_effect=TypeError("wrong type"),
         ):
-            result = asyncio.get_event_loop().run_until_complete(
+            result = asyncio.run(
                 handler._handle_google_callback.__wrapped__.__wrapped__(
                     handler, mock_http_handler, {"state": "valid", "code": "auth-code"}
                 )
@@ -1330,7 +1330,7 @@ class TestEdgeCases:
             side_effect=KeyError("id")
         )
 
-        result = asyncio.get_event_loop().run_until_complete(
+        result = asyncio.run(
             handler._handle_google_callback.__wrapped__.__wrapped__(
                 handler, mock_http_handler, {"state": "valid", "code": "auth-code"}
             )
@@ -1349,7 +1349,7 @@ class TestEdgeCases:
             side_effect=ValueError("bad data")
         )
 
-        result = asyncio.get_event_loop().run_until_complete(
+        result = asyncio.run(
             handler._handle_google_callback.__wrapped__.__wrapped__(
                 handler, mock_http_handler, {"state": "valid", "code": "auth-code"}
             )

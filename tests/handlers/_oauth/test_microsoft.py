@@ -466,7 +466,7 @@ class TestMicrosoftCallback:
 
     def _run_callback(self, handler, mock_http_handler, query_params):
         """Run the async callback via the event loop, unwrapping decorators."""
-        return asyncio.get_event_loop().run_until_complete(
+        return asyncio.run(
             handler._handle_microsoft_callback.__wrapped__.__wrapped__(
                 handler, mock_http_handler, query_params
             )

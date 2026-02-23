@@ -1575,7 +1575,7 @@ class TestEdgeCasesAndSecurity:
 
         import asyncio
 
-        asyncio.get_event_loop().run_until_complete(
+        asyncio.run(
             slack_handler._post_agent_response(
                 response_url="https://hooks.slack.com/resp/1",
                 agent="claude",

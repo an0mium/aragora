@@ -812,7 +812,7 @@ class TestRateLimitDecorator:
             return "async_ok"
 
         mock = FakeHandler(client_address=("10.0.0.3", 80))
-        result = asyncio.get_event_loop().run_until_complete(my_handler(mock))
+        result = asyncio.run(my_handler(mock))
         assert result == "async_ok"
 
     def test_async_function_blocked(self):
@@ -1082,7 +1082,7 @@ class TestAuthRateLimitDecorator:
             return "async_logged_in"
 
         h = FakeHandler(client_address=("10.0.0.1", 80))
-        result = asyncio.get_event_loop().run_until_complete(login(h))
+        result = asyncio.run(login(h))
         assert result == "async_logged_in"
 
     def test_async_blocked(self):

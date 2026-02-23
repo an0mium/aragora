@@ -364,7 +364,7 @@ class TestHandleErrorsAsync:
         async def good():
             return {"ok": True}
 
-        result = asyncio.get_event_loop().run_until_complete(good())
+        result = asyncio.run(good())
         assert result == {"ok": True}
 
     def test_async_value_error(self):
@@ -372,7 +372,7 @@ class TestHandleErrorsAsync:
         async def bad():
             raise ValueError("nope")
 
-        result = asyncio.get_event_loop().run_until_complete(bad())
+        result = asyncio.run(bad())
         assert isinstance(result, HandlerResult)
         assert result.status_code == 400
 
@@ -381,7 +381,7 @@ class TestHandleErrorsAsync:
         async def bad():
             raise RuntimeError("boom")
 
-        result = asyncio.get_event_loop().run_until_complete(bad())
+        result = asyncio.run(bad())
         assert "X-Trace-Id" in result.headers
 
     def test_async_preserves_function_name(self):
@@ -703,7 +703,7 @@ class TestRequirePermission:
             return {"user_id": user.user_id}
 
         h = FakeHandler(headers={"Authorization": "Bearer tok"})
-        result = asyncio.get_event_loop().run_until_complete(handler(handler=h))
+        result = asyncio.run(handler(handler=h))
         assert result == {"user_id": "u-1"}
 
     @patch("aragora.server.handlers.utils.decorators._test_user_context_override", None)
@@ -716,7 +716,7 @@ class TestRequirePermission:
             return {"ok": True}
 
         h = FakeHandler(headers={"Authorization": "Bearer tok"})
-        result = asyncio.get_event_loop().run_until_complete(handler(handler=h))
+        result = asyncio.run(handler(handler=h))
         assert isinstance(result, HandlerResult)
         assert result.status_code == 403
 

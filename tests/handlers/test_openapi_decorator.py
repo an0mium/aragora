@@ -285,7 +285,7 @@ class TestApiEndpoint:
         async def my_func(x):
             return x * 2
 
-        result = asyncio.get_event_loop().run_until_complete(my_func(5))
+        result = asyncio.run(my_func(5))
         assert result == 10
 
     def test_openapi_attribute_attached(self):

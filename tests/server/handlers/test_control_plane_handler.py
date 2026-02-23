@@ -47,7 +47,7 @@ def mock_run_async():
     The control plane handler uses _run_async() internally to call async
     coordinator methods from sync handler methods. In async tests, this
     conflicts with the running event loop. This fixture patches _run_async
-    to simply run the coroutine directly using asyncio.get_event_loop().run_until_complete()
+    to simply run the coroutine directly using asyncio.run()
     or return the awaitable result when already in async context.
     """
 

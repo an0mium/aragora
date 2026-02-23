@@ -275,7 +275,7 @@ class TestRateLimitDecorator:
             async def async_handler():
                 return "async_ok"
 
-            result = asyncio.get_event_loop().run_until_complete(async_handler())
+            result = asyncio.run(async_handler())
             assert result == "async_ok"
 
     def test_async_wrapper_preserves_name(self):
@@ -350,7 +350,7 @@ class TestRateLimitDecorator:
             async def async_handler():
                 return "original"
 
-            result = asyncio.get_event_loop().run_until_complete(async_handler())
+            result = asyncio.run(async_handler())
             assert result == "awaited"
 
     def test_async_wrapper_returns_non_awaitable_result(self):
@@ -372,7 +372,7 @@ class TestRateLimitDecorator:
             async def async_handler():
                 return "original"
 
-            result = asyncio.get_event_loop().run_until_complete(async_handler())
+            result = asyncio.run(async_handler())
             assert result == "not_awaitable"
 
 
@@ -391,7 +391,7 @@ class TestValidateBodyAsync:
 
         fake_self = _FakeHandlerSelf()
         req = _FakeRequest({"name": "Alice", "age": 30})
-        result = asyncio.get_event_loop().run_until_complete(handler(fake_self, req))
+        result = asyncio.run(handler(fake_self, req))
         assert _status(result) == 200
         assert _body(result)["ok"] is True
 
@@ -402,7 +402,7 @@ class TestValidateBodyAsync:
 
         fake_self = _FakeHandlerSelf()
         req = _FakeRequest({"name": "Alice"})
-        result = asyncio.get_event_loop().run_until_complete(handler(fake_self, req))
+        result = asyncio.run(handler(fake_self, req))
         assert _status(result) == 400
         body = _body(result)
         assert "age" in body.get("error", "")
@@ -414,7 +414,7 @@ class TestValidateBodyAsync:
 
         fake_self = _FakeHandlerSelf()
         req = _FakeRequest({})
-        result = asyncio.get_event_loop().run_until_complete(handler(fake_self, req))
+        result = asyncio.run(handler(fake_self, req))
         assert _status(result) == 400
         body = _body(result)
         err = body.get("error", "")
@@ -429,7 +429,7 @@ class TestValidateBodyAsync:
 
         fake_self = _FakeHandlerSelf()
         req = _FakeRequest(raise_exc=json.JSONDecodeError)
-        result = asyncio.get_event_loop().run_until_complete(handler(fake_self, req))
+        result = asyncio.run(handler(fake_self, req))
         assert _status(result) == 400
         assert "Invalid JSON" in _body(result).get("error", "")
 
@@ -440,7 +440,7 @@ class TestValidateBodyAsync:
 
         fake_self = _FakeHandlerSelf()
         req = _FakeRequest(raise_exc=ValueError)
-        result = asyncio.get_event_loop().run_until_complete(handler(fake_self, req))
+        result = asyncio.run(handler(fake_self, req))
         assert _status(result) == 400
 
     def test_type_error(self):
@@ -450,7 +450,7 @@ class TestValidateBodyAsync:
 
         fake_self = _FakeHandlerSelf()
         req = _FakeRequest(raise_exc=TypeError)
-        result = asyncio.get_event_loop().run_until_complete(handler(fake_self, req))
+        result = asyncio.run(handler(fake_self, req))
         assert _status(result) == 400
 
     def test_uses_self_error_response_when_available(self):
@@ -460,7 +460,7 @@ class TestValidateBodyAsync:
 
         fake_self = _FakeHandlerSelf(has_error_response=True)
         req = _FakeRequest({})
-        result = asyncio.get_event_loop().run_until_complete(handler(fake_self, req))
+        result = asyncio.run(handler(fake_self, req))
         assert _status(result) == 400
         assert "field" in _body(result).get("error", "")
 
@@ -471,7 +471,7 @@ class TestValidateBodyAsync:
 
         fake_self = _FakeHandlerSelf(has_error_response=True)
         req = _FakeRequest(raise_exc=json.JSONDecodeError)
-        result = asyncio.get_event_loop().run_until_complete(handler(fake_self, req))
+        result = asyncio.run(handler(fake_self, req))
         assert _status(result) == 400
         assert "Invalid JSON" in _body(result).get("error", "")
 
@@ -482,7 +482,7 @@ class TestValidateBodyAsync:
 
         fake_self = _FakeHandlerSelf()
         req = _FakeRequest({"anything": "goes"})
-        result = asyncio.get_event_loop().run_until_complete(handler(fake_self, req))
+        result = asyncio.run(handler(fake_self, req))
         assert _status(result) == 200
 
     def test_extra_fields_allowed(self):
@@ -492,7 +492,7 @@ class TestValidateBodyAsync:
 
         fake_self = _FakeHandlerSelf()
         req = _FakeRequest({"name": "Alice", "bonus": 42})
-        result = asyncio.get_event_loop().run_until_complete(handler(fake_self, req))
+        result = asyncio.run(handler(fake_self, req))
         assert _status(result) == 200
 
     def test_preserves_function_name(self):
@@ -509,7 +509,7 @@ class TestValidateBodyAsync:
 
         fake_self = _FakeHandlerSelf()
         req = _FakeRequest({"name": "test"})
-        result = asyncio.get_event_loop().run_until_complete(
+        result = asyncio.run(
             handler(fake_self, req, "u123", role="admin")
         )
         assert _status(result) == 200
@@ -526,7 +526,7 @@ class TestValidateBodyAsync:
 
         fake_self = _FakeHandlerSelf()
         req = _FakeRequest({"name": None})
-        result = asyncio.get_event_loop().run_until_complete(handler(fake_self, req))
+        result = asyncio.run(handler(fake_self, req))
         assert _status(result) == 200
 
     def test_field_present_with_empty_string_passes(self):
@@ -536,7 +536,7 @@ class TestValidateBodyAsync:
 
         fake_self = _FakeHandlerSelf()
         req = _FakeRequest({"name": ""})
-        result = asyncio.get_event_loop().run_until_complete(handler(fake_self, req))
+        result = asyncio.run(handler(fake_self, req))
         assert _status(result) == 200
 
 
@@ -728,7 +728,7 @@ class TestValidateBodyFallback:
 
         fake_self = object()  # No error_response attribute
         req = _FakeRequest(raise_exc=json.JSONDecodeError)
-        result = asyncio.get_event_loop().run_until_complete(handler(fake_self, req))
+        result = asyncio.run(handler(fake_self, req))
         assert _status(result) == 400
         assert "Invalid JSON" in _body(result).get("error", "")
 
@@ -739,7 +739,7 @@ class TestValidateBodyFallback:
 
         fake_self = object()
         req = _FakeRequest({})
-        result = asyncio.get_event_loop().run_until_complete(handler(fake_self, req))
+        result = asyncio.run(handler(fake_self, req))
         assert _status(result) == 400
         assert "required_field" in _body(result).get("error", "")
 
@@ -1310,7 +1310,7 @@ class TestDecoratorCombinations:
         # Body validation should work
         fake_self = _FakeHandlerSelf()
         req = _FakeRequest({})
-        result = asyncio.get_event_loop().run_until_complete(handler(fake_self, req))
+        result = asyncio.run(handler(fake_self, req))
         assert _status(result) == 400
 
     def test_api_endpoint_with_validate_body_success(self):
@@ -1321,7 +1321,7 @@ class TestDecoratorCombinations:
 
         fake_self = _FakeHandlerSelf()
         req = _FakeRequest({"name": "test"})
-        result = asyncio.get_event_loop().run_until_complete(handler(fake_self, req))
+        result = asyncio.run(handler(fake_self, req))
         assert _status(result) == 200
 
     def test_validate_body_with_require_quota(self):
@@ -1358,7 +1358,7 @@ class TestLogging:
         fake_self = _FakeHandlerSelf()
         req = _FakeRequest(raise_exc=json.JSONDecodeError)
         with caplog.at_level(logging.DEBUG, logger="aragora.server.handlers.api_decorators"):
-            asyncio.get_event_loop().run_until_complete(handler(fake_self, req))
+            asyncio.run(handler(fake_self, req))
         assert any("JSON parse error" in rec.message for rec in caplog.records)
 
     def test_validate_body_sync_logs_json_error(self, caplog):
@@ -1635,7 +1635,7 @@ class TestValidateBodyJsonDecodeErrorDetails:
                 raise json.JSONDecodeError("Expecting value", "doc", 0)
 
         fake_self = _FakeHandlerSelf()
-        result = asyncio.get_event_loop().run_until_complete(handler(fake_self, BadJsonRequest()))
+        result = asyncio.run(handler(fake_self, BadJsonRequest()))
         assert _status(result) == 400
         assert "Invalid JSON" in _body(result).get("error", "")
 
@@ -1802,7 +1802,7 @@ class TestEdgeCases:
 
         fake_self = _FakeHandlerSelf()
         req = _FakeRequest({})
-        result = asyncio.get_event_loop().run_until_complete(handler(fake_self, req))
+        result = asyncio.run(handler(fake_self, req))
         assert _status(result) == 400
         assert "only_field" in _body(result).get("error", "")
 
@@ -1815,7 +1815,7 @@ class TestEdgeCases:
 
         fake_self = _FakeHandlerSelf()
         req = _FakeRequest({})
-        result = asyncio.get_event_loop().run_until_complete(handler(fake_self, req))
+        result = asyncio.run(handler(fake_self, req))
         assert _status(result) == 400
         err = _body(result).get("error", "")
         for f in fields:
@@ -1869,7 +1869,7 @@ class TestEdgeCases:
 
         fake_self = _FakeHandlerSelf()
         req = _FakeRequest({"flag": False})
-        result = asyncio.get_event_loop().run_until_complete(handler(fake_self, req))
+        result = asyncio.run(handler(fake_self, req))
         assert _status(result) == 200
 
     def test_validate_body_numeric_field_value(self):

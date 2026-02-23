@@ -107,7 +107,7 @@ def _make_request_data(**overrides: Any) -> dict[str, Any]:
 
 def _run(coro):
     """Run a coroutine in a fresh event loop (for tests)."""
-    return asyncio.get_event_loop().run_until_complete(coro)
+    return asyncio.run(coro)
 
 
 # ============================================================================

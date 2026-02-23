@@ -318,7 +318,7 @@ class TestGetAnalytics:
         handler._tracker = mock_tracker
 
         import asyncio
-        result = asyncio.get_event_loop().run_until_complete(
+        result = asyncio.run(
             handler.handle("/api/v1/memory/analytics", {}, mock_http)
         )
 
@@ -334,7 +334,7 @@ class TestGetAnalytics:
         handler._tracker = mock_tracker
 
         import asyncio
-        result = asyncio.get_event_loop().run_until_complete(
+        result = asyncio.run(
             handler.handle("/api/v1/memory/analytics", {"days": "7"}, mock_http)
         )
 
@@ -469,7 +469,7 @@ class TestGetTierStats:
             "aragora.memory.tier_manager": MagicMock(MemoryTier=_MockMemoryTier)
         }):
             import asyncio
-            result = asyncio.get_event_loop().run_until_complete(
+            result = asyncio.run(
                 handler.handle(
                     "/api/v1/memory/analytics/tier/fast", {}, mock_http
                 )
@@ -512,7 +512,7 @@ class TestTakeSnapshot:
         handler._tracker = mock_tracker
 
         import asyncio
-        result = asyncio.get_event_loop().run_until_complete(
+        result = asyncio.run(
             handler.handle_post(
                 "/api/v1/memory/analytics/snapshot", {}, mock_http
             )
@@ -526,7 +526,7 @@ class TestTakeSnapshot:
         self, handler: MemoryAnalyticsHandler, mock_http: MockHTTPHandler
     ):
         import asyncio
-        result = asyncio.get_event_loop().run_until_complete(
+        result = asyncio.run(
             handler.handle_post(
                 "/api/v1/memory/analytics/unknown", {}, mock_http
             )
@@ -549,7 +549,7 @@ class TestRateLimiting:
             _memory_analytics_limiter, "is_allowed", return_value=False
         ):
             import asyncio
-            result = asyncio.get_event_loop().run_until_complete(
+            result = asyncio.run(
                 handler.handle("/api/v1/memory/analytics", {}, mock_http)
             )
             assert _status(result) == 429
@@ -567,7 +567,7 @@ class TestRateLimiting:
             _memory_analytics_limiter, "is_allowed", return_value=True
         ):
             import asyncio
-            result = asyncio.get_event_loop().run_until_complete(
+            result = asyncio.run(
                 handler.handle("/api/v1/memory/analytics", {}, mock_http)
             )
             assert _status(result) == 200
@@ -592,7 +592,7 @@ class TestRBAC:
 
         with patch.object(SecureHandler, "get_auth_context", raise_unauth):
             import asyncio
-            result = asyncio.get_event_loop().run_until_complete(
+            result = asyncio.run(
                 h.handle("/api/v1/memory/analytics", {}, mock_http)
             )
             assert _status(result) == 401
@@ -613,7 +613,7 @@ class TestRBAC:
         with patch.object(SecureHandler, "get_auth_context", mock_auth), \
              patch.object(SecureHandler, "check_permission", raise_forbidden):
             import asyncio
-            result = asyncio.get_event_loop().run_until_complete(
+            result = asyncio.run(
                 h.handle("/api/v1/memory/analytics", {}, mock_http)
             )
             assert _status(result) == 403
@@ -630,7 +630,7 @@ class TestRBAC:
 
         with patch.object(SecureHandler, "get_auth_context", raise_unauth):
             import asyncio
-            result = asyncio.get_event_loop().run_until_complete(
+            result = asyncio.run(
                 h.handle_post(
                     "/api/v1/memory/analytics/snapshot", {}, mock_http
                 )
@@ -652,7 +652,7 @@ class TestRBAC:
         with patch.object(SecureHandler, "get_auth_context", mock_auth), \
              patch.object(SecureHandler, "check_permission", raise_forbidden):
             import asyncio
-            result = asyncio.get_event_loop().run_until_complete(
+            result = asyncio.run(
                 h.handle_post(
                     "/api/v1/memory/analytics/snapshot", {}, mock_http
                 )
@@ -672,7 +672,7 @@ class TestHandleRouting:
         self, handler: MemoryAnalyticsHandler, mock_http: MockHTTPHandler
     ):
         import asyncio
-        result = asyncio.get_event_loop().run_until_complete(
+        result = asyncio.run(
             handler.handle("/api/v1/memory/analytics/unknown", {}, mock_http)
         )
         assert result is None
@@ -689,7 +689,7 @@ class TestHandleRouting:
             "aragora.memory.tier_manager": MagicMock(MemoryTier=_MockMemoryTier)
         }):
             import asyncio
-            result = asyncio.get_event_loop().run_until_complete(
+            result = asyncio.run(
                 handler.handle(
                     "/api/v1/memory/analytics/tier/glacial", {"days": "14"}, mock_http
                 )
@@ -707,7 +707,7 @@ class TestHandleRouting:
         handler._tracker = mock_tracker
 
         import asyncio
-        result = asyncio.get_event_loop().run_until_complete(
+        result = asyncio.run(
             handler.handle("/api/v1/memory/analytics", {}, None)
         )
         assert _status(result) == 200
@@ -729,7 +729,7 @@ class TestDaysClamping:
         handler._tracker = mock_tracker
 
         import asyncio
-        asyncio.get_event_loop().run_until_complete(
+        asyncio.run(
             handler.handle("/api/v1/memory/analytics", {}, mock_http)
         )
         mock_tracker.get_analytics.assert_called_once_with(days=30)
@@ -742,7 +742,7 @@ class TestDaysClamping:
         handler._tracker = mock_tracker
 
         import asyncio
-        asyncio.get_event_loop().run_until_complete(
+        asyncio.run(
             handler.handle("/api/v1/memory/analytics", {"days": "0"}, mock_http)
         )
         mock_tracker.get_analytics.assert_called_once_with(days=1)
@@ -755,7 +755,7 @@ class TestDaysClamping:
         handler._tracker = mock_tracker
 
         import asyncio
-        asyncio.get_event_loop().run_until_complete(
+        asyncio.run(
             handler.handle("/api/v1/memory/analytics", {"days": "999"}, mock_http)
         )
         mock_tracker.get_analytics.assert_called_once_with(days=365)
@@ -768,7 +768,7 @@ class TestDaysClamping:
         handler._tracker = mock_tracker
 
         import asyncio
-        asyncio.get_event_loop().run_until_complete(
+        asyncio.run(
             handler.handle("/api/v1/memory/analytics", {"days": "-5"}, mock_http)
         )
         mock_tracker.get_analytics.assert_called_once_with(days=1)
@@ -784,7 +784,7 @@ class TestDaysClamping:
             "aragora.memory.tier_manager": MagicMock(MemoryTier=_MockMemoryTier)
         }):
             import asyncio
-            asyncio.get_event_loop().run_until_complete(
+            asyncio.run(
                 handler.handle(
                     "/api/v1/memory/analytics/tier/fast", {"days": "500"}, mock_http
                 )

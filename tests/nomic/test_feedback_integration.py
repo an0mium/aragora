@@ -320,7 +320,7 @@ class TestTestPathsScoping:
             assert result["check"] == "tests"
             assert result["passed"] is False
 
-        asyncio.get_event_loop().run_until_complete(check_raw())
+        asyncio.run(check_raw())
 
     def test_feedback_loop_repo_path_propagation(self):
         """FeedbackLoop should accept and store repo_path."""
