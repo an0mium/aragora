@@ -5,6 +5,9 @@ import dynamic from 'next/dynamic';
 import { Scanlines, CRTVignette } from '@/components/MatrixRain';
 import { useBackend } from '@/components/BackendSelector';
 import { PanelErrorBoundary } from '@/components/PanelErrorBoundary';
+import { UnifiedMemorySearch } from '@/components/memory/UnifiedMemorySearch';
+import { RetentionDecisions } from '@/components/memory/RetentionDecisions';
+import { DedupClusters } from '@/components/memory/DedupClusters';
 
 const MemoryExplorerPanel = dynamic(
   () => import('@/components/MemoryExplorerPanel').then(m => ({ default: m.MemoryExplorerPanel })),
@@ -62,7 +65,7 @@ function PressureGauge({ value, label, color }: { value: number; label: string; 
 export default function MemoryPage() {
   const { config: backendConfig } = useBackend();
   const [pressure, setPressure] = useState<MemoryPressure | null>(null);
-  const [activeTab, setActiveTab] = useState<'explorer' | 'analytics'>('explorer');
+  const [activeTab, setActiveTab] = useState<'explorer' | 'analytics' | 'unified' | 'retention' | 'dedup'>('explorer');
 
   // Fetch memory pressure data
   useEffect(() => {
@@ -139,37 +142,40 @@ export default function MemoryPage() {
 
           {/* Tab Navigation */}
           <div className="flex gap-2 mb-6">
-            <button
-              onClick={() => setActiveTab('explorer')}
-              className={`px-4 py-2 font-mono text-sm border transition-colors ${
-                activeTab === 'explorer'
-                  ? 'border-acid-green bg-acid-green/10 text-acid-green'
-                  : 'border-acid-green/30 text-text-muted hover:text-text'
-              }`}
-            >
-              [EXPLORER]
-            </button>
-            <button
-              onClick={() => setActiveTab('analytics')}
-              className={`px-4 py-2 font-mono text-sm border transition-colors ${
-                activeTab === 'analytics'
-                  ? 'border-acid-green bg-acid-green/10 text-acid-green'
-                  : 'border-acid-green/30 text-text-muted hover:text-text'
-              }`}
-            >
-              [ANALYTICS]
-            </button>
+            {([
+              { key: 'explorer', label: 'EXPLORER' },
+              { key: 'analytics', label: 'ANALYTICS' },
+              { key: 'unified', label: 'UNIFIED' },
+              { key: 'retention', label: 'RETENTION' },
+              { key: 'dedup', label: 'DEDUP' },
+            ] as const).map(({ key, label }) => (
+              <button
+                key={key}
+                onClick={() => setActiveTab(key)}
+                className={`px-4 py-2 font-mono text-sm border transition-colors ${
+                  activeTab === key
+                    ? 'border-acid-green bg-acid-green/10 text-acid-green'
+                    : 'border-acid-green/30 text-text-muted hover:text-text'
+                }`}
+              >
+                [{label}]
+              </button>
+            ))}
           </div>
 
-          {activeTab === 'explorer' ? (
+          {activeTab === 'explorer' && (
             <PanelErrorBoundary panelName="Memory Explorer">
               <MemoryExplorerPanel backendConfig={{ apiUrl: backendConfig.api, wsUrl: backendConfig.ws }} />
             </PanelErrorBoundary>
-          ) : (
+          )}
+          {activeTab === 'analytics' && (
             <PanelErrorBoundary panelName="Memory Analytics">
               <MemoryAnalyticsPanel apiBase={backendConfig.api} />
             </PanelErrorBoundary>
           )}
+          {activeTab === 'unified' && <UnifiedMemorySearch />}
+          {activeTab === 'retention' && <RetentionDecisions />}
+          {activeTab === 'dedup' && <DedupClusters />}
         </div>
 
         {/* Footer */}

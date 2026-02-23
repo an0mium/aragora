@@ -185,9 +185,10 @@ class TestVectorIndexConfig:
         index.rebuild()
         assert not index.is_using_faiss
 
-    @pytest.mark.skipif(not HAS_FAISS, reason="FAISS not installed")
     def test_above_threshold_uses_faiss(self):
-        """Test large index uses FAISS when available."""
+        """Test large index uses FAISS when available (mocked if not installed)."""
+        from unittest.mock import MagicMock, patch as _patch
+
         config = VectorIndexConfig(faiss_threshold=50)
         index = VectorIndex(dimension=3, config=config)
 
@@ -196,9 +197,24 @@ class TestVectorIndexConfig:
             np.random.seed(i)
             index.add(f"entry{i}", np.random.randn(3).tolist())
 
-        # Force index build
-        index.rebuild()
-        assert index.is_using_faiss
+        if HAS_FAISS:
+            # Real FAISS available - just rebuild and assert
+            index.rebuild()
+            assert index.is_using_faiss
+        else:
+            # Mock faiss so _create_faiss_index succeeds
+            mock_faiss = MagicMock()
+            mock_faiss_index = MagicMock()
+            mock_faiss.IndexFlatIP.return_value = mock_faiss_index
+            mock_faiss.get_num_gpus.return_value = 0
+
+            vi_mod = "aragora.memory.backends.vector_index"
+            with _patch(f"{vi_mod}.HAS_FAISS", True), _patch(f"{vi_mod}.faiss", mock_faiss):
+                index.rebuild()
+                assert index._faiss_index is not None
+                # is_using_faiss checks the module-level HAS_FAISS which is
+                # patched to True inside this context
+                assert index.is_using_faiss
 
 
 class TestVectorIndexStats:

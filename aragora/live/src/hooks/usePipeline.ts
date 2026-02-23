@@ -323,7 +323,7 @@ export function usePipeline() {
     loadDemo,
     reset,
     loading: api.loading || advanceApi.loading || getApi.loading,
-    executing: executeApi.loading,
-    error: api.error || advanceApi.error || getApi.error || executeApi.error,
+    executing: executeApi.loading || selfImproveApi.loading,
+    error: api.error || advanceApi.error || getApi.error || executeApi.error || selfImproveApi.error,
   };
 }

@@ -710,16 +710,10 @@ class TestInMemoryVectorStore:
 # =============================================================================
 
 
-# Check if qdrant-client is available
-try:
-    from qdrant_client import AsyncQdrantClient
-
-    QDRANT_AVAILABLE = True
-except ImportError:
-    QDRANT_AVAILABLE = False
+# qdrant-client mock is installed by conftest.py when the real library is absent,
+# so the production module always has QDRANT_AVAILABLE = True at test time.
 
 
-@pytest.mark.skipif(not QDRANT_AVAILABLE, reason="qdrant-client not installed")
 class TestQdrantVectorStore:
     """Tests for QdrantVectorStore with mocked Qdrant client."""
 
@@ -1298,16 +1292,10 @@ class TestWeaviateVectorStoreImportError:
 # =============================================================================
 
 
-# Check if chromadb is available
-try:
-    import chromadb
-
-    CHROMA_AVAILABLE = True
-except ImportError:
-    CHROMA_AVAILABLE = False
+# chromadb mock is installed by conftest.py when the real library is absent,
+# so the production module always has CHROMA_AVAILABLE = True at test time.
 
 
-@pytest.mark.skipif(not CHROMA_AVAILABLE, reason="chromadb not installed")
 class TestChromaVectorStore:
     """Tests for ChromaVectorStore with mocked Chroma client."""
 

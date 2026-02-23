@@ -21,6 +21,8 @@ import {
   formatRelativeDate,
 } from './types';
 import { KnowledgeGraphView } from './KnowledgeGraphView';
+import { KnowledgeFlowDiagram } from '@/components/knowledge/KnowledgeFlowDiagram';
+import { AdapterHealthGrid } from '@/components/knowledge/AdapterHealthGrid';
 
 export default function KnowledgeMoundPage() {
   // Core data operations via hook (replaces manual fetch + state)
@@ -84,7 +86,7 @@ export default function KnowledgeMoundPage() {
   const [exporting, setExporting] = useState(false);
 
   // View mode state
-  const [viewMode, setViewMode] = useState<'list' | 'graph'>('list');
+  const [viewMode, setViewMode] = useState<'list' | 'graph' | 'flow' | 'adapters'>('list');
 
   const { setContext, clearContext } = useRightSidebar();
 
@@ -401,26 +403,19 @@ export default function KnowledgeMoundPage() {
           </button>
           {/* View Toggle */}
           <div className="flex gap-1 border border-border rounded-lg overflow-hidden">
-            <button
-              onClick={() => setViewMode('list')}
-              className={`px-4 py-2 font-mono text-sm transition-colors ${
-                viewMode === 'list'
-                  ? 'bg-acid-green text-bg'
-                  : 'bg-surface text-text-muted hover:bg-surface/80'
-              }`}
-            >
-              List
-            </button>
-            <button
-              onClick={() => setViewMode('graph')}
-              className={`px-4 py-2 font-mono text-sm transition-colors ${
-                viewMode === 'graph'
-                  ? 'bg-acid-green text-bg'
-                  : 'bg-surface text-text-muted hover:bg-surface/80'
-              }`}
-            >
-              Graph
-            </button>
+            {(['list', 'graph', 'flow', 'adapters'] as const).map((mode) => (
+              <button
+                key={mode}
+                onClick={() => setViewMode(mode)}
+                className={`px-4 py-2 font-mono text-sm transition-colors ${
+                  viewMode === mode
+                    ? 'bg-acid-green text-bg'
+                    : 'bg-surface text-text-muted hover:bg-surface/80'
+                }`}
+              >
+                {mode.charAt(0).toUpperCase() + mode.slice(1)}
+              </button>
+            ))}
           </div>
 
           <div className="flex gap-2 ml-auto">
@@ -649,7 +644,9 @@ export default function KnowledgeMoundPage() {
         </form>
 
         {/* View Mode Content */}
-        {viewMode === 'graph' ? (
+        {viewMode === 'flow' && <KnowledgeFlowDiagram />}
+        {viewMode === 'adapters' && <AdapterHealthGrid />}
+        {viewMode === 'graph' && (
           /* Graph View */
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
             <div className="lg:col-span-1">
@@ -759,7 +756,8 @@ export default function KnowledgeMoundPage() {
               )}
             </div>
           </div>
-        ) : (
+        )}
+        {viewMode === 'list' && (
           /* List View (original) */
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
             {/* Nodes List */}

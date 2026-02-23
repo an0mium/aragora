@@ -2,8 +2,14 @@
 
 import { useCallback, useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
+import { useSearchParams } from 'next/navigation';
 import { Scanlines, CRTVignette } from '@/components/MatrixRain';
 import { API_BASE_URL } from '@/config';
+import { MetaPlannerView } from '@/components/self-improve/MetaPlannerView';
+import { ExecutionTimeline } from '@/components/self-improve/ExecutionTimeline';
+import { LearningFeed } from '@/components/self-improve/LearningFeed';
+import { RegressionGuard } from '@/components/self-improve/RegressionGuard';
+import { BudgetTracker } from '@/components/self-improve/BudgetTracker';
 
 // --- Types ---
 
@@ -72,6 +78,14 @@ function formatDuration(seconds?: number): string {
 // --- Component ---
 
 export default function SelfImprovePage() {
+  // Tab navigation
+  const [activeTab, setActiveTab] = useState<'runs' | 'planner' | 'execution' | 'learning' | 'metrics'>('runs');
+
+  // URL parameter handling for cross-page seeding
+  const searchParams = useSearchParams();
+  const fromSource = searchParams.get('from');
+  const fromId = searchParams.get('id');
+
   // Start panel state
   const [goal, setGoal] = useState('');
   const [dryRun, setDryRun] = useState(false);
@@ -117,6 +131,15 @@ export default function SelfImprovePage() {
       /* ignore transient network errors */
     }
   }, []);
+
+  // Pre-fill goal from cross-page navigation
+  useEffect(() => {
+    if (fromSource && fromId && !goal) {
+      const prefix = fromSource === 'debate' ? 'Improve based on debate' : 'Execute pipeline';
+      setGoal(`${prefix} #${fromId}`);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [fromSource, fromId]);
 
   // Initial load
   useEffect(() => {
@@ -215,6 +238,39 @@ export default function SelfImprovePage() {
             </p>
           </div>
 
+          {/* Cross-page seeding banner */}
+          {fromSource && fromId && (
+            <div className="card p-3 mb-4 border border-blue-400/30">
+              <span className="text-xs font-mono text-blue-400">
+                Seeded from {fromSource === 'debate' ? 'Debate' : 'Pipeline'} #{fromId}
+              </span>
+            </div>
+          )}
+
+          {/* Tab Navigation */}
+          <div className="flex gap-1 mb-4 border-b border-[var(--text-muted)]/20 pb-2">
+            {(['runs', 'planner', 'execution', 'learning', 'metrics'] as const).map((tab) => (
+              <button
+                key={tab}
+                onClick={() => setActiveTab(tab)}
+                className={`px-3 py-1.5 text-xs font-mono rounded-t transition-colors ${
+                  activeTab === tab
+                    ? 'text-[var(--acid-green)] border-b-2 border-[var(--acid-green)]'
+                    : 'text-[var(--text-muted)] hover:text-[var(--text)]'
+                }`}
+              >
+                {tab.charAt(0).toUpperCase() + tab.slice(1)}
+              </button>
+            ))}
+          </div>
+
+          {/* Tab Content */}
+          {activeTab === 'planner' && <MetaPlannerView />}
+          {activeTab === 'execution' && (<><BudgetTracker /><ExecutionTimeline /></>)}
+          {activeTab === 'learning' && <LearningFeed />}
+          {activeTab === 'metrics' && <RegressionGuard />}
+
+          {activeTab === 'runs' && (<>
           {/* Start Panel */}
           <div className="bg-[var(--surface)] border border-[var(--border)] p-4 mb-6">
             <h2 className="text-sm font-mono text-[var(--acid-green)] mb-3">START CYCLE</h2>
@@ -428,6 +484,7 @@ export default function SelfImprovePage() {
               NOMIC CONTROL
             </Link>
           </div>
+          </>)}
         </div>
       </main>
     </>

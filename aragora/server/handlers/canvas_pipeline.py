@@ -244,7 +244,7 @@ class CanvasPipelineHandler:
             if auth_error:
                 return auth_error
             body = self._get_request_body(handler)
-            return await self.handle_self_improve(m.group(1), body)
+            return self.handle_self_improve(m.group(1), body)
 
         # Check for execute: /api/v1/canvas/pipeline/{id}/execute
         m = _PIPELINE_EXECUTE.match(path)
@@ -1209,7 +1209,7 @@ class CanvasPipelineHandler:
             }
         )
 
-    async def handle_self_improve(
+    def handle_self_improve(
         self,
         pipeline_id: str,
         request_data: dict[str, Any],

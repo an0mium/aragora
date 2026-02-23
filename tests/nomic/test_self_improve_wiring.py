@@ -946,6 +946,70 @@ class TestFeedbackLoopClosure:
             await orch._record_orchestration_outcome("test", result)
 
     @pytest.mark.asyncio
+    async def test_execute_goal_coordinated_records_outcome(self):
+        """execute_goal_coordinated() calls both _record_orchestration_outcome()
+        and _detect_km_contradictions() — closing the learning loop for the
+        default meta-planning codepath."""
+        orch = _make_orchestrator(enable_meta_planning=True)
+
+        coord_result = _FakeCoordinationResult(
+            total_branches=3,
+            completed_branches=2,
+            failed_branches=1,
+            merged_branches=2,
+            success=True,
+            duration_seconds=12.0,
+            summary="2 of 3 branches merged",
+        )
+
+        mock_coordinator = MagicMock()
+        mock_coordinator.coordinate_parallel_work = AsyncMock(return_value=coord_result)
+        mock_coordinator.cleanup_all_worktrees = MagicMock()
+
+        with (
+            patch.object(
+                orch,
+                "_run_meta_planner_for_coordination",
+                new_callable=AsyncMock,
+                return_value=[_FakePrioritizedGoal()],
+            ),
+            patch(
+                "aragora.nomic.hardened_orchestrator.BranchCoordinator",
+                return_value=mock_coordinator,
+            ),
+            patch(
+                "aragora.nomic.hardened_orchestrator.BranchCoordinatorConfig",
+            ),
+            patch(
+                "aragora.nomic.hardened_orchestrator.TrackAssignment",
+                side_effect=lambda goal: _FakeTrackAssignment(goal=goal),
+            ),
+            patch.object(
+                orch,
+                "_record_orchestration_outcome",
+                new_callable=AsyncMock,
+            ) as mock_record,
+            patch.object(
+                orch,
+                "_detect_km_contradictions",
+                new_callable=AsyncMock,
+            ) as mock_contradictions,
+            patch.object(orch, "_emit_event"),
+        ):
+            result = await orch.execute_goal_coordinated("test goal")
+
+            # Both methods must be called for cross-cycle learning
+            mock_record.assert_called_once()
+            mock_contradictions.assert_called_once()
+
+            # Verify the result is passed correctly
+            call_args = mock_record.call_args[0]
+            assert call_args[0] == "test goal"
+            assert call_args[1].success is True
+            assert call_args[1].completed_subtasks == 2
+            assert call_args[1].failed_subtasks == 1
+
+    @pytest.mark.asyncio
     async def test_record_outcome_called_from_execute_goal(self):
         """execute_goal() calls _record_orchestration_outcome() after execution."""
         orch = _make_orchestrator(enable_meta_planning=False)
@@ -1064,3 +1128,109 @@ class TestHardenedConfigDefaults:
         assert orch.hardened_config.enable_execution_bridge is False
         assert orch.hardened_config.enable_debug_loop is False
         assert orch.hardened_config.debug_loop_max_retries == 10
+
+
+# ===========================================================================
+# 6. SelfImprovePipeline → NomicCycleAdapter persistence (Phase 1B)
+# ===========================================================================
+
+
+class TestSelfImprovePipelineNomicCycleAdapter:
+    """Verify _persist_cycle_outcome() records to NomicCycleAdapter."""
+
+    @pytest.mark.asyncio
+    async def test_persist_cycle_outcome_records_to_nomic_cycle_adapter(self):
+        """_persist_cycle_outcome() stores via NomicCycleAdapter in addition
+        to PipelineKMBridge, enabling cross-cycle learning via
+        find_similar_cycles()."""
+        from aragora.nomic.self_improve import SelfImproveConfig, SelfImprovePipeline
+
+        config = SelfImproveConfig(use_meta_planner=False, quick_mode=True)
+        pipeline = SelfImprovePipeline(config=config)
+
+        @dataclass
+        class _FakeResult:
+            cycle_id: str = "cycle-test-001"
+            objective: str = "Improve SDK coverage"
+            subtasks_total: int = 3
+            subtasks_completed: int = 2
+            subtasks_failed: int = 1
+            files_changed: list = field(default_factory=lambda: ["a.py", "b.py"])
+            tests_passed: int = 10
+            tests_failed: int = 2
+            metrics_delta: dict = field(default_factory=dict)
+            improvement_score: float = 0.42
+            total_cost_usd: float = 0.0
+            km_persisted: bool = False
+            regressions_detected: bool = False
+            reverted: bool = False
+            duration_seconds: float = 5.0
+
+        result = _FakeResult()
+        mock_adapter = MagicMock()
+        mock_adapter.ingest_cycle_outcome = MagicMock()
+
+        with (
+            patch(
+                "aragora.nomic.cycle_store.get_cycle_store",
+                return_value=MagicMock(),
+            ),
+            patch(
+                "aragora.knowledge.mound.adapters.nomic_cycle_adapter.get_nomic_cycle_adapter",
+                return_value=mock_adapter,
+            ),
+        ):
+            await pipeline._persist_cycle_outcome("cycle-test-001", result)
+
+            mock_adapter.ingest_cycle_outcome.assert_called_once()
+            outcome = mock_adapter.ingest_cycle_outcome.call_args[0][0]
+
+            assert outcome.cycle_id == "cycle-test-001"
+            assert outcome.objective == "Improve SDK coverage"
+            assert outcome.goals_attempted == 3
+            assert outcome.goals_succeeded == 2
+            assert outcome.goals_failed == 1
+            assert outcome.total_files_changed == 2
+            # PARTIAL: some succeeded, some failed
+            assert outcome.status.value == "partial"
+
+    @pytest.mark.asyncio
+    async def test_persist_cycle_outcome_adapter_failure_is_graceful(self):
+        """NomicCycleAdapter failure doesn't break _persist_cycle_outcome()."""
+        from aragora.nomic.self_improve import SelfImproveConfig, SelfImprovePipeline
+
+        config = SelfImproveConfig(use_meta_planner=False, quick_mode=True)
+        pipeline = SelfImprovePipeline(config=config)
+
+        @dataclass
+        class _FakeResult:
+            cycle_id: str = "cycle-err"
+            objective: str = "Test"
+            subtasks_total: int = 1
+            subtasks_completed: int = 1
+            subtasks_failed: int = 0
+            files_changed: list = field(default_factory=list)
+            tests_passed: int = 0
+            tests_failed: int = 0
+            metrics_delta: dict = field(default_factory=dict)
+            improvement_score: float = 0.0
+            total_cost_usd: float = 0.0
+            km_persisted: bool = False
+            regressions_detected: bool = False
+            reverted: bool = False
+            duration_seconds: float = 1.0
+
+        result = _FakeResult()
+
+        with (
+            patch(
+                "aragora.nomic.cycle_store.get_cycle_store",
+                return_value=MagicMock(),
+            ),
+            patch(
+                "aragora.knowledge.mound.adapters.nomic_cycle_adapter.get_nomic_cycle_adapter",
+                side_effect=RuntimeError("DB unavailable"),
+            ),
+        ):
+            # Should not raise
+            await pipeline._persist_cycle_outcome("cycle-err", result)

@@ -225,9 +225,7 @@ class TestCreateRun:
             body={"goal": "Improve performance"},
         )
 
-        result = await handler_with_store.handle_post(
-            "/api/v1/autonomous/improve", {}, http
-        )
+        result = await handler_with_store.handle_post("/api/v1/autonomous/improve", {}, http)
 
         assert _status(result) == 202
         data = _parse_data(result)
@@ -245,43 +243,29 @@ class TestCreateRun:
                 pass
 
     @pytest.mark.asyncio
-    async def test_missing_goal_returns_400(
-        self, handler_with_store, mock_http_handler
-    ):
+    async def test_missing_goal_returns_400(self, handler_with_store, mock_http_handler):
         """POST without goal returns 400."""
         http = mock_http_handler(method="POST", body={})
-        result = await handler_with_store.handle_post(
-            "/api/v1/autonomous/improve", {}, http
-        )
+        result = await handler_with_store.handle_post("/api/v1/autonomous/improve", {}, http)
         assert _status(result) == 400
         assert "goal" in _body(result).get("error", "").lower()
 
     @pytest.mark.asyncio
-    async def test_empty_goal_returns_400(
-        self, handler_with_store, mock_http_handler
-    ):
+    async def test_empty_goal_returns_400(self, handler_with_store, mock_http_handler):
         """POST with empty string goal returns 400."""
         http = mock_http_handler(method="POST", body={"goal": "   "})
-        result = await handler_with_store.handle_post(
-            "/api/v1/autonomous/improve", {}, http
-        )
+        result = await handler_with_store.handle_post("/api/v1/autonomous/improve", {}, http)
         assert _status(result) == 400
 
     @pytest.mark.asyncio
-    async def test_non_string_goal_returns_400(
-        self, handler_with_store, mock_http_handler
-    ):
+    async def test_non_string_goal_returns_400(self, handler_with_store, mock_http_handler):
         """POST with non-string goal returns 400."""
         http = mock_http_handler(method="POST", body={"goal": 42})
-        result = await handler_with_store.handle_post(
-            "/api/v1/autonomous/improve", {}, http
-        )
+        result = await handler_with_store.handle_post("/api/v1/autonomous/improve", {}, http)
         assert _status(result) == 400
 
     @pytest.mark.asyncio
-    async def test_budget_limit_accepted(
-        self, handler_with_store, mock_store, mock_http_handler
-    ):
+    async def test_budget_limit_accepted(self, handler_with_store, mock_store, mock_http_handler):
         """POST with valid budget_limit succeeds."""
         mock_run = SelfImproveRun(run_id="budg-1", goal="test", budget_limit_usd=5.0)
         mock_store.create_run.return_value = mock_run
@@ -291,9 +275,7 @@ class TestCreateRun:
             method="POST",
             body={"goal": "Improve docs", "budget_limit": 5.0},
         )
-        result = await handler_with_store.handle_post(
-            "/api/v1/autonomous/improve", {}, http
-        )
+        result = await handler_with_store.handle_post("/api/v1/autonomous/improve", {}, http)
         assert _status(result) == 202
 
         task = _active_improve_tasks.pop("budg-1", None)
@@ -305,60 +287,44 @@ class TestCreateRun:
                 pass
 
     @pytest.mark.asyncio
-    async def test_budget_too_high_returns_400(
-        self, handler_with_store, mock_http_handler
-    ):
+    async def test_budget_too_high_returns_400(self, handler_with_store, mock_http_handler):
         """POST with budget above MAX returns 400."""
         http = mock_http_handler(
             method="POST",
             body={"goal": "test", "budget_limit": MAX_BUDGET_USD + 1},
         )
-        result = await handler_with_store.handle_post(
-            "/api/v1/autonomous/improve", {}, http
-        )
+        result = await handler_with_store.handle_post("/api/v1/autonomous/improve", {}, http)
         assert _status(result) == 400
         assert "budget_limit" in _body(result).get("error", "").lower()
 
     @pytest.mark.asyncio
-    async def test_budget_too_low_returns_400(
-        self, handler_with_store, mock_http_handler
-    ):
+    async def test_budget_too_low_returns_400(self, handler_with_store, mock_http_handler):
         """POST with budget below MIN returns 400."""
         http = mock_http_handler(
             method="POST",
             body={"goal": "test", "budget_limit": 0.001},
         )
-        result = await handler_with_store.handle_post(
-            "/api/v1/autonomous/improve", {}, http
-        )
+        result = await handler_with_store.handle_post("/api/v1/autonomous/improve", {}, http)
         assert _status(result) == 400
 
     @pytest.mark.asyncio
-    async def test_invalid_budget_type_returns_400(
-        self, handler_with_store, mock_http_handler
-    ):
+    async def test_invalid_budget_type_returns_400(self, handler_with_store, mock_http_handler):
         """POST with non-numeric budget returns 400."""
         http = mock_http_handler(
             method="POST",
             body={"goal": "test", "budget_limit": "expensive"},
         )
-        result = await handler_with_store.handle_post(
-            "/api/v1/autonomous/improve", {}, http
-        )
+        result = await handler_with_store.handle_post("/api/v1/autonomous/improve", {}, http)
         assert _status(result) == 400
 
     @pytest.mark.asyncio
-    async def test_invalid_tracks_returns_400(
-        self, handler_with_store, mock_http_handler
-    ):
+    async def test_invalid_tracks_returns_400(self, handler_with_store, mock_http_handler):
         """POST with non-list tracks returns 400."""
         http = mock_http_handler(
             method="POST",
             body={"goal": "test", "tracks": "qa"},
         )
-        result = await handler_with_store.handle_post(
-            "/api/v1/autonomous/improve", {}, http
-        )
+        result = await handler_with_store.handle_post("/api/v1/autonomous/improve", {}, http)
         assert _status(result) == 400
 
     @pytest.mark.asyncio
@@ -370,15 +336,11 @@ class TestCreateRun:
             method="POST",
             body={"goal": "test", "require_approval": "yes"},
         )
-        result = await handler_with_store.handle_post(
-            "/api/v1/autonomous/improve", {}, http
-        )
+        result = await handler_with_store.handle_post("/api/v1/autonomous/improve", {}, http)
         assert _status(result) == 400
 
     @pytest.mark.asyncio
-    async def test_store_unavailable_returns_503(
-        self, handler, mock_http_handler
-    ):
+    async def test_store_unavailable_returns_503(self, handler, mock_http_handler):
         """POST when store is unavailable returns 503."""
         handler._store = None
         with patch.object(handler, "_get_store", return_value=None):
@@ -386,9 +348,7 @@ class TestCreateRun:
                 method="POST",
                 body={"goal": "test"},
             )
-            result = await handler.handle_post(
-                "/api/v1/autonomous/improve", {}, http
-            )
+            result = await handler.handle_post("/api/v1/autonomous/improve", {}, http)
             assert _status(result) == 503
 
 
@@ -401,9 +361,7 @@ class TestGetRun:
     """Test GET endpoint for retrieving a specific run."""
 
     @pytest.mark.asyncio
-    async def test_returns_run_with_data_envelope(
-        self, handler_with_store, mock_store, sample_run
-    ):
+    async def test_returns_run_with_data_envelope(self, handler_with_store, mock_store, sample_run):
         """GET returns run in {"data": {...}} envelope."""
         mock_store.get_run.return_value = sample_run
 
@@ -450,9 +408,7 @@ class TestGetRun:
         assert data["progress"]["percent_complete"] == 100.0
 
     @pytest.mark.asyncio
-    async def test_run_not_found_returns_404(
-        self, handler_with_store, mock_store
-    ):
+    async def test_run_not_found_returns_404(self, handler_with_store, mock_store):
         """GET for non-existent run returns 404."""
         mock_store.get_run.return_value = None
 
@@ -477,9 +433,7 @@ class TestListRuns:
         """GET list returns runs in {"data": {"runs": [...]}} envelope."""
         mock_store.list_runs.return_value = [sample_run, completed_run]
 
-        result = await handler_with_store.handle(
-            "/api/v1/autonomous/improve", {}, MagicMock()
-        )
+        result = await handler_with_store.handle("/api/v1/autonomous/improve", {}, MagicMock())
 
         assert _status(result) == 200
         data = _parse_data(result)
@@ -488,24 +442,18 @@ class TestListRuns:
         assert "total" in data
 
     @pytest.mark.asyncio
-    async def test_empty_list_returns_empty_array(
-        self, handler_with_store, mock_store
-    ):
+    async def test_empty_list_returns_empty_array(self, handler_with_store, mock_store):
         """GET list with no runs returns empty array."""
         mock_store.list_runs.return_value = []
 
-        result = await handler_with_store.handle(
-            "/api/v1/autonomous/improve", {}, MagicMock()
-        )
+        result = await handler_with_store.handle("/api/v1/autonomous/improve", {}, MagicMock())
 
         data = _parse_data(result)
         assert data["runs"] == []
         assert data["total"] == 0
 
     @pytest.mark.asyncio
-    async def test_pagination_params_forwarded(
-        self, handler_with_store, mock_store
-    ):
+    async def test_pagination_params_forwarded(self, handler_with_store, mock_store):
         """GET list forwards limit and offset to store."""
         mock_store.list_runs.return_value = []
 
@@ -515,18 +463,14 @@ class TestListRuns:
             MagicMock(),
         )
 
-        mock_store.list_runs.assert_called_once_with(
-            limit=10, offset=5, status=None
-        )
+        mock_store.list_runs.assert_called_once_with(limit=10, offset=5, status=None)
 
     @pytest.mark.asyncio
     async def test_store_unavailable_returns_503(self, handler):
         """GET list when store unavailable returns 503."""
         handler._store = None
         with patch.object(handler, "_get_store", return_value=None):
-            result = await handler.handle(
-                "/api/v1/autonomous/improve", {}, MagicMock()
-            )
+            result = await handler.handle("/api/v1/autonomous/improve", {}, MagicMock())
             assert _status(result) == 503
 
 
@@ -544,9 +488,7 @@ class TestPermissions:
         """GET endpoints require autonomous:read permission."""
         # Without mocked auth, get_auth_context should fail -> 401
         http = mock_http_handler()
-        result = await handler.handle(
-            "/api/v1/autonomous/improve", {}, http
-        )
+        result = await handler.handle("/api/v1/autonomous/improve", {}, http)
         # Should be 401 or 403 (not 200/503)
         assert _status(result) in (401, 403)
 
@@ -558,9 +500,7 @@ class TestPermissions:
             method="POST",
             body={"goal": "test"},
         )
-        result = await handler.handle_post(
-            "/api/v1/autonomous/improve", {}, http
-        )
+        result = await handler.handle_post("/api/v1/autonomous/improve", {}, http)
         assert _status(result) in (401, 403)
 
 
@@ -608,9 +548,7 @@ class TestBackgroundExecution:
         assert last_call.kwargs.get("status") in ("completed", "failed")
 
     @pytest.mark.asyncio
-    async def test_execute_run_falls_back_to_orchestrator(
-        self, handler_with_store, mock_store
-    ):
+    async def test_execute_run_falls_back_to_orchestrator(self, handler_with_store, mock_store):
         """Background execution falls back to HardenedOrchestrator when pipeline unavailable."""
         mock_orch_result = MagicMock()
         mock_orch_result.success = True
@@ -623,14 +561,17 @@ class TestBackgroundExecution:
         mock_orchestrator = AsyncMock()
         mock_orchestrator.execute_goal_coordinated = AsyncMock(return_value=mock_orch_result)
 
-        with patch.dict(
-            "sys.modules",
-            {
-                "aragora.nomic.self_improve": None,  # Make import fail
-            },
-        ), patch(
-            "aragora.nomic.hardened_orchestrator.HardenedOrchestrator",
-            return_value=mock_orchestrator,
+        with (
+            patch.dict(
+                "sys.modules",
+                {
+                    "aragora.nomic.self_improve": None,  # Make import fail
+                },
+            ),
+            patch(
+                "aragora.nomic.hardened_orchestrator.HardenedOrchestrator",
+                return_value=mock_orchestrator,
+            ),
         ):
             await handler_with_store._execute_run(
                 run_id="fallback-1",
@@ -642,19 +583,20 @@ class TestBackgroundExecution:
         mock_store.update_run.assert_called()
 
     @pytest.mark.asyncio
-    async def test_execute_run_cleans_up_task_on_failure(
-        self, handler_with_store, mock_store
-    ):
+    async def test_execute_run_cleans_up_task_on_failure(self, handler_with_store, mock_store):
         """Background task is removed from _active_improve_tasks even on double failure."""
         _active_improve_tasks["cleanup-test"] = MagicMock()
 
         # Both pipeline and orchestrator fail
-        with patch.dict(
-            "sys.modules",
-            {"aragora.nomic.self_improve": None},
-        ), patch.dict(
-            "sys.modules",
-            {"aragora.nomic.hardened_orchestrator": None},
+        with (
+            patch.dict(
+                "sys.modules",
+                {"aragora.nomic.self_improve": None},
+            ),
+            patch.dict(
+                "sys.modules",
+                {"aragora.nomic.hardened_orchestrator": None},
+            ),
         ):
             await handler_with_store._execute_run(
                 run_id="cleanup-test",
@@ -667,9 +609,7 @@ class TestBackgroundExecution:
         assert "cleanup-test" not in _active_improve_tasks
 
     @pytest.mark.asyncio
-    async def test_execute_run_handles_cancellation(
-        self, handler_with_store, mock_store
-    ):
+    async def test_execute_run_handles_cancellation(self, handler_with_store, mock_store):
         """Background execution handles CancelledError gracefully."""
         mock_pipeline = AsyncMock()
         mock_pipeline.run = AsyncMock(side_effect=asyncio.CancelledError)

@@ -122,22 +122,21 @@ def compute_calibration_k_multipliers(
 ) -> dict[str, float]:
     """Compute per-agent K-factor multipliers based on calibration quality.
 
-    Agents with poor calibration (overconfident or underconfident) get
-    higher K-factor multipliers so their ELO changes more dramatically,
-    creating stronger incentives to improve calibration.
+    Combines ECE (historical calibration error) with fresh Brier scores
+    to produce K-factor multipliers. Poorly calibrated agents get higher
+    multipliers so their ELO changes more dramatically, creating stronger
+    incentives to improve calibration.
 
-    Rules:
-    - Well-calibrated agents (ECE < 0.1): multiplier = 1.0 (no adjustment)
-    - Slightly miscalibrated (ECE 0.1-0.2): multiplier = 1.1
-    - Moderately miscalibrated (ECE 0.2-0.3): multiplier = 1.25
-    - Poorly calibrated (ECE > 0.3): multiplier = 1.4
+    The multiplier blends two signals:
+    - ECE (long-term calibration drift): 40% weight
+    - Brier score (recent prediction accuracy): 60% weight
 
     Args:
         participants: List of agent names
         calibration_tracker: Optional CalibrationTracker instance
 
     Returns:
-        Dict of agent_name -> K-factor multiplier
+        Dict of agent_name -> K-factor multiplier (1.0 to 1.4)
     """
     if calibration_tracker is None:
         return {}
@@ -145,23 +144,45 @@ def compute_calibration_k_multipliers(
     multipliers = {}
     for agent in participants:
         try:
-            # CalibrationTracker.get_expected_calibration_error returns 0-1
-            ece = calibration_tracker.get_expected_calibration_error(agent)
+            # ECE: long-term calibration error (0-1, lower is better)
+            ece = None
+            try:
+                val = calibration_tracker.get_expected_calibration_error(agent)
+                if isinstance(val, (int, float)):
+                    ece = float(val)
+            except (KeyError, AttributeError, TypeError):
+                pass
 
-            if ece < 0.1:
-                # Well-calibrated: no adjustment
+            # Brier score: recent prediction accuracy (0-1, lower is better)
+            brier = None
+            try:
+                val = calibration_tracker.get_brier_score(agent)
+                if isinstance(val, (int, float)):
+                    brier = float(val)
+            except (KeyError, AttributeError, TypeError):
+                pass
+
+            # Blend available signals into composite calibration error
+            if ece is not None and brier is not None:
+                composite = 0.4 * ece + 0.6 * brier
+            elif ece is not None:
+                composite = ece
+            elif brier is not None:
+                composite = brier
+            else:
                 multipliers[agent] = 1.0
-            elif ece < 0.2:
-                # Slightly miscalibrated: mild penalty
+                continue
+
+            # Map composite error to K-factor multiplier (1.0 to 1.4)
+            if composite < 0.1:
+                multipliers[agent] = 1.0
+            elif composite < 0.2:
                 multipliers[agent] = 1.1
-            elif ece < 0.3:
-                # Moderately miscalibrated: moderate penalty
+            elif composite < 0.3:
                 multipliers[agent] = 1.25
             else:
-                # Poorly calibrated: significant penalty
                 multipliers[agent] = 1.4
         except (KeyError, AttributeError):
-            # If calibration lookup fails, use default multiplier
             multipliers[agent] = 1.0
 
     return multipliers

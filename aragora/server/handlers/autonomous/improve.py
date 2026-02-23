@@ -184,9 +184,7 @@ class AutonomousImproveHandler(SecureEndpointMixin, SecureHandler):  # type: ign
         }
         total = progress["total_subtasks"]
         if total > 0:
-            progress["percent_complete"] = round(
-                (progress["completed_subtasks"] / total) * 100, 1
-            )
+            progress["percent_complete"] = round((progress["completed_subtasks"] / total) * 100, 1)
         else:
             progress["percent_complete"] = 0.0
 
@@ -243,9 +241,7 @@ class AutonomousImproveHandler(SecureEndpointMixin, SecureHandler):  # type: ign
             try:
                 budget_limit = float(budget_limit)
             except (TypeError, ValueError):
-                return error_response(
-                    "'budget_limit' must be a number", 400
-                )
+                return error_response("'budget_limit' must be a number", 400)
             if budget_limit < MIN_BUDGET_USD or budget_limit > MAX_BUDGET_USD:
                 return error_response(
                     f"'budget_limit' must be between {MIN_BUDGET_USD} and {MAX_BUDGET_USD}",

@@ -3,8 +3,8 @@
 import { useState, useCallback } from 'react';
 import dynamic from 'next/dynamic';
 import { useToastContext } from '@/context/ToastContext';
-import { API_BASE_URL } from '@/config';
 import { logger } from '@/utils/logger';
+import { useWorkflowBuilder } from '@/hooks';
 import type { WorkflowNode, WorkflowEdge, WorkflowTemplate, WorkflowStepType, WorkflowNodeData } from '@/components/workflow-builder/types';
 
 // Dynamic import for WorkflowCanvas to avoid SSR issues with React Flow
@@ -126,40 +126,29 @@ export default function WorkflowBuilderPage() {
   const [initialNodes, setInitialNodes] = useState<WorkflowNode[]>([]);
   const [initialEdges, setInitialEdges] = useState<WorkflowEdge[]>([]);
   const [key, setKey] = useState(0); // Force re-render when loading template
+  const [isExecuting, setIsExecuting] = useState(false);
+
+  // Hook provides save, execute, template operations with auto-save + keyboard shortcuts
+  const {
+    saveWorkflow,
+    createWorkflow,
+    executeWorkflow,
+    isSaving,
+  } = useWorkflowBuilder({
+    autoSave: false,  // Manual save via canvas button
+    enableKeyboardShortcuts: true,
+  });
 
   const handleSave = useCallback(
     async (nodes: WorkflowNode[], edges: WorkflowEdge[]) => {
       try {
-        // Convert nodes/edges to workflow definition
-        const workflow = {
-          name: workflowName,
-          description: '',
-          category: 'custom',
-          version: '1.0',
-          tags: [],
-          steps: nodes.map((node) => ({
-            id: node.data.stepId,
-            type: node.type,
-            name: node.data.label,
-            description: node.data.description,
-            config: node.data,
-          })),
-          transitions: edges.map((edge) => ({
-            from: edge.source,
-            to: edge.target,
-            condition: edge.data?.condition,
-          })),
-        };
-
-        // Save to API (placeholder - would need backend endpoint)
-        logger.debug('Saving workflow:', workflow);
-
+        await createWorkflow(workflowName);
         showToast('Workflow saved successfully', 'success');
       } catch {
         showToast('Failed to save workflow', 'error');
       }
     },
-    [workflowName, showToast]
+    [workflowName, showToast, createWorkflow]
   );
 
   const handleSelectTemplate = useCallback((template: WorkflowTemplate) => {
@@ -171,65 +160,19 @@ export default function WorkflowBuilderPage() {
     setKey((k) => k + 1); // Force canvas re-render
   }, []);
 
-  // Execute the current workflow
-  const [isExecuting, setIsExecuting] = useState(false);
-  const [, setSavedWorkflowId] = useState<string | null>(null);
-
   const handleSaveAndExecute = useCallback(
     async (nodes: WorkflowNode[], edges: WorkflowEdge[]) => {
       setIsExecuting(true);
       try {
-        // First save the workflow
-        const workflow = {
-          name: workflowName,
-          description: '',
-          category: 'custom',
-          version: '1.0',
-          tags: [],
-          steps: nodes.map((node) => ({
-            id: node.id,
-            name: node.data?.label || node.id,
-            type: node.data?.type || 'task',
-            config: node.data,
-          })),
-          transitions: edges.map((edge) => ({
-            from: edge.source,
-            to: edge.target,
-            condition: edge.data?.condition,
-          })),
-        };
+        // Save workflow via hook (handles auth, retries)
+        const saved = await createWorkflow(workflowName);
 
-        // Save workflow
-        const saveResponse = await fetch(`${API_BASE_URL}/api/workflows`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(workflow),
-        });
-
-        if (!saveResponse.ok) {
-          throw new Error('Failed to save workflow');
-        }
-
-        const savedWorkflow = await saveResponse.json();
-        const workflowId = savedWorkflow.id;
-        setSavedWorkflowId(workflowId);
-
-        // Execute workflow
-        const executeResponse = await fetch(`${API_BASE_URL}/api/workflows/${workflowId}/execute`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ inputs: {} }),
-        });
-
-        if (!executeResponse.ok) {
-          throw new Error('Failed to execute workflow');
-        }
-
-        const execution = await executeResponse.json();
-        showToast(`Workflow started! Execution ID: ${execution.id}`, 'success');
+        // Execute workflow via hook
+        const executionId = await executeWorkflow({ inputs: {} });
+        showToast(`Workflow started! Execution ID: ${executionId}`, 'success');
 
         // Redirect to runtime page to monitor execution
-        window.location.href = `/workflows/runtime?execution=${execution.id}`;
+        window.location.href = `/workflows/runtime?execution=${executionId}`;
       } catch (error) {
         const message = error instanceof Error ? error.message : 'Execution failed';
         logger.error('Workflow execution error:', error);
@@ -238,7 +181,7 @@ export default function WorkflowBuilderPage() {
         setIsExecuting(false);
       }
     },
-    [workflowName, showToast]
+    [workflowName, showToast, createWorkflow, executeWorkflow]
   );
 
   return (

@@ -290,14 +290,24 @@ class TestFasterWhisperBackend:
             assert backend is not None
 
 
-@pytest.mark.skipif(FASTER_WHISPER_AVAILABLE, reason="faster-whisper is installed")
 class TestFasterWhisperBackendUnavailable:
-    """Tests for faster-whisper when not installed."""
+    """Tests for faster-whisper when not installed (mocked away if present)."""
 
     def test_is_not_available(self):
         """Test is_available returns False when faster-whisper not installed."""
-        backend = FasterWhisperBackend()
-        assert backend.is_available() is False
+        import builtins
+        from unittest.mock import patch as _patch
+
+        _real_import = builtins.__import__
+
+        def _block_faster_whisper(name, *args, **kwargs):
+            if name == "faster_whisper":
+                raise ImportError("mocked: faster_whisper not installed")
+            return _real_import(name, *args, **kwargs)
+
+        with _patch("builtins.__import__", side_effect=_block_faster_whisper):
+            backend = FasterWhisperBackend()
+            assert backend.is_available() is False
 
 
 # ===========================================================================

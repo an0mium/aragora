@@ -1,7 +1,7 @@
 'use client';
 
 import { Suspense, useState, useCallback, useEffect, useMemo } from 'react';
-import { useSearchParams } from 'next/navigation';
+import { useSearchParams, useRouter } from 'next/navigation';
 import dynamic from 'next/dynamic';
 import { usePipeline } from '@/hooks/usePipeline';
 import { usePipelineWebSocket } from '@/hooks/usePipelineWebSocket';
@@ -298,6 +298,12 @@ function PipelinePageContent() {
 
   const [executeStatus, setExecuteStatus] = useState<'idle' | 'success' | 'failed'>('idle');
 
+  // Self-improve integration state
+  const router = useRouter();
+  const [showSelfImproveConfig, setShowSelfImproveConfig] = useState(false);
+  const [siDryRun, setSiDryRun] = useState(false);
+  const [siBudget, setSiBudget] = useState(10);
+
   const handleExecute = useCallback(async () => {
     if (pipelineData?.pipeline_id) {
       setExecuteStatus('idle');
@@ -486,28 +492,76 @@ function PipelinePageContent() {
           </button>
 
           {pipelineData && orchestrationReady && (
-            <button
-              onClick={handleExecute}
-              disabled={executing}
-              className={`px-4 py-2 font-mono text-sm text-white disabled:opacity-50 transition-colors rounded ${
-                executeStatus === 'success'
-                  ? 'bg-emerald-600 hover:bg-emerald-500'
-                  : executeStatus === 'failed'
-                    ? 'bg-red-600 hover:bg-red-500'
-                    : 'bg-amber-600 hover:bg-amber-500'
-              }`}
-            >
-              {executing
-                ? 'Executing...'
-                : executeStatus === 'success'
-                  ? 'Executed'
-                  : executeStatus === 'failed'
-                    ? 'Failed — Retry'
-                    : 'Execute Pipeline'}
-            </button>
+            <>
+              <button
+                onClick={handleExecute}
+                disabled={executing}
+                className={`px-4 py-2 font-mono text-sm text-white disabled:opacity-50 transition-colors rounded ${
+                  executeStatus === 'success'
+                    ? 'bg-emerald-600 hover:bg-emerald-500'
+                    : executeStatus === 'failed'
+                      ? 'bg-red-600 hover:bg-red-500'
+                      : 'bg-amber-600 hover:bg-amber-500'
+                }`}
+              >
+                {executing
+                  ? 'Executing...'
+                  : executeStatus === 'success'
+                    ? 'Executed'
+                    : executeStatus === 'failed'
+                      ? 'Failed — Retry'
+                      : 'Execute Pipeline'}
+              </button>
+              <button
+                onClick={() => setShowSelfImproveConfig(!showSelfImproveConfig)}
+                className="px-3 py-2 text-xs font-mono border border-[var(--acid-green)]/40 text-[var(--acid-green)] rounded hover:bg-[var(--acid-green)]/10 transition-colors"
+              >
+                Execute with Aragora
+              </button>
+            </>
           )}
         </div>
       </header>
+
+      {/* Self-improve config panel */}
+      {showSelfImproveConfig && pipelineData && orchestrationReady && (
+        <div className="px-6 py-4 border-b border-border bg-surface/50">
+          <h3 className="text-sm font-mono text-[var(--acid-green)] mb-3">Self-Improvement Configuration</h3>
+          <div className="max-w-lg space-y-3">
+            <div className="flex items-center justify-between">
+              <label className="text-xs font-mono text-text-muted">Budget limit ($)</label>
+              <input
+                type="number"
+                value={siBudget}
+                onChange={(e) => setSiBudget(Number(e.target.value))}
+                className="w-20 bg-bg border border-text-muted/30 rounded px-2 py-1 text-xs font-mono text-text"
+              />
+            </div>
+            <div className="flex items-center gap-2">
+              <input
+                type="checkbox"
+                checked={siDryRun}
+                onChange={(e) => setSiDryRun(e.target.checked)}
+                className="accent-[var(--acid-green)]"
+              />
+              <label className="text-xs font-mono text-text-muted">Dry run</label>
+            </div>
+            <button
+              onClick={async () => {
+                if (pipelineData?.pipeline_id) {
+                  const res = await executePipeline(pipelineData.pipeline_id, siDryRun);
+                  if (res) {
+                    window.location.href = `/self-improve?from=pipeline&id=${pipelineData.pipeline_id}`;
+                  }
+                }
+              }}
+              className="w-full px-3 py-1.5 text-xs font-mono bg-[var(--acid-green)]/20 border border-[var(--acid-green)]/40 text-[var(--acid-green)] rounded hover:bg-[var(--acid-green)]/30 transition-colors"
+            >
+              Launch Self-Improvement
+            </button>
+          </div>
+        </div>
+      )}
 
       {/* Idea input dropdown */}
       {showIdeaInput && (
