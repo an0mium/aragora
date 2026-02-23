@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useRef } from 'react';
+import { useCallback, useRef, useState } from 'react';
 import { ReactFlow, Background, Controls, MiniMap, type NodeTypes } from '@xyflow/react';
 import '@xyflow/react/dist/style.css';
 
@@ -21,6 +21,16 @@ export function ActionCanvas({ canvasId }: ActionCanvasProps) {
     selectedNodeId: _selectedNodeId, setSelectedNodeId, selectedNodeData,
     updateSelectedNode, deleteSelectedNode, saveCanvas, advanceToOrchestration,
   } = useActionCanvas(canvasId);
+  const [advancing, setAdvancing] = useState(false);
+
+  const handleAdvance = useCallback(async () => {
+    setAdvancing(true);
+    try {
+      await advanceToOrchestration();
+    } finally {
+      setAdvancing(false);
+    }
+  }, [advanceToOrchestration]);
 
   const onNodeClick = useCallback((_: React.MouseEvent, node: { id: string }) => { setSelectedNodeId(node.id); }, [setSelectedNodeId]);
   const onPaneClick = useCallback(() => { setSelectedNodeId(null); }, [setSelectedNodeId]);
@@ -51,7 +61,7 @@ export function ActionCanvas({ canvasId }: ActionCanvasProps) {
           <MiniMap nodeColor={miniMapNodeColor} maskColor="rgba(0,0,0,0.6)" className="!bg-[var(--surface)] !border-[var(--border)]" />
         </ReactFlow>
       </div>
-      <ActionPropertyEditor data={selectedNodeData} onChange={updateSelectedNode} onAdvance={advanceToOrchestration} onDelete={deleteSelectedNode} />
+      <ActionPropertyEditor data={selectedNodeData} onChange={updateSelectedNode} onAdvance={handleAdvance} onDelete={deleteSelectedNode} advancing={advancing} />
     </div>
   );
 }

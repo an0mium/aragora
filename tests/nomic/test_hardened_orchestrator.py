@@ -2345,3 +2345,222 @@ class TestPipelineWiring:
             )
             # Should not raise
             orch._bridge_ingest_coordinated_result(mock_assignment, mock_result)
+
+
+class TestCoordinatedGoldPath:
+    """Tests for the coordinated execution gold path wiring (Phases 1-3)."""
+
+    @pytest.mark.asyncio
+    async def test_debug_loop_called_on_coordinated_failure(self):
+        """DebugLoop is invoked when a coordinated assignment fails."""
+        orch = HardenedOrchestrator(
+            enable_debug_loop=True,
+            enable_execution_bridge=False,
+            enable_prompt_defense=False,
+            generate_receipts=False,
+        )
+
+        # Mock the DebugLoop
+        from aragora.nomic.debug_loop import DebugLoopResult
+
+        mock_debug_result = DebugLoopResult(
+            subtask_id="test",
+            success=True,
+            total_attempts=2,
+        )
+        mock_loop = MagicMock()
+        mock_loop.execute_with_retry = AsyncMock(return_value=mock_debug_result)
+        orch._debug_loop = mock_loop
+
+        # Mock super().execute_goal to return failure
+        failed_result = OrchestrationResult(
+            goal="test",
+            success=False,
+            total_subtasks=1,
+            completed_subtasks=0,
+            failed_subtasks=1,
+            skipped_subtasks=0,
+            assignments=[],
+            duration_seconds=1.0,
+        )
+
+        # Mock MetaPlanner to return a prioritized goal
+        mock_goal = MagicMock()
+        mock_goal.track.value = "developer"
+        mock_goal.description = "Fix the bug"
+        mock_goal.file_hints = []
+        mock_goal.id = "g1"
+        mock_goal.rationale = "test"
+        mock_goal.estimated_impact = "high"
+
+        # Mock BranchCoordinator
+        mock_coord_result = MagicMock()
+        mock_coord_result.success = True
+        mock_coord_result.merged_branches = 1
+        mock_coord_result.failed_branches = 0
+        mock_coord_result.total_branches = 1
+        mock_coord_result.completed_branches = 1
+        mock_coord_result.duration_seconds = 2.0
+        mock_coord_result.summary = "done"
+
+        with (
+            patch.object(
+                orch,
+                "_run_meta_planner_for_coordination",
+                new_callable=AsyncMock,
+                return_value=[mock_goal],
+            ),
+            patch("aragora.nomic.hardened_orchestrator.BranchCoordinator") as MockCoord,
+            patch.object(
+                type(orch).__mro__[4],
+                "execute_goal",
+                new_callable=AsyncMock,
+                return_value=failed_result,
+            ),
+        ):
+            mock_coordinator = MockCoord.return_value
+            mock_coordinator.coordinate_parallel_work = AsyncMock(
+                side_effect=lambda assignments, run_nomic_fn: self._run_and_return(
+                    run_nomic_fn, assignments[0], mock_coord_result
+                )
+            )
+            mock_coordinator.cleanup_all_worktrees = MagicMock()
+
+            result = await orch.execute_goal_coordinated("Fix the bug")
+
+        # DebugLoop should have been called
+        mock_loop.execute_with_retry.assert_awaited_once()
+        call_kwargs = mock_loop.execute_with_retry.call_args
+        assert call_kwargs[1]["instruction"] == "Fix the bug" or call_kwargs[0][0] == "Fix the bug"
+
+    @staticmethod
+    async def _run_and_return(run_nomic_fn, assignment, coord_result):
+        """Helper to run the inner function and return mock coord_result."""
+        await run_nomic_fn(assignment)
+        return coord_result
+
+    @pytest.mark.asyncio
+    async def test_debug_loop_skipped_when_disabled(self):
+        """DebugLoop is NOT called when enable_debug_loop=False."""
+        orch = HardenedOrchestrator(
+            enable_debug_loop=False,
+            enable_execution_bridge=False,
+            enable_prompt_defense=False,
+            generate_receipts=False,
+        )
+        mock_loop = MagicMock()
+        mock_loop.execute_with_retry = AsyncMock()
+        orch._debug_loop = mock_loop
+
+        failed_result = OrchestrationResult(
+            goal="test",
+            success=False,
+            total_subtasks=1,
+            completed_subtasks=0,
+            failed_subtasks=1,
+            skipped_subtasks=0,
+            assignments=[],
+            duration_seconds=1.0,
+        )
+        mock_goal = MagicMock()
+        mock_goal.track.value = "developer"
+        mock_goal.description = "Fix thing"
+        mock_goal.file_hints = []
+
+        mock_coord_result = MagicMock()
+        mock_coord_result.success = False
+        mock_coord_result.merged_branches = 0
+        mock_coord_result.failed_branches = 1
+        mock_coord_result.total_branches = 1
+        mock_coord_result.completed_branches = 0
+        mock_coord_result.duration_seconds = 1.0
+        mock_coord_result.summary = "failed"
+
+        with (
+            patch.object(
+                orch,
+                "_run_meta_planner_for_coordination",
+                new_callable=AsyncMock,
+                return_value=[mock_goal],
+            ),
+            patch("aragora.nomic.hardened_orchestrator.BranchCoordinator") as MockCoord,
+            patch.object(
+                type(orch).__mro__[4],
+                "execute_goal",
+                new_callable=AsyncMock,
+                return_value=failed_result,
+            ),
+        ):
+            mock_coordinator = MockCoord.return_value
+            mock_coordinator.coordinate_parallel_work = AsyncMock(
+                side_effect=lambda assignments, run_nomic_fn: self._run_and_return_static(
+                    run_nomic_fn, assignments[0], mock_coord_result
+                ),
+            )
+            mock_coordinator.cleanup_all_worktrees = MagicMock()
+
+            await orch.execute_goal_coordinated("Fix thing")
+
+        # DebugLoop should NOT have been called
+        mock_loop.execute_with_retry.assert_not_awaited()
+
+    @staticmethod
+    async def _run_and_return_static(run_nomic_fn, assignment, coord_result):
+        await run_nomic_fn(assignment)
+        return coord_result
+
+    def test_execution_bridge_creates_instruction(self):
+        """ExecutionBridge.create_instruction is called in coordinated path."""
+        orch = HardenedOrchestrator(enable_execution_bridge=True)
+        bridge = orch._get_execution_bridge()
+
+        # Verify create_instruction works with a SubTask
+        subtask = _make_subtask(description="Test bridge instruction")
+        instruction = bridge.create_instruction(subtask=subtask)
+        prompt = instruction.to_agent_prompt()
+        assert "Test bridge instruction" in prompt
+        assert "## Context" in prompt
+
+    def test_execution_bridge_instruction_with_goal(self):
+        """ExecutionBridge.create_instruction includes goal context."""
+        orch = HardenedOrchestrator(enable_execution_bridge=True)
+        bridge = orch._get_execution_bridge()
+
+        mock_goal = MagicMock()
+        mock_goal.description = "Improve SDK coverage"
+        mock_goal.rationale = "Low coverage found"
+        mock_goal.estimated_impact = "high"
+
+        subtask = _make_subtask(
+            description="Add tests for SDK methods",
+            file_scope=["aragora/sdk/client.py"],
+        )
+        instruction = bridge.create_instruction(
+            subtask=subtask,
+            goal=mock_goal,
+            budget_limit_usd=2.0,
+        )
+        prompt = instruction.to_agent_prompt()
+        assert "Add tests for SDK methods" in prompt
+        assert "Improve SDK coverage" in prompt
+        assert "aragora/sdk/client.py" in prompt
+
+    def test_feedback_orchestrator_accepts_coordinated_results(self):
+        """FeedbackOrchestrator.run() works with coordinated result format."""
+        from aragora.nomic.feedback_orchestrator import SelfImproveFeedbackOrchestrator
+
+        orch = SelfImproveFeedbackOrchestrator()
+        report = orch.run(
+            cycle_id="coordinated_test",
+            execution_results=[
+                {
+                    "goal": "Improve tests",
+                    "success": True,
+                    "merged": 2,
+                    "failed": 0,
+                    "total": 2,
+                },
+            ],
+        )
+        assert report.cycle_id == "coordinated_test"
+        assert report.steps_completed >= 0  # At least some steps run

@@ -7,12 +7,13 @@ interface ActionPropertyEditorProps {
   onChange: (updates: Partial<ActionNodeData>) => void;
   onAdvance?: () => void;
   onDelete?: () => void;
+  advancing?: boolean;
 }
 
 const actionTypeOptions: ActionNodeType[] = ['task', 'epic', 'checkpoint', 'deliverable', 'dependency'];
 const statusOptions: ActionStatus[] = ['pending', 'in_progress', 'completed', 'blocked'];
 
-export function ActionPropertyEditor({ data, onChange, onAdvance, onDelete }: ActionPropertyEditorProps) {
+export function ActionPropertyEditor({ data, onChange, onAdvance, onDelete, advancing }: ActionPropertyEditorProps) {
   if (!data) {
     return (
       <div className="w-64 border-l border-[var(--border)] bg-[var(--surface)] p-4">
@@ -75,8 +76,8 @@ export function ActionPropertyEditor({ data, onChange, onAdvance, onDelete }: Ac
 
       <div className="pt-2 space-y-2 border-t border-[var(--border)]">
         {onAdvance && (
-          <button onClick={onAdvance} className="w-full px-3 py-1.5 text-xs font-mono rounded bg-pink-500/20 border border-pink-500 text-pink-200 hover:bg-pink-500/30 transition-colors">
-            Advance to Orchestration
+          <button onClick={onAdvance} disabled={advancing} className="w-full px-3 py-1.5 text-xs font-mono rounded bg-pink-500/20 border border-pink-500 text-pink-200 hover:bg-pink-500/30 transition-colors disabled:opacity-50 disabled:cursor-not-allowed">
+            {advancing ? 'Advancing...' : 'Advance to Orchestration \u2192'}
           </button>
         )}
         {onDelete && (

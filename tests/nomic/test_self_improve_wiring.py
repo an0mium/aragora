@@ -20,6 +20,7 @@ import pytest
 
 from aragora.nomic.autonomous_orchestrator import (
     AgentAssignment,
+    AutonomousOrchestrator,
     OrchestrationResult,
     Track,
     reset_orchestrator,
@@ -953,7 +954,7 @@ class TestFeedbackLoopClosure:
 
         with (
             patch.object(
-                type(orch).__bases__[0],
+                AutonomousOrchestrator,
                 "execute_goal",
                 new_callable=AsyncMock,
                 return_value=mock_result,

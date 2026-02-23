@@ -600,5 +600,4 @@ class TestBenchmarkingHandler:
         handler = BenchmarkingHandler({})
         result = handler._get_compare({"category": "healthcare"})
         assert result is not None
-        status, _, _ = result
-        assert status == 400
+        assert result.status_code == 400
