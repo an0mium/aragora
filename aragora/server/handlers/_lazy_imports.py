@@ -204,6 +204,7 @@ HANDLER_MODULES: dict[str, str] = {
     "ComputerUseHandler": "aragora.server.handlers.computer_use_handler",
     "ConsensusHandler": "aragora.server.handlers.consensus",
     "ControlPlaneHandler": "aragora.server.handlers.control_plane",
+    "CoordinationHandler": "aragora.server.handlers.coordination",
     "CritiqueHandler": "aragora.server.handlers.critique",
     "DebateStatsHandler": "aragora.server.handlers.debate_stats",
     "DecisionHandler": "aragora.server.handlers.decision",

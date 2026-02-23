@@ -758,16 +758,18 @@ def audit_action(
 
             except PermissionError as e:
                 outcome = "denied"
-                outcome_reason = str(e)[:200]
+                outcome_reason = f"Permission denied: {type(e).__name__}"
                 event_severity = AuditSeverity.WARNING
+                logger.warning("Audit: permission denied in %s: %s", action, e)
                 raise
 
             except (
                 Exception  # noqa: BLE001 - audit decorator logs all failures before re-raising
             ) as e:
                 outcome = "error"
-                outcome_reason = str(e)[:200]
+                outcome_reason = f"Operation failed: {type(e).__name__}"
                 event_severity = AuditSeverity.ERROR
+                logger.warning("Audit: error in %s: %s", action, e)
                 raise
 
             finally:
@@ -806,16 +808,18 @@ def audit_action(
 
             except PermissionError as e:
                 outcome = "denied"
-                outcome_reason = str(e)[:200]
+                outcome_reason = f"Permission denied: {type(e).__name__}"
                 event_severity = AuditSeverity.WARNING
+                logger.warning("Audit: permission denied in %s: %s", action, e)
                 raise
 
             except (
                 Exception  # noqa: BLE001 - audit decorator logs all failures before re-raising
             ) as e:
                 outcome = "error"
-                outcome_reason = str(e)[:200]
+                outcome_reason = f"Operation failed: {type(e).__name__}"
                 event_severity = AuditSeverity.ERROR
+                logger.warning("Audit: error in %s: %s", action, e)
                 raise
 
             finally:

@@ -62,6 +62,8 @@ __all__ = [
     # Benchmarking
     "BenchmarkAggregator",
     "BenchmarkAggregate",
+    "BenchmarkMetric",
+    "get_benchmark_aggregator",
     # Debate Analytics
     "DebateAnalytics",
     "DebateTimeGranularity",

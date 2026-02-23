@@ -3,8 +3,9 @@ Decision Benchmarking endpoint handler.
 
 Provides REST APIs for anonymized decision-quality benchmarks:
 
-- GET /api/v1/benchmarks         — List benchmarks filtered by industry/team_size/decision_type
-- GET /api/v1/benchmarks/compare — Compare tenant metrics against industry benchmarks
+- GET /api/v1/benchmarks            -- List benchmarks for a category
+- GET /api/v1/benchmarks/categories -- List available benchmark categories
+- GET /api/v1/benchmarks/compare    -- Compare tenant metrics against benchmarks
 """
 
 from __future__ import annotations
@@ -31,6 +32,7 @@ class BenchmarkingHandler(BaseHandler):
 
     ROUTES = [
         "/api/benchmarks",
+        "/api/benchmarks/categories",
         "/api/benchmarks/compare",
     ]
 
@@ -39,7 +41,6 @@ class BenchmarkingHandler(BaseHandler):
 
     def can_handle(self, path: str) -> bool:
         normalized = strip_version_prefix(path)
-        # Match both /api/benchmarks and /api/benchmarks/compare
         return normalized in self.ROUTES
 
     @require_permission("benchmarks:read")
@@ -47,6 +48,8 @@ class BenchmarkingHandler(BaseHandler):
         """Route GET requests."""
         normalized = strip_version_prefix(path)
 
+        if normalized == "/api/benchmarks/categories":
+            return self._get_categories()
         if normalized == "/api/benchmarks/compare":
             return self._get_compare(query_params)
         if normalized == "/api/benchmarks":
@@ -56,72 +59,48 @@ class BenchmarkingHandler(BaseHandler):
 
     @handle_errors("get benchmarks")
     def _get_benchmarks(self, query_params: dict[str, Any]) -> HandlerResult:
-        """GET /api/v1/benchmarks — list aggregated benchmarks.
+        """GET /api/v1/benchmarks -- list aggregated benchmarks for a category.
 
         Query params:
-            industry (required): Industry vertical.
-            team_size: Team-size bucket (small/medium/large/enterprise).
-            decision_type: Optional decision-type filter.
+            category (required): Benchmark category (e.g. "healthcare", "1-5", "vendor").
         """
-        industry = query_params.get("industry", "")
-        team_size = query_params.get("team_size", "")
-        decision_type = query_params.get("decision_type")
+        category = query_params.get("category", "")
 
-        if not industry or not team_size:
+        if not category:
             return error_response(
-                "Missing required query parameters: industry, team_size",
-                400,
-            )
-
-        valid_buckets = {"small", "medium", "large", "enterprise"}
-        if team_size not in valid_buckets:
-            return error_response(
-                f"Invalid team_size. Must be one of: {', '.join(sorted(valid_buckets))}",
+                "Missing required query parameter: category",
                 400,
             )
 
         aggregator = self._get_aggregator()
-        benchmarks = aggregator.get_benchmarks(industry, team_size, decision_type)
+        benchmarks = aggregator.compute_benchmarks(category)
 
-        items = [
-            {
-                "category": b.category,
-                "metric": b.metric,
-                "p25": b.p25,
-                "p50": b.p50,
-                "p75": b.p75,
-                "p90": b.p90,
-                "sample_count": b.sample_count,
-                "computed_at": b.computed_at.isoformat(),
-            }
-            for b in benchmarks
-        ]
+        items = [b.to_dict() for b in benchmarks]
 
         return json_response({"benchmarks": items, "count": len(items)})
 
+    @handle_errors("get benchmark categories")
+    def _get_categories(self) -> HandlerResult:
+        """GET /api/v1/benchmarks/categories -- list available benchmark categories."""
+        aggregator = self._get_aggregator()
+        categories = aggregator.get_categories()
+        return json_response({"categories": categories, "count": len(categories)})
+
     @handle_errors("compare benchmarks")
     def _get_compare(self, query_params: dict[str, Any]) -> HandlerResult:
-        """GET /api/v1/benchmarks/compare — compare tenant metrics to benchmarks.
+        """GET /api/v1/benchmarks/compare -- compare tenant metrics to benchmarks.
 
         Query params:
-            industry (required): Industry vertical.
-            team_size (required): Team-size bucket.
+            category (required): Benchmark category to compare against.
+            tenant_id: Optional tenant identifier (for audit logging).
             consensus_rate, confidence_avg, time_to_decision,
             cost_per_decision, calibration_score: Metric values to compare.
         """
-        industry = query_params.get("industry", "")
-        team_size = query_params.get("team_size", "")
+        category = query_params.get("category", "")
 
-        if not industry or not team_size:
+        if not category:
             return error_response(
-                "Missing required query parameters: industry, team_size",
-                400,
-            )
-
-        valid_buckets = {"small", "medium", "large", "enterprise"}
-        if team_size not in valid_buckets:
-            return error_response(
-                f"Invalid team_size. Must be one of: {', '.join(sorted(valid_buckets))}",
+                "Missing required query parameter: category",
                 400,
             )
 
@@ -146,10 +125,14 @@ class BenchmarkingHandler(BaseHandler):
             )
 
         aggregator = self._get_aggregator()
-        comparison = aggregator.compare(tenant_metrics, industry, team_size)
+        comparison = aggregator.compare(tenant_metrics, category)
 
         return json_response(
-            {"comparison": comparison, "industry": industry, "team_size": team_size}
+            {
+                "comparison": comparison,
+                "category": category,
+                "tenant_id": query_params.get("tenant_id"),
+            }
         )
 
     def _get_aggregator(self) -> Any:

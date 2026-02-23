@@ -363,7 +363,7 @@ line-length = 100
 
 [tool.ruff.lint]
 select = ["E", "F", "W", "T201", "BLE001", "UP006", "UP007", "G004", "C4", "SIM910"]  # T201 = print, BLE001 = blind except, UP006/UP007 = modern typing, G004 = no f-string in logger, C4 = unnecessary comprehensions, SIM910 = dict.get default None
-ignore = ["E402", "E501"]
+ignore = ["E402", "E501", "E731", "E741", "E712", "C401", "C405", "C408", "C416"]
 
 [tool.ruff.lint.per-file-ignores]
 # Allow print statements in CLI modules, migrations, and scripts

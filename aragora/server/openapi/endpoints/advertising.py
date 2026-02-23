@@ -52,9 +52,8 @@ ADVERTISING_ENDPOINTS = {
                                                 },
                                                 "connected": {"type": "boolean"},
                                                 "connected_at": {
-                                                    "type": "string",
+                                                    "type": ["string", "null"],
                                                     "format": "date-time",
-                                                    "nullable": True,
                                                 },
                                             },
                                         },

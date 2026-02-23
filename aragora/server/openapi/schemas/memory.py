@@ -162,7 +162,7 @@ MEMORY_SCHEMAS: dict[str, Any] = {
             "evidence": {"type": "array", "items": {"type": "string"}},
             "contradictions": {"type": "array", "items": {"type": "string"}},
             "created_at": {"type": "string", "format": "date-time"},
-            "verified_at": {"type": "string", "format": "date-time", "nullable": True},
+            "verified_at": {"type": ["string", "null"], "format": "date-time"},
         },
     },
     "KnowledgeFactList": {

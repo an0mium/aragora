@@ -27,8 +27,7 @@ def _nomic_state_schema() -> dict[str, Any]:
                 "description": "Timestamp of last activity",
             },
             "active_task": {
-                "type": "string",
-                "nullable": True,
+                "type": ["string", "null"],
                 "description": "Current task being executed",
             },
         },

@@ -31,8 +31,8 @@ def _user_admin_schema() -> dict[str, Any]:
             "name": {"type": "string"},
             "role": {"type": "string"},
             "status": {"type": "string", "enum": ["active", "suspended", "deleted"]},
-            "organization_id": {"type": "string", "nullable": True},
-            "last_login": {"type": "string", "format": "date-time", "nullable": True},
+            "organization_id": {"type": ["string", "null"]},
+            "last_login": {"type": ["string", "null"], "format": "date-time"},
             "created_at": {"type": "string", "format": "date-time"},
         },
     }
@@ -365,9 +365,8 @@ ADMIN_ENDPOINTS = {
                                                 },
                                                 "failure_count": {"type": "integer"},
                                                 "last_failure": {
-                                                    "type": "string",
+                                                    "type": ["string", "null"],
                                                     "format": "date-time",
-                                                    "nullable": True,
                                                 },
                                             },
                                         },

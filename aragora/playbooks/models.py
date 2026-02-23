@@ -6,8 +6,8 @@ A Playbook is a complete, repeatable decision workflow that combines:
 - A vertical weight profile (domain-specific scoring)
 - Required compliance artifacts (regulatory output)
 - Agent selection criteria (who participates)
-- Output format and delivery configuration
-- Approval gates (human checkpoints)
+- Required output sections and approval gates
+- Estimated duration for planning
 """
 
 from __future__ import annotations
@@ -79,16 +79,30 @@ class Playbook:
     id: str
     name: str
     description: str
-    category: str  # healthcare, finance, legal, engineering, general
+    category: str  # healthcare, finance, legal, engineering, compliance, general
 
-    # Deliberation template to use
+    # Deliberation template to use (maps to aragora/deliberation/templates/)
     template_name: str = "general"
-    # Vertical weight profile for domain scoring
+    # Vertical weight profile for domain scoring (maps to evaluation vertical profiles)
     vertical_profile: str | None = None
     # Required compliance artifacts to generate
     compliance_artifacts: list[str] = field(default_factory=list)
 
-    # Agent selection criteria
+    # Agent selection criteria (structured hints for team selection)
+    agent_criteria: dict[str, Any] = field(
+        default_factory=lambda: {
+            "min_agents": 3,
+            "required_roles": [],
+        }
+    )
+
+    # Required output section names
+    required_sections: list[str] = field(default_factory=list)
+
+    # Estimated duration in minutes for planning
+    estimated_duration_minutes: int = 30
+
+    # Legacy agent selection fields (kept for backwards compatibility)
     min_agents: int = 3
     max_agents: int = 7
     required_agent_types: list[str] = field(default_factory=list)
@@ -128,6 +142,9 @@ class Playbook:
             "template_name": self.template_name,
             "vertical_profile": self.vertical_profile,
             "compliance_artifacts": self.compliance_artifacts,
+            "agent_criteria": self.agent_criteria,
+            "required_sections": self.required_sections,
+            "estimated_duration_minutes": self.estimated_duration_minutes,
             "min_agents": self.min_agents,
             "max_agents": self.max_agents,
             "required_agent_types": self.required_agent_types,
@@ -149,6 +166,15 @@ class Playbook:
         """Create from dictionary."""
         gates = [ApprovalGate.from_dict(g) for g in data.get("approval_gates", [])]
         steps = [PlaybookStep.from_dict(s) for s in data.get("steps", [])]
+
+        # Build agent_criteria from explicit field or derive from legacy fields
+        agent_criteria = data.get("agent_criteria")
+        if agent_criteria is None:
+            agent_criteria = {
+                "min_agents": data.get("min_agents", 3),
+                "required_roles": data.get("required_agent_types", []),
+            }
+
         return cls(
             id=data["id"],
             name=data["name"],
@@ -157,9 +183,14 @@ class Playbook:
             template_name=data.get("template_name", "general"),
             vertical_profile=data.get("vertical_profile"),
             compliance_artifacts=data.get("compliance_artifacts", []),
-            min_agents=data.get("min_agents", 3),
+            agent_criteria=agent_criteria,
+            required_sections=data.get("required_sections", []),
+            estimated_duration_minutes=data.get("estimated_duration_minutes", 30),
+            min_agents=data.get("min_agents", agent_criteria.get("min_agents", 3)),
             max_agents=data.get("max_agents", 7),
-            required_agent_types=data.get("required_agent_types", []),
+            required_agent_types=data.get(
+                "required_agent_types", agent_criteria.get("required_roles", [])
+            ),
             agent_selection_strategy=data.get("agent_selection_strategy", "best_for_domain"),
             max_rounds=data.get("max_rounds", 5),
             consensus_threshold=data.get("consensus_threshold", 0.7),
@@ -174,4 +205,93 @@ class Playbook:
         )
 
 
-__all__ = ["Playbook", "PlaybookStep", "ApprovalGate"]
+@dataclass
+class PlaybookRunConfig:
+    """Configuration for running a playbook.
+
+    Wraps the playbook ID with runtime parameters like topic, context,
+    participant overrides, and template overrides.
+    """
+
+    playbook_id: str
+    topic: str
+    context: dict[str, Any] = field(default_factory=dict)
+    participants: list[str] = field(default_factory=list)
+    override_agents: list[str] | None = None
+    override_template: str | None = None
+
+    def to_dict(self) -> dict[str, Any]:
+        return {
+            "playbook_id": self.playbook_id,
+            "topic": self.topic,
+            "context": self.context,
+            "participants": self.participants,
+            "override_agents": self.override_agents,
+            "override_template": self.override_template,
+        }
+
+    @classmethod
+    def from_dict(cls, data: dict[str, Any]) -> PlaybookRunConfig:
+        return cls(
+            playbook_id=data["playbook_id"],
+            topic=data.get("topic", ""),
+            context=data.get("context", {}),
+            participants=data.get("participants", []),
+            override_agents=data.get("override_agents"),
+            override_template=data.get("override_template"),
+        )
+
+
+@dataclass
+class PlaybookResult:
+    """Result of a playbook execution.
+
+    Wraps the debate result with compliance artifacts generated during
+    execution and the playbook metadata for traceability.
+    """
+
+    run_id: str
+    playbook_id: str
+    playbook_name: str
+    status: str  # queued, running, completed, failed
+    debate_result: dict[str, Any] | None = None
+    compliance_artifacts: list[dict[str, Any]] = field(default_factory=list)
+    playbook_metadata: dict[str, Any] = field(default_factory=dict)
+    created_at: str = ""
+    completed_at: str | None = None
+
+    def to_dict(self) -> dict[str, Any]:
+        return {
+            "run_id": self.run_id,
+            "playbook_id": self.playbook_id,
+            "playbook_name": self.playbook_name,
+            "status": self.status,
+            "debate_result": self.debate_result,
+            "compliance_artifacts": self.compliance_artifacts,
+            "playbook_metadata": self.playbook_metadata,
+            "created_at": self.created_at,
+            "completed_at": self.completed_at,
+        }
+
+    @classmethod
+    def from_dict(cls, data: dict[str, Any]) -> PlaybookResult:
+        return cls(
+            run_id=data["run_id"],
+            playbook_id=data["playbook_id"],
+            playbook_name=data.get("playbook_name", ""),
+            status=data.get("status", "queued"),
+            debate_result=data.get("debate_result"),
+            compliance_artifacts=data.get("compliance_artifacts", []),
+            playbook_metadata=data.get("playbook_metadata", {}),
+            created_at=data.get("created_at", ""),
+            completed_at=data.get("completed_at"),
+        )
+
+
+__all__ = [
+    "Playbook",
+    "PlaybookStep",
+    "ApprovalGate",
+    "PlaybookRunConfig",
+    "PlaybookResult",
+]
