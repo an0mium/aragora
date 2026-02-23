@@ -24,24 +24,14 @@ from __future__ import annotations
 import logging
 import re
 from dataclasses import dataclass, field
-from enum import Enum
 from typing import TYPE_CHECKING, Any, cast
+
+from aragora.nomic.types import Track  # noqa: F401 — re-exported for backward compat
 
 if TYPE_CHECKING:
     pass
 
 logger = logging.getLogger(__name__)
-
-
-class Track(Enum):
-    """Development tracks for domain-based routing."""
-
-    SME = "sme"
-    DEVELOPER = "developer"
-    SELF_HOSTED = "self_hosted"
-    QA = "qa"
-    CORE = "core"
-    SECURITY = "security"
 
 
 @dataclass
