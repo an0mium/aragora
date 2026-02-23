@@ -1197,14 +1197,21 @@ class TestScanMode:
         planner = MetaPlanner(MetaPlannerConfig(scan_mode=True))
         tracks = [Track.QA, Track.CORE]
 
+        # Mock StrategicScanner to avoid parsing entire codebase (causes timeout)
+        mock_scanner = MagicMock()
+        mock_scanner.scan.return_value = MagicMock(findings=[], focus_areas=[])
+
         with (
             patch("subprocess.run") as mock_run,
             patch(
                 "aragora.nomic.codebase_indexer.CodebaseIndexer"
             ) as MockIndexer,
-            patch.dict(
-                "sys.modules",
-                {"aragora.nomic.strategic_scanner": None},
+            patch(
+                "aragora.nomic.strategic_scanner.StrategicScanner",
+                return_value=mock_scanner,
+            ),
+            patch(
+                "aragora.nomic.strategic_memory.StrategicMemoryStore"
             ),
         ):
             # Mock git log output

@@ -1374,7 +1374,7 @@ IMPORTANT: Avoid repeating past failures listed above. Learn from history.
             from aragora.nomic.strategic_scanner import StrategicScanner
 
             scanner = StrategicScanner()
-            strategic_assessment = scanner.scan(objective=objective)
+            strategic_assessment = scanner.scan(objective=effective_objective)
             for finding in strategic_assessment.findings[:15]:
                 track_name = finding.track
                 if track_name in track_signals:
@@ -1397,7 +1397,7 @@ IMPORTANT: Avoid repeating past failures listed above. Learn from history.
 
                 mem_store = StrategicMemoryStore()
                 mem_store.save(strategic_assessment)
-            except (ImportError, RuntimeError, OSError) as exc:
+            except (ImportError, RuntimeError, OSError, ValueError) as exc:
                 logger.debug("Strategic memory persistence skipped: %s", exc)
 
         # Build goals from signals, ranked by signal count
