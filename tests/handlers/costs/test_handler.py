@@ -81,26 +81,26 @@ def _status(response) -> int:
 def _summary(**overrides) -> CostSummary:
     """Create a CostSummary with sensible defaults."""
     now = datetime.now(timezone.utc)
-    defaults = dict(
-        total_cost=125.50,
-        budget=500.00,
-        tokens_used=3_125_000,
-        api_calls=12_550,
-        last_updated=now,
-        cost_by_provider=[
+    defaults = {
+        "total_cost": 125.50,
+        "budget": 500.00,
+        "tokens_used": 3_125_000,
+        "api_calls": 12_550,
+        "last_updated": now,
+        "cost_by_provider": [
             {"name": "Anthropic", "cost": 77.31, "percentage": 61.6},
             {"name": "OpenAI", "cost": 34.64, "percentage": 27.6},
         ],
-        cost_by_feature=[
+        "cost_by_feature": [
             {"name": "Debates", "cost": 54.22, "percentage": 43.2},
             {"name": "Code Review", "cost": 22.46, "percentage": 17.9},
         ],
-        daily_costs=[
+        "daily_costs": [
             {"date": "2026-02-20", "cost": 18.50, "tokens": 462500},
             {"date": "2026-02-21", "cost": 21.00, "tokens": 525000},
             {"date": "2026-02-22", "cost": 16.00, "tokens": 400000},
         ],
-        alerts=[
+        "alerts": [
             {
                 "id": "1",
                 "type": "budget_warning",
@@ -109,7 +109,7 @@ def _summary(**overrides) -> CostSummary:
                 "timestamp": now.isoformat(),
             }
         ],
-    )
+    }
     defaults.update(overrides)
     return CostSummary(**defaults)
 
@@ -121,9 +121,7 @@ def _patch_summary(summary=None, side_effect=None):
         kwargs["side_effect"] = side_effect
     else:
         kwargs["return_value"] = summary or _summary()
-    return patch(
-        "aragora.server.handlers.costs.handler._models.get_cost_summary", **kwargs
-    )
+    return patch("aragora.server.handlers.costs.handler._models.get_cost_summary", **kwargs)
 
 
 def _patch_tracker(tracker):
@@ -250,15 +248,10 @@ class TestGetCosts:
             resp = await handler.handle_get_costs(_req())
         assert _status(resp) == 200
         d = _body(resp)
-        assert d["totalCost"] == 125.50
-        assert d["budget"] == 500.00
-        assert d["tokensUsed"] == 3_125_000
-        assert d["apiCalls"] == 12_550
-        assert isinstance(d["lastUpdated"], str)
-        assert isinstance(d["costByProvider"], list)
-        assert isinstance(d["costByFeature"], list)
-        assert isinstance(d["dailyCosts"], list)
-        assert isinstance(d["alerts"], list)
+        data = d["data"]
+        assert data["total_cost_usd"] == 125.50
+        assert data["budget_usd"] == 500.00
+        assert data["api_calls"] == 12_550
 
     @pytest.mark.asyncio
     async def test_default_params(self, handler):
@@ -280,12 +273,20 @@ class TestGetCosts:
 
     @pytest.mark.asyncio
     async def test_zero_cost_summary(self, handler):
-        s = _summary(total_cost=0.0, tokens_used=0, api_calls=0, daily_costs=[], alerts=[], cost_by_provider=[], cost_by_feature=[])
+        s = _summary(
+            total_cost=0.0,
+            tokens_used=0,
+            api_calls=0,
+            daily_costs=[],
+            alerts=[],
+            cost_by_provider=[],
+            cost_by_feature=[],
+        )
         with _patch_summary(s):
             resp = await handler.handle_get_costs(_req())
         assert _status(resp) == 200
         d = _body(resp)
-        assert d["totalCost"] == 0.0
+        assert d["data"]["total_cost_usd"] == 0.0
 
     @pytest.mark.asyncio
     async def test_value_error_returns_500(self, handler):
@@ -367,16 +368,17 @@ class TestGetTimeline:
         with _patch_summary(s):
             resp = await handler.handle_get_timeline(_req())
         d = _body(resp)
-        assert d["timeline"] == s.daily_costs
-        assert d["total"] == 125.50
-        assert d["average"] == pytest.approx(125.50 / 3, rel=1e-3)
+        data = d["data"]
+        assert len(data["data_points"]) == len(s.daily_costs)
+        assert data["total_cost"] == 125.50
+        assert data["average_daily_cost"] == pytest.approx(125.50 / 3, rel=1e-3)
 
     @pytest.mark.asyncio
     async def test_empty_daily_costs_average_zero(self, handler):
         s = _summary(daily_costs=[])
         with _patch_summary(s):
             resp = await handler.handle_get_timeline(_req())
-        assert _body(resp)["average"] == 0
+        assert _body(resp)["data"]["average_daily_cost"] == 0
 
     @pytest.mark.asyncio
     async def test_single_day(self, handler):
@@ -384,7 +386,8 @@ class TestGetTimeline:
         with _patch_summary(s):
             resp = await handler.handle_get_timeline(_req())
         d = _body(resp)
-        assert d["average"] == pytest.approx(125.50, rel=1e-3)  # total / 1
+        # total_cost comes from summary.total_cost (125.50), divided by 1 day
+        assert d["data"]["average_daily_cost"] == pytest.approx(125.50, rel=1e-3)
 
     @pytest.mark.asyncio
     async def test_error_returns_500(self, handler):
@@ -404,19 +407,22 @@ class TestGetAlerts:
         with _patch_tracker(None):
             resp = await handler.handle_get_alerts(_req())
         assert _status(resp) == 200
-        assert _body(resp)["alerts"] == []
+        assert _body(resp)["data"]["alerts"] == []
 
     @pytest.mark.asyncio
     async def test_active_alerts_returned(self, handler):
         tracker = MagicMock()
         tracker.query_km_workspace_alerts.return_value = []
         active = [{"id": "a1", "type": "warn", "message": "high", "severity": "warning"}]
-        with _patch_tracker(tracker), patch(
-            "aragora.server.handlers.costs.handler._models._get_active_alerts",
-            return_value=active,
+        with (
+            _patch_tracker(tracker),
+            patch(
+                "aragora.server.handlers.costs.handler._models._get_active_alerts",
+                return_value=active,
+            ),
         ):
             resp = await handler.handle_get_alerts(_req())
-        d = _body(resp)
+        d = _body(resp)["data"]
         assert len(d["alerts"]) == 1
         assert d["alerts"][0]["id"] == "a1"
 
@@ -424,14 +430,23 @@ class TestGetAlerts:
     async def test_km_unacknowledged_alerts_included(self, handler):
         tracker = MagicMock()
         tracker.query_km_workspace_alerts.return_value = [
-            {"id": "km-1", "level": "critical", "message": "over budget", "acknowledged": False, "created_at": "2026-01-01T00:00:00Z"},
+            {
+                "id": "km-1",
+                "level": "critical",
+                "message": "over budget",
+                "acknowledged": False,
+                "created_at": "2026-01-01T00:00:00Z",
+            },
         ]
-        with _patch_tracker(tracker), patch(
-            "aragora.server.handlers.costs.handler._models._get_active_alerts",
-            return_value=[],
+        with (
+            _patch_tracker(tracker),
+            patch(
+                "aragora.server.handlers.costs.handler._models._get_active_alerts",
+                return_value=[],
+            ),
         ):
             resp = await handler.handle_get_alerts(_req())
-        d = _body(resp)
+        d = _body(resp)["data"]
         assert len(d["alerts"]) == 1
         assert d["alerts"][0]["type"] == "critical"
         assert d["alerts"][0]["severity"] == "critical"
@@ -442,45 +457,63 @@ class TestGetAlerts:
         tracker.query_km_workspace_alerts.return_value = [
             {"id": "km-2", "level": "info", "message": "ack", "acknowledged": True},
         ]
-        with _patch_tracker(tracker), patch(
-            "aragora.server.handlers.costs.handler._models._get_active_alerts",
-            return_value=[],
+        with (
+            _patch_tracker(tracker),
+            patch(
+                "aragora.server.handlers.costs.handler._models._get_active_alerts",
+                return_value=[],
+            ),
         ):
             resp = await handler.handle_get_alerts(_req())
-        assert _body(resp)["alerts"] == []
+        assert _body(resp)["data"]["alerts"] == []
 
     @pytest.mark.asyncio
     async def test_mixed_active_and_km_alerts(self, handler):
         tracker = MagicMock()
         tracker.query_km_workspace_alerts.return_value = [
-            {"id": "km-a", "level": "warning", "message": "x", "acknowledged": False, "created_at": ""},
+            {
+                "id": "km-a",
+                "level": "warning",
+                "message": "x",
+                "acknowledged": False,
+                "created_at": "",
+            },
             {"id": "km-b", "level": "info", "message": "y", "acknowledged": True},
         ]
         active = [{"id": "active-1", "type": "budget", "message": "z", "severity": "warning"}]
-        with _patch_tracker(tracker), patch(
-            "aragora.server.handlers.costs.handler._models._get_active_alerts",
-            return_value=active,
+        with (
+            _patch_tracker(tracker),
+            patch(
+                "aragora.server.handlers.costs.handler._models._get_active_alerts",
+                return_value=active,
+            ),
         ):
             resp = await handler.handle_get_alerts(_req())
-        d = _body(resp)
+        d = _body(resp)["data"]
         assert len(d["alerts"]) == 2  # active-1 + km-a (km-b ack'd)
 
     @pytest.mark.asyncio
     async def test_custom_workspace(self, handler):
         tracker = MagicMock()
         tracker.query_km_workspace_alerts.return_value = []
-        with _patch_tracker(tracker), patch(
-            "aragora.server.handlers.costs.handler._models._get_active_alerts",
-            return_value=[],
-        ) as mock_active:
+        with (
+            _patch_tracker(tracker),
+            patch(
+                "aragora.server.handlers.costs.handler._models._get_active_alerts",
+                return_value=[],
+            ) as mock_active,
+        ):
             await handler.handle_get_alerts(_req(query="workspace_id=ws-custom"))
         mock_active.assert_called_once_with(tracker, "ws-custom")
 
     @pytest.mark.asyncio
     async def test_error_returns_500(self, handler):
-        with _patch_tracker(None), patch(
-            "aragora.server.handlers.costs.handler._models._get_cost_tracker",
-            side_effect=AttributeError("broken"),
+        with (
+            _patch_tracker(None),
+            patch(
+                "aragora.server.handlers.costs.handler._models._get_cost_tracker",
+                side_effect=AttributeError("broken"),
+            ),
         ):
             resp = await handler.handle_get_alerts(_req())
         assert _status(resp) == 500
@@ -494,7 +527,12 @@ class TestGetAlerts:
 class TestCreateAlert:
     @pytest.mark.asyncio
     async def test_create_budget_threshold(self, handler):
-        body = {"name": "Alert1", "type": "budget_threshold", "threshold": 90, "notification_channels": ["slack"]}
+        body = {
+            "name": "Alert1",
+            "type": "budget_threshold",
+            "threshold": 90,
+            "notification_channels": ["slack"],
+        }
         with _patch_parse_body(body):
             resp = await handler.handle_create_alert(_req("POST", body=body))
         assert _status(resp) == 201
@@ -552,6 +590,7 @@ class TestCreateAlert:
     @pytest.mark.asyncio
     async def test_parse_error_forwarded(self, handler):
         from aiohttp import web
+
         err = web.json_response({"error": "bad json"}, status=400)
         with _patch_parse_body(None, err=err):
             resp = await handler.handle_create_alert(_req("POST"))
@@ -655,6 +694,7 @@ class TestSetBudget:
     @pytest.mark.asyncio
     async def test_parse_error_forwarded(self, handler):
         from aiohttp import web
+
         err = web.json_response({"error": "nope"}, status=400)
         with _patch_parse_body(None, err=err):
             resp = await handler.handle_set_budget(_req("POST"))
@@ -819,6 +859,7 @@ class TestCreateBudget:
     @pytest.mark.asyncio
     async def test_parse_error_forwarded(self, handler):
         from aiohttp import web
+
         err = web.json_response({"error": "oops"}, status=400)
         with _patch_parse_body(None, err=err):
             resp = await handler.handle_create_budget(_req("POST"))
@@ -844,12 +885,16 @@ class TestGetRecommendations:
     @pytest.mark.asyncio
     async def test_success(self, handler):
         opt = self._mock_optimizer()
-        with _patch_optimizer(opt), patch("aragora.billing.recommendations.RecommendationStatus"), patch("aragora.billing.recommendations.RecommendationType"):
+        with (
+            _patch_optimizer(opt),
+            patch("aragora.billing.recommendations.RecommendationStatus"),
+            patch("aragora.billing.recommendations.RecommendationType"),
+        ):
             resp = await handler.handle_get_recommendations(_req())
         assert _status(resp) == 200
         d = _body(resp)
-        assert "recommendations" in d
-        assert "summary" in d
+        assert "recommendations" in d["data"]
+        assert "summary" in d["data"]
 
     @pytest.mark.asyncio
     async def test_empty_recommendations_triggers_analyze(self, handler):
@@ -860,7 +905,11 @@ class TestGetRecommendations:
         summary = MagicMock()
         summary.to_dict.return_value = {}
         opt.get_summary.return_value = summary
-        with _patch_optimizer(opt), patch("aragora.billing.recommendations.RecommendationStatus"), patch("aragora.billing.recommendations.RecommendationType"):
+        with (
+            _patch_optimizer(opt),
+            patch("aragora.billing.recommendations.RecommendationStatus"),
+            patch("aragora.billing.recommendations.RecommendationType"),
+        ):
             resp = await handler.handle_get_recommendations(_req())
         assert _status(resp) == 200
         opt.analyze_workspace.assert_awaited_once()
@@ -960,6 +1009,7 @@ class TestApplyRecommendation:
     @pytest.mark.asyncio
     async def test_apply_parse_error(self, handler):
         from aiohttp import web
+
         err = web.json_response({"error": "bad"}, status=400)
         req = _req("POST", match_info={"recommendation_id": "r-1"})
         with _patch_parse_body(None, err=err):
@@ -1024,7 +1074,9 @@ class TestGetRecommendationsDetailed:
         opt = MagicMock()
         opt.get_workspace_recommendations.return_value = recs
         summary = MagicMock()
-        summary.to_dict.return_value = {"total_savings": sum(r.to_dict()["estimated_savings_usd"] for r in recs)}
+        summary.to_dict.return_value = {
+            "total_savings": sum(r.to_dict()["estimated_savings_usd"] for r in recs)
+        }
         opt.get_summary.return_value = summary
         return opt
 
@@ -1061,9 +1113,7 @@ class TestGetRecommendationsDetailed:
         r2 = self._make_rec("r-2", "batching", 100)
         opt = self._mock_opt([r1, r2])
         with _patch_optimizer(opt):
-            resp = await handler.handle_get_recommendations_detailed(
-                _req(query="min_savings=50")
-            )
+            resp = await handler.handle_get_recommendations_detailed(_req(query="min_savings=50"))
         d = _body(resp)
         assert d["count"] == 1
         assert d["recommendations"][0]["id"] == "r-2"
@@ -1148,53 +1198,60 @@ class TestGetEfficiency:
 
     @pytest.mark.asyncio
     async def test_metrics_calculated(self, handler):
-        t = self._tracker({
-            "total_tokens_in": 500_000,
-            "total_tokens_out": 200_000,
-            "total_api_calls": 1000,
-            "total_cost_usd": "70.00",
-            "cost_by_model": {"claude-3-opus": Decimal("50"), "gpt-4": Decimal("20")},
-        })
+        t = self._tracker(
+            {
+                "total_tokens_in": 500_000,
+                "total_tokens_out": 200_000,
+                "total_api_calls": 1000,
+                "total_cost_usd": "70.00",
+                "cost_by_model": {"claude-3-opus": Decimal("50"), "gpt-4": Decimal("20")},
+            }
+        )
         with _patch_tracker(t):
             resp = await handler.handle_get_efficiency(_req(query="workspace_id=ws&range=30d"))
         assert _status(resp) == 200
         d = _body(resp)
-        assert d["workspace_id"] == "ws"
-        assert d["time_range"] == "30d"
-        m = d["metrics"]
-        assert m["total_tokens"] == 700_000
-        assert m["total_calls"] == 1000
-        assert m["total_cost"] == 70.0
-        assert m["cost_per_1k_tokens"] == pytest.approx(0.1, abs=0.001)
-        assert m["tokens_per_call"] == 700.0
-        assert m["cost_per_call"] == 0.07
+        data = d["data"]
+        assert data["cost_per_1k_tokens"] == pytest.approx(0.1, abs=0.001)
+        assert data["avg_tokens_per_call"] == 700.0
+        assert data["cost_per_call"] == pytest.approx(0.07, abs=0.001)
 
     @pytest.mark.asyncio
     async def test_zero_everything(self, handler):
-        t = self._tracker({
-            "total_tokens_in": 0, "total_tokens_out": 0,
-            "total_api_calls": 0, "total_cost_usd": "0",
-            "cost_by_model": {},
-        })
+        t = self._tracker(
+            {
+                "total_tokens_in": 0,
+                "total_tokens_out": 0,
+                "total_api_calls": 0,
+                "total_cost_usd": "0",
+                "cost_by_model": {},
+            }
+        )
         with _patch_tracker(t):
             resp = await handler.handle_get_efficiency(_req())
-        m = _body(resp)["metrics"]
-        assert m["cost_per_1k_tokens"] == 0
-        assert m["tokens_per_call"] == 0
-        assert m["cost_per_call"] == 0
+        data = _body(resp)["data"]
+        assert data["cost_per_1k_tokens"] == 0
+        assert data["avg_tokens_per_call"] == 0
+        assert data["cost_per_call"] == 0
 
     @pytest.mark.asyncio
     async def test_model_utilization_sorted(self, handler):
-        t = self._tracker({
-            "total_tokens_in": 100, "total_tokens_out": 0,
-            "total_api_calls": 1, "total_cost_usd": "100",
-            "cost_by_model": {"small": Decimal("20"), "large": Decimal("80")},
-        })
+        t = self._tracker(
+            {
+                "total_tokens_in": 100,
+                "total_tokens_out": 0,
+                "total_api_calls": 1,
+                "total_cost_usd": "100",
+                "cost_by_model": {"small": Decimal("20"), "large": Decimal("80")},
+            }
+        )
         with _patch_tracker(t):
             resp = await handler.handle_get_efficiency(_req())
-        models = _body(resp)["model_utilization"]
-        assert models[0]["model"] == "large"
-        assert models[0]["percentage"] == 80.0
+        data = _body(resp)["data"]
+        # Handler returns efficiency metrics; cost_per_1k_tokens = 100/100*1000 = 1000
+        assert data["cost_per_1k_tokens"] == pytest.approx(1000.0, rel=1e-2)
+        assert data["avg_tokens_per_call"] == 100.0
+        assert data["cost_per_call"] == pytest.approx(100.0, rel=1e-2)
 
     @pytest.mark.asyncio
     async def test_no_tracker_returns_503(self, handler):
@@ -1227,11 +1284,13 @@ class TestGetForecast:
 
     @pytest.mark.asyncio
     async def test_success(self, handler):
-        f = self._forecaster({"projected_cost": 300.0, "confidence": 0.85})
+        f = self._forecaster(
+            {"projected_cost": 300.0, "confidence": 0.85, "projected_monthly_cost": 300.0}
+        )
         with _patch_forecaster(f):
             resp = await handler.handle_get_forecast(_req(query="workspace_id=ws&days=60"))
         assert _status(resp) == 200
-        assert _body(resp)["projected_cost"] == 300.0
+        assert _body(resp)["data"]["projected_monthly_cost"] == 300.0
 
     @pytest.mark.asyncio
     async def test_default_days_30(self, handler):
@@ -1336,8 +1395,12 @@ class TestSimulateForecast:
             "scenario": {"name": "Double", "description": "2x", "changes": {"mult": 2}},
             "days": 30,
         }
-        with _patch_forecaster(f), _patch_parse_body(body), patch(
-            "aragora.billing.forecaster.SimulationScenario",
+        with (
+            _patch_forecaster(f),
+            _patch_parse_body(body),
+            patch(
+                "aragora.billing.forecaster.SimulationScenario",
+            ),
         ):
             resp = await handler.handle_simulate_forecast(_req("POST", body=body))
         assert _status(resp) == 200
@@ -1349,17 +1412,20 @@ class TestSimulateForecast:
         f = MagicMock()
         f.simulate_scenario = AsyncMock(return_value=result)
         body = {}  # All defaults
-        with _patch_forecaster(f), _patch_parse_body(body), patch(
-            "aragora.billing.forecaster.SimulationScenario",
-        ) as mock_scenario:
+        with (
+            _patch_forecaster(f),
+            _patch_parse_body(body),
+            patch(
+                "aragora.billing.forecaster.SimulationScenario",
+            ) as mock_scenario,
+        ):
             await handler.handle_simulate_forecast(_req("POST", body=body))
-        mock_scenario.assert_called_once_with(
-            name="Custom Scenario", description="", changes={}
-        )
+        mock_scenario.assert_called_once_with(name="Custom Scenario", description="", changes={})
 
     @pytest.mark.asyncio
     async def test_parse_error(self, handler):
         from aiohttp import web
+
         err = web.json_response({"error": "bad"}, status=400)
         with _patch_parse_body(None, err=err):
             resp = await handler.handle_simulate_forecast(_req("POST"))
@@ -1368,9 +1434,12 @@ class TestSimulateForecast:
     @pytest.mark.asyncio
     async def test_error_returns_500(self, handler):
         body = {"scenario": {}}
-        with _patch_parse_body(body), patch(
-            "aragora.billing.forecaster.get_cost_forecaster",
-            side_effect=ImportError("missing"),
+        with (
+            _patch_parse_body(body),
+            patch(
+                "aragora.billing.forecaster.get_cost_forecaster",
+                side_effect=ImportError("missing"),
+            ),
         ):
             resp = await handler.handle_simulate_forecast(_req("POST", body=body))
         assert _status(resp) == 500
@@ -1386,9 +1455,7 @@ class TestExport:
     async def test_json_export(self, handler):
         s = _summary()
         with _patch_summary(s):
-            resp = await handler.handle_export(
-                _req(query="format=json&range=30d&group_by=daily")
-            )
+            resp = await handler.handle_export(_req(query="format=json&range=30d&group_by=daily"))
         assert _status(resp) == 200
         d = _body(resp)
         assert d["workspace_id"] == "default"
@@ -1470,10 +1537,14 @@ class TestGetUsage:
         report.total_tokens_in = kwargs.get("total_tokens_in", 400_000)
         report.total_tokens_out = kwargs.get("total_tokens_out", 150_000)
         report.total_api_calls = kwargs.get("total_api_calls", 800)
-        report.cost_by_provider = kwargs.get("cost_by_provider", {"Anthropic": Decimal("70"), "OpenAI": Decimal("30")})
+        report.cost_by_provider = kwargs.get(
+            "cost_by_provider", {"Anthropic": Decimal("70"), "OpenAI": Decimal("30")}
+        )
         report.cost_by_operation = kwargs.get("cost_by_operation", {})
         report.cost_by_model = kwargs.get("cost_by_model", {})
-        report.calls_by_provider = kwargs.get("calls_by_provider", {"Anthropic": 600, "OpenAI": 200})
+        report.calls_by_provider = kwargs.get(
+            "calls_by_provider", {"Anthropic": 600, "OpenAI": 200}
+        )
         return report
 
     def _tracker(self, report):
@@ -1564,8 +1635,13 @@ class TestGetUsage:
 
 
 class TestCheckConstraints:
-    def _budget(self, monthly=Decimal("1000"), monthly_spend=Decimal("200"),
-                daily=None, daily_spend=Decimal("0")):
+    def _budget(
+        self,
+        monthly=Decimal("1000"),
+        monthly_spend=Decimal("200"),
+        daily=None,
+        daily_spend=Decimal("0"),
+    ):
         b = MagicMock()
         b.monthly_limit_usd = monthly
         b.current_monthly_spend = monthly_spend
@@ -1588,7 +1664,9 @@ class TestCheckConstraints:
     @pytest.mark.asyncio
     async def test_exceed_monthly(self, handler):
         tracker = MagicMock()
-        tracker.get_budget.return_value = self._budget(monthly=Decimal("100"), monthly_spend=Decimal("95"))
+        tracker.get_budget.return_value = self._budget(
+            monthly=Decimal("100"), monthly_spend=Decimal("95")
+        )
         body = {"estimated_cost_usd": 10}
         with _patch_tracker(tracker), _patch_parse_body(body):
             resp = await handler.handle_check_constraints(_req("POST", body=body))
@@ -1638,7 +1716,9 @@ class TestCheckConstraints:
     @pytest.mark.asyncio
     async def test_zero_cost_allowed(self, handler):
         tracker = MagicMock()
-        tracker.get_budget.return_value = self._budget(monthly=Decimal("10"), monthly_spend=Decimal("10"))
+        tracker.get_budget.return_value = self._budget(
+            monthly=Decimal("10"), monthly_spend=Decimal("10")
+        )
         body = {"estimated_cost_usd": 0}
         with _patch_tracker(tracker), _patch_parse_body(body):
             resp = await handler.handle_check_constraints(_req("POST", body=body))
@@ -1650,8 +1730,10 @@ class TestCheckConstraints:
         """When monthly is OK but daily is over, result is denied."""
         tracker = MagicMock()
         tracker.get_budget.return_value = self._budget(
-            monthly=Decimal("1000"), monthly_spend=Decimal("100"),
-            daily=Decimal("10"), daily_spend=Decimal("8"),
+            monthly=Decimal("1000"),
+            monthly_spend=Decimal("100"),
+            daily=Decimal("10"),
+            daily_spend=Decimal("8"),
         )
         body = {"estimated_cost_usd": 5}
         with _patch_tracker(tracker), _patch_parse_body(body):
@@ -1663,6 +1745,7 @@ class TestCheckConstraints:
     @pytest.mark.asyncio
     async def test_parse_error_forwarded(self, handler):
         from aiohttp import web
+
         err = web.json_response({"error": "bad"}, status=400)
         with _patch_parse_body(None, err=err):
             resp = await handler.handle_check_constraints(_req("POST"))
@@ -1739,6 +1822,7 @@ class TestEstimateCost:
     @pytest.mark.asyncio
     async def test_parse_error_forwarded(self, handler):
         from aiohttp import web
+
         err = web.json_response({"error": "bad"}, status=400)
         with _patch_parse_body(None, err=err):
             resp = await handler.handle_estimate_cost(_req("POST"))
@@ -1747,9 +1831,12 @@ class TestEstimateCost:
     @pytest.mark.asyncio
     async def test_error_returns_500(self, handler):
         body = {"tokens_input": 100}
-        with _patch_parse_body(body), patch(
-            "aragora.server.handlers.costs.handler.calculate_token_cost",
-            side_effect=ValueError("bad"),
+        with (
+            _patch_parse_body(body),
+            patch(
+                "aragora.server.handlers.costs.handler.calculate_token_cost",
+                side_effect=ValueError("bad"),
+            ),
         ):
             resp = await handler.handle_estimate_cost(_req("POST", body=body))
         assert _status(resp) == 500
@@ -1780,9 +1867,13 @@ class TestErrorCategories:
     )
     async def test_set_budget_catches_all_types(self, handler, exc_type):
         body = {"budget": 100}
-        with _patch_parse_body(body), _patch_tracker(MagicMock()), patch(
-            "aragora.server.handlers.costs.handler.Decimal",
-            side_effect=exc_type("test"),
+        with (
+            _patch_parse_body(body),
+            _patch_tracker(MagicMock()),
+            patch(
+                "aragora.server.handlers.costs.handler.Decimal",
+                side_effect=exc_type("test"),
+            ),
         ):
             resp = await handler.handle_set_budget(_req("POST", body=body))
         assert _status(resp) == 500

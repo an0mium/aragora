@@ -785,7 +785,7 @@ DO NOT propose features that already exist below.
             result = fn(*args)
             if asyncio.iscoroutine(result):
                 await result
-        except (TypeError, ValueError, RuntimeError, AttributeError, KeyError, OSError) as e:
+        except Exception as e:
             self._log(f"  Hook error: {e}")
 
 

@@ -80,7 +80,8 @@ export const ExecutionProgressOverlay = memo(function ExecutionProgressOverlay({
       setVisible(true);
       if (fadeTimerRef.current) clearTimeout(fadeTimerRef.current);
     } else if (executeStatus !== 'idle') {
-      // Keep visible briefly after completion/failure, then fade
+      // Show result briefly after completion/failure, then fade out
+      setVisible(true);
       fadeTimerRef.current = setTimeout(() => setVisible(false), 3000);
     } else {
       setVisible(false);

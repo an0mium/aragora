@@ -29,9 +29,7 @@ import asyncio
 import inspect
 import subprocess
 import uuid
-from dataclasses import dataclass, field
 from datetime import datetime, timezone
-from enum import Enum
 from pathlib import Path
 from typing import Any
 from collections.abc import Callable
@@ -49,527 +47,22 @@ from aragora.workflow.types import (
 )
 from aragora.observability import get_logger
 
+# Re-export extracted types for backward compatibility
+from aragora.nomic.types import (  # noqa: F401
+    AgentAssignment,
+    AGENTS_WITH_CODING_HARNESS,
+    BudgetExceededError,
+    DEFAULT_TRACK_CONFIGS,
+    HierarchyConfig,
+    KILOCODE_PROVIDER_MAPPING,
+    OrchestrationResult,
+    Track,
+    TrackConfig,
+)
+from aragora.nomic.agent_router import AgentRouter  # noqa: F401
+from aragora.nomic.feedback_loop import FeedbackLoop  # noqa: F401
+
 logger = get_logger(__name__)
-
-
-class BudgetExceededError(RuntimeError):
-    """Raised when the orchestration budget limit is exceeded."""
-
-    def __init__(self, limit: float, spent: float):
-        self.limit = limit
-        self.spent = spent
-        super().__init__(f"Budget ${limit:.2f} exceeded (spent ${spent:.2f})")
-
-
-class Track(Enum):
-    """Development tracks for domain-based routing."""
-
-    SME = "sme"  # Small business features
-    DEVELOPER = "developer"  # SDK, API, docs
-    SELF_HOSTED = "self_hosted"  # Docker, deployment, ops
-    QA = "qa"  # Tests, CI/CD
-    CORE = "core"  # Core debate engine (requires approval)
-    SECURITY = "security"  # Vulnerability scanning, auth hardening, OWASP
-
-
-# Agents that have dedicated agentic coding harnesses (can edit files autonomously)
-AGENTS_WITH_CODING_HARNESS = {"claude", "codex"}
-
-# Mapping from model types to their KiloCode provider_id for coding tasks
-# These models don't have dedicated harnesses but can use KiloCode
-KILOCODE_PROVIDER_MAPPING = {
-    "gemini": "openrouter/google/gemini-3.1-pro-preview",  # Gemini via OpenRouter
-    "gemini-cli": "openrouter/google/gemini-3.1-pro-preview",
-    "grok": "openrouter/x-ai/grok-4",  # Grok via OpenRouter
-    "grok-cli": "openrouter/x-ai/grok-4",
-    "deepseek": "openrouter/deepseek/deepseek-chat-v3-0324",  # DeepSeek via OpenRouter
-    "qwen": "openrouter/qwen/qwen-2.5-coder-32b-instruct",  # Qwen via OpenRouter
-}
-
-
-@dataclass
-class TrackConfig:
-    """Configuration for a development track."""
-
-    name: str
-    folders: list[str]  # Folders this track owns
-    protected_folders: list[str] = field(default_factory=list)  # Cannot modify
-    agent_types: list[str] = field(default_factory=list)  # Preferred agents
-    max_concurrent_tasks: int = 2
-    # Whether to use KiloCode as coding harness for models without one
-    use_kilocode_harness: bool = True
-
-
-# Default track configurations aligned with AGENT_ASSIGNMENTS.md
-DEFAULT_TRACK_CONFIGS: dict[Track, TrackConfig] = {
-    Track.SME: TrackConfig(
-        name="SME",
-        folders=["aragora/live/", "aragora/server/handlers/"],
-        protected_folders=["aragora/debate/", "aragora/agents/", "aragora/core/"],
-        agent_types=["claude", "gemini"],
-        max_concurrent_tasks=2,
-    ),
-    Track.DEVELOPER: TrackConfig(
-        name="Developer",
-        folders=["sdk/", "docs/", "tests/sdk/"],
-        protected_folders=["aragora/debate/", "aragora/live/src/app/"],
-        agent_types=["claude", "codex"],
-        max_concurrent_tasks=2,
-    ),
-    Track.SELF_HOSTED: TrackConfig(
-        name="Self-Hosted",
-        folders=["scripts/", "docker/", "docs/deployment/", "aragora/backup/"],
-        protected_folders=["aragora/debate/", "aragora/server/handlers/"],
-        agent_types=["claude", "codex"],
-        max_concurrent_tasks=1,
-    ),
-    Track.QA: TrackConfig(
-        name="QA",
-        folders=["tests/", "aragora/live/e2e/", ".github/workflows/"],
-        protected_folders=["aragora/debate/"],
-        agent_types=["claude", "gemini"],
-        max_concurrent_tasks=3,
-    ),
-    Track.CORE: TrackConfig(
-        name="Core",
-        folders=["aragora/debate/", "aragora/agents/", "aragora/memory/"],
-        protected_folders=[],  # Can modify core, but requires approval
-        agent_types=["claude"],  # Only Claude for core changes
-        max_concurrent_tasks=1,
-    ),
-    Track.SECURITY: TrackConfig(
-        name="Security",
-        folders=["aragora/security/", "aragora/audit/", "aragora/auth/", "aragora/rbac/"],
-        protected_folders=["aragora/debate/"],  # Don't modify core debate
-        agent_types=["claude"],  # Claude for security audits
-        max_concurrent_tasks=2,
-    ),
-}
-
-
-@dataclass
-class HierarchyConfig:
-    """Configuration for Planner/Worker/Judge agent hierarchy.
-
-    When enabled, the orchestration workflow becomes:
-      1. Planner designs the solution (design step)
-      2. Plan approval gate: judge reviews the plan before implementation
-      3. Workers implement the changes (implement step)
-      4. Standard verification (verify step)
-      5. Judge reviews the final result before completion
-
-    This separation of concerns ensures no single agent both designs and
-    approves its own work, improving quality and catching design flaws early.
-    """
-
-    enabled: bool = False
-
-    # The planner agent handles design/decomposition (defaults to orchestrator's choice)
-    planner_agent: str = "claude"
-
-    # Worker agents handle implementation (list allows round-robin or selection)
-    worker_agents: list[str] = field(default_factory=lambda: ["claude", "codex"])
-
-    # The judge agent reviews plans and final output (should differ from planner)
-    judge_agent: str = "claude"
-
-    # Whether the plan approval gate blocks on rejection (vs. warning-only)
-    plan_gate_blocking: bool = True
-
-    # Whether the final judge review blocks on rejection
-    final_review_blocking: bool = True
-
-    # Maximum plan revision attempts before escalating
-    max_plan_revisions: int = 2
-
-
-@dataclass
-class AgentAssignment:
-    """Assignment of a subtask to an agent."""
-
-    subtask: SubTask
-    track: Track
-    agent_type: str
-    priority: int = 0
-    status: str = "pending"  # pending, running, completed, failed
-    attempt_count: int = 0
-    max_attempts: int = 3
-    result: dict[str, Any] | None = None
-    started_at: datetime | None = None
-    completed_at: datetime | None = None
-    retry_hints: list[str] = field(default_factory=list)
-
-
-@dataclass
-class OrchestrationResult:
-    """Result of an orchestration run."""
-
-    goal: str
-    total_subtasks: int
-    completed_subtasks: int
-    failed_subtasks: int
-    skipped_subtasks: int
-    assignments: list[AgentAssignment]
-    duration_seconds: float
-    success: bool
-    error: str | None = None
-    summary: str = ""
-    # Measurement layer: objective improvement tracking
-    baseline_metrics: dict[str, Any] | None = None
-    after_metrics: dict[str, Any] | None = None
-    metrics_delta: dict[str, Any] | None = None
-    improvement_score: float = 0.0  # 0.0-1.0, from MetricsDelta
-    success_criteria_met: bool | None = None  # True if all criteria satisfied
-
-
-class AgentRouter:
-    """
-    Routes subtasks to appropriate agents based on domain and track.
-
-    Uses heuristics to determine:
-    1. Which track owns a subtask (based on file patterns)
-    2. Which agent type is best suited (based on task complexity)
-    """
-
-    def __init__(self, track_configs: dict[Track, TrackConfig] | None = None):
-        self.track_configs = track_configs or DEFAULT_TRACK_CONFIGS
-        self._file_to_track_cache: dict[str, Track] = {}
-
-    def determine_track(self, subtask: SubTask) -> Track:
-        """Determine which track should handle a subtask."""
-        # Check file scope first
-        for file_path in subtask.file_scope:
-            track = self._file_to_track(file_path)
-            if track:
-                return track
-
-        # Infer from task description
-        description_lower = subtask.description.lower()
-        title_lower = subtask.title.lower()
-        combined = f"{title_lower} {description_lower}"
-
-        # Track detection patterns
-        patterns = {
-            Track.SME: ["ui", "frontend", "user", "dashboard", "workspace", "admin"],
-            Track.DEVELOPER: ["sdk", "api", "documentation", "docs", "client"],
-            Track.SELF_HOSTED: [
-                "docker",
-                "deploy",
-                "backup",
-                "restore",
-                "ops",
-                "kubernetes",
-            ],
-            Track.QA: ["test", "e2e", "ci", "coverage", "quality", "playwright"],
-            Track.CORE: ["debate", "consensus", "arena", "agent", "memory"],
-            Track.SECURITY: [
-                "security",
-                "vuln",
-                "auth",
-                "encrypt",
-                "secret",
-                "owasp",
-                "xss",
-                "csrf",
-                "injection",
-            ],
-        }
-
-        for track, keywords in patterns.items():
-            if any(kw in combined for kw in keywords):
-                return track
-
-        # Default to developer track for unclassified tasks
-        return Track.DEVELOPER
-
-    def _file_to_track(self, file_path: str) -> Track | None:
-        """Map a file path to its owning track."""
-        if file_path in self._file_to_track_cache:
-            return self._file_to_track_cache[file_path]
-
-        for track, config in self.track_configs.items():
-            for folder in config.folders:
-                if file_path.startswith(folder):
-                    self._file_to_track_cache[file_path] = track
-                    return track
-
-        return None
-
-    def select_agent_type(self, subtask: SubTask, track: Track) -> str:
-        """Select the best agent type for a subtask."""
-        config = self.track_configs.get(track, DEFAULT_TRACK_CONFIGS[Track.DEVELOPER])
-
-        if not config.agent_types:
-            return "claude"  # Default
-
-        # High complexity -> Claude (better reasoning)
-        if subtask.estimated_complexity == "high":
-            return "claude"
-
-        # Code generation -> prefer Codex
-        if "implement" in subtask.title.lower() or "code" in subtask.description.lower():
-            if "codex" in config.agent_types:
-                return "codex"
-
-        # Default to first preferred agent
-        return config.agent_types[0]
-
-    def get_coding_harness(
-        self,
-        agent_type: str,
-        track: Track,
-    ) -> dict[str, str] | None:
-        """Determine the coding harness to use for an agent.
-
-        For agents with native coding harnesses (claude, codex), returns None.
-        For other agents (gemini, grok, etc.), returns KiloCode configuration
-        if the track allows it.
-
-        Args:
-            agent_type: The selected agent type
-            track: The development track
-
-        Returns:
-            None if agent has native harness, otherwise dict with:
-            - harness: "kilocode"
-            - provider_id: The KiloCode provider to use
-            - mode: The KiloCode mode (code, architect, etc.)
-        """
-        # Agents with native coding harnesses don't need KiloCode
-        if agent_type in AGENTS_WITH_CODING_HARNESS:
-            return None
-
-        # Check if track allows KiloCode harness
-        config = self.track_configs.get(track, DEFAULT_TRACK_CONFIGS[Track.DEVELOPER])
-        if not config.use_kilocode_harness:
-            return None
-
-        # Get KiloCode provider for this agent type
-        provider_id = KILOCODE_PROVIDER_MAPPING.get(agent_type)
-        if not provider_id:
-            # No KiloCode mapping for this agent
-            return None
-
-        return {
-            "harness": "kilocode",
-            "provider_id": provider_id,
-            "mode": "code",  # Use code mode for implementation tasks
-        }
-
-    def check_conflicts(
-        self,
-        subtask: SubTask,
-        active_assignments: list[AgentAssignment],
-    ) -> list[str]:
-        """Check for potential conflicts with active assignments."""
-        conflicts = []
-
-        for assignment in active_assignments:
-            if assignment.status != "running":
-                continue
-
-            # Check file overlap
-            active_files = set(assignment.subtask.file_scope)
-            new_files = set(subtask.file_scope)
-            overlap = active_files & new_files
-
-            if overlap:
-                conflicts.append(f"File conflict with {assignment.subtask.id}: {overlap}")
-
-            # Check track overlap (some tracks shouldn't run in parallel)
-            if assignment.track == Track.CORE and self.determine_track(subtask) == Track.CORE:
-                conflicts.append("Core track conflict: only one core task at a time")
-
-        return conflicts
-
-
-class FeedbackLoop:
-    """
-    Manages feedback from verification back to earlier phases.
-
-    When verification fails, determines:
-    1. Root cause (test failure, lint error, etc.)
-    2. Which phase to return to (design, implement, or new subtask)
-    3. How to modify the approach
-
-    Optionally integrates with SelfCorrectionEngine to apply strategy
-    recommendations (e.g., rotate agents, decrease scope) informed by
-    cross-cycle failure patterns.
-
-    When a TestResult is available in error_info, uses testfixer's heuristic
-    analysis to produce rich hints (file path, line number, error category,
-    fix target, relevant code snippets, suggested approach).
-    """
-
-    def __init__(self, max_iterations: int = 3, repo_path: Path | None = None):
-        self.max_iterations = max_iterations
-        self.repo_path = repo_path
-        self._iteration_counts: dict[str, int] = {}
-        self._strategy_recommendations: list[Any] = []
-
-    def analyze_failure(
-        self,
-        assignment: AgentAssignment,
-        error_info: dict[str, Any],
-    ) -> dict[str, Any]:
-        """Analyze a failure and determine next steps.
-
-        Anti-fragile design: on first failure, tries reassigning to a different
-        agent before retrying the same one. This handles cases where an agent
-        type is fundamentally incompatible with a task (timeout, rate limit,
-        capability mismatch).
-        """
-        subtask_id = assignment.subtask.id
-        self._iteration_counts[subtask_id] = self._iteration_counts.get(subtask_id, 0) + 1
-
-        if self._iteration_counts[subtask_id] >= self.max_iterations:
-            return {
-                "action": "escalate",
-                "reason": f"Max iterations ({self.max_iterations}) reached",
-                "require_human": True,
-            }
-
-        error_type = error_info.get("type", "unknown")
-        error_message = error_info.get("message", "")
-
-        # Agent-level failures -> try a different agent before retrying same one
-        if error_type in ("agent_timeout", "agent_error", "workflow_failure"):
-            if assignment.attempt_count == 0:
-                # First failure: try reassigning to a different agent
-                return {
-                    "action": "reassign_agent",
-                    "reason": f"Agent {assignment.agent_type} failed on first attempt; "
-                    f"trying alternative agent",
-                    "original_agent": assignment.agent_type,
-                }
-
-        # CI failures -> adjust implementation
-        if error_type == "ci_failure":
-            return {
-                "action": "retry_implement",
-                "reason": "CI test failures require implementation adjustment",
-                "hints": error_info.get("ci_failures", []),
-            }
-
-        # Test failures -> use rich analysis if TestResult is available
-        if error_type == "test_failure":
-            hints = self._extract_rich_test_hints(error_info)
-            return {
-                "action": "retry_implement",
-                "reason": "Test failures require implementation adjustment",
-                "hints": hints,
-            }
-
-        # Lint/type errors -> quick fix
-        if error_type in ("lint_error", "type_error"):
-            return {
-                "action": "quick_fix",
-                "reason": "Static analysis errors can be auto-fixed",
-                "hints": error_message,
-            }
-
-        # Design issues -> revisit design
-        if error_type == "design_issue":
-            return {
-                "action": "redesign",
-                "reason": "Implementation revealed design flaws",
-                "hints": error_info.get("suggestion", ""),
-            }
-
-        # Unknown -> escalate
-        return {
-            "action": "escalate",
-            "reason": f"Unknown error type: {error_type}",
-            "require_human": True,
-        }
-
-    def _extract_rich_test_hints(self, error_info: dict[str, Any]) -> str | list[dict[str, Any]]:
-        """Extract rich hints from TestResult using testfixer heuristics.
-
-        Falls back to basic string extraction if testfixer is unavailable
-        or no TestResult is present in error_info.
-        """
-        test_result = error_info.get("test_result")
-        if test_result is None:
-            return self._extract_test_hints(error_info.get("message", ""))
-
-        try:
-            from aragora.nomic.testfixer.analyzer import (
-                categorize_by_heuristics,
-                determine_fix_target,
-                extract_relevant_code,
-                generate_approach_heuristic,
-            )
-
-            repo_path = self.repo_path or Path.cwd()
-            rich_hints = []
-
-            for failure in test_result.failures[:5]:
-                category, confidence = categorize_by_heuristics(failure)
-                fix_target = determine_fix_target(category, failure)
-                code_snippets = extract_relevant_code(failure, repo_path)
-                approach = generate_approach_heuristic(category, failure)
-
-                rich_hints.append({
-                    "test_name": failure.test_name,
-                    "test_file": failure.test_file,
-                    "line_number": failure.line_number,
-                    "error_type": failure.error_type,
-                    "error_message": failure.error_message,
-                    "category": category.value,
-                    "confidence": confidence,
-                    "fix_target": fix_target.value,
-                    "relevant_code": {
-                        k: v[:500] for k, v in code_snippets.items()
-                    },
-                    "suggested_approach": approach,
-                })
-
-            return rich_hints or self._extract_test_hints(error_info.get("message", ""))
-
-        except ImportError:
-            logger.debug("testfixer analyzer unavailable, using basic hint extraction")
-            return self._extract_test_hints(error_info.get("message", ""))
-
-    def apply_strategy_recommendations(
-        self, recommendations: list[Any]
-    ) -> None:
-        """Accept strategy recommendations from SelfCorrectionEngine.
-
-        These influence failure analysis: if a recommendation suggests
-        rotating agents or decreasing scope for a track, that advice
-        is incorporated into the next analyze_failure decision.
-        """
-        self._strategy_recommendations = list(recommendations)
-
-    def get_recommendation_for_track(self, track_value: str) -> dict[str, str] | None:
-        """Get the most confident recommendation for a given track."""
-        best = None
-        best_confidence = 0.0
-        for rec in self._strategy_recommendations:
-            if getattr(rec, "track", None) == track_value:
-                conf = getattr(rec, "confidence", 0.0)
-                if conf > best_confidence:
-                    best_confidence = conf
-                    best = rec
-        if best is None:
-            return None
-        return {
-            "action": getattr(best, "action_type", "unknown"),
-            "recommendation": getattr(best, "recommendation", ""),
-            "confidence": str(best_confidence),
-        }
-
-    def _extract_test_hints(self, error_message: str) -> str:
-        """Extract hints from test failure messages."""
-        lines = error_message.split("\n")
-        hints = []
-
-        for line in lines:
-            if "AssertionError" in line or "Expected" in line or "Actual" in line:
-                hints.append(line.strip())
-
-        return "\n".join(hints[:5]) if hints else "Review test output"
 
 
 class AutonomousOrchestrator:
@@ -793,10 +286,13 @@ class AutonomousOrchestrator:
         )
 
         self._checkpoint("started", {"goal": goal, "tracks": tracks})
-        self._emit_improvement_event("IMPROVEMENT_CYCLE_START", {
-            "goal": goal[:200],
-            "tracks": tracks or [],
-        })
+        self._emit_improvement_event(
+            "IMPROVEMENT_CYCLE_START",
+            {
+                "goal": goal[:200],
+                "tracks": tracks or [],
+            },
+        )
 
         # Step 0: Preflight health check — validate environment before spending budget
         if self.enable_preflight:
@@ -868,7 +364,13 @@ class AutonomousOrchestrator:
             if self.enable_outcome_tracking and self._outcome_tracker is not None:
                 try:
                     _outcome_baseline = await self._outcome_tracker.capture_baseline()
-                except (RuntimeError, OSError, ValueError, ConnectionError, asyncio.TimeoutError) as e:
+                except (
+                    RuntimeError,
+                    OSError,
+                    ValueError,
+                    ConnectionError,
+                    asyncio.TimeoutError,
+                ) as e:
                     logger.debug("outcome_baseline_capture_failed: %s", e)
 
             # Step 2d: Collect metrics baseline for objective improvement measurement
@@ -880,7 +382,8 @@ class AutonomousOrchestrator:
                     for a in assignments:
                         file_scope.extend(a.subtask.file_scope or [])
                     _metrics_baseline = await self._metrics_collector.collect_baseline(
-                        goal, file_scope=file_scope or None,
+                        goal,
+                        file_scope=file_scope or None,
                     )
                 except (RuntimeError, OSError, ValueError, subprocess.SubprocessError) as e:
                     logger.debug("metrics_baseline_collection_failed: %s", e)
@@ -933,7 +436,13 @@ class AutonomousOrchestrator:
                             "outcome_regression_detected recommendation=%s",
                             _outcome_comparison.recommendation,
                         )
-                except (RuntimeError, OSError, ValueError, ConnectionError, asyncio.TimeoutError) as e:
+                except (
+                    RuntimeError,
+                    OSError,
+                    ValueError,
+                    ConnectionError,
+                    asyncio.TimeoutError,
+                ) as e:
                     logger.debug("outcome_tracking_failed: %s", e)
 
             # Step 5c: Metrics comparison - objective improvement measurement
@@ -947,10 +456,12 @@ class AutonomousOrchestrator:
                     for a in assignments:
                         file_scope.extend(a.subtask.file_scope or [])
                     _metrics_after = await self._metrics_collector.collect_after(
-                        goal, file_scope=file_scope or None,
+                        goal,
+                        file_scope=file_scope or None,
                     )
                     _metrics_delta = self._metrics_collector.compare(
-                        _metrics_baseline, _metrics_after,
+                        _metrics_baseline,
+                        _metrics_after,
                     )
                     result.baseline_metrics = _metrics_baseline.to_dict()
                     result.after_metrics = _metrics_after.to_dict()
@@ -964,11 +475,12 @@ class AutonomousOrchestrator:
                             all_criteria.update(a.subtask.success_criteria)
                     if all_criteria:
                         met, unmet = self._metrics_collector.check_success_criteria(
-                            _metrics_after, all_criteria,
+                            _metrics_after,
+                            all_criteria,
                         )
                         result.success_criteria_met = met
                         if not met:
-                            logger.info("success_criteria_unmet: %s", '; '.join(unmet))
+                            logger.info("success_criteria_unmet: %s", "; ".join(unmet))
 
                     if _metrics_delta.improved:
                         logger.info(
@@ -984,14 +496,17 @@ class AutonomousOrchestrator:
                     logger.debug("metrics_comparison_failed: %s", e)
 
             self._checkpoint("completed", {"result": result.summary})
-            self._emit_improvement_event("IMPROVEMENT_CYCLE_COMPLETE", {
-                "goal": goal[:200],
-                "completed": completed,
-                "failed": failed,
-                "skipped": skipped,
-                "duration_seconds": duration,
-                "success": failed == 0,
-            })
+            self._emit_improvement_event(
+                "IMPROVEMENT_CYCLE_COMPLETE",
+                {
+                    "goal": goal[:200],
+                    "completed": completed,
+                    "failed": failed,
+                    "skipped": skipped,
+                    "duration_seconds": duration,
+                    "success": failed == 0,
+                },
+            )
             logger.info(
                 "orchestration_completed",
                 orchestration_id=self._orchestration_id,
@@ -1004,17 +519,26 @@ class AutonomousOrchestrator:
 
         except (RuntimeError, OSError, ValueError, ConnectionError, asyncio.TimeoutError) as e:
             duration = (datetime.now(timezone.utc) - start_time).total_seconds()
-            logger.warning("orchestration_failed", orchestration_id=self._orchestration_id, error_type=type(e).__name__)
-            self._emit_improvement_event("IMPROVEMENT_CYCLE_FAILED", {
-                "goal": goal[:200],
-                "error": type(e).__name__,
-                "duration_seconds": duration,
-            })
+            logger.warning(
+                "orchestration_failed",
+                orchestration_id=self._orchestration_id,
+                error_type=type(e).__name__,
+            )
+            self._emit_improvement_event(
+                "IMPROVEMENT_CYCLE_FAILED",
+                {
+                    "goal": goal[:200],
+                    "error": type(e).__name__,
+                    "duration_seconds": duration,
+                },
+            )
 
             # Fail the convoy on exception
             if self.enable_convoy_tracking and self._convoy_id:
                 try:
-                    await self._complete_convoy(success=False, error=f"Orchestration failed: {type(e).__name__}")
+                    await self._complete_convoy(
+                        success=False, error=f"Orchestration failed: {type(e).__name__}"
+                    )
                 except (RuntimeError, OSError, ValueError, ConnectionError, asyncio.TimeoutError):
                     logger.debug("Failed to update convoy on error")
 
@@ -1160,7 +684,13 @@ class AutonomousOrchestrator:
             for task in done:
                 try:
                     await task
-                except (RuntimeError, OSError, ValueError, ConnectionError, asyncio.TimeoutError) as e:
+                except (
+                    RuntimeError,
+                    OSError,
+                    ValueError,
+                    ConnectionError,
+                    asyncio.TimeoutError,
+                ) as e:
                     logger.exception("Task failed: %s", e)
 
         # Stop stuck detection monitoring
@@ -1170,7 +700,10 @@ class AutonomousOrchestrator:
                 health = await self._stuck_detector.get_health_summary()
                 if health.red_count > 0:
                     logger.warning(
-                        "stuck_detection_summary red=%s yellow=%s recovered=%s", health.red_count, health.yellow_count, health.recovered_count
+                        "stuck_detection_summary red=%s yellow=%s recovered=%s",
+                        health.red_count,
+                        health.yellow_count,
+                        health.recovered_count,
                     )
                 else:
                     logger.info(
@@ -1280,9 +813,7 @@ class AutonomousOrchestrator:
             approved = await self._check_plan_approval(assignment)
             if not approved:
                 assignment.status = "blocked"
-                logger.info(
-                    "assignment_blocked_plan_gate subtask_id=%s", subtask.id
-                )
+                logger.info("assignment_blocked_plan_gate subtask_id=%s", subtask.id)
                 return
 
         # Update bead status to RUNNING
@@ -1318,24 +849,29 @@ class AutonomousOrchestrator:
                     approved = await self._check_final_review(assignment, result)
                     if not approved:
                         assignment.status = "rejected"
-                        logger.info(
-                            "assignment_rejected_review subtask_id=%s", subtask.id
+                        logger.info("assignment_rejected_review subtask_id=%s", subtask.id)
+                        await self._update_bead_status(
+                            subtask.id, "failed", error="Rejected at review gate"
                         )
-                        await self._update_bead_status(subtask.id, "failed", error="Rejected at review gate")
                         return
 
                 assignment.status = "completed"
                 assignment.result = {"workflow_result": result.final_output}
                 await self._update_bead_status(subtask.id, "done")
-                self._emit_improvement_event("IMPROVEMENT_CYCLE_VERIFIED", {
-                    "subtask_id": subtask.id,
-                    "track": assignment.track.value,
-                    "agent": assignment.agent_type,
-                })
+                self._emit_improvement_event(
+                    "IMPROVEMENT_CYCLE_VERIFIED",
+                    {
+                        "subtask_id": subtask.id,
+                        "track": assignment.track.value,
+                        "agent": assignment.agent_type,
+                    },
+                )
 
                 # Record agent success in ELO + KM for learning
                 await self._record_agent_outcome(
-                    assignment, success=True, domain=assignment.track.value,
+                    assignment,
+                    success=True,
+                    domain=assignment.track.value,
                 )
             else:
                 # Extract structured TestResult from verify step if available
@@ -1352,9 +888,7 @@ class AutonomousOrchestrator:
 
                 # Try targeted fix for small, high-confidence test-side failures
                 if error_info.get("test_result") is not None:
-                    fixed = await self._attempt_targeted_fix(
-                        assignment, error_info["test_result"]
-                    )
+                    fixed = await self._attempt_targeted_fix(assignment, error_info["test_result"])
                     if fixed:
                         assignment.status = "completed"
                         assignment.result = {
@@ -1363,7 +897,9 @@ class AutonomousOrchestrator:
                         }
                         await self._update_bead_status(subtask.id, "done")
                         await self._record_agent_outcome(
-                            assignment, success=True, domain=assignment.track.value,
+                            assignment,
+                            success=True,
+                            domain=assignment.track.value,
                         )
                         return
 
@@ -1380,7 +916,9 @@ class AutonomousOrchestrator:
                     assignment.result = {"error": result.error, "feedback": feedback}
                     await self._update_bead_status(subtask.id, "failed", error=result.error)
                     await self._record_agent_outcome(
-                        assignment, success=False, domain=assignment.track.value,
+                        assignment,
+                        success=False,
+                        domain=assignment.track.value,
                     )
                 elif feedback["action"] == "reassign_agent":
                     # Anti-fragile: try a different agent type
@@ -1415,7 +953,9 @@ class AutonomousOrchestrator:
             logger.warning("assignment_failed", subtask_id=subtask.id, error_type=type(e).__name__)
             assignment.status = "failed"
             assignment.result = {"error": f"Assignment execution failed: {type(e).__name__}"}
-            await self._update_bead_status(subtask.id, "failed", error=f"Assignment failed: {type(e).__name__}")
+            await self._update_bead_status(
+                subtask.id, "failed", error=f"Assignment failed: {type(e).__name__}"
+            )
 
         finally:
             assignment.completed_at = datetime.now(timezone.utc)
@@ -1427,9 +967,7 @@ class AutonomousOrchestrator:
                 pass  # Already removed (e.g., during retry)
 
             # Notify Fabric of task completion for cleanup
-            await self._fabric_complete_task(
-                assignment, success=assignment.status == "completed"
-            )
+            await self._fabric_complete_task(assignment, success=assignment.status == "completed")
 
     async def _attempt_targeted_fix(
         self,
@@ -1551,7 +1089,9 @@ class AutonomousOrchestrator:
                 scores={agent_name: 1.0 if success else 0.0, "_baseline": 0.5},
                 domain=domain,
             )
-            logger.info("agent_outcome_elo agent=%s success=%s domain=%s", agent_name, success, domain)
+            logger.info(
+                "agent_outcome_elo agent=%s success=%s domain=%s", agent_name, success, domain
+            )
         except (ImportError, RuntimeError, TypeError, ValueError) as e:
             logger.debug("ELO recording failed for %s: %s", agent_name, e)
 
@@ -1561,14 +1101,16 @@ class AutonomousOrchestrator:
 
             adapter = get_adapter("nomic_cycle")
             if adapter and hasattr(adapter, "record"):
-                await adapter.record({
-                    "type": "agent_implementation_outcome",
-                    "agent": agent_name,
-                    "track": domain,
-                    "subtask_id": assignment.subtask.id,
-                    "success": success,
-                    "attempt": assignment.attempt_count,
-                })
+                await adapter.record(
+                    {
+                        "type": "agent_implementation_outcome",
+                        "agent": agent_name,
+                        "track": domain,
+                        "subtask_id": assignment.subtask.id,
+                        "success": success,
+                        "attempt": assignment.attempt_count,
+                    }
+                )
         except (ImportError, RuntimeError, TypeError, ValueError) as e:
             logger.debug("KM recording failed for %s: %s", agent_name, e)
 
@@ -1661,7 +1203,10 @@ class AutonomousOrchestrator:
         if coding_harness:
             implement_config["coding_harness"] = coding_harness
             logger.info(
-                "subtask_using_kilocode agent=%s provider=%s track=%s", assignment.agent_type, coding_harness['provider_id'], assignment.track.value
+                "subtask_using_kilocode agent=%s provider=%s track=%s",
+                assignment.agent_type,
+                coding_harness["provider_id"],
+                assignment.track.value,
             )
 
         # Derive test paths from file scope for verification
@@ -1792,8 +1337,10 @@ class AutonomousOrchestrator:
             ),
         )
 
-        verify_next = ["harness_scan"] if self.use_harness else (
-            ["judge_review"] if hierarchy_enabled else []
+        verify_next = (
+            ["harness_scan"]
+            if self.use_harness
+            else (["judge_review"] if hierarchy_enabled else [])
         )
         steps.append(
             StepDefinition(
@@ -1898,17 +1445,19 @@ class AutonomousOrchestrator:
             outcomes: list[dict[str, Any]] = []
             for a in assignments:
                 if a.status in ("completed", "failed"):
-                    outcomes.append({
-                        "track": a.track.value,
-                        "success": a.status == "completed",
-                        "agent": a.agent_type,
-                        "description": a.subtask.title,
-                        "timestamp": (
-                            a.completed_at.isoformat()
-                            if a.completed_at
-                            else datetime.now(timezone.utc).isoformat()
-                        ),
-                    })
+                    outcomes.append(
+                        {
+                            "track": a.track.value,
+                            "success": a.status == "completed",
+                            "agent": a.agent_type,
+                            "description": a.subtask.title,
+                            "timestamp": (
+                                a.completed_at.isoformat()
+                                if a.completed_at
+                                else datetime.now(timezone.utc).isoformat()
+                            ),
+                        }
+                    )
 
             if not outcomes:
                 return
@@ -1947,7 +1496,10 @@ class AutonomousOrchestrator:
                 self.feedback_loop.apply_strategy_recommendations(recommendations)
 
             logger.info(
-                "self_correction_applied outcomes=%s adjustments=%s recommendations=%s", len(outcomes), len(adjustments), len(recommendations)
+                "self_correction_applied outcomes=%s adjustments=%s recommendations=%s",
+                len(outcomes),
+                len(adjustments),
+                len(recommendations),
             )
         except (RuntimeError, ValueError, TypeError, AttributeError) as e:
             logger.debug("Self-correction analysis failed: %s", e)
@@ -1967,12 +1519,14 @@ class AutonomousOrchestrator:
             if adapter and hasattr(adapter, "record"):
                 import asyncio
 
-                coro = adapter.record({
-                    "type": "self_correction_adjustments",
-                    "adjustments": adjustments,
-                    "timestamp": datetime.now(timezone.utc).isoformat(),
-                    "orchestration_id": self._orchestration_id,
-                })
+                coro = adapter.record(
+                    {
+                        "type": "self_correction_adjustments",
+                        "adjustments": adjustments,
+                        "timestamp": datetime.now(timezone.utc).isoformat(),
+                        "orchestration_id": self._orchestration_id,
+                    }
+                )
                 # Fire-and-forget if we can't await
                 if inspect.isawaitable(coro):
                     try:
@@ -2004,14 +1558,16 @@ class AutonomousOrchestrator:
 
             event_type = getattr(StreamEventType, event_name, None)
             if event_type is not None:
-                self.event_emitter.emit(StreamEvent(
-                    type=event_type,
-                    data={
-                        "orchestration_id": self._orchestration_id,
-                        "timestamp": datetime.now(timezone.utc).isoformat(),
-                        **data,
-                    },
-                ))
+                self.event_emitter.emit(
+                    StreamEvent(
+                        type=event_type,
+                        data={
+                            "orchestration_id": self._orchestration_id,
+                            "timestamp": datetime.now(timezone.utc).isoformat(),
+                            **data,
+                        },
+                    )
+                )
         except (ImportError, AttributeError, TypeError):
             pass
 
@@ -2186,7 +1742,9 @@ class AutonomousOrchestrator:
 
                     guard = ScopeGuard(repo_path=self.aragora_path, mode="warn")
                     track_name = f"{track_value}-track"
-                    changed = guard.get_changed_files(base_branch=self.branch_coordinator.config.base_branch)
+                    changed = guard.get_changed_files(
+                        base_branch=self.branch_coordinator.config.base_branch
+                    )
                     if changed:
                         violations = guard.check_files(changed, track=track_name)
                         if violations:
@@ -2206,7 +1764,9 @@ class AutonomousOrchestrator:
                             logger.info("ci_check_passed branch=%s", branch)
                         else:
                             logger.warning(
-                                "ci_check_failed branch=%s conclusion=%s", branch, ci_result.conclusion
+                                "ci_check_failed branch=%s conclusion=%s",
+                                branch,
+                                ci_result.conclusion,
                             )
                             # Don't block merge on CI — just warn
                 except (ImportError, OSError, RuntimeError) as e:

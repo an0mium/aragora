@@ -1568,27 +1568,10 @@ class IdeaToExecutionPipeline:
                 "status": "planned",
                 "output": {"reason": "execution_engine_unavailable"},
             }
-        except (RuntimeError, OSError, ValueError):
-            return {
-                "task_id": task["id"],
-                "name": task["name"],
-                "status": "failed",
-                "output": {"error": "Task execution failed"},
-            }
-        except (
-            ImportError,
-            RuntimeError,
-            ValueError,
-            TypeError,
-            OSError,
-            AttributeError,
-            KeyError,
-            ConnectionError,
-            TimeoutError,
-        ) as exc:
+        except Exception as exc:
             # Harness config errors, path validation, etc.
             # Individual task failures must not crash the entire stage.
-            logger.warning("Task %s failed unexpectedly: %s", task["id"], exc)
+            logger.warning("Task %s failed: %s", task["id"], exc)
             return {
                 "task_id": task["id"],
                 "name": task["name"],

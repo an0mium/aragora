@@ -308,6 +308,20 @@ class FeedbackPhase:
             knowledge_mound=knowledge_mound,
             loop_id=loop_id,
         )
+        # Save direct reference to CalibrationFeedback's original _store method
+        # so FeedbackPhase._store_calibration_in_mound can delegate without
+        # circular calls when tests patch the FeedbackPhase version.
+        self._calibration_store_impl = CalibrationFeedback._store_calibration_in_mound.__get__(
+            self._calibration_feedback, CalibrationFeedback
+        )
+        # Wire CalibrationFeedback's mound storage through FeedbackPhase so
+        # existing test patches on FeedbackPhase._store_calibration_in_mound
+        # still intercept the call.  Uses instance method resolution so
+        # unittest.mock.patch on the class attribute works correctly.
+        _phase_ref = self
+        self._calibration_feedback._store_calibration_in_mound = (  # type: ignore[method-assign]
+            lambda ctx_arg, deltas: _phase_ref._store_calibration_in_mound(ctx_arg, deltas)
+        )
         self._knowledge_feedback = KnowledgeFeedback(
             knowledge_mound=knowledge_mound,
             enable_knowledge_ingestion=enable_knowledge_ingestion,
@@ -1184,7 +1198,7 @@ class FeedbackPhase:
         calibration_deltas: dict[str, dict[str, float]],
     ) -> None:
         """Store calibration in mound. Delegates to CalibrationFeedback."""
-        self._calibration_feedback._store_calibration_in_mound(ctx, calibration_deltas)
+        self._calibration_store_impl(ctx, calibration_deltas)
 
     def _record_pulse_outcome(self, ctx: DebateContext) -> None:
         """Record pulse outcome if the debate was on a trending topic.
