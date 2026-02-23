@@ -61,7 +61,7 @@ def _parse_body(result) -> dict[str, Any]:
 @pytest.fixture
 def rbac_handler():
     """Create a fresh RBACHandler instance."""
-    return RBACHandler(ctx={})
+    return RBACHandler({})
 
 
 @pytest.fixture(autouse=True)

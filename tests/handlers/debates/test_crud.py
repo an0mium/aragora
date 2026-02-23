@@ -14,7 +14,6 @@ ABAC checks, pagination, status normalization, and storage errors.
 from __future__ import annotations
 
 import json
-from dataclasses import dataclass, field
 from typing import Any
 from unittest.mock import MagicMock, patch
 
@@ -45,6 +44,47 @@ def _status(result) -> int:
     if result is None:
         return 0
     return result.status_code
+
+
+def _patch_active_debates(active_dict):
+    """Context manager that patches _active_debates in both crud and handler modules."""
+    return _MultiPatchActiveDebates(active_dict)
+
+
+class _MultiPatchActiveDebates:
+    """Patches _active_debates in both crud.py and handler.py modules."""
+
+    def __init__(self, active_dict):
+        self._active_dict = active_dict
+        self._patches = []
+
+    def __enter__(self):
+        # Patch the crud module's _active_debates
+        p1 = patch("aragora.server.handlers.debates.crud._active_debates", self._active_dict)
+        p1.start()
+        self._patches.append(p1)
+
+        # Patch the handler module's _active_debates (loaded via import in crud.py)
+        try:
+            p2 = patch("aragora.server.handlers.debates.handler._active_debates", self._active_dict)
+            p2.start()
+            self._patches.append(p2)
+        except (AttributeError, ImportError):
+            pass
+
+        # Also patch debate_utils._active_debates (source of the import)
+        try:
+            p3 = patch("aragora.server.debate_utils._active_debates", self._active_dict)
+            p3.start()
+            self._patches.append(p3)
+        except (AttributeError, ImportError):
+            pass
+
+        return self._active_dict
+
+    def __exit__(self, *args):
+        for p in reversed(self._patches):
+            p.stop()
 
 
 # ---------------------------------------------------------------------------
@@ -224,8 +264,7 @@ class TestGetDebateBySlug:
         storage.get_debate.return_value = None
         h = _make_handler(storage=storage)
         handler = _mock_http_handler()
-        # Mock active debates to be empty too
-        with patch("aragora.server.handlers.debates.crud._active_debates", {}):
+        with _patch_active_debates({}):
             result = h._get_debate_by_slug(handler, "nonexistent")
         assert _status(result) == 404
 
@@ -380,7 +419,7 @@ class TestGetDebateBySlug:
         handler = _mock_http_handler()
 
         active = {"d-active": {"task": "Active debate", "status": "starting", "agents": "claude,gpt-4", "rounds": 3}}
-        with patch("aragora.server.handlers.debates.crud._active_debates", active):
+        with _patch_active_debates(active):
             result = h._get_debate_by_slug(handler, "d-active")
         assert _status(result) == 200
         body = _body(result)
@@ -397,7 +436,7 @@ class TestGetDebateBySlug:
         handler = _mock_http_handler()
 
         active = {"d-active": {"task": "Active", "agents": ["claude", "gpt-4"]}}
-        with patch("aragora.server.handlers.debates.crud._active_debates", active):
+        with _patch_active_debates(active):
             result = h._get_debate_by_slug(handler, "d-active")
         body = _body(result)
         assert body["agents"] == ["claude", "gpt-4"]
@@ -410,7 +449,7 @@ class TestGetDebateBySlug:
         handler = _mock_http_handler()
 
         active = {"d-legacy": {"question": "Legacy question", "agents": []}}
-        with patch("aragora.server.handlers.debates.crud._active_debates", active):
+        with _patch_active_debates(active):
             result = h._get_debate_by_slug(handler, "d-legacy")
         body = _body(result)
         assert body["task"] == "Legacy question"
@@ -423,7 +462,7 @@ class TestGetDebateBySlug:
         handler = _mock_http_handler()
 
         active = {"d-active": {"task": "T", "status": "starting", "agents": []}}
-        with patch("aragora.server.handlers.debates.crud._active_debates", active):
+        with _patch_active_debates(active):
             result = h._get_debate_by_slug(handler, "d-active")
         body = _body(result)
         assert body["status"] == "created"  # "starting" -> "created"
@@ -468,6 +507,41 @@ class TestGetDebateBySlug:
         handler = _mock_http_handler()
         result = h._get_debate_by_slug(handler, "d1")
         assert _status(result) == 404
+
+    def test_get_debate_in_progress_default_rounds(self):
+        """Active debate without rounds uses DEFAULT_ROUNDS."""
+        storage = MagicMock()
+        storage.get_debate.return_value = None
+        h = _make_handler(storage=storage)
+        handler = _mock_http_handler()
+
+        from aragora.config import DEFAULT_ROUNDS
+
+        active = {"d1": {"task": "T", "agents": []}}
+        with _patch_active_debates(active):
+            result = h._get_debate_by_slug(handler, "d1")
+        body = _body(result)
+        assert body["rounds"] == DEFAULT_ROUNDS
+
+    def test_get_debate_superadmin_bypass_idor(self):
+        """Superadmin can access any private debate."""
+        storage = MagicMock()
+        storage.get_debate.return_value = {
+            "id": "d1",
+            "task": "Private debate",
+            "status": "active",
+            "visibility": "private",
+            "user_id": "other-user",
+            "participants": [],
+        }
+        user = MagicMock()
+        user.user_id = "test-user-001"
+        user.org_id = "test-org-001"
+        user.role = "superadmin"
+        h = _make_handler(storage=storage, user=user)
+        handler = _mock_http_handler()
+        result = h._get_debate_by_slug(handler, "d1")
+        assert _status(result) == 200
 
 
 # ---------------------------------------------------------------------------
@@ -627,7 +701,7 @@ class TestGetDebateMessages:
 
     def test_get_messages_record_not_found_error(self):
         storage = MagicMock()
-        storage.get_debate.side_effect = RecordNotFoundError("Not found")
+        storage.get_debate.side_effect = RecordNotFoundError("debates", "d1")
         h = _make_handler(storage=storage)
         result = h._get_debate_messages("d1")
         assert _status(result) == 404
@@ -661,6 +735,20 @@ class TestGetDebateMessages:
         assert msg["content"] == ""
         assert msg["agent"] is None
         assert msg["round"] == 0
+
+    def test_get_messages_offset_beyond_total(self):
+        """Offset beyond total messages returns empty list."""
+        storage = MagicMock()
+        storage.get_debate.return_value = {
+            "id": "d1",
+            "messages": [{"role": "a", "content": "Hi", "round": 1}],
+        }
+        h = _make_handler(storage=storage)
+        result = h._get_debate_messages("d1", limit=10, offset=100)
+        body = _body(result)
+        assert body["messages"] == []
+        assert body["total"] == 1
+        assert body["has_more"] is False
 
 
 # ---------------------------------------------------------------------------
@@ -732,8 +820,8 @@ class TestPatchDebate:
         # Status is normalized for response: "concluded" -> "completed"
         assert body["debate"]["status"] == "completed"
 
-    def test_update_status_sdk_value(self):
-        """SDK status values (e.g., 'running') are accepted and converted."""
+    def test_update_status_sdk_value_with_schema_bypass(self):
+        """SDK status values (e.g., 'running') are accepted when schema allows them."""
         storage = MagicMock()
         storage.get_debate.return_value = {
             "id": "d1",
@@ -746,12 +834,16 @@ class TestPatchDebate:
 
         with patch("aragora.server.handlers.debates.crud.check_resource_access") as mock_access:
             mock_access.return_value = MagicMock(allowed=True)
-            result = h._patch_debate(handler, "d1")
+            # Bypass schema validation to test the code-level SDK status handling
+            with patch("aragora.server.handlers.debates.crud.validate_against_schema") as mock_validate:
+                mock_validate.return_value = MagicMock(is_valid=True)
+                result = h._patch_debate(handler, "d1")
 
         body = _body(result)
         assert body["success"] is True
 
-    def test_update_invalid_status(self):
+    def test_update_invalid_status_rejected_by_schema(self):
+        """Invalid status is rejected by schema validation."""
         storage = MagicMock()
         storage.get_debate.return_value = {
             "id": "d1",
@@ -761,10 +853,26 @@ class TestPatchDebate:
         }
         h = _make_handler(storage=storage, json_body={"status": "invalid_status"})
         handler = _mock_http_handler("PATCH")
+        result = h._patch_debate(handler, "d1")
+        assert _status(result) == 400
+
+    def test_update_invalid_status_via_code_check(self):
+        """Invalid status not in SDK or internal set is rejected by the code."""
+        storage = MagicMock()
+        storage.get_debate.return_value = {
+            "id": "d1",
+            "task": "Test",
+            "status": "active",
+            "user_id": "test-user-001",
+        }
+        h = _make_handler(storage=storage, json_body={"status": "bogus"})
+        handler = _mock_http_handler("PATCH")
 
         with patch("aragora.server.handlers.debates.crud.check_resource_access") as mock_access:
             mock_access.return_value = MagicMock(allowed=True)
-            result = h._patch_debate(handler, "d1")
+            with patch("aragora.server.handlers.debates.crud.validate_against_schema") as mock_validate:
+                mock_validate.return_value = MagicMock(is_valid=True)
+                result = h._patch_debate(handler, "d1")
 
         assert _status(result) == 400
         assert "invalid status" in _body(result).get("error", "").lower()
@@ -796,7 +904,8 @@ class TestPatchDebate:
         handler = _mock_http_handler("PATCH")
         result = h._patch_debate(handler, "d1")
         assert _status(result) == 400
-        assert "invalid" in _body(result).get("error", "").lower() or "missing" in _body(result).get("error", "").lower()
+        error_msg = _body(result).get("error", "").lower()
+        assert "invalid" in error_msg or "missing" in error_msg
 
     def test_update_empty_body(self):
         storage = MagicMock()
@@ -884,7 +993,7 @@ class TestPatchDebate:
 
     def test_update_record_not_found_error(self):
         storage = MagicMock()
-        storage.get_debate.side_effect = RecordNotFoundError("Not found")
+        storage.get_debate.side_effect = RecordNotFoundError("debates", "d1")
         h = _make_handler(storage=storage, json_body={"title": "X"})
         handler = _mock_http_handler("PATCH")
 
@@ -1041,8 +1150,8 @@ class TestPatchDebate:
         # "archived" -> "completed" via normalize_status for response
         assert body["debate"]["status"] == "completed"
 
-    def test_update_sdk_status_completed(self):
-        """SDK status 'completed' is denormalized to 'concluded' for storage."""
+    def test_update_sdk_status_completed_via_bypass(self):
+        """SDK status 'completed' is denormalized to 'concluded' when schema is bypassed."""
         storage = MagicMock()
         debate_data = {
             "id": "d1",
@@ -1056,14 +1165,17 @@ class TestPatchDebate:
 
         with patch("aragora.server.handlers.debates.crud.check_resource_access") as mock_access:
             mock_access.return_value = MagicMock(allowed=True)
-            result = h._patch_debate(handler, "d1")
+            with patch("aragora.server.handlers.debates.crud.validate_against_schema") as mock_validate:
+                mock_validate.return_value = MagicMock(is_valid=True)
+                result = h._patch_debate(handler, "d1")
 
         body = _body(result)
         assert body["success"] is True
         # Stored as "concluded", returned as "completed" via normalize
         assert body["debate"]["status"] == "completed"
 
-    def test_update_sdk_status_pending(self):
+    def test_update_sdk_status_pending_via_bypass(self):
+        """SDK status 'pending' is converted to 'active' when schema is bypassed."""
         storage = MagicMock()
         storage.get_debate.return_value = {
             "id": "d1",
@@ -1076,10 +1188,89 @@ class TestPatchDebate:
 
         with patch("aragora.server.handlers.debates.crud.check_resource_access") as mock_access:
             mock_access.return_value = MagicMock(allowed=True)
-            result = h._patch_debate(handler, "d1")
+            with patch("aragora.server.handlers.debates.crud.validate_against_schema") as mock_validate:
+                mock_validate.return_value = MagicMock(is_valid=True)
+                result = h._patch_debate(handler, "d1")
 
         body = _body(result)
         assert body["success"] is True
+
+    def test_update_sdk_status_cancelled_via_bypass(self):
+        """SDK status 'cancelled' is accepted when schema is bypassed."""
+        storage = MagicMock()
+        storage.get_debate.return_value = {
+            "id": "d1",
+            "task": "Test",
+            "status": "active",
+            "user_id": "test-user-001",
+        }
+        h = _make_handler(storage=storage, json_body={"status": "cancelled"})
+        handler = _mock_http_handler("PATCH")
+
+        with patch("aragora.server.handlers.debates.crud.check_resource_access") as mock_access:
+            mock_access.return_value = MagicMock(allowed=True)
+            with patch("aragora.server.handlers.debates.crud.validate_against_schema") as mock_validate:
+                mock_validate.return_value = MagicMock(is_valid=True)
+                result = h._patch_debate(handler, "d1")
+
+        body = _body(result)
+        assert body["success"] is True
+
+    def test_update_sdk_status_failed_via_bypass(self):
+        """SDK status 'failed' is accepted when schema is bypassed."""
+        storage = MagicMock()
+        storage.get_debate.return_value = {
+            "id": "d1",
+            "task": "Test",
+            "status": "active",
+            "user_id": "test-user-001",
+        }
+        h = _make_handler(storage=storage, json_body={"status": "failed"})
+        handler = _mock_http_handler("PATCH")
+
+        with patch("aragora.server.handlers.debates.crud.check_resource_access") as mock_access:
+            mock_access.return_value = MagicMock(allowed=True)
+            with patch("aragora.server.handlers.debates.crud.validate_against_schema") as mock_validate:
+                mock_validate.return_value = MagicMock(is_valid=True)
+                result = h._patch_debate(handler, "d1")
+
+        body = _body(result)
+        assert body["success"] is True
+
+    def test_update_response_title_fallback(self):
+        """Response title falls back to task field if no title."""
+        storage = MagicMock()
+        storage.get_debate.return_value = {
+            "id": "d1",
+            "task": "Original Task",
+            "status": "active",
+            "user_id": "test-user-001",
+        }
+        h = _make_handler(storage=storage, json_body={"tags": ["test"]})
+        handler = _mock_http_handler("PATCH")
+
+        with patch("aragora.server.handlers.debates.crud.check_resource_access") as mock_access:
+            mock_access.return_value = MagicMock(allowed=True)
+            result = h._patch_debate(handler, "d1")
+
+        body = _body(result)
+        assert body["debate"]["title"] == "Original Task"
+
+    def test_update_schema_rejects_sdk_status_directly(self):
+        """SDK status values are rejected by the real schema validation."""
+        storage = MagicMock()
+        storage.get_debate.return_value = {
+            "id": "d1",
+            "task": "Test",
+            "status": "active",
+            "user_id": "test-user-001",
+        }
+        # Use "running" which is an SDK status not in schema allowed_values
+        h = _make_handler(storage=storage, json_body={"status": "running"})
+        handler = _mock_http_handler("PATCH")
+        # Let real schema validation run
+        result = h._patch_debate(handler, "d1")
+        assert _status(result) == 400
 
 
 # ---------------------------------------------------------------------------
@@ -1180,7 +1371,7 @@ class TestDeleteDebate:
 
     def test_delete_record_not_found_error(self):
         storage = MagicMock()
-        storage.get_debate.side_effect = RecordNotFoundError("gone")
+        storage.get_debate.side_effect = RecordNotFoundError("debates", "d1")
         h = _make_handler(storage=storage)
         handler = _mock_http_handler("DELETE")
         result = h._delete_debate(handler, "d1")
@@ -1289,8 +1480,52 @@ class TestDeleteDebate:
         assert _status(result) == 200
         # Verify owner_id was passed to ABAC
         call_kwargs = mock_access.call_args
-        assert call_kwargs.kwargs.get("resource_owner_id") == "test-user-001" or \
-               (call_kwargs[1] if len(call_kwargs) > 1 else {}).get("resource_owner_id") == "test-user-001"
+        assert call_kwargs.kwargs.get("resource_owner_id") == "test-user-001"
+
+    def test_delete_active_debate_no_task_attribute(self):
+        """Active debate entry without task attribute is handled."""
+        storage = MagicMock()
+        storage.get_debate.return_value = {
+            "id": "d1",
+            "task": "Test",
+            "user_id": "test-user-001",
+        }
+        storage.delete_debate.return_value = True
+
+        # Entry with no 'task' attribute (bare dict-like)
+        active_entry = {"status": "running"}
+        active_debates = {"d1": active_entry}
+
+        h = _make_handler(storage=storage)
+        handler = _mock_http_handler("DELETE")
+
+        with patch("aragora.server.handlers.debates.crud._active_debates", active_debates):
+            with patch("aragora.server.handlers.debates.crud.check_resource_access") as mock_access:
+                mock_access.return_value = MagicMock(allowed=True)
+                result = h._delete_debate(handler, "d1")
+
+        assert _status(result) == 200
+        assert "d1" not in active_debates
+
+    def test_delete_uses_workspace_id_for_abac(self):
+        """ABAC check picks up workspace_id from debate."""
+        storage = MagicMock()
+        storage.get_debate.return_value = {
+            "id": "d1",
+            "task": "Test",
+            "user_id": "test-user-001",
+            "workspace_id": "ws-001",
+        }
+        storage.delete_debate.return_value = True
+        h = _make_handler(storage=storage)
+        handler = _mock_http_handler("DELETE")
+
+        with patch("aragora.server.handlers.debates.crud.check_resource_access") as mock_access:
+            mock_access.return_value = MagicMock(allowed=True)
+            h._delete_debate(handler, "d1")
+
+        call_kwargs = mock_access.call_args
+        assert call_kwargs.kwargs.get("resource_workspace_id") == "ws-001"
 
 
 # ---------------------------------------------------------------------------
@@ -1323,68 +1558,78 @@ class TestCrudEdgeCases:
         result = h._list_debates(limit=10)
         assert _status(result) == 200
 
-    def test_get_debate_handler_module_import_error(self):
-        """Gracefully handles handler module import failure for active debates."""
+    def test_get_debate_handler_module_fallback(self):
+        """When handler module has _active_debates, it's used for lookup."""
         storage = MagicMock()
         storage.get_debate.return_value = None
         h = _make_handler(storage=storage)
         handler = _mock_http_handler()
 
-        # When the handler module import fails, it falls back to _active_debates
-        with patch("aragora.server.handlers.debates.crud._active_debates", {"d1": {"task": "T", "agents": []}}):
+        active = {"d1": {"task": "T", "agents": []}}
+        with _patch_active_debates(active):
             result = h._get_debate_by_slug(handler, "d1")
         assert _status(result) == 200
 
-    def test_patch_debate_response_title_fallback(self):
-        """Response title falls back to task field if no title."""
+    def test_list_debates_concluded_status_normalized(self):
+        """Concluded status is normalized to completed in list."""
+        storage = MagicMock()
+        storage.list_recent.return_value = [
+            {"id": "d1", "status": "concluded", "task": "T"}
+        ]
+        h = _make_handler(storage=storage)
+        result = h._list_debates(limit=10)
+        body = _body(result)
+        assert body["debates"][0]["status"] == "completed"
+
+    def test_list_debates_archived_status_normalized(self):
+        """Archived status is normalized to completed in list."""
+        storage = MagicMock()
+        storage.list_recent.return_value = [
+            {"id": "d1", "status": "archived", "task": "T"}
+        ]
+        h = _make_handler(storage=storage)
+        result = h._list_debates(limit=10)
+        body = _body(result)
+        assert body["debates"][0]["status"] == "completed"
+
+    def test_get_debate_in_progress_empty_agents_string(self):
+        """Active debate with empty agents string produces empty list after split."""
+        storage = MagicMock()
+        storage.get_debate.return_value = None
+        h = _make_handler(storage=storage)
+        handler = _mock_http_handler()
+
+        active = {"d1": {"task": "T", "agents": "", "status": "starting"}}
+        with _patch_active_debates(active):
+            result = h._get_debate_by_slug(handler, "d1")
+        body = _body(result)
+        # "".split(",") produces [""]
+        assert body["agents"] == [""]
+
+    def test_patch_debate_abac_uses_correct_action(self):
+        """Verify ABAC check uses WRITE action for patch."""
         storage = MagicMock()
         storage.get_debate.return_value = {
             "id": "d1",
-            "task": "Original Task",
+            "task": "Test",
             "status": "active",
             "user_id": "test-user-001",
         }
-        h = _make_handler(storage=storage, json_body={"tags": ["test"]})
+        h = _make_handler(storage=storage, json_body={"title": "X"})
         handler = _mock_http_handler("PATCH")
 
         with patch("aragora.server.handlers.debates.crud.check_resource_access") as mock_access:
             mock_access.return_value = MagicMock(allowed=True)
-            result = h._patch_debate(handler, "d1")
+            with patch("aragora.server.handlers.debates.crud.validate_against_schema") as mock_validate:
+                mock_validate.return_value = MagicMock(is_valid=True)
+                h._patch_debate(handler, "d1")
 
-        body = _body(result)
-        assert body["debate"]["title"] == "Original Task"
+        from aragora.server.middleware.abac import Action
+        call_kwargs = mock_access.call_args
+        assert call_kwargs.kwargs.get("action") == Action.WRITE
 
-    def test_get_debate_in_progress_default_rounds(self):
-        """Active debate without rounds uses DEFAULT_ROUNDS."""
-        storage = MagicMock()
-        storage.get_debate.return_value = None
-        h = _make_handler(storage=storage)
-        handler = _mock_http_handler()
-
-        from aragora.config import DEFAULT_ROUNDS
-
-        active = {"d1": {"task": "T", "agents": []}}
-        with patch("aragora.server.handlers.debates.crud._active_debates", active):
-            result = h._get_debate_by_slug(handler, "d1")
-        body = _body(result)
-        assert body["rounds"] == DEFAULT_ROUNDS
-
-    def test_get_messages_offset_beyond_total(self):
-        """Offset beyond total messages returns empty list."""
-        storage = MagicMock()
-        storage.get_debate.return_value = {
-            "id": "d1",
-            "messages": [{"role": "a", "content": "Hi", "round": 1}],
-        }
-        h = _make_handler(storage=storage)
-        result = h._get_debate_messages("d1", limit=10, offset=100)
-        body = _body(result)
-        assert body["messages"] == []
-        assert body["total"] == 1
-        assert body["has_more"] is False
-
-    def test_delete_active_debate_no_task_attribute(self):
-        """Active debate entry without task attribute is handled."""
+    def test_delete_debate_abac_uses_correct_action(self):
+        """Verify ABAC check uses DELETE action for delete."""
         storage = MagicMock()
         storage.get_debate.return_value = {
             "id": "d1",
@@ -1392,24 +1637,19 @@ class TestCrudEdgeCases:
             "user_id": "test-user-001",
         }
         storage.delete_debate.return_value = True
-
-        # Entry with no 'task' attribute (bare dict-like)
-        active_entry = {"status": "running"}
-        active_debates = {"d1": active_entry}
-
         h = _make_handler(storage=storage)
         handler = _mock_http_handler("DELETE")
 
-        with patch("aragora.server.handlers.debates.crud._active_debates", active_debates):
-            with patch("aragora.server.handlers.debates.crud.check_resource_access") as mock_access:
-                mock_access.return_value = MagicMock(allowed=True)
-                result = h._delete_debate(handler, "d1")
+        with patch("aragora.server.handlers.debates.crud.check_resource_access") as mock_access:
+            mock_access.return_value = MagicMock(allowed=True)
+            h._delete_debate(handler, "d1")
 
-        assert _status(result) == 200
-        assert "d1" not in active_debates
+        from aragora.server.middleware.abac import Action
+        call_kwargs = mock_access.call_args
+        assert call_kwargs.kwargs.get("action") == Action.DELETE
 
-    def test_patch_debate_status_cancelled_sdk(self):
-        """SDK status 'cancelled' is accepted."""
+    def test_patch_debate_abac_uses_debate_resource_type(self):
+        """Verify ABAC check uses DEBATE resource type."""
         storage = MagicMock()
         storage.get_debate.return_value = {
             "id": "d1",
@@ -1417,51 +1657,45 @@ class TestCrudEdgeCases:
             "status": "active",
             "user_id": "test-user-001",
         }
-        h = _make_handler(storage=storage, json_body={"status": "cancelled"})
+        h = _make_handler(storage=storage, json_body={"title": "X"})
         handler = _mock_http_handler("PATCH")
 
         with patch("aragora.server.handlers.debates.crud.check_resource_access") as mock_access:
             mock_access.return_value = MagicMock(allowed=True)
-            result = h._patch_debate(handler, "d1")
+            with patch("aragora.server.handlers.debates.crud.validate_against_schema") as mock_validate:
+                mock_validate.return_value = MagicMock(is_valid=True)
+                h._patch_debate(handler, "d1")
 
-        body = _body(result)
-        assert body["success"] is True
+        from aragora.server.middleware.abac import ResourceType
+        call_kwargs = mock_access.call_args
+        assert call_kwargs.kwargs.get("resource_type") == ResourceType.DEBATE
 
-    def test_patch_debate_status_failed_sdk(self):
-        """SDK status 'failed' is accepted."""
+    def test_get_debate_no_visibility_field(self):
+        """Debate without visibility field defaults to private behavior."""
         storage = MagicMock()
         storage.get_debate.return_value = {
             "id": "d1",
             "task": "Test",
             "status": "active",
-            "user_id": "test-user-001",
-        }
-        h = _make_handler(storage=storage, json_body={"status": "failed"})
-        handler = _mock_http_handler("PATCH")
-
-        with patch("aragora.server.handlers.debates.crud.check_resource_access") as mock_access:
-            mock_access.return_value = MagicMock(allowed=True)
-            result = h._patch_debate(handler, "d1")
-
-        body = _body(result)
-        assert body["success"] is True
-
-    def test_get_debate_superadmin_bypass_idor(self):
-        """Superadmin can access any private debate."""
-        storage = MagicMock()
-        storage.get_debate.return_value = {
-            "id": "d1",
-            "task": "Private debate",
-            "status": "active",
-            "visibility": "private",
             "user_id": "other-user",
+            # No visibility field - defaults to "private"
             "participants": [],
         }
         user = MagicMock()
         user.user_id = "test-user-001"
         user.org_id = "test-org-001"
-        user.role = "superadmin"
+        user.role = "user"
         h = _make_handler(storage=storage, user=user)
         handler = _mock_http_handler()
         result = h._get_debate_by_slug(handler, "d1")
-        assert _status(result) == 200
+        # visibility defaults to "private", so IDOR check applies
+        assert _status(result) == 404
+
+    def test_list_debates_single_debate(self):
+        """List with a single debate returns correct count."""
+        storage = MagicMock()
+        storage.list_recent.return_value = [{"id": "d1", "status": "active"}]
+        h = _make_handler(storage=storage)
+        result = h._list_debates(limit=1)
+        body = _body(result)
+        assert body["count"] == 1

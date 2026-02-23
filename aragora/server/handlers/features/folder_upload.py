@@ -238,7 +238,7 @@ class FolderUploadHandler(BaseHandler):
             folder_id, err = self.extract_path_param(path, 5, "folder_id")
             if err:
                 return err
-            return self._delete_folder(folder_id)
+            return self._delete_folder(folder_id, handler=handler)
         return None
 
     @require_user_auth
