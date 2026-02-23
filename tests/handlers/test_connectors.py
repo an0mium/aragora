@@ -672,7 +672,7 @@ class TestGetConnector:
 # ---------------------------------------------------------------------------
 
 
-class TestCreateConnector:
+class TestCreateConnectorHandler:
     """Test handle_create_connector."""
 
     @pytest.mark.asyncio

@@ -64,14 +64,6 @@ class TestDefaultConfig:
         assert "server" in config
         assert "http_port" in config["server"]
 
-    def test_contains_debate_section(self):
-        """Config contains debate section."""
-        import yaml
-
-        config = yaml.safe_load(DEFAULT_CONFIG)
-        assert "debate" in config
-        assert "rounds" in config["debate"]
-
 
 class TestGitignoreContent:
     """Tests for GITIGNORE_CONTENT constant."""

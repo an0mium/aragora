@@ -281,9 +281,7 @@ class BenchmarkAggregator:
         benchmarks: list[BenchmarkMetric] = []
 
         for metric_name in BENCHMARK_METRICS:
-            values = sorted(
-                r.metrics[metric_name] for r in records if metric_name in r.metrics
-            )
+            values = sorted(r.metrics[metric_name] for r in records if metric_name in r.metrics)
             if not values:
                 continue
 
@@ -328,9 +326,7 @@ class BenchmarkAggregator:
 
             for metric_name in BENCHMARK_METRICS:
                 values = sorted(
-                    r.metrics[metric_name]
-                    for r in group_records
-                    if metric_name in r.metrics
+                    r.metrics[metric_name] for r in group_records if metric_name in r.metrics
                 )
                 if not values:
                     continue
@@ -433,9 +429,7 @@ class BenchmarkAggregator:
         results = [a for a in all_aggs if a.category.startswith(prefix)]
         if decision_type:
             results = [
-                a
-                for a in results
-                if a.category == f"{industry}/{team_size_bucket}/{decision_type}"
+                a for a in results if a.category == f"{industry}/{team_size_bucket}/{decision_type}"
             ]
         return results
 

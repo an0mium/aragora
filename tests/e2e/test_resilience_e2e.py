@@ -292,7 +292,7 @@ class TestGlobalRegistry:
 
     def test_metrics_includes_summary(self):
         """E2E: get_circuit_breaker_metrics should include summary."""
-        from aragora.resilience_config import CircuitBreakerConfig
+        from aragora.resilience_config import CircuitBreakerConfig  # noqa: F811
 
         # Use explicit config with known threshold to ensure deterministic behavior
         config = CircuitBreakerConfig(failure_threshold=3, timeout_seconds=60.0)

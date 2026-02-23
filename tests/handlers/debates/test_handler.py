@@ -971,7 +971,7 @@ class TestVersionNormalization:
 # ===========================================================================
 
 
-class TestHandleBatchExport:
+class TestHandleBatchExportMethod:
     """Tests for the _handle_batch_export method."""
 
     def test_batch_export_post_no_body(self, mock_http_handler):

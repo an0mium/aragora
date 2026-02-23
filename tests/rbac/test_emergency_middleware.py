@@ -312,7 +312,7 @@ class TestEmergencyExports:
 
     def test_rbac_package_exports(self):
         """Emergency classes exported from aragora.rbac."""
-        from aragora.rbac import (
+        from aragora.rbac import (  # noqa: F811
             BreakGlassAccess,
             EmergencyAccessRecord,
             EmergencyAccessStatus,

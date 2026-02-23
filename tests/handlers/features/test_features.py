@@ -1215,7 +1215,7 @@ class TestCheckFeatureAvailable:
             assert reason == "Check failed"
 
 
-class TestGetAllFeatures:
+class TestGetAllFeaturesUnit:
     """Tests for get_all_features()."""
 
     def test_returns_dict(self):

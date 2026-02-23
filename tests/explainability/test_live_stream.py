@@ -456,7 +456,7 @@ class TestImports:
         assert LiveExplainabilityStream is not None
 
     def test_all_types_importable(self):
-        from aragora.explainability import (
+        from aragora.explainability import (  # noqa: F811
             ExplanationSnapshot,
             LiveBeliefShift,
             LiveEvidence,
