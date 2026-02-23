@@ -436,7 +436,8 @@ def get_decision_metrics() -> dict[str, Any]:
     except ImportError:
         return {"error": "prometheus_client not installed"}
     except (RuntimeError, AttributeError, TypeError) as e:
-        return {"error": str(e)}
+        logger.warning("Failed to collect decision metrics: %s", e)
+        return {"error": "Failed to collect decision metrics"}
 
 
 def get_decision_summary() -> dict[str, Any]:
@@ -504,7 +505,8 @@ def get_decision_summary() -> dict[str, Any]:
     except ImportError:
         return {"error": "prometheus_client not installed"}
     except (RuntimeError, AttributeError, TypeError) as e:
-        return {"error": str(e)}
+        logger.warning("Failed to get decision summary: %s", e)
+        return {"error": "Failed to get decision summary"}
 
 
 __all__ = [

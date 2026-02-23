@@ -567,10 +567,10 @@ class ParallelInitializer:
             logger.debug("[parallel_init] AgentRegistry not available")
         except REDIS_CONNECTION_ERRORS as e:
             logger.warning("[parallel_init] AgentRegistry Redis connection failed: %s", e)
-            result["error"] = str(e)
+            result["error"] = "Redis connection failed"
         except (RuntimeError, OSError, ValueError, TypeError) as e:
             logger.warning("[parallel_init] AgentRegistry init failed: %s", e)
-            result["error"] = str(e)
+            result["error"] = "Agent registry initialization failed"
 
         return result
 
@@ -707,10 +707,10 @@ class ParallelInitializer:
             logger.debug("[parallel_init] DR drilling not available")
         except REDIS_CONNECTION_ERRORS as e:
             logger.warning("[parallel_init] DR drilling Redis connection failed: %s", e)
-            result["error"] = str(e)
+            result["error"] = "Redis connection failed"
         except (RuntimeError, OSError, ValueError, TypeError) as e:
             logger.warning("[parallel_init] DR drilling init failed: %s", e)
-            result["error"] = str(e)
+            result["error"] = "DR drilling initialization failed"
 
         return result
 
@@ -732,10 +732,10 @@ class ParallelInitializer:
             logger.debug("[parallel_init] Cache pre-warming not available")
         except REDIS_CONNECTION_ERRORS as e:
             logger.warning("[parallel_init] Cache pre-warming Redis connection failed: %s", e)
-            result["error"] = str(e)
+            result["error"] = "Redis connection failed"
         except (RuntimeError, OSError, ValueError, TypeError) as e:
             logger.warning("[parallel_init] Cache pre-warming failed: %s", e)
-            result["error"] = str(e)
+            result["error"] = "Cache pre-warming failed"
 
         self._results["cache_prewarm"] = result
         return result

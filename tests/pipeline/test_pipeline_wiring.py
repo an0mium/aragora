@@ -267,8 +267,12 @@ class TestArenaOrchestration:
         cfg = PipelineConfig(use_arena_orchestration=True)
         task = {"id": "t1", "name": "Test task", "description": "Do something"}
 
+        mock_harness = AsyncMock()
+        mock_harness.analyze.return_value = MagicMock(
+            success=True, to_dict=lambda: {"status": "completed"}
+        )
         with patch.dict("sys.modules", {"aragora.debate.orchestrator": None}), \
-             patch("aragora.harnesses.base.BaseHarness._validate_path"):
+             patch("aragora.harnesses.claude_code.ClaudeCodeHarness", return_value=mock_harness):
             result = await pipeline._execute_task(task, cfg)
             # Should fall through to DebugLoop or planned
             assert result["status"] in ("planned", "failed", "completed")
@@ -311,8 +315,12 @@ class TestHardenedOrchestratorBackend:
         )
         task = {"id": "t1", "name": "Test task", "description": "Do something"}
 
+        mock_harness = AsyncMock()
+        mock_harness.analyze.return_value = MagicMock(
+            success=True, to_dict=lambda: {"status": "completed"}
+        )
         with patch.dict("sys.modules", {"aragora.nomic.hardened_orchestrator": None}), \
-             patch("aragora.harnesses.base.BaseHarness._validate_path"):
+             patch("aragora.harnesses.claude_code.ClaudeCodeHarness", return_value=mock_harness):
             result = await pipeline._execute_task(task, cfg)
             # Falls through to DebugLoop or planned
             assert result["status"] in ("planned", "failed", "completed")

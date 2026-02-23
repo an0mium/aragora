@@ -90,7 +90,7 @@ async def run(context: PluginContext) -> dict[str, Any]:
         return {"vulnerabilities": [], "error": "Timeout"}
     except (OSError, RuntimeError) as e:
         context.error(f"Failed to run bandit: {e}")
-        return {"vulnerabilities": [], "error": str(e)}
+        return {"vulnerabilities": [], "error": "Security scan failed"}
 
     # Parse JSON output
     output_text = stdout.decode("utf-8", errors="replace")

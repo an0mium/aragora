@@ -122,7 +122,7 @@ async def init_redis_ha() -> dict[str, Any]:
         result["error"] = f"Redis package not installed: {e}"
         logger.debug("Redis HA not available: %s", e)
     except REDIS_CONNECTION_ERRORS as e:
-        result["error"] = str(e)
+        result["error"] = "Redis connection failed"
         logger.warning("Redis HA initialization failed: %s", e)
 
     return result

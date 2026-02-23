@@ -186,4 +186,4 @@ class RxNavConnector(BaseConnector):
             return {"interactions": interactions}
         except httpx.HTTPError as e:
             logger.warning("RxNav interaction fetch failed: %s", e)
-            return {"interactions": [], "error": str(e)}
+            return {"interactions": [], "error": "Failed to fetch drug interactions"}

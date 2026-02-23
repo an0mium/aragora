@@ -246,7 +246,7 @@ class RedisCacheBackend(ExportCacheBackend):
             }
         except (ConnectionError, TimeoutError, OSError, ValueError) as e:
             logger.debug("Redis stats failed: %s", e)
-            return {"backend": "redis", "error": str(e)}
+            return {"backend": "redis", "error": "Failed to fetch Redis stats"}
 
 
 # Singleton cache backend

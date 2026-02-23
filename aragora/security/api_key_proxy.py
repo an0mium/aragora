@@ -653,8 +653,8 @@ class FrequencyHoppingRotator:
                 logger.warning("No rotation handler for %s", service)
 
         except Exception as e:
-            result["error"] = str(e)
-            logger.exception("Rotation failed for %s", service)
+            result["error"] = "Key rotation failed"
+            logger.exception("Rotation failed for %s: %s", service, e)
 
         return result
 

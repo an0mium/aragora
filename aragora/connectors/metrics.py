@@ -600,4 +600,5 @@ def get_connector_metrics() -> dict:
     except ImportError:
         return {"error": "prometheus_client not installed"}
     except (RuntimeError, ValueError, TypeError, AttributeError) as e:
-        return {"error": str(e)}
+        logger.warning("Failed to collect connector metrics: %s", e)
+        return {"error": "Failed to collect metrics"}

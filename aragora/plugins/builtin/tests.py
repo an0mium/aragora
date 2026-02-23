@@ -105,7 +105,7 @@ async def run(context: PluginContext) -> dict[str, Any]:
         return {"passed": 0, "failed": 0, "error": "Timeout"}
     except (OSError, RuntimeError) as e:
         context.error(f"Failed to run pytest: {e}")
-        return {"passed": 0, "failed": 0, "error": str(e)}
+        return {"passed": 0, "failed": 0, "error": "Test execution failed"}
 
     # Parse output
     output_text = stdout.decode("utf-8", errors="replace")
