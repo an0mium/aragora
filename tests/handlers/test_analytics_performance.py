@@ -439,14 +439,15 @@ class TestRateLimiting:
         mock_elo.get_leaderboard.return_value = []
         handler.get_elo_system = MagicMock(return_value=mock_elo)
 
-        # Exhaust the rate limiter
-        mod._analytics_performance_limiter.is_allowed = MagicMock(return_value=False)
-
-        h = _make_handler()
-        result = handler.handle("/api/v1/analytics/agents/performance", {}, h)
-        assert _status(result) == 429
-        body = _body(result)
-        assert "rate limit" in body.get("error", "").lower()
+        # Exhaust the rate limiter via patch (auto-restores on exit)
+        with patch.object(
+            mod._analytics_performance_limiter, "is_allowed", return_value=False
+        ):
+            h = _make_handler()
+            result = handler.handle("/api/v1/analytics/agents/performance", {}, h)
+            assert _status(result) == 429
+            body = _body(result)
+            assert "rate limit" in body.get("error", "").lower()
 
 
 # ============================================================================
@@ -464,7 +465,10 @@ class TestRBACEnforcement:
         h = _make_handler()
         h.auth_context = MagicMock()
 
-        denied = AuthorizationDecision(allowed=False, reason="no permission")
+        denied = AuthorizationDecision(
+            allowed=False, reason="no permission",
+            permission_key=PERM_ANALYTICS_PERFORMANCE,
+        )
 
         with patch(
             "aragora.server.handlers.analytics_performance.check_permission",
@@ -480,7 +484,12 @@ class TestRBACEnforcement:
                 assert result is not None
                 assert _status(result) == 403
                 body = _body(result)
-                assert "permission denied" in body.get("error", "").lower()
+                err = body.get("error", "")
+                if isinstance(err, dict):
+                    assert err.get("code") == "PERMISSION_DENIED" or \
+                        "permission denied" in err.get("message", "").lower()
+                else:
+                    assert "permission denied" in err.lower()
 
     @pytest.mark.no_auto_auth
     def test_rbac_unavailable_non_production_allows(self, handler):

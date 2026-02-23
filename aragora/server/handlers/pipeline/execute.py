@@ -187,7 +187,7 @@ class PipelineExecuteHandler(BaseHandler):
         for i, node in enumerate(orch_nodes, start=1):
             label = node.get("label", node.get("description", f"Task {i}"))
             orch_type = node.get("orch_type", node.get("orchType", "agent_task"))
-            assigned_agent = node.get("assigned_agent", node.get("assignedAgent", ""))
+            _assigned_agent = node.get("assigned_agent", node.get("assignedAgent", ""))
 
             # Map orch type to track
             track_map = {
