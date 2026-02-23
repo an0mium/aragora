@@ -10,8 +10,6 @@ import os
 import re
 from typing import Any
 
-import httpx
-
 from aragora.connectors.base import BaseConnector, Evidence
 from aragora.reasoning.provenance import SourceType
 
