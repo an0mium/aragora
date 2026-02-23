@@ -1,29 +1,67 @@
 # Changelog
 
 
-## [Unreleased]
+## [Unreleased] - v2.9.0
 
 ### Added
-- **Handler test coverage:** 19,776 handler tests across 130+ files with `@handle_errors` decorator on all write methods
+- **205K+ test suite:** Test count grew from 129K to 205K+; 19,776 handler tests across 130+ files
+- **`@handle_errors` decorator:** All 193 handler write methods (POST/PUT/PATCH/DELETE) across 130 files now have the decorator as outermost wrapper, catching unhandled exceptions with sanitized responses
 - **Self-improvement E2E tests:** 66 tests validating assess→goals→execute pipeline against real codebase
 - **Deployment readiness tests:** API key validation wired into `/readyz/dependencies` endpoint
 - **Memory load tests:** Dedup engine at 1000+ items, gateway fan-out, retention gate batch processing
 - **Connector live tests:** Integration tests for QuickBooks, SendGrid, Twilio, Instagram, Trello (skip without API keys)
 - **Benchmark test tier:** `@pytest.mark.benchmark` tests in nightly CI for 10x scale validation
 - **SDK expansion:** 13 new TypeScript namespaces and 6 new Python namespaces (184 Python / 183 TypeScript total)
+- **Idea-to-Execution pipeline:** 4-stage pipeline (Ideas → Goals → Workflows → Orchestration) with KM persistence, spectate events, and fractal canvas navigator
+- **Shoggoth Oracle:** Interactive 3D avatar page with three consultation modes, multi-model tentacle debates, and ElevenLabs TTS integration
+- **Compliance artifact generation:** EU AI Act, SOC 2, and HIPAA compliance artifact generation via REST API and CLI
+- **Coordination handler:** Cross-workspace federated execution with RBAC enforcement
+- **Provenance UI panel:** Rich node drill-down with provenance chain visualization
+- **Knowledge extraction by default:** Knowledge extraction enabled by default in debate outcomes; outcome feedback auto-wired
+- **Pipeline node-level events:** Execution start/complete/fail events emitted during idea-to-execution stages
+- **Graph/Matrix E2E tests:** End-to-end tests for graph and matrix debate APIs with KM contradiction wiring
+- **Vertical evaluation context:** Vertical-specific evaluation criteria injected into agent prompts during debates
+- **Performance targets guide:** Hardware profiles, throughput expectations, latency targets, and tuning knobs documentation
+- **Compliance bundle:** Unified compliance entry point linking SOC 2, GDPR, HIPAA, EU AI Act, and data residency artifacts
 
 ### Changed
-- **Exception narrowing:** 22 broad `except Exception` handlers in nomic modules narrowed to specific types
-- **Type safety:** Fixed RepositoryCrawler API usage, resolve_db_path imports, float/dict type annotations
-- **Risk scorer:** Generic basenames (\_\_init\_\_.py, .env) now require full-path matching to reduce false positives
+- **Exception elimination:** All bare `except Exception: pass` handlers eliminated across the entire codebase; 130+ files narrowed to specific exception types
+- **str(e) sanitization:** All handler/auth/security/client/middleware `str(e)` leaks replaced with static messages and `logger.warning("...: %s", e)` pattern
+- **f-string logging conversion:** 1,664 files converted from f-string to %-formatting in logger calls for security and performance
+- **CLI lazy loading:** All re-exports in `aragora/cli/main.py` lazy-loaded via `__getattr__`; module import time reduced from 13.4s to 0.7s (19x speedup)
+- **Heavy mode lazy loading:** `aragora/modes/__init__.py` lazy-loads deep_audit, redteam, and prober submodules that pull scipy/numpy
+- **MetaPlanner refactoring:** Extracted utility functions into `meta_planner_utils.py`; Track enum moved to `types` module
+- **Nomic orchestrator extraction:** Autonomous orchestrator split into focused modules
+- **Deprecated ranking adapter imports:** Migrated 21 deprecated `ranking_adapter` imports
+- **Risk scorer:** Generic basenames (`__init__.py`, `.env`) now require full-path matching to reduce false positives
 - **Helm chart metadata:** Added `kubeVersion` to kubernetes, multi-region, and operator charts; fixed operator URLs
+- **asyncio modernization:** `asyncio.get_event_loop().run_until_complete()` replaced with `asyncio.run()` across 13 test files (94 replacements)
 
 ### Fixed
-- **OpenAPI spec drift:** Regenerated spec, SDK types, and capability matrix to fix Version Alignment CI failure
-- **Frontend act() warnings:** Wrapped async renders in VerticalsPage tests with `await act()`
-- **CDC example password:** Replaced hardcoded credential with placeholder
-- **Mock pollution:** Autouse fixture prevents `MagicMock.side_effect` descriptor corruption across test sessions
+- **API contract alignment:** Cost handler (7 endpoints) and usage dashboard (6 endpoints) now return `{"data": {...}}` wrapper matching frontend hook expectations
+- **StructuredLogger.exception():** Now accepts `*args` for `%s` formatting, matching stdlib logging API
+- **CLI startup:** `aragora serve --demo` now works end-to-end; server starts in ~14s
+- **OpenAPI spec drift:** Regenerated spec, SDK types, and capability matrix for CI compliance
+- **Handler routing:** Fixed 10 `extract_path_param` off-by-one index bugs; fixed gastown dashboard `strip_version_prefix` path comparison
+- **Mock pollution guard:** Autouse fixture prevents `MagicMock.side_effect` descriptor corruption across test sessions
 - **SAST scanner hangs:** Autouse fixture mocks scanner to prevent filesystem walking during handler tests
+- **Frontend Turbopack:** Inline style for dynamic CSS color fixes Turbopack build; merged route groups fix
+- **Test isolation:** 17 unnecessary test skips removed; month-boundary bug fixed; PostgreSQL env var isolation added
+- **Connector registry:** Sort stability fixed for deterministic CI
+- **Risk scorer blending:** Fixed score blending logic for protected file detection
+- **Read-only PostgreSQL replicas:** Server startup and handler init resilient to read-only replicas
+- **Contradiction scan:** Query failures handled gracefully; KM detection mocked in tests
+- **Pipeline wiring:** `pipelineId` returned from `executePipeline`; `useCostsBreakdown` disambiguated
+
+### Security
+- **RBAC enforcement:** Added `require_permission` to benchmarking, outcomes, playbooks, and coordination handlers
+- **Sentinel config:** Rate limit and feedback test hardening
+- **Broad exception narrowing:** 9 additional broad exceptions narrowed in handlers with 369 new handler tests
+- **f-string logging:** Eliminated format-string injection risk across 1,664 files
+- **MCP error sanitization:** `str(e)` leaks in MCP tools and connectors replaced with safe messages
+
+### Deprecated
+- **Arena individual params:** `supermemory`, `knowledge`, `evolution`, and `ML` parameters now emit deprecation warnings; use `SupermemoryConfig`, `KnowledgeConfig`, `EvolutionConfig`, and `MLConfig` objects instead
 
 ---
 

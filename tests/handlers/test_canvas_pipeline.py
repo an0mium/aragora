@@ -21,6 +21,48 @@ from aragora.server.handlers.canvas_pipeline import (
 )
 
 
+@pytest.fixture
+def mock_pipeline():
+    """Mock IdeaToExecutionPipeline so handle_from_ideas always succeeds.
+
+    This prevents tests from skipping with "Pipeline import unavailable" in
+    environments where aragora.pipeline.idea_to_execution is not importable.
+    The handler does a lazy ``from aragora.pipeline.idea_to_execution import
+    IdeaToExecutionPipeline`` inside its try block. We inject a mock module
+    into sys.modules so that import always resolves.
+    """
+    import types
+    import sys
+
+    mock_result = MagicMock()
+    mock_result.pipeline_id = "pipe-test1234"
+    mock_result.stage_status = {"ideas": "complete", "goals": "pending"}
+    mock_result.goal_graph = None
+    mock_result.universal_graph = None
+    mock_result.to_dict.return_value = {
+        "pipeline_id": "pipe-test1234",
+        "stage_status": {"ideas": "complete", "goals": "pending"},
+    }
+
+    mock_cls = MagicMock()
+    mock_cls.return_value.from_ideas.return_value = mock_result
+
+    # Build a fake module so the handler's lazy import succeeds
+    fake_mod = types.ModuleType("aragora.pipeline.idea_to_execution")
+    fake_mod.IdeaToExecutionPipeline = mock_cls
+
+    original = sys.modules.get("aragora.pipeline.idea_to_execution")
+    sys.modules["aragora.pipeline.idea_to_execution"] = fake_mod
+    try:
+        yield mock_result
+    finally:
+        # Restore whatever was there before (real module or absent)
+        if original is not None:
+            sys.modules["aragora.pipeline.idea_to_execution"] = original
+        else:
+            sys.modules.pop("aragora.pipeline.idea_to_execution", None)
+
+
 def _body(result) -> dict:
     """Extract JSON body dict from a HandlerResult or raw dict."""
     if isinstance(result, dict):
@@ -886,17 +928,17 @@ class TestE2ESmokeContract:
     """End-to-end smoke test: from_ideas -> status -> stage -> save -> approve -> receipt."""
 
     @pytest.mark.asyncio
-    async def test_full_pipeline_lifecycle(self, handler, mock_store):
+    async def test_full_pipeline_lifecycle(self, handler, mock_store, mock_pipeline):
         """Exercise the full lifecycle: create -> get -> save -> approve -> receipt."""
-        # Step 1: Create pipeline via from-ideas
+        # Step 1: Create pipeline via from-ideas (mock_pipeline ensures the
+        # IdeaToExecutionPipeline import always succeeds)
         result = await handler.handle_from_ideas(
             {
                 "ideas": ["build caching", "add monitoring"],
             }
         )
         body = _body(result)
-        if "error" in body:
-            pytest.skip("Pipeline import unavailable in test env")
+        assert "error" not in body, f"Pipeline creation should succeed: {body}"
         pipeline_id = body["pipeline_id"]
         assert pipeline_id.startswith("pipe-")
 
@@ -959,7 +1001,7 @@ class TestE2ESmokeContract:
         assert "error" not in receipt_body or "receipt" in str(receipt_body)
 
     @pytest.mark.asyncio
-    async def test_pipeline_from_ideas_to_get_status(self, handler, mock_store):
+    async def test_pipeline_from_ideas_to_get_status(self, handler, mock_store, mock_pipeline):
         """Create pipeline from ideas and check status."""
         result = await handler.handle_from_ideas(
             {
@@ -967,8 +1009,7 @@ class TestE2ESmokeContract:
             }
         )
         body = _body(result)
-        if "error" in body:
-            pytest.skip("Pipeline import unavailable in test env")
+        assert "error" not in body, f"Pipeline creation should succeed: {body}"
         pipeline_id = body["pipeline_id"]
 
         # Mock status response

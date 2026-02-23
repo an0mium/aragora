@@ -69,7 +69,10 @@ class ConnectorTestMixin:
     """Mixin providing reusable test methods for connectors.
 
     Tests common patterns that all connectors should support.
+    Not collected directly by pytest -- subclass with a Test prefix.
     """
+
+    __test__ = False
 
     # Override in subclass
     connector_class: type[Any] = None
@@ -85,6 +88,12 @@ class ConnectorTestMixin:
         if not self.connector_class:
             pytest.skip("connector_class not defined")
         return self.connector_class(**self.connector_kwargs)
+
+    @staticmethod
+    def _require_method(obj: Any, method_name: str) -> None:
+        """Skip the test if *obj* does not expose *method_name*."""
+        if not hasattr(obj, method_name):
+            pytest.skip(f"Connector does not have {method_name}")
 
     @pytest.fixture
     def mock_http_session(self):
@@ -117,6 +126,9 @@ class BaseConnectorTestCase(ConnectorTestMixin, ABC):
     for common patterns. Subclasses must define connector_class
     and may override connector_kwargs.
 
+    Not collected directly by pytest -- subclass with a Test prefix and
+    set ``connector_class``.
+
     Test categories:
     - Configuration: is_configured, initialization
     - OAuth: auth URL, code exchange, token refresh
@@ -125,11 +137,13 @@ class BaseConnectorTestCase(ConnectorTestMixin, ABC):
     - Resilience: retry, circuit breaker
     """
 
+    __test__ = False
+
     # Test data for API operations
     test_search_query: str = "test query"
     test_fetch_id: str = "test-id-123"
 
-    # Expected behavior flags
+    # Expected behavior flags -- set to False in subclass to skip groups
     supports_oauth: bool = True
     supports_search: bool = True
     supports_fetch: bool = True
@@ -137,6 +151,12 @@ class BaseConnectorTestCase(ConnectorTestMixin, ABC):
     supports_create: bool = False
     supports_update: bool = False
     supports_delete: bool = False
+
+    def _skip_unless_oauth(self, connector: Any, method: str) -> None:
+        """Skip if OAuth is disabled or *connector* lacks *method*."""
+        if not self.supports_oauth:
+            pytest.skip("Connector does not support OAuth")
+        self._require_method(connector, method)
 
     # --- Configuration Tests ---
 
@@ -166,10 +186,7 @@ class BaseConnectorTestCase(ConnectorTestMixin, ABC):
 
     def test_get_authorization_url_returns_url(self, connector):
         """Test OAuth authorization URL generation."""
-        if not self.supports_oauth:
-            pytest.skip("Connector does not support OAuth")
-        if not hasattr(connector, "get_authorization_url"):
-            pytest.skip("Connector does not have get_authorization_url")
+        self._skip_unless_oauth(connector, "get_authorization_url")
 
         url = connector.get_authorization_url(state="test_state")
         assert url is not None
@@ -178,10 +195,7 @@ class BaseConnectorTestCase(ConnectorTestMixin, ABC):
 
     def test_authorization_url_contains_client_id(self, connector):
         """Test OAuth URL contains client_id."""
-        if not self.supports_oauth:
-            pytest.skip("Connector does not support OAuth")
-        if not hasattr(connector, "get_authorization_url"):
-            pytest.skip("Connector does not have get_authorization_url")
+        self._skip_unless_oauth(connector, "get_authorization_url")
 
         url = connector.get_authorization_url(state="test_state")
         client_id = self.connector_kwargs.get("client_id", "")
@@ -190,10 +204,7 @@ class BaseConnectorTestCase(ConnectorTestMixin, ABC):
 
     def test_authorization_url_contains_state(self, connector):
         """Test OAuth URL contains state parameter."""
-        if not self.supports_oauth:
-            pytest.skip("Connector does not support OAuth")
-        if not hasattr(connector, "get_authorization_url"):
-            pytest.skip("Connector does not have get_authorization_url")
+        self._skip_unless_oauth(connector, "get_authorization_url")
 
         state = "unique_test_state_12345"
         url = connector.get_authorization_url(state=state)
@@ -202,10 +213,7 @@ class BaseConnectorTestCase(ConnectorTestMixin, ABC):
     @pytest.mark.asyncio
     async def test_exchange_code_returns_credentials(self, connector, mock_http_session):
         """Test OAuth code exchange returns credentials."""
-        if not self.supports_oauth:
-            pytest.skip("Connector does not support OAuth")
-        if not hasattr(connector, "exchange_code"):
-            pytest.skip("Connector does not have exchange_code")
+        self._skip_unless_oauth(connector, "exchange_code")
 
         # Setup mock response
         mock_response = AsyncMock()
@@ -235,8 +243,7 @@ class BaseConnectorTestCase(ConnectorTestMixin, ABC):
     @pytest.mark.asyncio
     async def test_handles_rate_limit_error(self, connector, mock_http_session):
         """Test connector handles rate limit (429) errors."""
-        if not hasattr(connector, "search"):
-            pytest.skip("Connector does not have search method")
+        self._require_method(connector, "search")
 
         mock_response = AsyncMock()
         mock_response.status = 429
@@ -258,8 +265,7 @@ class BaseConnectorTestCase(ConnectorTestMixin, ABC):
     @pytest.mark.asyncio
     async def test_handles_authentication_error(self, connector, mock_http_session):
         """Test connector handles authentication (401) errors."""
-        if not hasattr(connector, "search"):
-            pytest.skip("Connector does not have search method")
+        self._require_method(connector, "search")
 
         mock_response = AsyncMock()
         mock_response.status = 401
@@ -284,8 +290,7 @@ class BaseConnectorTestCase(ConnectorTestMixin, ABC):
     @pytest.mark.asyncio
     async def test_handles_server_error(self, connector, mock_http_session):
         """Test connector handles server (500) errors."""
-        if not hasattr(connector, "search"):
-            pytest.skip("Connector does not have search method")
+        self._require_method(connector, "search")
 
         mock_response = AsyncMock()
         mock_response.status = 500
@@ -304,6 +309,8 @@ class BaseConnectorTestCase(ConnectorTestMixin, ABC):
 
 class CredentialTestMixin:
     """Mixin for testing credential handling."""
+
+    __test__ = False
 
     @pytest.fixture
     def expired_credentials(self):
@@ -327,13 +334,14 @@ class CredentialTestMixin:
 class SearchConnectorTestMixin:
     """Mixin for testing search-capable connectors."""
 
+    __test__ = False
+
     test_search_results: list[dict[str, Any]] = []
 
     @pytest.mark.asyncio
     async def test_search_returns_list(self, connector, mock_http_session):
         """Test search returns a list of results."""
-        if not hasattr(connector, "search"):
-            pytest.skip("Connector does not have search method")
+        self._require_method(connector, "search")
 
         mock_response = AsyncMock()
         mock_response.status = 200
@@ -351,8 +359,7 @@ class SearchConnectorTestMixin:
     @pytest.mark.asyncio
     async def test_search_respects_limit(self, connector, mock_http_session):
         """Test search respects the limit parameter."""
-        if not hasattr(connector, "search"):
-            pytest.skip("Connector does not have search method")
+        self._require_method(connector, "search")
 
         mock_response = AsyncMock()
         mock_response.status = 200
@@ -372,6 +379,8 @@ class SearchConnectorTestMixin:
 class CRUDConnectorTestMixin:
     """Mixin for testing CRUD-capable connectors."""
 
+    __test__ = False
+
     test_create_data: dict[str, Any] = {}
     test_update_data: dict[str, Any] = {}
 
@@ -379,7 +388,7 @@ class CRUDConnectorTestMixin:
     async def test_list_returns_items(self, connector, mock_http_session):
         """Test list operation returns items."""
         if not hasattr(connector, "list") and not hasattr(connector, "list_all"):
-            pytest.skip("Connector does not have list method")
+            pytest.skip("Connector does not have list or list_all method")
 
         mock_response = AsyncMock()
         mock_response.status = 200
@@ -399,8 +408,7 @@ class CRUDConnectorTestMixin:
     @pytest.mark.asyncio
     async def test_create_returns_item(self, connector, mock_http_session):
         """Test create operation returns created item."""
-        if not hasattr(connector, "create"):
-            pytest.skip("Connector does not have create method")
+        self._require_method(connector, "create")
 
         mock_response = AsyncMock()
         mock_response.status = 201
@@ -418,8 +426,7 @@ class CRUDConnectorTestMixin:
     @pytest.mark.asyncio
     async def test_get_returns_item(self, connector, mock_http_session):
         """Test get operation returns item by ID."""
-        if not hasattr(connector, "get"):
-            pytest.skip("Connector does not have get method")
+        self._require_method(connector, "get")
 
         mock_response = AsyncMock()
         mock_response.status = 200
@@ -437,8 +444,7 @@ class CRUDConnectorTestMixin:
     @pytest.mark.asyncio
     async def test_delete_succeeds(self, connector, mock_http_session):
         """Test delete operation succeeds."""
-        if not hasattr(connector, "delete"):
-            pytest.skip("Connector does not have delete method")
+        self._require_method(connector, "delete")
 
         mock_response = AsyncMock()
         mock_response.status = 204

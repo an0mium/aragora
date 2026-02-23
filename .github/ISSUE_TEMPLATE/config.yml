@@ -1,8 +1,14 @@
-blank_issues_enabled: true
+blank_issues_enabled: false
 contact_links:
   - name: Documentation
     url: https://github.com/an0mium/aragora/tree/main/docs
-    about: Browse the full documentation
+    about: Browse the full documentation before opening an issue.
+  - name: Troubleshooting Guide
+    url: https://github.com/an0mium/aragora/blob/main/docs/deployment/TROUBLESHOOTING.md
+    about: Step-by-step troubleshooting for common deployment issues.
   - name: Zero-Config Guide
     url: https://github.com/an0mium/aragora/blob/main/docs/ZERO_CONFIG.md
-    about: Get started without any API keys
+    about: Get started without any API keys.
+  - name: Security Advisories (Private Disclosure)
+    url: https://github.com/an0mium/aragora/security/advisories/new
+    about: Report critical security vulnerabilities privately.

@@ -3,6 +3,7 @@
 
 services:
   backend:
+    image: ${ARAGORA_BACKEND_IMAGE:-ghcr.io/an0mium/aragora/backend:latest}
     build:
       context: ..
       dockerfile: deploy/Dockerfile.backend
@@ -42,6 +43,7 @@ services:
     restart: unless-stopped
 
   frontend:
+    image: ${ARAGORA_FRONTEND_IMAGE:-ghcr.io/an0mium/aragora/frontend:latest}
     build:
       context: ..
       dockerfile: deploy/Dockerfile.frontend
@@ -125,7 +127,7 @@ services:
     volumes:
       - grafana-data:/var/lib/grafana
       - ./monitoring/grafana/provisioning:/etc/grafana/provisioning
-      - ./grafana/dashboards:/var/lib/grafana/dashboards
+      - ./monitoring/grafana/dashboards:/var/lib/grafana/dashboards
     depends_on:
       - prometheus
     restart: unless-stopped

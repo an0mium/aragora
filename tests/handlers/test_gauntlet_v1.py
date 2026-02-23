@@ -112,6 +112,42 @@ def _reset_gauntlet_runs():
     _gauntlet_runs.update(original)
 
 
+@pytest.fixture(autouse=True)
+def _ensure_templates_registered():
+    """Ensure the gauntlet template registry is populated.
+
+    Other tests in the suite may clear or corrupt the module-level
+    ``_TEMPLATE_REGISTRY``.  This fixture snapshots it before the test
+    and restores it afterwards so that ``list_templates()`` never
+    returns an empty list unexpectedly.
+    """
+    from aragora.gauntlet.api.templates import (
+        _TEMPLATE_REGISTRY,
+        COMPLIANCE_TEMPLATE,
+        SECURITY_TEMPLATE,
+        LEGAL_TEMPLATE,
+        FINANCIAL_TEMPLATE,
+        OPERATIONAL_TEMPLATE,
+    )
+
+    # Ensure the built-in templates are present before the test runs
+    defaults = {
+        "compliance-standard": COMPLIANCE_TEMPLATE,
+        "security-assessment": SECURITY_TEMPLATE,
+        "legal-review": LEGAL_TEMPLATE,
+        "financial-controls": FINANCIAL_TEMPLATE,
+        "operational-review": OPERATIONAL_TEMPLATE,
+    }
+    saved = dict(_TEMPLATE_REGISTRY)
+    for tid, tmpl in defaults.items():
+        if tid not in _TEMPLATE_REGISTRY:
+            _TEMPLATE_REGISTRY[tid] = tmpl
+    yield
+    # Restore original state
+    _TEMPLATE_REGISTRY.clear()
+    _TEMPLATE_REGISTRY.update(saved)
+
+
 @pytest.fixture
 def schema_handler():
     """Create a GauntletSchemaHandler."""
@@ -820,8 +856,7 @@ class TestTemplateHandler:
         from aragora.gauntlet.api import list_templates
 
         templates = list_templates()
-        if not templates:
-            pytest.skip("No templates registered")
+        assert templates, "Template registry should be populated by fixture"
 
         template_id = templates[0].id
         result = await template_handler.handle(
@@ -874,8 +909,7 @@ class TestTemplateHandler:
         from aragora.gauntlet.api import list_templates
 
         templates = list_templates()
-        if not templates:
-            pytest.skip("No templates registered")
+        assert templates, "Template registry should be populated by fixture"
 
         result = await template_handler.handle(
             body=None,

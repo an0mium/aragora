@@ -19,6 +19,18 @@ aragora serve
 
 **Offline mode** sets SQLite backend, enables demo mode, and skips all external service connections. Good for testing and development.
 
+## Container Images
+
+Pre-built images are published to GitHub Container Registry on every push to `main` and on version tags:
+
+| Image | Pull Command |
+|-------|-------------|
+| Backend | `docker pull ghcr.io/an0mium/aragora/backend:latest` |
+| Frontend | `docker pull ghcr.io/an0mium/aragora/frontend:latest` |
+| Operator | `docker pull ghcr.io/an0mium/aragora/operator:latest` |
+
+**Available tags:** `latest` (main branch HEAD), `2.8.0` (version from pyproject.toml), `v2.8.0` (git tag), `<major>.<minor>`, `<sha>`.
+
 ## 2. Docker Compose (recommended for production)
 
 ```bash
@@ -262,7 +274,7 @@ Add to crontab or use the Docker Compose backup service:
 ### Docker Compose
 
 ```bash
-# Pull latest images
+# Pull latest images from ghcr.io
 docker compose pull
 
 # Rolling restart (zero-downtime if using replicas)
@@ -293,7 +305,13 @@ Pin to a specific version in `docker-compose.yml`:
 ```yaml
 services:
   aragora-backend:
-    image: aragora/aragora:2.7.4  # Pin to known-good version
+    image: ghcr.io/an0mium/aragora/backend:2.8.0  # Pin to known-good version
+```
+
+Or via environment variable:
+
+```bash
+ARAGORA_BACKEND_IMAGE=ghcr.io/an0mium/aragora/backend:2.8.0 docker compose up -d
 ```
 
 ### Pre-upgrade Checklist

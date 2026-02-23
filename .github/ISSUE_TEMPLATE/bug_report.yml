@@ -1,17 +1,20 @@
 name: Bug Report
-description: Report a bug in Aragora
-labels: ["bug"]
+description: Report a bug or unexpected behavior
+title: "[Bug]: "
+labels: ["bug", "triage"]
 body:
   - type: markdown
     attributes:
       value: |
-        Thank you for reporting a bug. Please fill in the details below.
+        Thanks for reporting a bug. Please fill out the form below so we can
+        investigate efficiently.
 
   - type: textarea
     id: description
     attributes:
       label: Description
-      description: A clear description of what the bug is.
+      description: A clear and concise description of the bug.
+      placeholder: Describe what happened and what you expected instead.
     validations:
       required: true
 
@@ -19,10 +22,11 @@ body:
     id: reproduction
     attributes:
       label: Steps to Reproduce
-      description: Steps to reproduce the behavior.
+      description: Minimal steps to reproduce the behavior.
       placeholder: |
-        1. Run `aragora ask "..." --agents ...`
-        2. See error...
+        1. Start the server with `aragora serve ...`
+        2. Send a request to `POST /api/v1/debates`
+        3. Observe the error in the response
     validations:
       required: true
 
@@ -35,25 +39,33 @@ body:
       required: true
 
   - type: textarea
-    id: logs
+    id: actual
     attributes:
-      label: Error Output / Logs
-      description: Paste any error messages or relevant logs.
-      render: shell
+      label: Actual Behavior
+      description: What actually happened. Include error messages or tracebacks if available.
+    validations:
+      required: true
 
   - type: dropdown
     id: component
     attributes:
-      label: Component
+      label: Affected Component
       description: Which part of Aragora is affected?
       options:
-        - CLI (aragora command)
-        - Debate Engine
+        - Debate Engine (Arena, consensus, orchestration)
+        - API / HTTP Server
+        - WebSocket Streaming
+        - CLI
+        - Memory System (Continuum, Supermemory)
+        - Knowledge Mound
+        - Agents (Anthropic, OpenAI, Mistral, Grok)
+        - Connectors (Slack, Telegram, WhatsApp)
+        - Authentication / RBAC
+        - Database / Storage
+        - Billing / Metering
+        - Workflow Engine
         - Gauntlet / Code Review
-        - Server / API
-        - Python SDK
-        - TypeScript SDK
-        - Connectors (Slack, Teams, etc.)
+        - SDK (Python or TypeScript)
         - Other
     validations:
       required: true
@@ -62,24 +74,59 @@ body:
     id: version
     attributes:
       label: Aragora Version
-      description: Output of `aragora --version` or `pip show aragora`
-      placeholder: "2.7.2"
+      description: Output of `aragora --version` or `pip show aragora` or git commit hash.
+      placeholder: "e.g., 2.8.0 or 0461f56"
     validations:
       required: true
 
-  - type: input
-    id: python
+  - type: dropdown
+    id: python_version
     attributes:
       label: Python Version
-      placeholder: "3.11.11"
+      options:
+        - "3.11"
+        - "3.12"
+        - "3.13"
+        - Other
+    validations:
+      required: true
 
   - type: dropdown
     id: os
     attributes:
       label: Operating System
       options:
-        - macOS
         - Linux
-        - Windows
+        - macOS
+        - Windows (WSL)
         - Docker
+        - Kubernetes
         - Other
+    validations:
+      required: true
+
+  - type: textarea
+    id: logs
+    attributes:
+      label: Relevant Logs
+      description: Paste any relevant log output. This will be automatically formatted as code.
+      render: shell
+
+  - type: textarea
+    id: config
+    attributes:
+      label: Configuration
+      description: Relevant environment variables or configuration (redact any secrets).
+      render: shell
+
+  - type: checkboxes
+    id: checks
+    attributes:
+      label: Pre-submission Checklist
+      options:
+        - label: I have searched existing issues for duplicates
+          required: true
+        - label: I can reproduce this on the latest version
+          required: false
+        - label: I have included relevant logs and configuration
+          required: false

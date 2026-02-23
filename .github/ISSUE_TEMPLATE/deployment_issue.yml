@@ -1,0 +1,111 @@
+name: Deployment Issue
+description: Report a problem with deploying or running Aragora
+title: "[Deploy]: "
+labels: ["deployment", "triage"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Having trouble deploying Aragora? Fill out the details below.
+        Check the [Troubleshooting Guide](../../docs/deployment/TROUBLESHOOTING.md)
+        first -- it covers the most common issues.
+
+  - type: textarea
+    id: description
+    attributes:
+      label: Issue Description
+      description: What deployment problem are you experiencing?
+    validations:
+      required: true
+
+  - type: dropdown
+    id: deployment_method
+    attributes:
+      label: Deployment Method
+      options:
+        - pip install (local)
+        - Docker
+        - Docker Compose
+        - Kubernetes (Helm)
+        - Kubernetes (manual manifests)
+        - Cloud Run / App Runner / ECS
+        - Systemd service
+        - Other
+    validations:
+      required: true
+
+  - type: dropdown
+    id: environment
+    attributes:
+      label: Environment
+      options:
+        - Local development
+        - Staging
+        - Production
+        - CI/CD
+    validations:
+      required: true
+
+  - type: dropdown
+    id: database
+    attributes:
+      label: Database Backend
+      options:
+        - SQLite (default)
+        - PostgreSQL
+        - PostgreSQL (managed - RDS/Cloud SQL)
+        - Not sure
+
+  - type: textarea
+    id: health_output
+    attributes:
+      label: Health Check Output
+      description: |
+        Paste the output of:
+        ```
+        curl -s http://localhost:8080/healthz | python3 -m json.tool
+        curl -s http://localhost:8080/readyz | python3 -m json.tool
+        ```
+      render: json
+
+  - type: textarea
+    id: config
+    attributes:
+      label: Configuration
+      description: |
+        Relevant environment variables (redact secrets), Docker/Helm config,
+        or command-line arguments used to start the server.
+      render: shell
+
+  - type: textarea
+    id: logs
+    attributes:
+      label: Logs
+      description: |
+        Paste relevant logs from server startup or the error.
+        For Docker: `docker logs <container>`.
+        For Kubernetes: `kubectl logs <pod>`.
+      render: shell
+
+  - type: textarea
+    id: infra
+    attributes:
+      label: Infrastructure Details
+      description: Cloud provider, instance type, OS version, memory/CPU, etc.
+      placeholder: |
+        Cloud: AWS
+        Instance: t3.medium (2 vCPU, 4 GB)
+        OS: Ubuntu 22.04
+        Python: 3.12
+
+  - type: checkboxes
+    id: checks
+    attributes:
+      label: Pre-submission Checklist
+      options:
+        - label: I have checked the Troubleshooting Guide
+          required: true
+        - label: I have verified all required environment variables are set
+          required: false
+        - label: I have included health check output and logs
+          required: false

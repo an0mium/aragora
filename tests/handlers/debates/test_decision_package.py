@@ -39,17 +39,6 @@ from aragora.server.handlers.debates.decision_package import (
 from aragora.server.handlers.utils.responses import HandlerResult
 
 
-@pytest.fixture(autouse=True)
-def _isolate_stores(monkeypatch):
-    """Prevent lazy store imports from hitting real PostgreSQL."""
-    monkeypatch.delenv("ARAGORA_POSTGRES_DSN", raising=False)
-    monkeypatch.delenv("SUPABASE_POSTGRES_DSN", raising=False)
-    # Reset global singletons that may have been cached from prior tests
-    import aragora.storage.webhook_config_store as _wcs
-
-    monkeypatch.setattr(_wcs, "_webhook_config_store", None)
-
-
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------

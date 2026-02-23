@@ -1,17 +1,20 @@
 name: Feature Request
 description: Suggest a new feature or enhancement
+title: "[Feature]: "
 labels: ["enhancement"]
 body:
   - type: markdown
     attributes:
       value: |
-        Suggest an improvement to Aragora. We prioritize features that improve decision integrity for real-world use cases.
+        Have an idea for Aragora? We'd love to hear it. Please describe the
+        problem you're trying to solve and your proposed solution.
 
   - type: textarea
     id: problem
     attributes:
-      label: Problem
-      description: What problem does this feature solve? What use case is unmet?
+      label: Problem Statement
+      description: What problem does this feature solve? Why is it needed?
+      placeholder: "I'm always frustrated when ..."
     validations:
       required: true
 
@@ -19,24 +22,7 @@ body:
     id: solution
     attributes:
       label: Proposed Solution
-      description: How should this work? Include CLI commands, API shape, or code examples if applicable.
-    validations:
-      required: true
-
-  - type: dropdown
-    id: area
-    attributes:
-      label: Area
-      options:
-        - Debate Engine
-        - Gauntlet / Code Review
-        - CLI
-        - Server / API
-        - SDK (Python or TypeScript)
-        - Connectors / Integrations
-        - Enterprise (Auth, RBAC, Compliance)
-        - Documentation
-        - Other
+      description: Describe the solution you'd like to see. Include CLI commands, API shape, or code examples if applicable.
     validations:
       required: true
 
@@ -44,4 +30,58 @@ body:
     id: alternatives
     attributes:
       label: Alternatives Considered
-      description: Any workarounds or alternative approaches you've considered.
+      description: Have you considered any alternative approaches? What are the trade-offs?
+
+  - type: dropdown
+    id: component
+    attributes:
+      label: Component
+      description: Which part of Aragora would this affect?
+      options:
+        - Debate Engine
+        - API / Server
+        - WebSocket Streaming
+        - CLI
+        - Memory System
+        - Knowledge Mound
+        - Agents
+        - Connectors / Integrations
+        - Authentication / RBAC
+        - Database / Storage
+        - Billing / Metering
+        - Workflow Engine
+        - Gauntlet / Code Review
+        - SDK (Python)
+        - SDK (TypeScript)
+        - Documentation
+        - DevOps / Deployment
+        - Other
+    validations:
+      required: true
+
+  - type: textarea
+    id: use_case
+    attributes:
+      label: Use Case
+      description: Describe a concrete scenario where this feature would be valuable.
+      placeholder: "As a [role], I want to [action] so that [benefit]."
+    validations:
+      required: true
+
+  - type: dropdown
+    id: priority
+    attributes:
+      label: Priority (from your perspective)
+      options:
+        - Nice to have
+        - Would improve my workflow
+        - Important for my use case
+        - Blocking my adoption
+
+  - type: checkboxes
+    id: contribution
+    attributes:
+      label: Contribution
+      options:
+        - label: I would be willing to contribute a PR for this feature
+          required: false

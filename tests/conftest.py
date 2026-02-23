@@ -1755,14 +1755,26 @@ def clean_env(monkeypatch):
 
 @pytest.fixture(autouse=True)
 def reset_supabase_env(monkeypatch):
-    """Reset Supabase environment variables between tests.
+    """Reset Supabase and PostgreSQL environment variables between tests.
 
     This prevents test pollution where earlier tests set SUPABASE_URL/KEY
-    that affect later tests expecting unconfigured clients.
+    that affect later tests expecting unconfigured clients. Also prevents
+    the webhook_config_store and other stores from connecting to real
+    PostgreSQL via ARAGORA_POSTGRES_DSN.
     """
     # Clear Supabase env vars to ensure clean state
     monkeypatch.delenv("SUPABASE_URL", raising=False)
     monkeypatch.delenv("SUPABASE_KEY", raising=False)
+    # Clear PostgreSQL DSNs to prevent asyncpg connections in unit tests
+    monkeypatch.delenv("ARAGORA_POSTGRES_DSN", raising=False)
+    monkeypatch.delenv("SUPABASE_POSTGRES_DSN", raising=False)
+    # Reset webhook config store singleton so it doesn't cache a Postgres store
+    try:
+        import aragora.storage.webhook_config_store as _wcs
+
+        _wcs._webhook_config_store = None
+    except (ImportError, AttributeError):
+        pass
     yield
 
 

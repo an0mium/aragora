@@ -1,7 +1,7 @@
 apiVersion: 1
 
 providers:
-  - name: 'Aragora'
+  - name: 'Aragora - Overview'
     orgId: 1
     folder: 'Aragora'
     type: file
@@ -9,3 +9,11 @@ providers:
     editable: true
     options:
       path: /etc/grafana/provisioning/dashboards
+  - name: 'Aragora - Dashboards'
+    orgId: 1
+    folder: 'Aragora'
+    type: file
+    disableDeletion: false
+    editable: true
+    options:
+      path: /var/lib/grafana/dashboards

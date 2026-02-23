@@ -890,12 +890,12 @@ class TestHandlePostSyncSession:
     async def test_sync_success_with_demo_findings(self, handler, monkeypatch):
         monkeypatch.delenv("GITHUB_TOKEN", raising=False)
 
-        # Provide a session in the audit_sessions storage so it's found
-        try:
-            from aragora.server.handlers.features import audit_sessions
-
-            audit_sessions._sessions["sess-sync-1"] = {"id": "sess-sync-1", "status": "completed"}
-            audit_sessions._findings["sess-sync-1"] = [
+        # Mock _import_audit_sessions so we don't depend on the real module
+        fake_sessions: dict[str, Any] = {
+            "sess-sync-1": {"id": "sess-sync-1", "status": "completed"},
+        }
+        fake_findings: dict[str, list] = {
+            "sess-sync-1": [
                 {
                     "id": f"demo-finding-{i}",
                     "title": f"Demo Finding {i}",
@@ -904,25 +904,24 @@ class TestHandlePostSyncSession:
                     "category": "security",
                 }
                 for i in range(3)
-            ]
-        except ImportError:
-            pytest.skip("audit_sessions not available")
+            ],
+        }
+        monkeypatch.setattr(
+            "aragora.server.handlers.github.audit_bridge._import_audit_sessions",
+            lambda: (fake_sessions, fake_findings),
+        )
 
-        try:
-            result = await handler.handle_post_sync_session(
-                {
-                    "repository": "owner/repo",
-                    "min_severity": "low",
-                    "create_issues": True,
-                    "create_pr": False,
-                },
-                session_id="sess-sync-1",
-            )
-            body = _body(result)
-            assert _status(result) == 200
-        finally:
-            audit_sessions._sessions.pop("sess-sync-1", None)
-            audit_sessions._findings.pop("sess-sync-1", None)
+        result = await handler.handle_post_sync_session(
+            {
+                "repository": "owner/repo",
+                "min_severity": "low",
+                "create_issues": True,
+                "create_pr": False,
+            },
+            session_id="sess-sync-1",
+        )
+        body = _body(result)
+        assert _status(result) == 200
 
 
 # ---------------------------------------------------------------------------
@@ -1151,11 +1150,9 @@ class TestHandleSyncSessionFn:
         """Sync succeeds when session exists in audit_sessions storage."""
         monkeypatch.delenv("GITHUB_TOKEN", raising=False)
 
-        try:
-            from aragora.server.handlers.features import audit_sessions
-
-            audit_sessions._sessions["demo-session"] = {"id": "demo-session"}
-            audit_sessions._findings["demo-session"] = [
+        fake_sessions: dict[str, Any] = {"demo-session": {"id": "demo-session"}}
+        fake_findings: dict[str, list] = {
+            "demo-session": [
                 {
                     "id": "f-0",
                     "title": "Demo",
@@ -1163,20 +1160,19 @@ class TestHandleSyncSessionFn:
                     "severity": "medium",
                     "category": "quality",
                 }
-            ]
-        except ImportError:
-            pytest.skip("audit_sessions not available")
+            ],
+        }
+        monkeypatch.setattr(
+            "aragora.server.handlers.github.audit_bridge._import_audit_sessions",
+            lambda: (fake_sessions, fake_findings),
+        )
 
-        try:
-            result = await handle_sync_session(
-                repository="owner/repo",
-                session_id="demo-session",
-            )
-            assert result["success"] is True
-            assert "sync" in result
-        finally:
-            audit_sessions._sessions.pop("demo-session", None)
-            audit_sessions._findings.pop("demo-session", None)
+        result = await handle_sync_session(
+            repository="owner/repo",
+            session_id="demo-session",
+        )
+        assert result["success"] is True
+        assert "sync" in result
 
     @pytest.mark.asyncio
     async def test_sync_session_not_found(self, monkeypatch):
@@ -1193,24 +1189,19 @@ class TestHandleSyncSessionFn:
     async def test_sync_stores_result(self, monkeypatch):
         monkeypatch.delenv("GITHUB_TOKEN", raising=False)
 
-        try:
-            from aragora.server.handlers.features import audit_sessions
+        fake_sessions: dict[str, Any] = {"sess-store": {"id": "sess-store"}}
+        fake_findings: dict[str, list] = {"sess-store": []}
+        monkeypatch.setattr(
+            "aragora.server.handlers.github.audit_bridge._import_audit_sessions",
+            lambda: (fake_sessions, fake_findings),
+        )
 
-            audit_sessions._sessions["sess-store"] = {"id": "sess-store"}
-            audit_sessions._findings["sess-store"] = []
-        except ImportError:
-            pytest.skip("audit_sessions not available")
-
-        try:
-            await handle_sync_session(
-                repository="owner/repo",
-                session_id="sess-store",
-            )
-            assert len(_sync_results) == 1
-            assert "sess-store" in _session_syncs
-        finally:
-            audit_sessions._sessions.pop("sess-store", None)
-            audit_sessions._findings.pop("sess-store", None)
+        await handle_sync_session(
+            repository="owner/repo",
+            session_id="sess-store",
+        )
+        assert len(_sync_results) == 1
+        assert "sess-store" in _session_syncs
 
 
 # ---------------------------------------------------------------------------
