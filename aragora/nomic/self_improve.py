@@ -1880,7 +1880,7 @@ class SelfImprovePipeline:
             )
         except ImportError:
             logger.debug("FeedbackOrchestrator not available")
-        except (RuntimeError, ValueError, OSError) as exc:
+        except Exception as exc:  # noqa: BLE001 — feedback is non-critical
             logger.warning("Feedback orchestrator failed (non-critical): %s", exc)
 
     def _publish_to_pipeline_graph(

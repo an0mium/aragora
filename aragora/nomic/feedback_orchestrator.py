@@ -225,7 +225,7 @@ class SelfImproveFeedbackOrchestrator:
                 self._queue.add(g)
                 result.goals_generated += 1
             result.steps_completed += 1
-        except (ImportError, RuntimeError, ValueError, OSError) as e:
+        except Exception as e:  # noqa: BLE001 — feedback step must not crash pipeline
             logger.warning("feedback_step_knowledge_contradiction_failed: %s", e)
             result.steps_failed += 1
 
