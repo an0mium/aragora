@@ -723,6 +723,23 @@ class IdeaToExecutionPipeline:
                 if sr.status == "completed" and sr.output:
                     result.ideas_canvas = sr.output.get("canvas")
                     result.stage_status[PipelineStage.IDEAS.value] = "complete"
+                    # Emit node-level events for idea nodes
+                    canvas = sr.output.get("canvas")
+                    if canvas and hasattr(canvas, "nodes"):
+                        nodes = canvas.nodes
+                        if isinstance(nodes, dict):
+                            nodes = nodes.values()
+                        for node in nodes:
+                            self._emit(
+                                cfg,
+                                "pipeline_node_added",
+                                {
+                                    "stage": "ideation",
+                                    "node_id": getattr(node, "id", ""),
+                                    "node_type": "idea",
+                                    "label": getattr(node, "label", ""),
+                                },
+                            )
                     # Capture introspection data for Stage 4 agent ranking
                     debate_result = sr.output.get("debate_result")
                     if debate_result:
@@ -759,6 +776,18 @@ class IdeaToExecutionPipeline:
                         if goal_graph.transition:
                             result.transitions.append(goal_graph.transition)
                         result.provenance.extend(goal_graph.provenance)
+                        # Emit node-level events for extracted goals
+                        for goal in goal_graph.goals:
+                            self._emit(
+                                cfg,
+                                "pipeline_node_added",
+                                {
+                                    "stage": "goals",
+                                    "node_id": goal.id,
+                                    "node_type": getattr(goal.goal_type, "value", "goal"),
+                                    "label": goal.title,
+                                },
+                            )
                     result.stage_status[PipelineStage.GOALS.value] = "complete"
                 elif sr.status == "failed":
                     result.stage_status[PipelineStage.GOALS.value] = "failed"
@@ -784,6 +813,24 @@ class IdeaToExecutionPipeline:
                     if result.goal_graph:
                         result = self._advance_to_actions(result)
                     result.stage_status[PipelineStage.ACTIONS.value] = "complete"
+                    # Emit node-level events for action nodes
+                    if result.actions_canvas and hasattr(result.actions_canvas, "nodes"):
+                        nodes = result.actions_canvas.nodes
+                        if isinstance(nodes, dict):
+                            nodes = nodes.values()
+                        for node in nodes:
+                            self._emit(
+                                cfg,
+                                "pipeline_node_added",
+                                {
+                                    "stage": "actions",
+                                    "node_id": getattr(node, "id", ""),
+                                    "node_type": getattr(node, "data", {}).get(
+                                        "step_type", "task"
+                                    ),
+                                    "label": getattr(node, "label", ""),
+                                },
+                            )
                 elif sr.status == "failed":
                     result.stage_status[PipelineStage.ACTIONS.value] = "failed"
 
@@ -1005,6 +1052,11 @@ class IdeaToExecutionPipeline:
             sr.error = "Ideation stage failed"
             sr.duration = time.monotonic() - start
             logger.warning("Ideation failed: %s", exc)
+            self._emit(
+                cfg,
+                "stage_completed",
+                {"stage": "ideation", "status": "failed", "error": "Ideation stage failed"},
+            )
 
         return sr
 
@@ -1212,6 +1264,11 @@ class IdeaToExecutionPipeline:
             sr.error = "Goal extraction failed"
             sr.duration = time.monotonic() - start
             logger.warning("Goal extraction failed: %s", exc)
+            self._emit(
+                cfg,
+                "stage_completed",
+                {"stage": "goals", "status": "failed", "error": "Goal extraction failed"},
+            )
 
         return sr
 
@@ -1275,6 +1332,15 @@ class IdeaToExecutionPipeline:
             sr.error = "Workflow generation failed"
             sr.duration = time.monotonic() - start
             logger.warning("Workflow generation failed: %s", exc)
+            self._emit(
+                cfg,
+                "stage_completed",
+                {
+                    "stage": "workflow",
+                    "status": "failed",
+                    "error": "Workflow generation failed",
+                },
+            )
 
         return sr
 
@@ -1419,6 +1485,15 @@ class IdeaToExecutionPipeline:
             sr.error = "Orchestration failed"
             sr.duration = time.monotonic() - start
             logger.warning("Orchestration failed: %s", exc)
+            self._emit(
+                cfg,
+                "stage_completed",
+                {
+                    "stage": "orchestration",
+                    "status": "failed",
+                    "error": "Orchestration failed",
+                },
+            )
 
         return sr
 
