@@ -1,11 +1,12 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
 import { logger } from '@/utils/logger';
 import { API_BASE_URL } from '@/config';
 import { PanelErrorBoundary } from '@/components/PanelErrorBoundary';
 import { KnowledgeEmptyState } from '@/components/ui/EmptyState';
 import { useRightSidebar } from '@/context/RightSidebarContext';
+import { useKnowledgeQuery } from '@/hooks';
 import {
   type KnowledgeNode,
   type KnowledgeRelationship,
@@ -22,10 +23,31 @@ import {
 import { KnowledgeGraphView } from './KnowledgeGraphView';
 
 export default function KnowledgeMoundPage() {
-  const [nodes, setNodes] = useState<KnowledgeNode[]>([]);
-  const [stats, setStats] = useState<KnowledgeStats | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [searchQuery, setSearchQuery] = useState('');
+  // Core data operations via hook (replaces manual fetch + state)
+  const {
+    queryText: searchQuery,
+    setQueryText: setSearchQuery,
+    executeQuery,
+    queryResults,
+    isQueryExecuting,
+    browserNodes,
+    browserLoading,
+    loadNodes,
+    stats: hookStats,
+    loadStats,
+    getNodeRelationships,
+  } = useKnowledgeQuery({ autoLoadStats: true });
+
+  // Derive display nodes and loading state from hook
+  // Cast from store types (snake_case) to local types (camelCase) — same API data
+  const nodes = useMemo(
+    () => (searchQuery.trim() ? queryResults : browserNodes) as unknown as KnowledgeNode[],
+    [searchQuery, queryResults, browserNodes],
+  );
+  const stats = hookStats as unknown as KnowledgeStats | null;
+  const loading = browserLoading || isQueryExecuting;
+
+  // UI-only state
   const [sourceFilter, setSourceFilter] = useState<string>('all');
   const [tierFilter, setTierFilter] = useState<string>('all');
   const [typeFilter, setTypeFilter] = useState<string>('all');
@@ -121,105 +143,36 @@ export default function KnowledgeMoundPage() {
     return () => clearContext();
   }, [stats, setContext, clearContext, setShowAddFact, setShowIndexRepo, setShowStalePanel]);
 
-  const fetchNodes = useCallback(async () => {
-    try {
-      setLoading(true);
-      const params = new URLSearchParams();
-      if (tierFilter !== 'all') params.set('tier', tierFilter);
-      if (typeFilter !== 'all') params.set('node_types', typeFilter);
-      params.set('limit', '50');
-
-      // Use semantic query for search, or list nodes for browsing
-      if (searchQuery) {
-        const response = await fetch(`${API_BASE_URL}/api/knowledge/mound/query`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            query: searchQuery,
-            limit: 50,
-            node_types: typeFilter !== 'all' ? [typeFilter] : undefined,
-          }),
-        });
-        if (!response.ok) {
-          // API error - show empty state
-          setNodes([]);
-          logger.error('Failed to query knowledge mound:', response.status);
-          return;
-        }
-        const data = await response.json();
-        setNodes(data.nodes || []);
-      } else {
-        const response = await fetch(`${API_BASE_URL}/api/knowledge/mound/nodes?${params}`);
-        if (!response.ok) {
-          // API error - show empty state
-          setNodes([]);
-          logger.error('Failed to fetch knowledge nodes:', response.status);
-          return;
-        }
-        const data = await response.json();
-        setNodes(data.nodes || []);
-      }
-    } catch (err) {
-      // Network error - show empty state
-      setNodes([]);
-      logger.error('Error fetching knowledge nodes:', err);
-    } finally {
-      setLoading(false);
+  // Load nodes on mount and when filters change
+  const refreshNodes = useCallback(() => {
+    if (searchQuery.trim()) {
+      executeQuery(searchQuery, {
+        limit: 50,
+        nodeTypes: typeFilter !== 'all' ? [typeFilter] : undefined,
+      });
+    } else {
+      loadNodes({
+        tier: tierFilter !== 'all' ? (tierFilter as never) : undefined,
+        nodeTypes: typeFilter !== 'all' ? ([typeFilter] as never) : undefined,
+      });
     }
-  }, [searchQuery, tierFilter, typeFilter]);
-
-  const fetchStats = useCallback(async () => {
-    try {
-      // Use mound stats endpoint
-      const response = await fetch(`${API_BASE_URL}/api/knowledge/mound/stats`);
-      if (!response.ok) {
-        // API error - show null stats (component handles gracefully)
-        setStats(null);
-        logger.error('Failed to fetch knowledge stats:', response.status);
-        return;
-      }
-      const data = await response.json();
-      setStats(data);
-    } catch (err) {
-      // Network error - show null stats
-      setStats(null);
-      logger.error('Error fetching knowledge stats:', err);
-    }
-  }, []);
-
-  const fetchRelationships = useCallback(async (nodeId: string) => {
-    try {
-      // Use the mound API for node relationships
-      const response = await fetch(`${API_BASE_URL}/api/knowledge/mound/nodes/${nodeId}/relationships`);
-      if (!response.ok) {
-        // API error - show empty relationships (component handles gracefully)
-        setRelationships([]);
-        logger.error('Failed to fetch relationships:', response.status);
-        return;
-      }
-      const data = await response.json();
-      setRelationships(data.relationships || []);
-    } catch (err) {
-      // Network error - show empty relationships
-      setRelationships([]);
-      logger.error('Error fetching relationships:', err);
-    }
-  }, []);
+  }, [searchQuery, tierFilter, typeFilter, executeQuery, loadNodes]);
 
   useEffect(() => {
-    fetchNodes();
-    fetchStats();
-  }, [fetchNodes, fetchStats]);
+    refreshNodes();
+  }, [refreshNodes]);
 
   useEffect(() => {
     if (selectedNode) {
-      fetchRelationships(selectedNode.id);
+      getNodeRelationships(selectedNode.id).then(rels => {
+        setRelationships(rels as unknown as KnowledgeRelationship[]);
+      });
       setVerificationResult(null);
       setContradictions([]);
     } else {
       setRelationships([]);
     }
-  }, [selectedNode, fetchRelationships]);
+  }, [selectedNode, getNodeRelationships]);
 
   // Verify a fact with AI agents
   const verifyFact = useCallback(async (factId: string) => {
@@ -277,15 +230,15 @@ export default function KnowledgeMoundPage() {
         setNewFactSource('');
         setNewFactTopics('');
         setShowAddFact(false);
-        fetchNodes();
-        fetchStats();
+        refreshNodes();
+        loadStats();
       }
     } catch (err) {
       logger.error('Failed to add fact:', err);
     } finally {
       setAddingFact(false);
     }
-  }, [newFactContent, newFactSource, newFactTopics, fetchNodes, fetchStats]);
+  }, [newFactContent, newFactSource, newFactTopics, refreshNodes, loadStats]);
 
   // Index a repository
   const indexRepository = useCallback(async () => {
@@ -305,8 +258,8 @@ export default function KnowledgeMoundPage() {
         const data = await response.json();
         setIndexingStatus(`Indexed ${data.files_indexed || 0} files, ${data.nodes_created || 0} knowledge nodes created.`);
         setRepoUrl('');
-        fetchNodes();
-        fetchStats();
+        refreshNodes();
+        loadStats();
       } else {
         setIndexingStatus('Indexing failed. Check repository URL and permissions.');
       }
@@ -379,7 +332,7 @@ export default function KnowledgeMoundPage() {
 
   const handleSearch = (e: React.FormEvent) => {
     e.preventDefault();
-    fetchNodes();
+    refreshNodes();
   };
 
   return (

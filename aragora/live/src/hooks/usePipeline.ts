@@ -129,6 +129,7 @@ export function usePipeline() {
   const getApi = useApi<PipelineResultResponse>();
   const stageApi = useApi<{ stage: string; data: unknown }>();
   const executeApi = useApi<PipelineExecuteResponse>();
+  const selfImproveApi = useApi<{ data: { run_id: string; status: string; goal: string; pipeline_id: string } }>();
   const [pipelineData, setPipelineData] = useState<PipelineResultResponse | null>(null);
   const [isDemo, setIsDemo] = useState(false);
 
@@ -238,6 +239,19 @@ export function usePipeline() {
     [executeApi]
   );
 
+  const executeWithSelfImprove = useCallback(async (pipelineId: string, options?: { budgetLimit?: number; dryRun?: boolean; requireApproval?: boolean }) => {
+    try {
+      const res = await selfImproveApi.post(`/api/v1/canvas/pipeline/${pipelineId}/self-improve`, {
+        budget_limit: options?.budgetLimit ?? 10,
+        dry_run: options?.dryRun ?? false,
+        require_approval: options?.requireApproval ?? true,
+      });
+      return res as { data: { run_id: string; status: string; goal: string; pipeline_id: string } };
+    } catch {
+      return null;
+    }
+  }, [selfImproveApi]);
+
   const loadDemo = useCallback(async () => {
     // Try server-side demo (creates a stored pipeline that can be executed)
     try {
@@ -303,6 +317,7 @@ export function usePipeline() {
     getPipeline,
     getStage,
     executePipeline,
+    executeWithSelfImprove,
     approveTransition,
     rejectTransition,
     loadDemo,

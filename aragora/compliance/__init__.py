@@ -44,6 +44,7 @@ from aragora.compliance.eu_ai_act import (
     ConformityReportGenerator,
     ComplianceArtifactBundle,
     ComplianceArtifactGenerator,
+    EUAIActBundleGenerator,
 )
 from aragora.compliance.artifact_generator import (
     TransparencyChecklist,
@@ -87,6 +88,7 @@ __all__ = [
     "ConformityReportGenerator",
     "ComplianceArtifactBundle",
     "ComplianceArtifactGenerator",
+    "EUAIActBundleGenerator",
     # Receipt Compliance Artifacts
     "TransparencyChecklist",
     "EUAIActArtifact",
