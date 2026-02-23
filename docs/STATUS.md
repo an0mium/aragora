@@ -1,8 +1,59 @@
 # Aragora Project Status
 
-*Last updated: February 17, 2026*
+*Last updated: February 23, 2026*
 
 > See [README](../README.md) for the five pillars framework. See [Documentation Index](INDEX.md) for the curated technical reference map.
+
+## Production Hardening & Test Expansion (February 18-23, 2026)
+
+### Summary
+Massive production hardening sprint: 205,000+ tests (up from 129,000+), comprehensive handler test coverage (19,776 handler tests across 130+ files), CI pipeline fixes, exception narrowing across nomic modules, self-improvement E2E validation, connector stub completion, and deployment readiness improvements.
+
+### Handler Test Expansion (~19,776 tests)
+- **20 batch commits** (batches 47-68) adding full test coverage for all 580+ handler modules
+- **`@handle_errors` decorator** added to all 193 handler write methods (POST/PUT/PATCH/DELETE) across 130 files
+- **Three RBAC systems** unified in test conftest with `@pytest.mark.no_auto_auth` opt-out
+- **Mock pollution guard**: Autouse fixture restores `NonCallableMock.side_effect` descriptor between tests
+- **SAST scanner isolation**: Autouse fixture prevents real filesystem scanning during handler tests
+
+### Self-Improvement E2E Validation (66 tests)
+- **`test_self_improve_integration.py`** (12 tests): Real codebase assessment, goal generation, dry-run pipeline
+- **`test_daemon_integration.py`** (8 tests): Daemon decision logic with skip/execute thresholds
+- **`test_deployment_readiness.py`** (6 tests): API key validation, fast readiness checks
+- **`test_shutdown_drain.py`** (4 tests): Graceful shutdown drain phases
+- **`test_gateway_load.py`** (12 tests): Dedup engine at 1000+ items, fan-out across 4 sources, retention gate batches
+- **`test_stub_connectors.py`** (12 tests): QuickBooks, SendGrid, Twilio, Instagram, Trello connector validation
+- **`test_gateway_benchmark.py`** (7 tests): 10x scale load tests for nightly CI
+- **`test_connector_live.py`** (6 tests): Live API integration tests (skip without credentials)
+
+### CI Pipeline Fixes
+- **OpenAPI spec regeneration**: Fixed version alignment failures from stale spec
+- **Helm chart metadata**: Added `kubeVersion` to all 4 charts, fixed operator URLs
+- **Frontend act() warnings**: Fixed React async rendering in VerticalsPage tests
+- **CVE-2025-14009**: NLTK Zip Slip vulnerability documented and ignored (transitive dep, unused code path)
+- **Exception narrowing**: 22 broad `except Exception` handlers narrowed in nomic modules
+- **Type safety**: Fixed RepositoryCrawler API usage, resolve_db_path imports, float/dict type annotations
+- **CDC password**: Replaced example credential with placeholder
+
+### SDK Expansion (184 Python / 183 TypeScript namespaces)
+- **13 new TypeScript namespaces**: agent_dashboard, playground, partner, selection, expenses, github, and more
+- **6 new Python namespaces**: control_plane, partner, selection, expenses, github SDK methods
+- **SDK types regenerated** from updated OpenAPI spec
+
+### Deployment
+- **Kubernetes readiness probe**: `/readyz/dependencies` now checks API key availability
+- **Benchmark test tier**: `@pytest.mark.benchmark` tests added to nightly CI workflow
+- **Risk scorer**: Reduced false positives for protected file detection (generic basenames)
+
+### Files
+| Category | Count |
+|----------|-------|
+| New test files | ~35 |
+| Modified production files | ~50 |
+| Handler test files | 130+ |
+| SDK files | 26 |
+
+---
 
 ## Integration & Pipeline Wiring (February 17, 2026)
 

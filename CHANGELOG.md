@@ -3,6 +3,28 @@
 
 ## [Unreleased]
 
+### Added
+- **Handler test coverage:** 19,776 handler tests across 130+ files with `@handle_errors` decorator on all write methods
+- **Self-improvement E2E tests:** 66 tests validating assess→goals→execute pipeline against real codebase
+- **Deployment readiness tests:** API key validation wired into `/readyz/dependencies` endpoint
+- **Memory load tests:** Dedup engine at 1000+ items, gateway fan-out, retention gate batch processing
+- **Connector live tests:** Integration tests for QuickBooks, SendGrid, Twilio, Instagram, Trello (skip without API keys)
+- **Benchmark test tier:** `@pytest.mark.benchmark` tests in nightly CI for 10x scale validation
+- **SDK expansion:** 13 new TypeScript namespaces and 6 new Python namespaces (184 Python / 183 TypeScript total)
+
+### Changed
+- **Exception narrowing:** 22 broad `except Exception` handlers in nomic modules narrowed to specific types
+- **Type safety:** Fixed RepositoryCrawler API usage, resolve_db_path imports, float/dict type annotations
+- **Risk scorer:** Generic basenames (\_\_init\_\_.py, .env) now require full-path matching to reduce false positives
+- **Helm chart metadata:** Added `kubeVersion` to kubernetes, multi-region, and operator charts; fixed operator URLs
+
+### Fixed
+- **OpenAPI spec drift:** Regenerated spec, SDK types, and capability matrix to fix Version Alignment CI failure
+- **Frontend act() warnings:** Wrapped async renders in VerticalsPage tests with `await act()`
+- **CDC example password:** Replaced hardcoded credential with placeholder
+- **Mock pollution:** Autouse fixture prevents `MagicMock.side_effect` descriptor corruption across test sessions
+- **SAST scanner hangs:** Autouse fixture mocks scanner to prevent filesystem walking during handler tests
+
 ---
 
 ## [2.8.0] - 2026-02-16
