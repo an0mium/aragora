@@ -27,6 +27,13 @@ from dataclasses import dataclass, field
 from typing import TYPE_CHECKING, Any, cast
 
 from aragora.nomic.types import Track  # noqa: F401 — re-exported for backward compat
+from aragora.nomic.meta_planner_utils import (  # noqa: F401 — re-exported
+    build_debate_topic,
+    build_goal,
+    gather_file_excerpts,
+    infer_track,
+    parse_goals_from_debate,
+)
 
 if TYPE_CHECKING:
     pass
@@ -157,7 +164,9 @@ class MetaPlanner:
             return await self._scan_prioritize(None, available_tracks)
 
         logger.info(
-            "meta_planner_started objective=%s tracks=%s", objective[:100], [t.value for t in available_tracks]
+            "meta_planner_started objective=%s tracks=%s",
+            objective[:100],
+            [t.value for t in available_tracks],
         )
 
         # Quick mode: skip debate entirely, use heuristic
@@ -185,6 +194,7 @@ class MetaPlanner:
         # Inject debate-sourced improvement suggestions
         try:
             from aragora.nomic.improvement_queue import get_improvement_queue
+
             queue = get_improvement_queue()
             suggestions = queue.peek(10)
             if suggestions:
@@ -215,12 +225,13 @@ class MetaPlanner:
                 # Feed high-priority items into planning context
                 for step in scan_result.steps[:10]:
                     if step.priority in ("critical", "high"):
-                        if step.source == "test-failure" and step.title not in context.test_failures:
+                        if (
+                            step.source == "test-failure"
+                            and step.title not in context.test_failures
+                        ):
                             context.test_failures.append(step.title)
                         elif step.title not in context.recent_issues:
-                            context.recent_issues.append(
-                                f"[{step.category}] {step.title}"
-                            )
+                            context.recent_issues.append(f"[{step.category}] {step.title}")
                 logger.info(
                     "meta_planner_injected_next_steps count=%d",
                     min(len(scan_result.steps), 10),
@@ -285,7 +296,9 @@ class MetaPlanner:
             self._explain_planning_decision(result, goals)
 
             logger.info(
-                "meta_planner_completed goal_count=%s objectives=%s", len(goals), [g.description[:50] for g in goals]
+                "meta_planner_completed goal_count=%s objectives=%s",
+                len(goals),
+                [g.description[:50] for g in goals],
             )
 
             return goals
@@ -395,7 +408,9 @@ class MetaPlanner:
 
             if similar_cycles:
                 logger.info(
-                    "cross_cycle_learning found=%s cycles for objective=%s", len(similar_cycles), objective[:50]
+                    "cross_cycle_learning found=%s cycles for objective=%s",
+                    len(similar_cycles),
+                    objective[:50],
                 )
 
             for cycle in similar_cycles:
@@ -436,9 +451,7 @@ class MetaPlanner:
                             f"({roi_entry['cycle_count']} cycles)"
                         )
                 if high_roi:
-                    logger.info(
-                        "high_roi_patterns loaded=%d for planning", len(high_roi)
-                    )
+                    logger.info("high_roi_patterns loaded=%d for planning", len(high_roi))
             except (RuntimeError, ValueError, OSError, AttributeError) as e:
                 logger.debug("High-ROI query failed: %s", e)
 
@@ -453,9 +466,7 @@ class MetaPlanner:
                         f"{', tracks: ' + tracks_str if tracks_str else ''})"
                     )
                 if recurring:
-                    logger.info(
-                        "recurring_failures loaded=%d for planning", len(recurring)
-                    )
+                    logger.info("recurring_failures loaded=%d for planning", len(recurring))
             except (RuntimeError, ValueError, OSError, AttributeError) as e:
                 logger.debug("Recurring failures query failed: %s", e)
 
@@ -477,9 +488,7 @@ class MetaPlanner:
                 exec_error = outcome.get("execution_error")
 
                 if status in ("completed",) and not exec_error:
-                    context.past_successes_to_build_on.append(
-                        f"[pipeline] {task[:60]}"
-                    )
+                    context.past_successes_to_build_on.append(f"[pipeline] {task[:60]}")
                 elif status in ("failed", "rejected") or exec_error:
                     error_msg = ""
                     if exec_error and isinstance(exec_error, dict):
@@ -489,9 +498,7 @@ class MetaPlanner:
                     )
 
             if outcomes:
-                logger.info(
-                    "pipeline_feedback loaded=%s outcomes for planning", len(outcomes)
-                )
+                logger.info("pipeline_feedback loaded=%s outcomes for planning", len(outcomes))
         except ImportError:
             logger.debug("PlanStore not available, skipping pipeline feedback")
         except (RuntimeError, ValueError, OSError) as e:
@@ -526,9 +533,7 @@ class MetaPlanner:
             # Get agents ranked by calibration quality
             cal_leaders = calibration.get_leaderboard(metric="brier", limit=5)
             if cal_leaders:
-                well_calibrated = [
-                    name for name, score in cal_leaders if score < 0.25
-                ]
+                well_calibrated = [name for name, score in cal_leaders if score < 0.25]
                 if well_calibrated:
                     context.past_successes_to_build_on.append(
                         f"[calibration] Well-calibrated agents: "
@@ -542,9 +547,7 @@ class MetaPlanner:
                 if rating.calibration_total >= 5:
                     brier = rating.calibration_brier_score
                     if brier > 0.35:
-                        underperformers.append(
-                            f"{rating.agent_name} (Brier={brier:.2f})"
-                        )
+                        underperformers.append(f"{rating.agent_name} (Brier={brier:.2f})")
 
             if underperformers:
                 context.past_failures_to_avoid.append(
@@ -721,8 +724,10 @@ class MetaPlanner:
                 score = snapshot.reputation_score + snapshot.calibration_score
                 if domain and snapshot.top_expertise:
                     domain_lower = domain.lower()
-                    if any(domain_lower in exp.lower() or exp.lower() in domain_lower
-                           for exp in snapshot.top_expertise):
+                    if any(
+                        domain_lower in exp.lower() or exp.lower() in domain_lower
+                        for exp in snapshot.top_expertise
+                    ):
                         score += 0.2  # Domain expertise bonus
                 scored_agents.append((agent_name, score))
 
@@ -902,140 +907,7 @@ class MetaPlanner:
         context: PlanningContext,
     ) -> str:
         """Build the debate topic for meta-planning."""
-        track_names = ", ".join(t.value for t in tracks)
-
-        topic = f"""You are planning improvements for the Aragora project.
-
-OBJECTIVE: {objective}
-
-AVAILABLE TRACKS (domains you can work on):
-{track_names}
-
-Track descriptions:
-- SME: Small business features, dashboard, user workspace
-- Developer: SDKs, API, documentation
-- Self-Hosted: Docker, deployment, backup/restore
-- QA: Tests, CI/CD, code quality
-- Core: Debate engine, agents, memory (requires approval)
-- Security: Vulnerability scanning, auth hardening, secrets, OWASP compliance
-
-CONSTRAINTS:
-{chr(10).join(f"- {c}" for c in constraints) if constraints else "- None specified"}
-
-"""
-        if context.recent_issues:
-            topic += f"""
-RECENT ISSUES:
-{chr(10).join(f"- {issue}" for issue in context.recent_issues[:5])}
-"""
-
-        if context.test_failures:
-            topic += f"""
-FAILING TESTS:
-{chr(10).join(f"- {failure}" for failure in context.test_failures[:5])}
-"""
-
-        # Add CI feedback
-        if context.ci_failures:
-            topic += f"""
-CI FAILURES (recent CI pipeline failures to address):
-{chr(10).join(f"- {f}" for f in context.ci_failures[:5])}
-"""
-
-        if context.ci_flaky_tests:
-            topic += f"""
-FLAKY TESTS (intermittent CI failures to stabilize):
-{chr(10).join(f"- {t}" for t in context.ci_flaky_tests[:5])}
-"""
-
-        # Add historical learnings (cross-cycle learning)
-        if context.past_successes_to_build_on:
-            topic += f"""
-PAST SUCCESSES TO BUILD ON (from similar cycles):
-{chr(10).join(f"- {s}" for s in context.past_successes_to_build_on[:5])}
-"""
-
-        if context.past_failures_to_avoid:
-            topic += f"""
-PAST FAILURES TO AVOID (learn from these mistakes):
-{chr(10).join(f"- {f}" for f in context.past_failures_to_avoid[:5])}
-"""
-
-        # Add codebase metrics for data-driven planning
-        if context.metric_snapshot:
-            snap = context.metric_snapshot
-            metric_lines = ["CODEBASE METRICS (current state):"]
-            if snap.get("files_count"):
-                metric_lines.append(f"- Python files: {snap['files_count']}")
-            if snap.get("total_lines"):
-                metric_lines.append(f"- Total lines: {snap['total_lines']:,}")
-            if snap.get("tests_passed") or snap.get("tests_failed"):
-                passed = snap.get("tests_passed", 0)
-                failed = snap.get("tests_failed", 0)
-                total = passed + failed + snap.get("tests_errors", 0)
-                rate = passed / total if total > 0 else 0
-                metric_lines.append(
-                    f"- Tests: {passed}/{total} passing ({rate:.0%} pass rate)"
-                )
-            if snap.get("lint_errors"):
-                metric_lines.append(f"- Lint errors: {snap['lint_errors']}")
-            if snap.get("test_coverage") is not None:
-                metric_lines.append(f"- Test coverage: {snap['test_coverage']:.0%}")
-            if len(metric_lines) > 1:
-                topic += "\n" + "\n".join(metric_lines) + "\n"
-
-        # Inject GoalExtractor decomposition for structured goal hints
-        try:
-            from aragora.goals.extractor import GoalExtractor
-
-            extractor = GoalExtractor()
-            goal_graph = extractor.extract_from_text(objective)
-            if goal_graph and hasattr(goal_graph, "goals") and goal_graph.goals:
-                topic += "\nPRE-EXTRACTED GOALS (from GoalExtractor, use as starting points):\n"
-                for g in goal_graph.goals[:5]:
-                    title = getattr(g, "title", str(g))
-                    desc = getattr(g, "description", "")
-                    smart = getattr(g, "smart_score", None)
-                    smart_str = f" [SMART={smart:.1f}]" if smart is not None else ""
-                    topic += f"- {title}{smart_str}: {desc[:120]}\n"
-        except ImportError:
-            pass
-        except (RuntimeError, ValueError, TypeError, AttributeError) as exc:
-            logger.debug("GoalExtractor injection skipped: %s", exc)
-
-        # Inject relevant deliberation templates to ground abstract objectives
-        try:
-            from aragora.deliberation.templates.registry import match_templates
-
-            matched = match_templates(objective, limit=3)
-            if matched:
-                topic += "\nRELEVANT DELIBERATION TEMPLATES (use these as inspiration):\n"
-                for tmpl in matched:
-                    topic += (
-                        f"- {tmpl.name}: {tmpl.description} "
-                        f"(category={tmpl.category.value}, "
-                        f"tags={', '.join(tmpl.tags[:4])})\n"
-                    )
-        except ImportError:
-            pass
-
-        topic += """
-YOUR TASK:
-Propose 3-5 specific improvement goals that would best achieve the objective.
-For each goal, specify:
-1. Which track it belongs to
-2. A clear, actionable description
-3. Why this should be prioritized (rationale)
-4. Expected impact: high, medium, or low
-
-Format your response as a numbered list with clear structure.
-Consider dependencies and order goals by priority.
-"""
-        if context.past_failures_to_avoid:
-            topic += """
-IMPORTANT: Avoid repeating past failures listed above. Learn from history.
-"""
-        return topic
+        return build_debate_topic(objective, tracks, constraints, context)
 
     def _parse_goals_from_debate(
         self,
@@ -1238,9 +1110,7 @@ IMPORTANT: Avoid repeating past failures listed above. Learn from history.
                 if not test_paths:
                     track = self._file_to_track(str(module.path), available_tracks)
                     if track and track.value in track_signals:
-                        track_signals[track.value].append(
-                            f"untested: {module.path}"
-                        )
+                        track_signals[track.value].append(f"untested: {module.path}")
         except (ImportError, RuntimeError, ValueError, OSError):
             pass
 
@@ -1254,14 +1124,10 @@ IMPORTANT: Avoid repeating past failures listed above. Learn from history.
                     # Map regression metrics to tracks
                     if "test" in metric.lower() or "coverage" in metric.lower():
                         if Track.QA.value in track_signals:
-                            track_signals[Track.QA.value].append(
-                                f"regression: {metric}"
-                            )
+                            track_signals[Track.QA.value].append(f"regression: {metric}")
                     elif "token" in metric.lower():
                         if Track.CORE.value in track_signals:
-                            track_signals[Track.CORE.value].append(
-                                f"regression: {metric}"
-                            )
+                            track_signals[Track.CORE.value].append(f"regression: {metric}")
         except (ImportError, RuntimeError, ValueError, OSError):
             pass
 
@@ -1278,9 +1144,7 @@ IMPORTANT: Avoid repeating past failures listed above. Learn from history.
                     test_file = node_id.split("::")[0] if "::" in node_id else node_id
                     track = self._file_to_track(test_file, available_tracks)
                     if track and track.value in track_signals:
-                        track_signals[track.value].append(
-                            f"test_failure: {node_id}"
-                        )
+                        track_signals[track.value].append(f"test_failure: {node_id}")
         except (OSError, ValueError, _json.JSONDecodeError):
             pass
 
@@ -1302,17 +1166,14 @@ IMPORTANT: Avoid repeating past failures listed above. Learn from history.
                     if parts:
                         track = self._file_to_track(parts[0], available_tracks)
                         if track and track.value in track_signals:
-                            track_signals[track.value].append(
-                                f"lint: {line.strip()[:100]}"
-                            )
+                            track_signals[track.value].append(f"lint: {line.strip()[:100]}")
         except (subprocess.TimeoutExpired, OSError, FileNotFoundError):
             pass
 
         # Signal 6: TODO/FIXME/HACK comments
         try:
             todo_result = subprocess.run(
-                ["grep", "-rn", r"TODO\|FIXME\|HACK", "aragora/",
-                 "--include=*.py", "-l"],
+                ["grep", "-rn", r"TODO\|FIXME\|HACK", "aragora/", "--include=*.py", "-l"],
                 capture_output=True,
                 text=True,
                 timeout=10,
@@ -1326,9 +1187,7 @@ IMPORTANT: Avoid repeating past failures listed above. Learn from history.
                     if filepath:
                         track = self._file_to_track(filepath, available_tracks)
                         if track and track.value in track_signals:
-                            track_signals[track.value].append(
-                                f"todo: {filepath}"
-                            )
+                            track_signals[track.value].append(f"todo: {filepath}")
         except (subprocess.TimeoutExpired, OSError):
             pass
 
@@ -1369,9 +1228,7 @@ IMPORTANT: Avoid repeating past failures listed above. Learn from history.
                 if track_name and track_name in track_signals:
                     source = getattr(queued_goal, "source", "feedback")
                     desc = getattr(queued_goal, "description", "")[:100]
-                    track_signals[track_name].append(
-                        f"feedback_queue[{source}]: {desc}"
-                    )
+                    track_signals[track_name].append(f"feedback_queue[{source}]: {desc}")
         except ImportError:
             pass
         except (RuntimeError, ValueError, OSError):
@@ -1480,9 +1337,7 @@ IMPORTANT: Avoid repeating past failures listed above. Learn from history.
             # Enrich with file excerpts for grounded execution
             excerpts = self._gather_file_excerpts(top_signals)
             if excerpts:
-                excerpt_text = "\n".join(
-                    f"--- {p} ---\n{s[:500]}" for p, s in excerpts.items()
-                )
+                excerpt_text = "\n".join(f"--- {p} ---\n{s[:500]}" for p, s in excerpts.items())
                 description += f"\n\nRelevant source:\n{excerpt_text}"
 
             # Opt-in: single cheap LLM call to enrich signal-based description
@@ -1524,9 +1379,7 @@ IMPORTANT: Avoid repeating past failures listed above. Learn from history.
         )
         return goals[: self.config.max_goals]
 
-    def _file_to_track(
-        self, filepath: str, available_tracks: list[Track]
-    ) -> Track | None:
+    def _file_to_track(self, filepath: str, available_tracks: list[Track]) -> Track | None:
         """Map a file path to a development track."""
         fp = filepath.lower()
         mapping = {
@@ -1785,12 +1638,14 @@ IMPORTANT: Avoid repeating past failures listed above. Learn from history.
             outcomes: list[dict[str, Any]] = []
             for cycle in cycles:
                 for contrib in getattr(cycle, "agent_contributions", []):
-                    outcomes.append({
-                        "track": getattr(contrib, "domain", "unknown"),
-                        "success": getattr(contrib, "was_success", False),
-                        "agent": getattr(contrib, "agent_name", "unknown"),
-                        "timestamp": getattr(cycle, "timestamp", None),
-                    })
+                    outcomes.append(
+                        {
+                            "track": getattr(contrib, "domain", "unknown"),
+                            "success": getattr(contrib, "was_success", False),
+                            "agent": getattr(contrib, "agent_name", "unknown"),
+                            "timestamp": getattr(cycle, "timestamp", None),
+                        }
+                    )
             return outcomes
         except (ImportError, RuntimeError, TypeError, ValueError) as e:
             logger.debug("Past outcomes unavailable: %s", e)
@@ -1848,8 +1703,7 @@ IMPORTANT: Avoid repeating past failures listed above. Learn from history.
             total_succeeded += stats["succeeded"]
 
             logger.info(
-                "meta_planner_track_outcome track=%s attempted=%d succeeded=%d "
-                "failed=%d rate=%.2f",
+                "meta_planner_track_outcome track=%s attempted=%d succeeded=%d failed=%d rate=%.2f",
                 track,
                 stats["attempted"],
                 stats["succeeded"],
