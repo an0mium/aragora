@@ -204,8 +204,14 @@ export default function RLMDashboard() {
     try {
       // Fetch RLM status and metrics in parallel
       const [statusRes, metricsRes] = await Promise.all([
-        fetch(`${backendConfig.api}/api/rlm/status`).catch(() => null),
-        fetch(`${backendConfig.api}/api/metrics/rlm`).catch(() => null),
+        fetch(`${backendConfig.api}/api/rlm/status`).catch((err) => {
+          console.warn('[RLMDashboard] Failed to fetch RLM status:', err);
+          return null;
+        }),
+        fetch(`${backendConfig.api}/api/metrics/rlm`).catch((err) => {
+          console.warn('[RLMDashboard] Failed to fetch RLM metrics:', err);
+          return null;
+        }),
       ]);
 
       if (statusRes?.ok) {

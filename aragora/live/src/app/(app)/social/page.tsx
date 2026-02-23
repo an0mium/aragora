@@ -54,8 +54,14 @@ export default function SocialPage() {
   const fetchConnectorStatus = useCallback(async () => {
     try {
       const [youtube, twitter] = await Promise.all([
-        fetch(`${backendUrl}/api/youtube/status`).then(r => r.ok ? r.json() : null).catch(() => null),
-        fetch(`${backendUrl}/api/connectors`).then(r => r.ok ? r.json() : null).catch(() => null),
+        fetch(`${backendUrl}/api/youtube/status`).then(r => r.ok ? r.json() : null).catch((err) => {
+          logger.warn('Failed to fetch YouTube status:', err);
+          return null;
+        }),
+        fetch(`${backendUrl}/api/connectors`).then(r => r.ok ? r.json() : null).catch((err) => {
+          logger.warn('Failed to fetch connector status:', err);
+          return null;
+        }),
       ]);
 
       const connectorList: ConnectorStatus[] = [];

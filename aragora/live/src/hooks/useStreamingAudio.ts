@@ -97,8 +97,8 @@ export function useStreamingAudio(): UseStreamingAudio {
       }
     });
 
-    audio.play().catch(() => {
-      // Autoplay blocked — user interaction may be needed
+    audio.play().catch((err) => {
+      console.warn('[useStreamingAudio] Autoplay blocked or playback failed:', err);
     });
   }, [flushQueue]);
 
@@ -146,7 +146,9 @@ export function useStreamingAudio(): UseStreamingAudio {
           URL.revokeObjectURL(url);
           fallbackAudioRef.current = null;
         };
-        audio.play().catch(() => {});
+        audio.play().catch((err) => {
+          console.warn('[useStreamingAudio] Fallback audio playback failed:', err);
+        });
         fallbackChunksRef.current = [];
       }
     }

@@ -407,7 +407,10 @@ export function FirstDebateStep() {
             {!receiptLoading && !receipt && (
               <div className="flex items-center gap-2">
                 <button
-                  onClick={() => fetchReceipt().catch(() => {})}
+                  onClick={() => fetchReceipt().catch((err) => {
+                    console.warn('[FirstDebateStep] Retry receipt fetch failed:', err);
+                    setReceiptError(err instanceof Error ? err.message : 'Failed to load receipt');
+                  })}
                   className="px-3 py-1.5 text-xs font-mono border border-acid-green/30 text-acid-green hover:bg-acid-green/10 transition-colors"
                 >
                   RETRY RECEIPT

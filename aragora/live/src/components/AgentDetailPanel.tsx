@@ -36,10 +36,22 @@ export function AgentDetailPanel({ agentId, onClose }: AgentDetailPanelProps) {
 
     try {
       const [perfRes, histRes, netRes, domRes] = await Promise.all([
-        client.agentDetail.performance(agentId).catch(() => null),
-        client.agentDetail.history(agentId, 20).catch(() => ({ history: [] })),
-        client.agentDetail.network(agentId).catch(() => null),
-        client.agentDetail.domains(agentId).catch(() => ({ domains: {} })),
+        client.agentDetail.performance(agentId).catch((err) => {
+          console.warn('[AgentDetailPanel] Failed to fetch agent performance:', err);
+          return null;
+        }),
+        client.agentDetail.history(agentId, 20).catch((err) => {
+          console.warn('[AgentDetailPanel] Failed to fetch agent history:', err);
+          return { history: [] };
+        }),
+        client.agentDetail.network(agentId).catch((err) => {
+          console.warn('[AgentDetailPanel] Failed to fetch agent network:', err);
+          return null;
+        }),
+        client.agentDetail.domains(agentId).catch((err) => {
+          console.warn('[AgentDetailPanel] Failed to fetch agent domains:', err);
+          return { domains: {} };
+        }),
       ]);
 
       if (perfRes?.performance) setPerformance(perfRes.performance);

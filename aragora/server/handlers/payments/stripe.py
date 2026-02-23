@@ -816,22 +816,93 @@ async def handle_get_transaction(
 def _handle_checkout_session_completed(obj: Any) -> dict[str, Any]:
     """Activate subscription after successful checkout.
 
-    Stripe sends this when a Checkout Session payment succeeds.  We log the
-    activation details so the billing core_webhooks handler (which has DB
-    access) can reconcile on its own webhook endpoint.
+    Stripe sends this when a Checkout Session payment succeeds.  Extracts the
+    tier from session metadata (set during checkout creation) and updates the
+    organization's tier in the database.
     """
+    from aragora.billing.models import SubscriptionTier
+
     customer_id = obj.get("customer", "")
     subscription_id = obj.get("subscription", "")
+    metadata = obj.get("metadata", {}) or {}
+    org_id = metadata.get("org_id", "")
+    tier_str = metadata.get("tier", "")
+
     logger.info(
-        "Checkout completed: customer=%s, subscription=%s",
+        "Checkout completed: customer=%s, subscription=%s, org=%s, tier=%s",
         customer_id,
         subscription_id,
+        org_id,
+        tier_str,
     )
-    return {"customer_id": customer_id, "subscription_id": subscription_id}
+
+    result: dict[str, Any] = {
+        "customer_id": customer_id,
+        "subscription_id": subscription_id,
+    }
+
+    # Update org tier in the database
+    if org_id and subscription_id:
+        try:
+            from aragora.storage.user_store.singleton import get_user_store
+
+            user_store = get_user_store()
+            if user_store:
+                org = user_store.get_organization_by_id(org_id)
+                if org:
+                    old_tier = org.tier.value
+                    try:
+                        new_tier = SubscriptionTier(tier_str) if tier_str else SubscriptionTier.STARTER
+                    except ValueError:
+                        new_tier = SubscriptionTier.STARTER
+
+                    user_store.update_organization(
+                        org_id,
+                        stripe_customer_id=customer_id,
+                        stripe_subscription_id=subscription_id,
+                        tier=new_tier,
+                    )
+                    logger.info(
+                        "Org %s tier updated: %s -> %s after checkout",
+                        org_id,
+                        old_tier,
+                        new_tier.value,
+                    )
+                    result["tier_updated"] = True
+                    result["old_tier"] = old_tier
+                    result["new_tier"] = new_tier.value
+
+                    # Audit the tier change
+                    try:
+                        from aragora.audit.unified import audit_data
+
+                        audit_data(
+                            user_id=metadata.get("user_id", "stripe_webhook"),
+                            resource_type="subscription",
+                            resource_id=subscription_id,
+                            action="subscription.created",
+                            old_tier=old_tier,
+                            new_tier=new_tier.value,
+                            org_id=org_id,
+                        )
+                    except (ImportError, OSError, ValueError) as audit_err:
+                        logger.warning("Failed to audit checkout tier change: %s", audit_err)
+        except (ImportError, OSError, ValueError, AttributeError) as e:
+            logger.error("Failed to update org tier on checkout: %s", e)
+
+    return result
 
 
 def _handle_subscription_updated(obj: Any) -> dict[str, Any]:
-    """Handle plan/tier changes on an existing subscription."""
+    """Handle plan/tier changes and status transitions on an existing subscription.
+
+    Syncs tier from price changes and handles status transitions:
+    - active: restore tier from price if org was on FREE
+    - past_due/unpaid/incomplete: log degraded status for monitoring
+    - canceled: downgrade org to FREE tier
+    """
+    from aragora.billing.models import SubscriptionTier
+
     subscription_id = obj.get("id", "")
     status = obj.get("status", "")
     cancel_at_period_end = obj.get("cancel_at_period_end", False)
@@ -845,18 +916,169 @@ def _handle_subscription_updated(obj: Any) -> dict[str, Any]:
         price_id,
         cancel_at_period_end,
     )
-    return {
+
+    result: dict[str, Any] = {
         "subscription_id": subscription_id,
         "status": status,
         "price_id": price_id,
     }
 
+    if not subscription_id:
+        return result
+
+    try:
+        from aragora.billing.stripe_client import get_tier_from_price_id
+        from aragora.storage.user_store.singleton import get_user_store
+
+        user_store = get_user_store()
+        if not user_store:
+            return result
+
+        org = user_store.get_organization_by_subscription(subscription_id)
+        if not org:
+            return result
+
+        old_tier = org.tier.value
+        updates: dict[str, Any] = {}
+        new_tier = None
+
+        # Sync tier from price change
+        if price_id:
+            tier = get_tier_from_price_id(price_id)
+            if tier:
+                updates["tier"] = tier
+                new_tier = tier.value
+
+        # Handle subscription status transitions
+        if status in ("past_due", "unpaid", "incomplete"):
+            logger.warning(
+                "Subscription %s entered %s status for org %s",
+                subscription_id,
+                status,
+                org.id,
+            )
+            result["status_degraded"] = True
+        elif status == "canceled":
+            updates["tier"] = SubscriptionTier.FREE
+            updates["stripe_subscription_id"] = None
+            new_tier = "free"
+            logger.info(
+                "Subscription %s canceled for org %s, downgrading to FREE",
+                subscription_id,
+                org.id,
+            )
+        elif status == "active" and old_tier == "free" and not new_tier:
+            # Re-activation: restore tier from price if available
+            if price_id:
+                restored = get_tier_from_price_id(price_id)
+                if restored:
+                    updates["tier"] = restored
+                    new_tier = restored.value
+                    logger.info(
+                        "Subscription %s re-activated for org %s, restoring tier to %s",
+                        subscription_id,
+                        org.id,
+                        new_tier,
+                    )
+
+        if updates:
+            user_store.update_organization(org.id, **updates)
+            result["tier_updated"] = True
+            result["old_tier"] = old_tier
+            result["new_tier"] = new_tier
+
+            logger.info(
+                "Updated org %s from subscription update: old_tier=%s, new_tier=%s",
+                org.id,
+                old_tier,
+                new_tier,
+            )
+
+            # Audit tier change
+            if new_tier and new_tier != old_tier:
+                try:
+                    from aragora.audit.unified import audit_data
+
+                    audit_data(
+                        user_id="stripe_webhook",
+                        resource_type="subscription",
+                        resource_id=subscription_id,
+                        action="subscription.tier_changed",
+                        old_tier=old_tier,
+                        new_tier=new_tier,
+                        status=status,
+                        org_id=org.id,
+                    )
+                except (ImportError, OSError, ValueError) as audit_err:
+                    logger.warning("Failed to audit subscription tier change: %s", audit_err)
+
+    except (ImportError, OSError, ValueError, AttributeError) as e:
+        logger.error("Failed to update org tier on subscription update: %s", e)
+
+    return result
+
 
 def _handle_subscription_deleted(obj: Any) -> dict[str, Any]:
-    """Deactivate subscription -- org should revert to free tier."""
+    """Deactivate subscription and downgrade org to FREE tier."""
+    from aragora.billing.models import SubscriptionTier
+
     subscription_id = obj.get("id", "")
     logger.info("Subscription deleted: id=%s", subscription_id)
-    return {"subscription_id": subscription_id, "action": "deactivated"}
+
+    result: dict[str, Any] = {
+        "subscription_id": subscription_id,
+        "action": "deactivated",
+    }
+
+    if not subscription_id:
+        return result
+
+    try:
+        from aragora.storage.user_store.singleton import get_user_store
+
+        user_store = get_user_store()
+        if not user_store:
+            return result
+
+        org = user_store.get_organization_by_subscription(subscription_id)
+        if not org:
+            return result
+
+        old_tier = org.tier.value
+        user_store.update_organization(
+            org.id,
+            tier=SubscriptionTier.FREE,
+            stripe_subscription_id=None,
+        )
+        logger.info(
+            "Downgraded org %s from %s to FREE after subscription deletion",
+            org.id,
+            old_tier,
+        )
+        result["tier_updated"] = True
+        result["old_tier"] = old_tier
+        result["new_tier"] = "free"
+
+        # Audit the downgrade
+        try:
+            from aragora.audit.unified import audit_data
+
+            audit_data(
+                user_id="stripe_webhook",
+                resource_type="subscription",
+                resource_id=subscription_id,
+                action="subscription.deleted",
+                old_tier=old_tier,
+                new_tier="free",
+                org_id=org.id,
+            )
+        except (ImportError, OSError, ValueError) as audit_err:
+            logger.warning("Failed to audit subscription deletion: %s", audit_err)
+
+    except (ImportError, OSError, ValueError, AttributeError) as e:
+        logger.error("Failed to downgrade org on subscription deletion: %s", e)
+
+    return result
 
 
 def _handle_invoice_payment_failed(obj: Any) -> dict[str, Any]:

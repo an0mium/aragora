@@ -63,8 +63,14 @@ export function TrainingExportPanel() {
 
     try {
       const [statsRes, formatsRes] = await Promise.all([
-        client.training.stats().catch(() => null),
-        client.training.formats().catch(() => null),
+        client.training.stats().catch((err) => {
+          console.warn('[TrainingExportPanel] Failed to fetch training stats:', err);
+          return null;
+        }),
+        client.training.formats().catch((err) => {
+          console.warn('[TrainingExportPanel] Failed to fetch export formats:', err);
+          return null;
+        }),
       ]);
 
       if (statsRes) setStats(statsRes as unknown as ExportStats);
@@ -189,7 +195,10 @@ export function TrainingExportPanel() {
       setActiveTab('history');
 
       // Refresh stats
-      const statsRes = await client.training.stats().catch(() => null);
+      const statsRes = await client.training.stats().catch((err) => {
+        console.warn('[TrainingExportPanel] Failed to refresh stats after export:', err);
+        return null;
+      });
       if (statsRes) setStats(statsRes as unknown as ExportStats);
     } catch (e) {
       setPipelineStatus({

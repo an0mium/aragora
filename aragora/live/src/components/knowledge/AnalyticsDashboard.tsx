@@ -170,9 +170,18 @@ export const AnalyticsDashboard: React.FC<AnalyticsDashboardProps> = ({
 
       // Fetch all stats in parallel
       const [moundRes, sharingRes, fedRes] = await Promise.all([
-        fetch(`${apiUrl}/mound/stats${wsParam}`, { credentials: 'include' }).catch(() => null),
-        fetch(`${apiUrl}/sharing/stats${wsParam}`, { credentials: 'include' }).catch(() => null),
-        fetch(`${apiUrl}/federation/stats${wsParam}`, { credentials: 'include' }).catch(() => null),
+        fetch(`${apiUrl}/mound/stats${wsParam}`, { credentials: 'include' }).catch((err) => {
+          console.warn('[AnalyticsDashboard] Failed to fetch mound stats:', err);
+          return null;
+        }),
+        fetch(`${apiUrl}/sharing/stats${wsParam}`, { credentials: 'include' }).catch((err) => {
+          console.warn('[AnalyticsDashboard] Failed to fetch sharing stats:', err);
+          return null;
+        }),
+        fetch(`${apiUrl}/federation/stats${wsParam}`, { credentials: 'include' }).catch((err) => {
+          console.warn('[AnalyticsDashboard] Failed to fetch federation stats:', err);
+          return null;
+        }),
       ]);
 
       if (moundRes?.ok) {

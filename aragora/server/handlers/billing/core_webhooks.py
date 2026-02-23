@@ -177,7 +177,12 @@ class WebhookMixin:
         return json_response({"received": True})
 
     def _handle_subscription_updated(self, event: Any, user_store: Any) -> HandlerResult:
-        """Handle customer.subscription.updated event."""
+        """Handle customer.subscription.updated event.
+
+        Syncs both tier changes (from price updates) and subscription status
+        transitions (past_due, unpaid, active) to the organization record.
+        """
+        from aragora.billing.models import SubscriptionTier
         from aragora.billing.stripe_client import get_tier_from_price_id
 
         subscription = event.object
@@ -190,26 +195,77 @@ class WebhookMixin:
         price_id = items[0].get("price", {}).get("id", "") if items else ""
 
         _logger().info(
-            f"Subscription updated: {subscription_id}, "
-            f"status={status}, cancel_at_period_end={cancel_at_period_end}"
+            "Subscription updated: %s, status=%s, cancel_at_period_end=%s",
+            subscription_id,
+            status,
+            cancel_at_period_end,
         )
 
-        # Update organization tier if price changed
         if user_store and subscription_id:
             org = user_store.get_organization_by_subscription(subscription_id)
             if org:
                 old_tier = org.tier.value
-                updates = {}
+                updates: dict[str, Any] = {}
                 new_tier = None
+
+                # Sync tier from price change
                 if price_id:
                     tier = get_tier_from_price_id(price_id)
                     if tier:
                         updates["tier"] = tier
                         new_tier = tier.value
 
+                # Sync subscription status transitions
+                if status in ("past_due", "unpaid", "incomplete"):
+                    _logger().warning(
+                        "Subscription %s entered %s status for org %s",
+                        subscription_id,
+                        status,
+                        org.id,
+                    )
+                    self._log_audit(
+                        user_store,
+                        action="subscription.status_degraded",
+                        resource_type="subscription",
+                        resource_id=subscription_id,
+                        org_id=org.id,
+                        old_value={"tier": old_tier},
+                        new_value={"status": status},
+                        metadata={"cancel_at_period_end": cancel_at_period_end},
+                    )
+                elif status == "canceled":
+                    # Stripe sometimes sends updated with status=canceled
+                    # instead of a separate deleted event -- downgrade to FREE
+                    updates["tier"] = SubscriptionTier.FREE
+                    updates["stripe_subscription_id"] = None
+                    new_tier = "free"
+                    _logger().info(
+                        "Subscription %s canceled via update for org %s, downgrading to FREE",
+                        subscription_id,
+                        org.id,
+                    )
+                elif status == "active" and old_tier == "free" and not new_tier:
+                    # Subscription re-activated but no price change detected;
+                    # attempt to restore tier from price
+                    if price_id:
+                        restored = get_tier_from_price_id(price_id)
+                        if restored:
+                            updates["tier"] = restored
+                            new_tier = restored.value
+                            _logger().info(
+                                "Subscription %s re-activated for org %s, restoring tier to %s",
+                                subscription_id,
+                                org.id,
+                                new_tier,
+                            )
+
                 if updates:
                     user_store.update_organization(org.id, **updates)
-                    _logger().info(f"Updated org {org.id} tier from subscription update")
+                    _logger().info(
+                        "Updated org %s from subscription update: %s",
+                        org.id,
+                        {k: v.value if hasattr(v, "value") else v for k, v in updates.items()},
+                    )
 
                     # Log audit event for tier change
                     if new_tier and new_tier != old_tier:
