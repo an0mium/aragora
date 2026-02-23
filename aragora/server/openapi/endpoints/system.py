@@ -70,7 +70,7 @@ SYSTEM_ENDPOINTS = {
                     {
                         "phase": {"type": "string"},
                         "cycle_id": {"type": "string"},
-                        "last_success": {"type": "string", "format": "date-time"},
+                        "last_success": {"type": ["string", "null"], "format": "date-time"},
                         "pending_improvements": {"type": "integer"},
                     },
                 )
@@ -95,8 +95,8 @@ SYSTEM_ENDPOINTS = {
                 "200": _ok_response(
                     "Nomic health status",
                     {
-                        "status": {"type": "string", "enum": ["healthy", "stalled", "degraded"]},
-                        "last_activity": {"type": "string", "format": "date-time"},
+                        "status": {"type": ["string", "null"], "enum": ["healthy", "stalled", "degraded"]},
+                        "last_activity": {"type": ["string", "null"], "format": "date-time"},
                     },
                 )
             },
@@ -231,7 +231,7 @@ SYSTEM_ENDPOINTS = {
                     "in": "query",
                     "description": "Filter by proposal status",
                     "schema": {
-                        "type": "string",
+                        "type": ["string", "null"],
                         "enum": ["pending", "approved", "rejected", "implemented"],
                     },
                 },
@@ -259,7 +259,7 @@ SYSTEM_ENDPOINTS = {
                                                 "title": {"type": "string"},
                                                 "description": {"type": "string"},
                                                 "status": {
-                                                    "type": "string",
+                                                    "type": ["string", "null"],
                                                     "enum": [
                                                         "pending",
                                                         "approved",
@@ -674,25 +674,21 @@ SYSTEM_ENDPOINTS = {
                                         "maximum": 100,
                                     },
                                     "result_url": {
-                                        "type": "string",
-                                        "nullable": True,
+                                        "type": ["string", "null"],
                                         "description": "URL to download the transcription result when completed",
                                     },
                                     "transcript": {
-                                        "type": "string",
-                                        "nullable": True,
+                                        "type": ["string", "null"],
                                         "description": "Transcribed text when completed",
                                     },
                                     "error": {
-                                        "type": "string",
-                                        "nullable": True,
+                                        "type": ["string", "null"],
                                         "description": "Error message if task failed",
                                     },
                                     "created_at": {"type": "string", "format": "date-time"},
                                     "completed_at": {
                                         "type": "string",
                                         "format": "date-time",
-                                        "nullable": True,
                                     },
                                 },
                             },
@@ -748,8 +744,7 @@ call it before any credentials are set up.
                                             "description": "Default model when available",
                                         },
                                         "reason": {
-                                            "type": "string",
-                                            "nullable": True,
+                                            "type": ["string", "null"],
                                             "description": "Why provider is unavailable",
                                         },
                                     },

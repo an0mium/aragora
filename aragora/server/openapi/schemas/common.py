@@ -12,12 +12,12 @@ COMMON_SCHEMAS: dict[str, Any] = {
         "description": "Standard error response format",
         "properties": {
             "error": {
-                "type": "string",
+                "type": ["string", "null"],
                 "description": "Human-readable error message",
                 "example": "Invalid request: missing required field 'task'",
             },
             "code": {
-                "type": "string",
+                "type": ["string", "null"],
                 "description": "Machine-readable error code for programmatic handling",
                 "enum": [
                     "INVALID_JSON",
@@ -103,7 +103,7 @@ COMMON_SCHEMAS: dict[str, Any] = {
         "properties": {
             "success": {"type": "boolean"},
             "data": {"type": "object", "additionalProperties": True},
-            "message": {"type": "string", "nullable": True},
+            "message": {"type": ["string", "null"]},
         },
         "required": ["success"],
     },
@@ -172,7 +172,7 @@ COMMON_SCHEMAS: dict[str, Any] = {
                 "enum": ["pending", "running", "completed", "failed"],
                 "description": "Run status",
             },
-            "verdict": {"type": "string", "nullable": True, "description": "Final verdict"},
+            "verdict": {"type": ["string", "null"], "description": "Final verdict"},
             "confidence": {"type": "number", "description": "Confidence score"},
             "findings": {
                 "type": "array",
@@ -188,13 +188,11 @@ COMMON_SCHEMAS: dict[str, Any] = {
             "started_at": {
                 "type": "string",
                 "format": "date-time",
-                "nullable": True,
                 "description": "Start timestamp",
             },
             "completed_at": {
                 "type": "string",
                 "format": "date-time",
-                "nullable": True,
                 "description": "Completion timestamp",
             },
         },

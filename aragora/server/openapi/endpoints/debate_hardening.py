@@ -184,7 +184,7 @@ DEBATE_HARDENING_ENDPOINTS = {
                         "debate_id": {"type": "string"},
                         "is_paused": {"type": "boolean"},
                         "resumed_at": {"type": "string", "format": "date-time"},
-                        "pause_duration_seconds": {"type": "number", "nullable": True},
+                        "pause_duration_seconds": {"type": ["number", "null"]},
                     },
                 ),
                 "400": STANDARD_ERRORS["400"],
@@ -309,7 +309,7 @@ DEBATE_HARDENING_ENDPOINTS = {
                     {
                         "debate_id": {"type": "string"},
                         "is_paused": {"type": "boolean"},
-                        "paused_at": {"type": "string", "format": "date-time", "nullable": True},
+                        "paused_at": {"type": "string", "format": "date-time"},
                         "consensus_threshold": {"type": "number"},
                         "agent_weights": {"type": "object"},
                         "pending_injections": {"type": "integer"},

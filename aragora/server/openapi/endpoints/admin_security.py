@@ -34,14 +34,14 @@ ADMIN_SECURITY_ENDPOINTS = {
                     "content": {
                         "application/json": {
                             "schema": {
-                                "type": "object",
+                                "type": ["object", "null"],
                                 "properties": {
                                     "crypto_available": {
                                         "type": "boolean",
                                         "description": "Whether cryptography library is installed",
                                     },
                                     "active_key_id": {
-                                        "type": "string",
+                                        "type": ["string", "null"],
                                         "description": "ID of the active encryption key",
                                     },
                                     "key_version": {
@@ -53,7 +53,7 @@ ADMIN_SECURITY_ENDPOINTS = {
                                         "description": "Age of active key in days",
                                     },
                                     "key_created_at": {
-                                        "type": "string",
+                                        "type": ["string", "null"],
                                         "format": "date-time",
                                         "description": "Timestamp when key was created",
                                     },
@@ -106,10 +106,10 @@ ADMIN_SECURITY_ENDPOINTS = {
                     "content": {
                         "application/json": {
                             "schema": {
-                                "type": "object",
+                                "type": ["object", "null"],
                                 "properties": {
                                     "status": {
-                                        "type": "string",
+                                        "type": ["string", "null"],
                                         "enum": ["healthy", "degraded", "unhealthy"],
                                         "description": "Overall health status",
                                     },
@@ -179,7 +179,7 @@ ADMIN_SECURITY_ENDPOINTS = {
                                                 "version": {"type": "integer"},
                                                 "is_active": {"type": "boolean"},
                                                 "created_at": {
-                                                    "type": "string",
+                                                    "type": ["string", "null"],
                                                     "format": "date-time",
                                                 },
                                                 "age_days": {"type": "integer"},
@@ -319,7 +319,7 @@ ADMIN_SECURITY_ENDPOINTS = {
                                 "properties": {
                                     "id": {"type": "string"},
                                     "type": {
-                                        "type": "string",
+                                        "type": ["string", "null"],
                                         "description": "Violation type",
                                         "enum": [
                                             "data_retention",
@@ -332,11 +332,11 @@ ADMIN_SECURITY_ENDPOINTS = {
                                         ],
                                     },
                                     "severity": {
-                                        "type": "string",
+                                        "type": ["string", "null"],
                                         "enum": ["low", "medium", "high", "critical"],
                                     },
                                     "status": {
-                                        "type": "string",
+                                        "type": ["string", "null"],
                                         "enum": [
                                             "open",
                                             "acknowledged",
@@ -354,7 +354,7 @@ ADMIN_SECURITY_ENDPOINTS = {
                                         },
                                     },
                                     "framework": {
-                                        "type": "string",
+                                        "type": ["string", "null"],
                                         "description": "Compliance framework (e.g. SOC2, GDPR, HIPAA)",
                                     },
                                     "control_id": {
@@ -366,13 +366,11 @@ ADMIN_SECURITY_ENDPOINTS = {
                                         "properties": {
                                             "suggested_action": {"type": "string"},
                                             "assigned_to": {
-                                                "type": "string",
-                                                "nullable": True,
+                                                "type": ["string", "null"],
                                             },
                                             "due_date": {
                                                 "type": "string",
                                                 "format": "date-time",
-                                                "nullable": True,
                                             },
                                         },
                                     },
@@ -383,7 +381,6 @@ ADMIN_SECURITY_ENDPOINTS = {
                                     "resolved_at": {
                                         "type": "string",
                                         "format": "date-time",
-                                        "nullable": True,
                                     },
                                 },
                             }
@@ -552,7 +549,6 @@ ADMIN_SECURITY_ENDPOINTS = {
                                                 "completed_at": {
                                                     "type": "string",
                                                     "format": "date-time",
-                                                    "nullable": True,
                                                 },
                                                 "retention_days": {"type": "integer"},
                                             },
@@ -677,13 +673,11 @@ ADMIN_SECURITY_ENDPOINTS = {
                                     "type": {"type": "string"},
                                     "status": {"type": "string"},
                                     "label": {
-                                        "type": "string",
-                                        "nullable": True,
+                                        "type": ["string", "null"],
                                     },
                                     "size_bytes": {"type": "integer"},
                                     "duration_seconds": {
-                                        "type": "number",
-                                        "nullable": True,
+                                        "type": ["number", "null"],
                                     },
                                     "components": {
                                         "type": "array",
@@ -703,7 +697,6 @@ ADMIN_SECURITY_ENDPOINTS = {
                                     "completed_at": {
                                         "type": "string",
                                         "format": "date-time",
-                                        "nullable": True,
                                     },
                                     "retention_days": {"type": "integer"},
                                     "expires_at": {
@@ -804,7 +797,7 @@ ADMIN_SECURITY_ENDPOINTS = {
                                         "enum": ["compliant", "non_compliant", "partial"],
                                     },
                                     "risk_score": {
-                                        "type": "number",
+                                        "type": ["number", "null"],
                                         "description": "Aggregate risk score (0-100)",
                                     },
                                     "frameworks": {
@@ -897,7 +890,6 @@ ADMIN_SECURITY_ENDPOINTS = {
                                     "next_check": {
                                         "type": "string",
                                         "format": "date-time",
-                                        "nullable": True,
                                     },
                                 },
                             }
@@ -957,8 +949,7 @@ ADMIN_SECURITY_ENDPOINTS = {
                                         },
                                     },
                                     "last_drill": {
-                                        "type": "object",
-                                        "nullable": True,
+                                        "type": ["object", "null"],
                                         "properties": {
                                             "id": {"type": "string"},
                                             "completed_at": {
@@ -1048,13 +1039,11 @@ ADMIN_SECURITY_ENDPOINTS = {
                                             "next_drill": {
                                                 "type": "string",
                                                 "format": "date-time",
-                                                "nullable": True,
                                             },
                                         },
                                     },
                                     "last_execution": {
-                                        "type": "object",
-                                        "nullable": True,
+                                        "type": ["object", "null"],
                                         "properties": {
                                             "executed_at": {
                                                 "type": "string",

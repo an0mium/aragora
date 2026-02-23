@@ -15,7 +15,7 @@ from aragora.server.openapi.helpers import _ok_response, STANDARD_ERRORS
 _PLAYBOOK_STEP_SCHEMA = {
     "type": "object",
     "properties": {
-        "name": {"type": "string", "description": "Step name"},
+        "name": {"type": ["string", "null"], "description": "Step name"},
         "action": {"type": "string", "description": "Action to execute"},
         "config": {"type": "object", "description": "Step configuration"},
     },
@@ -45,8 +45,7 @@ _PLAYBOOK_SCHEMA = {
             "description": "Deliberation template to use",
         },
         "vertical_profile": {
-            "type": "string",
-            "nullable": True,
+            "type": ["string", "null"],
             "description": "Vertical weight profile for domain-specific scoring",
         },
         "compliance_artifacts": {
@@ -339,7 +338,7 @@ asynchronously -- poll the run status or connect via WebSocket for real-time upd
                                 "description": "Resolved playbook configuration",
                                 "properties": {
                                     "template_name": {"type": "string"},
-                                    "vertical_profile": {"type": "string", "nullable": True},
+                                    "vertical_profile": {"type": ["string", "null"]},
                                     "min_agents": {"type": "integer"},
                                     "max_agents": {"type": "integer"},
                                     "max_rounds": {"type": "integer"},

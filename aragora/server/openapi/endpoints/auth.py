@@ -13,10 +13,10 @@ def _user_schema() -> dict[str, Any]:
     return {
         "type": "object",
         "properties": {
-            "id": {"type": "string", "description": "User ID"},
-            "email": {"type": "string", "format": "email"},
+            "id": {"type": ["string", "null"], "description": "User ID"},
+            "email": {"type": ["string", "null"], "format": "email"},
             "name": {"type": "string"},
-            "role": {"type": "string", "enum": ["user", "admin", "superadmin"]},
+            "role": {"type": ["string", "null"], "enum": ["user", "admin", "superadmin"]},
             "mfa_enabled": {"type": "boolean"},
             "created_at": {"type": "string", "format": "date-time"},
         },
@@ -385,7 +385,6 @@ AUTH_ENDPOINTS = {
                                                 "last_used": {
                                                     "type": "string",
                                                     "format": "date-time",
-                                                    "nullable": True,
                                                 },
                                             },
                                         },
@@ -526,12 +525,10 @@ AUTH_ENDPOINTS = {
                                     "expires_at": {
                                         "type": "string",
                                         "format": "date-time",
-                                        "nullable": True,
                                     },
                                     "last_used": {
                                         "type": "string",
                                         "format": "date-time",
-                                        "nullable": True,
                                     },
                                 },
                             }

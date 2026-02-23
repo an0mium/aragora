@@ -40,28 +40,28 @@ _CREDENTIAL_TYPE_ENUM = [
 ]
 
 _SESSION_SCHEMA: dict[str, Any] = {
-    "type": "object",
+    "type": ["object", "null"],
     "properties": {
-        "id": {"type": "string", "description": "Unique session identifier"},
-        "user_id": {"type": "string", "description": "User who owns the session"},
-        "tenant_id": {"type": "string", "nullable": True, "description": "Tenant identifier"},
+        "id": {"type": ["string", "null"], "description": "Unique session identifier"},
+        "user_id": {"type": ["string", "null"], "description": "User who owns the session"},
+        "tenant_id": {"type": ["string", "null"], "description": "Tenant identifier"},
         "status": {
-            "type": "string",
+            "type": ["string", "null"],
             "enum": _SESSION_STATUS_ENUM,
             "description": "Current session status",
         },
         "created_at": {
-            "type": "string",
+            "type": ["string", "null"],
             "format": "date-time",
             "description": "Session creation timestamp",
         },
         "updated_at": {
-            "type": "string",
+            "type": ["string", "null"],
             "format": "date-time",
             "description": "Last update timestamp",
         },
         "last_activity_at": {
-            "type": "string",
+            "type": ["string", "null"],
             "format": "date-time",
             "description": "Last activity timestamp",
         },
@@ -83,11 +83,10 @@ _ACTION_SCHEMA: dict[str, Any] = {
         },
         "input_data": {"type": "object", "description": "Input parameters for the action"},
         "output_data": {
-            "type": "object",
-            "nullable": True,
+            "type": ["object", "null"],
             "description": "Action output (when completed)",
         },
-        "error": {"type": "string", "nullable": True, "description": "Error message (if failed)"},
+        "error": {"type": ["string", "null"], "description": "Error message (if failed)"},
         "created_at": {
             "type": "string",
             "format": "date-time",
@@ -96,13 +95,11 @@ _ACTION_SCHEMA: dict[str, Any] = {
         "started_at": {
             "type": "string",
             "format": "date-time",
-            "nullable": True,
             "description": "Action start timestamp",
         },
         "completed_at": {
             "type": "string",
             "format": "date-time",
-            "nullable": True,
             "description": "Action completion timestamp",
         },
         "metadata": {"type": "object", "description": "Action metadata"},
@@ -121,7 +118,7 @@ _CREDENTIAL_SCHEMA: dict[str, Any] = {
             "description": "Type of credential",
         },
         "user_id": {"type": "string", "description": "User who owns the credential"},
-        "tenant_id": {"type": "string", "nullable": True, "description": "Tenant identifier"},
+        "tenant_id": {"type": ["string", "null"], "description": "Tenant identifier"},
         "created_at": {
             "type": "string",
             "format": "date-time",
@@ -135,13 +132,11 @@ _CREDENTIAL_SCHEMA: dict[str, Any] = {
         "last_rotated_at": {
             "type": "string",
             "format": "date-time",
-            "nullable": True,
             "description": "Last rotation timestamp",
         },
         "expires_at": {
             "type": "string",
             "format": "date-time",
-            "nullable": True,
             "description": "Expiration timestamp",
         },
         "metadata": {"type": "object", "description": "Credential metadata"},
@@ -191,15 +186,13 @@ _APPROVAL_SCHEMA: dict[str, Any] = {
         "decided_at": {
             "type": "string",
             "format": "date-time",
-            "nullable": True,
             "description": "Decision timestamp",
         },
         "decided_by": {
-            "type": "string",
-            "nullable": True,
+            "type": ["string", "null"],
             "description": "User who made the decision",
         },
-        "reason": {"type": "string", "nullable": True, "description": "Decision reason"},
+        "reason": {"type": ["string", "null"], "description": "Decision reason"},
     },
 }
 
@@ -210,8 +203,8 @@ _AUDIT_ENTRY_SCHEMA: dict[str, Any] = {
         "timestamp": {"type": "string", "format": "date-time", "description": "Event timestamp"},
         "event_type": {"type": "string", "description": "Type of event"},
         "user_id": {"type": "string", "description": "User who triggered the event"},
-        "session_id": {"type": "string", "nullable": True, "description": "Associated session"},
-        "action_id": {"type": "string", "nullable": True, "description": "Associated action"},
+        "session_id": {"type": ["string", "null"], "description": "Associated session"},
+        "action_id": {"type": ["string", "null"], "description": "Associated action"},
         "details": {"type": "object", "description": "Event details"},
     },
 }

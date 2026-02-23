@@ -663,7 +663,7 @@ class PulseHandler(BaseHandler):
             )
 
             # Create arena
-            arena = Arena.from_env(env, agents, protocol)
+            arena = Arena(env, agents, protocol)
 
             # Run debate asynchronously
             async def run_debate() -> Any:

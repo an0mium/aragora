@@ -47,7 +47,7 @@ COMPUTER_USE_ENDPOINTS = {
                     "in": "query",
                     "description": "Filter by action type",
                     "schema": {
-                        "type": "string",
+                        "type": ["string", "null"],
                         "enum": ["click", "type", "screenshot", "scroll", "key"],
                     },
                 },
@@ -56,12 +56,12 @@ COMPUTER_USE_ENDPOINTS = {
                 "200": _response(
                     "List of computer use actions",
                     {
-                        "type": "object",
+                        "type": ["object", "null"],
                         "properties": {
                             "actions": {
                                 "type": "array",
                                 "items": {
-                                    "type": "object",
+                                    "type": ["object", "null"],
                                     "properties": {
                                         "action_id": {"type": "string"},
                                         "action_type": {
@@ -556,8 +556,7 @@ COMPUTER_USE_ENDPOINTS = {
                                         "dry_run": {"type": "boolean"},
                                         "created_at": {"type": "string", "format": "date-time"},
                                         "result": {
-                                            "type": "object",
-                                            "nullable": True,
+                                            "type": ["object", "null"],
                                             "properties": {
                                                 "success": {"type": "boolean"},
                                                 "message": {"type": "string"},
@@ -674,7 +673,6 @@ COMPUTER_USE_ENDPOINTS = {
                                     "cancelled_at": {
                                         "type": "string",
                                         "format": "date-time",
-                                        "nullable": True,
                                     },
                                     "steps": {
                                         "type": "array",
@@ -687,8 +685,7 @@ COMPUTER_USE_ENDPOINTS = {
                                         },
                                     },
                                     "result": {
-                                        "type": "object",
-                                        "nullable": True,
+                                        "type": ["object", "null"],
                                         "properties": {
                                             "success": {"type": "boolean"},
                                             "message": {"type": "string"},
