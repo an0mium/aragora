@@ -141,7 +141,7 @@ jobs:
           python-version: '3.11'
 
       - name: Install security tools
-        run: pip install safety pip-audit uv
+        run: pip install safety pip-audit
 
       - name: Install package
         run: pip install -e . 2>/dev/null || true
@@ -157,13 +157,9 @@ jobs:
         id: pip-audit
         if: always()
         run: |
-          # Export requirements if uv is available, otherwise audit installed packages
-          if uv pip export --format requirements-txt --output-file /tmp/aragora-requirements.txt 2>/dev/null; then
-            # Use OSV vulnerability service and fail on any vulnerability (--strict)
-            pip-audit --strict --vulnerability-service osv -r /tmp/aragora-requirements.txt
-          else
-            pip-audit --strict --vulnerability-service osv
-          fi
+          # Audit installed packages against the OSV vulnerability database.
+          # --strict exits non-zero on any known vulnerability.
+          pip-audit --strict --vulnerability-service osv
 
       - name: Report Python dependency status
         if: always() && (steps.safety.outcome == 'failure' || steps.pip-audit.outcome == 'failure')
