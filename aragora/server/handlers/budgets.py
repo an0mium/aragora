@@ -192,8 +192,9 @@ class BudgetHandler(BaseHandler):
         org_id = self._get_org_id(handler)
         user_id = self._get_user_id(handler)
 
-        # Parse path
-        parts = path.rstrip("/").split("/")
+        # Parse path (strip trailing slash for consistent matching)
+        path = path.rstrip("/") or path
+        parts = path.split("/")
         # /api/v1/budgets -> ["", "api", "v1", "budgets"]
         # /api/v1/budgets/budget-xxx -> ["", "api", "v1", "budgets", "budget-xxx"]
 
@@ -218,7 +219,7 @@ class BudgetHandler(BaseHandler):
             return await self._create_budget(org_id, user_id, handler)
 
         # Routes with budget_id
-        if len(parts) >= 5:
+        if len(parts) >= 5 and parts[3] == "budgets":
             budget_id = parts[4]
 
             # GET /api/v1/budgets/:id
