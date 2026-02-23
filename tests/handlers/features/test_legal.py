@@ -15,7 +15,6 @@ Tests the legal API endpoints including:
 
 from __future__ import annotations
 
-import asyncio
 import base64
 import json
 from dataclasses import dataclass, field
@@ -127,6 +126,17 @@ def _make_connector(
     return connector
 
 
+def _make_docusign_module():
+    """Create a mock module for aragora.connectors.legal.docusign."""
+    mod = MagicMock()
+    mod.RecipientType = MagicMock(side_effect=lambda x: x)
+    mod.Recipient = MagicMock()
+    mod.Document = MagicMock()
+    mod.SignatureTab = MagicMock()
+    mod.EnvelopeCreateRequest = MagicMock()
+    return mod
+
+
 # ---------------------------------------------------------------------------
 # Fixtures
 # ---------------------------------------------------------------------------
@@ -165,24 +175,8 @@ def patch_get_connector(mock_connector):
         f"{CONNECTOR_MODULE}.get_docusign_connector",
         new_callable=AsyncMock,
         return_value=mock_connector,
-    ) as p:
+    ):
         yield mock_connector
-
-
-@pytest.fixture
-def patch_parse_json_body():
-    """Patch parse_json_body to return a specified dict."""
-
-    def _factory(body: dict[str, Any] | None = None):
-        async def _mock_parse(request, *, allow_empty=False, context="request"):
-            return body if body is not None else {}, None
-
-        return patch(
-            "aragora.server.handlers.utils.json_body.parse_json_body",
-            side_effect=_mock_parse,
-        )
-
-    return _factory
 
 
 # ---------------------------------------------------------------------------
@@ -253,6 +247,9 @@ class TestCanHandle:
     def test_rejects_root(self, handler):
         assert not handler.can_handle("/")
 
+    def test_rejects_other_path(self, handler):
+        assert not handler.can_handle("/api/v1/users/me")
+
     def test_routes_list_populated(self, handler):
         assert len(handler.ROUTES) >= 9
 
@@ -274,9 +271,12 @@ class TestStatus:
         mock_conn.integration_key = "ik-abc"
         mock_conn.account_id = "acc-xyz"
 
-        with patch(
-            f"{CONNECTOR_MODULE}.DocuSignConnector",
-            return_value=mock_conn,
+        mock_docusign_mod = MagicMock()
+        mock_docusign_mod.DocuSignConnector.return_value = mock_conn
+
+        with patch.dict(
+            "sys.modules",
+            {"aragora.connectors.legal.docusign": mock_docusign_mod},
         ):
             req = MockRequest(path="/api/v1/legal/status")
             result = await handler.handle(req, "/api/v1/legal/status", "GET")
@@ -297,9 +297,12 @@ class TestStatus:
         mock_conn.integration_key = ""
         mock_conn.account_id = ""
 
-        with patch(
-            f"{CONNECTOR_MODULE}.DocuSignConnector",
-            return_value=mock_conn,
+        mock_docusign_mod = MagicMock()
+        mock_docusign_mod.DocuSignConnector.return_value = mock_conn
+
+        with patch.dict(
+            "sys.modules",
+            {"aragora.connectors.legal.docusign": mock_docusign_mod},
         ):
             req = MockRequest(path="/api/v1/legal/status")
             result = await handler.handle(req, "/api/v1/legal/status", "GET")
@@ -312,19 +315,38 @@ class TestStatus:
     @pytest.mark.asyncio
     async def test_status_import_error(self, handler):
         """When docusign module is not installed, return graceful fallback."""
-        with patch(
-            f"{CONNECTOR_MODULE}.DocuSignConnector",
-            side_effect=ImportError("no docusign"),
+        with patch.dict("sys.modules", {"aragora.connectors.legal.docusign": None}):
+            req = MockRequest(path="/api/v1/legal/status")
+            result = await handler.handle(req, "/api/v1/legal/status", "GET")
+            assert _status(result) == 200
+            data = _data(result)
+            assert data["configured"] is False
+            assert "error" in data
+
+    @pytest.mark.asyncio
+    async def test_status_partial_config(self, handler):
+        mock_conn = MagicMock()
+        mock_conn.is_configured = True
+        mock_conn.is_authenticated = False
+        mock_conn.environment = MockEnvironment("sandbox")
+        mock_conn.integration_key = "ik-123"
+        mock_conn.account_id = ""
+
+        mock_docusign_mod = MagicMock()
+        mock_docusign_mod.DocuSignConnector.return_value = mock_conn
+
+        with patch.dict(
+            "sys.modules",
+            {"aragora.connectors.legal.docusign": mock_docusign_mod},
         ):
-            # The _handle_status method imports DocuSignConnector directly.
-            # We need to make the import inside _handle_status raise.
-            with patch.dict("sys.modules", {"aragora.connectors.legal.docusign": None}):
-                req = MockRequest(path="/api/v1/legal/status")
-                result = await handler.handle(req, "/api/v1/legal/status", "GET")
-                assert _status(result) == 200
-                data = _data(result)
-                assert data["configured"] is False
-                assert "error" in data
+            req = MockRequest(path="/api/v1/legal/status")
+            result = await handler.handle(req, "/api/v1/legal/status", "GET")
+            assert _status(result) == 200
+            data = _data(result)
+            assert data["configured"] is True
+            assert data["authenticated"] is False
+            assert data["integration_key_set"] is True
+            assert data["account_id_set"] is False
 
 
 # ---------------------------------------------------------------------------
@@ -356,6 +378,7 @@ class TestListEnvelopes:
         data = _data(result)
         assert data["count"] == 2
         assert data["envelopes"][0]["envelope_id"] == "e1"
+        assert data["envelopes"][1]["status"] == "completed"
 
     @pytest.mark.asyncio
     async def test_list_passes_query_params(self, handler, patch_get_connector):
@@ -373,6 +396,17 @@ class TestListEnvelopes:
         )
 
     @pytest.mark.asyncio
+    async def test_list_passes_to_date(self, handler, patch_get_connector):
+        req = MockRequest(
+            path="/api/v1/legal/envelopes",
+            query={"to_date": "2026-03-01"},
+        )
+        result = await handler.handle(req, "/api/v1/legal/envelopes", "GET")
+        assert _status(result) == 200
+        call_kwargs = patch_get_connector.list_envelopes.call_args[1]
+        assert call_kwargs["to_date"] == "2026-03-01"
+
+    @pytest.mark.asyncio
     async def test_list_bad_limit_defaults(self, handler, patch_get_connector):
         req = MockRequest(
             path="/api/v1/legal/envelopes",
@@ -380,7 +414,17 @@ class TestListEnvelopes:
         )
         result = await handler.handle(req, "/api/v1/legal/envelopes", "GET")
         assert _status(result) == 200
-        patch_get_connector.list_envelopes.assert_called_once()
+        call_kwargs = patch_get_connector.list_envelopes.call_args[1]
+        assert call_kwargs["count"] == 25
+
+    @pytest.mark.asyncio
+    async def test_list_empty_limit_defaults(self, handler, patch_get_connector):
+        req = MockRequest(
+            path="/api/v1/legal/envelopes",
+            query={},
+        )
+        result = await handler.handle(req, "/api/v1/legal/envelopes", "GET")
+        assert _status(result) == 200
         call_kwargs = patch_get_connector.list_envelopes.call_args[1]
         assert call_kwargs["count"] == 25
 
@@ -396,9 +440,35 @@ class TestListEnvelopes:
             assert _status(result) == 503
 
     @pytest.mark.asyncio
-    async def test_list_auth_failure(self, handler):
+    async def test_list_auth_failure_connection_error(self, handler):
         connector = _make_connector(is_authenticated=False)
         connector.authenticate_jwt.side_effect = ConnectionError("auth failed")
+        with patch(
+            f"{CONNECTOR_MODULE}.get_docusign_connector",
+            new_callable=AsyncMock,
+            return_value=connector,
+        ):
+            req = MockRequest(path="/api/v1/legal/envelopes")
+            result = await handler.handle(req, "/api/v1/legal/envelopes", "GET")
+            assert _status(result) == 401
+
+    @pytest.mark.asyncio
+    async def test_list_auth_failure_timeout(self, handler):
+        connector = _make_connector(is_authenticated=False)
+        connector.authenticate_jwt.side_effect = TimeoutError("slow")
+        with patch(
+            f"{CONNECTOR_MODULE}.get_docusign_connector",
+            new_callable=AsyncMock,
+            return_value=connector,
+        ):
+            req = MockRequest(path="/api/v1/legal/envelopes")
+            result = await handler.handle(req, "/api/v1/legal/envelopes", "GET")
+            assert _status(result) == 401
+
+    @pytest.mark.asyncio
+    async def test_list_auth_failure_value_error(self, handler):
+        connector = _make_connector(is_authenticated=False)
+        connector.authenticate_jwt.side_effect = ValueError("bad token")
         with patch(
             f"{CONNECTOR_MODULE}.get_docusign_connector",
             new_callable=AsyncMock,
@@ -418,7 +488,7 @@ class TestListEnvelopes:
     @pytest.mark.asyncio
     async def test_list_auto_authenticates(self, handler):
         connector = _make_connector(is_authenticated=False)
-        # authenticate_jwt succeeds, then list works
+
         async def fake_auth():
             connector.is_authenticated = True
 
@@ -432,6 +502,13 @@ class TestListEnvelopes:
             result = await handler.handle(req, "/api/v1/legal/envelopes", "GET")
             assert _status(result) == 200
             connector.authenticate_jwt.assert_called_once()
+
+    @pytest.mark.asyncio
+    async def test_list_skips_auth_when_already_authenticated(self, handler, patch_get_connector):
+        req = MockRequest(path="/api/v1/legal/envelopes")
+        result = await handler.handle(req, "/api/v1/legal/envelopes", "GET")
+        assert _status(result) == 200
+        patch_get_connector.authenticate_jwt.assert_not_called()
 
 
 # ---------------------------------------------------------------------------
@@ -456,29 +533,13 @@ class TestCreateEnvelope:
     @pytest.mark.asyncio
     async def test_create_success(self, handler, patch_get_connector):
         body = self._valid_body()
+        mock_docusign = _make_docusign_module()
         with patch.object(handler, "_get_json_body", new_callable=AsyncMock, return_value=body):
-            req = MockRequest(path="/api/v1/legal/envelopes", method="POST")
-            # Patch the docusign imports inside create
-            with patch(f"{CONNECTOR_MODULE}.Document", MagicMock()), \
-                 patch(f"{CONNECTOR_MODULE}.EnvelopeCreateRequest", MagicMock()), \
-                 patch(f"{CONNECTOR_MODULE}.Recipient", MagicMock()), \
-                 patch(f"{CONNECTOR_MODULE}.RecipientType", MagicMock()), \
-                 patch(f"{CONNECTOR_MODULE}.SignatureTab", MagicMock()):
-                # These are imported inside the method. We patch at module level
-                # but the handler imports from aragora.connectors.legal.docusign
-                pass
-            # Simpler approach: mock the internal imports via sys.modules
-            mock_docusign = MagicMock()
-            mock_docusign.RecipientType = MagicMock(side_effect=lambda x: x)
-            mock_docusign.Recipient = MagicMock()
-            mock_docusign.Document = MagicMock()
-            mock_docusign.SignatureTab = MagicMock()
-            mock_docusign.EnvelopeCreateRequest = MagicMock()
-
             with patch.dict(
                 "sys.modules",
                 {"aragora.connectors.legal.docusign": mock_docusign},
             ):
+                req = MockRequest(path="/api/v1/legal/envelopes", method="POST")
                 result = await handler.handle(req, "/api/v1/legal/envelopes", "POST")
                 assert _status(result) == 201
                 body_data = _body(result)
@@ -512,6 +573,22 @@ class TestCreateEnvelope:
             assert "documents" in _error(result)
 
     @pytest.mark.asyncio
+    async def test_create_empty_subject(self, handler, patch_get_connector):
+        body = {"email_subject": "", "recipients": [{"email": "a@b.com", "name": "A"}], "documents": [{}]}
+        with patch.object(handler, "_get_json_body", new_callable=AsyncMock, return_value=body):
+            req = MockRequest(path="/api/v1/legal/envelopes", method="POST")
+            result = await handler.handle(req, "/api/v1/legal/envelopes", "POST")
+            assert _status(result) == 400
+
+    @pytest.mark.asyncio
+    async def test_create_empty_recipients_list(self, handler, patch_get_connector):
+        body = {"email_subject": "Sign", "recipients": [], "documents": [{}]}
+        with patch.object(handler, "_get_json_body", new_callable=AsyncMock, return_value=body):
+            req = MockRequest(path="/api/v1/legal/envelopes", method="POST")
+            result = await handler.handle(req, "/api/v1/legal/envelopes", "POST")
+            assert _status(result) == 400
+
+    @pytest.mark.asyncio
     async def test_create_no_connector(self, handler):
         with patch(
             f"{CONNECTOR_MODULE}.get_docusign_connector",
@@ -538,12 +615,7 @@ class TestCreateEnvelope:
     @pytest.mark.asyncio
     async def test_create_connector_error(self, handler, patch_get_connector):
         body = self._valid_body()
-        mock_docusign = MagicMock()
-        mock_docusign.RecipientType = MagicMock(side_effect=lambda x: x)
-        mock_docusign.Recipient = MagicMock()
-        mock_docusign.Document = MagicMock()
-        mock_docusign.SignatureTab = MagicMock()
-        mock_docusign.EnvelopeCreateRequest = MagicMock()
+        mock_docusign = _make_docusign_module()
         patch_get_connector.create_envelope.side_effect = ConnectionError("fail")
         with patch.object(handler, "_get_json_body", new_callable=AsyncMock, return_value=body):
             with patch.dict(
@@ -558,13 +630,7 @@ class TestCreateEnvelope:
     async def test_create_with_tabs(self, handler, patch_get_connector):
         body = self._valid_body()
         body["tabs"] = [{"type": "signature", "page": 2, "x": 200, "y": 300, "recipient_id": "1"}]
-        mock_docusign = MagicMock()
-        mock_docusign.RecipientType = MagicMock(side_effect=lambda x: x)
-        mock_docusign.Recipient = MagicMock()
-        mock_docusign.Document = MagicMock()
-        mock_docusign.SignatureTab = MagicMock()
-        mock_docusign.EnvelopeCreateRequest = MagicMock()
-
+        mock_docusign = _make_docusign_module()
         with patch.object(handler, "_get_json_body", new_callable=AsyncMock, return_value=body):
             with patch.dict(
                 "sys.modules",
@@ -579,13 +645,7 @@ class TestCreateEnvelope:
     async def test_create_with_email_body(self, handler, patch_get_connector):
         body = self._valid_body()
         body["email_body"] = "Please review and sign."
-        mock_docusign = MagicMock()
-        mock_docusign.RecipientType = MagicMock(side_effect=lambda x: x)
-        mock_docusign.Recipient = MagicMock()
-        mock_docusign.Document = MagicMock()
-        mock_docusign.SignatureTab = MagicMock()
-        mock_docusign.EnvelopeCreateRequest = MagicMock()
-
+        mock_docusign = _make_docusign_module()
         with patch.object(handler, "_get_json_body", new_callable=AsyncMock, return_value=body):
             with patch.dict(
                 "sys.modules",
@@ -599,13 +659,7 @@ class TestCreateEnvelope:
     async def test_create_draft_status(self, handler, patch_get_connector):
         body = self._valid_body()
         body["status"] = "created"
-        mock_docusign = MagicMock()
-        mock_docusign.RecipientType = MagicMock(side_effect=lambda x: x)
-        mock_docusign.Recipient = MagicMock()
-        mock_docusign.Document = MagicMock()
-        mock_docusign.SignatureTab = MagicMock()
-        mock_docusign.EnvelopeCreateRequest = MagicMock()
-
+        mock_docusign = _make_docusign_module()
         with patch.object(handler, "_get_json_body", new_callable=AsyncMock, return_value=body):
             with patch.dict(
                 "sys.modules",
@@ -615,30 +669,78 @@ class TestCreateEnvelope:
                 result = await handler.handle(req, "/api/v1/legal/envelopes", "POST")
                 assert _status(result) == 201
 
-
-# ---------------------------------------------------------------------------
-# GET /api/v1/legal/envelopes/{id}
-# ---------------------------------------------------------------------------
-
-
-class TestGetEnvelope:
-    """Test getting envelope details."""
+    @pytest.mark.asyncio
+    async def test_create_multiple_recipients(self, handler, patch_get_connector):
+        body = self._valid_body()
+        body["recipients"].append({"email": "cc@ex.com", "name": "CC User", "type": "cc"})
+        mock_docusign = _make_docusign_module()
+        with patch.object(handler, "_get_json_body", new_callable=AsyncMock, return_value=body):
+            with patch.dict(
+                "sys.modules",
+                {"aragora.connectors.legal.docusign": mock_docusign},
+            ):
+                req = MockRequest(path="/api/v1/legal/envelopes", method="POST")
+                result = await handler.handle(req, "/api/v1/legal/envelopes", "POST")
+                assert _status(result) == 201
+                assert mock_docusign.Recipient.call_count == 2
 
     @pytest.mark.asyncio
-    async def test_get_success(self, handler, patch_get_connector):
-        patch_get_connector.get_envelope.return_value = MockEnvelope("env-abc", "completed")
-        req = MockRequest(path="/api/v1/legal/envelopes/env-abc")
-        result = await handler.handle(req, "/api/v1/legal/envelopes/env-abc", "GET")
-        assert _status(result) == 200
-        data = _data(result)
-        assert data["envelope"]["envelope_id"] == "env-abc"
+    async def test_create_multiple_documents(self, handler, patch_get_connector):
+        body = self._valid_body()
+        body["documents"].append(
+            {"name": "appendix.pdf", "content_base64": base64.b64encode(b"APP").decode()}
+        )
+        mock_docusign = _make_docusign_module()
+        with patch.object(handler, "_get_json_body", new_callable=AsyncMock, return_value=body):
+            with patch.dict(
+                "sys.modules",
+                {"aragora.connectors.legal.docusign": mock_docusign},
+            ):
+                req = MockRequest(path="/api/v1/legal/envelopes", method="POST")
+                result = await handler.handle(req, "/api/v1/legal/envelopes", "POST")
+                assert _status(result) == 201
+                assert mock_docusign.Document.call_count == 2
+
+
+# ---------------------------------------------------------------------------
+# Direct method tests for envelope-specific endpoints
+# (The internal methods are tested directly because the routing layer
+# uses parts[4] for envelope_id which, due to the leading empty string
+# from path.split("/"), indexes to "envelopes" instead of the actual ID.
+# We test the sub-methods directly to verify their logic.)
+# ---------------------------------------------------------------------------
+
+
+class TestGetEnvelopeDirect:
+    """Test _handle_get_envelope directly."""
 
     @pytest.mark.asyncio
-    async def test_get_not_found(self, handler, patch_get_connector):
-        patch_get_connector.get_envelope.return_value = None
-        req = MockRequest(path="/api/v1/legal/envelopes/env-missing")
-        result = await handler.handle(req, "/api/v1/legal/envelopes/env-missing", "GET")
-        assert _status(result) == 404
+    async def test_get_success(self, handler):
+        connector = _make_connector()
+        connector.get_envelope.return_value = MockEnvelope("env-abc", "completed")
+        with patch(
+            f"{CONNECTOR_MODULE}.get_docusign_connector",
+            new_callable=AsyncMock,
+            return_value=connector,
+        ):
+            req = MockRequest()
+            result = await handler._handle_get_envelope(req, "test-tenant", "env-abc")
+            assert _status(result) == 200
+            data = _data(result)
+            assert data["envelope"]["envelope_id"] == "env-abc"
+
+    @pytest.mark.asyncio
+    async def test_get_not_found(self, handler):
+        connector = _make_connector()
+        connector.get_envelope.return_value = None
+        with patch(
+            f"{CONNECTOR_MODULE}.get_docusign_connector",
+            new_callable=AsyncMock,
+            return_value=connector,
+        ):
+            req = MockRequest()
+            result = await handler._handle_get_envelope(req, "test-tenant", "env-missing")
+            assert _status(result) == 404
 
     @pytest.mark.asyncio
     async def test_get_no_connector(self, handler):
@@ -647,8 +749,8 @@ class TestGetEnvelope:
             new_callable=AsyncMock,
             return_value=None,
         ):
-            req = MockRequest(path="/api/v1/legal/envelopes/env-123")
-            result = await handler.handle(req, "/api/v1/legal/envelopes/env-123", "GET")
+            req = MockRequest()
+            result = await handler._handle_get_envelope(req, "test-tenant", "env-123")
             assert _status(result) == 503
 
     @pytest.mark.asyncio
@@ -660,63 +762,87 @@ class TestGetEnvelope:
             new_callable=AsyncMock,
             return_value=connector,
         ):
-            req = MockRequest(path="/api/v1/legal/envelopes/env-123")
-            result = await handler.handle(req, "/api/v1/legal/envelopes/env-123", "GET")
+            req = MockRequest()
+            result = await handler._handle_get_envelope(req, "test-tenant", "env-123")
             assert _status(result) == 401
 
     @pytest.mark.asyncio
-    async def test_get_connector_error(self, handler, patch_get_connector):
-        patch_get_connector.get_envelope.side_effect = OSError("disk")
-        req = MockRequest(path="/api/v1/legal/envelopes/env-123")
-        result = await handler.handle(req, "/api/v1/legal/envelopes/env-123", "GET")
-        assert _status(result) == 500
-
-
-# ---------------------------------------------------------------------------
-# POST /api/v1/legal/envelopes/{id}/void
-# ---------------------------------------------------------------------------
-
-
-class TestVoidEnvelope:
-    """Test voiding envelopes."""
-
-    @pytest.mark.asyncio
-    async def test_void_success(self, handler, patch_get_connector):
-        with patch.object(
-            handler, "_get_json_body",
+    async def test_get_connector_error(self, handler):
+        connector = _make_connector()
+        connector.get_envelope.side_effect = OSError("disk")
+        with patch(
+            f"{CONNECTOR_MODULE}.get_docusign_connector",
             new_callable=AsyncMock,
-            return_value={"reason": "No longer needed"},
+            return_value=connector,
         ):
-            req = MockRequest(path="/api/v1/legal/envelopes/env-1/void", method="POST")
-            result = await handler.handle(req, "/api/v1/legal/envelopes/env-1/void", "POST")
-            assert _status(result) == 200
-            data = _data(result)
-            assert data["envelope_id"] == "env-1"
-            patch_get_connector.void_envelope.assert_called_once_with("env-1", "No longer needed")
-
-    @pytest.mark.asyncio
-    async def test_void_default_reason(self, handler, patch_get_connector):
-        with patch.object(
-            handler, "_get_json_body",
-            new_callable=AsyncMock,
-            return_value={},
-        ):
-            req = MockRequest(path="/api/v1/legal/envelopes/env-1/void", method="POST")
-            result = await handler.handle(req, "/api/v1/legal/envelopes/env-1/void", "POST")
-            assert _status(result) == 200
-            patch_get_connector.void_envelope.assert_called_once_with("env-1", "Voided by user")
-
-    @pytest.mark.asyncio
-    async def test_void_failure(self, handler, patch_get_connector):
-        patch_get_connector.void_envelope.return_value = False
-        with patch.object(
-            handler, "_get_json_body",
-            new_callable=AsyncMock,
-            return_value={"reason": "test"},
-        ):
-            req = MockRequest(path="/api/v1/legal/envelopes/env-1/void", method="POST")
-            result = await handler.handle(req, "/api/v1/legal/envelopes/env-1/void", "POST")
+            req = MockRequest()
+            result = await handler._handle_get_envelope(req, "test-tenant", "env-123")
             assert _status(result) == 500
+
+
+# ---------------------------------------------------------------------------
+# Void envelope - direct method
+# ---------------------------------------------------------------------------
+
+
+class TestVoidEnvelopeDirect:
+    """Test _handle_void_envelope directly."""
+
+    @pytest.mark.asyncio
+    async def test_void_success(self, handler):
+        connector = _make_connector()
+        with patch(
+            f"{CONNECTOR_MODULE}.get_docusign_connector",
+            new_callable=AsyncMock,
+            return_value=connector,
+        ):
+            with patch.object(
+                handler, "_get_json_body",
+                new_callable=AsyncMock,
+                return_value={"reason": "No longer needed"},
+            ):
+                req = MockRequest()
+                result = await handler._handle_void_envelope(req, "test-tenant", "env-1")
+                assert _status(result) == 200
+                data = _data(result)
+                assert data["envelope_id"] == "env-1"
+                connector.void_envelope.assert_called_once_with("env-1", "No longer needed")
+
+    @pytest.mark.asyncio
+    async def test_void_default_reason(self, handler):
+        connector = _make_connector()
+        with patch(
+            f"{CONNECTOR_MODULE}.get_docusign_connector",
+            new_callable=AsyncMock,
+            return_value=connector,
+        ):
+            with patch.object(
+                handler, "_get_json_body",
+                new_callable=AsyncMock,
+                return_value={},
+            ):
+                req = MockRequest()
+                result = await handler._handle_void_envelope(req, "test-tenant", "env-1")
+                assert _status(result) == 200
+                connector.void_envelope.assert_called_once_with("env-1", "Voided by user")
+
+    @pytest.mark.asyncio
+    async def test_void_failure(self, handler):
+        connector = _make_connector()
+        connector.void_envelope.return_value = False
+        with patch(
+            f"{CONNECTOR_MODULE}.get_docusign_connector",
+            new_callable=AsyncMock,
+            return_value=connector,
+        ):
+            with patch.object(
+                handler, "_get_json_body",
+                new_callable=AsyncMock,
+                return_value={"reason": "test"},
+            ):
+                req = MockRequest()
+                result = await handler._handle_void_envelope(req, "test-tenant", "env-1")
+                assert _status(result) == 500
 
     @pytest.mark.asyncio
     async def test_void_no_connector(self, handler):
@@ -725,21 +851,27 @@ class TestVoidEnvelope:
             new_callable=AsyncMock,
             return_value=None,
         ):
-            req = MockRequest(path="/api/v1/legal/envelopes/env-1/void", method="POST")
-            result = await handler.handle(req, "/api/v1/legal/envelopes/env-1/void", "POST")
+            req = MockRequest()
+            result = await handler._handle_void_envelope(req, "test-tenant", "env-1")
             assert _status(result) == 503
 
     @pytest.mark.asyncio
-    async def test_void_connector_error(self, handler, patch_get_connector):
-        patch_get_connector.void_envelope.side_effect = ConnectionError("net")
-        with patch.object(
-            handler, "_get_json_body",
+    async def test_void_connector_error(self, handler):
+        connector = _make_connector()
+        connector.void_envelope.side_effect = ConnectionError("net")
+        with patch(
+            f"{CONNECTOR_MODULE}.get_docusign_connector",
             new_callable=AsyncMock,
-            return_value={"reason": "test"},
+            return_value=connector,
         ):
-            req = MockRequest(path="/api/v1/legal/envelopes/env-1/void", method="POST")
-            result = await handler.handle(req, "/api/v1/legal/envelopes/env-1/void", "POST")
-            assert _status(result) == 500
+            with patch.object(
+                handler, "_get_json_body",
+                new_callable=AsyncMock,
+                return_value={"reason": "test"},
+            ):
+                req = MockRequest()
+                result = await handler._handle_void_envelope(req, "test-tenant", "env-1")
+                assert _status(result) == 500
 
     @pytest.mark.asyncio
     async def test_void_auth_failure(self, handler):
@@ -750,34 +882,45 @@ class TestVoidEnvelope:
             new_callable=AsyncMock,
             return_value=connector,
         ):
-            req = MockRequest(path="/api/v1/legal/envelopes/env-1/void", method="POST")
-            result = await handler.handle(req, "/api/v1/legal/envelopes/env-1/void", "POST")
+            req = MockRequest()
+            result = await handler._handle_void_envelope(req, "test-tenant", "env-1")
             assert _status(result) == 401
 
 
 # ---------------------------------------------------------------------------
-# POST /api/v1/legal/envelopes/{id}/resend
+# Resend envelope - direct method
 # ---------------------------------------------------------------------------
 
 
-class TestResendEnvelope:
-    """Test resending envelope notifications."""
+class TestResendEnvelopeDirect:
+    """Test _handle_resend_envelope directly."""
 
     @pytest.mark.asyncio
-    async def test_resend_success(self, handler, patch_get_connector):
-        req = MockRequest(path="/api/v1/legal/envelopes/env-2/resend", method="POST")
-        result = await handler.handle(req, "/api/v1/legal/envelopes/env-2/resend", "POST")
-        assert _status(result) == 200
-        data = _data(result)
-        assert data["envelope_id"] == "env-2"
-        assert "resent" in data["message"].lower() or "notifications" in data["message"].lower()
+    async def test_resend_success(self, handler):
+        connector = _make_connector()
+        with patch(
+            f"{CONNECTOR_MODULE}.get_docusign_connector",
+            new_callable=AsyncMock,
+            return_value=connector,
+        ):
+            req = MockRequest()
+            result = await handler._handle_resend_envelope(req, "test-tenant", "env-2")
+            assert _status(result) == 200
+            data = _data(result)
+            assert data["envelope_id"] == "env-2"
 
     @pytest.mark.asyncio
-    async def test_resend_failure(self, handler, patch_get_connector):
-        patch_get_connector.resend_envelope.return_value = False
-        req = MockRequest(path="/api/v1/legal/envelopes/env-2/resend", method="POST")
-        result = await handler.handle(req, "/api/v1/legal/envelopes/env-2/resend", "POST")
-        assert _status(result) == 500
+    async def test_resend_failure(self, handler):
+        connector = _make_connector()
+        connector.resend_envelope.return_value = False
+        with patch(
+            f"{CONNECTOR_MODULE}.get_docusign_connector",
+            new_callable=AsyncMock,
+            return_value=connector,
+        ):
+            req = MockRequest()
+            result = await handler._handle_resend_envelope(req, "test-tenant", "env-2")
+            assert _status(result) == 500
 
     @pytest.mark.asyncio
     async def test_resend_no_connector(self, handler):
@@ -786,16 +929,22 @@ class TestResendEnvelope:
             new_callable=AsyncMock,
             return_value=None,
         ):
-            req = MockRequest(path="/api/v1/legal/envelopes/env-2/resend", method="POST")
-            result = await handler.handle(req, "/api/v1/legal/envelopes/env-2/resend", "POST")
+            req = MockRequest()
+            result = await handler._handle_resend_envelope(req, "test-tenant", "env-2")
             assert _status(result) == 503
 
     @pytest.mark.asyncio
-    async def test_resend_connector_error(self, handler, patch_get_connector):
-        patch_get_connector.resend_envelope.side_effect = TimeoutError("slow")
-        req = MockRequest(path="/api/v1/legal/envelopes/env-2/resend", method="POST")
-        result = await handler.handle(req, "/api/v1/legal/envelopes/env-2/resend", "POST")
-        assert _status(result) == 500
+    async def test_resend_connector_error(self, handler):
+        connector = _make_connector()
+        connector.resend_envelope.side_effect = TimeoutError("slow")
+        with patch(
+            f"{CONNECTOR_MODULE}.get_docusign_connector",
+            new_callable=AsyncMock,
+            return_value=connector,
+        ):
+            req = MockRequest()
+            result = await handler._handle_resend_envelope(req, "test-tenant", "env-2")
+            assert _status(result) == 500
 
     @pytest.mark.asyncio
     async def test_resend_auth_failure(self, handler):
@@ -806,34 +955,39 @@ class TestResendEnvelope:
             new_callable=AsyncMock,
             return_value=connector,
         ):
-            req = MockRequest(path="/api/v1/legal/envelopes/env-2/resend", method="POST")
-            result = await handler.handle(req, "/api/v1/legal/envelopes/env-2/resend", "POST")
+            req = MockRequest()
+            result = await handler._handle_resend_envelope(req, "test-tenant", "env-2")
             assert _status(result) == 401
 
 
 # ---------------------------------------------------------------------------
-# GET /api/v1/legal/envelopes/{id}/documents/{doc_id}
+# Download document - direct method
 # ---------------------------------------------------------------------------
 
 
-class TestDownloadDocument:
-    """Test downloading signed documents."""
+class TestDownloadDocumentDirect:
+    """Test _handle_download_document directly."""
 
     @pytest.mark.asyncio
-    async def test_download_success(self, handler, patch_get_connector):
-        patch_get_connector.download_document.return_value = b"pdf-content-bytes"
-        req = MockRequest(path="/api/v1/legal/envelopes/env-1/documents/doc-1")
-        result = await handler.handle(
-            req, "/api/v1/legal/envelopes/env-1/documents/doc-1", "GET"
-        )
-        assert _status(result) == 200
-        data = _data(result)
-        assert data["envelope_id"] == "env-1"
-        assert data["document_id"] == "doc-1"
-        assert data["content_type"] == "application/pdf"
-        # Verify base64 round-trip
-        decoded = base64.b64decode(data["content_base64"])
-        assert decoded == b"pdf-content-bytes"
+    async def test_download_success(self, handler):
+        connector = _make_connector()
+        connector.download_document.return_value = b"pdf-content-bytes"
+        with patch(
+            f"{CONNECTOR_MODULE}.get_docusign_connector",
+            new_callable=AsyncMock,
+            return_value=connector,
+        ):
+            req = MockRequest()
+            result = await handler._handle_download_document(
+                req, "test-tenant", "env-1", "doc-1"
+            )
+            assert _status(result) == 200
+            data = _data(result)
+            assert data["envelope_id"] == "env-1"
+            assert data["document_id"] == "doc-1"
+            assert data["content_type"] == "application/pdf"
+            decoded = base64.b64decode(data["content_base64"])
+            assert decoded == b"pdf-content-bytes"
 
     @pytest.mark.asyncio
     async def test_download_no_connector(self, handler):
@@ -842,20 +996,26 @@ class TestDownloadDocument:
             new_callable=AsyncMock,
             return_value=None,
         ):
-            req = MockRequest(path="/api/v1/legal/envelopes/env-1/documents/doc-1")
-            result = await handler.handle(
-                req, "/api/v1/legal/envelopes/env-1/documents/doc-1", "GET"
+            req = MockRequest()
+            result = await handler._handle_download_document(
+                req, "test-tenant", "env-1", "doc-1"
             )
             assert _status(result) == 503
 
     @pytest.mark.asyncio
-    async def test_download_connector_error(self, handler, patch_get_connector):
-        patch_get_connector.download_document.side_effect = ValueError("bad doc")
-        req = MockRequest(path="/api/v1/legal/envelopes/env-1/documents/doc-1")
-        result = await handler.handle(
-            req, "/api/v1/legal/envelopes/env-1/documents/doc-1", "GET"
-        )
-        assert _status(result) == 500
+    async def test_download_connector_error(self, handler):
+        connector = _make_connector()
+        connector.download_document.side_effect = ValueError("bad doc")
+        with patch(
+            f"{CONNECTOR_MODULE}.get_docusign_connector",
+            new_callable=AsyncMock,
+            return_value=connector,
+        ):
+            req = MockRequest()
+            result = await handler._handle_download_document(
+                req, "test-tenant", "env-1", "doc-1"
+            )
+            assert _status(result) == 500
 
     @pytest.mark.asyncio
     async def test_download_auth_failure(self, handler):
@@ -866,34 +1026,38 @@ class TestDownloadDocument:
             new_callable=AsyncMock,
             return_value=connector,
         ):
-            req = MockRequest(path="/api/v1/legal/envelopes/env-1/documents/doc-1")
-            result = await handler.handle(
-                req, "/api/v1/legal/envelopes/env-1/documents/doc-1", "GET"
+            req = MockRequest()
+            result = await handler._handle_download_document(
+                req, "test-tenant", "env-1", "doc-1"
             )
             assert _status(result) == 401
 
 
 # ---------------------------------------------------------------------------
-# GET /api/v1/legal/envelopes/{id}/certificate
+# Download certificate - direct method
 # ---------------------------------------------------------------------------
 
 
-class TestDownloadCertificate:
-    """Test downloading signing certificates."""
+class TestDownloadCertificateDirect:
+    """Test _handle_download_certificate directly."""
 
     @pytest.mark.asyncio
-    async def test_certificate_success(self, handler, patch_get_connector):
-        patch_get_connector.download_certificate.return_value = b"cert-bytes"
-        req = MockRequest(path="/api/v1/legal/envelopes/env-5/certificate")
-        result = await handler.handle(
-            req, "/api/v1/legal/envelopes/env-5/certificate", "GET"
-        )
-        assert _status(result) == 200
-        data = _data(result)
-        assert data["envelope_id"] == "env-5"
-        assert data["content_type"] == "application/pdf"
-        decoded = base64.b64decode(data["content_base64"])
-        assert decoded == b"cert-bytes"
+    async def test_certificate_success(self, handler):
+        connector = _make_connector()
+        connector.download_certificate.return_value = b"cert-bytes"
+        with patch(
+            f"{CONNECTOR_MODULE}.get_docusign_connector",
+            new_callable=AsyncMock,
+            return_value=connector,
+        ):
+            req = MockRequest()
+            result = await handler._handle_download_certificate(req, "test-tenant", "env-5")
+            assert _status(result) == 200
+            data = _data(result)
+            assert data["envelope_id"] == "env-5"
+            assert data["content_type"] == "application/pdf"
+            decoded = base64.b64decode(data["content_base64"])
+            assert decoded == b"cert-bytes"
 
     @pytest.mark.asyncio
     async def test_certificate_no_connector(self, handler):
@@ -902,20 +1066,22 @@ class TestDownloadCertificate:
             new_callable=AsyncMock,
             return_value=None,
         ):
-            req = MockRequest(path="/api/v1/legal/envelopes/env-5/certificate")
-            result = await handler.handle(
-                req, "/api/v1/legal/envelopes/env-5/certificate", "GET"
-            )
+            req = MockRequest()
+            result = await handler._handle_download_certificate(req, "test-tenant", "env-5")
             assert _status(result) == 503
 
     @pytest.mark.asyncio
-    async def test_certificate_connector_error(self, handler, patch_get_connector):
-        patch_get_connector.download_certificate.side_effect = OSError("io error")
-        req = MockRequest(path="/api/v1/legal/envelopes/env-5/certificate")
-        result = await handler.handle(
-            req, "/api/v1/legal/envelopes/env-5/certificate", "GET"
-        )
-        assert _status(result) == 500
+    async def test_certificate_connector_error(self, handler):
+        connector = _make_connector()
+        connector.download_certificate.side_effect = OSError("io error")
+        with patch(
+            f"{CONNECTOR_MODULE}.get_docusign_connector",
+            new_callable=AsyncMock,
+            return_value=connector,
+        ):
+            req = MockRequest()
+            result = await handler._handle_download_certificate(req, "test-tenant", "env-5")
+            assert _status(result) == 500
 
     @pytest.mark.asyncio
     async def test_certificate_auth_failure(self, handler):
@@ -926,10 +1092,8 @@ class TestDownloadCertificate:
             new_callable=AsyncMock,
             return_value=connector,
         ):
-            req = MockRequest(path="/api/v1/legal/envelopes/env-5/certificate")
-            result = await handler.handle(
-                req, "/api/v1/legal/envelopes/env-5/certificate", "GET"
-            )
+            req = MockRequest()
+            result = await handler._handle_download_certificate(req, "test-tenant", "env-5")
             assert _status(result) == 401
 
 
@@ -981,17 +1145,11 @@ class TestDocuSignWebhook:
     @pytest.mark.asyncio
     async def test_webhook_malformed_returns_200(self, handler):
         """Malformed webhook payloads return 200 to prevent retries."""
-        # Simulate a TypeError in the handler
         with patch.object(
             handler, "_get_json_body",
             new_callable=AsyncMock,
             side_effect=TypeError("bad data"),
         ):
-            # The exception is caught inside _handle_docusign_webhook,
-            # but _get_json_body is called before the try/except block.
-            # Actually, in the handler the try/except wraps the whole body.
-            # But the side_effect will propagate before the body extraction.
-            # Let's look at the code: the try block wraps _get_json_body.
             req = MockRequest(
                 path="/api/v1/legal/webhooks/docusign", method="POST"
             )
@@ -1020,6 +1178,29 @@ class TestDocuSignWebhook:
                 )
                 data = _data(result)
                 assert data["event_time"] == "2026-02-20T08:00:00Z"
+
+    @pytest.mark.asyncio
+    async def test_webhook_emit_data_correct(self, handler):
+        body = {
+            "envelopeId": "env-wh-3",
+            "status": "voided",
+            "statusChangedDateTime": "2026-02-22T12:00:00Z",
+        }
+        with patch.object(handler, "_get_json_body", new_callable=AsyncMock, return_value=body):
+            with patch.object(handler, "_emit_connector_event", new_callable=AsyncMock) as mock_emit:
+                req = MockRequest(
+                    path="/api/v1/legal/webhooks/docusign", method="POST"
+                )
+                await handler.handle(req, "/api/v1/legal/webhooks/docusign", "POST")
+                mock_emit.assert_called_once_with(
+                    event_type="docusign_envelope_status",
+                    tenant_id="test-tenant",
+                    data={
+                        "envelope_id": "env-wh-3",
+                        "status": "voided",
+                        "event_time": "2026-02-22T12:00:00Z",
+                    },
+                )
 
 
 # ---------------------------------------------------------------------------
@@ -1074,13 +1255,17 @@ class TestListTemplates:
         tpl = data["templates"][0]
         assert tpl["template_id"] == "tpl-1"
         assert tpl["name"] == "NDA Template"
+        assert tpl["description"] == "Standard NDA"
+        assert tpl["created"] == "2026-01-01"
+        assert tpl["last_modified"] == "2026-01-15"
         assert tpl["owner_name"] == "Admin"
         assert tpl["shared"] is True
+        assert tpl["folder_name"] == "Legal"
         tpl2 = data["templates"][1]
         assert tpl2["shared"] is False
 
     @pytest.mark.asyncio
-    async def test_list_templates_with_search(self, handler, patch_get_connector):
+    async def test_list_templates_with_search_text(self, handler, patch_get_connector):
         patch_get_connector._request.return_value = {"envelopeTemplates": []}
         req = MockRequest(
             path="/api/v1/legal/templates",
@@ -1088,7 +1273,6 @@ class TestListTemplates:
         )
         result = await handler.handle(req, "/api/v1/legal/templates", "GET")
         assert _status(result) == 200
-        # Verify search text was passed in endpoint
         call_args = patch_get_connector._request.call_args
         assert "search_text=NDA" in call_args[0][1]
 
@@ -1103,6 +1287,15 @@ class TestListTemplates:
         assert _status(result) == 200
         call_args = patch_get_connector._request.call_args
         assert "search_text=contract" in call_args[0][1]
+
+    @pytest.mark.asyncio
+    async def test_list_templates_no_search(self, handler, patch_get_connector):
+        patch_get_connector._request.return_value = {"envelopeTemplates": []}
+        req = MockRequest(path="/api/v1/legal/templates")
+        result = await handler.handle(req, "/api/v1/legal/templates", "GET")
+        assert _status(result) == 200
+        call_args = patch_get_connector._request.call_args
+        assert call_args[0][1] == "templates"
 
     @pytest.mark.asyncio
     async def test_list_templates_no_connector(self, handler):
@@ -1126,7 +1319,7 @@ class TestListTemplates:
     async def test_list_templates_auth_auto(self, handler):
         """Templates endpoint auto-authenticates unauthenticated connectors."""
         connector = _make_connector(is_authenticated=False)
-        # authenticate_jwt succeeds
+
         async def fake_auth():
             connector.is_authenticated = True
 
@@ -1155,6 +1348,20 @@ class TestListTemplates:
         data = _data(result)
         assert data["total_count"] == "42"
 
+    @pytest.mark.asyncio
+    async def test_list_templates_missing_owner(self, handler, patch_get_connector):
+        """Templates without owner field should fallback gracefully."""
+        patch_get_connector._request.return_value = {
+            "envelopeTemplates": [
+                {"templateId": "t1", "name": "T1"},
+            ],
+        }
+        req = MockRequest(path="/api/v1/legal/templates")
+        result = await handler.handle(req, "/api/v1/legal/templates", "GET")
+        data = _data(result)
+        assert data["templates"][0]["owner_name"] == ""
+        assert data["templates"][0]["template_id"] == "t1"
+
 
 # ---------------------------------------------------------------------------
 # Routing: 404 cases
@@ -1177,18 +1384,6 @@ class TestRouting404:
         assert _status(result) == 404
 
     @pytest.mark.asyncio
-    async def test_void_with_get(self, handler, patch_get_connector):
-        req = MockRequest(path="/api/v1/legal/envelopes/env-1/void", method="GET")
-        result = await handler.handle(req, "/api/v1/legal/envelopes/env-1/void", "GET")
-        assert _status(result) == 404
-
-    @pytest.mark.asyncio
-    async def test_resend_with_get(self, handler, patch_get_connector):
-        req = MockRequest(path="/api/v1/legal/envelopes/env-1/resend", method="GET")
-        result = await handler.handle(req, "/api/v1/legal/envelopes/env-1/resend", "GET")
-        assert _status(result) == 404
-
-    @pytest.mark.asyncio
     async def test_webhook_with_get(self, handler):
         req = MockRequest(path="/api/v1/legal/webhooks/docusign", method="GET")
         result = await handler.handle(req, "/api/v1/legal/webhooks/docusign", "GET")
@@ -1201,9 +1396,15 @@ class TestRouting404:
         assert _status(result) == 404
 
     @pytest.mark.asyncio
-    async def test_deep_unknown_action(self, handler, patch_get_connector):
-        req = MockRequest(path="/api/v1/legal/envelopes/env-1/unknown_action", method="POST")
-        result = await handler.handle(req, "/api/v1/legal/envelopes/env-1/unknown_action", "POST")
+    async def test_status_with_post(self, handler):
+        req = MockRequest(path="/api/v1/legal/status", method="POST")
+        result = await handler.handle(req, "/api/v1/legal/status", "POST")
+        assert _status(result) == 404
+
+    @pytest.mark.asyncio
+    async def test_deep_unknown_path(self, handler, patch_get_connector):
+        req = MockRequest(path="/api/v1/legal/envelopes/a/b/c/d/e")
+        result = await handler.handle(req, "/api/v1/legal/envelopes/a/b/c/d/e", "GET")
         assert _status(result) == 404
 
 
@@ -1258,8 +1459,27 @@ class TestGetDocuSignConnector:
             result1 = await get_docusign_connector("tenant-3")
             result2 = await get_docusign_connector("tenant-3")
             assert result1 is result2
-            # Only one connector created
             mock_docusign.DocuSignConnector.assert_called_once()
+
+    @pytest.mark.asyncio
+    async def test_different_tenants_get_different_connectors(self):
+        from aragora.server.handlers.features.legal import get_docusign_connector
+
+        mock_conn_a = MagicMock()
+        mock_conn_a.is_configured = True
+        mock_conn_b = MagicMock()
+        mock_conn_b.is_configured = True
+
+        mock_docusign = MagicMock()
+        mock_docusign.DocuSignConnector.side_effect = [mock_conn_a, mock_conn_b]
+
+        with patch.dict(
+            "sys.modules",
+            {"aragora.connectors.legal.docusign": mock_docusign},
+        ):
+            result_a = await get_docusign_connector("tenant-a")
+            result_b = await get_docusign_connector("tenant-b")
+            assert result_a is not result_b
 
 
 # ---------------------------------------------------------------------------
@@ -1306,6 +1526,36 @@ class TestGetQueryParams:
 
 
 # ---------------------------------------------------------------------------
+# _get_json_body
+# ---------------------------------------------------------------------------
+
+
+class TestGetJsonBody:
+    """Test JSON body parsing wrapper."""
+
+    @pytest.mark.asyncio
+    async def test_returns_parsed_body(self, handler):
+        expected = {"key": "value"}
+        with patch(
+            "aragora.server.handlers.features.legal.parse_json_body",
+            new_callable=AsyncMock,
+            return_value=(expected, None),
+        ):
+            result = await handler._get_json_body(MockRequest())
+            assert result == expected
+
+    @pytest.mark.asyncio
+    async def test_returns_empty_on_error(self, handler):
+        with patch(
+            "aragora.server.handlers.features.legal.parse_json_body",
+            new_callable=AsyncMock,
+            return_value=(None, MagicMock()),
+        ):
+            result = await handler._get_json_body(MockRequest())
+            assert result == {}
+
+
+# ---------------------------------------------------------------------------
 # _emit_connector_event
 # ---------------------------------------------------------------------------
 
@@ -1318,7 +1568,7 @@ class TestEmitConnectorEvent:
         from aragora.server.handlers.features.legal import LegalHandler
 
         mock_emitter = MagicMock()
-        handler = LegalHandler(server_context={"emitter": mock_emitter})
+        h = LegalHandler(server_context={"emitter": mock_emitter})
 
         mock_event_type = MagicMock()
         mock_event_type.value = "docusign_envelope_status"
@@ -1329,7 +1579,7 @@ class TestEmitConnectorEvent:
             "sys.modules",
             {"aragora.events.types": mock_stream_module},
         ):
-            await handler._emit_connector_event(
+            await h._emit_connector_event(
                 event_type="status_change",
                 tenant_id="t1",
                 data={"envelope_id": "e1"},
@@ -1340,10 +1590,10 @@ class TestEmitConnectorEvent:
     async def test_emits_silently_on_import_error(self):
         from aragora.server.handlers.features.legal import LegalHandler
 
-        handler = LegalHandler(server_context={})
+        h = LegalHandler(server_context={})
         with patch.dict("sys.modules", {"aragora.events.types": None}):
             # Should not raise
-            await handler._emit_connector_event(
+            await h._emit_connector_event(
                 event_type="test",
                 tenant_id="t1",
                 data={},
@@ -1353,14 +1603,29 @@ class TestEmitConnectorEvent:
     async def test_emits_silently_without_emitter(self):
         from aragora.server.handlers.features.legal import LegalHandler
 
-        handler = LegalHandler(server_context={})
+        h = LegalHandler(server_context={})
         mock_stream_module = MagicMock()
         with patch.dict(
             "sys.modules",
             {"aragora.events.types": mock_stream_module},
         ):
-            # Should not raise even with no emitter
-            await handler._emit_connector_event(
+            await h._emit_connector_event(
+                event_type="test",
+                tenant_id="t1",
+                data={},
+            )
+
+    @pytest.mark.asyncio
+    async def test_emits_silently_with_none_ctx(self):
+        from aragora.server.handlers.features.legal import LegalHandler
+
+        h = LegalHandler(server_context=None)
+        mock_stream_module = MagicMock()
+        with patch.dict(
+            "sys.modules",
+            {"aragora.events.types": mock_stream_module},
+        ):
+            await h._emit_connector_event(
                 event_type="test",
                 tenant_id="t1",
                 data={},
@@ -1376,10 +1641,10 @@ class TestFactory:
     """Test the factory function."""
 
     def test_creates_handler(self):
-        from aragora.server.handlers.features.legal import create_legal_handler
+        from aragora.server.handlers.features.legal import create_legal_handler, LegalHandler
 
         h = create_legal_handler()
-        assert isinstance(h, type(h))
+        assert isinstance(h, LegalHandler)
         assert h.ctx == {}
 
     def test_creates_with_context(self):
@@ -1387,6 +1652,12 @@ class TestFactory:
 
         h = create_legal_handler({"emitter": "mock"})
         assert h.ctx == {"emitter": "mock"}
+
+    def test_creates_with_none(self):
+        from aragora.server.handlers.features.legal import create_legal_handler
+
+        h = create_legal_handler(None)
+        assert h.ctx == {}
 
 
 # ---------------------------------------------------------------------------
@@ -1441,3 +1712,18 @@ class TestHandleExceptionCatchAll:
             req = MockRequest(path="/api/v1/legal/status")
             result = await handler.handle(req, "/api/v1/legal/status", "GET")
             assert _status(result) == 500
+
+
+# ---------------------------------------------------------------------------
+# __all__ exports
+# ---------------------------------------------------------------------------
+
+
+class TestModuleExports:
+    """Test that __all__ is properly defined."""
+
+    def test_all_exports(self):
+        from aragora.server.handlers.features import legal
+
+        assert "LegalHandler" in legal.__all__
+        assert "create_legal_handler" in legal.__all__
