@@ -235,6 +235,8 @@ class VerificationStep(BaseStep):
                 results["success"] = test_result.success
                 results["tests_passed"] = test_result.passed
                 results["tests_failed"] = test_result.failed
+                results["num_passed"] = test_result.passed
+                results["num_failed"] = test_result.failed
                 results["stdout"] = test_result.stdout[-2000:] if test_result.stdout else ""
                 results["stderr"] = test_result.stderr[-1000:] if test_result.stderr else ""
                 results["test_result"] = test_result

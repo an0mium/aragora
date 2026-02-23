@@ -115,7 +115,7 @@ class ObservabilityDashboardHandler(SecureEndpointMixin, SecureHandler):  # type
                 "consensus_rate": round(consensus_count / sample, 3) if sample else 0,
                 "available": True,
             }
-        except Exception:
+        except (RuntimeError, ValueError, TypeError, OSError, KeyError, AttributeError):
             logger.debug("Failed to collect debate metrics", exc_info=True)
             return fallback
 
@@ -147,7 +147,7 @@ class ObservabilityDashboardHandler(SecureEndpointMixin, SecureHandler):  # type
                         "win_rate": getattr(entry, "win_rate", 0),
                     })
             return {"top_agents": agents, "available": True}
-        except Exception:
+        except (RuntimeError, ValueError, TypeError, OSError, KeyError, AttributeError):
             logger.debug("Failed to collect agent rankings", exc_info=True)
             return fallback
 

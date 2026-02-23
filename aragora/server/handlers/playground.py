@@ -308,7 +308,7 @@ def _call_provider_llm(
             )
             if resp.content and resp.content[0].text:
                 return resp.content[0].text
-        except Exception:
+        except (ImportError, OSError, RuntimeError, ValueError, TypeError, KeyError, AttributeError):
             logger.warning("Anthropic tentacle call failed (%s)", model, exc_info=True)
         return None
 
@@ -325,7 +325,7 @@ def _call_provider_llm(
             )
             if resp.choices and resp.choices[0].message.content:
                 return resp.choices[0].message.content
-        except Exception:
+        except (ImportError, OSError, RuntimeError, ValueError, TypeError, KeyError, AttributeError):
             logger.warning("OpenAI tentacle call failed (%s)", model, exc_info=True)
         return None
 
@@ -342,7 +342,7 @@ def _call_provider_llm(
             )
             if resp.choices and resp.choices[0].message.content:
                 return resp.choices[0].message.content
-        except Exception:
+        except (ImportError, OSError, RuntimeError, ValueError, TypeError, KeyError, AttributeError):
             logger.warning("xAI tentacle call failed (%s)", model, exc_info=True)
         return None
 
@@ -361,7 +361,7 @@ def _call_provider_llm(
             )
             if resp.choices and resp.choices[0].message.content:
                 return resp.choices[0].message.content
-        except Exception:
+        except (ImportError, OSError, RuntimeError, ValueError, TypeError, KeyError, AttributeError):
             logger.warning("OpenRouter tentacle call failed (%s)", model, exc_info=True)
         return None
 
@@ -376,7 +376,7 @@ def _call_provider_llm(
             resp = gmodel.generate_content(prompt)
             if resp.text:
                 return resp.text
-        except Exception:
+        except (ImportError, OSError, RuntimeError, ValueError, TypeError, KeyError, AttributeError):
             logger.warning("Google tentacle call failed (%s)", model, exc_info=True)
         return None
 
@@ -741,7 +741,7 @@ def _try_oracle_tentacles(
                     logger.info("Tentacle %s responded (%d chars)", name, len(text))
                 else:
                     logger.warning("Tentacle %s returned empty response", name)
-            except Exception:
+            except (OSError, RuntimeError, ValueError, TypeError, KeyError, AttributeError, TimeoutError):
                 logger.warning("Tentacle future failed", exc_info=True)
 
     if not results:

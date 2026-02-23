@@ -606,7 +606,7 @@ async def _stream_tentacles(
                     "agent": name,
                     "text": token,
                 })
-        except Exception:
+        except (OSError, RuntimeError, ValueError, TypeError, KeyError, AttributeError, ConnectionError, TimeoutError):
             logger.warning("Tentacle %s failed", name, exc_info=True)
 
         if full_text and not session.cancelled and not ws.closed:
