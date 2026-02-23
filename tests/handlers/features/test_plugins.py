@@ -702,7 +702,10 @@ class TestRunPlugin:
         """Invalid/missing JSON body returns 400."""
         bad_handler = MagicMock()
         bad_handler.rfile = BytesIO(b"not json")
-        bad_handler.headers = {"Content-Length": "8"}
+        bad_handler.headers = {
+            "Content-Length": "8",
+            "Authorization": f"Bearer {_TEST_TOKEN}",
+        }
         bad_handler.client_address = ("127.0.0.1", 12345)
         del bad_handler.path
         with patch("aragora.server.handlers.features.plugins.PLUGINS_AVAILABLE", True), \
@@ -761,7 +764,12 @@ class TestSubmitPlugin:
     """Tests for submitting a plugin for review."""
 
     def _make_submit_body(self, name: str = "new-plugin", **overrides) -> dict:
-        manifest = {"name": name, "version": "1.0.0", "description": "A plugin", "entry_point": "main.py"}
+        manifest = {
+            "name": name,
+            "version": "1.0.0",
+            "description": "A plugin",
+            "entry_point": "my_plugin.main:run",  # module.path:function format
+        }
         body = {"manifest": manifest, "source_url": "https://github.com/example/repo", "notes": "Please review"}
         body.update(overrides)
         return body
@@ -790,7 +798,10 @@ class TestSubmitPlugin:
     def test_submit_invalid_body(self, handler):
         bad_handler = MagicMock()
         bad_handler.rfile = BytesIO(b"not json")
-        bad_handler.headers = {"Content-Length": "8"}
+        bad_handler.headers = {
+            "Content-Length": "8",
+            "Authorization": f"Bearer {_TEST_TOKEN}",
+        }
         bad_handler.client_address = ("127.0.0.1", 12345)
         del bad_handler.path
         result = handler.handle_post("/api/v1/plugins/submit", {}, bad_handler)
@@ -799,7 +810,8 @@ class TestSubmitPlugin:
     def test_submit_manifest_schema_validation_fails(self, handler):
         body_data = self._make_submit_body()
         body_handler = _make_handler(body=body_data)
-        with patch("aragora.server.handlers.features.plugins.validate_against_schema") as mock_validate:
+        # _submit_plugin does a local import from aragora.server.validation.schema
+        with patch("aragora.server.validation.schema.validate_against_schema") as mock_validate:
             mock_validate.return_value = MagicMock(is_valid=False, error="Bad manifest field")
             result = handler.handle_post("/api/v1/plugins/submit", {}, body_handler)
         assert _status(result) == 400
