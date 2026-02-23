@@ -103,6 +103,10 @@ class OutcomeFeedbackBridge:
     def queue_improvement_suggestions(self) -> int:
         """Generate goals and queue them as ImprovementSuggestions.
 
+        Pushes to both the in-memory queue (consumed by MetaPlanner.prioritize_work)
+        and the SQLite-backed queue (consumed by MetaPlanner._scan_prioritize Signal 11),
+        ensuring suggestions reach MetaPlanner regardless of which planning mode is used.
+
         Returns:
             Number of suggestions queued
         """
@@ -110,6 +114,9 @@ class OutcomeFeedbackBridge:
         if not goals:
             return 0
 
+        queued = 0
+
+        # Push to in-memory queue (consumed by MetaPlanner.prioritize_work)
         try:
             from aragora.nomic.improvement_queue import (
                 ImprovementSuggestion,
@@ -117,7 +124,6 @@ class OutcomeFeedbackBridge:
             )
 
             queue = get_improvement_queue()
-            queued = 0
 
             for goal in goals:
                 suggestion = ImprovementSuggestion(
@@ -129,12 +135,32 @@ class OutcomeFeedbackBridge:
                 )
                 queue.enqueue(suggestion)
                 queued += 1
-
-            logger.info("Queued %d outcome-driven improvement suggestions", queued)
-            return queued
         except (ImportError, OSError) as e:
-            logger.debug("ImprovementQueue not available: %s", e)
-            return 0
+            logger.debug("In-memory ImprovementQueue not available: %s", e)
+
+        # Also push to SQLite queue (consumed by MetaPlanner._scan_prioritize)
+        try:
+            from aragora.nomic.feedback_orchestrator import (
+                ImprovementGoal,
+                ImprovementQueue as SQLiteQueue,
+            )
+
+            sqlite_queue = SQLiteQueue()
+            for goal in goals:
+                sqlite_queue.push(
+                    ImprovementGoal(
+                        goal=goal.description,
+                        source=f"outcome-feedback-{goal.domain}",
+                        priority=goal.severity,
+                        context={"agent": goal.agent, "domain": goal.domain},
+                    )
+                )
+        except (ImportError, OSError) as e:
+            logger.debug("SQLite ImprovementQueue not available: %s", e)
+
+        if queued:
+            logger.info("Queued %d outcome-driven improvement suggestions", queued)
+        return queued
 
     def run_feedback_cycle(self) -> dict[str, Any]:
         """Run a full feedback cycle: analyze → generate → queue.

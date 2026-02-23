@@ -153,9 +153,9 @@ class PerformanceFeedbackConfig:
     # Performance -> Selection Feedback Loop
     enable_performance_feedback: bool = True  # Adjust selection weights from performance
     selection_feedback_loop: Any | None = None  # Pre-configured SelectionFeedbackLoop
-    feedback_loop_weight: float = 0.15  # Weight for feedback adjustments (0.0-1.0)
+    feedback_loop_weight: float = 0.25  # Weight for feedback adjustments (0.0-1.0)
     feedback_loop_decay: float = 0.9  # Decay factor for old feedback
-    feedback_loop_min_debates: int = 3  # Min debates before applying feedback
+    feedback_loop_min_debates: int = 2  # Min debates before applying feedback
 
     # Performance -> ELO Integration (cross-pollination)
     enable_performance_elo: bool = True  # Use performance metrics to modulate ELO K-factors

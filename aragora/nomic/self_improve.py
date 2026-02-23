@@ -1836,6 +1836,62 @@ class SelfImprovePipeline:
             except (ImportError, RuntimeError, ValueError, TypeError, OSError) as exc:
                 logger.debug("KM bridge persistence skipped: %s", exc)
 
+            # Also persist via NomicCycleAdapter for cross-cycle learning.
+            # HardenedOrchestrator uses this adapter via find_similar_cycles()
+            # and MetaPlanner._enrich_context_with_history().
+            try:
+                from datetime import datetime, timezone
+
+                from aragora.knowledge.mound.adapters.nomic_cycle_adapter import (
+                    CycleStatus as _CycleStatus,
+                    NomicCycleOutcome,
+                    get_nomic_cycle_adapter,
+                )
+
+                adapter = get_nomic_cycle_adapter()
+
+                if result.subtasks_completed > 0 and result.subtasks_failed == 0:
+                    _status = _CycleStatus.SUCCESS
+                elif result.subtasks_completed > 0:
+                    _status = _CycleStatus.PARTIAL
+                else:
+                    _status = _CycleStatus.FAILED
+
+                now = datetime.now(timezone.utc)
+                cycle_outcome = NomicCycleOutcome(
+                    cycle_id=cycle_id,
+                    objective=result.objective[:500],
+                    status=_status,
+                    started_at=now,
+                    completed_at=now,
+                    goals_attempted=result.subtasks_total,
+                    goals_succeeded=result.subtasks_completed,
+                    goals_failed=result.subtasks_failed,
+                    total_files_changed=len(result.files_changed),
+                    total_tests_passed=result.tests_passed,
+                    total_tests_failed=result.tests_failed,
+                    metrics_delta=result.metrics_delta,
+                    improvement_score=result.improvement_score,
+                )
+                # ingest_cycle_outcome may be sync or async; handle both
+                _ingest = adapter.ingest_cycle_outcome(cycle_outcome)
+                if hasattr(_ingest, "__await__"):
+                    import asyncio
+
+                    try:
+                        loop = asyncio.get_running_loop()
+                    except RuntimeError:
+                        loop = None
+                    if loop and loop.is_running():
+                        # Already in an async context — schedule as task
+                        loop.create_task(_ingest)
+                    else:
+                        asyncio.run(_ingest)
+                # else: sync call already completed
+                logger.info("nomic_cycle_adapter_persisted cycle=%s", cycle_id)
+            except (ImportError, RuntimeError, ValueError, TypeError, OSError) as exc:
+                logger.debug("NomicCycleAdapter persistence skipped: %s", exc)
+
         except ImportError as exc:
             logger.debug("Failed to persist cycle outcome (import): %s", exc)
         except (RuntimeError, ValueError, OSError) as exc:

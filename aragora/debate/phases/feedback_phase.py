@@ -493,6 +493,9 @@ class FeedbackPhase:
         # 37. Queue outcome-driven improvement suggestions into the Nomic Loop
         self._queue_outcome_feedback(ctx)
 
+        # 38. Synthesize cross-adapter knowledge and store back into KM
+        await self._synthesize_and_store_knowledge(ctx)
+
     def _record_convergence_history(self, ctx: DebateContext) -> None:
         """Record convergence speed metrics for the completed debate.
 
@@ -576,6 +579,68 @@ class FeedbackPhase:
             logger.debug("[outcome_feedback] OutcomeFeedbackBridge not available: %s", e)
         except (TypeError, ValueError, AttributeError, RuntimeError) as e:
             logger.debug("[outcome_feedback] Feedback queueing failed: %s", e)
+
+    async def _synthesize_and_store_knowledge(self, ctx: DebateContext) -> None:
+        """Synthesize cross-adapter knowledge and store the result back into KM.
+
+        After all adapters have written debate outcomes, runs cross-adapter
+        synthesis to produce a consolidated knowledge summary. This summary is
+        stored as a fact node in KnowledgeMound so that future debates benefit
+        from accumulated synthesis (not just raw adapter data).
+        """
+        if not self.knowledge_bridge_hub or not self.knowledge_mound:
+            return
+
+        topic = getattr(ctx.env, "task", None)
+        if not topic:
+            return
+
+        try:
+            import asyncio
+
+            synthesis = await asyncio.wait_for(
+                self.knowledge_bridge_hub.synthesize_for_debate(
+                    topic=topic,
+                    domain=getattr(ctx.env, "domain", "general"),
+                    max_items=8,
+                ),
+                timeout=8.0,
+            )
+
+            if not synthesis or len(synthesis) < 20:
+                return
+
+            # Store synthesis result as a fact node for future debate enrichment
+            debate_id = getattr(ctx, "debate_id", "unknown")
+            try:
+                from aragora.knowledge.mound.adapters.factory import get_adapter
+
+                insight_adapter = get_adapter("insight", self.knowledge_mound)
+                if insight_adapter and hasattr(insight_adapter, "store"):
+                    insight_adapter.store(
+                        {
+                            "content": synthesis[:2000],
+                            "source": f"cross-adapter-synthesis-{debate_id}",
+                            "confidence": getattr(ctx.result, "confidence", 0.5),
+                            "metadata": {
+                                "type": "synthesis",
+                                "debate_id": debate_id,
+                                "topic": topic[:200],
+                            },
+                        }
+                    )
+                    logger.info(
+                        "[km_synthesis] Stored cross-adapter synthesis for debate %s (%d chars)",
+                        debate_id,
+                        len(synthesis),
+                    )
+            except (ImportError, AttributeError, TypeError, ValueError) as e:
+                logger.debug("[km_synthesis] Storage failed: %s", e)
+
+        except asyncio.TimeoutError:
+            logger.debug("[km_synthesis] Synthesis timed out for topic: %s", topic[:100])
+        except (ImportError, AttributeError, TypeError, ValueError, RuntimeError) as e:
+            logger.debug("[km_synthesis] Synthesis failed: %s", e)
 
     def _update_introspection_feedback(self, ctx: DebateContext) -> None:
         """Update agent introspection data based on debate performance.

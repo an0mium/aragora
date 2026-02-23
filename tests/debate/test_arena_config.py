@@ -204,9 +204,9 @@ class TestPerformanceFeedbackConfig:
         c = PerformanceFeedbackConfig()
         assert c.enable_performance_feedback is True
         assert c.selection_feedback_loop is None
-        assert c.feedback_loop_weight == 0.15
+        assert c.feedback_loop_weight == 0.25
         assert c.feedback_loop_decay == 0.9
-        assert c.feedback_loop_min_debates == 3
+        assert c.feedback_loop_min_debates == 2
         assert c.enable_performance_elo is True
         assert c.performance_elo_integrator is None
         assert c.enable_outcome_memory is True

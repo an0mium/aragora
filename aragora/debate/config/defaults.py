@@ -404,10 +404,10 @@ class DebateDefaults:
     outcome_memory_usage_threshold: int = 3
     """Successful uses before promotion to higher tier."""
 
-    feedback_loop_min_debates: int = 3
+    feedback_loop_min_debates: int = 2
     """Minimum debates before applying feedback loop adjustments."""
 
-    feedback_loop_weight: float = 0.15
+    feedback_loop_weight: float = 0.25
     """Weight for feedback loop adjustments."""
 
     feedback_loop_decay: float = 0.9

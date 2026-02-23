@@ -64,10 +64,10 @@ class TestFeedbackLoopConfig:
         config = FeedbackLoopConfig()
 
         assert config.enabled is True
-        assert config.performance_to_selection_weight == 0.15
-        assert config.min_debates_for_feedback == 3
+        assert config.performance_to_selection_weight == 0.25
+        assert config.min_debates_for_feedback == 2
         assert config.feedback_decay_factor == 0.9
-        assert config.max_adjustment == 0.5
+        assert config.max_adjustment == 0.75
 
     def test_custom_config(self):
         """Test custom configuration."""

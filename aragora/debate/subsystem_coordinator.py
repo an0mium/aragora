@@ -167,9 +167,9 @@ class SubsystemCoordinator:
 
     # Performance → Selection Feedback Loop (auto-creates SelectionFeedbackLoop)
     enable_performance_feedback: bool = True  # Auto-create SelectionFeedbackLoop if None
-    feedback_loop_weight: float = 0.15  # Weight for feedback adjustments (0.0-1.0)
+    feedback_loop_weight: float = 0.25  # Weight for feedback adjustments (0.0-1.0)
     feedback_loop_decay: float = 0.9  # Decay factor for old feedback
-    feedback_loop_min_debates: int = 3  # Min debates before applying feedback
+    feedback_loop_min_debates: int = 2  # Min debates before applying feedback
 
     # Novelty → Selection Feedback Bridge
     novelty_selection_bridge: Any | None = None  # NoveltySelectionBridge
@@ -1468,9 +1468,9 @@ class SubsystemConfig:
     enable_calibration_cost: bool = True
 
     # Performance feedback config
-    feedback_loop_weight: float = 0.15
+    feedback_loop_weight: float = 0.25
     feedback_loop_decay: float = 0.9
-    feedback_loop_min_debates: int = 3
+    feedback_loop_min_debates: int = 2
 
     # Pre-configured subsystems (optional)
     position_tracker: Any | None = None

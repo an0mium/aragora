@@ -138,7 +138,7 @@ class TeamSelectionConfig:
     budget_soft_limit_max_agents: int = 3  # Max agents under SOFT_LIMIT
     # Feedback loop integration
     enable_feedback_weights: bool = True  # Enable selection feedback loop scoring
-    feedback_weight: float = 0.3  # Weight for feedback-based score adjustment
+    feedback_weight: float = 0.5  # Weight for feedback-based score adjustment
     # Specialist registry (domain experts from ELO + Genesis breeding)
     enable_specialist_bonus: bool = True  # Enable specialist registry scoring
     specialist_weight: float = 0.25  # Weight for specialist bonus

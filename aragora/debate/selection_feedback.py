@@ -27,11 +27,11 @@ class FeedbackLoopConfig:
     """Configuration for the selection feedback loop."""
 
     enabled: bool = True
-    performance_to_selection_weight: float = 0.15  # How much performance affects selection
-    calibration_to_elo_weight: float = 0.1  # How much calibration affects ELO contribution
-    min_debates_for_feedback: int = 3  # Min debates before applying feedback
+    performance_to_selection_weight: float = 0.25  # How much performance affects selection
+    calibration_to_elo_weight: float = 0.15  # How much calibration affects ELO contribution
+    min_debates_for_feedback: int = 2  # Min debates before applying feedback
     feedback_decay_factor: float = 0.9  # Decay multiplier per day
-    max_adjustment: float = 0.5  # Maximum selection weight adjustment (+/-)
+    max_adjustment: float = 0.75  # Maximum selection weight adjustment (+/-)
     recency_window_days: int = 30  # Only consider debates within this window
 
 

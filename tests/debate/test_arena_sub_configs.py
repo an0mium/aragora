@@ -149,9 +149,9 @@ class TestPerformanceFeedbackConfig:
     def test_defaults(self):
         cfg = PerformanceFeedbackConfig()
         assert cfg.enable_performance_feedback is True
-        assert cfg.feedback_loop_weight == 0.15
+        assert cfg.feedback_loop_weight == 0.25
         assert cfg.feedback_loop_decay == 0.9
-        assert cfg.feedback_loop_min_debates == 3
+        assert cfg.feedback_loop_min_debates == 2
         assert cfg.enable_performance_elo is True
         assert cfg.enable_outcome_memory is True
         assert cfg.outcome_memory_success_threshold == 0.7

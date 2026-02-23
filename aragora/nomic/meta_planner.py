@@ -190,18 +190,18 @@ class MetaPlanner:
         if self.config.enable_cross_cycle_learning:
             self._inject_learning_bus_findings(context)
 
-        # Inject debate-sourced improvement suggestions
+        # Inject debate-sourced improvement suggestions (consume from queue)
         try:
             from aragora.nomic.improvement_queue import get_improvement_queue
 
             queue = get_improvement_queue()
-            suggestions = queue.peek(10)
+            suggestions = queue.dequeue_batch(10)
             if suggestions:
                 context.recent_improvements = [
                     {"task": s.task, "category": s.category, "confidence": s.confidence}
                     for s in suggestions
                 ]
-                logger.info("meta_planner_injected_improvements count=%d", len(suggestions))
+                logger.info("meta_planner_consumed_improvements count=%d", len(suggestions))
         except ImportError:
             pass
 
