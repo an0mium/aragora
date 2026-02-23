@@ -129,6 +129,7 @@ const analyticsItems: NavItem[] = [
   { label: 'Quality', href: '/quality', icon: '\u2605', minMode: 'advanced' },
   { label: 'Costs', href: '/costs', icon: '\u00A2', minMode: 'standard' },
   { label: 'Tournaments', href: '/tournaments', icon: '\u2295', minMode: 'standard' },
+  { label: 'Argument Analysis', href: '/argument-analysis', icon: '\u2726', minMode: 'standard' },
 ];
 
 // ---------------------------------------------------------------------------
@@ -211,6 +212,7 @@ const orchestrationItems: NavItem[] = [
   { label: 'Scheduler', href: '/scheduler', icon: '\u25F7', minMode: 'advanced' },
   { label: 'Queue', href: '/queue', icon: '\u2630', minMode: 'advanced' },
   { label: 'Nomic Control', href: '/nomic-control', icon: '\u221E', minMode: 'advanced' },
+  { label: 'Self-Improve', href: '/self-improve', icon: '\u21BB', minMode: 'advanced' },
   { label: 'Verification', href: '/verification', icon: '\u2713', minMode: 'advanced' },
   { label: 'Verify', href: '/verify', icon: '\u2714', minMode: 'advanced' },
 ];
@@ -227,6 +229,7 @@ const advancedItems: NavItem[] = [
   { label: 'Red Team', href: '/red-team', icon: '!', minMode: 'expert' },
   { label: 'Op Modes', href: '/modes', icon: '#', minMode: 'expert' },
   { label: 'Laboratory', href: '/laboratory', icon: '\u2697', minMode: 'expert' },
+  { label: 'Reasoning', href: '/reasoning', icon: '\u2234', minMode: 'expert' },
   { label: 'Breakpoints', href: '/breakpoints', icon: '\u25CF', minMode: 'expert' },
   { label: 'Checkpoints', href: '/checkpoints', icon: '\u2713', minMode: 'expert' },
   { label: 'Integrations', href: '/integrations', icon: ':', minMode: 'advanced' },

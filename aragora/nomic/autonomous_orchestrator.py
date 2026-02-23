@@ -1500,6 +1500,16 @@ class AutonomousOrchestrator:
                 len(regressed),
                 recommendation,
             )
+
+            # Emit spectate event for regression visibility
+            if hasattr(self, "_emit_event"):
+                self._emit_event(
+                    "regression_detected",
+                    goal=original_goal[:100],
+                    recommendation=recommendation,
+                    regressed_metrics=len(regressed),
+                    goals_queued=len(regressed) or 1,
+                )
         except (RuntimeError, OSError, ValueError) as e:
             logger.debug("auto_replan_failed: %s", e)
 

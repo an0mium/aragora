@@ -46,6 +46,7 @@ class KnowledgeSource(str, Enum):
     CALIBRATION = "calibration"  # Multi-party calibration fusion consensus
     WORKFLOW = "workflow"  # Workflow execution outcomes
     COMPLIANCE = "compliance"  # Compliance check results and violations
+    EXPLAINABILITY = "explainability"  # Decision explanations and reasoning factors
 
 
 class RelationshipType(str, Enum):

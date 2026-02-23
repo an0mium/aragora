@@ -74,6 +74,7 @@ class GauntletRunner:
         run_agent_fn: Callable | None = None,
         enable_sandbox: bool = False,
         sandbox_config: SandboxConfig | None = None,
+        auto_improve: bool = False,
     ):
         """
         Initialize GauntletRunner.
@@ -84,11 +85,15 @@ class GauntletRunner:
             run_agent_fn: Function to run an agent with a prompt
             enable_sandbox: Enable sandboxed code execution for code-based scenarios
             sandbox_config: Optional custom sandbox configuration
+            auto_improve: Enable automatic self-improvement feedback loop.
+                When True, high/critical findings are automatically queued
+                as Nomic Loop improvement goals after each run completes.
         """
         self.config = config or GauntletConfig()
         self.agent_factory = agent_factory
         self.run_agent_fn = run_agent_fn
         self._vulnerability_counter = 0
+        self._auto_improve = auto_improve
 
         # Initialize sandbox for code execution scenarios (Clawdbot pattern)
         self._sandbox: SandboxExecutor | None = None
@@ -213,6 +218,22 @@ class GauntletRunner:
                     logger.info("Enqueued %d critical findings to ImprovementQueue", critical_count)
                 except (ImportError, RuntimeError, ValueError, OSError) as e:
                     logger.debug("ImprovementQueue feedback skipped: %s", type(e).__name__)
+
+        # Auto-improve: close the security-to-improvement feedback loop
+        if self._auto_improve:
+            try:
+                from aragora.gauntlet.auto_improve import GauntletAutoImprove
+
+                auto = GauntletAutoImprove(enabled=True)
+                auto_result = auto.on_run_complete(result)
+                if auto_result.goals_queued > 0:
+                    logger.info(
+                        "[gauntlet] Auto-improve queued %d goals from %s",
+                        auto_result.goals_queued,
+                        gauntlet_id,
+                    )
+            except (ImportError, RuntimeError, ValueError, OSError) as e:
+                logger.debug("Auto-improve skipped: %s", type(e).__name__)
 
         return result
 

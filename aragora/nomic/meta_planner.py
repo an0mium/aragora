@@ -128,6 +128,13 @@ class MetaPlanner:
 
     def __init__(self, config: MetaPlannerConfig | None = None):
         self.config = config or MetaPlannerConfig()
+        self._feedback_loop = None
+        try:
+            from aragora.debate.selection_feedback import SelectionFeedbackLoop
+
+            self._feedback_loop = SelectionFeedbackLoop()
+        except (ImportError, RuntimeError):
+            pass
 
     async def prioritize_work(
         self,
@@ -728,6 +735,15 @@ class MetaPlanner:
                         for exp in snapshot.top_expertise
                     ):
                         score += 0.2  # Domain expertise bonus
+                # SelectionFeedbackLoop domain adjustment
+                if self._feedback_loop:
+                    try:
+                        fb_adj = self._feedback_loop.get_domain_adjustment(
+                            agent_name, domain or ""
+                        )
+                        score += fb_adj * 0.3
+                    except (AttributeError, TypeError):
+                        pass
                 scored_agents.append((agent_name, score))
 
             if not scored_agents:

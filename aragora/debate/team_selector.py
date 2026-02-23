@@ -152,6 +152,12 @@ class TeamSelectionConfig:
     # Pulse (trending topic) relevance scoring
     enable_pulse_selection: bool = True  # Boost agents with expertise matching trending topics
     pulse_weight: float = 0.1  # Weight for pulse relevance contribution
+    # Regression penalty (penalize agents involved in Nomic Loop regressions)
+    enable_regression_penalty: bool = True
+    regression_penalty_weight: float = 0.15
+    # Introspection scoring (reputation + calibration from introspection snapshots)
+    enable_introspection_scoring: bool = True
+    introspection_weight: float = 0.2
 
 
 class TeamSelector:
@@ -236,6 +242,8 @@ class TeamSelector:
         self._cv_cache: dict[str, tuple[float, AgentCV]] = {}
         # Hierarchy role assignments cache: debate_id -> {agent_name -> RoleAssignment}
         self._hierarchy_assignments: dict[str, dict[str, Any]] = {}
+        # Last selection reasoning: agent_name -> {component: score_contribution}
+        self._last_selection_reasoning: dict[str, dict[str, float]] = {}
 
     def select(
         self,
@@ -324,11 +332,13 @@ class TeamSelector:
 
         # 4. Score remaining agents (using ELO, calibration, delegation, domain, and CV)
         scored: list[tuple[Agent, float]] = []
+        selection_breakdowns: dict[str, dict[str, float]] = {}
         for agent in domain_filtered:
             if agent.name not in available_names:
                 logger.info("agent_filtered_by_circuit_breaker agent=%s", agent.name)
                 continue
 
+            agent_breakdown: dict[str, float] = {}
             score = self._compute_score(
                 agent,
                 domain=domain,
@@ -336,8 +346,11 @@ class TeamSelector:
                 context=context,
                 calibration_scores=calibration_scores,
                 agent_cvs=agent_cvs,
+                breakdown=agent_breakdown,
             )
             scored.append((agent, score))
+            agent_breakdown["total"] = round(score, 4)
+            selection_breakdowns[agent.name] = agent_breakdown
 
         if not scored:
             logger.warning("No agents available after performance filtering")
@@ -345,6 +358,9 @@ class TeamSelector:
 
         # Sort by score descending
         scored.sort(key=lambda x: x[1], reverse=True)
+
+        # Store breakdowns for transparency (accessible via last_selection_reasoning)
+        self._last_selection_reasoning = selection_breakdowns
 
         selected = [agent for agent, _ in scored]
         logger.info(
@@ -1117,6 +1133,68 @@ class TeamSelector:
             )
             return 0.0
 
+    def _compute_regression_penalty(self, agent: Any, domain: str | None = None) -> float:
+        """Penalize agents that participated in recent Nomic Loop regressions.
+
+        Queries NomicOutcomeTracker for recent regression history and applies
+        a penalty scaled by regression count and recency.
+
+        Returns:
+            Penalty from 0.0 (no regressions) to -0.5 (many recent regressions).
+        """
+        try:
+            from aragora.nomic.outcome_tracker import NomicOutcomeTracker
+
+            regressions = NomicOutcomeTracker.get_regression_history(limit=5)
+            if not regressions:
+                return 0.0
+
+            agent_name = getattr(agent, "name", str(agent))
+            agent_hits = 0
+            for i, reg in enumerate(regressions):
+                # Check if agent is mentioned in recommendation or regressed metrics
+                rec = reg.get("recommendation", "")
+                if agent_name.lower() in rec.lower():
+                    # More recent regressions (lower index) get higher weight
+                    recency_weight = 1.0 - (i * 0.15)
+                    agent_hits += max(0.1, recency_weight)
+
+            if agent_hits == 0:
+                return 0.0
+
+            # Scale: 1 hit = -0.1, 5 hits = -0.5
+            return max(-0.5, -0.1 * agent_hits)
+
+        except (ImportError, AttributeError, TypeError, ValueError, RuntimeError) as e:
+            logger.debug(
+                "Regression penalty failed for %s: %s", getattr(agent, "name", agent), e
+            )
+            return 0.0
+
+    def _compute_introspection_score(self, agent: Any, domain: str | None = None) -> float:
+        """Score agent using introspection snapshot (reputation + calibration).
+
+        Queries the introspection API for agent reputation and calibration
+        scores, returning the average as a 0-1 score.
+
+        Returns:
+            Score from 0.0 to 1.0 based on reputation and calibration.
+        """
+        try:
+            from aragora.introspection.api import get_agent_introspection
+
+            agent_name = getattr(agent, "name", str(agent))
+            snapshot = get_agent_introspection(agent_name)
+            rep = getattr(snapshot, "reputation_score", 0.0)
+            cal = getattr(snapshot, "calibration_score", 0.0)
+            return (rep + cal) / 2.0
+
+        except (ImportError, AttributeError, TypeError, ValueError, RuntimeError) as e:
+            logger.debug(
+                "Introspection score failed for %s: %s", getattr(agent, "name", agent), e
+            )
+            return 0.0
+
     async def _warm_culture_cache(self, cache_key: str, task_type: str) -> None:
         """Warm culture recommendation cache from async context.
 
@@ -1549,6 +1627,7 @@ class TeamSelector:
         context: DebateContext | None = None,
         calibration_scores: dict[str, float] | None = None,
         agent_cvs: dict[str, AgentCV] | None = None,
+        breakdown: dict[str, float] | None = None,
     ) -> float:
         """Compute composite score for an agent.
 
@@ -1559,10 +1638,14 @@ class TeamSelector:
             context: Optional debate context for state-aware scoring
             calibration_scores: Pre-fetched calibration scores (for batch performance)
             agent_cvs: Pre-fetched Agent CVs (for batch performance)
+            breakdown: Optional dict to populate with per-component score contributions
         """
         score = self.config.base_score
+        if breakdown is not None:
+            breakdown["base"] = score
 
         # ELO contribution
+        _prev = score
         if self.elo_system:
             try:
                 rating = self.elo_system.get_rating(agent.name)
@@ -1572,9 +1655,12 @@ class TeamSelector:
                 score += (elo - self.config.elo_baseline) / 1000 * self.config.elo_weight
             except (KeyError, AttributeError, TypeError) as e:
                 logger.debug("ELO rating not found for %s: %s", agent.name, e)
+        if breakdown is not None:
+            breakdown["elo"] = round(score - _prev, 4)
 
         # Calibration contribution (well-calibrated agents get a bonus)
         # Uses pre-fetched scores when available for batch performance
+        _prev = score
         if calibration_scores and agent.name in calibration_scores:
             brier = calibration_scores[agent.name]
             # Lower Brier = better calibration = higher score
@@ -1586,8 +1672,11 @@ class TeamSelector:
                 score += (1 - brier) * self.config.calibration_weight
             except (KeyError, AttributeError, TypeError) as e:
                 logger.debug("Calibration score not found for %s: %s", agent.name, e)
+        if breakdown is not None:
+            breakdown["calibration"] = round(score - _prev, 4)
 
         # Delegation strategy contribution
+        _prev = score
         if self.delegation_strategy and task:
             try:
                 delegation_score = self.delegation_strategy.score_agent(agent, task, context)
@@ -1596,51 +1685,78 @@ class TeamSelector:
                 score += normalized * self.config.delegation_weight
             except (AttributeError, TypeError) as e:
                 logger.debug("Delegation score failed for %s: %s", agent.name, e)
+        if breakdown is not None:
+            breakdown["delegation"] = round(score - _prev, 4)
 
         # Domain capability contribution (agents matching domain get bonus)
+        _prev = score
         if domain and self.config.enable_domain_filtering:
             domain_score = self._compute_domain_score(agent, domain)
             score += domain_score * self.config.domain_capability_weight
+        if breakdown is not None:
+            breakdown["domain"] = round(score - _prev, 4)
 
         # Culture-based contribution (agents recommended by org culture patterns)
+        _prev = score
         if self.knowledge_mound and self.config.enable_culture_selection and domain:
             culture_score = self._compute_culture_score(agent, domain)
             score += culture_score * self.config.culture_weight
+        if breakdown is not None:
+            breakdown["culture"] = round(score - _prev, 4)
 
         # KM expertise contribution (historical performance from Knowledge Mound)
+        _prev = score
         if self.ranking_adapter and self.config.enable_km_expertise and domain:
             km_expertise_score = self._compute_km_expertise_score(agent, domain)
             score += km_expertise_score * self.config.km_expertise_weight
+        if breakdown is not None:
+            breakdown["km_expertise"] = round(score - _prev, 4)
 
         # PerformanceAdapter contribution (combined ELO + expertise from KM)
+        _prev = score
         if self.performance_adapter and self.config.enable_km_expertise and domain:
             perf_score = self._compute_performance_adapter_score(agent, domain)
             score += perf_score * self.config.km_expertise_weight
+        if breakdown is not None:
+            breakdown["performance_adapter"] = round(score - _prev, 4)
 
         # ELO domain win rate contribution (win/loss record in specific domains)
+        _prev = score
         if self.elo_system and self.config.enable_elo_win_rate and domain:
             win_rate_score = self._compute_elo_win_rate_score(agent, domain)
             score += win_rate_score * self.config.elo_win_rate_weight
+        if breakdown is not None:
+            breakdown["elo_win_rate"] = round(score - _prev, 4)
 
         # Pattern-based contribution (historical success on task patterns)
+        _prev = score
         if self.pattern_matcher and self.config.enable_pattern_selection and task:
             pattern_score = self._compute_pattern_score(agent, task)
             score += pattern_score * self.config.pattern_weight
+        if breakdown is not None:
+            breakdown["pattern"] = round(score - _prev, 4)
 
         # CV-based contribution (unified capability profile scoring)
+        _prev = score
         if self.config.enable_cv_selection and agent_cvs and agent.name in agent_cvs:
             cv_score = self._compute_cv_score(agent_cvs[agent.name], domain)
             score += cv_score * self.config.cv_weight
+        if breakdown is not None:
+            breakdown["cv"] = round(score - _prev, 4)
 
         # Feedback loop contribution (domain-specific win/loss adjustment)
+        _prev = score
         if self.feedback_loop and self.config.enable_feedback_weights and domain:
             try:
                 adjustment = self.feedback_loop.get_domain_adjustment(agent.name, domain)
                 score += adjustment * self.config.feedback_weight
             except (AttributeError, TypeError) as e:
                 logger.debug("Feedback adjustment failed for %s: %s", agent.name, e)
+        if breakdown is not None:
+            breakdown["feedback"] = round(score - _prev, 4)
 
         # Specialist registry bonus (domain experts from ELO + Genesis breeding)
+        _prev = score
         if self.specialist_registry and self.config.enable_specialist_bonus and domain:
             try:
                 specialist_bonus = self.specialist_registry.score_bonus(
@@ -1651,31 +1767,62 @@ class TeamSelector:
                 score += specialist_bonus
             except (AttributeError, TypeError) as e:
                 logger.debug("Specialist bonus failed for %s: %s", agent.name, e)
+        if breakdown is not None:
+            breakdown["specialist"] = round(score - _prev, 4)
 
         # UCB1 exploration bonus (agents with fewer debates get a temporary
         # score boost so the system explores new/underused agents rather than
         # always exploiting known winners.  Decays as data accumulates.)
+        _prev = score
         if self.elo_system and self.config.enable_exploration_bonus:
             exploration_bonus = self._compute_exploration_bonus(agent, domain)
             score += exploration_bonus * self.config.exploration_weight
+        if breakdown is not None:
+            breakdown["exploration"] = round(score - _prev, 4)
 
         # ContinuumMemory contribution (historical agent performance on similar tasks)
+        _prev = score
         if self.continuum_memory and self.config.enable_memory_selection and domain:
             memory_score = self._compute_memory_score(agent, domain, task)
             score += memory_score * self.config.memory_weight
+        if breakdown is not None:
+            breakdown["memory"] = round(score - _prev, 4)
 
         # Pulse (trending topic) relevance (agents with expertise in trending areas get a boost)
+        _prev = score
         if self.pulse_manager and self.config.enable_pulse_selection and task:
             pulse_score = self._compute_pulse_relevance(agent, task, domain)
             score += pulse_score * self.config.pulse_weight
+        if breakdown is not None:
+            breakdown["pulse"] = round(score - _prev, 4)
+
+        # Regression penalty (penalize agents involved in recent Nomic Loop regressions)
+        _prev = score
+        if self.config.enable_regression_penalty:
+            regression_penalty = self._compute_regression_penalty(agent, domain)
+            score += regression_penalty * self.config.regression_penalty_weight
+        if breakdown is not None:
+            breakdown["regression_penalty"] = round(score - _prev, 4)
+
+        # Introspection scoring (reputation + calibration from introspection snapshots)
+        _prev = score
+        if self.config.enable_introspection_scoring:
+            introspection_score = self._compute_introspection_score(agent, domain)
+            score += introspection_score * self.config.introspection_weight
+        if breakdown is not None:
+            breakdown["introspection"] = round(score - _prev, 4)
 
         # Soft domain filter penalty (non-preferred agents get penalized)
+        _prev = score
         if agent.name in self._domain_non_preferred:
             score -= self.config.domain_soft_penalty
+        if breakdown is not None:
+            breakdown["domain_penalty"] = round(score - _prev, 4)
 
         # Meta-tuning diversity weight adjustment
         # When MetaLearner provides diversity tuning, adjust the domain capability
         # score contribution based on diversity_weight to encourage model heterogeneity.
+        _prev = score
         meta_tuning = None
         if context is not None:
             arena = getattr(context, "arena", None)
@@ -1687,6 +1834,8 @@ class TeamSelector:
             # deviates from the 0.5 default, scaled by domain capability weight
             diversity_adjustment = (diversity_weight - 0.5) * self.config.domain_capability_weight
             score += diversity_adjustment
+        if breakdown is not None:
+            breakdown["diversity"] = round(score - _prev, 4)
 
         return score
 

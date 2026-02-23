@@ -41,6 +41,24 @@ interface StartResponse {
   plan?: Record<string, unknown>;
 }
 
+interface FeedbackMetrics {
+  debates_processed: number;
+  agents_tracked: number;
+  avg_adjustment: number;
+}
+
+interface RegressionEntry {
+  cycle_id: string;
+  regressed_metrics: string[];
+  recommendation: string;
+}
+
+interface FeedbackState {
+  regression_history: RegressionEntry[];
+  selection_adjustments: Record<string, number>;
+  feedback_metrics: FeedbackMetrics;
+}
+
 // --- Phase progress ---
 
 const PHASES = ['planning', 'decomposing', 'executing', 'verifying', 'merging'] as const;
@@ -103,7 +121,23 @@ export default function SelfImprovePage() {
   const [runsTotal, setRunsTotal] = useState(0);
   const [historyLoading, setHistoryLoading] = useState(true);
 
+  // Feedback loop state
+  const [feedback, setFeedback] = useState<FeedbackState | null>(null);
+
   const pollingRef = useRef<ReturnType<typeof setInterval> | null>(null);
+
+  // --- Fetch feedback ---
+  const fetchFeedback = useCallback(async () => {
+    try {
+      const res = await fetch(`${API_BASE_URL}/api/self-improve/feedback`);
+      if (res.ok) {
+        const json = await res.json();
+        setFeedback(json.data ?? json);
+      }
+    } catch {
+      /* ignore transient network errors */
+    }
+  }, []);
 
   // --- Fetch history ---
   const fetchHistory = useCallback(async () => {
@@ -145,7 +179,8 @@ export default function SelfImprovePage() {
   useEffect(() => {
     fetchHistory();
     fetchStatus();
-  }, [fetchHistory, fetchStatus]);
+    fetchFeedback();
+  }, [fetchHistory, fetchStatus, fetchFeedback]);
 
   // Poll when not idle
   useEffect(() => {
@@ -154,6 +189,7 @@ export default function SelfImprovePage() {
         pollingRef.current = setInterval(() => {
           fetchStatus();
           fetchHistory();
+          fetchFeedback();
         }, 3000);
       }
     } else if (pollingRef.current) {
@@ -408,6 +444,56 @@ export default function SelfImprovePage() {
             )}
           </div>
 
+          {/* Feedback Loop Metrics */}
+          {feedback && (
+          <div className="bg-[var(--surface)] border border-[var(--border)] p-4 mb-6">
+            <h2 className="text-sm font-mono text-[var(--acid-green)] mb-3">FEEDBACK LOOP METRICS</h2>
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-4">
+              <div>
+                <span className="block text-[10px] font-mono text-[var(--text-muted)]">DEBATES PROCESSED</span>
+                <span className="text-lg font-mono text-[var(--text)]">{feedback.feedback_metrics.debates_processed}</span>
+              </div>
+              <div>
+                <span className="block text-[10px] font-mono text-[var(--text-muted)]">AGENTS TRACKED</span>
+                <span className="text-lg font-mono text-[var(--text)]">{feedback.feedback_metrics.agents_tracked}</span>
+              </div>
+              <div>
+                <span className="block text-[10px] font-mono text-[var(--text-muted)]">AVG ADJUSTMENT</span>
+                <span className={`text-lg font-mono ${feedback.feedback_metrics.avg_adjustment >= 0 ? 'text-emerald-400' : 'text-red-400'}`}>
+                  {feedback.feedback_metrics.avg_adjustment >= 0 ? '+' : ''}{feedback.feedback_metrics.avg_adjustment.toFixed(4)}
+                </span>
+              </div>
+              <div>
+                <span className="block text-[10px] font-mono text-[var(--text-muted)]">RECENT REGRESSIONS</span>
+                <span className={`text-lg font-mono ${feedback.regression_history.length > 0 ? 'text-red-400' : 'text-emerald-400'}`}>
+                  {feedback.regression_history.length}
+                </span>
+              </div>
+            </div>
+
+            {/* Agent Selection Weights */}
+            {Object.keys(feedback.selection_adjustments).length > 0 && (
+              <div className="mb-3">
+                <span className="block text-[10px] font-mono text-[var(--text-muted)] mb-1">AGENT SELECTION WEIGHTS</span>
+                <div className="flex flex-wrap gap-2">
+                  {Object.entries(feedback.selection_adjustments).map(([agent, adj]) => (
+                    <span
+                      key={agent}
+                      className={`inline-block px-2 py-0.5 text-[10px] font-mono border rounded ${
+                        adj >= 0
+                          ? 'text-emerald-400 border-emerald-400/40 bg-emerald-400/10'
+                          : 'text-red-400 border-red-400/40 bg-red-400/10'
+                      }`}
+                    >
+                      {agent}: {adj >= 0 ? '+' : ''}{adj.toFixed(3)}
+                    </span>
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
+          )}
+
           {/* History Table */}
           <div className="bg-[var(--surface)] border border-[var(--border)] p-4">
             <div className="flex items-center justify-between mb-3">
@@ -447,7 +533,14 @@ export default function SelfImprovePage() {
                         <td className="py-2 pr-4 text-[var(--text)] max-w-xs truncate">
                           {run.goal}
                         </td>
-                        <td className="py-2 pr-4">{statusBadge(run.status)}</td>
+                        <td className="py-2 pr-4">
+                          {statusBadge(run.status)}
+                          {feedback?.regression_history.some((r) => r.cycle_id === run.run_id) && (
+                            <span className="ml-1 inline-block px-1 py-0.5 text-[9px] font-mono text-red-400 border border-red-400/40 bg-red-400/10 rounded">
+                              REGRESSED
+                            </span>
+                          )}
+                        </td>
                         <td className="py-2 pr-4 text-[var(--text-muted)]">
                           {new Date(run.started_at).toLocaleString()}
                         </td>

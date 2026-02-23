@@ -506,6 +506,10 @@ def init_phases(arena: Arena) -> None:
         genesis_ledger=getattr(arena, "genesis_ledger", None),
         cost_tracker=getattr(arena.extensions, "cost_tracker", None),
         meta_learner=getattr(arena, "meta_learner", None),
+        # Auto-receipt generation for audit-ready decision receipts
+        enable_auto_receipt=getattr(arena, "enable_auto_receipt", True),
+        auto_post_receipt=getattr(arena, "auto_post_receipt", False),
+        receipt_base_url=getattr(arena, "receipt_base_url", "/api/v2/receipts"),
     )
 
 

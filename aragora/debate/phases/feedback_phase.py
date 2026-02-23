@@ -151,7 +151,7 @@ class FeedbackPhase:
         extraction_min_confidence: float = 0.3,  # Min debate confidence to trigger extraction
         extraction_promote_threshold: float = 0.6,  # Min claim confidence to promote to mound
         # Auto-receipt generation for SME starter pack
-        enable_auto_receipt: bool = False,  # Generate DecisionReceipt after debate
+        enable_auto_receipt: bool = True,  # Generate DecisionReceipt after debate
         auto_post_receipt: bool = False,  # Post receipt summary to originating channel
         cost_tracker: Any | None = None,  # CostTracker for populating cost data in receipt
         receipt_base_url: str = "/api/v2/receipts",  # Base URL for receipt links

@@ -42,6 +42,49 @@ class SpectatorEvents:
     PIPELINE_COMPLETED = "pipeline.completed"
     PIPELINE_FAILED = "pipeline.failed"
 
+    # Self-improvement lifecycle
+    ORCHESTRATION_STARTED = "orchestration_started"
+    ORCHESTRATION_COMPLETED = "orchestration_completed"
+    COORDINATED_STARTED = "coordinated_started"
+    PLANNING_COMPLETED = "planning_completed"
+    GOAL_DECOMPOSED = "goal_decomposed"
+
+    # Assignment lifecycle
+    ASSIGNMENT_STARTED = "assignment_started"
+    ASSIGNMENT_COMPLETED = "assignment_completed"
+    ASSIGNMENT_FAILED = "assignment_failed"
+
+    # Worktree and merge
+    WORKTREE_CREATED = "worktree_created"
+    MERGE_STARTED = "merge_started"
+    MERGE_COMPLETED = "merge_completed"
+    AUTO_COMMITTED = "auto_committed"
+
+    # Validation gates
+    GAUNTLET_STARTED = "gauntlet_started"
+    GAUNTLET_RESULT = "gauntlet_result"
+    GAUNTLET_RETRY = "gauntlet_retry"
+    OUTPUT_VALIDATED = "output_validated"
+    REVIEW_GATE_RESULT = "review_gate_result"
+    SANDBOX_VALIDATED = "sandbox_validated"
+    MERGE_GATE_RESULT = "merge_gate_result"
+
+    # Budget and metrics
+    BUDGET_UPDATE = "budget_update"
+    METRICS_DELTA = "metrics_delta"
+
+    # Agent coordination
+    WORK_STOLEN = "work_stolen"
+    CROSS_REVIEW_COMPLETED = "cross_review_completed"
+    DEBUG_LOOP_FIXED = "debug_loop_fixed"
+    COMPUTER_USE_STARTED = "computer_use_started"
+    COMPUTER_USE_COMPLETED = "computer_use_completed"
+
+    # Knowledge and feedback
+    FEEDBACK_RECORDED = "feedback_recorded"
+    KM_CONTRADICTIONS_DETECTED = "km_contradictions_detected"
+    REGRESSION_DETECTED = "regression_detected"
+
     # System
     SYSTEM = "system"
     ERROR = "error"
@@ -71,6 +114,43 @@ EVENT_STYLES: dict[str, tuple[str, str]] = {
     SpectatorEvents.PIPELINE_STAGE_COMPLETED: ("✅", "\033[92m"),  # Green - stage done
     SpectatorEvents.PIPELINE_COMPLETED: ("🏁", "\033[92m"),  # Green - pipeline done
     SpectatorEvents.PIPELINE_FAILED: ("❌", "\033[91m"),  # Red - pipeline failure
+    # Self-improvement lifecycle
+    SpectatorEvents.ORCHESTRATION_STARTED: ("🚀", "\033[95m"),  # Magenta
+    SpectatorEvents.ORCHESTRATION_COMPLETED: ("🏁", "\033[95m"),
+    SpectatorEvents.COORDINATED_STARTED: ("🔀", "\033[95m"),
+    SpectatorEvents.PLANNING_COMPLETED: ("📋", "\033[96m"),  # Cyan
+    SpectatorEvents.GOAL_DECOMPOSED: ("🧩", "\033[96m"),
+    # Assignment lifecycle
+    SpectatorEvents.ASSIGNMENT_STARTED: ("▶️", "\033[94m"),  # Blue
+    SpectatorEvents.ASSIGNMENT_COMPLETED: ("✅", "\033[92m"),  # Green
+    SpectatorEvents.ASSIGNMENT_FAILED: ("❌", "\033[91m"),  # Red
+    # Worktree and merge
+    SpectatorEvents.WORKTREE_CREATED: ("🌳", "\033[92m"),
+    SpectatorEvents.MERGE_STARTED: ("🔗", "\033[93m"),  # Yellow
+    SpectatorEvents.MERGE_COMPLETED: ("🔗", "\033[92m"),
+    SpectatorEvents.AUTO_COMMITTED: ("💾", "\033[92m"),
+    # Validation gates
+    SpectatorEvents.GAUNTLET_STARTED: ("🛡️", "\033[93m"),
+    SpectatorEvents.GAUNTLET_RESULT: ("🛡️", "\033[92m"),
+    SpectatorEvents.GAUNTLET_RETRY: ("🔄", "\033[93m"),
+    SpectatorEvents.OUTPUT_VALIDATED: ("🔍", "\033[92m"),
+    SpectatorEvents.REVIEW_GATE_RESULT: ("📝", "\033[93m"),
+    SpectatorEvents.SANDBOX_VALIDATED: ("📦", "\033[92m"),
+    SpectatorEvents.MERGE_GATE_RESULT: ("🚧", "\033[93m"),
+    # Budget and metrics
+    SpectatorEvents.BUDGET_UPDATE: ("💰", "\033[93m"),
+    SpectatorEvents.METRICS_DELTA: ("📊", "\033[96m"),
+    # Agent coordination
+    SpectatorEvents.WORK_STOLEN: ("🏃", "\033[94m"),
+    SpectatorEvents.CROSS_REVIEW_COMPLETED: ("👀", "\033[94m"),
+    SpectatorEvents.DEBUG_LOOP_FIXED: ("🔧", "\033[92m"),
+    SpectatorEvents.COMPUTER_USE_STARTED: ("🖥️", "\033[96m"),
+    SpectatorEvents.COMPUTER_USE_COMPLETED: ("🖥️", "\033[92m"),
+    # Knowledge and feedback
+    SpectatorEvents.FEEDBACK_RECORDED: ("📝", "\033[92m"),
+    SpectatorEvents.KM_CONTRADICTIONS_DETECTED: ("⚡", "\033[91m"),
+    SpectatorEvents.REGRESSION_DETECTED: ("📉", "\033[91m"),
+    # System
     SpectatorEvents.SYSTEM: ("⚙️", "\033[0m"),
     SpectatorEvents.ERROR: ("❌", "\033[91m"),
 }
@@ -98,6 +178,43 @@ EVENT_ASCII: dict[str, str] = {
     SpectatorEvents.PIPELINE_STAGE_COMPLETED: "[STAGE_DONE]",
     SpectatorEvents.PIPELINE_COMPLETED: "[PIPE_DONE]",
     SpectatorEvents.PIPELINE_FAILED: "[PIPE_FAIL]",
+    # Self-improvement lifecycle
+    SpectatorEvents.ORCHESTRATION_STARTED: "[ORCH_START]",
+    SpectatorEvents.ORCHESTRATION_COMPLETED: "[ORCH_DONE]",
+    SpectatorEvents.COORDINATED_STARTED: "[COORD_START]",
+    SpectatorEvents.PLANNING_COMPLETED: "[PLAN_DONE]",
+    SpectatorEvents.GOAL_DECOMPOSED: "[DECOMPOSED]",
+    # Assignment lifecycle
+    SpectatorEvents.ASSIGNMENT_STARTED: "[ASSIGN]",
+    SpectatorEvents.ASSIGNMENT_COMPLETED: "[ASSIGN_OK]",
+    SpectatorEvents.ASSIGNMENT_FAILED: "[ASSIGN_FAIL]",
+    # Worktree and merge
+    SpectatorEvents.WORKTREE_CREATED: "[WORKTREE]",
+    SpectatorEvents.MERGE_STARTED: "[MERGE]",
+    SpectatorEvents.MERGE_COMPLETED: "[MERGED]",
+    SpectatorEvents.AUTO_COMMITTED: "[COMMIT]",
+    # Validation gates
+    SpectatorEvents.GAUNTLET_STARTED: "[GAUNTLET]",
+    SpectatorEvents.GAUNTLET_RESULT: "[GAUNTLET_OK]",
+    SpectatorEvents.GAUNTLET_RETRY: "[GAUNTLET_RETRY]",
+    SpectatorEvents.OUTPUT_VALIDATED: "[OUTPUT_OK]",
+    SpectatorEvents.REVIEW_GATE_RESULT: "[REVIEW]",
+    SpectatorEvents.SANDBOX_VALIDATED: "[SANDBOX]",
+    SpectatorEvents.MERGE_GATE_RESULT: "[GATE]",
+    # Budget and metrics
+    SpectatorEvents.BUDGET_UPDATE: "[BUDGET]",
+    SpectatorEvents.METRICS_DELTA: "[METRICS]",
+    # Agent coordination
+    SpectatorEvents.WORK_STOLEN: "[STEAL]",
+    SpectatorEvents.CROSS_REVIEW_COMPLETED: "[XREVIEW]",
+    SpectatorEvents.DEBUG_LOOP_FIXED: "[DEBUGFIX]",
+    SpectatorEvents.COMPUTER_USE_STARTED: "[CU_START]",
+    SpectatorEvents.COMPUTER_USE_COMPLETED: "[CU_DONE]",
+    # Knowledge and feedback
+    SpectatorEvents.FEEDBACK_RECORDED: "[FEEDBACK]",
+    SpectatorEvents.KM_CONTRADICTIONS_DETECTED: "[CONFLICT]",
+    SpectatorEvents.REGRESSION_DETECTED: "[REGRESS]",
+    # System
     SpectatorEvents.SYSTEM: "[SYS]",
     SpectatorEvents.ERROR: "[ERR]",
 }

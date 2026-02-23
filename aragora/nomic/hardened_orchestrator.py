@@ -305,7 +305,8 @@ class HardenedOrchestrator(BudgetMixin, GauntletMixin, AuditMixin, AutonomousOrc
                 from aragora.spectate.stream import SpectatorStream
 
                 details = " ".join(f"{k}={v}" for k, v in data.items())
-                SpectatorStream.emit(event_type=event_type, details=details)
+                stream = SpectatorStream(enabled=True)
+                stream.emit(event_type=event_type, details=details)
             except (ImportError, TypeError):
                 pass
             logger.info(
@@ -385,6 +386,17 @@ class HardenedOrchestrator(BudgetMixin, GauntletMixin, AuditMixin, AutonomousOrc
         prioritized_goals = await self._run_meta_planner_for_coordination(goal, tracks, quick_plan)
 
         self._emit_event("planning_completed", goal_count=len(prioritized_goals))
+
+        if prioritized_goals:
+            tracks_summary = {}
+            for pg in prioritized_goals:
+                track_val = pg.track.value if hasattr(pg.track, "value") else str(pg.track)
+                tracks_summary[track_val] = tracks_summary.get(track_val, 0) + 1
+            self._emit_event(
+                "goal_decomposed",
+                total_goals=len(prioritized_goals),
+                tracks=tracks_summary,
+            )
 
         if not prioritized_goals:
             logger.warning("No goals from MetaPlanner, falling back to direct execution")
@@ -808,6 +820,14 @@ class HardenedOrchestrator(BudgetMixin, GauntletMixin, AuditMixin, AutonomousOrc
                 delta.improvement_score,
                 delta.improved,
                 delta.summary,
+            )
+
+            self._emit_event(
+                "metrics_delta",
+                goal=goal[:100],
+                improvement_score=round(delta.improvement_score, 3),
+                improved=delta.improved,
+                summary=delta.summary[:200] if delta.summary else "",
             )
 
         except (ImportError, OSError, RuntimeError) as e:
@@ -1266,6 +1286,11 @@ class HardenedOrchestrator(BudgetMixin, GauntletMixin, AuditMixin, AutonomousOrc
         except ImportError:
             pass
 
+        self._emit_event(
+            "output_validated",
+            subtask=assignment.subtask.id,
+            passed=True,
+        )
         return True
 
     async def _run_review_gate(
@@ -1451,6 +1476,15 @@ class HardenedOrchestrator(BudgetMixin, GauntletMixin, AuditMixin, AutonomousOrc
             except ImportError:
                 pass
 
+        self._emit_event(
+            "review_gate_result",
+            subtask=assignment.subtask.id,
+            score=score,
+            min_score=self.hardened_config.review_gate_min_score,
+            passed=score >= self.hardened_config.review_gate_min_score,
+            issues=len(issues),
+        )
+
         if score < self.hardened_config.review_gate_min_score:
             # Attempt forward-fix diagnosis instead of just blocking
             forward_diagnosis = None
@@ -1607,12 +1641,24 @@ class HardenedOrchestrator(BudgetMixin, GauntletMixin, AuditMixin, AutonomousOrc
                 assignment.subtask.id,
                 failures[:5],
             )
+            self._emit_event(
+                "sandbox_validated",
+                subtask=assignment.subtask.id,
+                passed=False,
+                failures=len(failures),
+            )
             return False
 
         logger.info(
             "sandbox_validation_passed subtask=%s files=%d",
             assignment.subtask.id,
             len(modified_files),
+        )
+        self._emit_event(
+            "sandbox_validated",
+            subtask=assignment.subtask.id,
+            passed=True,
+            files_checked=len(modified_files),
         )
         return True
 
@@ -2549,6 +2595,12 @@ class HardenedOrchestrator(BudgetMixin, GauntletMixin, AuditMixin, AutonomousOrc
                     "merge_gate_passed subtask=%s",
                     assignment.subtask.id,
                 )
+                self._emit_event(
+                    "merge_gate_result",
+                    subtask=assignment.subtask.id,
+                    passed=True,
+                    test_dirs=len(abs_dirs),
+                )
                 return True
 
             # Log failure summary (last 10 lines of output)
@@ -2559,6 +2611,11 @@ class HardenedOrchestrator(BudgetMixin, GauntletMixin, AuditMixin, AutonomousOrc
                 assignment.subtask.id,
                 result.returncode,
                 summary,
+            )
+            self._emit_event(
+                "merge_gate_result",
+                subtask=assignment.subtask.id,
+                passed=False,
             )
             return False
 

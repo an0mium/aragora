@@ -42,7 +42,6 @@ function ArgumentNodeComponent({ data, selected }: NodeProps) {
       className="relative bg-[var(--surface)] border border-[var(--border)] rounded-md min-w-[200px] max-w-[280px] font-mono text-xs"
       style={{
         borderLeftWidth: 4,
-        borderLeftColor: color,
         boxShadow: selected
           ? `0 0 12px ${color}40, 0 0 4px ${color}20`
           : '0 1px 3px rgba(0,0,0,0.3)',

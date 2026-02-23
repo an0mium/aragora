@@ -561,6 +561,90 @@ class AnalysisOperationsMixin:
             )
             return error_response("Error analyzing trickster status", 500)
 
+    @api_endpoint(
+        method="GET",
+        path="/api/v1/debates/{debate_id}/positions",
+        summary="Get position evolution",
+        description="Get per-agent stance evolution across rounds with pivot point detection.",
+        tags=["Debates", "Analysis"],
+        parameters=[
+            {"name": "debate_id", "in": "path", "schema": {"type": "string"}, "required": True},
+        ],
+        responses={
+            "200": {"description": "Position evolution data returned"},
+            "401": {"description": "Unauthorized"},
+            "404": {"description": "Debate not found"},
+            "503": {"description": "Module not available"},
+        },
+    )
+    @require_permission("analysis:read")
+    def _get_positions(self: _DebatesHandlerProtocol, debate_id: str) -> HandlerResult:
+        """Get per-agent stance evolution across rounds with pivot point detection."""
+        from aragora.exceptions import RecordNotFoundError
+
+        try:
+            from aragora.debate.traces import DebateTrace
+            from aragora.reasoning.position_tracker import (
+                PositionStance,
+                PositionTracker,
+            )
+        except ImportError:
+            return error_response("Position tracking module not available", 503)
+
+        nomic_dir = self.get_nomic_dir()
+        if not nomic_dir:
+            return error_response("Nomic directory not configured", 503)
+
+        try:
+            trace_path = nomic_dir / "traces" / f"{debate_id}.json"
+            if not trace_path.exists():
+                return error_response("Debate trace not found", 404)
+
+            trace = DebateTrace.load(trace_path)
+            result = trace.to_debate_result()
+
+            # Build position evolution from debate messages
+            tracker = PositionTracker()
+            evolution = tracker.create_evolution(debate_id, result.task)
+
+            for msg in result.messages:
+                # Infer stance from sentiment/content heuristics
+                content_lower = msg.content.lower() if msg.content else ""
+                if any(w in content_lower for w in ("strongly agree", "fully support", "absolutely")):
+                    stance = PositionStance.STRONGLY_AGREE
+                elif any(w in content_lower for w in ("agree", "support", "endorse")):
+                    stance = PositionStance.AGREE
+                elif any(w in content_lower for w in ("disagree", "oppose", "reject")):
+                    stance = PositionStance.DISAGREE
+                elif any(w in content_lower for w in ("strongly disagree", "completely oppose")):
+                    stance = PositionStance.STRONGLY_DISAGREE
+                elif any(w in content_lower for w in ("lean toward", "somewhat")):
+                    stance = PositionStance.LEAN_AGREE
+                else:
+                    stance = PositionStance.NEUTRAL
+
+                confidence = getattr(msg, "confidence", 0.5) or 0.5
+                evolution.record_position(
+                    agent=msg.agent,
+                    round_number=msg.round,
+                    stance=stance,
+                    confidence=confidence,
+                    key_argument=(msg.content or "")[:200],
+                )
+
+            return json_response(evolution.to_dict())
+        except RecordNotFoundError:
+            logger.info("Position analysis failed - debate not found: %s", debate_id)
+            return error_response(f"Debate not found: {debate_id}", 404)
+        except (ValueError, TypeError, KeyError, AttributeError, OSError, RuntimeError) as e:
+            logger.error(
+                "Failed to get positions for %s: %s",
+                debate_id,
+                e,
+                exc_info=True,
+            )
+            return error_response("Error analyzing position evolution", 500)
+
 
 def _build_graph_from_replay(debate_id: str, replay_path: Path) -> HandlerResult:
     """Build graph stats from replay events file."""

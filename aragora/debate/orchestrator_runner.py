@@ -310,6 +310,15 @@ async def initialize_debate_context(
         arena.agents = arena._select_debate_team(arena.agents)
         ctx.agents = arena.agents
 
+        # Capture agent selection score breakdown for transparency
+        selector = getattr(arena, "agent_selector", None)
+        if selector is not None:
+            reasoning = getattr(selector, "_last_selection_reasoning", None)
+            if reasoning:
+                if not isinstance(ctx.result.metadata, dict):
+                    ctx.result.metadata = {}
+                ctx.result.metadata["selection_reasoning"] = reasoning
+
     # Assign hierarchy roles to agents (Gastown pattern)
     arena._assign_hierarchy_roles(ctx, task_type=domain)
 

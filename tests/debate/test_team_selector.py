@@ -547,6 +547,8 @@ class TestAgentScoring:
             enable_pattern_selection=False,
             enable_cv_selection=False,
             enable_exploration_bonus=False,
+            enable_regression_penalty=False,
+            enable_introspection_scoring=False,
         )
         selector = TeamSelector(elo_system=mock_elo_system, config=config)
 
@@ -567,6 +569,8 @@ class TestAgentScoring:
             enable_pattern_selection=False,
             enable_cv_selection=False,
             enable_exploration_bonus=False,
+            enable_regression_penalty=False,
+            enable_introspection_scoring=False,
         )
         selector = TeamSelector(elo_system=elo_system, config=config)
 
@@ -582,6 +586,8 @@ class TestAgentScoring:
             enable_km_expertise=False,
             enable_pattern_selection=False,
             enable_cv_selection=False,
+            enable_regression_penalty=False,
+            enable_introspection_scoring=False,
         )
         selector = TeamSelector(calibration_tracker=mock_calibration_tracker, config=config)
 
@@ -601,6 +607,8 @@ class TestAgentScoring:
             enable_km_expertise=False,
             enable_pattern_selection=False,
             enable_cv_selection=False,
+            enable_regression_penalty=False,
+            enable_introspection_scoring=False,
         )
         selector = TeamSelector(delegation_strategy=delegation, config=config)
 
@@ -1275,6 +1283,8 @@ class TestDelegationStrategy:
             enable_km_expertise=False,
             enable_pattern_selection=False,
             enable_cv_selection=False,
+            enable_regression_penalty=False,
+            enable_introspection_scoring=False,
         )
         selector = TeamSelector(delegation_strategy=delegation, config=config)
 
@@ -1532,6 +1542,8 @@ class TestEdgeCases:
             enable_pattern_selection=False,
             enable_cv_selection=False,
             enable_exploration_bonus=False,
+            enable_regression_penalty=False,
+            enable_introspection_scoring=False,
         )
         selector = TeamSelector(elo_system=elo_system, config=config)
 

@@ -26,6 +26,7 @@ Endpoints:
 - GET /api/debate/{id}/graph/stats - Get argument graph statistics
 - GET /api/debates/{id}/rhetorical - Get rhetorical pattern observations
 - GET /api/debates/{id}/trickster - Get trickster hollow consensus status
+- GET /api/debates/{id}/positions - Get per-agent position evolution
 - GET /api/debates/{id}/diagnostics - Get diagnostic report for debugging
 - POST /api/debates/{id}/fork - Fork debate at a branch point
 - PATCH /api/debates/{id} - Update debate metadata (title, tags, status)

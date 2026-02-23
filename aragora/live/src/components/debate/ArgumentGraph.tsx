@@ -13,15 +13,10 @@ import {
 } from '@xyflow/react';
 import '@xyflow/react/dist/style.css';
 import { ArgumentNode, type ArgumentType } from './ArgumentNode';
-
-interface DebateEvent {
-  type: string;
-  data: Record<string, unknown>;
-  timestamp?: string;
-}
+import type { StreamEvent } from '@/types/events';
 
 interface ArgumentGraphProps {
-  events: DebateEvent[];
+  events: StreamEvent[];
   className?: string;
 }
 
@@ -76,14 +71,15 @@ export function ArgumentGraph({ events, className }: ArgumentGraphProps) {
     let nodeIndex = 0;
 
     for (const event of events) {
-      const argType = eventToArgumentType(event.type, event.data);
+      const d = event.data as Record<string, unknown>;
+      const argType = eventToArgumentType(event.type, d);
       if (!argType) continue;
 
-      const eventId = (event.data.id as string) || (event.data.message_id as string) || `node-${nodeIndex}`;
+      const eventId = (d.id as string) || (d.message_id as string) || `node-${nodeIndex}`;
       const nodeId = `arg-${nodeIndex}`;
-      const agent = (event.data.agent as string) || (event.data.agent_name as string) || 'unknown';
-      const round = (event.data.round as number) ?? 0;
-      const content = (event.data.content as string) || (event.data.message as string) || (event.data.text as string) || '';
+      const agent = (d.agent as string) || (d.agent_name as string) || event.agent || 'unknown';
+      const round = (d.round as number) ?? event.round ?? 0;
+      const content = (d.content as string) || (d.message as string) || (d.text as string) || '';
 
       // Track agent positions within rounds
       if (!roundAgents.has(round)) {
@@ -110,14 +106,14 @@ export function ArgumentGraph({ events, className }: ArgumentGraphProps) {
           agent,
           round,
           argumentType: argType,
-          timestamp: event.timestamp || '',
+          timestamp: String(event.timestamp || ''),
         },
       });
 
       nodeIdMap.set(eventId, nodeId);
 
       // Build edges
-      const responseTarget = (event.data.in_response_to as string) || (event.data.target_id as string);
+      const responseTarget = (d.in_response_to as string) || (d.target_id as string);
       if (responseTarget && nodeIdMap.has(responseTarget)) {
         const sourceId = nodeIdMap.get(responseTarget)!;
         const sourceNode = nodes.find(n => n.id === sourceId);

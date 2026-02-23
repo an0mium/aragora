@@ -58,6 +58,7 @@ ROUTES = [
     "/api/v1/debates/*/summary",  # GET - human-readable summary
     "/api/v1/debates/*/cancel",  # POST - cancel running debate
     "/api/v1/debates/*/decision-integrity",  # POST - receipt + plan bundle
+    "/api/v1/debates/*/positions",  # GET - position evolution per agent
     "/api/v1/debates/*/diagnostics",  # GET - debug report for failed debates
     "/api/v1/debate-this",  # POST - one-click debate launcher
     "/api/v1/search",  # Cross-debate search
@@ -127,6 +128,7 @@ def build_suffix_routes() -> list[SuffixRouteEntry]:
         ("/summary", "_get_summary", True, None),
         ("/rhetorical", "_get_rhetorical_observations", True, None),
         ("/trickster", "_get_trickster_status", True, None),
+        ("/positions", "_get_positions", True, None),
         ("/diagnostics", "_get_diagnostics", True, None),
     ]
 
@@ -141,6 +143,7 @@ ID_ONLY_METHODS = {
     "_get_followup_suggestions",
     "_get_rhetorical_observations",
     "_get_trickster_status",
+    "_get_positions",
     "_get_diagnostics",
 }
 

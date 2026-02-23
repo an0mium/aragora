@@ -12,7 +12,12 @@ export class FeatureFlagsAPI {
   constructor(private client: FeatureFlagsClientInterface) {}
 
   /** List all feature flags and their current states. */
-  async list(): Promise<Record<string, unknown>> {
-    return this.client.request('GET', '/api/v1/feature-flags');
+  async list(params?: Record<string, unknown>): Promise<Record<string, unknown>> {
+    return this.client.request('GET', '/api/v1/feature-flags', { params });
+  }
+
+  /** Get a specific feature flag by name. */
+  async get(name: string): Promise<Record<string, unknown>> {
+    return this.client.request('GET', `/api/v1/feature-flags/${name}`);
   }
 }

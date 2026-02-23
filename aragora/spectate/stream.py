@@ -41,6 +41,42 @@ VALID_EVENT_TYPES = frozenset(
         SpectatorEvents.PIPELINE_STAGE_COMPLETED,
         SpectatorEvents.PIPELINE_COMPLETED,
         SpectatorEvents.PIPELINE_FAILED,
+        # Self-improvement lifecycle
+        SpectatorEvents.ORCHESTRATION_STARTED,
+        SpectatorEvents.ORCHESTRATION_COMPLETED,
+        SpectatorEvents.COORDINATED_STARTED,
+        SpectatorEvents.PLANNING_COMPLETED,
+        SpectatorEvents.GOAL_DECOMPOSED,
+        # Assignment lifecycle
+        SpectatorEvents.ASSIGNMENT_STARTED,
+        SpectatorEvents.ASSIGNMENT_COMPLETED,
+        SpectatorEvents.ASSIGNMENT_FAILED,
+        # Worktree and merge
+        SpectatorEvents.WORKTREE_CREATED,
+        SpectatorEvents.MERGE_STARTED,
+        SpectatorEvents.MERGE_COMPLETED,
+        SpectatorEvents.AUTO_COMMITTED,
+        # Validation gates
+        SpectatorEvents.GAUNTLET_STARTED,
+        SpectatorEvents.GAUNTLET_RESULT,
+        SpectatorEvents.GAUNTLET_RETRY,
+        SpectatorEvents.OUTPUT_VALIDATED,
+        SpectatorEvents.REVIEW_GATE_RESULT,
+        SpectatorEvents.SANDBOX_VALIDATED,
+        SpectatorEvents.MERGE_GATE_RESULT,
+        # Budget and metrics
+        SpectatorEvents.BUDGET_UPDATE,
+        SpectatorEvents.METRICS_DELTA,
+        # Agent coordination
+        SpectatorEvents.WORK_STOLEN,
+        SpectatorEvents.CROSS_REVIEW_COMPLETED,
+        SpectatorEvents.DEBUG_LOOP_FIXED,
+        SpectatorEvents.COMPUTER_USE_STARTED,
+        SpectatorEvents.COMPUTER_USE_COMPLETED,
+        # Knowledge and feedback
+        SpectatorEvents.FEEDBACK_RECORDED,
+        SpectatorEvents.KM_CONTRADICTIONS_DETECTED,
+        SpectatorEvents.REGRESSION_DETECTED,
         SpectatorEvents.SYSTEM,
         SpectatorEvents.ERROR,
     ]

@@ -57,6 +57,8 @@ export type StreamEventType =
   | 'trickster_intervention'
   // Rhetorical analysis
   | 'rhetorical_observation'
+  // Crux detection (key disagreements)
+  | 'crux_detected'
   // Token streaming events
   | 'token_start'
   | 'token_delta'

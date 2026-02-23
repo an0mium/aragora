@@ -1795,7 +1795,7 @@ class TestRoutes:
         assert handler.RESOURCE_TYPE == "self_improve"
 
     def test_routes_count(self, handler):
-        assert len(handler.ROUTES) == 8
+        assert len(handler.ROUTES) == 9
 
 
 # ===========================================================================

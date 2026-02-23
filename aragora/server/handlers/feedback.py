@@ -16,6 +16,7 @@ Endpoints:
 
 from __future__ import annotations
 
+import asyncio
 import json
 import logging
 import sqlite3
@@ -213,6 +214,30 @@ def get_feedback_store() -> FeedbackStore:
     return _feedback_store_lazy.get()
 
 
+def _trigger_feedback_analysis() -> None:
+    """Fire-and-forget: run the feedback analyzer in a background task.
+
+    Uses lazy imports to avoid pulling in heavy nomic modules at handler
+    load time.  Any failure is logged and swallowed -- user-facing
+    response is never affected.
+    """
+    try:
+        loop = asyncio.get_running_loop()
+    except RuntimeError:
+        return  # No event loop -- skip
+
+    async def _run() -> None:
+        try:
+            from aragora.nomic.feedback_analyzer import FeedbackAnalyzer
+
+            analyzer = FeedbackAnalyzer()
+            analyzer.process_new_feedback(limit=10)
+        except Exception:  # noqa: BLE001 -- fire-and-forget
+            logger.debug("feedback_analysis_background_failed", exc_info=True)
+
+    loop.create_task(_run())
+
+
 async def handle_submit_nps(ctx: dict[str, Any]) -> HandlerResult:
     """
     Submit NPS feedback.
@@ -253,6 +278,9 @@ async def handle_submit_nps(ctx: dict[str, Any]) -> HandlerResult:
 
         store = get_feedback_store()
         store.save(entry)
+
+        # Async bridge: queue feedback for self-improvement analysis
+        _trigger_feedback_analysis()
 
         logger.info("NPS feedback submitted: score=%s, user=%s", score, user_id)
 
@@ -316,6 +344,9 @@ async def handle_submit_feedback(ctx: dict[str, Any]) -> HandlerResult:
 
         store = get_feedback_store()
         store.save(entry)
+
+        # Async bridge: queue feedback for self-improvement analysis
+        _trigger_feedback_analysis()
 
         logger.info("Feedback submitted: type=%s, user=%s", feedback_type.value, user_id)
 

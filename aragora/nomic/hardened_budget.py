@@ -151,6 +151,15 @@ class BudgetMixin:
         # Path 2: Simple counter
         self._budget_spent_usd += cost
 
+        # Emit budget tracking event
+        self._emit_event(
+            "budget_update",
+            subtask=assignment.subtask.id,
+            cost=round(cost, 4),
+            total_spent=round(self._budget_spent_usd, 4),
+            limit=self.hardened_config.budget_limit_usd,
+        )
+
     def _skip_assignment(self, assignment: AgentAssignment, reason: str) -> None:
         """Mark an assignment as skipped and move to completed list."""
         assignment.status = "skipped"

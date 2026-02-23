@@ -91,8 +91,10 @@ class RolesManager:
 
     def assign_initial_roles(self) -> None:
         """Assign initial roles to agents based on protocol with safety bounds."""
-        # If agents already have roles, respect them
-        if all(a.role for a in self.agents):
+        # If agents already have roles, respect them.
+        # Use getattr to guard against mock pollution that can strip Agent.__init__
+        # attributes when tests run in randomized order.
+        if all(getattr(a, "role", None) for a in self.agents):
             return
 
         n_agents = len(self.agents)

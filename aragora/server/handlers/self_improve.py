@@ -7,6 +7,7 @@ Endpoints:
 - GET  /api/self-improve/runs        - List all runs
 - GET  /api/self-improve/runs/:id    - Get run status and progress
 - GET  /api/self-improve/history     - Get run history (alias for /runs)
+- GET  /api/self-improve/feedback    - Get feedback loop state and metrics
 - POST /api/self-improve/runs/:id/cancel - Cancel a running run
 - POST /api/self-improve/coordinate  - Start a hierarchical coordination cycle
 - GET  /api/self-improve/worktrees   - List active worktrees
@@ -76,6 +77,7 @@ class SelfImproveHandler(SecureEndpointMixin, SecureHandler):  # type: ignore[mi
         "/api/self-improve/coordinate",
         "/api/self-improve/worktrees",
         "/api/self-improve/worktrees/cleanup",
+        "/api/self-improve/feedback",
     ]
 
     def __init__(self, server_context: dict[str, Any]) -> None:
@@ -117,6 +119,9 @@ class SelfImproveHandler(SecureEndpointMixin, SecureHandler):  # type: ignore[mi
     ) -> HandlerResult | None:
         """Route GET requests for self-improvement run data."""
         path = strip_version_prefix(path)
+
+        if path == "/api/self-improve/feedback":
+            return self._get_feedback_state()
 
         if path == "/api/self-improve/status":
             return self._get_status()
@@ -238,6 +243,56 @@ class SelfImproveHandler(SecureEndpointMixin, SecureHandler):  # type: ignore[mi
             return error_response(f"Run {run_id} not found", 404)
 
         return json_response(run.to_dict())
+
+    # ------------------------------------------------------------------
+    # GET /api/self-improve/feedback
+    # ------------------------------------------------------------------
+
+    def _get_feedback_state(self) -> HandlerResult:
+        """Get feedback loop state: regressions, adjustments, metrics."""
+        regression_history: list[dict[str, Any]] = []
+        selection_adjustments: dict[str, Any] = {}
+        feedback_metrics: dict[str, Any] = {
+            "debates_processed": 0,
+            "agents_tracked": 0,
+            "avg_adjustment": 0.0,
+        }
+
+        try:
+            from aragora.nomic.outcome_tracker import NomicOutcomeTracker
+
+            regression_history = NomicOutcomeTracker.get_regression_history(limit=10)
+        except (ImportError, RuntimeError):
+            pass
+
+        try:
+            from aragora.debate.selection_feedback import SelectionFeedbackLoop
+
+            loop = SelectionFeedbackLoop()
+            # Expose internal state if available
+            states = getattr(loop, "_agent_states", {})
+            adjustments = getattr(loop, "_selection_adjustments", {})
+            selection_adjustments = {
+                name: adj for name, adj in adjustments.items()
+            }
+            feedback_metrics["agents_tracked"] = len(states)
+            feedback_metrics["debates_processed"] = sum(
+                getattr(s, "debates_participated", 0) for s in states.values()
+            )
+            if adjustments:
+                feedback_metrics["avg_adjustment"] = round(
+                    sum(adjustments.values()) / len(adjustments), 4
+                )
+        except (ImportError, RuntimeError):
+            pass
+
+        return json_response({
+            "data": {
+                "regression_history": regression_history,
+                "selection_adjustments": selection_adjustments,
+                "feedback_metrics": feedback_metrics,
+            }
+        })
 
     # ------------------------------------------------------------------
     # POST /api/self-improve/run (and /start alias)

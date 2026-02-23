@@ -10,6 +10,38 @@ import sys
 
 import pytest
 
+# ---------------------------------------------------------------------------
+# Agent class pollution guard
+# ---------------------------------------------------------------------------
+# Capture the real Agent.__init__ at import time.  Mock pollution from tests
+# in other directories can corrupt the Agent class (e.g. by destroying the
+# NonCallableMock.side_effect descriptor, which cascades into failures that
+# prevent Agent.__init__ from running properly).  This fixture restores
+# Agent.__init__ before and after every debate test.
+from aragora.core_types import Agent as _RealAgent
+
+_real_agent_init = _RealAgent.__init__
+
+
+@pytest.fixture(autouse=True)
+def _protect_agent_class():
+    """Guard against mock pollution that corrupts Agent.__init__.
+
+    Without this, random test ordering can cause:
+        AttributeError: 'Agent' object has no attribute 'role'
+    in roles_manager.assign_initial_roles() because Agent.__init__
+    never ran (or was replaced by a mock).
+    """
+    # Setup: restore before the test runs
+    if _RealAgent.__init__ is not _real_agent_init:
+        _RealAgent.__init__ = _real_agent_init
+
+    yield
+
+    # Teardown: restore after the test runs
+    if _RealAgent.__init__ is not _real_agent_init:
+        _RealAgent.__init__ = _real_agent_init
+
 
 @pytest.fixture(autouse=True)
 def _isolate_debate_databases(tmp_path, monkeypatch):

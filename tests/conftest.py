@@ -2790,6 +2790,18 @@ for _klass in _GlobalNCMock.__mro__:
         _global_side_effect_descriptor = _klass.__dict__["side_effect"]
         break
 
+# Capture Agent.__init__ to guard against mock pollution that replaces it.
+# When the side_effect descriptor is corrupted, cascading failures can cause
+# Agent subclasses to construct without setting instance attributes (name,
+# model, role), leading to AttributeError in roles_manager.assign_initial_roles.
+try:
+    from aragora.core_types import Agent as _GlobalAgent
+
+    _global_real_agent_init = _GlobalAgent.__init__
+except ImportError:
+    _GlobalAgent = None
+    _global_real_agent_init = None
+
 
 @pytest.fixture(autouse=True)
 def _global_mock_pollution_guard():
@@ -2818,6 +2830,11 @@ def _global_mock_pollution_guard():
                 if current is not None and current is not _global_real_run_async:
                     setattr(mod, attr, _global_real_run_async)
 
+    # Restore Agent.__init__ if it was replaced by mock pollution
+    if _GlobalAgent is not None and _global_real_agent_init is not None:
+        if _GlobalAgent.__init__ is not _global_real_agent_init:
+            _GlobalAgent.__init__ = _global_real_agent_init
+
     yield
 
     # Teardown: same repairs
@@ -2839,3 +2856,7 @@ def _global_mock_pollution_guard():
                 current = getattr(mod, attr, None)
                 if current is not None and current is not _global_real_run_async:
                     setattr(mod, attr, _global_real_run_async)
+
+    if _GlobalAgent is not None and _global_real_agent_init is not None:
+        if _GlobalAgent.__init__ is not _global_real_agent_init:
+            _GlobalAgent.__init__ = _global_real_agent_init
