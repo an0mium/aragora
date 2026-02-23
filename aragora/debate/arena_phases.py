@@ -204,8 +204,8 @@ def init_phases(arena: Arena) -> None:
         calibration_tracker=arena.calibration_tracker,
         supermemory_adapter=getattr(arena, "supermemory_adapter", None),
         vertical=getattr(arena, "_weight_profile", None) or (
-            getattr(arena, "vertical", None).value
-            if getattr(arena, "vertical", None) is not None
+            (v.value if hasattr(v, "value") else v)
+            if (v := getattr(arena, "vertical", None)) is not None
             else None
         ),
     )
