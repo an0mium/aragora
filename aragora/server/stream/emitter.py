@@ -444,9 +444,25 @@ class SyncEventEmitter:
             return False
 
 
+_global_emitter: SyncEventEmitter | None = None
+
+
+def get_global_emitter() -> SyncEventEmitter | None:
+    """Return the module-level emitter singleton, if set."""
+    return _global_emitter
+
+
+def set_global_emitter(emitter: SyncEventEmitter | None) -> None:
+    """Set the module-level emitter singleton."""
+    global _global_emitter
+    _global_emitter = emitter
+
+
 __all__ = [
     "TokenBucket",
     "AudienceInbox",
     "SyncEventEmitter",
     "normalize_intensity",
+    "get_global_emitter",
+    "set_global_emitter",
 ]

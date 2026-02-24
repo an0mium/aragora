@@ -593,6 +593,12 @@ class ArenaControlPlaneBridge:
                 org_id=workspace_id or "",
             )
 
+            # Wire AgentRegistry into TeamSelector for health-aware scoring
+            if self.agent_registry and hasattr(arena, "agent_selector"):
+                selector = arena.agent_selector
+                if selector is not None and hasattr(selector, "control_plane_registry"):
+                    selector.control_plane_registry = self.agent_registry
+
             # Start SLA monitoring
             sla_task = asyncio.create_task(self._monitor_sla(task, adapter))
 

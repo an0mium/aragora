@@ -197,9 +197,10 @@ Remaining maturity debt is concentrated in 48 Beta connectors that lack circuit 
 ### 3) Readiness and release-gating debt
 
 - PR fast lanes exclude slow/load/e2e/integration classes
-- Release workflow does not depend on security/nightly suites
-- npm audit path is non-blocking for dependency checks
-- Typecheck strictness is concentrated in selected modules only
+- ~~Release workflow does not depend on security/nightly suites~~ **RESOLVED**: release.yml now blocks on npm audit HIGH/CRITICAL
+- ~~npm audit path is non-blocking for dependency checks~~ **RESOLVED**: two-pass audit (moderate non-blocking, high/critical blocking)
+- ~~Typecheck strictness is concentrated in selected modules only~~ **PARTIALLY RESOLVED**: `frontend-typecheck` CI job added for PR path filtering
+- Skip baseline zero-tolerance enforced (no more THRESHOLD=2 fallback)
 
 Primary evidence:
 - `.github/workflows/test.yml`
@@ -211,7 +212,7 @@ Primary evidence:
 ### 4) Frontend build and test health
 
 - 170+ pages exist in `aragora/live/` but TypeScript strictness varies
-- No unified frontend test suite in CI
+- ~~No unified frontend test suite in CI~~ **PARTIALLY RESOLVED**: `frontend-typecheck` job runs `tsc --noEmit` on PRs touching `aragora/live/`
 - Component tests exist for some features but coverage is unmeasured
 
 Primary evidence:

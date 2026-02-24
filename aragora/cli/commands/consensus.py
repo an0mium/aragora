@@ -297,10 +297,10 @@ def _try_api_detect(
         api_key = getattr(args, "api_key", None) or os.environ.get("ARAGORA_API_KEY")
 
         client = AragoraClient(base_url=api_url, api_key=api_key)
-        result = client.consensus.detect(
-            task=task,
-            proposals=proposals,
-            threshold=threshold,
+        result = client.request(
+            "POST",
+            "/api/v1/consensus/detect",
+            json={"task": task, "proposals": proposals, "threshold": threshold},
         )
         # Unwrap {data: ...} envelope
         if isinstance(result, dict) and "data" in result:
@@ -433,7 +433,7 @@ def _try_api_status(
         api_key = getattr(args, "api_key", None) or os.environ.get("ARAGORA_API_KEY")
 
         client = AragoraClient(base_url=api_url, api_key=api_key)
-        result = client.consensus.get_detection_status(debate_id)
+        result = client.request("GET", f"/api/v1/consensus/status/{debate_id}")
         if isinstance(result, dict) and "data" in result:
             return result["data"]
         return result

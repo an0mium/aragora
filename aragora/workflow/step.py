@@ -201,6 +201,22 @@ class AgentStep(BaseStep):
         # Build prompt from template and context
         prompt = self._build_prompt(context)
 
+        # Mode enforcement: prepend mode-specific system prompt if configured
+        mode_name = step_config.get("mode") or context.metadata.get("mode")
+        if mode_name:
+            try:
+                from aragora.modes.base import ModeRegistry
+
+                mode = ModeRegistry.get(mode_name)
+                if mode is not None:
+                    mode_prompt = mode.get_system_prompt()
+                    if mode_prompt:
+                        prompt = f"{mode_prompt}\n\n{prompt}"
+                    # Store mode metadata for downstream consumers
+                    step_config["_active_mode"] = mode_name
+            except (ImportError, AttributeError, TypeError, RuntimeError) as e:
+                logger.debug("Mode enforcement skipped for '%s': %s", mode_name, e)
+
         # Heterogeneous agent pool orchestration
         pool = self._normalize_agent_pool(step_config.get("agent_pool")) or self.agent_pool
         if pool:

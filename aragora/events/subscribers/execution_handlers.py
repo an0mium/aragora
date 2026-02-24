@@ -246,9 +246,9 @@ class ExecutionHandlersMixin:
             try:
                 from aragora.events.types import StreamEvent, StreamEventType
 
-                from aragora.server.stream.emitter import SyncEventEmitter
+                from aragora.server.stream.emitter import get_global_emitter
 
-                emitter: SyncEventEmitter | None = None
+                emitter = get_global_emitter()
                 if emitter is not None:
                     emitter.emit(
                         StreamEvent(

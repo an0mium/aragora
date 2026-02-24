@@ -124,6 +124,15 @@ class PipelineConfig:
     enable_fractal: bool = False  # Use FractalOrchestrator for recursive ideation
     enable_meta_tuning: bool = False  # MetaLearner self-tuning
     enable_workspace_context: bool = True  # Check workspace for existing work
+    # Mode map: pipeline stage → operational mode name
+    mode_map: dict[str, str] = field(
+        default_factory=lambda: {
+            "ideation": "architect",
+            "goals": "architect",
+            "workflow": "coder",
+            "orchestration": "orchestrator",
+        }
+    )
 
 
 @dataclass
