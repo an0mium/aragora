@@ -187,11 +187,11 @@ async def get_compliance_framework(request: Request):
         if fw:
             return fw
 
-    # Fall back to global compliance framework
+    # Fall back to global compliance framework manager
     try:
-        from aragora.compliance.framework import ComplianceFramework
+        from aragora.compliance.framework import ComplianceFrameworkManager
 
-        return ComplianceFramework()
+        return ComplianceFrameworkManager()
     except (ImportError, RuntimeError, OSError, ValueError) as e:
         logger.debug("Compliance framework not available: %s", e)
         return None
