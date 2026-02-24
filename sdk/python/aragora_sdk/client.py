@@ -1145,6 +1145,7 @@ class AragoraAsyncClient:
         self.uncertainty = AsyncUncertaintyAPI(self)
         self.unified_inbox = AsyncUnifiedInboxAPI(self)
         self.usage = AsyncUsageAPI(self)
+        self.usage_metering = AsyncUsageMeteringAPI(self)
         self.verification = AsyncVerificationAPI(self)
         self.verticals = AsyncVerticalsAPI(self)
         self.voice = AsyncVoiceAPI(self)

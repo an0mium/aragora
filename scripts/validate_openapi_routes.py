@@ -143,6 +143,13 @@ def normalize_route(route: str | tuple) -> str:
     if isinstance(route, tuple):
         route = route[1] if len(route) > 1 else str(route[0])
 
+    # Strip HTTP method prefix from string routes like "POST /api/v1/canvas/pipeline/run"
+    _methods = ("GET ", "POST ", "PUT ", "PATCH ", "DELETE ", "HEAD ", "OPTIONS ")
+    for m in _methods:
+        if route.startswith(m):
+            route = route[len(m):]
+            break
+
     # Strip trailing slash
     route = route.rstrip("/")
 
