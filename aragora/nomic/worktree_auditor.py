@@ -243,7 +243,10 @@ class WorktreeAuditor:
                     category="path",
                     message=f"Worktree directory does not exist: {self._worktree_dir}",
                     path=str(self._worktree_dir),
-                    recommendation="Directory will be created automatically when first worktree is added.",
+                    recommendation=(
+                        "Directory will be created automatically"
+                        " when first worktree is added."
+                    ),
                 )
             )
             return findings

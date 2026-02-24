@@ -76,8 +76,8 @@ if TYPE_CHECKING:
     from aragora.ranking.elo import EloSystem
     from aragora.server.stream.emitter import SyncEventEmitter
 
-# Import the unified AgentSpec from agents.spec
-from aragora.agents.spec import AgentSpec
+# Import the unified AgentSpec from agents.spec (runtime, after TYPE_CHECKING)
+from aragora.agents.spec import AgentSpec  # noqa: E402
 
 
 @dataclass
