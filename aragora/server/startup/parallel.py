@@ -142,7 +142,7 @@ async def _run_task(task: InitTask) -> InitTask:
     except asyncio.TimeoutError:
         task.error = TimeoutError(f"Task '{task.name}' timed out after {task.timeout}s")
         logger.error("[parallel_init] %s timed out after %ss", task.name, task.timeout)
-    except Exception as e:
+    except Exception as e:  # noqa: BLE001 - MUST capture all errors (redis.ConnectionError ≠ builtins)
         # Catch all exceptions — this wrapper MUST capture errors into task.error
         # so they don't propagate through asyncio.gather() and crash startup.
         # Notable: redis.exceptions.ConnectionError does NOT inherit from

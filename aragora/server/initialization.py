@@ -1309,7 +1309,7 @@ async def upgrade_handler_stores(nomic_dir: Path) -> dict[str, str]:
         # Import, connection, or wiring errors - continue with SQLite store
         logger.info("[upgrade] UserStore upgrade failed: %s: %s", type(e).__name__, e)
         results["user_store"] = "skipped"
-    except Exception as e:
+    except Exception as e:  # noqa: BLE001 - final fallback to protect server startup
         # Catch-all for unexpected errors (e.g., read-only replicas)
         logger.warning("[upgrade] UserStore upgrade failed: %s: %s", type(e).__name__, e)
         results["user_store"] = "skipped"
@@ -1367,7 +1367,7 @@ async def upgrade_handler_stores(nomic_dir: Path) -> dict[str, str]:
             # Connection or wiring errors - continue with existing store
             logger.info("[upgrade] %s upgrade failed: %s: %s", name, type(e).__name__, e)
             results[name] = "skipped"
-        except Exception as e:
+        except Exception as e:  # noqa: BLE001 - final fallback to protect server startup
             # Catch-all for unexpected errors (e.g., read-only replicas)
             logger.warning("[upgrade] %s upgrade failed: %s: %s", name, type(e).__name__, e)
             results[name] = "skipped"

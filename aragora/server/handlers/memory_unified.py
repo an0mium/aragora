@@ -129,7 +129,7 @@ class MemoryUnifiedHandler(BaseHandler):
                 return self._query_supermemory(query, limit)
             elif system == "claude_mem":
                 return self._query_claude_mem(query, limit)
-        except Exception as e:
+        except (ImportError, RuntimeError, ValueError, TypeError, OSError, AttributeError, KeyError) as e:
             logger.warning("Memory system %s query failed: %s", system, e)
         return []
 

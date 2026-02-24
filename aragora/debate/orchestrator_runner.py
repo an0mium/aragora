@@ -302,7 +302,7 @@ async def initialize_debate_context(
             logger.warning("Question classification failed with data error: %s", e)
         except (RuntimeError, OSError, ImportError) as e:
             logger.exception("Unexpected question classification error: %s", e)
-        except Exception as e:
+        except Exception as e:  # noqa: BLE001 - final fallback after specific handlers above
             logger.warning("Question classification failed (API or other error): %s", e)
 
     # Apply performance-based agent selection if enabled

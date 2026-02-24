@@ -265,7 +265,7 @@ class PromptContextMixin:
         except (RuntimeError, KeyError, OSError, ConnectionError) as e:
             logger.exception("Unexpected question classification error: %s", e)
             return self._detect_question_domain_keywords(self.env.task)
-        except Exception as e:
+        except Exception as e:  # noqa: BLE001 - final fallback after specific handlers above
             logger.warning("Question classification failed (API or other error): %s", e)
             return self._detect_question_domain_keywords(self.env.task)
 

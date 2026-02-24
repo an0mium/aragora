@@ -235,8 +235,8 @@ def init_phases(arena: Arena) -> None:
                 supermemory=getattr(arena, "supermemory_adapter", None),
             )
             arena.prompt_builder.set_memory_fabric(_fabric)
-        except Exception:
-            logger.debug("MemoryFabric not available, skipping unified context")
+        except (ImportError, RuntimeError, ValueError, TypeError, AttributeError) as exc:
+            logger.debug("MemoryFabric not available, skipping unified context: %s", exc)
 
     # Initialize MemoryManager for centralized memory operations
     arena.memory_manager = MemoryManager(

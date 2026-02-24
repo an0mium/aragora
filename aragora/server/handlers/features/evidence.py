@@ -348,7 +348,7 @@ class EvidenceHandler(BaseHandler, PaginatedHandlerMixin):
 
         try:
             store = self._get_evidence_store()
-        except Exception as e:
+        except (ImportError, RuntimeError, ValueError, TypeError, OSError, AttributeError, KeyError) as e:
             logger.warning("Evidence store initialization failed: %s", e)
             return self.paginated_response(
                 items=[], total=0, limit=limit, offset=offset, items_key="evidence"
@@ -358,7 +358,7 @@ class EvidenceHandler(BaseHandler, PaginatedHandlerMixin):
         try:
             stats = store.get_statistics()
             total = stats.get("total_evidence", 0)
-        except Exception as e:
+        except (ImportError, RuntimeError, ValueError, TypeError, OSError, AttributeError, KeyError) as e:
             logger.debug("Evidence statistics failed: %s", e)
             total = 0
 
@@ -373,7 +373,7 @@ class EvidenceHandler(BaseHandler, PaginatedHandlerMixin):
                 source_filter=source_filter,
                 min_reliability=min_reliability,
             )
-        except Exception as e:
+        except (ImportError, RuntimeError, ValueError, TypeError, OSError, AttributeError, KeyError) as e:
             # FTS might not support * wildcard, or pysqlite3 OperationalError
             # for "unknown special query" — gracefully return empty list
             logger.debug("Evidence search with wildcard failed, returning empty: %s", e)

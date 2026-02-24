@@ -124,7 +124,7 @@ class EUAIActComplianceHandler(BaseHandler):
         """Retrieve a previously generated compliance bundle."""
         try:
             gen = _get_bundle_generator()
-        except Exception:
+        except (ImportError, RuntimeError, ValueError, TypeError, OSError, AttributeError):
             logger.warning("EU AI Act bundle generator unavailable")
             return error_response("EU AI Act compliance module unavailable", 503)
 
@@ -168,7 +168,7 @@ class EUAIActComplianceHandler(BaseHandler):
                     debate_data = storage.get_debate(debate_id)
                     if debate_data is not None:
                         receipt = debate_data
-                except Exception:
+                except (ImportError, RuntimeError, ValueError, TypeError, OSError, AttributeError):
                     logger.warning("Failed to load debate '%s' from storage", debate_id)
 
             if receipt is None:
@@ -179,13 +179,13 @@ class EUAIActComplianceHandler(BaseHandler):
 
         try:
             gen = _get_bundle_generator()
-        except Exception:
+        except (ImportError, RuntimeError, ValueError, TypeError, OSError, AttributeError):
             logger.warning("EU AI Act bundle generator unavailable")
             return error_response("EU AI Act compliance module unavailable", 503)
 
         try:
             result = gen.generate(receipt, scope=scope, articles=articles)
-        except Exception:
+        except (ImportError, RuntimeError, ValueError, TypeError, OSError, AttributeError):
             logger.warning("Bundle generation failed")
             return error_response("Bundle generation failed", 500)
 

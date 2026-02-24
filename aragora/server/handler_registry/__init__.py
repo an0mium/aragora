@@ -237,7 +237,7 @@ class HandlerRegistryMixin:
                     except TypeError:
                         # Facade handlers (route discovery only) don't accept ctx
                         instance = handler_class()
-                    except Exception as e:
+                    except Exception as e:  # noqa: BLE001 - handler init can fail unpredictably
                         # Handler init failure (e.g., read-only DB) — skip handler
                         logger.warning(
                             "[init_handlers] %s init failed, skipping: %s: %s",

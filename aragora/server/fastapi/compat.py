@@ -204,7 +204,7 @@ def legacy_handler_to_router(
             if asyncio.iscoroutine(result):
                 result = await result
 
-        except Exception as e:
+        except Exception as e:  # noqa: BLE001 - HTTP handler must return 500, not crash
             logger.exception("Legacy handler error: %s", e)
             return JSONResponse(
                 status_code=500,
