@@ -237,7 +237,6 @@ class OutcomeDashboardHandler(SecureHandler):
             # Compute previous period for comparison
             prev_quality = None
             try:
-                prev_rate = await analytics.get_consensus_rate(period=period)
                 # Simple trend indicator from trend data
                 if len(trend) >= 2:
                     first_half = trend[: len(trend) // 2]

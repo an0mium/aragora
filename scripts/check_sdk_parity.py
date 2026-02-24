@@ -222,7 +222,10 @@ def normalize_route(route: str) -> str:
 def extract_sdk_paths_python() -> dict[str, set[str]]:
     """Extract HTTP paths from Python SDK namespace files.
 
-    Parses self._client.request("METHOD", "/api/v1/...") calls.
+    Parses client request calls in SDK namespaces, including both:
+    - self._client.request(...)
+    - self._client._request(...)
+    and async forms with optional ``await``.
 
     Returns:
         Dict mapping namespace name -> set of endpoint paths
@@ -231,8 +234,9 @@ def extract_sdk_paths_python() -> dict[str, set[str]]:
     if not sdk_dir.exists():
         return {}
 
-    path_pattern = re.compile(r'self\._client\.request\(\s*"[A-Z]+"\s*,\s*[f"]([^"]+)"')
-    fstring_pattern = re.compile(r'self\._client\.request\(\s*"[A-Z]+"\s*,\s*f"([^"]+)"')
+    path_pattern = re.compile(
+        r"(?:await\s+)?self\._client\._?request\(\s*['\"][A-Z]+['\"]\s*,\s*f?['\"]([^'\"]+)['\"]"
+    )
 
     namespace_paths: dict[str, set[str]] = {}
 
@@ -248,15 +252,10 @@ def extract_sdk_paths_python() -> dict[str, set[str]]:
         except OSError:
             continue
 
-        # Match both regular strings and f-strings
+        # Match regular strings and f-strings for both request/_request.
         for match in path_pattern.finditer(content):
             raw_path = match.group(1)
             # Replace f-string expressions with {param}
-            cleaned = re.sub(r"\{[^}]+\}", "{param}", raw_path)
-            paths.add(cleaned)
-
-        for match in fstring_pattern.finditer(content):
-            raw_path = match.group(1)
             cleaned = re.sub(r"\{[^}]+\}", "{param}", raw_path)
             paths.add(cleaned)
 

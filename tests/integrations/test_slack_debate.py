@@ -631,9 +631,9 @@ def _make_receipt(**kwargs):
     receipt.confidence = kwargs.get("confidence", 0.92)
     receipt.receipt_id = kwargs.get("receipt_id", "rcpt-abcdef123456")
     receipt.findings = kwargs.get("findings", [])
-    receipt.key_arguments = kwargs.get("key_arguments", None)
-    receipt.dissenting_views = kwargs.get("dissenting_views", None)
-    receipt.dissents = kwargs.get("dissents", None)
+    receipt.key_arguments = kwargs.get("key_arguments")
+    receipt.dissenting_views = kwargs.get("dissenting_views")
+    receipt.dissents = kwargs.get("dissents")
     return receipt
 
 

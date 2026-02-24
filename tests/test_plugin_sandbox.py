@@ -186,14 +186,14 @@ class TestPathTraversalPrevention:
 
     def test_safe_open_blocks_symlink_escape(self, file_read_manifest, tmp_path):
         """Test that symlink-based escapes are blocked."""
-        # Create a symlink pointing outside working dir
-        secret_file = Path("/etc/hostname")  # Common readable file
-        if not secret_file.exists():
-            pytest.skip("Test requires /etc/hostname")
+        # Create a symlink pointing to a directory outside working dir.
+        outside_dir = tmp_path.parent / f"{tmp_path.name}_outside"
+        outside_dir.mkdir(parents=True, exist_ok=True)
+        (outside_dir / "secret.txt").write_text("top-secret", encoding="utf-8")
 
         link_path = tmp_path / "sneaky_link"
         try:
-            link_path.symlink_to("/etc")
+            link_path.symlink_to(outside_dir, target_is_directory=True)
         except OSError:
             pytest.skip("Cannot create symlinks")
 
@@ -207,7 +207,7 @@ class TestPathTraversalPrevention:
 
         # Attempt to read via symlink
         with pytest.raises(PermissionError, match="outside working directory"):
-            safe_open("sneaky_link/hostname")
+            safe_open("sneaky_link/secret.txt")
 
     def test_safe_open_allows_valid_subpath(self, file_read_manifest, tmp_path):
         """Test that valid paths within working dir are allowed."""

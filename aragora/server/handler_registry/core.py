@@ -103,7 +103,6 @@ HANDLER_TIERS: dict[str, str] = {
     "_outcome_handler": "extended",
     "_decision_analytics_handler": "extended",
     "_benchmarking_handler": "extended",
-    "_knowledge_flow_handler": "extended",
     "_self_improve_details_handler": "extended",
     "_knowledge_flow_handler": "extended",
     "_system_health_dashboard_handler": "extended",
@@ -136,7 +135,6 @@ HANDLER_TIERS: dict[str, str] = {
     "_emergency_access_handler": "enterprise",
     "_unified_approvals_handler": "enterprise",
     "_connector_management_handler": "enterprise",
-    "_system_health_dashboard_handler": "extended",
     "_task_execution_handler": "enterprise",
     # ── Experimental (loaded only with ARAGORA_EXPERIMENTAL=1) ────────
     "_genesis_handler": "experimental",

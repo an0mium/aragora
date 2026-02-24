@@ -73,6 +73,7 @@ jobs:
           POSTGRES_PASSWORD=aragora-ci-postgres-password-0123456789
           ARAGORA_API_TOKEN=aragora-ci-api-token-0123456789abcdef
           ARAGORA_JWT_SECRET=aragora-ci-jwt-secret-0123456789abcdef
+          ARAGORA_ENCRYPTION_KEY=0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef
           GRAFANA_ADMIN_PASSWORD=aragora-ci-grafana-password
           ARAGORA_ALLOWED_ORIGINS=http://localhost
           ARAGORA_RATE_LIMIT_BACKEND=redis

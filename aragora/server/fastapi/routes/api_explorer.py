@@ -16,7 +16,6 @@ This powers the /api-explorer frontend page.
 
 from __future__ import annotations
 
-import json
 import logging
 from typing import Any
 

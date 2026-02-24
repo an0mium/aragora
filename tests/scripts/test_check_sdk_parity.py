@@ -275,3 +275,37 @@ def test_collect_routes_includes_can_handle_prefixes():
     assert "/api/pipeline/transitions/{param}" in routes
     assert "/api/plans" in routes
     assert "/api/plans/{param}" in routes
+
+
+def test_extract_sdk_paths_python_captures_request_variants(tmp_path, monkeypatch):
+    sdk_ns = tmp_path / "sdk" / "python" / "aragora_sdk" / "namespaces"
+    sdk_ns.mkdir(parents=True, exist_ok=True)
+    module = sdk_ns / "sample.py"
+    module.write_text(
+        """
+class SampleAPI:
+    def sync_request(self):
+        return self._client.request("GET", "/api/v1/sync/request")
+
+    def sync_private(self, item_id: str):
+        return self._client._request("POST", f"/api/v1/sync/{item_id}/private")
+
+    async def async_request(self):
+        return await self._client.request('GET', '/api/v1/async/request')
+
+    async def async_private(self, item_id: str):
+        return await self._client._request('DELETE', f"/api/v1/async/{item_id}/private")
+""".strip()
+        + "\n",
+        encoding="utf-8",
+    )
+
+    monkeypatch.setattr(check_sdk_parity, "PROJECT_ROOT", tmp_path)
+    paths_by_ns = check_sdk_parity.extract_sdk_paths_python()
+    assert "sample" in paths_by_ns
+
+    sample_paths = paths_by_ns["sample"]
+    assert "/api/v1/sync/request" in sample_paths
+    assert "/api/v1/sync/{param}/private" in sample_paths
+    assert "/api/v1/async/request" in sample_paths
+    assert "/api/v1/async/{param}/private" in sample_paths

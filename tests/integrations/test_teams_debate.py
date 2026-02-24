@@ -71,9 +71,9 @@ def _make_debate_result(**kwargs):
     result.winner = kwargs.get("winner", "claude")
     result.participants = kwargs.get("participants", ["claude", "gpt4"])
     result.rounds = kwargs.get("rounds", [])
-    result.critiques = kwargs.get("critiques", None)
-    result.votes = kwargs.get("votes", None)
-    result.receipt = kwargs.get("receipt", None)
+    result.critiques = kwargs.get("critiques")
+    result.votes = kwargs.get("votes")
+    result.receipt = kwargs.get("receipt")
     return result
 
 
@@ -84,9 +84,9 @@ def _make_receipt(**kwargs):
     receipt.confidence = kwargs.get("confidence", 0.92)
     receipt.receipt_id = kwargs.get("receipt_id", "rcpt-abcdef123456")
     receipt.findings = kwargs.get("findings", [])
-    receipt.key_arguments = kwargs.get("key_arguments", None)
-    receipt.dissenting_views = kwargs.get("dissenting_views", None)
-    receipt.dissents = kwargs.get("dissents", None)
+    receipt.key_arguments = kwargs.get("key_arguments")
+    receipt.dissenting_views = kwargs.get("dissenting_views")
+    receipt.dissents = kwargs.get("dissents")
     receipt.cost_usd = kwargs.get("cost_usd", 0.0)
     receipt.tokens_used = kwargs.get("tokens_used", 0)
     return receipt

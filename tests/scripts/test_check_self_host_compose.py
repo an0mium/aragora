@@ -40,6 +40,7 @@ services:
       - ARAGORA_REDIS_SENTINEL_HOSTS=sentinel-1:26379,sentinel-2:26379,sentinel-3:26379
       - ARAGORA_REDIS_SENTINEL_MASTER=mymaster
       - ARAGORA_JWT_SECRET=jwt
+      - ARAGORA_ENCRYPTION_KEY=0aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
       - ARAGORA_RATE_LIMIT_BACKEND=redis
     healthcheck:
       test: ["CMD", "true"]
@@ -75,6 +76,7 @@ services:
                 "POSTGRES_PASSWORD=secret",
                 "ARAGORA_API_TOKEN=token",
                 "ARAGORA_JWT_SECRET=jwt",
+                "ARAGORA_ENCRYPTION_KEY=0aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
                 "ARAGORA_RATE_LIMIT_BACKEND=redis",
                 "ARAGORA_REDIS_MODE=sentinel",
                 "ARAGORA_REDIS_SENTINEL_HOSTS=sentinel-1:26379,sentinel-2:26379,sentinel-3:26379",

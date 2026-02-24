@@ -17,8 +17,7 @@ These endpoints aggregate data from:
 from __future__ import annotations
 
 import logging
-from datetime import datetime, timedelta, timezone
-from decimal import Decimal
+from datetime import datetime, timezone
 from typing import Any
 
 from aragora.server.versioning.compat import strip_version_prefix

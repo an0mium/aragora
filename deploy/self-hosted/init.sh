@@ -15,6 +15,24 @@ YELLOW='\033[1;33m'
 BLUE='\033[0;34m'
 NC='\033[0m' # No Color
 
+# Recommended default profiles for production-ish local bootstrap.
+# Override with ARAGORA_DEFAULT_COMPOSE_PROFILES (comma-separated), e.g.:
+#   ARAGORA_DEFAULT_COMPOSE_PROFILES=monitoring,backup,workers ./init.sh --verify
+#   ARAGORA_DEFAULT_COMPOSE_PROFILES= ./init.sh --verify
+DEFAULT_PROFILES="${ARAGORA_DEFAULT_COMPOSE_PROFILES:-monitoring,backup}"
+PROFILE_ARGS=()
+if [ -n "$DEFAULT_PROFILES" ]; then
+    IFS=',' read -r -a _profiles <<< "$DEFAULT_PROFILES"
+    for profile in "${_profiles[@]}"; do
+        profile_trimmed="$(echo "$profile" | xargs)"
+        if [ -n "$profile_trimmed" ]; then
+            PROFILE_ARGS+=(--profile "$profile_trimmed")
+        fi
+    done
+fi
+COMPOSE_CMD=(docker compose "${PROFILE_ARGS[@]}")
+COMPOSE_ARGS_STRING="${PROFILE_ARGS[*]}"
+
 # Parse arguments
 RUN_VERIFY=false
 RUN_VALIDATE=false
@@ -94,7 +112,7 @@ echo
 echo -e "${BLUE}Next steps:${NC}"
 echo "  1. Review configuration:     nano .env"
 echo "  2. Validate configuration:   ./validate_env.sh"
-echo "  3. Start services:           docker compose up -d"
+echo "  3. Start services:           docker compose $COMPOSE_ARGS_STRING up -d"
 echo "  4. Check status:             docker compose ps"
 echo "  5. Verify deployment:        ./smoke_test.sh"
 echo
@@ -103,8 +121,9 @@ echo "  docker compose --profile monitoring up -d  # Add Grafana/Prometheus"
 echo "  docker compose --profile workers up -d     # Add queue workers"
 echo "  docker compose --profile backup up -d      # Enable daily backups"
 echo
-echo -e "${BLUE}Quick start (all services):${NC}"
-echo "  docker compose --profile monitoring --profile workers up -d"
+echo -e "${BLUE}Quick start (recommended):${NC}"
+echo "  docker compose $COMPOSE_ARGS_STRING up -d"
+echo "  ARAGORA_DEFAULT_COMPOSE_PROFILES=monitoring,backup,workers ./init.sh --verify"
 echo
 echo -e "${BLUE}Access points after startup:${NC}"
 echo "  API:        http://localhost:\${ARAGORA_PORT:-8080}"
@@ -133,7 +152,7 @@ if [ "$RUN_VERIFY" = true ]; then
     echo
 
     # Start core services
-    docker compose up -d
+    "${COMPOSE_CMD[@]}" up -d
 
     # Wait for services to be ready
     echo "Waiting for services to start..."

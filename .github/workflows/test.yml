@@ -408,6 +408,39 @@ jobs:
           PYTHONPATH: .
 
   # Integration smoke lane for high-risk paths (PR only)
+  integration-minimal:
+    name: Integration Minimal
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    needs: baseline-determinism
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: 'pip'
+          cache-dependency-path: pyproject.toml
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -e ".[dev,research,test]"
+          pip install pytest-timeout
+
+      - name: Run integration minimal marker suite
+        run: |
+          pytest tests/integration/ \
+            -m "integration_minimal" \
+            --timeout=90 \
+            -q
+        env:
+          PYTHONPATH: .
+
+  # Integration smoke lane for high-risk paths (PR only)
   integration-smoke:
     name: Integration Smoke
     runs-on: ubuntu-latest

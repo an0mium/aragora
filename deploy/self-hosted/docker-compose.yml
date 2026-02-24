@@ -196,7 +196,7 @@ services:
           memory: 32M
 
   aragora:
-    image: ${ARAGORA_IMAGE:-ghcr.io/an0mium/aragora:latest}
+    image: ${ARAGORA_IMAGE:-ghcr.io/an0mium/aragora:2.8.0}
     build:
       context: ../..
       dockerfile: Dockerfile
@@ -270,7 +270,7 @@ services:
   # =============================================================================
 
   dashboard:
-    image: ${ARAGORA_DASHBOARD_IMAGE:-ghcr.io/an0mium/aragora-dashboard:latest}
+    image: ${ARAGORA_DASHBOARD_IMAGE:-ghcr.io/an0mium/aragora-dashboard:2.8.0}
     build:
       context: ../../aragora/live
       dockerfile: Dockerfile
@@ -304,7 +304,7 @@ services:
   # =============================================================================
 
   debate-worker:
-    image: ${ARAGORA_IMAGE:-ghcr.io/an0mium/aragora:latest}
+    image: ${ARAGORA_IMAGE:-ghcr.io/an0mium/aragora:2.8.0}
     build:
       context: ../..
       dockerfile: Dockerfile

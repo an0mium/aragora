@@ -11,6 +11,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import re
 import subprocess
 import sys
 import time
@@ -82,29 +83,86 @@ def _read_env_value(env_file: Path, key: str) -> str:
     return value
 
 
+def _validate_runtime_env_file(env_file: Path) -> tuple[list[str], list[str]]:
+    """Validate required runtime env keys before booting compose."""
+    errors: list[str] = []
+    warnings: list[str] = []
+
+    required_keys = (
+        "POSTGRES_PASSWORD",
+        "ARAGORA_API_TOKEN",
+        "ARAGORA_JWT_SECRET",
+        "ARAGORA_ENCRYPTION_KEY",
+    )
+    values = {key: _read_env_value(env_file, key) for key in required_keys}
+
+    for key, value in values.items():
+        if not value:
+            errors.append(f"{key} must be set in env file")
+            continue
+        if "CHANGE_ME" in value or value.endswith("..."):
+            errors.append(f"{key} still contains placeholder value")
+
+    jwt_secret = values.get("ARAGORA_JWT_SECRET", "")
+    if jwt_secret and len(jwt_secret) < 32:
+        errors.append(
+            "ARAGORA_JWT_SECRET must be at least 32 characters for production runtime checks"
+        )
+
+    encryption_key = values.get("ARAGORA_ENCRYPTION_KEY", "")
+    if encryption_key:
+        if len(encryption_key) != 64:
+            warnings.append("ARAGORA_ENCRYPTION_KEY should be 64 hex characters")
+        elif not re.fullmatch(r"[0-9a-fA-F]{64}", encryption_key):
+            warnings.append("ARAGORA_ENCRYPTION_KEY should contain only hex characters")
+
+    strict_mode = _read_env_value(env_file, "ARAGORA_SECRETS_STRICT").lower()
+    if strict_mode in {"true", "1", "yes"}:
+        warnings.append(
+            "ARAGORA_SECRETS_STRICT=true may fail local runtime checks unless AWS Secrets Manager is configured"
+        )
+
+    return errors, warnings
+
+
 def _get_service_status(base_cmd: list[str], service: str) -> tuple[str, str]:
     cid_result = _compose(base_cmd, ["ps", "-q", service], check=False)
     if cid_result.returncode != 0:
         details = cid_result.stderr.strip() or cid_result.stdout.strip() or "unknown error"
         raise RuntimeCheckError(f"Failed to resolve container id for {service}: {details}")
 
-    container_id = cid_result.stdout.strip()
-    if not container_id:
+    container_ids = [line.strip() for line in cid_result.stdout.splitlines() if line.strip()]
+    if not container_ids:
         return "not-created", ""
 
-    inspect_result = _run(
-        [
-            "docker",
-            "inspect",
-            "-f",
-            "{{if .State.Health}}{{.State.Health.Status}}{{else}}{{.State.Status}}{{end}}",
-            container_id,
-        ],
-        check=False,
-    )
-    if inspect_result.returncode != 0:
-        return "unknown", container_id
-    return inspect_result.stdout.strip(), container_id
+    joined_container_ids = ",".join(container_ids)
+    statuses: list[tuple[str, str]] = []
+    for container_id in container_ids:
+        inspect_result = _run(
+            [
+                "docker",
+                "inspect",
+                "-f",
+                "{{if .State.Health}}{{.State.Health.Status}}{{else}}{{.State.Status}}{{end}}",
+                container_id,
+            ],
+            check=False,
+        )
+        if inspect_result.returncode != 0:
+            statuses.append(("unknown", container_id))
+            continue
+        statuses.append((inspect_result.stdout.strip(), container_id))
+
+    for status, container_id in statuses:
+        if status in {"exited", "dead", "unhealthy"}:
+            return status, container_id
+
+    if statuses and all(status in {"healthy", "running"} for status, _ in statuses):
+        if all(status == "healthy" for status, _ in statuses):
+            return "healthy", joined_container_ids
+        return "running", joined_container_ids
+
+    return statuses[0][0], joined_container_ids
 
 
 def _wait_for_service(base_cmd: list[str], service: str, timeout_seconds: int) -> None:
@@ -233,10 +291,15 @@ def main() -> int:
         print("No services specified", file=sys.stderr)
         return 2
 
-    api_token = _read_env_value(env_file, "ARAGORA_API_TOKEN")
-    if not api_token:
-        print("ARAGORA_API_TOKEN must be set in env file", file=sys.stderr)
+    env_errors, env_warnings = _validate_runtime_env_file(env_file)
+    if env_warnings:
+        for warning in env_warnings:
+            print(f"[warn] {warning}", file=sys.stderr)
+    if env_errors:
+        for error in env_errors:
+            print(error, file=sys.stderr)
         return 2
+    api_token = _read_env_value(env_file, "ARAGORA_API_TOKEN")
 
     base_cmd = _compose_base(compose_path, env_file, args.project_name)
 

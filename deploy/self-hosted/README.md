@@ -36,6 +36,9 @@ nano .env  # or your preferred editor
 ### 2. Start Services
 
 ```bash
+# Recommended baseline (API + DB + Redis + monitoring + backup)
+docker compose --profile monitoring --profile backup up -d
+
 # Core services only (API + Redis + Postgres)
 docker compose up -d
 
@@ -46,7 +49,16 @@ docker compose --profile monitoring up -d
 docker compose --profile workers up -d
 
 # Full stack
-docker compose --profile monitoring --profile workers up -d
+docker compose --profile monitoring --profile backup --profile workers up -d
+```
+
+Image defaults are pinned to the current release tag (`2.8.0`) in
+`deploy/self-hosted/docker-compose.yml`. Override explicitly in `.env` when
+upgrading:
+
+```bash
+ARAGORA_IMAGE=ghcr.io/an0mium/aragora:2.8.0
+ARAGORA_DASHBOARD_IMAGE=ghcr.io/an0mium/aragora-dashboard:2.8.0
 ```
 
 ### 3. Verify Deployment
