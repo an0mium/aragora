@@ -174,7 +174,9 @@ def record_oracle_stream_phase_duration(phase: str, duration_seconds: float) -> 
     """Record full phase duration for an Oracle stream phase."""
     _ensure_init()
     safe_phase = phase or "unknown"
-    ORACLE_STREAM_PHASE_DURATION_SECONDS.labels(phase=safe_phase).observe(max(duration_seconds, 0.0))
+    ORACLE_STREAM_PHASE_DURATION_SECONDS.labels(phase=safe_phase).observe(
+        max(duration_seconds, 0.0)
+    )
 
 
 def record_oracle_stream_stall(reason: str, *, phase: str = "unknown") -> None:
@@ -214,8 +216,7 @@ def get_oracle_stream_metrics_summary() -> dict[str, Any]:
             "active_sessions": _snapshot.active_sessions,
             "stalls_waiting_first_token": _snapshot.stalls_waiting_first_token,
             "stalls_stream_inactive": _snapshot.stalls_stream_inactive,
-            "stalls_total": _snapshot.stalls_waiting_first_token
-            + _snapshot.stalls_stream_inactive,
+            "stalls_total": _snapshot.stalls_waiting_first_token + _snapshot.stalls_stream_inactive,
             "ttft_samples": _snapshot.ttft_samples,
             "ttft_avg_ms": ttft_avg_ms,
             "ttft_last_ms": ttft_last_ms,

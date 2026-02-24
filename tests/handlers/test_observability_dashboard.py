@@ -209,6 +209,7 @@ class TestDashboardEndpoint:
         assert "agent_rankings" in body
         assert "circuit_breakers" in body
         assert "self_improve" in body
+        assert "oracle_stream" in body
         assert "system_health" in body
         assert "error_rates" in body
         assert "collection_time_ms" in body
@@ -892,6 +893,46 @@ class TestErrorRates:
             assert result["total_requests"] == 0
             assert result["total_errors"] == 0
             assert result["error_rate"] == 0
+
+
+# ===========================================================================
+# Oracle Stream Metrics Collection
+# ===========================================================================
+
+
+class TestOracleStreamMetrics:
+    """Tests for _collect_oracle_stream."""
+
+    def test_with_metrics_available(self, handler):
+        payload = {
+            "sessions_started": 3,
+            "sessions_completed": 2,
+            "sessions_cancelled": 1,
+            "sessions_errors": 0,
+            "active_sessions": 0,
+            "stalls_waiting_first_token": 1,
+            "stalls_stream_inactive": 0,
+            "stalls_total": 1,
+            "ttft_samples": 2,
+            "ttft_avg_ms": 612.5,
+            "ttft_last_ms": 480.0,
+            "available": True,
+        }
+        with patch(
+            "aragora.observability.metrics.oracle.get_oracle_stream_metrics_summary",
+            return_value=payload,
+        ):
+            result = handler._collect_oracle_stream()
+            assert result["available"] is True
+            assert result["sessions_started"] == 3
+            assert result["ttft_avg_ms"] == 612.5
+
+    def test_fallback_when_import_fails(self, handler):
+        with patch.dict("sys.modules", {"aragora.observability.metrics.oracle": None}):
+            result = handler._collect_oracle_stream()
+            assert result["available"] is False
+            assert result["sessions_started"] == 0
+            assert result["stalls_total"] == 0
 
 
 # ===========================================================================
