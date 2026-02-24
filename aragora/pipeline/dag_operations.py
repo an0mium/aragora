@@ -45,9 +45,11 @@ class DAGOperationsCoordinator:
         self,
         graph: UniversalGraph,
         store: Any | None = None,
+        control_plane: Any | None = None,
     ) -> None:
         self.graph = graph
         self._store = store
+        self._control_plane = control_plane
 
     def _save(self) -> None:
         """Persist graph to store if available."""
@@ -262,6 +264,100 @@ class DAGOperationsCoordinator:
             logger.warning("assign_agents failed: %s", e)
             return DAGOperationResult(success=False, message="Agent assignment failed")
 
+    async def assign_agents_with_selector(
+        self,
+        node_ids: list[str] | None = None,
+        team_selector: Any | None = None,
+        available_agents: list[Any] | None = None,
+    ) -> DAGOperationResult:
+        """Use TeamSelector to assign agent pools to orchestration nodes.
+
+        Walks orchestration-stage nodes and uses the TeamSelector's ELO-based
+        scoring to pick the best agents for each node's domain.
+
+        Args:
+            node_ids: Specific node IDs to assign. If None, walks all
+                orchestration nodes in the graph.
+            team_selector: A TeamSelector instance. If None, attempts to
+                create one with default settings.
+            available_agents: Pool of candidate agents for selection.
+                If None, attempts to discover agents via create_agent.
+        """
+        try:
+            from aragora.debate.team_selector import TeamSelector
+        except ImportError:
+            return DAGOperationResult(
+                success=False,
+                message="TeamSelector not available",
+            )
+
+        if team_selector is None:
+            try:
+                team_selector = TeamSelector()
+            except (RuntimeError, TypeError, ValueError) as e:
+                logger.debug("Failed to create default TeamSelector: %s", e)
+                return DAGOperationResult(
+                    success=False,
+                    message="Could not create TeamSelector",
+                )
+
+        # Build candidate agent list
+        if available_agents is None:
+            try:
+                from aragora.agents import create_agent
+
+                available_agents = []
+                for name in ("claude", "gpt", "gemini", "mistral", "grok"):
+                    try:
+                        available_agents.append(create_agent(name))
+                    except (RuntimeError, ImportError, ValueError):
+                        pass
+            except ImportError:
+                return DAGOperationResult(
+                    success=False,
+                    message="Agent creation not available",
+                )
+
+        if not available_agents:
+            return DAGOperationResult(
+                success=False,
+                message="No agents available for selection",
+            )
+
+        # Determine target nodes
+        if node_ids is not None:
+            targets = [
+                self.graph.nodes[nid]
+                for nid in node_ids
+                if nid in self.graph.nodes
+            ]
+        else:
+            targets = [
+                n for n in self.graph.nodes.values()
+                if n.stage == PipelineStage.ORCHESTRATION
+                or n.data.get("orch_type") == "agent_task"
+                or n.data.get("orchType") == "agent_task"
+            ]
+
+        assignments: dict[str, list[str]] = {}
+        for node in targets:
+            domain = node.data.get("domain", "general")
+            selected = team_selector.select(
+                available_agents,
+                domain=domain,
+                task=node.label,
+            )
+            agent_names = [getattr(a, "name", str(a)) for a in selected]
+            node.data["agent_pool"] = agent_names
+            assignments[node.id] = agent_names
+
+        self._save()
+        return DAGOperationResult(
+            success=True,
+            message=f"Assigned agent pools to {len(assignments)} nodes",
+            metadata={"assignments": assignments},
+        )
+
     async def execute_node(self, node_id: str) -> DAGOperationResult:
         """Execute via HardenedOrchestrator with status propagation."""
         node = self.graph.nodes.get(node_id)
@@ -322,6 +418,85 @@ class DAGOperationsCoordinator:
             except ImportError:
                 pass
             return DAGOperationResult(success=False, message="Execution failed")
+
+    async def execute_node_via_scheduler(
+        self,
+        node_id: str,
+        poll_interval: float = 0.5,
+        max_polls: int = 600,
+    ) -> DAGOperationResult:
+        """Execute a node by submitting it to the Control Plane scheduler.
+
+        Requires a control_plane instance (e.g. ControlPlaneCoordinator) to be
+        set on this coordinator. The control plane handles distributed task
+        routing, capability matching, and retry logic.
+        """
+        if self._control_plane is None:
+            return DAGOperationResult(
+                success=False,
+                message="Control plane not configured",
+            )
+
+        node = self.graph.nodes.get(node_id)
+        if node is None:
+            return DAGOperationResult(success=False, message=f"Node {node_id} not found")
+
+        try:
+            import asyncio
+
+            task_id = await self._control_plane.submit_task(
+                task_type="pipeline_node",
+                payload={
+                    "node_id": node.id,
+                    "label": node.label,
+                    "description": node.description,
+                    "stage": node.stage.value if hasattr(node.stage, "value") else str(node.stage),
+                    "data": node.data,
+                },
+                metadata={"graph_id": self.graph.id, "node_id": node.id},
+            )
+
+            node.metadata["execution_status"] = "submitted"
+            node.metadata["scheduler_task_id"] = task_id
+
+            # Poll for completion
+            for _ in range(max_polls):
+                task = await self._control_plane.get_task(task_id)
+                if task is None:
+                    break
+                status_val = getattr(task, "status", None)
+                status_str = status_val.value if hasattr(status_val, "value") else str(status_val)
+                if status_str in ("completed", "failed", "cancelled"):
+                    node.metadata["execution_status"] = status_str
+                    node.metadata["task_result"] = getattr(task, "result", None)
+                    self._save()
+                    return DAGOperationResult(
+                        success=status_str == "completed",
+                        message=f"Scheduler execution {status_str}",
+                        metadata={
+                            "task_id": task_id,
+                            "execution_status": status_str,
+                        },
+                    )
+                await asyncio.sleep(poll_interval)
+
+            node.metadata["execution_status"] = "timeout"
+            self._save()
+            return DAGOperationResult(
+                success=False,
+                message="Scheduler execution timed out waiting for result",
+                metadata={"task_id": task_id},
+            )
+        except ImportError:
+            return DAGOperationResult(
+                success=False,
+                message="Control plane scheduler not available",
+            )
+        except (RuntimeError, OSError, ValueError) as e:
+            logger.warning("execute_node_via_scheduler failed: %s", e)
+            node.metadata["execution_status"] = "error"
+            self._save()
+            return DAGOperationResult(success=False, message="Scheduler execution failed")
 
     async def find_precedents(
         self,

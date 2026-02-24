@@ -236,7 +236,7 @@ class TestClassify:
         assert level == DataClassification.PII
 
     def test_restricted_by_field_name(self):
-        level = self.classifier.classify({"api_key": "sk-1234567890"})
+        level = self.classifier.classify({"api_key": "sk-abcXyz"})
         assert level == DataClassification.RESTRICTED
 
     def test_confidential_by_field_name(self):

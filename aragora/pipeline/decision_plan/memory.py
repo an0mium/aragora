@@ -41,6 +41,7 @@ class PlanOutcome:
     duration_seconds: float = 0.0
     lessons: list[str] = field(default_factory=list)
     receipt_id: str | None = None  # Cryptographic receipt ID for audit trail
+    convoy_id: str | None = None  # Convoy ID linking pipeline artifacts
     review: dict[str, Any] | None = None
     review_passed: bool | None = None
 
@@ -73,6 +74,7 @@ class PlanOutcome:
             "verification_rate": self.verification_rate,
             "lessons": self.lessons,
             "receipt_id": self.receipt_id,
+            "convoy_id": self.convoy_id,
             "review": self.review,
             "review_passed": self.review_passed,
         }

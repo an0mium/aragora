@@ -15,6 +15,7 @@ from .models import (
 )
 from .registry import TemplateRegistry
 from .client import MarketplaceClient
+from .catalog import MarketplaceCatalog, MarketplaceItem, InstallResult
 
 __all__ = [
     "AgentTemplate",
@@ -25,4 +26,7 @@ __all__ = [
     "TemplateCategory",
     "TemplateRegistry",
     "MarketplaceClient",
+    "MarketplaceCatalog",
+    "MarketplaceItem",
+    "InstallResult",
 ]

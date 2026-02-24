@@ -16,8 +16,6 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-pytest.importorskip("aragora_sdk", reason="aragora-sdk not installed")
-
 
 @pytest.fixture()
 def mock_sync_client():

@@ -13,15 +13,13 @@ import json
 
 import pytest
 
-pytest.importorskip("aragora_debate", reason="aragora-debate not installed")
-
-from aragora_debate import (  # noqa: E402
+from aragora_debate import (
     Debate,
     DebateResult,
     DecisionReceipt,
     create_agent,
 )
-from aragora_debate.receipt import ReceiptBuilder  # noqa: E402
+from aragora_debate.receipt import ReceiptBuilder
 
 
 @pytest.mark.asyncio

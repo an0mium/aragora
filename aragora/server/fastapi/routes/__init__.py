@@ -9,5 +9,25 @@ from . import gauntlet
 from . import agents
 from . import consensus
 from . import pipeline
+from . import knowledge
+from . import workflows
+from . import compliance
+from . import auth
+from . import memory
 
-__all__ = ["health", "debates", "decisions", "testfixer", "receipts", "gauntlet", "agents", "consensus", "pipeline"]
+__all__ = [
+    "health",
+    "debates",
+    "decisions",
+    "testfixer",
+    "receipts",
+    "gauntlet",
+    "agents",
+    "consensus",
+    "pipeline",
+    "knowledge",
+    "workflows",
+    "compliance",
+    "auth",
+    "memory",
+]

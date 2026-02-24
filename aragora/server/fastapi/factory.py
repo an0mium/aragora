@@ -25,7 +25,7 @@ from .middleware.validation import RequestValidationMiddleware, ValidationLimits
 from .middleware.error_handling import setup_exception_handlers
 from .routes import (
     health, debates, decisions, receipts, gauntlet, agents, consensus, pipeline,
-    knowledge, workflows, compliance,
+    knowledge, workflows, compliance, auth, memory,
 )
 
 logger = logging.getLogger(__name__)
@@ -287,6 +287,8 @@ def create_app(
     app.include_router(knowledge.router)
     app.include_router(workflows.router)
     app.include_router(compliance.router)
+    app.include_router(auth.router)
+    app.include_router(memory.router)
 
     # Setup exception handlers
     setup_exception_handlers(app)

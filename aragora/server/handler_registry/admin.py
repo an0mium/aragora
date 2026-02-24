@@ -60,6 +60,9 @@ BudgetControlsHandler = _safe_import(
     "aragora.server.handlers.sme.budget_controls", "BudgetControlsHandler"
 )
 CreditsAdminHandler = _safe_import("aragora.server.handlers.admin.credits", "CreditsAdminHandler")
+SpendAnalyticsHandler = _safe_import(
+    "aragora.server.handlers.spend_analytics", "SpendAnalyticsHandler"
+)
 
 # =============================================================================
 # Organization and Workspace Handler Imports

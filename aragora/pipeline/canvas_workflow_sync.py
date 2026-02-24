@@ -79,16 +79,23 @@ def sync_canvas_to_workflow(graph: Any) -> dict[str, Any]:
         orch_type = node_data.get('orchType', node_data.get('orch_type', 'agent_task'))
         step_type = _ORCH_TO_STEP.get(orch_type, 'task')
 
+        config: dict[str, Any] = {
+            'assigned_agent': node_data.get('assignedAgent', node_data.get('assigned_agent', '')),
+            'capabilities': node_data.get('capabilities', []),
+            'elo_score': node_data.get('eloScore', node_data.get('elo_score')),
+        }
+
+        # Pass through agent_pool from TeamSelector assignment
+        agent_pool = node_data.get('agent_pool')
+        if agent_pool:
+            config['agent_pool'] = agent_pool
+
         step = {
             'id': node_id,
             'name': node_data.get('label', getattr(node, 'label', f'Step {node_id}')),
             'description': node_data.get('description', ''),
             'step_type': step_type,
-            'config': {
-                'assigned_agent': node_data.get('assignedAgent', node_data.get('assigned_agent', '')),
-                'capabilities': node_data.get('capabilities', []),
-                'elo_score': node_data.get('eloScore', node_data.get('elo_score')),
-            },
+            'config': config,
             'timeout_seconds': node_data.get('timeoutSeconds', 3600),
             'retries': node_data.get('retries', 1),
             'optional': node_data.get('optional', False),

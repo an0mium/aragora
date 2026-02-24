@@ -1,11 +1,10 @@
 'use client';
 
 /**
- * EU AI Act Compliance Demo
+ * Compliance Dashboard
  *
- * Interactive demo showing Aragora's EU AI Act compliance artifact generation.
- * Users can classify AI use cases by risk level and generate Article 12/13/14
- * compliance artifacts from decision receipts.
+ * Shows compliance framework status, active policies, and EU AI Act artifact generation.
+ * Calls GET /api/v1/compliance/status for framework overview.
  */
 
 import { useState, useCallback } from 'react';
@@ -16,10 +15,33 @@ import { ThemeToggle } from '@/components/ThemeToggle';
 import { BackendSelector, useBackend } from '@/components/BackendSelector';
 import { PanelErrorBoundary } from '@/components/PanelErrorBoundary';
 import { useAuth } from '@/context/AuthContext';
+import { useSWRFetch } from '@/hooks/useSWRFetch';
 
 // ---------------------------------------------------------------------------
 // Types
 // ---------------------------------------------------------------------------
+
+interface ComplianceStatus {
+  frameworks?: FrameworkStatus[];
+  active_policies?: number;
+  total_policies?: number;
+  compliance_score?: number;
+  last_audit?: string;
+  pending_actions?: number;
+  eu_ai_act?: {
+    status: string;
+    artifacts_generated?: number;
+    last_classification?: string;
+  };
+}
+
+interface FrameworkStatus {
+  name: string;
+  status: 'compliant' | 'partial' | 'non_compliant' | 'not_assessed';
+  controls_met?: number;
+  controls_total?: number;
+  last_assessed?: string;
+}
 
 interface RiskClassification {
   risk_level: 'unacceptable' | 'high' | 'limited' | 'minimal';
@@ -47,8 +69,36 @@ interface ComplianceBundle {
 }
 
 // ---------------------------------------------------------------------------
-// Demo Data
+// Constants
 // ---------------------------------------------------------------------------
+
+const RISK_COLORS: Record<string, { bg: string; text: string; border: string }> = {
+  unacceptable: { bg: 'bg-red-500/10', text: 'text-red-400', border: 'border-red-500/40' },
+  high: { bg: 'bg-orange-500/10', text: 'text-orange-400', border: 'border-orange-500/40' },
+  limited: { bg: 'bg-yellow-500/10', text: 'text-yellow-400', border: 'border-yellow-500/40' },
+  minimal: { bg: 'bg-[var(--acid-green)]/10', text: 'text-[var(--acid-green)]', border: 'border-[var(--acid-green)]/40' },
+};
+
+const FRAMEWORK_STATUS_STYLES: Record<string, { bg: string; text: string }> = {
+  compliant: { bg: 'bg-green-500/20', text: 'text-green-400' },
+  partial: { bg: 'bg-yellow-500/20', text: 'text-yellow-400' },
+  non_compliant: { bg: 'bg-red-500/20', text: 'text-red-400' },
+  not_assessed: { bg: 'bg-gray-500/20', text: 'text-gray-400' },
+};
+
+const STATUS_ICONS: Record<string, string> = {
+  compliant: '[PASS]',
+  partial: '[WARN]',
+  non_compliant: '[FAIL]',
+  not_applicable: '[N/A]',
+};
+
+const STATUS_COLORS: Record<string, string> = {
+  compliant: 'text-[var(--acid-green)]',
+  partial: 'text-yellow-400',
+  non_compliant: 'text-red-400',
+  not_applicable: 'text-[var(--text-muted)]',
+};
 
 const SAMPLE_USE_CASES = [
   {
@@ -73,29 +123,8 @@ const SAMPLE_USE_CASES = [
   },
 ];
 
-const RISK_COLORS: Record<string, { bg: string; text: string; border: string }> = {
-  unacceptable: { bg: 'bg-acid-red/10', text: 'text-acid-red', border: 'border-acid-red/40' },
-  high: { bg: 'bg-acid-orange/10', text: 'text-acid-orange', border: 'border-acid-orange/40' },
-  limited: { bg: 'bg-acid-yellow/10', text: 'text-acid-yellow', border: 'border-acid-yellow/40' },
-  minimal: { bg: 'bg-acid-green/10', text: 'text-acid-green', border: 'border-acid-green/40' },
-};
-
-const STATUS_ICONS: Record<string, string> = {
-  compliant: '[PASS]',
-  partial: '[WARN]',
-  non_compliant: '[FAIL]',
-  not_applicable: '[N/A]',
-};
-
-const STATUS_COLORS: Record<string, string> = {
-  compliant: 'text-acid-green',
-  partial: 'text-acid-yellow',
-  non_compliant: 'text-acid-red',
-  not_applicable: 'text-muted',
-};
-
 // ---------------------------------------------------------------------------
-// Fallback demo data
+// Demo Fallbacks
 // ---------------------------------------------------------------------------
 
 function getDemoClassification(description: string): RiskClassification {
@@ -233,12 +262,141 @@ function getDemoBundle(): ComplianceBundle {
 }
 
 // ---------------------------------------------------------------------------
-// Component
+// Compliance Dashboard Overview
+// ---------------------------------------------------------------------------
+
+function ComplianceDashboardOverview({ status, loading, error }: {
+  status: ComplianceStatus | null;
+  loading: boolean;
+  error: Error | null;
+}) {
+  const frameworks = status?.frameworks || [];
+
+  return (
+    <div className="space-y-6 mb-8">
+      {/* Summary Stats */}
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+        <div className="p-4 bg-[var(--surface)] border border-[var(--border)] text-center">
+          <div className="text-2xl font-mono text-[var(--acid-green)]">
+            {loading ? '-' : status?.compliance_score !== undefined ? `${Math.round(status.compliance_score * 100)}%` : '--'}
+          </div>
+          <div className="text-[10px] font-mono text-[var(--text-muted)]">Compliance Score</div>
+        </div>
+        <div className="p-4 bg-[var(--surface)] border border-[var(--border)] text-center">
+          <div className="text-2xl font-mono text-[var(--acid-cyan)]">
+            {loading ? '-' : status?.active_policies ?? '--'}
+          </div>
+          <div className="text-[10px] font-mono text-[var(--text-muted)]">Active Policies</div>
+        </div>
+        <div className="p-4 bg-[var(--surface)] border border-[var(--border)] text-center">
+          <div className="text-2xl font-mono text-purple-400">
+            {loading ? '-' : frameworks.length || '--'}
+          </div>
+          <div className="text-[10px] font-mono text-[var(--text-muted)]">Frameworks</div>
+        </div>
+        <div className="p-4 bg-[var(--surface)] border border-[var(--border)] text-center">
+          <div className="text-2xl font-mono text-yellow-400">
+            {loading ? '-' : status?.pending_actions ?? '0'}
+          </div>
+          <div className="text-[10px] font-mono text-[var(--text-muted)]">Pending Actions</div>
+        </div>
+      </div>
+
+      {/* Error State */}
+      {error && (
+        <div className="p-4 bg-red-500/10 border border-red-500/30 text-red-400 font-mono text-sm">
+          Could not load compliance status from backend. Showing demo data below.
+        </div>
+      )}
+
+      {/* Framework Status Grid */}
+      {frameworks.length > 0 && (
+        <div className="bg-[var(--surface)] border border-[var(--border)]">
+          <div className="p-4 border-b border-[var(--border)]">
+            <h3 className="text-sm font-mono text-[var(--acid-green)]">{'>'} FRAMEWORK STATUS</h3>
+          </div>
+          <div className="divide-y divide-[var(--border)]">
+            {frameworks.map((fw) => {
+              const style = FRAMEWORK_STATUS_STYLES[fw.status] || FRAMEWORK_STATUS_STYLES.not_assessed;
+              const pct = fw.controls_total
+                ? Math.round(((fw.controls_met || 0) / fw.controls_total) * 100)
+                : null;
+              return (
+                <div key={fw.name} className="p-4 flex items-center justify-between">
+                  <div>
+                    <div className="font-mono text-sm text-[var(--text)]">{fw.name}</div>
+                    {fw.last_assessed && (
+                      <div className="text-[10px] font-mono text-[var(--text-muted)]">
+                        Last assessed: {new Date(fw.last_assessed).toLocaleDateString()}
+                      </div>
+                    )}
+                  </div>
+                  <div className="flex items-center gap-3">
+                    {pct !== null && (
+                      <div className="text-xs font-mono text-[var(--text-muted)]">
+                        {fw.controls_met}/{fw.controls_total} controls ({pct}%)
+                      </div>
+                    )}
+                    <span className={`px-2 py-0.5 text-[10px] font-mono uppercase ${style.bg} ${style.text} border border-current/30`}>
+                      {fw.status.replace('_', ' ')}
+                    </span>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
+
+      {/* EU AI Act Status Card */}
+      {status?.eu_ai_act && (
+        <div className="bg-[var(--surface)] border border-[var(--acid-green)]/30 p-4">
+          <div className="flex items-center justify-between mb-3">
+            <h3 className="text-sm font-mono text-[var(--acid-green)]">{'>'} EU AI ACT</h3>
+            <span className={`px-2 py-0.5 text-[10px] font-mono uppercase ${
+              status.eu_ai_act.status === 'compliant'
+                ? 'bg-green-500/20 text-green-400'
+                : 'bg-yellow-500/20 text-yellow-400'
+            }`}>
+              {status.eu_ai_act.status}
+            </span>
+          </div>
+          <div className="grid grid-cols-2 gap-4 text-xs font-mono">
+            <div>
+              <div className="text-[var(--text-muted)]">Artifacts Generated</div>
+              <div className="text-[var(--text)]">{status.eu_ai_act.artifacts_generated ?? 0}</div>
+            </div>
+            <div>
+              <div className="text-[var(--text-muted)]">Enforcement Date</div>
+              <div className="text-[var(--text)]">August 2, 2026</div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Last Audit */}
+      {status?.last_audit && (
+        <div className="text-xs font-mono text-[var(--text-muted)] text-right">
+          Last audit: {new Date(status.last_audit).toLocaleString()}
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Page
 // ---------------------------------------------------------------------------
 
 export default function CompliancePage() {
   const { config: backendConfig } = useBackend();
   const { tokens } = useAuth();
+
+  // Fetch compliance status overview
+  const { data: complianceStatus, error: statusError, isLoading: statusLoading } = useSWRFetch<ComplianceStatus>(
+    '/api/v1/compliance/status',
+    { refreshInterval: 120000 },
+  );
 
   // Risk classifier state
   const [useCase, setUseCase] = useState('');
@@ -361,17 +519,17 @@ export default function CompliancePage() {
   const riskStyle = classification ? RISK_COLORS[classification.risk_level] || RISK_COLORS.minimal : null;
 
   return (
-    <div className="min-h-screen bg-background">
+    <div className="min-h-screen bg-[var(--bg)]">
       <Scanlines />
       <CRTVignette />
 
-      <header className="border-b border-border bg-surface/50 backdrop-blur-sm sticky top-0 z-40">
+      <header className="border-b border-[var(--border)] bg-[var(--surface)]/50 backdrop-blur-sm sticky top-0 z-40">
         <div className="container mx-auto px-4 py-3 flex items-center justify-between">
           <div className="flex items-center gap-4">
-            <Link href="/" className="hover:text-accent">
+            <Link href="/" className="hover:text-[var(--acid-green)]">
               <AsciiBannerCompact />
             </Link>
-            <span className="text-muted font-mono text-sm">{'//'} EU AI ACT COMPLIANCE</span>
+            <span className="text-[var(--text-muted)] font-mono text-sm">{'//'} COMPLIANCE DASHBOARD</span>
           </div>
           <div className="flex items-center gap-3">
             <BackendSelector />
@@ -383,18 +541,59 @@ export default function CompliancePage() {
       <main className="container mx-auto px-4 py-6 max-w-4xl">
         {/* Header */}
         <div className="mb-8">
-          <h1 className="text-2xl font-mono mb-2">EU AI ACT COMPLIANCE</h1>
-          <p className="text-muted text-sm font-mono">
-            Enforcement begins August 2, 2026. Generate compliance artifacts as a byproduct of
-            decision vetting.
+          <h1 className="text-2xl font-mono mb-2 text-[var(--text)]">{'>'} COMPLIANCE DASHBOARD</h1>
+          <p className="text-[var(--text-muted)] text-sm font-mono">
+            Framework status, active policies, and EU AI Act artifact generation.
+            Enforcement begins August 2, 2026.
           </p>
+        </div>
+
+        {/* Dashboard Overview */}
+        <PanelErrorBoundary panelName="Compliance Overview">
+          <ComplianceDashboardOverview
+            status={complianceStatus}
+            loading={statusLoading}
+            error={statusError}
+          />
+        </PanelErrorBoundary>
+
+        {/* Quick Links */}
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-8">
+          <Link
+            href="/policy"
+            className="p-3 bg-[var(--surface)] border border-[var(--border)] hover:border-[var(--acid-green)]/50 transition-colors text-center"
+          >
+            <div className="text-xs font-mono text-[var(--text)] hover:text-[var(--acid-green)]">Policies</div>
+            <div className="text-[10px] font-mono text-[var(--text-muted)]">Manage rules</div>
+          </Link>
+          <Link
+            href="/audit"
+            className="p-3 bg-[var(--surface)] border border-[var(--border)] hover:border-[var(--acid-green)]/50 transition-colors text-center"
+          >
+            <div className="text-xs font-mono text-[var(--text)] hover:text-[var(--acid-green)]">Audit</div>
+            <div className="text-[10px] font-mono text-[var(--text-muted)]">Audit trails</div>
+          </Link>
+          <Link
+            href="/receipts"
+            className="p-3 bg-[var(--surface)] border border-[var(--border)] hover:border-[var(--acid-green)]/50 transition-colors text-center"
+          >
+            <div className="text-xs font-mono text-[var(--text)] hover:text-[var(--acid-green)]">Receipts</div>
+            <div className="text-[10px] font-mono text-[var(--text-muted)]">Decision records</div>
+          </Link>
+          <Link
+            href="/privacy"
+            className="p-3 bg-[var(--surface)] border border-[var(--border)] hover:border-[var(--acid-green)]/50 transition-colors text-center"
+          >
+            <div className="text-xs font-mono text-[var(--text)] hover:text-[var(--acid-green)]">Privacy</div>
+            <div className="text-[10px] font-mono text-[var(--text-muted)]">GDPR controls</div>
+          </Link>
         </div>
 
         <PanelErrorBoundary panelName="Risk Classification">
           {/* Step 1: Risk Classification */}
-          <section className="card p-6 mb-6">
-            <h2 className="text-lg font-mono mb-1">1. CLASSIFY AI USE CASE</h2>
-            <p className="text-xs text-muted font-mono mb-4">
+          <section className="bg-[var(--surface)] border border-[var(--border)] p-6 mb-6">
+            <h2 className="text-lg font-mono mb-1 text-[var(--text)]">1. CLASSIFY AI USE CASE</h2>
+            <p className="text-xs text-[var(--text-muted)] font-mono mb-4">
               Describe your AI system to determine its risk category under the EU AI Act
             </p>
 
@@ -404,7 +603,7 @@ export default function CompliancePage() {
                 <button
                   key={sample.label}
                   onClick={() => setUseCase(sample.description)}
-                  className="px-3 py-1 text-xs font-mono border border-border rounded hover:border-accent hover:text-accent transition-colors"
+                  className="px-3 py-1 text-xs font-mono border border-[var(--border)] rounded hover:border-[var(--acid-green)] hover:text-[var(--acid-green)] transition-colors"
                 >
                   {sample.label}
                 </button>
@@ -416,13 +615,13 @@ export default function CompliancePage() {
               onChange={(e) => setUseCase(e.target.value)}
               placeholder="Describe your AI system's purpose and functionality..."
               rows={3}
-              className="w-full bg-background border border-border rounded p-3 font-mono text-sm focus:border-accent focus:outline-none resize-none"
+              className="w-full bg-[var(--bg)] border border-[var(--border)] rounded p-3 font-mono text-sm text-[var(--text)] focus:border-[var(--acid-green)] focus:outline-none resize-none"
             />
 
             <button
               onClick={classify}
               disabled={!useCase.trim() || classifying}
-              className="mt-3 px-4 py-2 text-sm font-mono bg-accent/10 text-accent border border-accent/40 rounded hover:bg-accent/20 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+              className="mt-3 px-4 py-2 text-sm font-mono bg-[var(--acid-green)]/10 text-[var(--acid-green)] border border-[var(--acid-green)]/40 rounded hover:bg-[var(--acid-green)]/20 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
             >
               {classifying ? 'CLASSIFYING...' : 'CLASSIFY RISK LEVEL'}
             </button>
@@ -434,17 +633,17 @@ export default function CompliancePage() {
                   <span className={`text-lg font-mono font-bold ${riskStyle.text}`}>
                     {classification.risk_level.toUpperCase()} RISK
                   </span>
-                  <span className="text-xs font-mono text-muted">
+                  <span className="text-xs font-mono text-[var(--text-muted)]">
                     Confidence: {(classification.confidence * 100).toFixed(0)}%
                   </span>
                 </div>
 
                 {classification.annex_iii_categories.length > 0 && (
                   <div className="mb-2">
-                    <span className="text-xs font-mono text-muted">Annex III Categories:</span>
+                    <span className="text-xs font-mono text-[var(--text-muted)]">Annex III Categories:</span>
                     <div className="flex flex-wrap gap-1 mt-1">
                       {classification.annex_iii_categories.map((cat, i) => (
-                        <span key={i} className="px-2 py-0.5 text-xs font-mono bg-background/50 rounded">
+                        <span key={i} className="px-2 py-0.5 text-xs font-mono bg-[var(--bg)]/50 rounded">
                           {cat}
                         </span>
                       ))}
@@ -453,10 +652,10 @@ export default function CompliancePage() {
                 )}
 
                 <div className="mb-2">
-                  <span className="text-xs font-mono text-muted">Applicable Articles:</span>
+                  <span className="text-xs font-mono text-[var(--text-muted)]">Applicable Articles:</span>
                   <div className="flex flex-wrap gap-1 mt-1">
                     {classification.applicable_articles.map((art, i) => (
-                      <span key={i} className="px-2 py-0.5 text-xs font-mono bg-background/50 rounded">
+                      <span key={i} className="px-2 py-0.5 text-xs font-mono bg-[var(--bg)]/50 rounded">
                         {art}
                       </span>
                     ))}
@@ -465,7 +664,7 @@ export default function CompliancePage() {
 
                 {classification.matched_keywords.length > 0 && (
                   <div>
-                    <span className="text-xs font-mono text-muted">Matched Keywords:</span>
+                    <span className="text-xs font-mono text-[var(--text-muted)]">Matched Keywords:</span>
                     <span className="text-xs font-mono ml-2">
                       {classification.matched_keywords.join(', ')}
                     </span>
@@ -473,10 +672,10 @@ export default function CompliancePage() {
                 )}
 
                 {classification.risk_level === 'high' && (
-                  <div className="mt-3 pt-3 border-t border-border/50">
+                  <div className="mt-3 pt-3 border-t border-[var(--border)]/50">
                     <button
                       onClick={generateReport}
-                      className="px-4 py-2 text-sm font-mono bg-accent/10 text-accent border border-accent/40 rounded hover:bg-accent/20 transition-colors"
+                      className="px-4 py-2 text-sm font-mono bg-[var(--acid-green)]/10 text-[var(--acid-green)] border border-[var(--acid-green)]/40 rounded hover:bg-[var(--acid-green)]/20 transition-colors"
                     >
                       GENERATE CONFORMITY ASSESSMENT
                     </button>
@@ -490,30 +689,30 @@ export default function CompliancePage() {
         {/* Step 2: Conformity Assessment */}
         {showAssessments && (
           <PanelErrorBoundary panelName="Conformity Assessment">
-            <section className="card p-6 mb-6">
-              <h2 className="text-lg font-mono mb-1">2. CONFORMITY ASSESSMENT</h2>
-              <p className="text-xs text-muted font-mono mb-4">
+            <section className="bg-[var(--surface)] border border-[var(--border)] p-6 mb-6">
+              <h2 className="text-lg font-mono mb-1 text-[var(--text)]">2. CONFORMITY ASSESSMENT</h2>
+              <p className="text-xs text-[var(--text-muted)] font-mono mb-4">
                 Article-by-article compliance status based on your decision receipt
               </p>
 
               <div className="space-y-3">
                 {assessments.map((assessment) => (
-                  <details key={assessment.article} className="border border-border rounded overflow-hidden">
-                    <summary className="p-3 bg-surface/50 cursor-pointer hover:bg-surface transition-colors flex items-center justify-between">
-                      <span className="font-mono text-sm">
+                  <details key={assessment.article} className="border border-[var(--border)] rounded overflow-hidden">
+                    <summary className="p-3 bg-[var(--surface)]/50 cursor-pointer hover:bg-[var(--surface)] transition-colors flex items-center justify-between">
+                      <span className="font-mono text-sm text-[var(--text)]">
                         {assessment.article}: {assessment.title}
                       </span>
                       <span className={`font-mono text-xs ${STATUS_COLORS[assessment.status]}`}>
                         {STATUS_ICONS[assessment.status]}
                       </span>
                     </summary>
-                    <div className="p-3 border-t border-border text-sm">
+                    <div className="p-3 border-t border-[var(--border)] text-sm">
                       {assessment.findings.length > 0 && (
                         <div className="mb-2">
-                          <span className="text-xs font-mono text-muted">Findings:</span>
+                          <span className="text-xs font-mono text-[var(--text-muted)]">Findings:</span>
                           <ul className="mt-1 space-y-1">
                             {assessment.findings.map((f, i) => (
-                              <li key={i} className="text-xs font-mono pl-3 border-l-2 border-acid-green/40">
+                              <li key={i} className="text-xs font-mono pl-3 border-l-2 border-[var(--acid-green)]/40">
                                 {f}
                               </li>
                             ))}
@@ -522,10 +721,10 @@ export default function CompliancePage() {
                       )}
                       {assessment.recommendations.length > 0 && (
                         <div>
-                          <span className="text-xs font-mono text-muted">Recommendations:</span>
+                          <span className="text-xs font-mono text-[var(--text-muted)]">Recommendations:</span>
                           <ul className="mt-1 space-y-1">
                             {assessment.recommendations.map((r, i) => (
-                              <li key={i} className="text-xs font-mono pl-3 border-l-2 border-acid-yellow/40">
+                              <li key={i} className="text-xs font-mono pl-3 border-l-2 border-yellow-400/40">
                                 {r}
                               </li>
                             ))}
@@ -540,7 +739,7 @@ export default function CompliancePage() {
               <button
                 onClick={generateBundle}
                 disabled={generatingBundle}
-                className="mt-4 px-4 py-2 text-sm font-mono bg-accent/10 text-accent border border-accent/40 rounded hover:bg-accent/20 disabled:opacity-50 transition-colors"
+                className="mt-4 px-4 py-2 text-sm font-mono bg-[var(--acid-green)]/10 text-[var(--acid-green)] border border-[var(--acid-green)]/40 rounded hover:bg-[var(--acid-green)]/20 disabled:opacity-50 transition-colors"
               >
                 {generatingBundle ? 'GENERATING...' : 'GENERATE FULL ARTIFACT BUNDLE'}
               </button>
@@ -551,30 +750,30 @@ export default function CompliancePage() {
         {/* Step 3: Artifact Bundle */}
         {bundle && (
           <PanelErrorBoundary panelName="Compliance Bundle">
-            <section className="card p-6 mb-6">
-              <h2 className="text-lg font-mono mb-1">3. COMPLIANCE ARTIFACT BUNDLE</h2>
+            <section className="bg-[var(--surface)] border border-[var(--border)] p-6 mb-6">
+              <h2 className="text-lg font-mono mb-1 text-[var(--text)]">3. COMPLIANCE ARTIFACT BUNDLE</h2>
               <div className="flex items-center gap-4 mb-4">
-                <span className="text-xs font-mono text-muted">
+                <span className="text-xs font-mono text-[var(--text-muted)]">
                   Bundle: {bundle.bundle_id}
                 </span>
-                <span className="text-xs font-mono text-muted">
+                <span className="text-xs font-mono text-[var(--text-muted)]">
                   Generated: {new Date(bundle.generated_at).toLocaleString()}
                 </span>
               </div>
-              <div className="text-xs font-mono text-muted mb-4 break-all">
+              <div className="text-xs font-mono text-[var(--text-muted)] mb-4 break-all">
                 Integrity: {bundle.integrity_hash}
               </div>
 
               {/* Article tabs */}
-              <div className="flex border-b border-border mb-4">
+              <div className="flex border-b border-[var(--border)] mb-4">
                 {(['12', '13', '14'] as const).map((art) => (
                   <button
                     key={art}
                     onClick={() => setActiveArticle(art)}
                     className={`px-4 py-2 text-sm font-mono border-b-2 transition-colors ${
                       activeArticle === art
-                        ? 'border-accent text-accent'
-                        : 'border-transparent text-muted hover:text-text'
+                        ? 'border-[var(--acid-green)] text-[var(--acid-green)]'
+                        : 'border-transparent text-[var(--text-muted)] hover:text-[var(--text)]'
                     }`}
                   >
                     Article {art}
@@ -583,8 +782,8 @@ export default function CompliancePage() {
               </div>
 
               {/* Article content */}
-              <div className="bg-background border border-border rounded p-4">
-                <pre className="text-xs font-mono whitespace-pre-wrap overflow-auto max-h-96">
+              <div className="bg-[var(--bg)] border border-[var(--border)] rounded p-4">
+                <pre className="text-xs font-mono whitespace-pre-wrap overflow-auto max-h-96 text-[var(--text)]">
                   {JSON.stringify(
                     activeArticle === '12'
                       ? bundle.article_12
@@ -608,7 +807,7 @@ export default function CompliancePage() {
                     a.click();
                     URL.revokeObjectURL(url);
                   }}
-                  className="px-3 py-1.5 text-xs font-mono bg-surface border border-border rounded hover:border-accent transition-colors"
+                  className="px-3 py-1.5 text-xs font-mono bg-[var(--surface)] border border-[var(--border)] rounded hover:border-[var(--acid-green)] transition-colors"
                 >
                   DOWNLOAD JSON
                 </button>
@@ -618,35 +817,35 @@ export default function CompliancePage() {
         )}
 
         {/* Info section */}
-        <section className="card p-6 border-accent/20">
-          <h3 className="text-sm font-mono mb-3 text-accent">HOW IT WORKS</h3>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-xs font-mono text-muted">
+        <section className="bg-[var(--surface)] border border-[var(--acid-green)]/20 p-6">
+          <h3 className="text-sm font-mono mb-3 text-[var(--acid-green)]">HOW IT WORKS</h3>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-xs font-mono text-[var(--text-muted)]">
             <div>
-              <div className="text-text mb-1">1. Run a Debate</div>
+              <div className="text-[var(--text)] mb-1">1. Run a Debate</div>
               Submit any question to Aragora&apos;s multi-agent debate engine. Agents propose, critique,
               and vote.
             </div>
             <div>
-              <div className="text-text mb-1">2. Get a Receipt</div>
+              <div className="text-[var(--text)] mb-1">2. Get a Receipt</div>
               Every debate produces a cryptographic decision receipt with consensus proofs and dissent
               trails.
             </div>
             <div>
-              <div className="text-text mb-1">3. Generate Artifacts</div>
+              <div className="text-[var(--text)] mb-1">3. Generate Artifacts</div>
               The receipt automatically produces Article 12/13/14 compliance artifacts for regulators.
             </div>
           </div>
         </section>
       </main>
 
-      <footer className="border-t border-border bg-surface/50 py-4 mt-8">
-        <div className="container mx-auto px-4 flex items-center justify-between text-xs text-muted font-mono">
+      <footer className="border-t border-[var(--border)] bg-[var(--surface)]/50 py-4 mt-8">
+        <div className="container mx-auto px-4 flex items-center justify-between text-xs text-[var(--text-muted)] font-mono">
           <span>EU AI Act enforcement: August 2, 2026</span>
           <div className="flex items-center gap-4">
-            <Link href="/audit" className="hover:text-accent">
+            <Link href="/audit" className="hover:text-[var(--acid-green)]">
               AUDIT
             </Link>
-            <Link href="/receipts" className="hover:text-accent">
+            <Link href="/receipts" className="hover:text-[var(--acid-green)]">
               RECEIPTS
             </Link>
           </div>

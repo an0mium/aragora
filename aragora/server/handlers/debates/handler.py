@@ -58,6 +58,7 @@ from ..base import (
 # Import all mixins
 from .analysis import AnalysisOperationsMixin
 from .batch import BatchOperationsMixin
+from .costs import CostsMixin
 from .create import CreateOperationsMixin
 from .crud import CrudOperationsMixin
 from .diagnostics import DiagnosticsMixin
@@ -83,6 +84,7 @@ logger = logging.getLogger(__name__)
 class DebatesHandler(
     AnalysisOperationsMixin,
     BatchOperationsMixin,
+    CostsMixin,
     CreateOperationsMixin,
     CrudOperationsMixin,
     DebateControllerMixin,

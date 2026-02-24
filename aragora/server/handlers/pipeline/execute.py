@@ -109,6 +109,7 @@ class PipelineExecuteHandler(BaseHandler):
         budget_limit = body.get("budget_limit_usd")
         require_approval = body.get("require_approval", False)
         dry_run = body.get("dry_run", False)
+        use_hardened = body.get("use_hardened_orchestrator", False)
 
         # Load orchestration nodes from the pipeline graph
         orch_nodes = self._load_orchestration_nodes(pipeline_id)
@@ -140,7 +141,9 @@ class PipelineExecuteHandler(BaseHandler):
 
         # Start background execution
         task = asyncio.create_task(
-            self._execute_pipeline(pipeline_id, cycle_id, goals, budget_limit, require_approval)
+            self._execute_pipeline(
+                pipeline_id, cycle_id, goals, budget_limit, require_approval, use_hardened
+            )
         )
         _execution_tasks[pipeline_id] = task
 
@@ -216,10 +219,18 @@ class PipelineExecuteHandler(BaseHandler):
         goals: list[Any],
         budget_limit: float | None,
         require_approval: bool,
+        use_hardened: bool = False,
     ) -> None:
-        """Execute pipeline goals via SelfImprovePipeline in background."""
+        """Execute pipeline goals via SelfImprovePipeline or HardenedOrchestrator."""
         # Wire WebSocket emitter for real-time progress
         emitter = _get_emitter()
+
+        # Route through HardenedOrchestrator for full safety-gated execution
+        if use_hardened:
+            await self._execute_via_hardened(
+                pipeline_id, cycle_id, goals, budget_limit, require_approval, emitter
+            )
+            return
 
         try:
             from aragora.nomic.self_improve import SelfImproveConfig, SelfImprovePipeline
@@ -315,6 +326,89 @@ class PipelineExecuteHandler(BaseHandler):
             )
             if emitter:
                 await emitter.emit_failed(pipeline_id, "Pipeline execution failed")
+        finally:
+            _execution_tasks.pop(pipeline_id, None)
+
+    async def _execute_via_hardened(
+        self,
+        pipeline_id: str,
+        cycle_id: str,
+        goals: list[Any],
+        budget_limit: float | None,
+        require_approval: bool,
+        emitter: Any | None,
+    ) -> None:
+        """Execute pipeline goals via HardenedOrchestrator with full safety gates."""
+        try:
+            from aragora.nomic.hardened_orchestrator import HardenedOrchestrator
+
+            if emitter:
+                await emitter.emit_started(
+                    pipeline_id,
+                    {"cycle_id": cycle_id, "goal_count": len(goals), "backend": "hardened"},
+                )
+
+            orchestrator = HardenedOrchestrator(
+                use_worktree_isolation=True,
+                enable_gauntlet_validation=True,
+                generate_receipts=True,
+                budget_limit_usd=budget_limit,
+                require_approval=require_approval,
+            )
+
+            completed = 0
+            failed = 0
+            for goal in goals:
+                try:
+                    result = await orchestrator.execute_goal(goal.description)
+                    if getattr(result, "success", False):
+                        completed += 1
+                    else:
+                        failed += 1
+                except (RuntimeError, ValueError, OSError, TypeError) as exc:
+                    logger.warning("Hardened goal execution failed: %s", exc)
+                    failed += 1
+
+            status = "completed" if completed > 0 else "failed"
+            _executions[pipeline_id].update(
+                {
+                    "status": status,
+                    "completed_at": datetime.now(timezone.utc).isoformat(),
+                    "total_subtasks": len(goals),
+                    "completed_subtasks": completed,
+                    "failed_subtasks": failed,
+                    "backend": "hardened_orchestrator",
+                }
+            )
+
+            if emitter:
+                if status == "completed":
+                    await emitter.emit_completed(pipeline_id, _executions[pipeline_id])
+                else:
+                    await emitter.emit_failed(pipeline_id, "No goals completed")
+
+        except ImportError:
+            logger.debug("HardenedOrchestrator not available, falling back to basic pipeline")
+            _executions[pipeline_id].update(
+                {
+                    "status": "failed",
+                    "error": "HardenedOrchestrator not available",
+                    "completed_at": datetime.now(timezone.utc).isoformat(),
+                }
+            )
+            if emitter:
+                await emitter.emit_failed(pipeline_id, "HardenedOrchestrator not available")
+        except (RuntimeError, ValueError, TypeError, OSError) as e:
+            logger.error("Hardened pipeline execution failed: %s", type(e).__name__)
+            _executions[pipeline_id].update(
+                {
+                    "status": "failed",
+                    "error": "Hardened pipeline execution failed",
+                    "completed_at": datetime.now(timezone.utc).isoformat(),
+                }
+            )
+            if emitter:
+                await emitter.emit_failed(pipeline_id, "Hardened pipeline execution failed")
         finally:
             _execution_tasks.pop(pipeline_id, None)
 

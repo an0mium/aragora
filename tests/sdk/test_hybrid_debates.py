@@ -11,9 +11,7 @@ from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 
-pytest.importorskip("aragora_sdk", reason="aragora-sdk not installed")
-
-from aragora_sdk.namespaces.hybrid_debates import (  # noqa: E402
+from aragora_sdk.namespaces.hybrid_debates import (
     AsyncHybridDebatesAPI,
     HybridDebatesAPI,
 )

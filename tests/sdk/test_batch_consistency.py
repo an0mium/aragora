@@ -11,9 +11,7 @@ import inspect
 
 import pytest
 
-pytest.importorskip("aragora_sdk", reason="aragora-sdk not installed")
-
-from aragora_sdk.namespaces.batch import AsyncBatchAPI, BatchAPI  # noqa: E402
+from aragora_sdk.namespaces.batch import AsyncBatchAPI, BatchAPI
 
 
 class TestBatchPayloadConsistency:
