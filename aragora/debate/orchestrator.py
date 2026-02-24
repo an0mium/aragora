@@ -261,7 +261,7 @@ class Arena(ArenaDelegatesMixin):
     extensions: Any
     cartographer: Any
     event_bridge: Any
-    event_bus: Any
+    _event_bus: Any
     enable_ml_delegation: bool
     ml_delegation_weight: float
     enable_quality_gates: bool

@@ -1167,7 +1167,7 @@ class TeamSelector:
                 return 0.0
 
             agent_name = getattr(agent, "name", str(agent))
-            agent_hits = 0
+            agent_hits = 0.0
             for i, reg in enumerate(regressions):
                 # Check if agent is mentioned in recommendation or regressed metrics
                 rec = reg.get("recommendation", "")
@@ -1183,9 +1183,7 @@ class TeamSelector:
             return max(-0.5, -0.1 * agent_hits)
 
         except (ImportError, AttributeError, TypeError, ValueError, RuntimeError) as e:
-            logger.debug(
-                "Regression penalty failed for %s: %s", getattr(agent, "name", agent), e
-            )
+            logger.debug("Regression penalty failed for %s: %s", getattr(agent, "name", agent), e)
             return 0.0
 
     def _compute_introspection_score(self, agent: Any, domain: str | None = None) -> float:
@@ -1210,9 +1208,7 @@ class TeamSelector:
             return (rep + cal) / 2.0
 
         except (ImportError, AttributeError, TypeError, ValueError, RuntimeError) as e:
-            logger.debug(
-                "Introspection score failed for %s: %s", getattr(agent, "name", agent), e
-            )
+            logger.debug("Introspection score failed for %s: %s", getattr(agent, "name", agent), e)
             return 0.0
 
     def _compute_health_score(self, agent: Any, domain: str | None = None) -> float:
@@ -1257,9 +1253,7 @@ class TeamSelector:
                 return 0.0
 
         except (ImportError, AttributeError, TypeError, ValueError, RuntimeError) as e:
-            logger.debug(
-                "Health score failed for %s: %s", getattr(agent, "name", agent), e
-            )
+            logger.debug("Health score failed for %s: %s", getattr(agent, "name", agent), e)
             return 0.0
 
     async def _warm_culture_cache(self, cache_key: str, task_type: str) -> None:
