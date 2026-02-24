@@ -96,7 +96,7 @@ class IdeaCanvasAdapter(KnowledgeMoundAdapter):
 
         km_node_id = f"kn_idea_{_content_hash(canvas_node.get('id', ''))}"
 
-        KnowledgeNode(
+        _node = KnowledgeNode(
             id=km_node_id,
             node_type=km_type,
             content=content,
@@ -119,7 +119,7 @@ class IdeaCanvasAdapter(KnowledgeMoundAdapter):
                 },
             },
             topics=data.get("tags", []),
-        )
+        )  # noqa: F841
 
         # Store in local cache
         self._node_map[canvas_node.get("id", "")] = km_node_id
@@ -160,7 +160,7 @@ class IdeaCanvasAdapter(KnowledgeMoundAdapter):
         edge_type = edge.get("edge_type", edge.get("type", "related_to"))
         relationship_type = self._map_edge_type(edge_type)
 
-        KnowledgeRelationship(
+        _rel = KnowledgeRelationship(
             id=kr_id,
             from_node_id=self._node_map.get(edge.get("source_id", edge.get("source", "")), ""),
             to_node_id=self._node_map.get(edge.get("target_id", edge.get("target", "")), ""),
@@ -170,7 +170,7 @@ class IdeaCanvasAdapter(KnowledgeMoundAdapter):
                 "canvas_edge_id": edge.get("id", ""),
                 "label": edge.get("label", ""),
             },
-        )
+        )  # noqa: F841
 
         self._edge_map[edge.get("id", "")] = kr_id
         return kr_id

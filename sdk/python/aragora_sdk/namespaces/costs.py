@@ -539,6 +539,92 @@ class CostsAPI:
             body["provider"] = provider
         return self._client.request("POST", "/api/v1/costs/estimate", json=body)
 
+    # ===========================================================================
+    # Spend Analytics
+    # ===========================================================================
+
+    def get_spend_trend(
+        self,
+        workspace_id: str | None = None,
+        period: str = "30d",
+    ) -> dict[str, Any]:
+        """Get daily spend trend over a time period.
+
+        Args:
+            workspace_id: Workspace ID (default: "default").
+            period: Time period (7d, 14d, 30d, 60d, 90d). Default: 30d.
+
+        Returns:
+            Dict with daily cost trend data points.
+        """
+        params: dict[str, Any] = {"period": period}
+        if workspace_id:
+            params["workspace_id"] = workspace_id
+        return self._client.request("GET", "/api/v1/costs/analytics/trend", params=params)
+
+    def get_spend_by_agent(self, workspace_id: str | None = None) -> dict[str, Any]:
+        """Get per-agent cost breakdown.
+
+        Args:
+            workspace_id: Workspace ID (default: "default").
+
+        Returns:
+            Dict with per-agent cost breakdown.
+        """
+        params: dict[str, Any] = {}
+        if workspace_id:
+            params["workspace_id"] = workspace_id
+        return self._client.request("GET", "/api/v1/costs/analytics/by-agent", params=params)
+
+    def get_spend_by_model(self, workspace_id: str | None = None) -> dict[str, Any]:
+        """Get per-model cost breakdown.
+
+        Args:
+            workspace_id: Workspace ID (default: "default").
+
+        Returns:
+            Dict with per-model cost breakdown.
+        """
+        params: dict[str, Any] = {}
+        if workspace_id:
+            params["workspace_id"] = workspace_id
+        return self._client.request("GET", "/api/v1/costs/analytics/by-model", params=params)
+
+    def get_spend_by_debate(
+        self,
+        workspace_id: str | None = None,
+        limit: int = 20,
+    ) -> dict[str, Any]:
+        """Get per-debate cost breakdown.
+
+        Args:
+            workspace_id: Workspace ID (default: "default").
+            limit: Max debates to return (default: 20, max: 100).
+
+        Returns:
+            Dict with per-debate cost breakdown.
+        """
+        params: dict[str, Any] = {"limit": limit}
+        if workspace_id:
+            params["workspace_id"] = workspace_id
+        return self._client.request("GET", "/api/v1/costs/analytics/by-debate", params=params)
+
+    def get_budget_utilization(self, workspace_id: str | None = None) -> dict[str, Any]:
+        """Get budget utilization percentage and remaining budget.
+
+        Args:
+            workspace_id: Workspace ID (default: "default").
+
+        Returns:
+            Dict with budget utilization metrics.
+        """
+        params: dict[str, Any] = {}
+        if workspace_id:
+            params["workspace_id"] = workspace_id
+        return self._client.request(
+            "GET", "/api/v1/costs/analytics/budget-utilization", params=params
+        )
+
 
 class AsyncCostsAPI:
     """
@@ -851,3 +937,58 @@ class AsyncCostsAPI:
         if provider:
             body["provider"] = provider
         return await self._client.request("POST", "/api/v1/costs/estimate", json=body)
+
+    # ===========================================================================
+    # Spend Analytics
+    # ===========================================================================
+
+    async def get_spend_trend(
+        self,
+        workspace_id: str | None = None,
+        period: str = "30d",
+    ) -> dict[str, Any]:
+        """Get daily spend trend over a time period."""
+        params: dict[str, Any] = {"period": period}
+        if workspace_id:
+            params["workspace_id"] = workspace_id
+        return await self._client.request("GET", "/api/v1/costs/analytics/trend", params=params)
+
+    async def get_spend_by_agent(self, workspace_id: str | None = None) -> dict[str, Any]:
+        """Get per-agent cost breakdown."""
+        params: dict[str, Any] = {}
+        if workspace_id:
+            params["workspace_id"] = workspace_id
+        return await self._client.request(
+            "GET", "/api/v1/costs/analytics/by-agent", params=params
+        )
+
+    async def get_spend_by_model(self, workspace_id: str | None = None) -> dict[str, Any]:
+        """Get per-model cost breakdown."""
+        params: dict[str, Any] = {}
+        if workspace_id:
+            params["workspace_id"] = workspace_id
+        return await self._client.request(
+            "GET", "/api/v1/costs/analytics/by-model", params=params
+        )
+
+    async def get_spend_by_debate(
+        self,
+        workspace_id: str | None = None,
+        limit: int = 20,
+    ) -> dict[str, Any]:
+        """Get per-debate cost breakdown."""
+        params: dict[str, Any] = {"limit": limit}
+        if workspace_id:
+            params["workspace_id"] = workspace_id
+        return await self._client.request(
+            "GET", "/api/v1/costs/analytics/by-debate", params=params
+        )
+
+    async def get_budget_utilization(self, workspace_id: str | None = None) -> dict[str, Any]:
+        """Get budget utilization percentage and remaining budget."""
+        params: dict[str, Any] = {}
+        if workspace_id:
+            params["workspace_id"] = workspace_id
+        return await self._client.request(
+            "GET", "/api/v1/costs/analytics/budget-utilization", params=params
+        )

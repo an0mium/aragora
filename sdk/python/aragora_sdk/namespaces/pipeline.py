@@ -305,6 +305,238 @@ class PipelineAPI:
         )
 
     # =========================================================================
+    # Demo & Auto-Run
+    # =========================================================================
+
+    def demo(
+        self,
+        *,
+        ideas: list[str] | None = None,
+    ) -> dict[str, Any]:
+        """Create a pre-populated demo pipeline with all 4 stages complete.
+
+        No API keys or authentication required. The pipeline is stored
+        server-side so that subsequent execute calls work.
+
+        Args:
+            ideas: Custom demo ideas (optional, defaults to built-in examples).
+
+        Returns:
+            Demo pipeline result with pipeline_id.
+        """
+        payload: dict[str, Any] = {}
+        if ideas:
+            payload["ideas"] = ideas
+        return self._client.request(
+            "POST",
+            "/api/v1/canvas/pipeline/demo",
+            json=payload,
+        )
+
+    def auto_run(
+        self,
+        text: str,
+        *,
+        automation_level: str = "full",
+    ) -> dict[str, Any]:
+        """Accept unstructured text and auto-run the full pipeline.
+
+        Returns pipeline_id immediately while processing streams via WebSocket.
+
+        Args:
+            text: Unstructured text input.
+            automation_level: Level of automation (full, guided, manual).
+
+        Returns:
+            Pipeline ID and initial status.
+        """
+        return self._client.request(
+            "POST",
+            "/api/v1/canvas/pipeline/auto-run",
+            json={"text": text, "automation_level": automation_level},
+        )
+
+    def extract_principles(
+        self,
+        ideas_canvas: dict[str, Any],
+    ) -> dict[str, Any]:
+        """Extract principles/values from an ideas canvas.
+
+        Args:
+            ideas_canvas: Ideas canvas data (nodes + edges).
+
+        Returns:
+            Extracted principles list.
+        """
+        return self._client.request(
+            "POST",
+            "/api/v1/canvas/pipeline/extract-principles",
+            json={"ideas_canvas": ideas_canvas},
+        )
+
+    def from_system_metrics(self) -> dict[str, Any]:
+        """Auto-generate pipeline from system health analysis.
+
+        Returns:
+            Pipeline result derived from current system metrics.
+        """
+        return self._client.request(
+            "POST",
+            "/api/v1/canvas/pipeline/from-system-metrics",
+            json={},
+        )
+
+    # =========================================================================
+    # Pipeline Intelligence
+    # =========================================================================
+
+    def get_intelligence(self, pipeline_id: str) -> dict[str, Any]:
+        """Get per-node intelligence: beliefs, crux status, evidence, precedents.
+
+        Args:
+            pipeline_id: Pipeline identifier.
+
+        Returns:
+            Dict with beliefs, explanations, and precedents arrays.
+        """
+        return self._client.request(
+            "GET",
+            f"/api/v1/canvas/pipeline/{pipeline_id}/intelligence",
+        )
+
+    def get_beliefs(self, pipeline_id: str) -> dict[str, Any]:
+        """Get belief network state for pipeline nodes.
+
+        Args:
+            pipeline_id: Pipeline identifier.
+
+        Returns:
+            Dict with beliefs array containing confidence and crux status.
+        """
+        return self._client.request(
+            "GET",
+            f"/api/v1/canvas/pipeline/{pipeline_id}/beliefs",
+        )
+
+    def get_explanations(self, pipeline_id: str) -> dict[str, Any]:
+        """Get explainability factors for pipeline decisions.
+
+        Args:
+            pipeline_id: Pipeline identifier.
+
+        Returns:
+            Dict with explanations array.
+        """
+        return self._client.request(
+            "GET",
+            f"/api/v1/canvas/pipeline/{pipeline_id}/explanations",
+        )
+
+    def get_precedents(self, pipeline_id: str) -> dict[str, Any]:
+        """Get Knowledge Mound precedents for pipeline goals.
+
+        Args:
+            pipeline_id: Pipeline identifier.
+
+        Returns:
+            Dict with precedents array containing node matches.
+        """
+        return self._client.request(
+            "GET",
+            f"/api/v1/canvas/pipeline/{pipeline_id}/precedents",
+        )
+
+    def self_improve(
+        self,
+        pipeline_id: str,
+        *,
+        budget_limit: float = 10.0,
+        require_approval: bool = True,
+    ) -> dict[str, Any]:
+        """Feed a completed pipeline into the self-improvement system.
+
+        Triggers autonomous execution with safety rails (worktree isolation,
+        gauntlet validation, regression detection).
+
+        Args:
+            pipeline_id: Pipeline identifier.
+            budget_limit: Max spend in dollars (default 10.0).
+            require_approval: Whether human approval is required (default True).
+
+        Returns:
+            Self-improvement run ID and status.
+        """
+        return self._client.request(
+            "POST",
+            f"/api/v1/canvas/pipeline/{pipeline_id}/self-improve",
+            json={
+                "budget_limit": budget_limit,
+                "require_approval": require_approval,
+            },
+        )
+
+    # =========================================================================
+    # Pipeline Agents
+    # =========================================================================
+
+    def get_agents(self, pipeline_id: str) -> dict[str, Any]:
+        """Get active agents with status, worktree, and progress.
+
+        Args:
+            pipeline_id: Pipeline identifier.
+
+        Returns:
+            Dict with agents array and pipeline_id.
+        """
+        return self._client.request("GET", f"/api/v1/pipeline/{pipeline_id}/agents")
+
+    def approve_agent(
+        self,
+        pipeline_id: str,
+        agent_id: str,
+        *,
+        notes: str = "",
+    ) -> dict[str, Any]:
+        """Approve an agent's work on a pipeline.
+
+        Args:
+            pipeline_id: Pipeline identifier.
+            agent_id: Agent identifier.
+            notes: Optional approval notes.
+
+        Returns:
+            Approval confirmation.
+        """
+        return self._client.request(
+            "POST",
+            f"/api/v1/pipeline/{pipeline_id}/agents/{agent_id}/approve",
+            json={"notes": notes},
+        )
+
+    def reject_agent(
+        self,
+        pipeline_id: str,
+        agent_id: str,
+        *,
+        feedback: str,
+    ) -> dict[str, Any]:
+        """Reject an agent's work on a pipeline with feedback.
+
+        Args:
+            pipeline_id: Pipeline identifier.
+            agent_id: Agent identifier.
+            feedback: Required feedback explaining the rejection.
+
+        Returns:
+            Rejection confirmation.
+        """
+        return self._client.request(
+            "POST",
+            f"/api/v1/pipeline/{pipeline_id}/agents/{agent_id}/reject",
+            json={"feedback": feedback},
+        )
+
+    # =========================================================================
     # Pipeline Graphs & Transitions
     # =========================================================================
 
@@ -377,6 +609,200 @@ class PipelineAPI:
         if conditions:
             payload["conditions"] = conditions
         return self._client.request("POST", "/api/v1/pipeline/transitions", json=payload)
+
+    # =========================================================================
+    # Universal Pipeline Graph CRUD
+    # =========================================================================
+
+    def get_graph_by_id(self, graph_id: str) -> dict[str, Any]:
+        """Get a specific universal pipeline graph.
+
+        Args:
+            graph_id: Graph identifier.
+
+        Returns:
+            Graph with nodes, edges, and metadata.
+        """
+        return self._client.request("GET", f"/api/v1/pipeline/graph/{graph_id}")
+
+    def delete_graph_by_id(self, graph_id: str) -> dict[str, Any]:
+        """Delete a universal pipeline graph.
+
+        Args:
+            graph_id: Graph identifier.
+
+        Returns:
+            Deletion confirmation.
+        """
+        return self._client.request("DELETE", f"/api/v1/pipeline/graph/{graph_id}")
+
+    def add_graph_node(
+        self,
+        graph_id: str,
+        node_data: dict[str, Any],
+    ) -> dict[str, Any]:
+        """Add a node to a universal pipeline graph.
+
+        Args:
+            graph_id: Graph identifier.
+            node_data: Node definition with label, type, stage, etc.
+
+        Returns:
+            Created node with ID.
+        """
+        return self._client.request(
+            "POST",
+            f"/api/v1/pipeline/graph/{graph_id}/node",
+            json=node_data,
+        )
+
+    def delete_graph_node(self, graph_id: str, node_id: str) -> dict[str, Any]:
+        """Remove a node from a universal pipeline graph.
+
+        Args:
+            graph_id: Graph identifier.
+            node_id: Node identifier to remove.
+
+        Returns:
+            Deletion confirmation.
+        """
+        return self._client.request(
+            "DELETE",
+            f"/api/v1/pipeline/graph/{graph_id}/node/{node_id}",
+        )
+
+    def reassign_graph_node(
+        self,
+        graph_id: str,
+        node_id: str,
+        agent_id: str,
+    ) -> dict[str, Any]:
+        """Reassign an agent on a pipeline graph node.
+
+        Args:
+            graph_id: Graph identifier.
+            node_id: Node identifier.
+            agent_id: New agent to assign.
+
+        Returns:
+            Updated node with new agent assignment.
+        """
+        return self._client.request(
+            "POST",
+            f"/api/v1/pipeline/graph/{graph_id}/node/{node_id}/reassign",
+            json={"agent_id": agent_id},
+        )
+
+    def list_graph_nodes(
+        self,
+        graph_id: str,
+        *,
+        stage: str | None = None,
+        subtype: str | None = None,
+    ) -> dict[str, Any]:
+        """Query nodes in a pipeline graph with optional filters.
+
+        Args:
+            graph_id: Graph identifier.
+            stage: Filter by pipeline stage.
+            subtype: Filter by node subtype.
+
+        Returns:
+            Dict with matching nodes list.
+        """
+        params: dict[str, Any] = {}
+        if stage:
+            params["stage"] = stage
+        if subtype:
+            params["subtype"] = subtype
+        return self._client.request(
+            "GET",
+            f"/api/v1/pipeline/graph/{graph_id}/nodes",
+            params=params,
+        )
+
+    def promote_graph_nodes(
+        self,
+        graph_id: str,
+        node_ids: list[str],
+        *,
+        target_stage: str | None = None,
+    ) -> dict[str, Any]:
+        """Promote nodes to the next pipeline stage.
+
+        Args:
+            graph_id: Graph identifier.
+            node_ids: Node IDs to promote.
+            target_stage: Target stage (optional, auto-detected if omitted).
+
+        Returns:
+            Promotion result with promoted count and new stage.
+        """
+        payload: dict[str, Any] = {"node_ids": node_ids}
+        if target_stage:
+            payload["target_stage"] = target_stage
+        return self._client.request(
+            "POST",
+            f"/api/v1/pipeline/graph/{graph_id}/promote",
+            json=payload,
+        )
+
+    def get_graph_provenance(self, graph_id: str, node_id: str) -> dict[str, Any]:
+        """Get the provenance chain for a specific graph node.
+
+        Args:
+            graph_id: Graph identifier.
+            node_id: Node to trace provenance for.
+
+        Returns:
+            Provenance chain with source lineage.
+        """
+        return self._client.request(
+            "GET",
+            f"/api/v1/pipeline/graph/{graph_id}/provenance/{node_id}",
+        )
+
+    def get_graph_react_flow(self, graph_id: str) -> dict[str, Any]:
+        """Export a pipeline graph as React Flow JSON.
+
+        Args:
+            graph_id: Graph identifier.
+
+        Returns:
+            React Flow format with nodes and edges arrays.
+        """
+        return self._client.request(
+            "GET",
+            f"/api/v1/pipeline/graph/{graph_id}/react-flow",
+        )
+
+    def get_graph_integrity(self, graph_id: str) -> dict[str, Any]:
+        """Get the integrity hash for a pipeline graph.
+
+        Args:
+            graph_id: Graph identifier.
+
+        Returns:
+            Dict with integrity hash and verification status.
+        """
+        return self._client.request(
+            "GET",
+            f"/api/v1/pipeline/graph/{graph_id}/integrity",
+        )
+
+    def get_graph_suggestions(self, graph_id: str) -> dict[str, Any]:
+        """Get transition suggestions for a pipeline graph.
+
+        Args:
+            graph_id: Graph identifier.
+
+        Returns:
+            Dict with suggested next transitions.
+        """
+        return self._client.request(
+            "GET",
+            f"/api/v1/pipeline/graph/{graph_id}/suggestions",
+        )
 
 
 class AsyncPipelineAPI:
@@ -626,6 +1052,142 @@ class AsyncPipelineAPI:
         )
 
     # =========================================================================
+    # Demo & Auto-Run
+    # =========================================================================
+
+    async def demo(
+        self,
+        *,
+        ideas: list[str] | None = None,
+    ) -> dict[str, Any]:
+        """Create a pre-populated demo pipeline with all 4 stages complete."""
+        payload: dict[str, Any] = {}
+        if ideas:
+            payload["ideas"] = ideas
+        return await self._client.request(
+            "POST",
+            "/api/v1/canvas/pipeline/demo",
+            json=payload,
+        )
+
+    async def auto_run(
+        self,
+        text: str,
+        *,
+        automation_level: str = "full",
+    ) -> dict[str, Any]:
+        """Accept unstructured text and auto-run the full pipeline."""
+        return await self._client.request(
+            "POST",
+            "/api/v1/canvas/pipeline/auto-run",
+            json={"text": text, "automation_level": automation_level},
+        )
+
+    async def extract_principles(
+        self,
+        ideas_canvas: dict[str, Any],
+    ) -> dict[str, Any]:
+        """Extract principles/values from an ideas canvas."""
+        return await self._client.request(
+            "POST",
+            "/api/v1/canvas/pipeline/extract-principles",
+            json={"ideas_canvas": ideas_canvas},
+        )
+
+    async def from_system_metrics(self) -> dict[str, Any]:
+        """Auto-generate pipeline from system health analysis."""
+        return await self._client.request(
+            "POST",
+            "/api/v1/canvas/pipeline/from-system-metrics",
+            json={},
+        )
+
+    # =========================================================================
+    # Pipeline Intelligence
+    # =========================================================================
+
+    async def get_intelligence(self, pipeline_id: str) -> dict[str, Any]:
+        """Get per-node intelligence: beliefs, crux status, evidence, precedents."""
+        return await self._client.request(
+            "GET",
+            f"/api/v1/canvas/pipeline/{pipeline_id}/intelligence",
+        )
+
+    async def get_beliefs(self, pipeline_id: str) -> dict[str, Any]:
+        """Get belief network state for pipeline nodes."""
+        return await self._client.request(
+            "GET",
+            f"/api/v1/canvas/pipeline/{pipeline_id}/beliefs",
+        )
+
+    async def get_explanations(self, pipeline_id: str) -> dict[str, Any]:
+        """Get explainability factors for pipeline decisions."""
+        return await self._client.request(
+            "GET",
+            f"/api/v1/canvas/pipeline/{pipeline_id}/explanations",
+        )
+
+    async def get_precedents(self, pipeline_id: str) -> dict[str, Any]:
+        """Get Knowledge Mound precedents for pipeline goals."""
+        return await self._client.request(
+            "GET",
+            f"/api/v1/canvas/pipeline/{pipeline_id}/precedents",
+        )
+
+    async def self_improve(
+        self,
+        pipeline_id: str,
+        *,
+        budget_limit: float = 10.0,
+        require_approval: bool = True,
+    ) -> dict[str, Any]:
+        """Feed a completed pipeline into the self-improvement system."""
+        return await self._client.request(
+            "POST",
+            f"/api/v1/canvas/pipeline/{pipeline_id}/self-improve",
+            json={
+                "budget_limit": budget_limit,
+                "require_approval": require_approval,
+            },
+        )
+
+    # =========================================================================
+    # Pipeline Agents
+    # =========================================================================
+
+    async def get_agents(self, pipeline_id: str) -> dict[str, Any]:
+        """Get active agents with status, worktree, and progress."""
+        return await self._client.request("GET", f"/api/v1/pipeline/{pipeline_id}/agents")
+
+    async def approve_agent(
+        self,
+        pipeline_id: str,
+        agent_id: str,
+        *,
+        notes: str = "",
+    ) -> dict[str, Any]:
+        """Approve an agent's work on a pipeline."""
+        return await self._client.request(
+            "POST",
+            f"/api/v1/pipeline/{pipeline_id}/agents/{agent_id}/approve",
+            json={"notes": notes},
+        )
+
+    async def reject_agent(
+        self,
+        pipeline_id: str,
+        agent_id: str,
+        *,
+        feedback: str,
+    ) -> dict[str, Any]:
+        """Reject an agent's work on a pipeline with feedback."""
+        return await self._client.request(
+            "POST",
+            f"/api/v1/pipeline/{pipeline_id}/agents/{agent_id}/reject",
+            json={"feedback": feedback},
+        )
+
+    # =========================================================================
     # Pipeline Graphs & Transitions
     # =========================================================================
 
@@ -667,3 +1229,111 @@ class AsyncPipelineAPI:
         if conditions:
             payload["conditions"] = conditions
         return await self._client.request("POST", "/api/v1/pipeline/transitions", json=payload)
+
+    # =========================================================================
+    # Universal Pipeline Graph CRUD
+    # =========================================================================
+
+    async def get_graph_by_id(self, graph_id: str) -> dict[str, Any]:
+        """Get a specific universal pipeline graph."""
+        return await self._client.request("GET", f"/api/v1/pipeline/graph/{graph_id}")
+
+    async def delete_graph_by_id(self, graph_id: str) -> dict[str, Any]:
+        """Delete a universal pipeline graph."""
+        return await self._client.request("DELETE", f"/api/v1/pipeline/graph/{graph_id}")
+
+    async def add_graph_node(
+        self,
+        graph_id: str,
+        node_data: dict[str, Any],
+    ) -> dict[str, Any]:
+        """Add a node to a universal pipeline graph."""
+        return await self._client.request(
+            "POST",
+            f"/api/v1/pipeline/graph/{graph_id}/node",
+            json=node_data,
+        )
+
+    async def delete_graph_node(self, graph_id: str, node_id: str) -> dict[str, Any]:
+        """Remove a node from a universal pipeline graph."""
+        return await self._client.request(
+            "DELETE",
+            f"/api/v1/pipeline/graph/{graph_id}/node/{node_id}",
+        )
+
+    async def reassign_graph_node(
+        self,
+        graph_id: str,
+        node_id: str,
+        agent_id: str,
+    ) -> dict[str, Any]:
+        """Reassign an agent on a pipeline graph node."""
+        return await self._client.request(
+            "POST",
+            f"/api/v1/pipeline/graph/{graph_id}/node/{node_id}/reassign",
+            json={"agent_id": agent_id},
+        )
+
+    async def list_graph_nodes(
+        self,
+        graph_id: str,
+        *,
+        stage: str | None = None,
+        subtype: str | None = None,
+    ) -> dict[str, Any]:
+        """Query nodes in a pipeline graph with optional filters."""
+        params: dict[str, Any] = {}
+        if stage:
+            params["stage"] = stage
+        if subtype:
+            params["subtype"] = subtype
+        return await self._client.request(
+            "GET",
+            f"/api/v1/pipeline/graph/{graph_id}/nodes",
+            params=params,
+        )
+
+    async def promote_graph_nodes(
+        self,
+        graph_id: str,
+        node_ids: list[str],
+        *,
+        target_stage: str | None = None,
+    ) -> dict[str, Any]:
+        """Promote nodes to the next pipeline stage."""
+        payload: dict[str, Any] = {"node_ids": node_ids}
+        if target_stage:
+            payload["target_stage"] = target_stage
+        return await self._client.request(
+            "POST",
+            f"/api/v1/pipeline/graph/{graph_id}/promote",
+            json=payload,
+        )
+
+    async def get_graph_provenance(self, graph_id: str, node_id: str) -> dict[str, Any]:
+        """Get the provenance chain for a specific graph node."""
+        return await self._client.request(
+            "GET",
+            f"/api/v1/pipeline/graph/{graph_id}/provenance/{node_id}",
+        )
+
+    async def get_graph_react_flow(self, graph_id: str) -> dict[str, Any]:
+        """Export a pipeline graph as React Flow JSON."""
+        return await self._client.request(
+            "GET",
+            f"/api/v1/pipeline/graph/{graph_id}/react-flow",
+        )
+
+    async def get_graph_integrity(self, graph_id: str) -> dict[str, Any]:
+        """Get the integrity hash for a pipeline graph."""
+        return await self._client.request(
+            "GET",
+            f"/api/v1/pipeline/graph/{graph_id}/integrity",
+        )
+
+    async def get_graph_suggestions(self, graph_id: str) -> dict[str, Any]:
+        """Get transition suggestions for a pipeline graph."""
+        return await self._client.request(
+            "GET",
+            f"/api/v1/pipeline/graph/{graph_id}/suggestions",
+        )

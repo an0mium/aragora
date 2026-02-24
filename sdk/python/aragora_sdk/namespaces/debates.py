@@ -540,6 +540,59 @@ class DebatesAPI:
         """
         return self._client.request("GET", f"/api/debates/{debate_id}/diagnostics")
 
+    def get_costs(self, debate_id: str) -> dict[str, Any]:
+        """Get per-debate cost breakdown.
+
+        Queries the DebateCostTracker for granular per-agent, per-round,
+        and per-model cost data.
+
+        Args:
+            debate_id: The debate ID.
+
+        Returns:
+            Dict with cost breakdown by agent, round, and model.
+        """
+        return self._client.request("GET", f"/api/v1/debates/{debate_id}/costs")
+
+    def get_events(
+        self,
+        debate_id: str,
+        *,
+        since: int = 0,
+        limit: int = 100,
+    ) -> dict[str, Any]:
+        """Get debate events for polling fallback.
+
+        Retrieves events that may have been missed during WebSocket
+        disconnections.
+
+        Args:
+            debate_id: The debate ID.
+            since: Sequence number to start from (default: 0).
+            limit: Maximum number of events to return (default: 100).
+
+        Returns:
+            Dict with events list and latest sequence number.
+        """
+        return self._client.request(
+            "GET",
+            f"/api/v1/debates/{debate_id}/events",
+            params={"since": since, "limit": limit},
+        )
+
+    def get_positions(self, debate_id: str) -> dict[str, Any]:
+        """Get position evolution per agent.
+
+        Tracks how each agent's position changed throughout the debate.
+
+        Args:
+            debate_id: The debate ID.
+
+        Returns:
+            Dict with per-agent position evolution data.
+        """
+        return self._client.request("GET", f"/api/v1/debates/{debate_id}/positions")
+
     # ========== Package & Share ==========
 
     def get_package(self, debate_id: str) -> dict[str, Any]:
@@ -1139,6 +1192,28 @@ class AsyncDebatesAPI:
     async def get_diagnostics(self, debate_id: str) -> dict[str, Any]:
         """Get diagnostics for a debate."""
         return await self._client.request("GET", f"/api/debates/{debate_id}/diagnostics")
+
+    async def get_costs(self, debate_id: str) -> dict[str, Any]:
+        """Get per-debate cost breakdown."""
+        return await self._client.request("GET", f"/api/v1/debates/{debate_id}/costs")
+
+    async def get_events(
+        self,
+        debate_id: str,
+        *,
+        since: int = 0,
+        limit: int = 100,
+    ) -> dict[str, Any]:
+        """Get debate events for polling fallback."""
+        return await self._client.request(
+            "GET",
+            f"/api/v1/debates/{debate_id}/events",
+            params={"since": since, "limit": limit},
+        )
+
+    async def get_positions(self, debate_id: str) -> dict[str, Any]:
+        """Get position evolution per agent."""
+        return await self._client.request("GET", f"/api/v1/debates/{debate_id}/positions")
 
     # Package & Share
     async def get_package(self, debate_id: str) -> dict[str, Any]:
