@@ -11,6 +11,10 @@ on:
         required: true
         type: string
 
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   validate:
     runs-on: ubuntu-latest
@@ -111,10 +115,17 @@ jobs:
           PYTHONPATH: .
 
   # ---------------------------------------------------------------------------
-  # Security gate: inline critical security checks so releases cannot ship
-  # with known high/critical vulnerabilities.  The standalone security.yml
-  # workflow does not support workflow_call, so we duplicate the blocking
-  # subset here.
+  # Security gate: reusable workflow for security checks.
+  # Runs bandit, pip-audit, npm audit, and hardcoded secrets scan.
+  # ---------------------------------------------------------------------------
+  security-gate-reusable:
+    needs: validate
+    uses: ./.github/workflows/security-gate.yml
+
+  # ---------------------------------------------------------------------------
+  # Inline security gate: kept for backwards compatibility and as a fallback
+  # in case the reusable workflow has issues.  Runs the same critical checks
+  # that block releases.
   # ---------------------------------------------------------------------------
   security-gate:
     needs: validate
@@ -145,6 +156,11 @@ jobs:
         run: |
           pip-audit --strict --vulnerability-service osv \
             --ignore-vuln CVE-2025-14009
+
+      # Hardcoded secrets pattern scan (new gate)
+      - name: "BLOCKING: Hardcoded secrets pattern scan"
+        run: |
+          python scripts/pre_release_check.py --gate secrets-only
 
       - name: Set up Node.js
         uses: actions/setup-node@v4
@@ -262,6 +278,30 @@ jobs:
         run: |
           python scripts/check_pentest_findings.py
 
+      # ---------------------------------------------------------------
+      # Version-tag consistency: verify pyproject.toml matches the tag
+      # ---------------------------------------------------------------
+      - name: Version-tag consistency check
+        run: |
+          python scripts/pre_release_check.py --gate version-tag
+        env:
+          RELEASE_VERSION: ${{ needs.validate.outputs.version }}
+
+      # ---------------------------------------------------------------
+      # STATUS.md validation: ensure the status doc is parseable
+      # ---------------------------------------------------------------
+      - name: Validate STATUS.md
+        run: |
+          python scripts/pre_release_check.py --gate status-doc
+
+  # ---------------------------------------------------------------------------
+  # Integration gate: reusable workflow for integration smoke tests.
+  # Runs smoke_test.py, integration tests, and API contract sync checks.
+  # ---------------------------------------------------------------------------
+  integration-gate-reusable:
+    needs: [validate, test]
+    uses: ./.github/workflows/integration-gate.yml
+
   # ---------------------------------------------------------------------------
   # Integration smoke test: run a targeted subset of integration tests to
   # catch wiring / import / startup regressions before release.
@@ -286,6 +326,11 @@ jobs:
           pip install -e ".[dev,research,code-intel,test,monitoring]"
           pip install pytest-timeout
 
+      - name: Run smoke test harness (--skip-server)
+        run: python scripts/smoke_test.py --skip-server --verbose
+        env:
+          PYTHONPATH: .
+
       - name: Run integration smoke tests
         run: |
           pytest tests/integration/ \
@@ -293,6 +338,18 @@ jobs:
             --timeout=120 \
             --tb=short \
             --maxfail=3
+        env:
+          PYTHONPATH: .
+
+      - name: Run OpenAPI contract sync tests
+        run: |
+          pytest tests/sdk/test_openapi_sync.py -q --timeout=60 --tb=short
+        env:
+          PYTHONPATH: .
+
+      - name: Run SDK contract parity tests
+        run: |
+          pytest tests/sdk/test_contract_parity.py -q --timeout=60 --tb=short
         env:
           PYTHONPATH: .
 
@@ -307,6 +364,9 @@ jobs:
           print('All core imports OK')
           "
 
+  # ---------------------------------------------------------------------------
+  # Build: requires ALL gates to pass before building the release package.
+  # ---------------------------------------------------------------------------
   build:
     needs: [validate, test, docs-sync, security-gate, integration-smoke, frontend-build, release-checks]
     runs-on: ubuntu-latest

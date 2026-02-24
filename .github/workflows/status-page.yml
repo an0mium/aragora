@@ -17,6 +17,10 @@ on:
           - staging
           - production
 
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
 # SOC 2 Control: A1-01 - Public availability information
 
 env:

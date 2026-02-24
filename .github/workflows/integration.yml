@@ -29,6 +29,10 @@ on:
       - 'setup.py'
   workflow_dispatch:
 
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
 # OIDC permissions for AWS Secrets Manager access
 permissions:
   id-token: write   # Required for OIDC authentication with AWS

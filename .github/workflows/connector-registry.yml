@@ -18,6 +18,10 @@ on:
       - 'aragora/connectors/registry.py'
       - '.github/workflows/connector-registry.yml'
 
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   check:
     runs-on: ubuntu-latest

@@ -29,6 +29,10 @@ on:
         required: false
         default: 'http://localhost:8080'
 
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
 env:
   PYTHON_VERSION: '3.11'
 
