@@ -421,34 +421,25 @@ class TestUpdateDebate:
         """PATCH returns 404 for nonexistent debate."""
         mock_storage.get_debate.return_value = None
 
-        with patch(
-            "aragora.server.fastapi.routes.debates.require_permission",
-            return_value=lambda auth: auth,
-        ):
-            # Bypass auth by directly overriding the dependency
-            from aragora.server.fastapi.routes.debates import update_debate, get_storage
-            from aragora.rbac.models import AuthorizationContext
+        from aragora.server.fastapi.dependencies.auth import require_authenticated
+        from aragora.rbac.models import AuthorizationContext
 
-            auth_ctx = AuthorizationContext(
-                user_id="user-1",
-                org_id="org-1",
-                workspace_id="ws-1",
-                roles={"admin"},
-                permissions={"debates:write"},
-            )
+        auth_ctx = AuthorizationContext(
+            user_id="user-1",
+            org_id="org-1",
+            workspace_id="ws-1",
+            roles={"admin"},
+            permissions={"debates:write"},
+        )
+        client.app.dependency_overrides[require_authenticated] = lambda: auth_ctx
 
-            # Use the app's dependency override mechanism
-            app = client.app
-            app.dependency_overrides[require_permission("debates:write")] = lambda: auth_ctx
+        response = client.patch(
+            "/api/v2/debates/nonexistent",
+            json={"title": "New title"},
+        )
+        client.app.dependency_overrides.clear()
 
-            response = client.patch(
-                "/api/v2/debates/nonexistent",
-                json={"title": "New title"},
-            )
-            # Clean up
-            app.dependency_overrides.clear()
-
-        assert response.status_code in (401, 404)
+        assert response.status_code == 404
 
     def test_updates_title(self, client, mock_storage, sample_debate_dict):
         """PATCH updates debate title."""

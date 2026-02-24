@@ -472,7 +472,7 @@ class TestAIGoalSynthesis:
     def test_ai_synthesis_fallback_on_failure(self):
         """Test that structural extraction is used when AI fails."""
         mock_agent = MagicMock()
-        mock_agent.generate.side_effect = Exception("API error")
+        mock_agent.generate.side_effect = RuntimeError("API error")
 
         from aragora.goals.extractor import GoalExtractor
 

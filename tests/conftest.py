@@ -19,6 +19,9 @@ import pytest
 from aragora.resilience import reset_all_circuit_breakers
 from tests.utils import managed_fixture
 
+# Register skip governance plugin for expiry checking
+pytest_plugins = ["tests.plugins.skip_governance"]
+
 if TYPE_CHECKING:
     from aragora.ranking.elo import EloSystem
     from aragora.memory.continuum import ContinuumMemory

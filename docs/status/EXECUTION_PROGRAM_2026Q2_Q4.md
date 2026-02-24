@@ -423,5 +423,6 @@ Must-hit KPIs:
 
 - Milestones: `docs/status/EXECUTION_MILESTONES_2026Q2.csv`
 - Issues (import-ready): `docs/status/EXECUTION_BACKLOG_2026Q2.csv`
+- Brain-dump execution map: `docs/status/BRAIN_DUMP_EXECUTION_MAP_2026Q2.md`
+- Brain-dump issues (import-ready): `docs/status/BRAIN_DUMP_BACKLOG_2026Q2.csv`
 - Import helper: `scripts/import_execution_backlog.py`
-

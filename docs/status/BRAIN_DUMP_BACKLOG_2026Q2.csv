@@ -1,0 +1,234 @@
+title,body,labels,milestone
+"[EPIC] Web App E2E Reliability (aragora.ai)","Owner: @team-growth
+KPI: Login-to-debate success >= 98%, critical frontend error rate <= 0.2%.
+
+Scope:
+- Eliminate loading hangs and fatal runtime crashes in auth and debate entry paths.
+- Ensure OAuth new-user registration and post-login redirects are deterministic.
+
+Acceptance Criteria:
+- [ ] E2E auth + onboarding + debate-start flow passes in CI.
+- [ ] OAuth callback creates or links user/org correctly for new users.
+- [ ] Post-login redirect consistently lands on intended debate destination.","program:brain-dump-2026,epic,priority:critical,owner:team-growth","2026-M0 Release Integrity"
+"Fix OAuth callback auto-registration and account linking","Owner: @team-platform
+KPI: OAuth callback failure rate <= 1%.
+
+Acceptance Criteria:
+- [ ] New OAuth user bootstrap path creates expected profile/org linkage.
+- [ ] Existing user link path is idempotent.
+- [ ] Auth callback telemetry includes failure taxonomy and correlation IDs.","program:brain-dump-2026,auth,priority:critical,owner:team-platform","2026-M0 Release Integrity"
+"Fix post-login redirect regressions into debate flows","Owner: @team-growth
+KPI: Redirect correctness >= 99%.
+
+Acceptance Criteria:
+- [ ] Redirect allowlist and target resolution tested for standard and OAuth login.
+- [ ] Debate deep-link redirect retains state and intended route.
+- [ ] Error fallback route is explicit and user-recoverable.","program:brain-dump-2026,frontend,auth,priority:high,owner:team-growth","2026-M0 Release Integrity"
+"Add frontend crash telemetry gate for React runtime failures","Owner: @team-growth
+KPI: Critical runtime crash alerts < 1/day.
+
+Acceptance Criteria:
+- [ ] Client runtime errors reported with route + release SHA.
+- [ ] CI smoke test fails on known fatal error signatures.
+- [ ] Dashboard tracks top crash signatures and trend.","program:brain-dump-2026,frontend,observability,priority:high,owner:team-growth","2026-M0 Release Integrity"
+"[EPIC] Oracle Real-Time Streaming + TTS","Owner: @team-core
+KPI: Time-to-first-token <= 1.5s, time-to-first-audio <= 2.0s.
+
+Scope:
+- Move Oracle from batch completion mode to live token streaming with synchronized TTS.
+
+Acceptance Criteria:
+- [ ] Oracle emits token stream events in real time.
+- [ ] TTS playback starts while generation is still in progress.
+- [ ] Feature flag + rollback path included.","program:brain-dump-2026,epic,priority:critical,owner:team-core","2026-M1 Surface Parity"
+"Implement Oracle token streaming endpoint and client transport","Owner: @team-core
+KPI: Oracle TTFT <= 1.5s p95.
+
+Acceptance Criteria:
+- [ ] Stream endpoint supports resume/reconnect semantics.
+- [ ] Client subscription and buffering are robust on network jitter.
+- [ ] Integration tests cover normal, reconnect, and timeout paths.","program:brain-dump-2026,streaming,priority:high,owner:team-core","2026-M1 Surface Parity"
+"Integrate live TTS playback with streaming token output","Owner: @team-growth
+KPI: Time-to-first-audio <= 2.0s p95.
+
+Acceptance Criteria:
+- [ ] Audio chunks begin before full text completion.
+- [ ] User can pause/stop/resume voice playback.
+- [ ] Fallback to text-only mode when TTS fails.","program:brain-dump-2026,voice,frontend,priority:high,owner:team-growth","2026-M1 Surface Parity"
+"[EPIC] Autonomous Self-Improvement (Self-Directed Goals)","Owner: @team-core
+KPI: >= 60% of accepted improvement cycles are system-proposed.
+
+Scope:
+- System discovers and prioritizes its own next tasks from telemetry and quality signals.
+
+Acceptance Criteria:
+- [ ] Goal proposal engine ranks opportunities with confidence and expected impact.
+- [ ] Policy gate approves/rejects autonomous proposals before execution.
+- [ ] Receipts/audit logs capture autonomous goal provenance.","program:brain-dump-2026,epic,priority:high,owner:team-core","2026-M2 Channel and FinOps"
+"Build autonomous goal proposal/ranking pipeline","Owner: @team-core
+KPI: Proposal precision >= 70% (human acceptance proxy).
+
+Acceptance Criteria:
+- [ ] Inputs include CI failures, usage telemetry, and capability gaps.
+- [ ] Ranked backlog output includes rationale and estimated effort.
+- [ ] Feedback loop updates ranking quality over time.","program:brain-dump-2026,autonomy,priority:high,owner:team-core","2026-M2 Channel and FinOps"
+"[EPIC] Ideas-to-Execution Visual DAG","Owner: @team-growth
+KPI: Median idea-to-first-executed-task <= 20 minutes.
+
+Scope:
+- Visual graph from ideas -> goals/principles -> tasks -> agent execution -> feedback.
+
+Acceptance Criteria:
+- [ ] DAG editor supports node typing, dependency links, and execution state.
+- [ ] Graph can dispatch tasks to agents/workflows/OpenClaw execution paths.
+- [ ] Execution status streams back to UI in real time.","program:brain-dump-2026,epic,priority:high,owner:team-growth","2026-M4 Ecosystem and Analytics"
+"Ship DAG backend schema and orchestration bridge","Owner: @team-core
+KPI: 80% DAG nodes become executable tasks.
+
+Acceptance Criteria:
+- [ ] Node schema supports idea, goal, principle, task, checkpoint, dependency.
+- [ ] Workflow engine accepts DAG-derived plans.
+- [ ] Persistence supports resume/replay after restarts.","program:brain-dump-2026,pipeline,workflow,priority:high,owner:team-core","2026-M4 Ecosystem and Analytics"
+"Ship DAG UI with live execution overlays","Owner: @team-growth
+KPI: DAG execution visibility satisfaction >= 80% in pilot feedback.
+
+Acceptance Criteria:
+- [ ] Node status updates stream live (queued/running/success/fail/blocked).
+- [ ] Users can intervene on nodes and reroute dependencies.
+- [ ] UI supports filtering by owner, status, and critical path.","program:brain-dump-2026,frontend,dag,priority:high,owner:team-growth","2026-M4 Ecosystem and Analytics"
+"[EPIC] Differentiate Against Single-Agent Workflows","Owner: @team-analytics
+KPI: >= 90% decisions have adversarial-vetting artifacts and trust calibration traces.
+
+Scope:
+- Make differentiation explicit and measurable in product and receipts.
+
+Acceptance Criteria:
+- [ ] Receipt template highlights thesis/antithesis/synthesis and dissent.
+- [ ] Memory and calibration impact visible in decision summaries.
+- [ ] Comparison dashboard quantifies single-agent vs multi-agent outcomes.","program:brain-dump-2026,epic,priority:high,owner:team-analytics","2026-M2 Channel and FinOps"
+"[EPIC] Surface Stranded Features","Owner: @team-growth
+KPI: Activation of top 20 dormant features doubles.
+
+Scope:
+- Integrate existing backend capabilities into discoverable UI flows.
+
+Acceptance Criteria:
+- [ ] Feature discovery map linked to actionable UI entry points.
+- [ ] Progressive disclosure prevents overwhelming new users.
+- [ ] Feature usage telemetry added per surfaced module.","program:brain-dump-2026,epic,priority:high,owner:team-growth","2026-M1 Surface Parity"
+"Create feature-to-UI mapping from capability matrix","Owner: @team-platform
+KPI: UI coverage 14.3% -> >= 35%.
+
+Acceptance Criteria:
+- [ ] Every mapped capability has owner and surface plan.
+- [ ] Missing UI list in capability matrix is tracked as issues.
+- [ ] Weekly regeneration published in status artifacts.","program:brain-dump-2026,frontend,governance,priority:high,owner:team-platform","2026-M1 Surface Parity"
+"[EPIC] Production Deployment Reliability","Owner: @team-sre
+KPI: Deploy success >= 99%, MTTR <= 15 minutes.
+
+Scope:
+- Eliminate dead-server drift and stale frontend deploys.
+
+Acceptance Criteria:
+- [ ] Deploy pipelines verify live SHA matches expected commit.
+- [ ] Auto-rollback triggers on post-deploy health failure.
+- [ ] Frontend deploy freshness validation prevents stale edge artifacts.","program:brain-dump-2026,epic,priority:critical,owner:team-sre","2026-M0 Release Integrity"
+"Add deploy SHA verification and freshness checks","Owner: @team-sre
+KPI: Drift between expected and live SHA = 0.
+
+Acceptance Criteria:
+- [ ] Backend and frontend deployments publish runtime build SHA.
+- [ ] CI blocks success if production endpoints report mismatched SHA.
+- [ ] Cloudflare edge cache invalidation is validated post-release.","program:brain-dump-2026,devops,priority:critical,owner:team-sre","2026-M0 Release Integrity"
+"[EPIC] Frontend Coverage for Backend Features","Owner: @team-growth
+KPI: >= 70% top backend domains have first-party UI pages.
+
+Scope:
+- Build frontend pages for intelligence dashboard, pipeline canvas, knowledge flow, and agent performance surfaces.
+
+Acceptance Criteria:
+- [ ] Page routes exist with auth/RBAC guards.
+- [ ] API contracts are versioned and typed in frontend.
+- [ ] Smoke tests cover core navigation and rendering.","program:brain-dump-2026,epic,frontend,priority:high,owner:team-growth","2026-M2 Channel and FinOps"
+"Ship intelligence dashboard UI backed by existing analytics endpoints","Owner: @team-growth
+KPI: Dashboard weekly active usage >= 60% in pilot orgs.
+
+Acceptance Criteria:
+- [ ] Agent performance, debate outcomes, and calibration panels available.
+- [ ] Time-range and workspace filters supported.
+- [ ] Export and deep-link actions implemented.","program:brain-dump-2026,frontend,analytics,priority:high,owner:team-growth","2026-M2 Channel and FinOps"
+"[EPIC] Multi-Agent Worktree Coordination","Owner: @team-core
+KPI: Parallel session efficiency >= 60% (from ~15-20%).
+
+Scope:
+- Isolated worktrees, hierarchy-based assignment, stalled-process recovery, and safe git reconciliation.
+
+Acceptance Criteria:
+- [ ] Worktree isolation is default in autonomous modes.
+- [ ] Coordinator restarts stalled branches and reports cause.
+- [ ] Merge/reconciliation path includes test gate and conflict strategy.","program:brain-dump-2026,epic,priority:critical,owner:team-core","2026-M2 Channel and FinOps"
+"Enable hierarchical branch coordinator by default with health watchdog","Owner: @team-core
+KPI: Stalled-session recovery success >= 90%.
+
+Acceptance Criteria:
+- [ ] Branch coordinator path enabled for autonomous execution by default.
+- [ ] Watchdog detects and retries stalled sessions.
+- [ ] Recovery events are auditable and visible in dashboard.","program:brain-dump-2026,autonomy,worktree,priority:high,owner:team-core","2026-M2 Channel and FinOps"
+"Add git reconciliation policy for multi-worktree parallelism","Owner: @team-platform
+KPI: Merge conflict abort rate <= 10%.
+
+Acceptance Criteria:
+- [ ] Reconciliation supports merge, rebase, and rollback policies.
+- [ ] Conflicts are classified and routed with remediation hints.
+- [ ] Pre-merge test gate runs per worktree branch.","program:brain-dump-2026,git,worktree,priority:high,owner:team-platform","2026-M2 Channel and FinOps"
+"[EPIC] Debate Experience: Live Reasoning + Human Intervention","Owner: @team-growth
+KPI: Time-to-first-token <= 1.0s; intervention success >= 98%.
+
+Scope:
+- Make debates visibly live with token flow, reasoning steps, and intervention controls.
+
+Acceptance Criteria:
+- [ ] Debate UI shows per-agent live reasoning/progress states.
+- [ ] Intervention controls (pause, nudge, challenge, inject evidence) work reliably.
+- [ ] Replay and timeline views align with stream events.","program:brain-dump-2026,epic,frontend,priority:high,owner:team-growth","2026-M1 Surface Parity"
+"[EPIC] Model Lineup Refresh and Drift Management","Owner: @team-sdk
+KPI: Provider compatibility pass rate 100% on current lineup.
+
+Scope:
+- Update default model configs to latest supported lineup and enforce mapping parity.
+
+Acceptance Criteria:
+- [ ] Agent registry + settings defaults updated for target models/providers.
+- [ ] OpenRouter mapping and fallback behavior revalidated.
+- [ ] Contract tests guard against unsupported model drift.","program:brain-dump-2026,epic,models,priority:high,owner:team-sdk","2026-M1 Surface Parity"
+"Refresh AGENTS model defaults and provider mappings","Owner: @team-sdk
+KPI: 0 stale default model references in runtime and docs.
+
+Acceptance Criteria:
+- [ ] Runtime defaults and docs point to aligned model IDs.
+- [ ] Provider-specific rate limits are validated for refreshed lineup.
+- [ ] Backward-compatibility policy documented for deprecated model IDs.","program:brain-dump-2026,models,docs,priority:high,owner:team-sdk","2026-M1 Surface Parity"
+"[EPIC] Security Hardening Automation","Owner: @team-risk
+KPI: 100% production secrets rotated on policy; HIGH/CRITICAL findings = 0.
+
+Scope:
+- Fully automate secrets rotation workflows with auditability and SSRF coverage guarantees.
+
+Acceptance Criteria:
+- [ ] AWS Secrets Manager rotation jobs have monitored runbooks and rollback.
+- [ ] Rotation telemetry and evidence are exported for compliance.
+- [ ] SSRF guard usage is verified across outbound URL fetch points.","program:brain-dump-2026,epic,security,priority:critical,owner:team-risk","2026-M0 Release Integrity"
+"Automate Secrets Manager rotation pipeline with audit evidence","Owner: @team-risk
+KPI: 100% secrets rotated within policy windows.
+
+Acceptance Criteria:
+- [ ] Scheduled rotation jobs cover all production secret classes.
+- [ ] Rotation failures trigger alerts and auto-create incident items.
+- [ ] Post-rotation health checks validate dependent services.","program:brain-dump-2026,security,secrets,priority:high,owner:team-risk","2026-M0 Release Integrity"
+"Add SSRF coverage audit for all outbound URL execution points","Owner: @team-risk
+KPI: SSRF validation coverage = 100%.
+
+Acceptance Criteria:
+- [ ] Static/runtime audit identifies outbound URL call sites.
+- [ ] All call sites enforce centralized SSRF validation.
+- [ ] CI gate fails on newly introduced unguarded call sites.","program:brain-dump-2026,security,ssrf,priority:high,owner:team-risk","2026-M0 Release Integrity"
