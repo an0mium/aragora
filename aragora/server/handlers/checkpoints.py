@@ -50,6 +50,9 @@ class CheckpointHandler(BaseHandler):
     ROUTES = [
         "/api/v1/checkpoints",
         "/api/v1/checkpoints/resumable",
+        "/api/v1/checkpoints/*",
+        "/api/v1/checkpoints/*/resume",
+        "/api/v1/checkpoints/*/intervention",
     ]
 
     def __init__(self, context: ServerContext | None = None):

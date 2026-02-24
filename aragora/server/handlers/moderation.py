@@ -26,6 +26,7 @@ from aragora.server.handlers.secure import SecureHandler
 from aragora.server.handlers.utils.decorators import require_permission
 from aragora.server.http_utils import run_async
 from aragora.server.validation import safe_query_int
+from aragora.server.versioning.compat import strip_version_prefix
 
 logger = logging.getLogger(__name__)
 
@@ -35,8 +36,16 @@ class ModerationHandler(SecureHandler):
 
     RESOURCE_TYPE = "moderation"
 
+    ROUTES = [
+        "/api/moderation/config",
+        "/api/moderation/stats",
+        "/api/moderation/queue",
+        "/api/moderation/items/*/approve",
+        "/api/moderation/items/*/reject",
+    ]
+
     def can_handle(self, path: str) -> bool:
-        return path.startswith("/api/moderation/")
+        return strip_version_prefix(path).startswith("/api/moderation/")
 
     def _get_moderation(self):
         moderation = get_spam_moderation()
@@ -83,6 +92,7 @@ class ModerationHandler(SecureHandler):
         return json_response({"status": action, "item_id": item_id})
 
     def handle(self, path: str, query_params: dict[str, Any], handler: Any) -> HandlerResult | None:
+        path = strip_version_prefix(path)
         if path == "/api/moderation/config":
             return self._handle_get_config(handler)
         if path == "/api/moderation/stats":
@@ -95,6 +105,7 @@ class ModerationHandler(SecureHandler):
     def handle_put(
         self, path: str, query_params: dict[str, Any], handler: Any
     ) -> HandlerResult | None:
+        path = strip_version_prefix(path)
         if path == "/api/moderation/config":
             return self._handle_update_config(handler)
         return None
@@ -103,6 +114,7 @@ class ModerationHandler(SecureHandler):
     def handle_post(
         self, path: str, query_params: dict[str, Any], handler: Any
     ) -> HandlerResult | None:
+        path = strip_version_prefix(path)
         if path.startswith("/api/moderation/items/") and path.endswith("/approve"):
             item_id = path.split("/")[-2]
             return self._handle_queue_action(item_id, "approved")

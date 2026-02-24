@@ -61,6 +61,17 @@ class IdeaCanvasHandler(SecureHandler):
 
     RESOURCE_TYPE = "ideas"
 
+    ROUTES = [
+        "/api/v1/ideas",
+        "/api/v1/ideas/*",
+        "/api/v1/ideas/*/nodes",
+        "/api/v1/ideas/*/nodes/*",
+        "/api/v1/ideas/*/edges",
+        "/api/v1/ideas/*/edges/*",
+        "/api/v1/ideas/*/export",
+        "/api/v1/ideas/*/promote",
+    ]
+
     def can_handle(self, path: str) -> bool:
         return path.startswith("/api/v1/ideas")
 

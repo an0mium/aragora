@@ -46,11 +46,11 @@ class ModerationAPI:
 
     def approve_item(self, item_id: str) -> dict[str, Any]:
         """Approve a moderation queue item."""
-        return self._client.request("POST", f"/api/v1/moderation/queue/{item_id}/approve")
+        return self._client.request("POST", f"/api/v1/moderation/items/{item_id}/approve")
 
     def reject_item(self, item_id: str) -> dict[str, Any]:
         """Reject a moderation queue item."""
-        return self._client.request("POST", f"/api/v1/moderation/queue/{item_id}/reject")
+        return self._client.request("POST", f"/api/v1/moderation/items/{item_id}/reject")
 
 
 class AsyncModerationAPI:
@@ -83,8 +83,8 @@ class AsyncModerationAPI:
 
     async def approve_item(self, item_id: str) -> dict[str, Any]:
         """Approve a moderation queue item."""
-        return await self._client.request("POST", f"/api/v1/moderation/queue/{item_id}/approve")
+        return await self._client.request("POST", f"/api/v1/moderation/items/{item_id}/approve")
 
     async def reject_item(self, item_id: str) -> dict[str, Any]:
         """Reject a moderation queue item."""
-        return await self._client.request("POST", f"/api/v1/moderation/queue/{item_id}/reject")
+        return await self._client.request("POST", f"/api/v1/moderation/items/{item_id}/reject")

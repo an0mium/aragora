@@ -347,6 +347,7 @@ class CanvasPipelineHandler:
             return auth_error
 
         body = self._get_request_body(handler)
+        assert callable(target)
         return target(body)
 
     def handle_put(self, path: str, query_params: dict[str, Any], handler: Any) -> Any:
@@ -1345,18 +1346,20 @@ class CanvasPipelineHandler:
             # Build explainability factors
             try:
                 from aragora.explainability.builder import ExplanationBuilder
+                from aragora.utils.async_utils import run_async
 
                 builder = ExplanationBuilder()
                 for goal in goals:
                     gid = getattr(goal, "id", "")
-                    factors = builder.build(
-                        decision=getattr(goal, "title", ""),
+                    decision = run_async(builder.build(
+                        result=getattr(goal, "title", ""),
                         context=getattr(goal, "description", ""),
-                    )
-                    if factors:
+                    ))
+                    if decision:
+                        factors_list = getattr(decision, "confidence_attribution", [])
                         explanations.append({
                             "node_id": gid,
-                            "factors": [f.to_dict() if hasattr(f, "to_dict") else f for f in factors],
+                            "factors": [f.to_dict() if hasattr(f, "to_dict") else f for f in factors_list],
                         })
             except (ImportError, AttributeError, TypeError):
                 logger.debug("ExplanationBuilder unavailable for intelligence")

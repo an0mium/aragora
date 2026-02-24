@@ -73,6 +73,8 @@ class SelfImproveHandler(SecureEndpointMixin, SecureHandler):  # type: ignore[mi
         "/api/self-improve/start",
         "/api/self-improve/status",
         "/api/self-improve/runs",
+        "/api/self-improve/runs/*",
+        "/api/self-improve/runs/*/cancel",
         "/api/self-improve/history",
         "/api/self-improve/coordinate",
         "/api/self-improve/worktrees",
