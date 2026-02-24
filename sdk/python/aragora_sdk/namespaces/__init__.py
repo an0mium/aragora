@@ -47,6 +47,7 @@ from .coordination import AsyncCoordinationAPI, CoordinationAPI
 from .cost_management import AsyncCostManagementAPI, CostManagementAPI
 from .critiques import AsyncCritiquesAPI, CritiquesAPI
 from .cross_pollination import AsyncCrossPollinationAPI, CrossPollinationAPI
+from .dag_operations import AsyncDAGOperationsAPI, DAGOperationsAPI
 from .dashboard import AsyncDashboardAPI, DashboardAPI
 from .debates import AsyncDebatesAPI, DebatesAPI
 from .decisions import AsyncDecisionsAPI, DecisionsAPI
@@ -239,6 +240,8 @@ __all__ = [
     "AsyncCostManagementAPI",
     "CrossPollinationAPI",
     "AsyncCrossPollinationAPI",
+    "DAGOperationsAPI",
+    "AsyncDAGOperationsAPI",
     "CritiquesAPI",
     "AsyncCritiquesAPI",
     "DashboardAPI",
