@@ -487,9 +487,8 @@ class MicrosoftAdsConnector:
         body: str,
         service: str = "CampaignManagement",
     ) -> dict[str, Any]:
-        """Make SOAP request to Microsoft Ads API."""
+        """Make SOAP request to Microsoft Ads API with retry and circuit breaker."""
         await self._ensure_token()
-        client = await self._get_client()
 
         # Select appropriate endpoint
         if service == "Reporting":
@@ -501,38 +500,52 @@ class MicrosoftAdsConnector:
 
         envelope = self._build_soap_envelope(operation, body, service)
 
-        response = await client.post(
-            url,
-            content=envelope,
-            headers={
-                "Content-Type": "text/xml; charset=utf-8",
-                "SOAPAction": f"https://bingads.microsoft.com/{service}/v13/I{service}Service/{operation}",
-            },
-        )
-
-        if response.status_code >= 400:
-            raise MicrosoftAdsError(
-                message=f"API error: {response.status_code}",
-                error_code=str(response.status_code),
+        async def _do_request() -> dict[str, Any]:
+            client = await self._get_client()
+            response = await client.post(
+                url,
+                content=envelope,
+                headers={
+                    "Content-Type": "text/xml; charset=utf-8",
+                    "SOAPAction": f"https://bingads.microsoft.com/{service}/v13/I{service}Service/{operation}",
+                },
             )
 
-        # Parse SOAP response safely (defusedxml prevents XXE attacks)
-        import defusedxml.ElementTree as ET
+            if response.status_code == 429:
+                response.raise_for_status()
+            if response.status_code >= 500:
+                response.raise_for_status()
+            if response.status_code >= 400:
+                raise MicrosoftAdsError(
+                    message=f"API error: {response.status_code}",
+                    error_code=str(response.status_code),
+                )
 
-        root = ET.fromstring(response.text)
+            # Parse SOAP response safely (defusedxml prevents XXE attacks)
+            import defusedxml.ElementTree as ET
 
-        # Find response body
-        ns = {
-            "s": "http://schemas.xmlsoap.org/soap/envelope/",
-            "cm": f"https://bingads.microsoft.com/{service}/v13",
-        }
+            root = ET.fromstring(response.text)
 
-        body_elem = root.find(".//s:Body", ns)
-        if body_elem is None:
-            return {}
+            # Find response body
+            ns = {
+                "s": "http://schemas.xmlsoap.org/soap/envelope/",
+                "cm": f"https://bingads.microsoft.com/{service}/v13",
+            }
 
-        # Convert XML to dict (simplified)
-        return self._xml_to_dict(body_elem)
+            body_elem = root.find(".//s:Body", ns)
+            if body_elem is None:
+                return {}
+
+            # Convert XML to dict (simplified)
+            return self._xml_to_dict(body_elem)
+
+        if self._has_production_mixin:
+            from aragora.connectors.production_mixin import ProductionConnectorMixin
+
+            return await ProductionConnectorMixin._call_with_retry(
+                self, _do_request, operation=operation
+            )
+        return await _do_request()
 
     def _xml_to_dict(self, elem: Any) -> dict[str, Any]:
         """Convert XML element to dictionary (simplified)."""

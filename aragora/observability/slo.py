@@ -1393,6 +1393,11 @@ __all__ = [
     "check_debate_success_slo",
     "get_slo_status",
     "get_slo_status_json",
+    # Streaming SLO Checks
+    "check_stream_error_rate_slo",
+    "check_stream_reconnect_p95_slo",
+    "check_stream_delivery_rate_slo",
+    "check_tts_synthesis_latency_slo",
     # Alerting
     "check_alerts",
     "get_default_alerts",

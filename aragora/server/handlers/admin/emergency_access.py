@@ -21,6 +21,7 @@ from ..base import (
     require_permission,
 )
 from ..secure import SecureHandler
+from aragora.server.middleware.mfa import enforce_admin_mfa_policy
 
 logger = logging.getLogger(__name__)
 
@@ -75,6 +76,17 @@ class EmergencyAccessHandler(SecureHandler):
             reason: str - Reason for emergency access (required, min 10 chars)
             duration_minutes: int - Duration in minutes (optional, default 60, max 1440)
         """
+        # Enforce MFA for admin users (SOC 2 CC5-01)
+        if user is not None:
+            user_store = self.ctx.get("user_store") if hasattr(self, "ctx") else None
+            if user_store:
+                mfa_result = enforce_admin_mfa_policy(user, user_store)
+                if mfa_result and mfa_result.get("enforced"):
+                    return error_response(
+                        "Administrative access requires MFA. Please enable MFA at /api/auth/mfa/setup",
+                        403,
+                    )
+
         from aragora.rbac.emergency import get_break_glass_access
         from aragora.server.http_utils import run_async
 

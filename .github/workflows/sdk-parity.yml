@@ -45,11 +45,18 @@ jobs:
         run: |
           python scripts/check_sdk_namespace_parity.py --strict --baseline scripts/baselines/check_sdk_namespace_parity.json
 
+      - name: Check Cross-Language SDK Parity
+        run: |
+          python scripts/check_cross_sdk_parity.py \
+            --strict \
+            --baseline scripts/baselines/cross_sdk_parity.json
+
       - name: Generate JSON Report
         if: always()
         run: |
           python scripts/check_sdk_parity.py --json > parity-report.json || true
           python scripts/check_sdk_namespace_parity.py --json > namespace-parity-report.json || true
+          python scripts/check_cross_sdk_parity.py --json > cross-sdk-parity-report.json || true
           python scripts/contract_drift_report.py --json-out contract-drift-summary.json --md-out contract-drift-summary.md || true
 
       - name: Upload Parity Report
@@ -60,6 +67,7 @@ jobs:
           path: |
             parity-report.json
             namespace-parity-report.json
+            cross-sdk-parity-report.json
             contract-drift-summary.json
             contract-drift-summary.md
           retention-days: 30

@@ -90,6 +90,17 @@ class FeatureFlagAdminHandler(BaseHandler):
         self, path: str, query_params: dict[str, Any], handler: Any, user: Any = None
     ) -> HandlerResult | None:
         """Handle PUT requests for feature flag endpoints."""
+        # Enforce MFA for admin users (SOC 2 CC5-01)
+        if user is not None:
+            user_store = self.ctx.get("user_store") if hasattr(self, "ctx") else None
+            if user_store:
+                mfa_result = enforce_admin_mfa_policy(user, user_store)
+                if mfa_result and mfa_result.get("enforced"):
+                    return error_response(
+                        "Administrative access requires MFA. Please enable MFA at /api/auth/mfa/setup",
+                        403,
+                    )
+
         path = strip_version_prefix(path)
 
         if not FLAGS_AVAILABLE:
