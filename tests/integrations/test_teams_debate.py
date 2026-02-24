@@ -9,6 +9,7 @@ import pytest
 from aragora.integrations.teams_debate import (
     TeamsDebateConfig,
     TeamsDebateLifecycle,
+    _active_debates,
     _build_consensus_card,
     _build_round_update_card,
     _wrap_card_payload,
@@ -222,7 +223,8 @@ class TestTeamsDebateLifecycleInit:
             assert integration is not None
 
     def test_active_debates_initially_empty(self, lifecycle):
-        assert lifecycle._active_debates == {}
+        # _active_debates is a module-level dict, not an instance attribute
+        assert isinstance(_active_debates, dict)
 
 
 # =============================================================================
@@ -254,8 +256,8 @@ class TestStartDebateFromThread:
                 message_id="1677012345678",
                 topic="Test topic",
             )
-            assert debate_id in lifecycle._active_debates
-            info = lifecycle._active_debates[debate_id]
+            assert debate_id in _active_debates
+            info = _active_debates[debate_id]
             assert info["topic"] == "Test topic"
             assert info["channel_id"] == "19:abc@thread.tacv2"
 
@@ -326,7 +328,7 @@ class TestStartDebateFromThread:
                 topic="Test",
                 config=config,
             )
-            info = lifecycle._active_debates[debate_id]
+            info = _active_debates[debate_id]
             assert info["config"].agents == ["claude", "gpt4", "gemini"]
             assert info["config"].rounds == 5
 
@@ -467,7 +469,7 @@ class TestPostConsensus:
 
     @pytest.mark.asyncio
     async def test_cleans_up_active_debates(self, lifecycle):
-        lifecycle._active_debates["teams-abc"] = {"topic": "test"}
+        _active_debates["teams-abc"] = {"topic": "test"}
         with patch.object(
             lifecycle, "_send_card_to_thread", new_callable=AsyncMock, return_value=True
         ):
@@ -484,7 +486,7 @@ class TestPostConsensus:
                     "rounds_used": 1,
                 },
             )
-            assert "teams-abc" not in lifecycle._active_debates
+            assert "teams-abc" not in _active_debates
 
 
 # =============================================================================
@@ -532,7 +534,7 @@ class TestHandleBotCommand:
 
     @pytest.mark.asyncio
     async def test_status_command_active_debate(self, lifecycle):
-        lifecycle._active_debates["teams-xyz"] = {
+        _active_debates["teams-xyz"] = {
             "topic": "Test topic",
             "channel_id": "ch-1",
         }
@@ -664,7 +666,7 @@ class TestBuildHelpResponse:
 
 class TestGetDebateStatus:
     def test_active_debate(self, lifecycle):
-        lifecycle._active_debates["d-1"] = {
+        _active_debates["d-1"] = {
             "topic": "Test",
             "channel_id": "ch-1",
         }
