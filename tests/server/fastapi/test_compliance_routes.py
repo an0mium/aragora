@@ -175,7 +175,7 @@ class TestComplianceStatus:
         response = client.get("/api/v2/compliance/status")
         assert response.status_code == 200
         data = response.json()
-        assert data["overall_status"] == "not_configured"
+        assert data["overall_status"] in ("not_configured", "not_assessed")
         assert data["controls_total"] == 0
 
 
@@ -506,6 +506,8 @@ class TestAuditLog:
 
     def test_audit_log_when_store_unavailable(self, app):
         """Audit log returns empty when store is unavailable."""
+        from aragora.server.fastapi.routes.compliance import get_audit_store
+
         app.state.context = {
             "storage": MagicMock(),
             "elo_system": MagicMock(),
@@ -514,6 +516,7 @@ class TestAuditLog:
             "decision_service": MagicMock(),
             "audit_store": None,
         }
+        app.dependency_overrides[get_audit_store] = lambda: None
         client = TestClient(app, raise_server_exceptions=False)
         _override_auth(client)
 

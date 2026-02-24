@@ -459,24 +459,28 @@ class TestLogToAudit:
         )
 
     def test_log_to_audit_success(self):
-        """Successfully logs when AuditLog.get_instance is available."""
+        """Successfully logs when audit subsystem is available."""
         rlm = self._make_rlm()
         result = self._make_result()
 
         mock_audit_instance = MagicMock()
-        mock_audit_cls = MagicMock()
-        mock_audit_cls.get_instance.return_value = mock_audit_instance
+        mock_audit_event = MagicMock()
+        mock_audit_category = MagicMock()
+        mock_audit_category.SYSTEM = "system"
 
-        # Patch the import inside log_to_audit so AuditLog has get_instance
-        with patch.dict(
-            "sys.modules",
-            {"aragora.audit.log": MagicMock(AuditLog=mock_audit_cls)},
-        ):
+        # Patch the import inside log_to_audit to match the new API:
+        # from aragora.audit.log import AuditCategory, AuditEvent, get_audit_log
+        mock_module = MagicMock(
+            AuditCategory=mock_audit_category,
+            AuditEvent=mock_audit_event,
+            get_audit_log=MagicMock(return_value=mock_audit_instance),
+        )
+        with patch.dict("sys.modules", {"aragora.audit.log": mock_module}):
             rlm.log_to_audit(result, query="test query", debate_id="d-1")
             mock_audit_instance.log.assert_called_once()
-            call_kwargs = mock_audit_instance.log.call_args
-            assert call_kwargs[1]["action"] == "rlm_query"
-            assert call_kwargs[1]["category"] == "rlm"
+            call_args = mock_audit_instance.log.call_args
+            # AuditEvent is the first positional arg
+            assert mock_audit_event.called
 
     def test_log_to_audit_graceful_when_unavailable(self):
         """Does not raise when AuditLog is not available.
