@@ -708,9 +708,7 @@ class AWSSecretRotator:
                 from psycopg2 import sql as psql  # type: ignore[import-untyped]
 
                 cur.execute(
-                    psql.SQL("ALTER USER {} WITH PASSWORD %s").format(
-                        psql.Identifier(username)
-                    ),
+                    psql.SQL("ALTER USER {} WITH PASSWORD %s").format(psql.Identifier(username)),
                     (new_password,),
                 )
             conn.close()
