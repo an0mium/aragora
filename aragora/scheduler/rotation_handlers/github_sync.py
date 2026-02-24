@@ -64,10 +64,9 @@ class GitHubSecretsSyncBackend:
             }
             encoded_jwt = jwt.encode(payload, private_key, algorithm="RS256")
 
-            # This is sync context, but we need async HTTP. Use a simple httpx call.
-            import httpx
+            from aragora.security.safe_http import safe_post
 
-            response = httpx.post(
+            response = safe_post(
                 f"https://api.github.com/app/installations/{installation_id}/access_tokens",
                 headers={
                     "Authorization": f"Bearer {encoded_jwt}",

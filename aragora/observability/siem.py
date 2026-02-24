@@ -287,7 +287,7 @@ class SIEMClient:
 
     def _send_to_splunk(self, events: list[SecurityEvent]) -> None:
         """Send events to Splunk HTTP Event Collector."""
-        import httpx
+        from aragora.security.safe_http import safe_post
 
         for event in events:
             data = {
@@ -296,7 +296,7 @@ class SIEMClient:
                 "sourcetype": "aragora:security",
             }
 
-            httpx.post(
+            safe_post(
                 self.config.endpoint,
                 json=data,
                 headers={
@@ -330,7 +330,7 @@ class SIEMClient:
 
     def _send_to_datadog(self, events: list[SecurityEvent]) -> None:
         """Send events to Datadog Logs."""
-        import httpx
+        from aragora.security.safe_http import safe_post
 
         for event in events:
             data = {
@@ -339,7 +339,7 @@ class SIEMClient:
                 "service": "aragora-security",
             }
 
-            httpx.post(
+            safe_post(
                 self.config.endpoint or "https://http-intake.logs.datadoghq.com/api/v2/logs",
                 json=data,
                 headers={

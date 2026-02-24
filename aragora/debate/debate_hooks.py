@@ -530,8 +530,6 @@ class DebateHooks:
         try:
             import threading
 
-            import httpx
-
             # Build Slack Block Kit message
             status_emoji = ":white_check_mark:" if result.consensus_reached else ":warning:"
             status_text = "Consensus Reached" if result.consensus_reached else "No Consensus"
@@ -606,7 +604,9 @@ class DebateHooks:
             def send_webhook() -> None:
                 """Send webhook in background thread."""
                 try:
-                    resp = httpx.post(
+                    from aragora.security.safe_http import SSRFBlockedError, safe_post
+
+                    resp = safe_post(
                         webhook_url,
                         json=payload,
                         headers={"Content-Type": "application/json"},
@@ -614,6 +614,8 @@ class DebateHooks:
                     )
                     if resp.status_code != 200:
                         logger.debug("Slack webhook returned %s", resp.status_code)
+                except SSRFBlockedError:
+                    logger.warning("Slack webhook blocked by SSRF protection: %s", webhook_url)
                 except (OSError, ConnectionError, ValueError, RuntimeError) as e:
                     logger.debug("Slack webhook error: %s", e)
 
