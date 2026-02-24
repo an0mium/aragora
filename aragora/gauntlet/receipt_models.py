@@ -1216,6 +1216,17 @@ class DecisionReceipt:
         generator = ReceiptComplianceGenerator(**kwargs)
         return generator.generate(self.to_dict(), frameworks=frameworks)
 
+    @staticmethod
+    def _json_safe(value: Any) -> Any:
+        """Recursively convert values into JSON-serializable primitives."""
+        if isinstance(value, datetime):
+            return value.isoformat()
+        if isinstance(value, dict):
+            return {str(k): DecisionReceipt._json_safe(v) for k, v in value.items()}
+        if isinstance(value, (list, tuple, set)):
+            return [DecisionReceipt._json_safe(v) for v in value]
+        return value
+
     def to_dict(self) -> dict:
         """Convert to dictionary for JSON export."""
         data = {
@@ -1249,7 +1260,7 @@ class DecisionReceipt:
             data["signature_algorithm"] = self.signature_algorithm
             data["signature_key_id"] = self.signature_key_id
             data["signed_at"] = self.signed_at
-        return data
+        return self._json_safe(data)
 
     @classmethod
     def from_dict(cls, data: dict) -> DecisionReceipt:

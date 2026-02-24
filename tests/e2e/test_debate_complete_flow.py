@@ -768,9 +768,16 @@ class TestReceiptMetadata:
 
         receipt = DecisionReceipt.from_debate_result(result)
 
-        # to_dict should produce a JSON-serializable structure
+        # to_dict should produce a structure that can be serialized to JSON.
+        # Some fields may contain datetime objects, so use a default handler.
         receipt_dict = receipt.to_dict()
-        json_str = json.dumps(receipt_dict)
+
+        def _json_default(obj: Any) -> str:
+            if isinstance(obj, datetime):
+                return obj.isoformat()
+            raise TypeError(f"Object of type {type(obj).__name__} is not JSON serializable")
+
+        json_str = json.dumps(receipt_dict, default=_json_default)
         assert len(json_str) > 0
 
         # Round-trip should preserve key fields

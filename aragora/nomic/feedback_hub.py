@@ -391,7 +391,7 @@ class FeedbackHub:
                 elo = EloSystem()
                 for agent in agents:
                     if agent != winner:
-                        elo.record_match(winner, agent, outcome=1.0)
+                        elo.record_match(winner=winner, loser=agent)
                 result.targets_hit.append("elo_update")
             else:
                 # No clear winner -- nothing to update
