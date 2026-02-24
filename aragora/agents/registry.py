@@ -17,6 +17,7 @@ from __future__ import annotations
 __all__ = [
     "RegistrySpec",
     "AgentFactory",
+    "AgentRegistry",
     "register_all_agents",
 ]
 
@@ -450,6 +451,10 @@ class AgentFactory:
                 for s in status.servers
             ],
         }
+
+
+# Backwards-compatible alias used by api_agents and other modules
+AgentRegistry = AgentFactory
 
 
 def register_all_agents() -> None:
