@@ -106,15 +106,14 @@ def _validate_where_clause(where: str) -> str:
     # Check for dangerous patterns (case-insensitive)
     where_upper = where.upper()
     dangerous_patterns = [
-        "; DROP",
-        "; DELETE",
-        "; TRUNCATE",
-        "; ALTER",
-        "UNION SELECT",
-        "UNION ALL",
+        "'",
+        '"',
+        ";",
+        "--",
         "/*",
         "*/",
-        "--",
+        "UNION SELECT",
+        "UNION ALL",
         "EXEC(",
         "EXECUTE(",
     ]

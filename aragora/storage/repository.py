@@ -51,6 +51,34 @@ def _validate_column_name(name: str) -> str:
     return name
 
 
+_DANGEROUS_WHERE_PATTERNS = ["'", '"', ";", "--", "/*", "*/"]
+
+
+def _validate_where_clause(where: str, has_params: bool = False) -> None:
+    """Validate a WHERE clause to block obvious injection patterns.
+
+    Mirrors the validation in ``base_store._validate_where_clause`` so that
+    any future subclass of ``DatabaseRepository`` gets the same protection.
+    """
+    if not where:
+        return
+    upper = where.upper()
+    for pattern in _DANGEROUS_WHERE_PATTERNS:
+        if pattern.upper() in upper:
+            raise ValueError(
+                "WHERE clause contains unsafe pattern. "
+                "Use parameterized placeholders (?) instead of literal values."
+            )
+    has_placeholder = "?" in where
+    if not has_placeholder and not has_params:
+        safe_patterns = ["IS NULL", "IS NOT NULL", "TRUE", "FALSE"]
+        if not any(p in upper for p in safe_patterns):
+            logger.warning(
+                "WHERE clause without placeholders or params may indicate SQL injection risk: %s",
+                where[:50],
+            )
+
+
 T = TypeVar("T")
 
 
@@ -165,7 +193,8 @@ class DatabaseRepository:
         Returns:
             Number of matching records
         """
-        # nosec B608: TABLE_NAME is class constant, where is internal with parameterized values
+        _validate_where_clause(where, has_params=bool(params))
+        # nosec B608: TABLE_NAME is class constant, where validated above
         query = f"SELECT COUNT(*) FROM {self.TABLE_NAME}"  # nosec B608
         if where:
             query += f" WHERE {where}"  # nosec B608
@@ -221,7 +250,8 @@ class DatabaseRepository:
         Raises:
             ValueError: If order_by contains invalid column names or directions
         """
-        # nosec B608: TABLE_NAME is class constant, where is internal with parameterized values
+        _validate_where_clause(where, has_params=bool(params))
+        # nosec B608: TABLE_NAME is class constant, where validated above
         query = f"SELECT * FROM {self.TABLE_NAME}"  # nosec B608
         if where:
             query += f" WHERE {where}"  # nosec B608
@@ -314,7 +344,8 @@ class DatabaseRepository:
         Returns:
             Number of deleted records
         """
-        # nosec B608: TABLE_NAME is class constant, where is internal with parameterized values
+        _validate_where_clause(where, has_params=bool(params))
+        # nosec B608: TABLE_NAME is class constant, where validated above
         query = f"DELETE FROM {self.TABLE_NAME} WHERE {where}"  # nosec B608
 
         with self.connection() as conn:
