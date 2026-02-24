@@ -398,9 +398,11 @@ class DebateStreamServer(ServerBase):
         """Update cached debate state based on emitted events.
 
         Overrides ServerBase._update_debate_state with StreamEvent-specific handling.
-        The base class signature uses a TYPE_CHECKING import for StreamEvent, and this
-        implementation receives the concrete StreamEvent type for event processing.
+        Also feeds every debate-scoped event into the replay buffer.
         """
+        # Feed into replay buffer for reconnect support
+        self._replay_buffer.append(event)
+
         loop_id = event.loop_id
         with self._debate_states_lock:
             if event.type == StreamEventType.DEBATE_START:
@@ -462,6 +464,7 @@ class DebateStreamServer(ServerBase):
             elif event.type == StreamEventType.LOOP_UNREGISTER:
                 self.debate_states.pop(loop_id, None)
                 self._debate_states_last_access.pop(loop_id, None)
+                self._replay_buffer.remove(loop_id)
 
         # Update loop state for cycle/phase events (outside debate_states_lock)
         if event.type == StreamEventType.CYCLE_START:
