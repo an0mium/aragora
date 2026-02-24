@@ -201,7 +201,7 @@ class TestHandleAppMention:
             result = mixin_instance.handle_app_mention(event)
 
         assert _body(result).get("ok") is True
-        assert captured_coro.get("name") == "slack-reply-C1"
+        assert captured_coro.get("name") == "slack-debate-C1"
 
     def test_plan_command(self, mixin_instance):
         """'plan <topic>' in mention returns plan redirect."""
