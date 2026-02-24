@@ -617,7 +617,7 @@ class TestAPIHelpers:
     def test_try_api_detect_success(self):
         """API detect returns unwrapped data."""
         mock_client = MagicMock()
-        mock_client.consensus.detect.return_value = {
+        mock_client.request.return_value = {
             "data": {"consensus_reached": True, "confidence": 0.9},
         }
 
@@ -634,7 +634,7 @@ class TestAPIHelpers:
     def test_try_api_detect_no_envelope(self):
         """API detect returns direct result without data wrapper."""
         mock_client = MagicMock()
-        mock_client.consensus.detect.return_value = {
+        mock_client.request.return_value = {
             "consensus_reached": False,
         }
 
@@ -682,7 +682,7 @@ class TestAPIHelpers:
     def test_try_api_detect_uses_custom_url(self):
         """API detect uses custom URL from args."""
         mock_client = MagicMock()
-        mock_client.consensus.detect.return_value = {"data": {}}
+        mock_client.request.return_value = {"data": {}}
 
         with patch("aragora.client.client.AragoraClient") as mock_cls:
             mock_cls.return_value = mock_client
@@ -696,7 +696,7 @@ class TestAPIHelpers:
     def test_try_api_status_success(self):
         """API status returns unwrapped data."""
         mock_client = MagicMock()
-        mock_client.consensus.get_detection_status.return_value = {
+        mock_client.request.return_value = {
             "data": {"consensus_reached": True},
         }
 
@@ -724,7 +724,7 @@ class TestAPIHelpers:
     def test_try_api_status_connection_error(self):
         """API status returns None on connection error."""
         mock_client = MagicMock()
-        mock_client.consensus.get_detection_status.side_effect = ConnectionError("refused")
+        mock_client.request.side_effect = ConnectionError("refused")
 
         with patch("aragora.client.client.AragoraClient") as mock_cls:
             mock_cls.return_value = mock_client
