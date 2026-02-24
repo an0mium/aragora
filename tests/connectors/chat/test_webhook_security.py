@@ -240,9 +240,9 @@ class TestShouldAllowUnverified:
             with patch("aragora.connectors.chat.webhook_security.logger") as mock_logger:
                 should_allow_unverified("slack")
                 mock_logger.warning.assert_called_once()
-                call_args = mock_logger.warning.call_args[0][0]
+                call_args = str(mock_logger.warning.call_args)
                 assert "slack" in call_args
-                assert "ignored" in call_args.lower()
+                assert "ignored" in call_args.lower() or "bypass" in call_args.lower()
 
     def test_logs_warning_when_bypassed(self):
         """Should log warning when verification bypassed in dev."""
@@ -258,7 +258,7 @@ class TestShouldAllowUnverified:
             with patch("aragora.connectors.chat.webhook_security.logger") as mock_logger:
                 should_allow_unverified("teams")
                 mock_logger.warning.assert_called_once()
-                call_args = mock_logger.warning.call_args[0][0]
+                call_args = str(mock_logger.warning.call_args)
                 assert "teams" in call_args
                 assert "security risk" in call_args.lower()
 

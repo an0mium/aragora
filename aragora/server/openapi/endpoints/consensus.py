@@ -165,4 +165,104 @@ These views are preserved to:
             "security": [{"bearerAuth": []}],
         },
     },
+    "/api/consensus/detect": {
+        "post": {
+            "tags": ["Consensus"],
+            "summary": "Detect consensus from proposals",
+            "description": """Analyze a set of agent proposals for consensus agreement.
+
+**Input:** A task description and a list of proposals from different agents.
+
+**Analysis:** Computes agreement ratio, identifies shared claims, and generates
+a consensus proof with supporting evidence chain.
+
+**Use cases:**
+- Check if agents agree on a solution before committing
+- Generate consensus proofs for decision receipts
+- Detect hollow consensus via Trickster analysis""",
+            "operationId": "detectConsensus",
+            "requestBody": {
+                "required": True,
+                "content": {
+                    "application/json": {
+                        "schema": {
+                            "type": "object",
+                            "required": ["task", "proposals"],
+                            "properties": {
+                                "task": {
+                                    "type": "string",
+                                    "description": "The debate task or question being evaluated",
+                                    "maxLength": 102400,
+                                },
+                                "proposals": {
+                                    "type": "array",
+                                    "description": "Agent proposals to analyze for consensus",
+                                    "items": {
+                                        "type": "object",
+                                        "required": ["agent", "content"],
+                                        "properties": {
+                                            "agent": {
+                                                "type": "string",
+                                                "description": "Agent identifier",
+                                            },
+                                            "content": {
+                                                "type": "string",
+                                                "description": "Proposal content",
+                                            },
+                                            "round": {
+                                                "type": "integer",
+                                                "description": "Debate round number",
+                                                "minimum": 0,
+                                            },
+                                        },
+                                    },
+                                    "minItems": 1,
+                                },
+                                "threshold": {
+                                    "type": "number",
+                                    "description": "Consensus confidence threshold (0.0-1.0)",
+                                    "default": 0.7,
+                                    "minimum": 0.0,
+                                    "maximum": 1.0,
+                                },
+                            },
+                        }
+                    }
+                },
+            },
+            "responses": {"200": _ok_response("Consensus detection result", "ConsensusDetectionResponse")},
+            "security": [{"bearerAuth": []}],
+        },
+    },
+    "/api/consensus/status/{debate_id}": {
+        "get": {
+            "tags": ["Consensus"],
+            "summary": "Consensus status for debate",
+            "description": """Get the current consensus status for an existing debate.
+
+**Response includes:**
+- Whether consensus was reached
+- Confidence and agreement ratio
+- Supporting and dissenting agents
+- Partial consensus breakdown by claim
+- Cryptographic proof with checksum
+
+**Use cases:**
+- Monitor consensus progress during a live debate
+- Retrieve final consensus proof after debate completion
+- Feed consensus data into decision receipts""",
+            "operationId": "getConsensusStatus",
+            "parameters": [
+                {
+                    "name": "debate_id",
+                    "in": "path",
+                    "required": True,
+                    "description": "The debate ID to check consensus for",
+                    "schema": {"type": "string"},
+                }
+            ],
+            "responses": {"200": _ok_response("Consensus status", "ConsensusStatusResponse")},
+            "security": [{"bearerAuth": []}],
+        },
+    },
 }

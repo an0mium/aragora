@@ -294,3 +294,38 @@ Acceptance Criteria:
 - [ ] Marketplace pilot has publish/install/version lifecycle.
 - [ ] Security scanning and policy checks gate published assets.
 - [ ] Usage metrics and quality ratings captured.","program:execution-2026,marketplace,priority:medium,owner:team-growth","2026-M4 Ecosystem and Analytics"
+"Establish frontend TypeScript build gate in CI","Owner: @team-platform
+KPI: 0 TypeScript build errors on main branch.
+
+Acceptance Criteria:
+- [ ] CI runs `npx tsc --noEmit` on every PR touching `aragora/live/`.
+- [ ] Build errors block merge.
+- [ ] Existing errors baselined and tracked for burn-down.","program:execution-2026,frontend,ci,priority:high,owner:team-platform","2026-M0 Release Integrity"
+"Add frontend component test coverage baseline","Owner: @team-growth
+KPI: Frontend test coverage >= 40%.
+
+Acceptance Criteria:
+- [ ] Jest/Vitest configured for React component testing.
+- [ ] Coverage report generated in CI artifacts.
+- [ ] Critical user flows (debate creation, receipt view, dashboard) have tests.","program:execution-2026,frontend,testing,priority:high,owner:team-growth","2026-M1 Surface Parity"
+"Validate and automate developer quickstart onboarding","Owner: @team-growth
+KPI: Developer onboarding time <= 10 minutes.
+
+Acceptance Criteria:
+- [ ] Quickstart walkthrough tested on clean environment monthly.
+- [ ] Missing prerequisites auto-detected with actionable errors.
+- [ ] Time-to-first-debate measured and tracked.","program:execution-2026,docs,onboarding,priority:medium,owner:team-growth","2026-M1 Surface Parity"
+"Add automated doc freshness and link-rot checking","Owner: @team-platform
+KPI: Broken doc links on main = 0.
+
+Acceptance Criteria:
+- [ ] CI job validates internal doc links and code references.
+- [ ] Stale doc sections flagged with last-verified date.
+- [ ] Doc drift report included in status reconciliation.","program:execution-2026,docs,governance,priority:medium,owner:team-platform","2026-M0 Release Integrity"
+"Track Nomic Loop cycle efficiency and success rate","Owner: @team-core
+KPI: >= 60% of cycles produce merged improvements.
+
+Acceptance Criteria:
+- [ ] Cycle telemetry (start/end/outcome/duration) persisted to KM.
+- [ ] Dashboard surface shows cycle success rate and trend.
+- [ ] Failed cycles emit diagnostics for root-cause analysis.","program:execution-2026,nomic,analytics,priority:medium,owner:team-core","2026-M4 Ecosystem and Analytics"

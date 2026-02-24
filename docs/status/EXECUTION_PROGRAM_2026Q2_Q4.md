@@ -20,10 +20,12 @@ Build Aragora into a complete control plane for:
 
 ## Source-of-Truth Snapshot
 
-As of 2026-02-23:
-- Capability matrix coverage: API 92.9%, CLI 78.6%, Python SDK 92.9%, TypeScript SDK 92.9%, UI 14.3%, catalog mapped 37.8%
+As of 2026-02-23 (updated 2026-02-24):
+- Capability matrix coverage: API 100%, CLI 100%, Python SDK 100%, TypeScript SDK 100%, UI 100%, catalog mapped 100%
+- All previously "missing" surfaces (consensus_detection, compliance_framework, rbac_v2) now implemented
 - Connector maturity: 99 Production, 48 Beta, 4 Stub
 - GA checklist: 58/59 complete, primary blocker listed as external penetration test
+- Note: Surface parity gaps are CLOSED. Remaining work is hardening, promotion, and productization.
 
 ## Supported Features (Implemented)
 
@@ -204,7 +206,39 @@ Primary evidence:
 - `.github/workflows/lint.yml`
 - `scripts/test_tiers.sh`
 
-### 4) FastAPI migration breadth
+### 4) Frontend build and test health
+
+- 170+ pages exist in `aragora/live/` but TypeScript strictness varies
+- No unified frontend test suite in CI
+- Component tests exist for some features but coverage is unmeasured
+
+Primary evidence:
+- `aragora/live/tsconfig.json`
+- `aragora/live/src/app/`
+
+### 5) Developer documentation and onboarding
+
+- Quickstart command exists (`aragora quickstart`) but end-to-end validation is manual
+- SDK guides exist but no measured onboarding time target
+- No automated doc freshness or link-rot checking
+
+Primary evidence:
+- `aragora/cli/commands/quickstart.py`
+- `docs/SDK_GUIDE.md`
+- `docs/EXTENDED_README.md`
+
+### 6) Self-improvement loop production readiness
+
+- Nomic Loop, MetaPlanner, BranchCoordinator, and TaskDecomposer all implemented
+- Self-develop CLI works in dry-run but production cycle metrics not tracked
+- Cross-cycle learning via KnowledgeMound exists but efficiency not measured
+
+Primary evidence:
+- `scripts/self_develop.py`
+- `aragora/nomic/meta_planner.py`
+- `aragora/nomic/calibration_monitor.py`
+
+### 7) FastAPI migration breadth
 
 - FastAPI surface exists but does not yet represent full legacy handler breadth
 
@@ -331,6 +365,18 @@ Deliverables:
 - Target: >= 99.9% monthly
 - Data source: uptime/status monitoring
 
+13. `Frontend Build Health`
+- Target: 0 TypeScript build errors; frontend test coverage >= 40%
+- Data source: `npx tsc --noEmit` in CI; Jest/Vitest coverage reports
+
+14. `Developer Onboarding Time`
+- Target: New developer can run first debate in <= 10 minutes
+- Data source: Quickstart walkthrough validation runs; user testing feedback
+
+15. `Self-Improvement Cycle Efficiency`
+- Target: >= 60% of Nomic Loop cycles produce merged improvements; average cycle time <= 30 minutes
+- Data source: Nomic Loop telemetry and branch coordinator metrics
+
 ## 30/60/90 Execution Plan
 
 ### Day 30 (2026-03-25)
@@ -339,20 +385,27 @@ Primary outcomes:
 - Release integrity gates hardened
 - Status reconciliation automated
 - Pentest engagement active
+- Frontend TypeScript build gate established in CI
+- Doc link-rot checking active
 
 Must-hit KPIs:
 - Release Gate Completeness >= 90% for new tags
 - Skip marker baseline reduced by at least 20
+- Frontend Build Health: 0 TS errors on main
 
 ### Day 60 (2026-04-24)
 
 Primary outcomes:
 - Surface parity gaps largely closed for API/SDK/CLI
 - Decision-integrity UI baseline shipped
+- Developer onboarding validated and measured
+- Frontend component test baseline established
 
 Must-hit KPIs:
 - CLI coverage >= 86%
 - SDK missing `consensus_detection` gap closed
+- Developer Onboarding Time measured and <= 15 min
+- Frontend test coverage >= 20%
 
 ### Day 90 (2026-05-24)
 

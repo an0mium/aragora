@@ -166,6 +166,79 @@ jobs:
           npm audit --omit=dev --audit-level=high
 
   # ---------------------------------------------------------------------------
+  # Frontend build gate: ensure the Next.js frontend compiles without errors.
+  # ---------------------------------------------------------------------------
+  frontend-build:
+    needs: validate
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      - name: Install frontend dependencies
+        working-directory: aragora/live
+        run: npm ci
+
+      - name: TypeScript type check
+        working-directory: aragora/live
+        run: npx tsc --noEmit
+
+      - name: Build frontend
+        working-directory: aragora/live
+        run: npm run build
+        env:
+          NEXT_TELEMETRY_DISABLED: "1"
+
+  # ---------------------------------------------------------------------------
+  # Skip baseline and pentest findings: enforce test discipline and security
+  # posture before release.
+  # ---------------------------------------------------------------------------
+  release-checks:
+    needs: validate
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -e ".[dev,test]"
+
+      - name: Skip baseline enforcement
+        run: |
+          CURRENT=$(python scripts/audit_test_skips.py --count-only)
+          BASELINE=$(cat tests/.skip_baseline 2>/dev/null || echo 600)
+          THRESHOLD=2
+          echo "Current skip count: $CURRENT"
+          echo "Baseline: $BASELINE"
+          DIFF=$((CURRENT - BASELINE))
+          if [ "$DIFF" -gt "$THRESHOLD" ]; then
+            echo "::error::Skip count increased by $DIFF (from $BASELINE to $CURRENT)"
+            exit 1
+          fi
+        env:
+          PYTHONPATH: .
+
+      - name: Pentest findings gate
+        run: |
+          python scripts/check_pentest_findings.py
+
+  # ---------------------------------------------------------------------------
   # Integration smoke test: run a targeted subset of integration tests to
   # catch wiring / import / startup regressions before release.
   # ---------------------------------------------------------------------------
@@ -211,7 +284,7 @@ jobs:
           "
 
   build:
-    needs: [validate, test, docs-sync, security-gate, integration-smoke]
+    needs: [validate, test, docs-sync, security-gate, integration-smoke, frontend-build, release-checks]
     runs-on: ubuntu-latest
     timeout-minutes: 15
 

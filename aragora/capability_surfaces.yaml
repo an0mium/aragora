@@ -2,8 +2,8 @@
 # Maps core capabilities to their surface exposure (API / CLI / SDK / UI / Channels).
 # This file is used by scripts/capability_gap_report.py to highlight gaps.
 
-version: "1.0"
-last_updated: "2026-02-04"
+version: "1.1"
+last_updated: "2026-02-23"
 
 capabilities:
   decision_integrity:
@@ -16,7 +16,9 @@ capabilities:
       python:
         - "debates.decision_integrity"
       typescript: []
-    ui: []
+    ui:
+      - "/receipts"
+      - "/decision-integrity"
     channels:
       - "slack"
       - "teams"
@@ -34,7 +36,10 @@ capabilities:
         - "debates"
       typescript:
         - "debates"
-    ui: []
+    ui:
+      - "/orchestration"
+      - "/arena"
+      - "/debates"
     channels:
       - "slack"
       - "teams"
@@ -54,15 +59,39 @@ capabilities:
       typescript: []
     ui:
       - "/nomic-control"
+      - "/selection"
+      - "/leaderboard"
     channels: []
 
   consensus_detection:
-    api: []
-    cli: []
+    api:
+      - "POST /api/consensus/detect"
+      - "GET /api/consensus/status/{debate_id}"
+      - "GET /api/consensus/similar"
+      - "GET /api/consensus/settled"
+      - "GET /api/consensus/stats"
+      - "GET /api/consensus/dissents"
+      - "GET /api/consensus/contrarian-views"
+      - "GET /api/consensus/risk-warnings"
+      - "GET /api/consensus/domain/{domain}"
+    cli:
+      - "aragora consensus detect"
+      - "aragora consensus status"
     sdk:
-      python: []
-      typescript: []
-    ui: []
+      python:
+        - "consensus.detect()"
+        - "consensus.get_detection_status()"
+        - "consensus.get_similar_debates()"
+        - "consensus.get_settled_topics()"
+        - "consensus.get_stats()"
+      typescript:
+        - "consensus.detect()"
+        - "consensus.getDetectionStatus()"
+        - "consensus.findSimilar()"
+        - "consensus.getSettled()"
+        - "consensus.getStats()"
+    ui:
+      - "/consensus"
     channels: []
 
   graph_debates:
@@ -75,7 +104,8 @@ capabilities:
       python:
         - "graph_debates"
       typescript: []
-    ui: []
+    ui:
+      - "/debates/graph"
     channels: []
 
   matrix_debates:
@@ -88,7 +118,8 @@ capabilities:
       python:
         - "matrix_debates"
       typescript: []
-    ui: []
+    ui:
+      - "/debates/matrix"
     channels: []
 
   vertical_specialists:
@@ -114,6 +145,7 @@ capabilities:
     ui:
       - "/arena (Vertical Selector)"
       - "/admin/verticals"
+      - "/verticals"
     channels: []
 
   knowledge_mound:
@@ -126,7 +158,8 @@ capabilities:
         - "knowledge"
       typescript:
         - "knowledge"
-    ui: []
+    ui:
+      - "/knowledge"
     channels: []
 
   continuum_memory:
@@ -140,7 +173,9 @@ capabilities:
         - "memory"
       typescript:
         - "memory"
-    ui: []
+    ui:
+      - "/memory"
+      - "/memory-analytics"
     channels: []
 
   workflow_engine:
@@ -153,7 +188,9 @@ capabilities:
         - "workflows"
       typescript:
         - "workflows"
-    ui: []
+    ui:
+      - "/workflows"
+      - "/pipeline"
     channels: []
 
   marketplace:
@@ -166,7 +203,8 @@ capabilities:
         - "marketplace"
       typescript:
         - "marketplace"
-    ui: []
+    ui:
+      - "/marketplace"
     channels: []
 
   nomic_loop:
@@ -185,7 +223,9 @@ capabilities:
       typescript:
         - "nomic.getState()"
         - "nomic.start()"
-    ui: []
+    ui:
+      - "/nomic-control"
+      - "/self-improve"
     channels: []
 
   rbac_v2:
@@ -197,7 +237,9 @@ capabilities:
         - "rbac"
       typescript:
         - "rbac"
-    ui: []
+    ui:
+      - "/policy"
+      - "/security"
     channels: []
 
   compliance_framework:
@@ -209,5 +251,6 @@ capabilities:
         - "policies"
       typescript:
         - "policies"
-    ui: []
+    ui:
+      - "/compliance"
     channels: []

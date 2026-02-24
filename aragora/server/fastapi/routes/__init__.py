@@ -7,5 +7,6 @@ from . import testfixer
 from . import receipts
 from . import gauntlet
 from . import agents
+from . import consensus
 
-__all__ = ["health", "debates", "decisions", "testfixer", "receipts", "gauntlet", "agents"]
+__all__ = ["health", "debates", "decisions", "testfixer", "receipts", "gauntlet", "agents", "consensus"]

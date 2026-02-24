@@ -16,6 +16,9 @@ interface NodeContextMenuProps {
   onExecute: (nodeId: string) => void;
   onFindPrecedents: (nodeId: string) => void;
   onDelete: (nodeId: string) => void;
+  onValidate?: (nodeId: string) => void;
+  onEnrich?: (nodeId: string) => void;
+  onImprove?: (nodeId: string) => void;
 }
 
 interface MenuItem {
@@ -38,6 +41,9 @@ export function NodeContextMenu({
   onExecute,
   onFindPrecedents,
   onDelete,
+  onValidate,
+  onEnrich,
+  onImprove,
 }: NodeContextMenuProps) {
   const items: MenuItem[] = [
     {
@@ -74,6 +80,24 @@ export function NodeContextMenu({
       label: 'Find Precedents',
       icon: '\u{1F50D}',
       action: () => { onFindPrecedents(nodeId); onClose(); },
+      stages: ['ideas', 'goals', 'actions', 'orchestration'],
+    },
+    {
+      label: 'Validate',
+      icon: '\u{1F6E1}',
+      action: () => { onValidate?.(nodeId); onClose(); },
+      stages: ['goals', 'actions'],
+    },
+    {
+      label: 'Enrich with Knowledge',
+      icon: '\u{1F4DA}',
+      action: () => { onEnrich?.(nodeId); onClose(); },
+      stages: ['ideas', 'goals', 'actions', 'orchestration'],
+    },
+    {
+      label: 'Improve This',
+      icon: '\u2728',
+      action: () => { onImprove?.(nodeId); onClose(); },
       stages: ['ideas', 'goals', 'actions', 'orchestration'],
     },
     {

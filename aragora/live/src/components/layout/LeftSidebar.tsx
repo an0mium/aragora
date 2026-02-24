@@ -98,6 +98,7 @@ const navSections: NavSection[] = [
     minMode: 'standard',
     highlight: true,
     items: [
+      { label: 'Decision Integrity', href: '/decision-integrity', icon: '\u2726' },
       { label: 'Gauntlet', href: '/gauntlet', icon: '\u26A1' },
       { label: 'Compliance', href: '/compliance', icon: '\u2713' },
       { label: 'Audit', href: '/audit', icon: '\u2611' },

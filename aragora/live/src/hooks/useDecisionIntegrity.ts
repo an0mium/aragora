@@ -1,7 +1,7 @@
 'use client';
 
 import { useMemo } from 'react';
-import { useSWRFetch, type UseSWRFetchOptions } from './useSWRFetch';
+import { useSWRFetch } from './useSWRFetch';
 
 // ============================================================================
 // Types
@@ -217,8 +217,17 @@ function computeIntegrityMetrics(
 
 const REFRESH_INTERVAL = 30_000;
 
-export function useDecisionIntegrity(options?: UseSWRFetchOptions<unknown>) {
-  const swrOpts = { refreshInterval: REFRESH_INTERVAL, ...options };
+interface DecisionIntegrityOptions {
+  /** Override the default refresh interval (30s) */
+  refreshInterval?: number;
+  /** Whether to enable fetching (default: true) */
+  enabled?: boolean;
+}
+
+export function useDecisionIntegrity(options?: DecisionIntegrityOptions) {
+  const { refreshInterval = REFRESH_INTERVAL, enabled = true } = options ?? {};
+
+  const swrOpts = { refreshInterval, enabled };
 
   // Parallel SWR fetches -- each degrades independently on 404/error
   const debates = useSWRFetch<DebateListResponse>('/api/v1/debates?status=active', swrOpts);
@@ -229,7 +238,7 @@ export function useDecisionIntegrity(options?: UseSWRFetchOptions<unknown>) {
   const audit = useSWRFetch<AuditEventsResponse>('/api/v1/audit/events?limit=20', swrOpts);
   const leaderboard = useSWRFetch<LeaderboardResponse>('/api/v1/leaderboard', {
     refreshInterval: 60_000,
-    ...options,
+    enabled,
   });
   const settled = useSWRFetch<ConsensusSettled>('/api/v1/consensus/settled?limit=10', swrOpts);
 

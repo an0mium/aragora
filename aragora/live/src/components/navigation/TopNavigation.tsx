@@ -38,6 +38,18 @@ export interface NavSubItem {
  */
 export const USE_CASE_TABS: NavTab[] = [
   {
+    id: 'command',
+    label: 'Command',
+    icon: '\u25B8',
+    description: 'Brain dump ideas, watch AI build execution plans',
+    href: '/command',
+    subItems: [
+      { label: 'Command Center', href: '/command', icon: '\u25B8', description: 'AI-powered idea-to-execution' },
+      { label: 'Pipeline', href: '/pipeline', icon: '|', description: 'Stage-by-stage pipeline view' },
+      { label: 'Self-Improve', href: '/nomic-control', icon: '@', description: 'Monitor Nomic Loop' },
+    ],
+  },
+  {
     id: 'security',
     label: 'Security',
     icon: '!',
@@ -304,6 +316,9 @@ function getActiveTab(pathname: string): NavTab | null {
 
   // Map known routes to tabs
   const routeTabMap: Record<string, string> = {
+    '/command': 'command',
+    '/pipeline': 'command',
+    '/nomic-control': 'command',
     '/reviews': 'security',
     '/gauntlet': 'architecture',
     '/audit': 'compliance',
@@ -316,7 +331,6 @@ function getActiveTab(pathname: string): NavTab | null {
     '/evidence': 'research',
     '/intelligence': 'intelligence',
     '/tools': 'research',
-    '/nomic-control': 'architecture',
   };
 
   for (const [prefix, tabId] of Object.entries(routeTabMap)) {

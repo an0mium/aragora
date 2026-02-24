@@ -529,6 +529,8 @@ class TestEndToEndIntegration:
             "healthcare_compliance",
             "phi_specialist",
             "prompt_engineer",
+            "legal_researcher",
+            "risk_analyst",
         }
 
         missing_personas = set()
