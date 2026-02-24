@@ -1,47 +1,103 @@
 # Aragora Examples
 
-Quick examples to demonstrate Aragora's core capabilities.
+Practical examples demonstrating Aragora's multi-agent debate engine, workflow automation, and integration patterns.
 
-## Try Without API Keys
+## Example App Pack
 
-Most examples support `--demo` mode with mock agents:
+Three self-contained example applications, each with its own `main.py`, `README.md`, and `requirements.txt`. All three support `--demo` mode so you can run them without API keys.
 
-```bash
-python examples/01_simple_debate.py --demo
-python examples/python-debate/main.py --demo
-```
+### 1. Slack Code Review Bot
 
-No API keys, no server, no configuration required.
+**Directory:** [`slack-review-bot/`](./slack-review-bot/)
 
-## Using Real Agents
-
-Set at least one API key for real LLM-powered debates:
+A Slack bot that uses multi-agent debate to review GitHub pull requests. Security, performance, and best-practices reviewers debate code changes and post a consensus review to Slack with a tamper-evident receipt hash.
 
 ```bash
-export ANTHROPIC_API_KEY="sk-..."
-export OPENAI_API_KEY="sk-..."
-export GEMINI_API_KEY="..."
-export XAI_API_KEY="..."  # for Grok
+# Demo mode -- no API keys or Slack webhook needed
+python examples/slack-review-bot/main.py --demo
+
+# Review a real PR and post to Slack
+python examples/slack-review-bot/main.py \
+    --repo myorg/myrepo --pr 42 \
+    --webhook https://hooks.slack.com/services/T.../B.../...
+
+# JSON output for CI/CD pipelines
+python examples/slack-review-bot/main.py --demo --json
 ```
 
-For best results, set 2-3 keys to enable multi-agent debates.
+**Uses:** `Arena`, `DebateProtocol`, `SlackIntegration`, receipt generation
 
-## Examples
+See [slack-review-bot/README.md](./slack-review-bot/README.md) for full setup and architecture.
 
-### 1. Simple Multi-Agent Debate (2-5 min)
+---
+
+### 2. Document Analysis Pipeline
+
+**Directory:** [`document-analysis/`](./document-analysis/)
+
+A document Q&A system where multiple AI agents debate answers grounded in document evidence. Ingest a directory of markdown, text, code, or config files, then ask questions and get cited, consensus-backed answers.
+
+```bash
+# Demo mode -- uses built-in sample architecture docs
+python examples/document-analysis/main.py --demo
+
+# Analyze your own docs
+python examples/document-analysis/main.py \
+    --docs /path/to/architecture/docs \
+    --question "What is the authentication strategy?"
+
+# Interactive Q&A (ask multiple questions without reloading)
+python examples/document-analysis/main.py --docs /path/to/docs --interactive
+
+# JSON output for piping
+python examples/document-analysis/main.py --demo --json | jq '.answer'
+```
+
+**Uses:** `Arena`, `DebateProtocol`, document ingestion, evidence-grounded debate
+
+See [document-analysis/README.md](./document-analysis/README.md) for full setup and architecture.
+
+---
+
+### 3. Workflow Automation
+
+**Directory:** [`workflow-automation/`](./workflow-automation/)
+
+A content publishing pipeline built on Aragora's `WorkflowEngine`. Demonstrates DAG-based orchestration with sequential steps, parallel branches, conditional routing, checkpointing, and event tracking.
+
+```bash
+# Demo mode -- no API keys needed
+python examples/workflow-automation/main.py --demo
+
+# Custom topic
+python examples/workflow-automation/main.py --topic "API security guidelines"
+
+# View the workflow DAG without executing
+python examples/workflow-automation/main.py --show-dag
+
+# JSON output for programmatic use
+python examples/workflow-automation/main.py --demo --json
+```
+
+**Uses:** `WorkflowEngine`, `WorkflowDefinition`, `StepDefinition`, `TransitionRule`, custom `BaseStep` subclasses
+
+See [workflow-automation/README.md](./workflow-automation/README.md) for full setup and architecture.
+
+---
+
+## Quick-Start Examples
+
+Standalone scripts for learning the core APIs. No project structure needed.
+
+### Simple Multi-Agent Debate (2-5 min)
 
 ```bash
 python examples/01_simple_debate.py
 ```
 
-Multiple AI agents debate a topic, critique each other, and reach consensus. This demonstrates the core value proposition of Aragora.
+Multiple AI agents debate a topic, critique each other, and reach consensus. Demonstrates the core propose-critique-revise workflow.
 
-**What you'll see:**
-- Agents with different roles (proposer, critic, synthesizer)
-- Multi-round debate with critique and revision
-- Consensus detection with confidence score
-
-### 2. Tournament & Leaderboard (10-30 min)
+### Tournament & Leaderboard (10-30 min)
 
 ```bash
 python examples/02_tournament.py
@@ -49,154 +105,66 @@ python examples/02_tournament.py
 
 Agents compete across multiple topics with ELO ranking. Shows how Aragora tracks agent performance over time.
 
-**What you'll see:**
-- Round-robin tournament format
-- Multiple debate tasks
-- Final standings with wins, points, and ELO ratings
-
-### 3. Nomic Loop - Self-Improvement (5-10 min)
+### Nomic Loop - Self-Improvement (5-10 min)
 
 ```bash
 python examples/03_nomic_loop.py
 ```
 
-Demonstrates Aragora's unique self-improvement capability (runs in dry-run mode).
+Demonstrates Aragora's self-improvement capability where agents debate improvements, design solutions, implement code, and verify changes (dry-run mode).
 
-**What you'll see:**
-- Debate phase: agents propose improvements
-- Design phase: agents architect the solution
-- Implement phase: code generation (simulated)
-- Verify phase: testing (simulated)
-
-### 4. Gauntlet Showcase - AI Decision Assurance (1-2 min)
+### Gauntlet Showcase - Decision Assurance (1-2 min)
 
 ```bash
 python examples/04_gauntlet_showcase.py
 ```
 
-Demonstrates Aragora's Gauntlet system for adversarial validation and compliance stress-testing. Showcases a real debate from 10 AI models.
+Adversarial validation and compliance stress-testing with decision receipt generation. No API keys required -- views pre-computed results from 12 AI models.
 
-**What you'll see:**
-- Regulatory personas (GDPR, HIPAA, AI Act, Security)
-- Decision Receipt generation (JSON, HTML, PDF)
-- Real strategic debate results from 12 AI models
-- CLI usage for CI/CD integration
-
-**No API keys required** - views pre-computed results.
-
-### 5. TypeScript SDK Integration (5 min)
+### TypeScript SDK Integration (5 min)
 
 ```bash
-# Start server first
-aragora serve --api-port 8080 --ws-port 8765
-
-# In another terminal
-npx ts-node examples/05_typescript_sdk.ts
+aragora serve --api-port 8080 --ws-port 8765  # in one terminal
+npx ts-node examples/05_typescript_sdk.ts       # in another
 ```
 
-Demonstrates using the Aragora TypeScript/JavaScript SDK to integrate debates into your applications.
-
-**What you'll see:**
-- Client initialization and health check
-- Creating and polling debates programmatically
-- Querying agent rankings and debate history
-- Proper error handling patterns
-
-**Prerequisites:**
-- Node.js 18+
-- `npm install aragora-js` (or use from `aragora-js/` directory)
-
-## Troubleshooting
-
-**"Need at least 2 agents"**
-- Set more API keys (at least 2 providers needed for debate)
-
-**Timeout errors**
-- Some API providers may be slow; wait for completion
-- Try setting `ARAGORA_AGENT_TIMEOUT` to increase timeout
-
-**Rate limit errors**
-- Set `OPENROUTER_API_KEY` for automatic fallback
-- Wait and retry
+Demonstrates the TypeScript SDK for programmatic debate creation, polling, and error handling.
 
 ## SDK Demo Apps
 
-### Python Debate CLI
+| App | Language | Directory |
+|-----|----------|-----------|
+| Python Debate CLI | Python | [`python-debate/`](./python-debate/) |
+| TypeScript Web App | TypeScript | [`typescript-web/`](./typescript-web/) |
+| Node.js Slack Bot | TypeScript | [`nodejs-slack-bot/`](./nodejs-slack-bot/) |
+| Next.js App Router | TypeScript | [`nextjs-app-router/`](./nextjs-app-router/) |
+| Remix | TypeScript | [`remix/`](./remix/) |
+| SvelteKit | TypeScript | [`sveltekit/`](./sveltekit/) |
 
-A full-featured CLI tool demonstrating the Python SDK with auth, tournaments, and onboarding:
+## Using Real Agents
 
-```bash
-cd examples/python-debate
-pip install aragora-sdk python-dotenv
-
-# Run debates
-python main.py debate "Should we use Kubernetes?"
-python main.py stream "Design a rate limiter"
-
-# View rankings
-python main.py rankings
-
-# Tournaments
-python main.py tournament create --name "Q1 Showdown" --agents claude gpt gemini
-python main.py tournament list
-
-# Authentication
-python main.py auth login --email user@example.com
-python main.py auth apikeys list
-
-# Onboarding
-python main.py onboarding
-```
-
-See [python-debate/README.md](./python-debate/README.md) for details.
-
-### TypeScript Web App
-
-A web app demonstrating the TypeScript SDK with real-time streaming, tabs, and auth:
+Set at least one API key for real LLM-powered debates:
 
 ```bash
-cd examples/typescript-web
-npm install
-npm run dev
-# Open http://localhost:5173
+export ANTHROPIC_API_KEY="sk-ant-..."
+export OPENAI_API_KEY="sk-..."
+export GEMINI_API_KEY="..."
+export XAI_API_KEY="..."  # for Grok
 ```
 
-**Features:**
-- Real-time debate streaming via WebSocket
-- Tournament creation and management
-- Agent rankings leaderboard
-- Authentication with token persistence
+For best results, set 2-3 keys to enable multi-agent debates with diverse models.
 
-See [typescript-web/README.md](./typescript-web/README.md) for details.
+## Troubleshooting
 
-### Node.js Slack Bot
+**"Need at least 2 agents"** -- Set more API keys (at least 2 providers needed for debate).
 
-A Slack bot that enables AI debates directly from Slack channels:
+**Timeout errors** -- Some API providers may be slow. Try setting `ARAGORA_AGENT_TIMEOUT` to increase the timeout.
 
-```bash
-cd examples/nodejs-slack-bot
-npm install
-cp .env.example .env
-# Edit .env with your Slack credentials
-npm run dev
-```
-
-**Slack Commands:**
-- `/debate <topic>` - Start a multi-agent debate
-- `/rankings` - View agent leaderboard
-- `/tournament <name>` - Create a tournament
-
-**Features:**
-- Real-time debate streaming to threads
-- Interactive buttons and modals
-- Socket Mode for development
-
-See [nodejs-slack-bot/README.md](./nodejs-slack-bot/README.md) for setup instructions.
+**Rate limit errors** -- Set `OPENROUTER_API_KEY` for automatic fallback on 429 errors.
 
 ## Full Documentation
 
-- [Python SDK Quickstart](../docs/guides/python-quickstart.md)
-- [TypeScript SDK Quickstart](../docs/guides/typescript-quickstart.md)
-- [CLAUDE.md](../CLAUDE.md) - Architecture overview
-- [docs/STATUS.md](../docs/STATUS.md) - Feature status
-- [scripts/nomic_loop.py](../scripts/nomic_loop.py) - Full nomic loop implementation
+- [Python SDK Guide](../docs/SDK_GUIDE.md)
+- [API Reference](../docs/api/API_REFERENCE.md)
+- [Architecture Overview](../CLAUDE.md)
+- [Feature Status](../docs/STATUS.md)

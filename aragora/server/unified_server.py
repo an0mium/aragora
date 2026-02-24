@@ -223,10 +223,15 @@ class UnifiedHandler(  # type: ignore[misc]
                         "/api/openapi.json",
                         "/api/openapi.yaml",
                         "/api/postman.json",
+                        "/api/v1/postman.json",
                         "/api/v1/docs",
                         "/api/v1/docs/",
                         "/api/v1/openapi",
                         "/api/v1/openapi.json",
+                        "/api/v2/explorer/openapi.json",
+                        "/api/v2/explorer/swagger",
+                        "/api/v2/explorer/redoc",
+                        "/api/v2/explorer/stats",
                         "/graphql",
                         "/graphiql",
                         "/api/graphql",
@@ -362,6 +367,11 @@ class UnifiedHandler(  # type: ignore[misc]
             if not self._check_rbac(path, "GET"):
                 return
 
+        # MFA enforcement for admin roles (SOC 2 CC5-01, GitHub #275)
+        if path.startswith("/api/"):
+            if not self._check_admin_mfa(path):
+                return
+
         # Rate limit all API GET requests (DoS protection)
         if path.startswith("/api/"):
             if not self._check_rate_limit():
@@ -459,6 +469,11 @@ class UnifiedHandler(  # type: ignore[misc]
             if not self._check_rbac(path, "POST"):
                 return
 
+        # MFA enforcement for admin roles (SOC 2 CC5-01, GitHub #275)
+        if path.startswith("/api/"):
+            if not self._check_admin_mfa(path):
+                return
+
         # Route all /api/* requests through modular handlers
         # NOTE: No try/except wrapper here — _try_modular_handler has its own
         # internal exception handling that returns proper 500 responses.
@@ -492,6 +507,11 @@ class UnifiedHandler(  # type: ignore[misc]
         # RBAC check for all API requests (authorization)
         if path.startswith("/api/"):
             if not self._check_rbac(path, "DELETE"):
+                return
+
+        # MFA enforcement for admin roles (SOC 2 CC5-01, GitHub #275)
+        if path.startswith("/api/"):
+            if not self._check_admin_mfa(path):
                 return
 
         # Try modular handlers first
@@ -528,6 +548,11 @@ class UnifiedHandler(  # type: ignore[misc]
             if not self._check_rbac(path, "PATCH"):
                 return
 
+        # MFA enforcement for admin roles (SOC 2 CC5-01, GitHub #275)
+        if path.startswith("/api/"):
+            if not self._check_admin_mfa(path):
+                return
+
         # Try modular handlers first
         if path.startswith("/api/"):
             if self._try_modular_handler(path, {}):
@@ -559,6 +584,11 @@ class UnifiedHandler(  # type: ignore[misc]
         # RBAC check for all API requests (authorization)
         if path.startswith("/api/"):
             if not self._check_rbac(path, "PUT"):
+                return
+
+        # MFA enforcement for admin roles (SOC 2 CC5-01, GitHub #275)
+        if path.startswith("/api/"):
+            if not self._check_admin_mfa(path):
                 return
 
         # Try modular handlers first

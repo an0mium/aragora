@@ -460,18 +460,24 @@ class SecuritySettings(BaseSettings):
 
     model_config = SettingsConfigDict(env_prefix="ARAGORA_SECURITY_")
 
-    # MFA Enforcement (SOC 2 CC5-01)
+    # MFA Enforcement (SOC 2 CC5-01, GitHub #275)
     admin_mfa_required: bool = Field(
         default=True,
-        alias="ARAGORA_SECURITY_ADMIN_MFA_REQUIRED",
         description="Require MFA for admin/owner users (SOC 2 CC5-01)",
+        validation_alias=AliasChoices(
+            "ARAGORA_ENFORCE_ADMIN_MFA",
+            "ARAGORA_SECURITY_ADMIN_MFA_REQUIRED",
+        ),
     )
     admin_mfa_grace_period_days: int = Field(
         default=7,
         ge=0,
         le=30,
-        alias="ARAGORA_SECURITY_MFA_GRACE_PERIOD_DAYS",
-        description="Grace period for new admins before MFA is required",
+        description="Grace period (days) for new admins before MFA is enforced",
+        validation_alias=AliasChoices(
+            "ARAGORA_SECURITY_MFA_GRACE_PERIOD_DAYS",
+            "ARAGORA_MFA_GRACE_PERIOD_DAYS",
+        ),
     )
 
     # Encryption at rest (SOC 2 CC6-01)

@@ -16,7 +16,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 from datetime import datetime, timedelta, timezone
-from unittest.mock import MagicMock
+from unittest.mock import MagicMock, patch
 
 import pytest
 
@@ -598,3 +598,257 @@ class TestDefaultMFARoles:
 
     def test_is_frozenset(self):
         assert isinstance(DEFAULT_MFA_REQUIRED_ROLES, frozenset)
+
+
+# ---------------------------------------------------------------------------
+# Request-level MFA enforcement (_check_admin_mfa in AuthChecksMixin)
+# ---------------------------------------------------------------------------
+
+
+@dataclass
+class _FakeSecuritySettings:
+    """Minimal stub for SecuritySettings."""
+
+    admin_mfa_required: bool = True
+    admin_mfa_grace_period_days: int = 2
+
+
+@dataclass
+class _FakeSettings:
+    """Minimal stub for Settings wrapping SecuritySettings."""
+
+    security: _FakeSecuritySettings = field(default_factory=_FakeSecuritySettings)
+
+
+@dataclass
+class _FakeAuthConfig:
+    """Minimal stub for auth_config."""
+
+    enabled: bool = True
+
+
+@dataclass
+class _FakeBillingUser:
+    """Minimal stub for extract_user_from_request return value."""
+
+    authenticated: bool = True
+    user_id: str = "admin-1"
+    role: str = "admin"
+    org_id: str = "org-1"
+    client_ip: str = "127.0.0.1"
+    metadata: dict = field(default_factory=dict)
+
+
+class _FakeAuthChecksMixin:
+    """Standalone test double that replaces AuthChecksMixin for testing _check_admin_mfa.
+
+    We only need _check_admin_mfa and its dependency _send_json, plus
+    the user_store attribute. This avoids importing the full unified server.
+    """
+
+    def __init__(self, user_store=None):
+        self.user_store = user_store
+        self.sent_responses: list[tuple[dict, int]] = []
+
+    def _send_json(self, data, status=200):
+        self.sent_responses.append((data, status))
+
+
+def _attach_check_admin_mfa(instance: _FakeAuthChecksMixin):
+    """Bind the real _check_admin_mfa implementation to our test double."""
+    from aragora.server.auth_checks import AuthChecksMixin
+
+    import types
+    instance._check_admin_mfa = types.MethodType(AuthChecksMixin._check_admin_mfa, instance)
+
+
+class TestCheckAdminMFA:
+    """Tests for the request-level _check_admin_mfa in AuthChecksMixin.
+
+    These test the integration point that wires MFAEnforcementMiddleware
+    into the HTTP request pipeline (unified_server.py).
+    """
+
+    def _make_handler(self, user_store=None):
+        handler = _FakeAuthChecksMixin(user_store=user_store)
+        _attach_check_admin_mfa(handler)
+        return handler
+
+    @patch("aragora.server.auth_checks.get_settings")
+    def test_disabled_enforcement_allows_all(self, mock_settings):
+        """When admin_mfa_required=False, all requests pass."""
+        mock_settings.return_value = _FakeSettings(
+            security=_FakeSecuritySettings(admin_mfa_required=False),
+        )
+        handler = self._make_handler()
+        assert handler._check_admin_mfa("/api/v1/admin/users") is True
+        assert len(handler.sent_responses) == 0
+
+    @patch("aragora.billing.auth.extract_user_from_request")
+    @patch("aragora.server.auth.auth_config", _FakeAuthConfig(enabled=True))
+    @patch("aragora.server.auth_checks.get_settings")
+    def test_admin_without_mfa_denied(self, mock_settings, mock_extract):
+        """Admin user without MFA is denied with 403."""
+        mock_settings.return_value = _FakeSettings()
+        mock_extract.return_value = _FakeBillingUser(role="admin", user_id="admin-1")
+
+        handler = self._make_handler()
+        result = handler._check_admin_mfa("/api/v1/admin/users")
+
+        assert result is False
+        assert len(handler.sent_responses) == 1
+        data, status = handler.sent_responses[0]
+        assert status == 403
+        assert data["code"] == "ADMIN_MFA_REQUIRED"
+        assert "/api/auth/mfa/setup" in data["required_action"]
+
+    @patch("aragora.billing.auth.extract_user_from_request")
+    @patch("aragora.server.auth.auth_config", _FakeAuthConfig(enabled=True))
+    @patch("aragora.server.auth_checks.get_settings")
+    def test_admin_with_mfa_allowed(self, mock_settings, mock_extract):
+        """Admin user with MFA enabled passes through."""
+        mock_settings.return_value = _FakeSettings()
+        mock_extract.return_value = _FakeBillingUser(role="admin", user_id="admin-1")
+
+        store = MagicMock()
+        stored_user = FakeStoredUser(id="admin-1", mfa_enabled=True)
+        store.get_user_by_id.return_value = stored_user
+
+        handler = self._make_handler(user_store=store)
+        result = handler._check_admin_mfa("/api/v1/admin/users")
+
+        assert result is True
+        assert len(handler.sent_responses) == 0
+
+    @patch("aragora.billing.auth.extract_user_from_request")
+    @patch("aragora.server.auth.auth_config", _FakeAuthConfig(enabled=True))
+    @patch("aragora.server.auth_checks.get_settings")
+    def test_non_admin_without_mfa_allowed(self, mock_settings, mock_extract):
+        """Non-admin users pass through without MFA."""
+        mock_settings.return_value = _FakeSettings()
+        mock_extract.return_value = _FakeBillingUser(role="member", user_id="user-1")
+
+        handler = self._make_handler()
+        result = handler._check_admin_mfa("/api/v1/debates")
+
+        assert result is True
+        assert len(handler.sent_responses) == 0
+
+    @patch("aragora.billing.auth.extract_user_from_request")
+    @patch("aragora.server.auth.auth_config", _FakeAuthConfig(enabled=True))
+    @patch("aragora.server.auth_checks.get_settings")
+    def test_mfa_setup_endpoint_accessible_without_mfa(self, mock_settings, mock_extract):
+        """MFA setup endpoint is exempt so admins can bootstrap MFA."""
+        mock_settings.return_value = _FakeSettings()
+        mock_extract.return_value = _FakeBillingUser(role="admin", user_id="admin-1")
+
+        handler = self._make_handler()
+        result = handler._check_admin_mfa("/api/auth/mfa/setup")
+
+        assert result is True
+        assert len(handler.sent_responses) == 0
+
+    @patch("aragora.billing.auth.extract_user_from_request")
+    @patch("aragora.server.auth.auth_config", _FakeAuthConfig(enabled=True))
+    @patch("aragora.server.auth_checks.get_settings")
+    def test_grace_period_allows_new_admin(self, mock_settings, mock_extract):
+        """Newly-promoted admin within grace period is allowed."""
+        mock_settings.return_value = _FakeSettings(
+            security=_FakeSecuritySettings(admin_mfa_grace_period_days=2),
+        )
+        mock_extract.return_value = _FakeBillingUser(role="admin", user_id="new-admin")
+
+        now = datetime.now(timezone.utc)
+        recently_promoted = now - timedelta(hours=1)
+
+        store = MagicMock()
+        stored_user = FakeStoredUser(
+            id="new-admin",
+            mfa_enabled=False,
+            mfa_grace_period_started_at=recently_promoted,
+        )
+        store.get_user_by_id.return_value = stored_user
+
+        handler = self._make_handler(user_store=store)
+        result = handler._check_admin_mfa("/api/v1/admin/users")
+
+        assert result is True
+        assert len(handler.sent_responses) == 0
+
+    @patch("aragora.billing.auth.extract_user_from_request")
+    @patch("aragora.server.auth.auth_config", _FakeAuthConfig(enabled=True))
+    @patch("aragora.server.auth_checks.get_settings")
+    def test_expired_grace_period_denied(self, mock_settings, mock_extract):
+        """Admin with expired grace period is denied."""
+        mock_settings.return_value = _FakeSettings(
+            security=_FakeSecuritySettings(admin_mfa_grace_period_days=1),
+        )
+        mock_extract.return_value = _FakeBillingUser(role="admin", user_id="old-admin")
+
+        long_ago = datetime.now(timezone.utc) - timedelta(days=10)
+
+        store = MagicMock()
+        stored_user = FakeStoredUser(
+            id="old-admin",
+            mfa_enabled=False,
+            mfa_grace_period_started_at=long_ago,
+        )
+        store.get_user_by_id.return_value = stored_user
+
+        handler = self._make_handler(user_store=store)
+        result = handler._check_admin_mfa("/api/v1/admin/users")
+
+        assert result is False
+        data, status = handler.sent_responses[0]
+        assert status == 403
+        assert data["code"] == "ADMIN_MFA_REQUIRED"
+
+    @patch("aragora.server.auth.auth_config", _FakeAuthConfig(enabled=False))
+    @patch("aragora.server.auth_checks.get_settings")
+    def test_auth_disabled_allows_all(self, mock_settings):
+        """When auth is disabled, MFA enforcement is skipped."""
+        mock_settings.return_value = _FakeSettings()
+
+        handler = self._make_handler()
+        assert handler._check_admin_mfa("/api/v1/admin/users") is True
+        assert len(handler.sent_responses) == 0
+
+    @patch("aragora.billing.auth.extract_user_from_request")
+    @patch("aragora.server.auth.auth_config", _FakeAuthConfig(enabled=True))
+    @patch("aragora.server.auth_checks.get_settings")
+    def test_unauthenticated_request_passes_through(self, mock_settings, mock_extract):
+        """Unauthenticated requests are not blocked by MFA (handled by RBAC)."""
+        mock_settings.return_value = _FakeSettings()
+        mock_extract.return_value = _FakeBillingUser(
+            authenticated=False, user_id=None, role="",
+        )
+
+        handler = self._make_handler()
+        assert handler._check_admin_mfa("/api/v1/admin/users") is True
+
+    @patch("aragora.billing.auth.extract_user_from_request")
+    @patch("aragora.server.auth.auth_config", _FakeAuthConfig(enabled=True))
+    @patch("aragora.server.auth_checks.get_settings")
+    def test_superadmin_without_mfa_denied(self, mock_settings, mock_extract):
+        """Superadmin role is also enforced."""
+        mock_settings.return_value = _FakeSettings()
+        mock_extract.return_value = _FakeBillingUser(role="superadmin", user_id="sa-1")
+
+        handler = self._make_handler()
+        result = handler._check_admin_mfa("/api/v1/admin/users")
+
+        assert result is False
+        data, status = handler.sent_responses[0]
+        assert status == 403
+        assert data["code"] == "ADMIN_MFA_REQUIRED"
+
+    @patch("aragora.billing.auth.extract_user_from_request")
+    @patch("aragora.server.auth.auth_config", _FakeAuthConfig(enabled=True))
+    @patch("aragora.server.auth_checks.get_settings")
+    def test_context_extraction_failure_allows_through(self, mock_settings, mock_extract):
+        """If user context extraction fails, request is not blocked by MFA."""
+        mock_settings.return_value = _FakeSettings()
+        mock_extract.side_effect = ValueError("JWT decode error")
+
+        handler = self._make_handler()
+        assert handler._check_admin_mfa("/api/v1/admin/users") is True

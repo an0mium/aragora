@@ -1,5 +1,5 @@
 {
-  "handler_routes_count": 1902,
+  "handler_routes_count": 1925,
   "openapi_routes_count": 2504,
   "missing_in_spec": [
     "/api/v1/admin/feature-flags/{param}",
@@ -34,6 +34,10 @@
     "/api/v1/costs/analytics/by-debate",
     "/api/v1/costs/analytics/by-model",
     "/api/v1/costs/analytics/trend",
+    "/api/v1/data-classification/classify",
+    "/api/v1/data-classification/enforce",
+    "/api/v1/data-classification/policy",
+    "/api/v1/data-classification/validate",
     "/api/v1/debates/hybrid/{param}",
     "/api/v1/debates/{param}/costs",
     "/api/v1/debates/{param}/events",
@@ -53,6 +57,7 @@
     "/api/v1/gateway/agents/{param}",
     "/api/v1/gateway/credentials/{param}",
     "/api/v1/health/build",
+    "/api/v1/health/slos",
     "/api/v1/incidents/{param}",
     "/api/v1/keys/{param}",
     "/api/v1/knowledge/adapters/health",
@@ -76,6 +81,11 @@
     "/api/v1/org/{param}",
     "/api/v1/org/{param}/invitations/{param}",
     "/api/v1/org/{param}/members/{param}",
+    "/api/v1/outcome-dashboard",
+    "/api/v1/outcome-dashboard/agents",
+    "/api/v1/outcome-dashboard/calibration",
+    "/api/v1/outcome-dashboard/history",
+    "/api/v1/outcome-dashboard/quality",
     "/api/v1/rbac/assignments/{param}",
     "/api/v1/rbac/permissions/{param}",
     "/api/v1/rbac/roles/{param}",
@@ -95,7 +105,9 @@
     "/api/v1/services/{param}",
     "/api/v1/shared/{param}",
     "/api/v1/skills/{param}",
+    "/api/v1/slo/budget",
     "/api/v1/social/collaboration/sessions",
+    "/api/v1/status/uptime",
     "/api/v1/system-intelligence/agent-performance",
     "/api/v1/system-intelligence/improvement-queue",
     "/api/v1/system-intelligence/institutional-memory",
@@ -150,7 +162,7 @@
     "POST /api/v1/pipeline/{param}/agents/{param}/reject",
     "PUT /api/v1/canvas/pipeline/{param}"
   ],
-  "missing_in_spec_count": 147,
+  "missing_in_spec_count": 159,
   "orphaned_in_spec": [
     "/api/v1/accounting/report",
     "/api/v1/canvas/convert/debate",
@@ -203,5 +215,5 @@
   ],
   "orphaned_in_spec_count": 48,
   "dynamic_routes_skipped": 235,
-  "coverage_percentage": 92.3
+  "coverage_percentage": 91.7
 }

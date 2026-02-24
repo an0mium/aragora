@@ -15,6 +15,7 @@ Endpoints:
 - GET /api/v1/slos/status - Versioned endpoint
 - GET /api/v1/slo/status - SLO enforcer real-time compliance status
 - GET /api/v1/slo/budget - SLO enforcer error budget remaining
+- GET /api/health/slos - Debate SLO health (green/yellow/red per SLO, multi-window)
 
 RBAC Permissions:
 - slo:read - View SLO status, details, error budgets, violations, and targets
@@ -37,6 +38,10 @@ Usage:
 
     # Get remaining error budget from enforcer
     curl http://localhost:8080/api/v1/slo/budget
+
+    # Get debate-specific SLO health (multi-window)
+    curl http://localhost:8080/api/health/slos
+    curl http://localhost:8080/api/health/slos?window=24h
 """
 
 from __future__ import annotations
@@ -113,6 +118,8 @@ class SLOHandler(BaseHandler):
         "/api/slo/status",
         "/api/slo/budget",
         "/api/v2/slo/status",
+        # Debate SLO health endpoint
+        "/api/health/slos",
     ]
 
     # Individual SLO names for dynamic routing
@@ -132,6 +139,11 @@ class SLOHandler(BaseHandler):
 
     def can_handle(self, path: str) -> bool:
         """Check if this handler can process the given path."""
+        # Check /api/health/slos before normalization (different prefix)
+        stripped = strip_version_prefix(path)
+        if stripped == "/api/health/slos":
+            return True
+
         path = self._normalize_slo_path(path)
 
         if path in self.ROUTES:
@@ -152,6 +164,11 @@ class SLOHandler(BaseHandler):
     @require_permission("slo:read")
     def handle(self, path: str, query_params: dict, handler: Any) -> HandlerResult | None:
         """Route SLO requests to appropriate methods."""
+        # Check /api/health/slos before normalization
+        stripped = strip_version_prefix(path)
+        if stripped == "/api/health/slos":
+            return self._handle_debate_slo_health(query_params, handler)
+
         path = self._normalize_slo_path(path)
 
         # Rate limit check
@@ -426,6 +443,64 @@ class SLOHandler(BaseHandler):
         except (KeyError, ValueError, AttributeError, TypeError, RuntimeError, OSError) as e:
             logger.exception("Failed to get SLO sub-route %s/%s: %s", slo_name, sub_route, e)
             return error_response("Operation failed", 500, code="SLO_SUB_ROUTE_ERROR")
+
+    def _handle_debate_slo_health(
+        self, query_params: dict, handler: Any
+    ) -> HandlerResult:
+        """GET /api/health/slos - Debate SLO health with multi-window metrics.
+
+        Reports green/yellow/red compliance for each of the five debate SLOs:
+        - time_to_first_token p95
+        - debate_completion p95
+        - websocket_reconnection success rate
+        - consensus_detection p95
+        - agent_dispatch_concurrency ratio
+
+        Query Parameters:
+            window: Time window to evaluate ("1h", "24h", "7d"). Default: "1h"
+            all_windows: If "true", return all three windows at once.
+
+        Returns:
+            ``{"data": {...}}`` envelope with per-SLO compliance data.
+        """
+        # Rate limit check
+        client_ip = get_client_ip(handler)
+        if not _slo_limiter.is_allowed(client_ip):
+            logger.warning("Rate limit exceeded for debate SLO health: %s", client_ip)
+            return error_response(
+                "Rate limit exceeded. Please try again later.", 429, code="RATE_LIMITED"
+            )
+
+        try:
+            from aragora.observability.debate_slos import get_debate_slo_tracker
+
+            tracker = get_debate_slo_tracker()
+
+            all_windows = query_params.get("all_windows", "false").lower() == "true"
+
+            if all_windows:
+                status_data = tracker.get_multi_window_status()
+            else:
+                window = query_params.get("window", "1h")
+                if window not in ("1h", "24h", "7d"):
+                    return error_response(
+                        f"Invalid window: {window}. Must be 1h, 24h, or 7d.",
+                        400,
+                        code="INVALID_WINDOW",
+                    )
+                status = tracker.get_status(window)
+                status_data = status.to_dict()
+
+            return json_response({"data": status_data})
+
+        except ImportError:
+            logger.warning("Debate SLO tracker not available")
+            return error_response(
+                "Debate SLO tracking not available", 503, code="SLO_UNAVAILABLE"
+            )
+        except (KeyError, ValueError, AttributeError, TypeError, RuntimeError, OSError) as e:
+            logger.exception("Failed to get debate SLO health: %s", e)
+            return error_response("Internal server error", 500, code="DEBATE_SLO_ERROR")
 
     def _calculate_exhaustion_time(self, result: Any) -> str | None:
         """Calculate projected error budget exhaustion time.

@@ -27,8 +27,7 @@ from aragora.core import Environment
 from aragora.debate.orchestrator import Arena, DebateProtocol
 from aragora.memory.store import CritiqueStore
 from aragora.modes import ModeRegistry
-from aragora.topic_spec import TopicSpec
-from aragora.topic_handler import handle_ambiguous_topic
+from aragora.topic_handler import handle_ambiguous_task
 
 
 logger = logging.getLogger(__name__)
@@ -859,22 +858,27 @@ async def run_debate(
 
 def cmd_ask(args: argparse.Namespace) -> None:
     """Handle 'ask' command."""
+    logger.debug("Initial task: '%s', context: '%s'", args.task, args.context)
     task = args.task
     context = args.context or ""
 
     # Ambiguity handling
     if len(task.split()) < 3:
-        topic_spec = handle_ambiguous_topic(task)
-        task = topic_spec.title
-        context += f"\n\n--- Structured Topic Brief ---\n"
-        context += f"Objective: {topic_spec.objective}\n"
-        if topic_spec.assumptions:
-            context += "Assumptions:\n" + "\n".join(f"- {a}" for a in topic_spec.assumptions)
-        if topic_spec.non_goals:
-            context += "\nNon-Goals:\n" + "\n".join(f"- ng" for ng in topic_spec.non_goals)
-        if topic_spec.evaluation_criteria:
-            context += "\nEvaluation Criteria:\n" + "\n".join(f"- ec" for ec in topic_spec.evaluation_criteria)
+        task_brief = handle_ambiguous_task(task)
+        task = task_brief.goal  # The core goal is now the task
+        context += f"\n\n--- Structured Task Brief (Confidence: {task_brief.confidence:.2f}) ---\n"
+        if getattr(task_brief, "objective", None):
+            context += f"Objective: {task_brief.objective}\n"
+        if task_brief.assumptions:
+            context += "Assumptions:\n" + "\n".join(f"- {a}" for a in task_brief.assumptions)
+        # Non-goals and evaluation_criteria are not in V1, but check defensively
+        if getattr(task_brief, "non_goals", []):
+            context += "\nNon-Goals:\n" + "\n".join(f"- {ng}" for ng in getattr(task_brief, "non_goals", []))
+        if getattr(task_brief, "success_criteria", []):
+            context += "\nSuccess Criteria:\n" + "\n".join(f"- {sc}" for sc in task_brief.success_criteria)
         context += "\n--------------------------\n"
+        if task_brief.requires_user_confirmation:
+            logger.info("This task was interpreted from an ambiguous input and requires confirmation.")
 
     agents = args.agents
     rounds = args.rounds

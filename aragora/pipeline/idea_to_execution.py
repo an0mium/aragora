@@ -114,7 +114,7 @@ class PipelineConfig:
     enable_km_precedents: bool = True
     human_approval_required: bool = False  # Require human approval between stages
     enable_km_persistence: bool = False  # Auto-persist results to KnowledgeMound
-    use_arena_orchestration: bool = False  # Use Arena mini-debate in Stage 4
+    use_arena_orchestration: bool = True  # Use Arena mini-debate in Stage 4 (gracefully degrades)
     use_hardened_orchestrator: bool = False  # Use HardenedOrchestrator in Stage 4
     template: Any | None = None  # DeliberationTemplate for Arena defaults
     spectator: Any | None = None  # SpectatorStream for real-time observation
@@ -901,12 +901,56 @@ class IdeaToExecutionPipeline:
         if workspace_ctx and workspace_ctx.has_context:
             result.workspace_context = workspace_ctx
 
+        # KM precedent enrichment: query similar past pipelines and high-ROI patterns
+        km_context: dict[str, Any] = {}
+        if cfg.enable_km_precedents:
+            try:
+                from aragora.knowledge.mound.adapters.pipeline_adapter import (
+                    get_pipeline_adapter,
+                )
+
+                pipeline_adapter = get_pipeline_adapter()
+                similar = await pipeline_adapter.find_similar_pipelines(
+                    input_text, limit=3
+                )
+                if similar:
+                    km_context["similar_pipelines"] = [s.to_dict() for s in similar]
+                    logger.info(
+                        "Pipeline %s: found %d similar past pipelines",
+                        pipeline_id,
+                        len(similar),
+                    )
+                    _spectate(
+                        "pipeline.km_context",
+                        f"found {len(similar)} similar pipelines",
+                    )
+
+                patterns = await pipeline_adapter.get_high_roi_patterns(limit=3)
+                if patterns:
+                    km_context["high_roi_patterns"] = patterns
+            except (ImportError, RuntimeError, ValueError, TypeError, AttributeError, OSError) as exc:
+                logger.debug("Pipeline KM context enrichment unavailable: %s", exc)
+
+        # Enrich input with KM context for ideation (non-destructive append)
+        enriched_input = input_text
+        if km_context.get("similar_pipelines"):
+            lessons = []
+            for sp in km_context["similar_pipelines"][:3]:
+                desc = sp.get("description", "")[:150]
+                status = sp.get("status", "unknown")
+                if desc:
+                    lessons.append(f"- [{status}] {desc}")
+            if lessons:
+                enriched_input += (
+                    "\n\nContext from similar past pipelines:\n" + "\n".join(lessons)
+                )
+
         self._emit(cfg, "started", {"pipeline_id": pipeline_id, "stages": cfg.stages_to_run})
 
         try:
             # Stage 1: Ideation
             if "ideation" in cfg.stages_to_run:
-                sr = await self._run_ideation(pipeline_id, input_text, cfg)
+                sr = await self._run_ideation(pipeline_id, enriched_input, cfg)
                 result.stage_results.append(sr)
                 if sr.status == "completed" and sr.output:
                     result.ideas_canvas = sr.output.get("canvas")
@@ -1143,18 +1187,30 @@ class IdeaToExecutionPipeline:
             )
             _spectate("pipeline.completed", f"pipeline_id={pipeline_id}")
 
-        except Exception as exc:  # noqa: BLE001 - top-level pipeline handler must report all failures
+        except BaseException as exc:
             result.duration = time.monotonic() - start_time
-            logger.warning("Pipeline %s failed: %s", pipeline_id, exc)
+            import asyncio
+
+            is_cancelled = isinstance(exc, (asyncio.CancelledError, KeyboardInterrupt))
+            event_type = "cancelled" if is_cancelled else "failed"
+            error_label = "Pipeline cancelled" if is_cancelled else "Pipeline execution failed"
+
+            logger.warning("Pipeline %s %s: %s", pipeline_id, event_type, exc)
             self._emit(
                 cfg,
-                "failed",
+                event_type,
                 {
                     "pipeline_id": pipeline_id,
-                    "error": "Pipeline execution failed",
+                    "error": error_label,
                 },
             )
-            _spectate("pipeline.failed", f"pipeline_id={pipeline_id}")
+            _spectate(f"pipeline.{event_type}", f"pipeline_id={pipeline_id}")
+            # Record outcome so MetaPlanner can learn from failures/cancellations
+            self._record_pipeline_outcome(result)
+
+            # Re-raise cancellation so callers can handle it; swallow others
+            if is_cancelled:
+                raise
 
         return result
 
@@ -1276,6 +1332,7 @@ class IdeaToExecutionPipeline:
                 "stage_completed",
                 {"stage": "ideation", "status": "failed", "error": "Ideation stage failed"},
             )
+            _spectate("pipeline.stage_failed", "stage=ideation")
 
         return sr
 
@@ -1332,6 +1389,7 @@ class IdeaToExecutionPipeline:
                     "error": "Principles extraction failed",
                 },
             )
+            _spectate("pipeline.stage_failed", "stage=principles")
 
         return sr
 
@@ -1544,6 +1602,7 @@ class IdeaToExecutionPipeline:
                 "stage_completed",
                 {"stage": "goals", "status": "failed", "error": "Goal extraction failed"},
             )
+            _spectate("pipeline.stage_failed", "stage=goals")
 
         return sr
 
@@ -1616,6 +1675,7 @@ class IdeaToExecutionPipeline:
                     "error": "Workflow generation failed",
                 },
             )
+            _spectate("pipeline.stage_failed", "stage=workflow")
 
         return sr
 
@@ -1769,6 +1829,7 @@ class IdeaToExecutionPipeline:
                     "error": "Orchestration failed",
                 },
             )
+            _spectate("pipeline.stage_failed", "stage=orchestration")
 
         return sr
 
@@ -1936,9 +1997,9 @@ class IdeaToExecutionPipeline:
                     "backend": "arena",
                 }
             except ImportError:
-                logger.debug("Arena not available, trying DebugLoop")
-            except (RuntimeError, ValueError, OSError) as exc:
-                logger.warning("Arena mini-debate failed: %s", exc)
+                logger.debug("Arena not available, falling back to next backend")
+            except (RuntimeError, ValueError, OSError, TypeError, AttributeError, ConnectionError, TimeoutError) as exc:
+                logger.warning("Arena mini-debate failed, falling back: %s", exc)
 
         # Backend 3: DebugLoop (default)
         try:

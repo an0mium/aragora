@@ -231,7 +231,8 @@ class TestGetStatus:
             result = handler._handle_slo_status()
             assert result.status_code == 200
             data = _parse_body(result)
-            assert data["healthy"] is True
+            payload = data.get("data", data)
+            assert payload["healthy"] is True
 
     def test_get_status_exception(self, handler):
         with patch(

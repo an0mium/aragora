@@ -1174,6 +1174,105 @@ class TeamsDebateLifecycle:
         card = _build_stop_card(debate_id, stopped_by)
         return await self._send_card_to_thread(channel_id, message_id, card)
 
+    async def post_critique_summary(
+        self,
+        channel_id: str,
+        message_id: str,
+        critiques: list[dict[str, Any]],
+    ) -> bool:
+        """Post a critique summary to the thread.
+
+        Args:
+            channel_id: Teams channel or conversation ID.
+            message_id: The message ID to thread replies under.
+            critiques: List of critique dicts with ``agent`` and ``summary`` keys.
+
+        Returns:
+            True if posted successfully.
+        """
+        if not critiques:
+            return True
+
+        body: list[dict[str, Any]] = [
+            {
+                "type": "TextBlock",
+                "text": "Critique Summary",
+                "weight": "Bolder",
+                "size": "Medium",
+            },
+        ]
+
+        for crit in critiques[:5]:
+            agent = crit.get("agent", "Unknown")
+            summary = crit.get("summary", "")[:200]
+            if len(crit.get("summary", "")) > 200:
+                summary += "..."
+            body.append(
+                {
+                    "type": "TextBlock",
+                    "text": f"**{agent}:** {summary}",
+                    "wrap": True,
+                    "size": "Small",
+                }
+            )
+
+        card: dict[str, Any] = {
+            "type": "AdaptiveCard",
+            "$schema": "http://adaptivecards.io/schemas/adaptive-card.json",
+            "version": "1.4",
+            "body": body,
+        }
+        return await self._send_card_to_thread(channel_id, message_id, card)
+
+    async def post_voting_results(
+        self,
+        channel_id: str,
+        message_id: str,
+        votes: dict[str, Any],
+    ) -> bool:
+        """Post agent voting results to the thread.
+
+        Args:
+            channel_id: Teams channel or conversation ID.
+            message_id: The message ID to thread replies under.
+            votes: Dict with agent voting data.
+
+        Returns:
+            True if posted successfully.
+        """
+        if not votes:
+            return True
+
+        body: list[dict[str, Any]] = [
+            {
+                "type": "TextBlock",
+                "text": "Voting Results",
+                "weight": "Bolder",
+                "size": "Medium",
+            },
+        ]
+
+        facts: list[dict[str, str]] = []
+        for agent, vote_data in votes.items():
+            if isinstance(vote_data, dict):
+                position = vote_data.get("position", "abstain")
+                confidence = vote_data.get("confidence", 0.0)
+                facts.append(
+                    {"title": agent, "value": f"{position} ({confidence:.0%} confidence)"}
+                )
+            else:
+                facts.append({"title": agent, "value": str(vote_data)})
+
+        body.append({"type": "FactSet", "facts": facts})
+
+        card: dict[str, Any] = {
+            "type": "AdaptiveCard",
+            "$schema": "http://adaptivecards.io/schemas/adaptive-card.json",
+            "version": "1.4",
+            "body": body,
+        }
+        return await self._send_card_to_thread(channel_id, message_id, card)
+
     async def run_debate(
         self,
         channel_id: str,
@@ -1215,23 +1314,71 @@ class TeamsDebateLifecycle:
         )
         arena = Arena(env, config.agents, protocol)
 
+        # Ensure active state exists for stop/vote tracking
+        state = _active_debates.get(debate_id)
+
         result = None
+        stopped_early = False
         try:
+            # Run the debate with timeout, but also check for stop requests
+            async def _run_with_cancel() -> Any:
+                run_task = asyncio.ensure_future(arena.run())
+                if state is not None:
+                    cancel_task = asyncio.ensure_future(state.cancel_event.wait())
+                    done, pending = await asyncio.wait(
+                        {run_task, cancel_task},
+                        return_when=asyncio.FIRST_COMPLETED,
+                    )
+                    for p in pending:
+                        p.cancel()
+                        try:
+                            await p
+                        except asyncio.CancelledError:
+                            pass
+                    if cancel_task in done:
+                        return None
+                    return run_task.result()
+                else:
+                    return await run_task
+
             result = await asyncio.wait_for(
-                arena.run(),
+                _run_with_cancel(),
                 timeout=config.timeout_seconds,
             )
+
+            if result is None and state is not None and state.cancel_event.is_set():
+                stopped_early = True
         except asyncio.TimeoutError:
             logger.warning("Debate %s timed out after %ss", debate_id, config.timeout_seconds)
             await self.post_error(
                 channel_id, message_id, "Debate timed out.", debate_id
             )
+            if state:
+                state.status = "failed"
+            _active_debates.pop(debate_id, None)
             return None
         except (RuntimeError, OSError, ValueError) as exc:
             logger.error("Debate %s failed: %s", debate_id, exc)
             await self.post_error(
                 channel_id, message_id, "Debate execution failed.", debate_id
             )
+            if state:
+                state.status = "failed"
+            _active_debates.pop(debate_id, None)
+            return None
+
+        if stopped_early:
+            await self.post_stop(channel_id, message_id, debate_id)
+            # Still post user participation summary if any votes/suggestions
+            if state and (state.user_votes or state.user_suggestions):
+                summary_card = _build_vote_summary_card(
+                    state.vote_summary, len(state.user_suggestions)
+                )
+                if summary_card:
+                    await self._send_card_to_thread(channel_id, message_id, summary_card)
+            if state:
+                state.status = "completed"
+            _active_debates.pop(debate_id, None)
             return None
 
         # Post round updates from result data if available
@@ -1255,9 +1402,27 @@ class TeamsDebateLifecycle:
                 }
             await self.post_round_update(channel_id, message_id, round_data)
 
+        # Post critique summary if available
+        critiques = getattr(result, "critiques", None) or []
+        if critiques:
+            crit_data = []
+            for c in critiques:
+                if isinstance(c, dict):
+                    crit_data.append(c)
+                else:
+                    crit_data.append({
+                        "agent": getattr(c, "agent", ""),
+                        "summary": getattr(c, "summary", getattr(c, "text", "")),
+                    })
+            await self.post_critique_summary(channel_id, message_id, crit_data)
+
+        # Post voting results if available
+        votes = getattr(result, "votes", None)
+        if votes and isinstance(votes, dict):
+            await self.post_voting_results(channel_id, message_id, votes)
+
         # Post user participation summary if any
-        state = _active_debates.get(debate_id)
-        if state:
+        if state and (state.user_votes or state.user_suggestions):
             summary_card = _build_vote_summary_card(
                 state.vote_summary, len(state.user_suggestions)
             )
@@ -1282,9 +1447,10 @@ class TeamsDebateLifecycle:
         except (ImportError, RuntimeError, OSError):
             pass
 
-        # Update state
+        # Update state and clean up
         if state:
             state.status = "completed"
+        _active_debates.pop(debate_id, None)
 
         return result
 

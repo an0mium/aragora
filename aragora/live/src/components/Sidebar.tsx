@@ -125,6 +125,7 @@ const toolsItems: NavItem[] = [
 
 const analyticsItems: NavItem[] = [
   { label: 'Insights', href: '/insights', icon: '\u272A', minMode: 'standard' },
+  { label: 'Outcomes', href: '/analytics/outcomes', icon: '\u2713', minMode: 'standard' },
   { label: 'Intelligence', href: '/intelligence', icon: '\u269B', minMode: 'standard' },
   { label: 'Calibration', href: '/calibration', icon: '\u2316', minMode: 'advanced' },
   { label: 'Evaluation', href: '/evaluation', icon: '\u2606', minMode: 'advanced' },

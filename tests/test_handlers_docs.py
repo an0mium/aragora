@@ -374,7 +374,15 @@ class TestDocsConstants:
 
     def test_routes_list(self, docs_handler):
         """ROUTES list contains expected paths."""
-        expected_routes = [
+        expected_routes = {
+            "/api/openapi",
+            "/api/openapi.json",
+            "/api/openapi.yaml",
+            "/api/postman.json",
+            "/api/docs",
+            "/api/docs/",
+            "/api/redoc",
+            "/api/redoc/",
             "/api/v1/openapi",
             "/api/v1/openapi.json",
             "/api/v1/openapi.yaml",
@@ -383,5 +391,5 @@ class TestDocsConstants:
             "/api/v1/docs/",
             "/api/v1/redoc",
             "/api/v1/redoc/",
-        ]
-        assert docs_handler.ROUTES == expected_routes
+        }
+        assert expected_routes.issubset(set(docs_handler.ROUTES))

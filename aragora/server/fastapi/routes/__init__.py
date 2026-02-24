@@ -14,6 +14,7 @@ from . import workflows
 from . import compliance
 from . import auth
 from . import memory
+from . import api_explorer
 
 __all__ = [
     "health",
@@ -30,4 +31,5 @@ __all__ = [
     "compliance",
     "auth",
     "memory",
+    "api_explorer",
 ]

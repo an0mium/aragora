@@ -590,6 +590,12 @@ Examples:
         default=2,
         help="Number of debate rounds (default: 2)",
     )
+    parser.add_argument(
+        "--json",
+        action="store_true",
+        default=False,
+        help="Output results as JSON instead of formatted text",
+    )
 
     args = parser.parse_args()
 
@@ -628,12 +634,16 @@ Examples:
         review = await run_code_review_debate(diff, config, pr_info)
 
     # Step 3: Display results
-    print_review(review)
+    if args.json:
+        import json as json_mod
+        print(json_mod.dumps(review, indent=2, default=str))
+    else:
+        print_review(review)
 
     # Step 4: Post to Slack (if configured)
     if config.slack_webhook_url:
         await post_to_slack(review, config)
-    else:
+    elif not args.json:
         slack_msg = format_review_for_slack(review)
         print("\n--- Slack Message Preview ---")
         print(slack_msg)

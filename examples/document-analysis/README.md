@@ -77,6 +77,10 @@ python examples/document-analysis/main.py \
     --docs /path/to/docs \
     --question "Are there any security gaps?" \
     --rounds 3
+
+# JSON output for programmatic use
+python examples/document-analysis/main.py --demo --json
+python examples/document-analysis/main.py --demo --json | jq '.answer'
 ```
 
 ## Features
@@ -86,6 +90,7 @@ python examples/document-analysis/main.py \
 - **Contradiction detection**: Agents identify inconsistencies across documents
 - **Gap identification**: Explicitly flags when documentation is insufficient
 - **Interactive Q&A**: Ask multiple questions without reloading documents
+- **JSON output**: Use `--json` for machine-readable results (piping, CI/CD)
 - **Broad format support**: Markdown, text, Python, JavaScript, YAML, JSON, TOML
 
 ## Supported Document Types

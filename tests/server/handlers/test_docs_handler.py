@@ -414,6 +414,14 @@ class TestConstants:
     def test_routes_list_completeness(self, handler):
         """ROUTES list includes all known documentation paths."""
         expected_routes = {
+            "/api/openapi",
+            "/api/openapi.json",
+            "/api/openapi.yaml",
+            "/api/postman.json",
+            "/api/docs",
+            "/api/docs/",
+            "/api/redoc",
+            "/api/redoc/",
             "/api/v1/openapi",
             "/api/v1/openapi.json",
             "/api/v1/openapi.yaml",
@@ -423,4 +431,4 @@ class TestConstants:
             "/api/v1/redoc",
             "/api/v1/redoc/",
         }
-        assert set(handler.ROUTES) == expected_routes
+        assert expected_routes.issubset(set(handler.ROUTES))

@@ -22,6 +22,13 @@ if TYPE_CHECKING:
 logger = logging.getLogger(__name__)
 
 
+def get_settings() -> Any:
+    """Lazily resolve settings for patchable MFA checks in tests."""
+    from aragora.config.settings import get_settings as _get_settings
+
+    return _get_settings()
+
+
 class AuthChecksMixin:
     """Mixin providing authentication and authorization checking methods.
 
@@ -431,8 +438,6 @@ class AuthChecksMixin:
             MFAEnforcementPolicy,
             MFAEnforcementResult,
         )
-        from aragora.config.settings import get_settings
-
         settings = get_settings()
 
         # Check if MFA enforcement is enabled

@@ -39,6 +39,7 @@ from __future__ import annotations
 import argparse
 import asyncio
 import hashlib
+import json
 import logging
 import sys
 import time
@@ -671,6 +672,12 @@ Examples:
         default=2,
         help="Number of debate rounds (default: 2)",
     )
+    parser.add_argument(
+        "--json",
+        action="store_true",
+        default=False,
+        help="Output results as JSON instead of formatted text",
+    )
 
     args = parser.parse_args()
 
@@ -689,10 +696,12 @@ Examples:
         logger.error("No documents loaded. Provide --docs, --files, or use --demo.")
         sys.exit(1)
 
-    print(f"\nLoaded {corpus.summary}")
-    print("Documents:")
+    # Print corpus info to stderr so --json output stays clean
+    out = sys.stderr if getattr(args, "json", False) else sys.stdout
+    print(f"\nLoaded {corpus.summary}", file=out)
+    print("Documents:", file=out)
     for doc in corpus.documents:
-        print(f"  - {doc.title} ({doc.path}, {doc.size_bytes:,} bytes)")
+        print(f"  - {doc.title} ({doc.path}, {doc.size_bytes:,} bytes)", file=out)
 
     # Run analysis
     if args.interactive:
@@ -707,7 +716,11 @@ Examples:
                 question=args.question,
                 rounds=args.rounds,
             )
-        print_analysis(analysis)
+
+        if args.json:
+            print(json.dumps(analysis, indent=2, default=str))
+        else:
+            print_analysis(analysis)
 
 
 if __name__ == "__main__":

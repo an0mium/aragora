@@ -214,7 +214,7 @@ class TestLoadTestRunner:
     @pytest.mark.asyncio
     async def test_run_with_http_client(self):
         """Runner uses provided http_client."""
-        mock_response = MagicMock()
+        mock_response = MagicMock(spec=[])
         mock_response.status_code = 200
         mock_client = AsyncMock()
         mock_client.get = AsyncMock(return_value=mock_response)
@@ -236,7 +236,7 @@ class TestLoadTestRunner:
     @pytest.mark.asyncio
     async def test_run_debate_load_test(self):
         """Debate load test uses POST requests."""
-        mock_response = MagicMock()
+        mock_response = MagicMock(spec=[])
         mock_response.status_code = 201
         mock_client = AsyncMock()
         mock_client.post = AsyncMock(return_value=mock_response)

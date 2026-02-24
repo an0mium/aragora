@@ -789,6 +789,12 @@ Examples:
         default=False,
         help="Show the workflow DAG and exit",
     )
+    parser.add_argument(
+        "--json",
+        action="store_true",
+        default=False,
+        help="Output results as JSON instead of formatted text",
+    )
 
     args = parser.parse_args()
 
@@ -798,8 +804,9 @@ Examples:
         demo=args.demo or True,  # Always demo for now unless explicitly live
     )
 
-    # Show DAG
-    print_workflow_dag(definition)
+    # Show DAG (skip in JSON mode for clean output)
+    if not args.json:
+        print_workflow_dag(definition)
 
     if args.show_dag:
         return
@@ -819,10 +826,10 @@ Examples:
     )
 
     # Print results
-    print_workflow_result(summary)
-
-    # Export as JSON for programmatic use
-    print("\n  JSON output available via: --topic <topic> | python -m json.tool")
+    if args.json:
+        print(json.dumps(summary, indent=2, default=str))
+    else:
+        print_workflow_result(summary)
 
 
 if __name__ == "__main__":

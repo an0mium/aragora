@@ -73,6 +73,9 @@ python examples/workflow-automation/main.py --show-dag
 
 # Demo mode (sample content, no API calls)
 python examples/workflow-automation/main.py --demo --topic "Cloud migration checklist"
+
+# JSON output for programmatic use
+python examples/workflow-automation/main.py --demo --json
 ```
 
 ## Features
@@ -83,6 +86,7 @@ python examples/workflow-automation/main.py --demo --topic "Cloud migration chec
 - **Checkpointing**: WorkflowEngine saves state for long-running workflows
 - **Retry support**: Configurable per-step retries with backoff
 - **Event tracking**: Every step emits events for observability
+- **JSON output**: Use `--json` for machine-readable results (piping, CI/CD)
 - **Custom steps**: Extend `BaseStep` to add your own workflow actions
 
 ## Custom Step Implementation

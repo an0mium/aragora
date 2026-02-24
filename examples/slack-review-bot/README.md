@@ -74,6 +74,9 @@ python examples/slack-review-bot/main.py \
 
 # Use more debate rounds for thorough review
 python examples/slack-review-bot/main.py --repo myorg/myrepo --pr 42 --rounds 3
+
+# JSON output for CI/CD pipelines
+python examples/slack-review-bot/main.py --demo --json
 ```
 
 ## Features
@@ -83,6 +86,7 @@ python examples/slack-review-bot/main.py --repo myorg/myrepo --pr 42 --rounds 3
 - **Category tagging**: Security, Performance, Best Practices
 - **Audit trail**: SHA-256 receipt hash for every review
 - **Slack formatting**: Rich mrkdwn messages with issue breakdowns
+- **JSON output**: Use `--json` for machine-readable output (CI/CD integration)
 - **Graceful fallback**: Demo mode when API keys are unavailable
 - **Rate limiting**: Built-in Slack rate limiting via Aragora's SlackIntegration
 

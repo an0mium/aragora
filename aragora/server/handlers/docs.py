@@ -47,6 +47,14 @@ class DocsHandler(BaseHandler):
         self.ctx = ctx or {}
 
     ROUTES = [
+        "/api/openapi",
+        "/api/openapi.json",
+        "/api/openapi.yaml",
+        "/api/postman.json",
+        "/api/docs",
+        "/api/docs/",
+        "/api/redoc",
+        "/api/redoc/",
         "/api/v1/openapi",
         "/api/v1/openapi.json",
         "/api/v1/openapi.yaml",
@@ -57,21 +65,28 @@ class DocsHandler(BaseHandler):
         "/api/v1/redoc/",
     ]
 
+    # Unversioned paths for direct matching (used by frontend)
+    _OPENAPI_JSON_PATHS = {"/api/openapi", "/api/openapi.json", "/api/v1/openapi", "/api/v1/openapi.json"}
+    _OPENAPI_YAML_PATHS = {"/api/openapi.yaml", "/api/v1/openapi.yaml"}
+    _POSTMAN_PATHS = {"/api/postman.json", "/api/v1/postman.json"}
+    _DOCS_PATHS = {"/api/docs", "/api/docs/", "/api/v1/docs", "/api/v1/docs/"}
+    _REDOC_PATHS = {"/api/redoc", "/api/redoc/", "/api/v1/redoc", "/api/v1/redoc/"}
+
     def can_handle(self, path: str) -> bool:
         """Check if this handler can handle the given path."""
         return path in self.ROUTES
 
     def handle(self, path: str, query_params: dict, handler: Any) -> HandlerResult | None:
         """Route documentation endpoint requests."""
-        if path in ("/api/v1/openapi", "/api/v1/openapi.json"):
+        if path in self._OPENAPI_JSON_PATHS:
             return self._get_openapi_spec("json")
-        if path == "/api/v1/openapi.yaml":
+        if path in self._OPENAPI_YAML_PATHS:
             return self._get_openapi_spec("yaml")
-        if path == "/api/v1/postman.json":
+        if path in self._POSTMAN_PATHS:
             return self._get_postman_collection()
-        if path in ("/api/v1/docs", "/api/v1/docs/"):
+        if path in self._DOCS_PATHS:
             return self._get_swagger_ui()
-        if path in ("/api/v1/redoc", "/api/v1/redoc/"):
+        if path in self._REDOC_PATHS:
             return self._get_redoc()
         return None
 
