@@ -72,6 +72,7 @@ from .explainability import AsyncExplainabilityAPI, ExplainabilityAPI
 from .external_agents import AsyncExternalAgentsAPI, ExternalAgentsAPI
 from .facts import AsyncFactsAPI, FactsAPI
 from .feature_flags import AsyncFeatureFlagsAPI, FeatureFlagsAPI
+from .features import AsyncFeaturesAPI, FeaturesAPI
 from .feedback import AsyncFeedbackAPI, FeedbackAPI
 from .flips import AsyncFlipsAPI, FlipsAPI
 from .gateway import AsyncGatewayAPI, GatewayAPI
@@ -97,6 +98,7 @@ from .leaderboard import AsyncLeaderboardAPI, LeaderboardAPI
 from .learning import AsyncLearningAPI, LearningAPI
 from .marketplace import AsyncMarketplaceAPI, MarketplaceAPI
 from .matches import AsyncMatchesAPI, MatchesAPI
+from .matrix_debates import AsyncMatrixDebatesAPI, MatrixDebatesAPI
 from .media import AsyncMediaAPI, MediaAPI
 from .memory import AsyncMemoryAPI, MemoryAPI
 from .metrics import AsyncMetricsAPI, MetricsAPI
@@ -145,7 +147,9 @@ from .reviews import AsyncReviewsAPI, ReviewsAPI
 from .rlm import RLMAPI, AsyncRLMAPI
 from .routing import AsyncRoutingAPI, RoutingAPI
 from .scim import SCIMAPI, AsyncSCIMAPI
+from .search import AsyncSearchAPI, SearchAPI
 from .security import AsyncSecurityAPI, SecurityAPI
+from .selection import AsyncSelectionAPI, SelectionAPI
 from .self_improve import AsyncSelfImproveAPI, SelfImproveAPI
 from .services import AsyncServicesAPI, ServicesAPI
 from .shared_inbox import AsyncSharedInboxAPI, SharedInboxAPI
@@ -314,6 +318,8 @@ __all__ = [
     "AsyncFactsAPI",
     "FeatureFlagsAPI",
     "AsyncFeatureFlagsAPI",
+    "FeaturesAPI",
+    "AsyncFeaturesAPI",
     "FeedbackAPI",
     "AsyncFeedbackAPI",
     "FlipsAPI",
@@ -364,6 +370,8 @@ __all__ = [
     "AsyncMarketplaceAPI",
     "MatchesAPI",
     "AsyncMatchesAPI",
+    "MatrixDebatesAPI",
+    "AsyncMatrixDebatesAPI",
     "MediaAPI",
     "AsyncMediaAPI",
     "MemoryAPI",
@@ -460,8 +468,12 @@ __all__ = [
     "AsyncRoutingAPI",
     "SCIMAPI",
     "AsyncSCIMAPI",
+    "SearchAPI",
+    "AsyncSearchAPI",
     "SecurityAPI",
     "AsyncSecurityAPI",
+    "SelectionAPI",
+    "AsyncSelectionAPI",
     "SelfImproveAPI",
     "AsyncSelfImproveAPI",
     "ServicesAPI",
