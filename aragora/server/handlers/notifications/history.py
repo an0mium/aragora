@@ -154,9 +154,9 @@ class NotificationHistoryHandler(BaseHandler):
             # Get DLQ count if dispatcher available
             dlq_count = 0
             try:
-                from aragora.control_plane.notifications import get_notification_dispatcher
+                from aragora.control_plane.notifications import get_default_notification_dispatcher
 
-                dispatcher = get_notification_dispatcher()
+                dispatcher = get_default_notification_dispatcher()
                 if dispatcher and hasattr(dispatcher, "dead_letter_count"):
                     dlq_count = dispatcher.dead_letter_count
             except (ImportError, Exception):

@@ -29,11 +29,9 @@ logger = logging.getLogger(__name__)
 def _get_feedback_loop() -> Any:
     """Get the global SelectionFeedbackLoop if available."""
     try:
-        from aragora.debate.subsystem_coordinator import get_subsystem_coordinator
+        from aragora.debate.team_selector import SelectionFeedbackLoop
 
-        coordinator = get_subsystem_coordinator()
-        if coordinator and hasattr(coordinator, "feedback_loop"):
-            return coordinator.feedback_loop
+        return SelectionFeedbackLoop()
     except (ImportError, AttributeError):
         pass
     return None

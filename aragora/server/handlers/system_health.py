@@ -391,9 +391,9 @@ class SystemHealthDashboardHandler(BaseHandler):
 
             forecast = None
             try:
-                from aragora.billing.forecaster import get_forecaster
+                from aragora.billing.forecaster import get_cost_forecaster
 
-                forecaster = get_forecaster()
+                forecaster = get_cost_forecaster()
                 if forecaster and hasattr(forecaster, "forecast_eom"):
                     eom = forecaster.forecast_eom()
                     if eom is not None:

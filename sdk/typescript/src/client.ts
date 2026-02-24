@@ -288,6 +288,7 @@ import {
   BlockchainNamespace,
   PipelineNamespace,
   IdeasNamespace,
+  DagOperationsNamespace,
   // New namespaces (SDK Parity - Missing Routes)
   BenchmarksAPI,
   BreakpointsAPI,
@@ -924,6 +925,9 @@ export class AragoraClient {
    */
   readonly pipeline: PipelineNamespace;
 
+  /** DAG Operations API - Pipeline DAG node operations and graph auto-flow. */
+  readonly dagOperations: DagOperationsNamespace;
+
   /** Benchmarks API - Performance benchmark listing and comparison. */
   readonly benchmarks: BenchmarksAPI;
 
@@ -1156,6 +1160,7 @@ export class AragoraClient {
     this.blockchain = new BlockchainNamespace(this);
     this.ideas = new IdeasNamespace(this);
     this.pipeline = new PipelineNamespace(this);
+    this.dagOperations = new DagOperationsNamespace(this);
 
     // New namespaces (SDK Parity - Missing Routes)
     this.benchmarks = new BenchmarksAPI(this);
