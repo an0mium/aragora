@@ -192,7 +192,10 @@ class HarnessStep(BaseStep):
         try:
             from aragora.harnesses.base import AnalysisType
 
-            return AnalysisType(type_str.upper()) if hasattr(AnalysisType, type_str.upper()) else AnalysisType.GENERAL
+            upper = type_str.upper()
+            if hasattr(AnalysisType, upper):
+                return AnalysisType[upper]
+            return AnalysisType.GENERAL
         except (ImportError, ValueError):
             return type_str
 

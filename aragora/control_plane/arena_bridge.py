@@ -519,6 +519,7 @@ class ArenaControlPlaneBridge:
         shared_state: SharedControlPlaneState | None = None,
         elo_callback: Callable[[dict[str, AgentPerformance]], None] | None = None,
         sla_callback: Callable[[str, dict[str, Any]], None] | None = None,
+        agent_registry: Any | None = None,
     ):
         """
         Initialize the bridge.
@@ -528,11 +529,13 @@ class ArenaControlPlaneBridge:
             shared_state: SharedControlPlaneState for persistence
             elo_callback: Callback to update agent ELO scores
             sla_callback: Callback for SLA notifications
+            agent_registry: AgentRegistry for health-aware team selection
         """
         self.stream_server = stream_server
         self.shared_state = shared_state
         self.elo_callback = elo_callback
         self.sla_callback = sla_callback
+        self.agent_registry = agent_registry
 
     async def execute_via_arena(
         self,

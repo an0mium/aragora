@@ -13,6 +13,7 @@ Phase 2 step implementations for the Enterprise Control Plane:
 - GauntletStep: Adversarial validation and compliance checking
 - KnowledgePruningStep: Automatic knowledge maintenance (pruning, dedup, decay)
 - ContentExtractionStep: Structured data extraction (entities, relationships, schemas)
+- HarnessStep: External code analysis harness integration (Claude Code, Codex)
 """
 
 from aragora.workflow.nodes.human_checkpoint import HumanCheckpointStep
@@ -41,6 +42,7 @@ from aragora.workflow.nodes.openclaw import OpenClawActionStep, OpenClawSessionS
 from aragora.workflow.nodes.implementation import ImplementationStep, VerificationStep
 from aragora.workflow.nodes.computer_use import ComputerUseTaskStep
 from aragora.workflow.nodes.content_extraction import ContentExtractionStep
+from aragora.workflow.nodes.harness import HarnessStep
 
 from aragora.workflow.step import WorkflowStep
 
@@ -86,5 +88,6 @@ __all__ = [
     "ContentExtractionStep",
     "ImplementationStep",
     "VerificationStep",
+    "HarnessStep",
     "register_step_type",
 ]

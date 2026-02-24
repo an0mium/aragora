@@ -289,8 +289,8 @@ def _load_local_debate(debate_id: str) -> Any:
         from aragora.memory.store import CritiqueStore
 
         store = CritiqueStore()
-        result = store.get_debate(debate_id)
-        return result
+        results = store.get_debates_with_critiques_batch([debate_id])
+        return results[0] if results else None
     except (ImportError, OSError, KeyError, ValueError):
         pass
 
@@ -299,9 +299,9 @@ def _load_local_debate(debate_id: str) -> Any:
         from aragora.knowledge.mound.adapters.receipt_adapter import get_receipt_adapter
 
         adapter = get_receipt_adapter()
-        data = adapter.query(debate_id=debate_id)
+        data = adapter.get_ingestion_result(debate_id)
         if data:
-            return data[0] if isinstance(data, list) else data
+            return data
     except (ImportError, OSError, KeyError, ValueError, AttributeError):
         pass
 
