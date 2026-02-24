@@ -1,0 +1,4 @@
+# Auto-generated shim for CI workflows that expect requirements.txt.
+# All dependencies are defined in pyproject.toml.
+# Use `pip install -e ".[dev]"` for the full development install.
+-e .
