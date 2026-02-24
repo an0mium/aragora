@@ -119,7 +119,12 @@ def extract_openapi_routes(spec_path: Path | None = None) -> set[str]:
     return documented
 
 
-from sdk_path_normalize import normalize_sdk_path
+try:
+    # Direct script execution (python scripts/check_sdk_parity.py)
+    from sdk_path_normalize import normalize_sdk_path
+except ModuleNotFoundError:
+    # Module import context (pytest importing scripts.check_sdk_parity)
+    from scripts.sdk_path_normalize import normalize_sdk_path
 
 
 def normalize_route(route: str) -> str:

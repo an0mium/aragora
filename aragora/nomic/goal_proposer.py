@@ -18,7 +18,6 @@ Usage:
 from __future__ import annotations
 
 import logging
-import re
 from dataclasses import dataclass, field
 from typing import Any
 
@@ -99,7 +98,8 @@ class GoalProposer:
                 results = source_fn()
                 candidates.extend(results)
             except (RuntimeError, OSError, ValueError, TypeError, AttributeError) as e:
-                logger.debug("goal_proposer_signal_error source=%s: %s", source_fn.__name__, e)
+                fn_name = getattr(source_fn, "__name__", repr(source_fn))
+                logger.debug("goal_proposer_signal_error source=%s: %s", fn_name, e)
 
         # Filter by minimum confidence
         filtered = [c for c in candidates if c.confidence >= min_confidence]

@@ -593,7 +593,7 @@ class TestDefaultMFARoles:
     """Verify the default required roles set."""
 
     def test_contains_expected_roles(self):
-        expected = {"admin", "owner", "superadmin", "super_admin", "security_admin", "compliance_officer"}
+        expected = {"admin", "owner", "superadmin", "super_admin", "org_admin", "workspace_admin", "security_admin", "compliance_officer"}
         assert expected == set(DEFAULT_MFA_REQUIRED_ROLES)
 
     def test_is_frozenset(self):

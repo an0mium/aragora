@@ -5,9 +5,23 @@ Pytest fixtures for Nomic loop tests.
 import asyncio
 from pathlib import Path
 from typing import Any, Optional
-from unittest.mock import AsyncMock, MagicMock, patch
+from unittest.mock import AsyncMock, MagicMock, NonCallableMock, patch
 
 import pytest
+
+# Capture the original side_effect property descriptor before any test can
+# corrupt it.  Some tests erroneously set MagicMock.side_effect on the CLASS
+# rather than an instance, which destroys the property descriptor and breaks
+# list-to-iterator conversion for all subsequent mocks.
+_original_side_effect_descriptor = NonCallableMock.side_effect
+
+
+@pytest.fixture(autouse=True)
+def _restore_mock_side_effect_descriptor():
+    """Restore NonCallableMock.side_effect if a test corrupted the descriptor."""
+    yield
+    if NonCallableMock.side_effect is not _original_side_effect_descriptor:
+        NonCallableMock.side_effect = _original_side_effect_descriptor
 
 
 @pytest.fixture(autouse=True)

@@ -255,6 +255,45 @@ class AutonomousOrchestrator:
         self._convoy_id: str | None = None
         self._bead_ids: dict[str, str] = {}  # subtask_id -> bead_id
 
+        # --- Production instrumentation ---
+        # Cycle telemetry: records per-cycle metrics for dashboards and stopping rules
+        self._cycle_telemetry = None
+        try:
+            from aragora.nomic.cycle_telemetry import CycleTelemetryCollector
+
+            self._cycle_telemetry = CycleTelemetryCollector()
+        except ImportError:
+            pass
+
+        # Stopping rules: evaluated before each cycle to decide whether to halt
+        self._stopping_engine = None
+        try:
+            from aragora.nomic.stopping_rules import StoppingRuleEngine
+
+            self._stopping_engine = StoppingRuleEngine()
+        except ImportError:
+            pass
+
+        # Goal proposer: data-driven goal generation when no explicit goal given
+        self._goal_proposer = None
+        try:
+            from aragora.nomic.goal_proposer import GoalProposer
+
+            self._goal_proposer = GoalProposer(
+                telemetry=self._cycle_telemetry,
+            )
+        except ImportError:
+            pass
+
+        # KM feedback bridge: cross-cycle learning via Knowledge Mound
+        self._km_feedback_bridge = None
+        try:
+            from aragora.nomic.km_feedback_bridge import KMFeedbackBridge
+
+            self._km_feedback_bridge = KMFeedbackBridge()
+        except ImportError:
+            pass
+
     async def execute_goal(
         self,
         goal: str,
@@ -323,6 +362,39 @@ class AutonomousOrchestrator:
                 pass
             except (RuntimeError, OSError, ValueError, asyncio.TimeoutError) as e:
                 logger.debug("preflight_check_skipped: %s", e)
+
+        # Step 0b: Check stopping rules before spending budget
+        if self._stopping_engine is not None and self._cycle_telemetry is not None:
+            try:
+                from aragora.nomic.stopping_rules import StoppingConfig
+
+                stop_config = StoppingConfig(
+                    budget_limit=self.budget_limit or 0,
+                )
+                should_stop, stop_reason = self._stopping_engine.should_stop(
+                    telemetry=self._cycle_telemetry,
+                    config=stop_config,
+                    goal_proposer=self._goal_proposer,
+                    start_time=start_time.timestamp(),
+                )
+                if should_stop:
+                    duration = (datetime.now(timezone.utc) - start_time).total_seconds()
+                    logger.info("stopping_rule_halted reason=%s", stop_reason)
+                    return OrchestrationResult(
+                        goal=goal,
+                        total_subtasks=0,
+                        completed_subtasks=0,
+                        failed_subtasks=0,
+                        skipped_subtasks=0,
+                        assignments=[],
+                        duration_seconds=duration,
+                        success=False,
+                        error=f"Stopped: {stop_reason}",
+                    )
+            except ImportError:
+                pass
+            except (RuntimeError, OSError, ValueError) as e:
+                logger.debug("stopping_rule_check_skipped: %s", e)
 
         # Delegate to HierarchicalCoordinator if provided
         if self.hierarchical_coordinator is not None:
@@ -498,6 +570,38 @@ class AutonomousOrchestrator:
                         )
                 except (RuntimeError, OSError, ValueError, subprocess.SubprocessError) as e:
                     logger.debug("metrics_comparison_failed: %s", e)
+
+            # Step 6: Record cycle telemetry
+            if self._cycle_telemetry is not None:
+                try:
+                    from aragora.nomic.cycle_telemetry import CycleRecord
+
+                    agents_used = list(
+                        {a.agent_type for a in assignments if a.agent_type}
+                    )
+                    quality_delta = getattr(result, "improvement_score", 0.0) or 0.0
+                    cycle_record = CycleRecord(
+                        cycle_id=self._orchestration_id or "",
+                        goal=goal,
+                        cycle_time_seconds=duration,
+                        success=failed == 0,
+                        quality_delta=quality_delta,
+                        cost_usd=self._total_cost_usd,
+                        agents_used=agents_used,
+                        branch_name="",
+                    )
+                    self._cycle_telemetry.record_cycle(cycle_record)
+
+                    # Persist learnings to KM for cross-cycle learning
+                    if self._km_feedback_bridge is not None and cycle_record.success:
+                        try:
+                            self._km_feedback_bridge.persist_cycle_learnings(cycle_record)
+                        except (RuntimeError, OSError, ValueError, TypeError) as e:
+                            logger.debug("km_feedback_persist_skipped: %s", e)
+                except ImportError:
+                    pass
+                except (RuntimeError, OSError, ValueError) as e:
+                    logger.debug("cycle_telemetry_record_failed: %s", e)
 
             self._checkpoint("completed", {"result": result.summary})
             self._emit_improvement_event(

@@ -390,18 +390,31 @@ class MetabaseConnector:
         params: dict | None = None,
         json_data: dict | None = None,
     ) -> dict[str, Any] | list[Any]:
-        """Make API request."""
-        client = await self._get_client()
-        response = await client.request(method, path, params=params, json=json_data)
+        """Make API request with retry and circuit breaker."""
 
-        if response.status_code >= 400:
-            raise MetabaseError(
-                f"HTTP {response.status_code}: {response.text}", response.status_code
+        async def _do_request() -> dict[str, Any] | list[Any]:
+            client = await self._get_client()
+            response = await client.request(method, path, params=params, json=json_data)
+
+            if response.status_code == 429 or response.status_code >= 500:
+                response.raise_for_status()
+
+            if response.status_code >= 400:
+                raise MetabaseError(
+                    f"HTTP {response.status_code}: {response.text}", response.status_code
+                )
+
+            if response.status_code == 204:
+                return {}
+            return response.json()
+
+        if self._has_production_mixin:
+            from aragora.connectors.production_mixin import ProductionConnectorMixin
+
+            return await ProductionConnectorMixin._call_with_retry(
+                self, _do_request, operation=f"{method}_{path}",
             )
-
-        if response.status_code == 204:
-            return {}
-        return response.json()
+        return await _do_request()
 
     # =========================================================================
     # Databases

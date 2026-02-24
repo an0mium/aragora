@@ -19,7 +19,6 @@ import re
 from typing import Any
 
 from aragora.connectors.base import BaseConnector, Evidence
-from aragora.connectors.exceptions import ConnectorError
 from aragora.reasoning.provenance import ProvenanceManager, SourceType
 
 logger = logging.getLogger(__name__)

@@ -1559,7 +1559,7 @@ Reply in thread to add suggestions to ongoing debates
             if loop and loop.is_running():
                 # Already in async context -- run synchronously via the manager
                 # (record_decision is a coroutine, but we schedule it)
-                future = asyncio.ensure_future(
+                _future = asyncio.ensure_future(
                     manager.record_decision(
                         flow_id=flow.flow_id,
                         user_id=f"slack:{user_id}",
@@ -1647,7 +1647,7 @@ Reply in thread to add suggestions to ongoing debates
                 loop = None
 
             if loop and loop.is_running():
-                future = asyncio.ensure_future(
+                _future = asyncio.ensure_future(
                     manager.record_decision(
                         flow_id=flow.flow_id,
                         user_id=f"slack:{user_id}",

@@ -339,6 +339,15 @@ class WalmartConnector:
         self._client: httpx.AsyncClient | None = None
         self._access_token: str | None = None
         self._token_expires_at: datetime | None = None
+        try:
+            from aragora.connectors.production_mixin import ProductionConnectorMixin
+
+            ProductionConnectorMixin._init_production_mixin(
+                self, connector_name="walmart", request_timeout=30.0,
+            )
+            self._has_production_mixin = True
+        except ImportError:
+            self._has_production_mixin = False
 
     async def _get_client(self) -> httpx.AsyncClient:
         """Get or create HTTP client."""
@@ -398,35 +407,51 @@ class WalmartConnector:
         params: dict | None = None,
         json_data: dict | None = None,
     ) -> dict[str, Any]:
-        """Make authenticated API request."""
-        token = await self._ensure_token()
-        client = await self._get_client()
-        headers = self._get_headers(token)
+        """Make authenticated API request with retry and circuit breaker."""
 
-        response = await client.request(
-            method,
-            path,
-            params=params,
-            json=json_data,
-            headers=headers,
-        )
+        async def _do_request() -> dict[str, Any]:
+            token = await self._ensure_token()
+            client = await self._get_client()
+            headers = self._get_headers(token)
 
-        if response.status_code >= 400:
-            try:
-                error_data = response.json()
-                errors = error_data.get("errors", [{}])
-                error = errors[0] if errors else {}
-                raise WalmartError(
-                    message=error.get("description", response.text),
-                    code=error.get("code"),
-                    details=error_data,
-                )
-            except (ValueError, KeyError):
-                raise WalmartError(f"HTTP {response.status_code}: {response.text}")
+            response = await client.request(
+                method,
+                path,
+                params=params,
+                json=json_data,
+                headers=headers,
+            )
 
-        if response.status_code == 204:
-            return {}
-        return response.json()
+            # Raise for retry on 429/5xx
+            if response.status_code == 429 or response.status_code >= 500:
+                response.raise_for_status()
+
+            if response.status_code >= 400:
+                try:
+                    error_data = response.json()
+                    errors = error_data.get("errors", [{}])
+                    error = errors[0] if errors else {}
+                    raise WalmartError(
+                        message=error.get("description", response.text),
+                        code=error.get("code"),
+                        details=error_data,
+                    )
+                except (ValueError, KeyError):
+                    raise WalmartError(f"HTTP {response.status_code}: {response.text}")
+
+            if response.status_code == 204:
+                return {}
+            return response.json()
+
+        if self._has_production_mixin:
+            from aragora.connectors.production_mixin import ProductionConnectorMixin
+
+            return await ProductionConnectorMixin._call_with_retry(
+                self,
+                _do_request,
+                operation=f"walmart_{method}_{path}",
+            )
+        return await _do_request()
 
     # =========================================================================
     # Orders

@@ -82,7 +82,8 @@ class TestCycleRecord:
 
     def test_from_dict_missing_fields(self):
         r = CycleRecord.from_dict({})
-        assert r.cycle_id == ""
+        # Empty string triggers __post_init__ auto-generation
+        assert r.cycle_id.startswith("cycle_")
         assert r.success is False
 
 

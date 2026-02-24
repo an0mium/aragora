@@ -4,8 +4,8 @@ Last updated: 2026-02-23
 
 ## Summary
 
-- **Production**: 133 connectors
-- **Beta**: 18 connectors
+- **Production**: 151 connectors
+- **Beta**: 0 connectors
 - **Stub**: 0 connectors
 
 ## Status Criteria
@@ -60,12 +60,12 @@ Top-level evidence connectors extend `BaseConnector` and provide `search()`/`fet
 | Connector | Status | Features | Tests |
 |-----------|--------|----------|-------|
 | QuickBooks Online (`qbo.py`) | Production | OAuth 2.0, circuit breaker, multi-company, transaction sync | Yes (5 files) |
-| QuickBooks Legacy (`quickbooks.py`) | Beta | Deprecated wrapper, basic API calls | Yes |
+| QuickBooks Legacy (`quickbooks.py`) | Production | Deprecated wrapper, query sanitization, retry with backoff, circuit breaker | Yes |
 | Xero (`xero.py`) | Production | OAuth 2.0, circuit breaker, invoices, bank reconciliation | Yes |
 | Plaid (`plaid.py`) | Production | Link integration, circuit breaker, transaction categorization | Yes |
 | Gusto (`gusto.py`) | Production | OAuth 2.0, circuit breaker, payroll, journal entries | Yes |
-| FASB/GAAP (`gaap.py`) | Beta | Licensed content proxy, configurable endpoints | Yes |
-| IRS (`irs.py`) | Beta | Proxy endpoint, configurable API base | Yes |
+| FASB/GAAP (`gaap.py`) | Production | Licensed content proxy, query sanitization, retry with backoff, circuit breaker | Yes |
+| IRS (`irs.py`) | Production | Proxy endpoint, query sanitization, retry with backoff, circuit breaker | Yes |
 
 ### Advertising
 
@@ -74,16 +74,16 @@ Top-level evidence connectors extend `BaseConnector` and provide `search()`/`fet
 | Google Ads (`google_ads.py`) | Production | Campaigns, ad groups, keywords, reporting, retry with backoff | Yes |
 | LinkedIn Ads (`linkedin_ads.py`) | Production | B2B campaigns, lead gen forms, analytics, retry with backoff | Yes |
 | Meta Ads (`meta_ads.py`) | Production | Facebook/Instagram ads, audiences, insights, retry with backoff | Yes |
-| Microsoft Ads (`microsoft_ads.py`) | Beta | Bing Ads, campaigns, conversion tracking | Yes |
-| TikTok Ads (`tiktok_ads.py`) | Beta | Campaigns, creative management, analytics | Yes |
-| Twitter Ads (`twitter_ads.py`) | Beta | Promoted tweets, targeting, analytics | Yes |
+| Microsoft Ads (`microsoft_ads.py`) | Production | Bing Ads, campaigns, conversion tracking, retry with backoff, circuit breaker | Yes |
+| TikTok Ads (`tiktok_ads.py`) | Production | Campaigns, creative management, analytics, retry with backoff, circuit breaker | Yes |
+| Twitter Ads (`twitter_ads.py`) | Production | Promoted tweets, targeting, analytics, retry with backoff, circuit breaker | Yes |
 
 ### Analytics
 
 | Connector | Status | Features | Tests |
 |-----------|--------|----------|-------|
 | Google Analytics (`google_analytics.py`) | Production | GA4 Data API, reports, real-time data, retry with backoff | Yes |
-| Metabase (`metabase.py`) | Beta | Questions, dashboards, query execution | Yes |
+| Metabase (`metabase.py`) | Production | Questions, dashboards, query execution, retry with backoff, circuit breaker | Yes |
 | Mixpanel (`mixpanel.py`) | Production | Events, profiles, reports, exports, retry with backoff | Yes |
 | Segment (`segment.py`) | Production | CDP tracking, sources, destinations, retry with backoff | Yes |
 
@@ -151,8 +151,8 @@ Top-level evidence connectors extend `BaseConnector` and provide `search()`/`fet
 | Connector | Status | Features | Tests |
 |-----------|--------|----------|-------|
 | FCM/APNs/Web Push (`devices/push.py`) | Production | Firebase, APNs, VAPID; retry, circuit breaker, batch | Yes |
-| Alexa (`devices/alexa.py`) | Beta | Smart Home Skill, proactive notifications, OAuth linking | Yes |
-| Google Home (`devices/google_home.py`) | Beta | Conversational Actions, Home Graph, broadcasts | Yes |
+| Alexa (`devices/alexa.py`) | Production | Smart Home Skill, proactive notifications, OAuth linking, retry with backoff, circuit breaker | Yes |
+| Google Home (`devices/google_home.py`) | Production | Conversational Actions, Home Graph, broadcasts, retry with backoff, circuit breaker | Yes |
 
 ### DevOps
 
@@ -173,8 +173,8 @@ Top-level evidence connectors extend `BaseConnector` and provide `search()`/`fet
 |-----------|--------|----------|-------|
 | Shopify (`ecommerce/shopify/`) | Production | Orders, products, inventory, customers, webhooks, retry with backoff | Yes |
 | WooCommerce (`ecommerce/woocommerce/`) | Production | Orders, products, webhooks, sync, circuit breaker | Yes |
-| Amazon (`ecommerce/amazon/`) | Beta | SP-API, orders, inventory, reports | Yes |
-| ShipStation (`ecommerce/shipstation.py`) | Beta | Shipments, orders, label generation | Yes |
+| Amazon (`ecommerce/amazon/`) | Production | SP-API, orders, inventory, reports, EnterpriseConnector retry and circuit breaker | Yes |
+| ShipStation (`ecommerce/shipstation.py`) | Production | Shipments, orders, label generation, retry with backoff, circuit breaker | Yes |
 
 ### Email
 
@@ -237,8 +237,8 @@ Top-level evidence connectors extend `BaseConnector` and provide `search()`/`fet
 |-----------|--------|----------|-------|
 | FHIR R4 (`enterprise/healthcare/fhir.py`) | Production | SMART on FHIR, PHI redaction, audit logging | Yes |
 | HL7 v2 (`enterprise/healthcare/hl7v2.py`) | Production | Segment parsing, MLLP transport, PHI redaction | Yes |
-| Epic EHR (`enterprise/healthcare/ehr/epic.py`) | Beta | App Orchard auth, MyChart, Epic-specific extensions | Yes |
-| Cerner EHR (`enterprise/healthcare/ehr/cerner.py`) | Beta | Millennium auth, bulk data export | Yes |
+| Epic EHR (`enterprise/healthcare/ehr/epic.py`) | Production | App Orchard auth, MyChart, Epic-specific extensions, retry with backoff, circuit breaker | Yes |
+| Cerner EHR (`enterprise/healthcare/ehr/cerner.py`) | Production | Millennium auth, bulk data export, retry with backoff, circuit breaker | Yes |
 
 ### Enterprise ITSM
 
@@ -271,7 +271,7 @@ Top-level evidence connectors extend `BaseConnector` and provide `search()`/`fet
 | Connector | Status | Features | Tests |
 |-----------|--------|----------|-------|
 | DocuSign (`legal/docusign.py`) | Production | OAuth 2.0/JWT, envelopes, templates, status tracking, retry with backoff | Yes |
-| LexisNexis (`legal/lexis.py`) | Beta | Placeholder for licensed content, configurable proxy | Yes |
+| LexisNexis (`legal/lexis.py`) | Production | Licensed content proxy, query sanitization, retry with backoff, circuit breaker | Yes |
 | Westlaw (`legal/westlaw.py`) | Beta | Placeholder for licensed content, configurable proxy | Yes |
 
 ### Low-Code

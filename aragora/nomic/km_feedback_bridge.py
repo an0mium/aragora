@@ -91,14 +91,15 @@ class KMFeedbackBridge:
         persisted: list[LearningItem] = []
 
         for item in items:
-            try:
-                if km is not None:
+            # Always store in memory first (guaranteed to succeed)
+            self._in_memory_store.append(item)
+            persisted.append(item)
+            # Then attempt KM ingestion (best-effort)
+            if km is not None:
+                try:
                     self._ingest_to_km(km, item)
-                # Always store in memory as fallback
-                self._in_memory_store.append(item)
-                persisted.append(item)
-            except (RuntimeError, OSError, ValueError, TypeError, AttributeError) as e:
-                logger.debug("km_feedback_persist_failed: %s", e)
+                except (RuntimeError, OSError, ValueError, TypeError, AttributeError) as e:
+                    logger.debug("km_feedback_persist_failed: %s", e)
 
         logger.info(
             "km_feedback_persisted count=%d cycle=%s goal=%s",

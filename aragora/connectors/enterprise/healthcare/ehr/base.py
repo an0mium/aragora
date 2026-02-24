@@ -207,6 +207,20 @@ class EHRAdapter(ABC):
         self._errors_count = 0
         self._last_request_at: datetime | None = None
 
+        # Production mixin for circuit breaker and retry
+        try:
+            from aragora.connectors.production_mixin import ProductionConnectorMixin
+
+            ProductionConnectorMixin._init_production_mixin(
+                self,
+                connector_name=f"ehr_{self.vendor.value}",
+                request_timeout=float(config.timeout_seconds),
+                max_retries=config.max_retries,
+            )
+            self._has_production_mixin = True
+        except ImportError:
+            self._has_production_mixin = False
+
     async def __aenter__(self) -> EHRAdapter:
         """Async context manager entry."""
         await self.connect()
@@ -476,32 +490,24 @@ class EHRAdapter(ABC):
         path: str,
         **kwargs: Any,
     ) -> dict[str, Any]:
-        """Make authenticated request to EHR."""
+        """Make authenticated request to EHR with retry and circuit breaker."""
         if not self._http_client:
             raise RuntimeError("Not connected")
 
-        access_token = await self._ensure_authenticated()
-        headers = self._get_headers(access_token)
-        headers.update(kwargs.pop("headers", {}))
+        # Capture headers from kwargs before the inner function
+        extra_headers = kwargs.pop("headers", {})
 
-        url = f"{self.config.base_url}{path}"
+        async def _do_request() -> dict[str, Any]:
+            access_token = await self._ensure_authenticated()
+            headers = self._get_headers(access_token)
+            headers.update(extra_headers)
 
-        self._requests_made += 1
-        self._last_request_at = datetime.now(timezone.utc)
+            url = f"{self.config.base_url}{path}"
 
-        try:
-            response = await self._http_client.request(
-                method,
-                url,
-                headers=headers,
-                **kwargs,
-            )
+            self._requests_made += 1
+            self._last_request_at = datetime.now(timezone.utc)
 
-            if response.status_code == 401:
-                # Token might be invalid, retry with fresh token
-                self._token = None
-                access_token = await self._ensure_authenticated()
-                headers["Authorization"] = f"Bearer {access_token}"
+            try:
                 response = await self._http_client.request(
                     method,
                     url,
@@ -509,13 +515,35 @@ class EHRAdapter(ABC):
                     **kwargs,
                 )
 
-            response.raise_for_status()
-            return response.json() if response.content else {}
+                if response.status_code == 401:
+                    # Token might be invalid, retry with fresh token
+                    self._token = None
+                    access_token_new = await self._ensure_authenticated()
+                    headers["Authorization"] = f"Bearer {access_token_new}"
+                    response = await self._http_client.request(
+                        method,
+                        url,
+                        headers=headers,
+                        **kwargs,
+                    )
 
-        except (OSError, ValueError, RuntimeError) as e:
-            self._errors_count += 1
-            logger.error("EHR request failed: %s %s: %s", method, path, e)
-            raise
+                response.raise_for_status()
+                return response.json() if response.content else {}
+
+            except (OSError, ValueError, RuntimeError) as e:
+                self._errors_count += 1
+                logger.error("EHR request failed: %s %s: %s", method, path, e)
+                raise
+
+        if getattr(self, "_has_production_mixin", False):
+            from aragora.connectors.production_mixin import ProductionConnectorMixin
+
+            return await ProductionConnectorMixin._call_with_retry(
+                self,
+                _do_request,
+                operation=f"ehr_{method}_{path}",
+            )
+        return await _do_request()
 
     # Abstract methods for vendor-specific implementations
     @abstractmethod

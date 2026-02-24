@@ -32,7 +32,6 @@ import sqlite3
 import time
 import uuid
 from dataclasses import asdict, dataclass, field
-from pathlib import Path
 from typing import Any
 
 logger = logging.getLogger(__name__)
@@ -107,11 +106,27 @@ class CycleTelemetryCollector:
                 db_path = ":memory:"
 
         self.db_path = db_path
+        # For :memory: databases, keep a persistent connection so the
+        # schema survives across method calls.
+        self._persistent_conn: sqlite3.Connection | None = None
+        if db_path == ":memory:":
+            self._persistent_conn = sqlite3.connect(":memory:")
         self._init_schema()
+
+    def _get_conn(self) -> sqlite3.Connection:
+        """Get a database connection (reuses persistent conn for :memory:)."""
+        if self._persistent_conn is not None:
+            return self._persistent_conn
+        return sqlite3.connect(self.db_path)
+
+    def _close_conn(self, conn: sqlite3.Connection) -> None:
+        """Close a connection unless it is the persistent one."""
+        if conn is not self._persistent_conn:
+            self._close_conn(conn)
 
     def _init_schema(self) -> None:
         """Create the telemetry table if it does not exist."""
-        conn = sqlite3.connect(self.db_path)
+        conn = self._get_conn()
         try:
             conn.execute("""
                 CREATE TABLE IF NOT EXISTS cycle_telemetry (
@@ -138,7 +153,7 @@ class CycleTelemetryCollector:
             """)
             conn.commit()
         finally:
-            conn.close()
+            self._close_conn(conn)
 
     # ------------------------------------------------------------------
     # Write
@@ -150,7 +165,7 @@ class CycleTelemetryCollector:
         Args:
             record: The CycleRecord to store.
         """
-        conn = sqlite3.connect(self.db_path)
+        conn = self._get_conn()
         try:
             conn.execute(
                 """
@@ -183,7 +198,7 @@ class CycleTelemetryCollector:
                 record.cost_usd,
             )
         finally:
-            conn.close()
+            self._close_conn(conn)
 
     # ------------------------------------------------------------------
     # Read / Query
@@ -198,7 +213,7 @@ class CycleTelemetryCollector:
         Returns:
             List of CycleRecord ordered by timestamp descending.
         """
-        conn = sqlite3.connect(self.db_path)
+        conn = self._get_conn()
         conn.row_factory = sqlite3.Row
         try:
             rows = conn.execute(
@@ -207,7 +222,7 @@ class CycleTelemetryCollector:
             ).fetchall()
             return [self._row_to_record(r) for r in rows]
         finally:
-            conn.close()
+            self._close_conn(conn)
 
     def get_success_rate(self, window_days: int = 7) -> float:
         """Compute the success rate over a time window.
@@ -220,7 +235,7 @@ class CycleTelemetryCollector:
             Returns 0.0 if no cycles exist in the window.
         """
         cutoff = time.time() - (window_days * 86400)
-        conn = sqlite3.connect(self.db_path)
+        conn = self._get_conn()
         try:
             row = conn.execute(
                 """
@@ -235,7 +250,7 @@ class CycleTelemetryCollector:
             successes = row[1] or 0
             return successes / total if total > 0 else 0.0
         finally:
-            conn.close()
+            self._close_conn(conn)
 
     def get_avg_cost_per_improvement(self) -> float:
         """Compute average cost for successful cycles.
@@ -244,7 +259,7 @@ class CycleTelemetryCollector:
             Average cost_usd for cycles where success=True.
             Returns 0.0 if no successful cycles exist.
         """
-        conn = sqlite3.connect(self.db_path)
+        conn = self._get_conn()
         try:
             row = conn.execute(
                 """
@@ -254,7 +269,7 @@ class CycleTelemetryCollector:
             ).fetchone()
             return row[0] or 0.0
         finally:
-            conn.close()
+            self._close_conn(conn)
 
     def get_top_goals_by_impact(self, n: int = 5) -> list[dict[str, Any]]:
         """Return the goals with the highest quality_delta.
@@ -265,7 +280,7 @@ class CycleTelemetryCollector:
         Returns:
             List of dicts with goal, quality_delta, and cycle_id.
         """
-        conn = sqlite3.connect(self.db_path)
+        conn = self._get_conn()
         conn.row_factory = sqlite3.Row
         try:
             rows = conn.execute(
@@ -289,29 +304,29 @@ class CycleTelemetryCollector:
                 for r in rows
             ]
         finally:
-            conn.close()
+            self._close_conn(conn)
 
     def get_total_cost(self) -> float:
         """Return the cumulative cost across all recorded cycles."""
-        conn = sqlite3.connect(self.db_path)
+        conn = self._get_conn()
         try:
             row = conn.execute(
                 "SELECT COALESCE(SUM(cost_usd), 0) FROM cycle_telemetry"
             ).fetchone()
             return row[0] or 0.0
         finally:
-            conn.close()
+            self._close_conn(conn)
 
     def get_cycle_count(self) -> int:
         """Return the total number of recorded cycles."""
-        conn = sqlite3.connect(self.db_path)
+        conn = self._get_conn()
         try:
             row = conn.execute(
                 "SELECT COUNT(*) FROM cycle_telemetry"
             ).fetchone()
             return row[0] or 0
         finally:
-            conn.close()
+            self._close_conn(conn)
 
     def get_consecutive_failures(self) -> int:
         """Count consecutive failures from the most recent cycle backwards.
@@ -320,7 +335,7 @@ class CycleTelemetryCollector:
             Number of consecutive failed cycles at the tail. 0 if the
             most recent cycle was successful or no cycles exist.
         """
-        conn = sqlite3.connect(self.db_path)
+        conn = self._get_conn()
         try:
             rows = conn.execute(
                 "SELECT success FROM cycle_telemetry ORDER BY timestamp DESC"
@@ -332,7 +347,7 @@ class CycleTelemetryCollector:
                 count += 1
             return count
         finally:
-            conn.close()
+            self._close_conn(conn)
 
     # ------------------------------------------------------------------
     # Export
@@ -347,7 +362,7 @@ class CycleTelemetryCollector:
         Returns:
             JSON string of cycle records.
         """
-        conn = sqlite3.connect(self.db_path)
+        conn = self._get_conn()
         conn.row_factory = sqlite3.Row
         try:
             if n is not None:
@@ -362,7 +377,7 @@ class CycleTelemetryCollector:
             records = [self._row_to_record(r).to_dict() for r in rows]
             return json.dumps(records, indent=2)
         finally:
-            conn.close()
+            self._close_conn(conn)
 
     # ------------------------------------------------------------------
     # Internal

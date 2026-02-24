@@ -196,6 +196,15 @@ class KnackConnector:
         self.credentials = credentials
         self._client: httpx.AsyncClient | None = None
         self._schema: dict[str, Any] | None = None
+        try:
+            from aragora.connectors.production_mixin import ProductionConnectorMixin
+
+            ProductionConnectorMixin._init_production_mixin(
+                self, connector_name="knack", request_timeout=30.0,
+            )
+            self._has_production_mixin = True
+        except ImportError:
+            self._has_production_mixin = False
 
     async def _get_client(self) -> httpx.AsyncClient:
         """Get or create HTTP client."""
@@ -218,35 +227,51 @@ class KnackConnector:
         params: dict | None = None,
         json_data: dict | None = None,
     ) -> dict[str, Any]:
-        """Make API request."""
-        client = await self._get_client()
-        # Normalize AsyncMock side_effect lists to iterators (test safety).
-        try:
-            from unittest.mock import AsyncMock
+        """Make API request with retry and circuit breaker."""
 
-            if isinstance(client.request, AsyncMock):
-                side_effect = getattr(client.request, "side_effect", None)
-                if isinstance(side_effect, list):
-                    client.request.side_effect = iter(side_effect)
-        except (ImportError, AttributeError, TypeError) as e:
-            logger.debug("Mock side_effect normalization skipped: %s", e)
-        response = await client.request(method, path, params=params, json=json_data)
-
-        if response.status_code >= 400:
+        async def _do_request() -> dict[str, Any]:
+            client = await self._get_client()
+            # Normalize AsyncMock side_effect lists to iterators (test safety).
             try:
-                error_data = response.json()
-                raise KnackError(
-                    message=error_data.get("message", response.text),
-                    status_code=response.status_code,
-                    errors=error_data.get("errors", []),
-                )
-            except ValueError:
-                raise KnackError(
-                    f"HTTP {response.status_code}: {response.text}",
-                    status_code=response.status_code,
-                )
+                from unittest.mock import AsyncMock
 
-        return response.json()
+                if isinstance(client.request, AsyncMock):
+                    side_effect = getattr(client.request, "side_effect", None)
+                    if isinstance(side_effect, list):
+                        client.request.side_effect = iter(side_effect)
+            except (ImportError, AttributeError, TypeError) as e:
+                logger.debug("Mock side_effect normalization skipped: %s", e)
+            response = await client.request(method, path, params=params, json=json_data)
+
+            # Raise for retry on 429/5xx
+            if response.status_code == 429 or response.status_code >= 500:
+                response.raise_for_status()
+
+            if response.status_code >= 400:
+                try:
+                    error_data = response.json()
+                    raise KnackError(
+                        message=error_data.get("message", response.text),
+                        status_code=response.status_code,
+                        errors=error_data.get("errors", []),
+                    )
+                except ValueError:
+                    raise KnackError(
+                        f"HTTP {response.status_code}: {response.text}",
+                        status_code=response.status_code,
+                    )
+
+            return response.json()
+
+        if self._has_production_mixin:
+            from aragora.connectors.production_mixin import ProductionConnectorMixin
+
+            return await ProductionConnectorMixin._call_with_retry(
+                self,
+                _do_request,
+                operation=f"knack_{method}_{path}",
+            )
+        return await _do_request()
 
     # =========================================================================
     # Schema
