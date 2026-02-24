@@ -7,11 +7,16 @@ import { Scanlines, CRTVignette } from '@/components/MatrixRain';
 import { useAuth } from '@/context/AuthContext';
 import { SocialLoginButtons } from '@/components/auth/SocialLoginButtons';
 import { TopBar } from '@/components/layout/TopBar';
+import { normalizeReturnUrl, RETURN_URL_STORAGE_KEY } from '@/utils/returnUrl';
 
 function LoginForm() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const redirectTo = searchParams.get('returnUrl') || searchParams.get('redirect') || '/';
+  const requestedReturnUrl =
+    searchParams.get('returnUrl') ||
+    searchParams.get('redirect') ||
+    (typeof window !== 'undefined' ? sessionStorage.getItem(RETURN_URL_STORAGE_KEY) : null);
+  const redirectTo = normalizeReturnUrl(requestedReturnUrl);
   const { login, isLoading: authLoading } = useAuth();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -21,7 +26,7 @@ function LoginForm() {
   // Save return URL to sessionStorage so the OAuth callback can use it too
   useEffect(() => {
     if (redirectTo && redirectTo !== '/') {
-      sessionStorage.setItem('aragora_return_url', redirectTo);
+      sessionStorage.setItem(RETURN_URL_STORAGE_KEY, redirectTo);
     }
   }, [redirectTo]);
 
@@ -33,7 +38,7 @@ function LoginForm() {
     const result = await login(email, password);
 
     if (result.success) {
-      sessionStorage.removeItem('aragora_return_url');
+      sessionStorage.removeItem(RETURN_URL_STORAGE_KEY);
       router.push(redirectTo);
     } else {
       setError(result.error || 'Login failed');

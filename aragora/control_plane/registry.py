@@ -886,3 +886,21 @@ class AgentRegistry:
             logger.info("Marked %s agents as offline", marked_offline)
 
         return marked_offline
+
+
+# ---------------------------------------------------------------------------
+# Module-level singleton accessor
+# ---------------------------------------------------------------------------
+
+_default_registry: AgentRegistry | None = None
+
+
+def get_default_registry() -> AgentRegistry | None:
+    """Return the module-level default registry, if one has been set."""
+    return _default_registry
+
+
+def set_default_registry(registry: AgentRegistry | None) -> None:
+    """Set (or clear) the module-level default registry."""
+    global _default_registry  # noqa: PLW0603
+    _default_registry = registry

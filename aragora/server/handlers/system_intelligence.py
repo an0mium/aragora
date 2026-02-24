@@ -307,7 +307,7 @@ class SystemIntelligenceHandler(SecureEndpointMixin, SecureHandler):  # type: ig
 
         # Cross-debate memory stats
         try:
-            from aragora.memory.cross_debate import CrossDebateMemory
+            from aragora.memory.cross_debate_rlm import CrossDebateMemory
 
             cdm = CrossDebateMemory()
             stats = cdm.get_stats()

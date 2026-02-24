@@ -230,9 +230,21 @@ class MemoryUnifiedHandler(BaseHandler):
             decisions = []
             stats = {"retained": 0, "demoted": 0, "forgotten": 0, "consolidated": 0}
 
+            action_to_stats_key = {
+                "retain": "retained",
+                "retained": "retained",
+                "demote": "demoted",
+                "demoted": "demoted",
+                "forget": "forgotten",
+                "forgotten": "forgotten",
+                "consolidate": "consolidated",
+                "consolidated": "consolidated",
+            }
+
             for d in (history or []):
-                action = getattr(d, "action", "retain")
-                stats[action] = stats.get(action, 0) + 1
+                action = str(getattr(d, "action", "retain")).strip().lower()
+                stats_key = action_to_stats_key.get(action, action)
+                stats[stats_key] = stats.get(stats_key, 0) + 1
                 decisions.append({
                     "memory_id": getattr(d, "memory_id", ""),
                     "action": action,
@@ -255,7 +267,7 @@ class MemoryUnifiedHandler(BaseHandler):
     def _handle_dedup(self, query_params: dict[str, Any]) -> HandlerResult:
         """GET /api/memory/unified/dedup — Near-duplicate clusters."""
         try:
-            from aragora.memory.dedup_engine import CrossSystemDedupEngine
+            from aragora.memory.dedup import CrossSystemDedupEngine
 
             engine = CrossSystemDedupEngine()
             clusters = engine.get_clusters() if hasattr(engine, "get_clusters") else []

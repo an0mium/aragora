@@ -23,6 +23,7 @@ from xml.etree import ElementTree as ET
 import pytest
 
 from aragora.auth.saml import (
+    HAS_SAML_LIB,
     SAMLConfig,
     SAMLError,
     SAMLProvider,
@@ -85,6 +86,14 @@ def create_saml_response(
 </samlp:Response>'''
 
     return base64.b64encode(xml.encode("utf-8")).decode("ascii")
+
+
+@pytest.fixture(autouse=True)
+def enable_unsafe_saml_fallback_without_library(monkeypatch):
+    """Keep test behavior deterministic when python3-saml is unavailable."""
+    if not HAS_SAML_LIB:
+        monkeypatch.setenv("ARAGORA_ALLOW_UNSAFE_SAML", "true")
+        monkeypatch.setenv("ARAGORA_ALLOW_UNSAFE_SAML_CONFIRMED", "true")
 
 
 # ============================================================================
@@ -211,7 +220,14 @@ class TestSAMLProviderInit:
         assert provider.config == config
         assert provider.provider_type == SSOProviderType.SAML
 
-    @patch.dict("os.environ", {"ARAGORA_ENV": "development"})
+    @patch.dict(
+        "os.environ",
+        {
+            "ARAGORA_ENV": "development",
+            "ARAGORA_ALLOW_UNSAFE_SAML": "",
+            "ARAGORA_ALLOW_UNSAFE_SAML_CONFIRMED": "",
+        },
+    )
     def test_init_fails_without_library_in_dev_by_default(self):
         """Test provider raises when SAML library missing in dev without explicit opt-in."""
         config = make_saml_config()
@@ -1133,6 +1149,7 @@ class TestSignatureVerification:
     """Tests for SAML assertion signature verification."""
 
     @pytest.mark.asyncio
+    @pytest.mark.skipif(not HAS_SAML_LIB, reason="python3-saml not installed")
     async def test_library_validates_signatures(self):
         """Test that library-based authentication validates signatures."""
         config = make_saml_config(

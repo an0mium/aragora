@@ -4,6 +4,7 @@ import { ReactNode, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/context/AuthContext';
 import { Scanlines, CRTVignette } from '@/components/MatrixRain';
+import { normalizeReturnUrl, RETURN_URL_STORAGE_KEY } from '@/utils/returnUrl';
 
 interface ProtectedRouteProps {
   children: ReactNode;
@@ -27,8 +28,8 @@ export function ProtectedRoute({
 
   useEffect(() => {
     if (!isLoading && !isAuthenticated) {
-      const returnUrl = redirectTo || (window.location.pathname + window.location.search);
-      sessionStorage.setItem('aragora_return_url', returnUrl);
+      const returnUrl = normalizeReturnUrl(redirectTo || (window.location.pathname + window.location.search));
+      sessionStorage.setItem(RETURN_URL_STORAGE_KEY, returnUrl);
       router.push(`/auth/login?returnUrl=${encodeURIComponent(returnUrl)}`);
     }
   }, [isLoading, isAuthenticated, router, redirectTo]);

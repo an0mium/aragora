@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react';
 import { API_BASE_URL } from '@/config';
 import { logger } from '@/utils/logger';
+import { getCurrentReturnUrl, normalizeReturnUrl, RETURN_URL_STORAGE_KEY } from '@/utils/returnUrl';
 
 interface Provider {
   id: string;
@@ -99,10 +100,9 @@ export function SocialLoginButtons({ mode }: SocialLoginButtonsProps) {
   const handleOAuthClick = (provider: Provider) => {
     // Save return URL before leaving for OAuth so callback can redirect back
     const params = new URLSearchParams(window.location.search);
-    const returnUrl = params.get('returnUrl');
-    if (returnUrl) {
-      sessionStorage.setItem('aragora_return_url', returnUrl);
-    }
+    const queryReturnUrl = params.get('returnUrl');
+    const returnUrl = normalizeReturnUrl(queryReturnUrl || getCurrentReturnUrl());
+    sessionStorage.setItem(RETURN_URL_STORAGE_KEY, returnUrl);
 
     // Build callback URL for the current origin
     // IMPORTANT: Include trailing slash to prevent Next.js redirect which loses URL fragments

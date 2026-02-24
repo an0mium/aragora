@@ -3,6 +3,7 @@
 import React, { createContext, useContext, useState, useEffect, useCallback, useRef, useMemo, ReactNode } from 'react';
 import { API_BASE_URL } from '@/config';
 import { logger } from '@/utils/logger';
+import { normalizeReturnUrl, RETURN_URL_STORAGE_KEY } from '@/utils/returnUrl';
 
 interface User {
   id: string;
@@ -589,6 +590,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     // Fetch user profile using the access token to validate and get user info
     try {
       logger.debug('[AuthContext] Fetching user profile to validate tokens...');
+      const PROFILE_FETCH_TIMEOUT_MS = 12_000;
 
       // Retry logic for network and transient server errors
       let response: Response | null = null;
@@ -596,13 +598,22 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
       for (let attempt = 1; attempt <= 3; attempt++) {
         if (signal?.aborted) throw new DOMException('Aborted', 'AbortError');
+        const attemptController = new AbortController();
+        const timeoutId = setTimeout(() => attemptController.abort(), PROFILE_FETCH_TIMEOUT_MS);
+        const onOuterAbort = () => attemptController.abort();
+        signal?.addEventListener('abort', onOuterAbort);
+
         try {
           response = await fetch(`${API_BASE}/api/auth/me`, {
             headers: {
               'Authorization': `Bearer ${accessToken}`,
             },
-            signal,
+            signal: attemptController.signal,
           });
+
+          clearTimeout(timeoutId);
+          signal?.removeEventListener('abort', onOuterAbort);
+
           // Retry on 500/502/503/504 (transient server errors)
           if (response.status >= 500 && attempt < 3) {
             logger.warn(`[AuthContext] /me returned ${response.status}, retrying (attempt ${attempt}/3)...`);
@@ -611,8 +622,24 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           }
           break; // Success or non-retryable status, exit loop
         } catch (fetchErr) {
-          // Re-throw abort errors immediately (no retry)
-          if (fetchErr instanceof DOMException && fetchErr.name === 'AbortError') throw fetchErr;
+          clearTimeout(timeoutId);
+          signal?.removeEventListener('abort', onOuterAbort);
+
+          // External abort (unmount/navigation) should stop immediately.
+          if (fetchErr instanceof DOMException && fetchErr.name === 'AbortError' && signal?.aborted) {
+            throw fetchErr;
+          }
+
+          // Per-attempt timeout should retry like other transient failures.
+          if (fetchErr instanceof DOMException && fetchErr.name === 'AbortError') {
+            lastError = new Error(`Token validation timed out after ${PROFILE_FETCH_TIMEOUT_MS}ms`);
+            logger.warn(`[AuthContext] /me fetch attempt ${attempt} timed out`);
+            if (attempt < 3) {
+              await new Promise(r => setTimeout(r, 1000 * attempt));
+            }
+            continue;
+          }
+
           lastError = fetchErr instanceof Error ? fetchErr : new Error(String(fetchErr));
           logger.warn(`[AuthContext] /me fetch attempt ${attempt} failed:`, lastError.message);
           if (attempt < 3) {
@@ -753,8 +780,8 @@ export function useRequireAuth() {
 
   useEffect(() => {
     if (!auth.isLoading && !auth.isAuthenticated) {
-      const currentPath = window.location.pathname + window.location.search;
-      sessionStorage.setItem('aragora_return_url', currentPath);
+      const currentPath = normalizeReturnUrl(window.location.pathname + window.location.search);
+      sessionStorage.setItem(RETURN_URL_STORAGE_KEY, currentPath);
       window.location.href = `/auth/login?returnUrl=${encodeURIComponent(currentPath)}`;
     }
   }, [auth.isLoading, auth.isAuthenticated]);

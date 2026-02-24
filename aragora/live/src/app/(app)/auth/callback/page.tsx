@@ -6,8 +6,10 @@ import Link from 'next/link';
 import { Scanlines, CRTVignette } from '@/components/MatrixRain';
 import { useAuth } from '@/context/AuthContext';
 import { logger } from '@/utils/logger';
+import { normalizeReturnUrl, RETURN_URL_STORAGE_KEY } from '@/utils/returnUrl';
 
 type Status = 'processing' | 'success' | 'error';
+const CALLBACK_PROCESSING_TIMEOUT_MS = 30_000;
 
 function OAuthCallbackContent() {
   const router = useRouter();
@@ -19,6 +21,22 @@ function OAuthCallbackContent() {
 
   useEffect(() => {
     const controller = new AbortController();
+    const processingTimeoutRef: { id?: ReturnType<typeof setTimeout> } = {};
+    const clearProcessingTimeout = () => {
+      if (processingTimeoutRef.id) {
+        clearTimeout(processingTimeoutRef.id);
+        processingTimeoutRef.id = undefined;
+      }
+    };
+
+    processingTimeoutRef.id = setTimeout(() => {
+      if (!isMountedRef.current) return;
+      logger.error('[OAuth Callback] Processing timed out');
+      controller.abort();
+      setStatus('error');
+      setMessage('Authentication timed out. Please try again.');
+    }, CALLBACK_PROCESSING_TIMEOUT_MS);
+
     const processCallback = async () => {
       // Debug: Log the full URL to help diagnose OAuth callback issues
       logger.debug('[OAuth Callback] Full URL:', window.location.href);
@@ -32,6 +50,7 @@ function OAuthCallbackContent() {
       const linked = urlParams.get('linked');
       if (linked) {
         if (!isMountedRef.current) return;
+        clearProcessingTimeout();
         setStatus('success');
         setMessage(`Successfully linked ${linked.charAt(0).toUpperCase() + linked.slice(1)} account`);
         redirectTimerRef.current = setTimeout(() => {
@@ -56,6 +75,7 @@ function OAuthCallbackContent() {
 
       if (!tokenString) {
         if (!isMountedRef.current) return;
+        clearProcessingTimeout();
         setStatus('error');
         setMessage('No authentication data received');
         logger.error('[OAuth Callback] No query params or hash fragment with tokens found');
@@ -78,6 +98,7 @@ function OAuthCallbackContent() {
           // Bail if unmounted during await
           if (!isMountedRef.current || controller.signal.aborted) return;
 
+          clearProcessingTimeout();
           setStatus('success');
           setMessage('Authentication successful');
           // Clear the hash from URL for security
@@ -89,11 +110,11 @@ function OAuthCallbackContent() {
           logger.debug('[OAuth Callback] Pre-redirect check - tokens:', !!storedTokens, 'user:', !!storedUser);
 
           // Check for a saved return URL (e.g., user was viewing a debate before login)
-          const returnUrl = sessionStorage.getItem('aragora_return_url');
+          const returnUrl = sessionStorage.getItem(RETURN_URL_STORAGE_KEY);
           if (returnUrl) {
-            sessionStorage.removeItem('aragora_return_url');
+            sessionStorage.removeItem(RETURN_URL_STORAGE_KEY);
           }
-          const destination = returnUrl || '/';
+          const destination = normalizeReturnUrl(returnUrl);
 
           // Use replace() to keep callback URL out of browser history
           redirectTimerRef.current = setTimeout(() => {
@@ -108,6 +129,7 @@ function OAuthCallbackContent() {
 
           logger.error('[OAuth Callback] Failed to set tokens:', err);
           if (!isMountedRef.current) return;
+          clearProcessingTimeout();
           setStatus('error');
           // Provide more descriptive error messages
           if (err instanceof Error) {
@@ -126,6 +148,7 @@ function OAuthCallbackContent() {
         }
       } else {
         if (!isMountedRef.current) return;
+        clearProcessingTimeout();
         setStatus('error');
         setMessage('Missing authentication tokens');
         logger.error('[OAuth Callback] Tokens missing from URL params. access_token:', !!accessToken, 'refresh_token:', !!refreshToken);
@@ -137,6 +160,7 @@ function OAuthCallbackContent() {
     return () => {
       isMountedRef.current = false;
       controller.abort();
+      clearProcessingTimeout();
       if (redirectTimerRef.current) clearTimeout(redirectTimerRef.current);
     };
   }, [router, setTokens]);

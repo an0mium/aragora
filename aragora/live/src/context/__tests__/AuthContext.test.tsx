@@ -168,6 +168,36 @@ describe('AuthContext - Additional Tests', () => {
       // 3 retries for the /me call
       expect(global.fetch).toHaveBeenCalledTimes(3);
     });
+
+    it('retries when /me request aborts and eventually succeeds', async () => {
+      const abortError = new DOMException('The operation was aborted.', 'AbortError');
+
+      (global.fetch as jest.Mock)
+        .mockRejectedValueOnce(abortError)
+        .mockRejectedValueOnce(abortError)
+        .mockResolvedValueOnce({
+          ok: true,
+          headers: new Headers({ 'content-type': 'application/json' }),
+          json: async () => ({
+            user: mockUser,
+            organization: mockOrganization,
+            organizations: [mockUserOrganization],
+          }),
+        });
+
+      const { result } = renderHook(() => useAuth(), { wrapper });
+
+      await waitFor(() => {
+        expect(result.current.isLoading).toBe(false);
+      });
+
+      await act(async () => {
+        await result.current.setTokens('access-token', 'refresh-token');
+      });
+
+      expect(result.current.isAuthenticated).toBe(true);
+      expect(global.fetch).toHaveBeenCalledTimes(3);
+    });
   });
 
   describe('Organization Switching', () => {

@@ -22,6 +22,7 @@ import {
 } from './types';
 import { KnowledgeGraphView } from './KnowledgeGraphView';
 import { KnowledgeFlowDiagram } from '@/components/knowledge/KnowledgeFlowDiagram';
+import { KnowledgeConfidenceHistory } from '@/components/knowledge/KnowledgeConfidenceHistory';
 import { AdapterHealthGrid } from '@/components/knowledge/AdapterHealthGrid';
 import { ContradictionsBrowser } from '@/components/knowledge/ContradictionsBrowser';
 
@@ -645,7 +646,12 @@ export default function KnowledgeMoundPage() {
         </form>
 
         {/* View Mode Content */}
-        {viewMode === 'flow' && <KnowledgeFlowDiagram />}
+        {viewMode === 'flow' && (
+          <div className="space-y-6">
+            <KnowledgeFlowDiagram />
+            <KnowledgeConfidenceHistory />
+          </div>
+        )}
         {viewMode === 'adapters' && <AdapterHealthGrid />}
         {viewMode === 'contradictions' && (
           <PanelErrorBoundary panelName="Contradictions Browser">

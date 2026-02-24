@@ -54,6 +54,11 @@ class BreakpointsHandler(BaseHandler):
         "/api/v1/breakpoints/pending",
     ]
 
+    DYNAMIC_ROUTES = [
+        "/api/v1/breakpoints/{breakpoint_id}/status",
+        "/api/v1/breakpoints/{breakpoint_id}/resolve",
+    ]
+
     # Pattern for breakpoint-specific routes
     BREAKPOINT_PATTERN = re.compile(r"^/api/v1/breakpoints/([a-zA-Z0-9_-]+)/(resolve|status)$")
 

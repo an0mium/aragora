@@ -147,7 +147,9 @@ class APAutomationAPI:
         Returns:
             Invoice details.
         """
-        return self._client.request("GET", f"/api/v1/ap/invoices/{invoice_id}")
+        return self._client.request(
+            "GET", f"/api/v1/accounting/ap/invoices/{invoice_id}"
+        )
 
     def record_payment(
         self,
@@ -183,7 +185,7 @@ class APAutomationAPI:
             data["notes"] = notes
 
         return self._client.request(
-            "POST", f"/api/v1/ap/invoices/{invoice_id}/payments", json=data
+            "POST", f"/api/v1/accounting/ap/invoices/{invoice_id}/payment", json=data
         )
 
     # =========================================================================
@@ -362,7 +364,9 @@ class AsyncAPAutomationAPI:
 
     async def get_invoice(self, invoice_id: str) -> dict[str, Any]:
         """Get AP invoice details."""
-        return await self._client.request("GET", f"/api/v1/ap/invoices/{invoice_id}")
+        return await self._client.request(
+            "GET", f"/api/v1/accounting/ap/invoices/{invoice_id}"
+        )
 
     async def record_payment(
         self,
@@ -385,7 +389,7 @@ class AsyncAPAutomationAPI:
             data["notes"] = notes
 
         return await self._client.request(
-            "POST", f"/api/v1/ap/invoices/{invoice_id}/payments", json=data
+            "POST", f"/api/v1/accounting/ap/invoices/{invoice_id}/payment", json=data
         )
 
     # =========================================================================

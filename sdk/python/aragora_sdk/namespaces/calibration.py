@@ -71,12 +71,11 @@ class CalibrationAPI:
             Dict with calibration curve data including confidence bins,
             predicted probabilities, and actual frequencies.
         """
-        params: dict[str, Any] = {}
         if agent:
-            params["agent"] = agent
-        return self._client.request(
-            "GET", "/api/v1/calibration/curve", params=params or None
-        )
+            return self._client.request(
+                "GET", f"/api/v1/agent/{agent}/calibration-curve"
+            )
+        return self.get_visualization()
 
     def get_history(
         self,
@@ -94,14 +93,14 @@ class CalibrationAPI:
             Dict with historical calibration data including trends
             and improvement/regression tracking.
         """
-        params: dict[str, Any] = {}
         if agent:
-            params["agent"] = agent
-        if period:
-            params["period"] = period
-        return self._client.request(
-            "GET", "/api/v1/calibration/history", params=params or None
-        )
+            params: dict[str, Any] = {}
+            if period:
+                params["period"] = period
+            return self._client.request(
+                "GET", f"/api/v1/agent/{agent}/calibration-summary", params=params or None
+            )
+        return self.get_visualization()
 
 
 class AsyncCalibrationAPI:
@@ -127,12 +126,11 @@ class AsyncCalibrationAPI:
 
     async def get_curve(self, agent: str | None = None) -> dict[str, Any]:
         """Get calibration curve data."""
-        params: dict[str, Any] = {}
         if agent:
-            params["agent"] = agent
-        return await self._client.request(
-            "GET", "/api/v1/calibration/curve", params=params or None
-        )
+            return await self._client.request(
+                "GET", f"/api/v1/agent/{agent}/calibration-curve"
+            )
+        return await self.get_visualization()
 
     async def get_history(
         self,
@@ -140,11 +138,11 @@ class AsyncCalibrationAPI:
         period: str | None = None,
     ) -> dict[str, Any]:
         """Get calibration history over time."""
-        params: dict[str, Any] = {}
         if agent:
-            params["agent"] = agent
-        if period:
-            params["period"] = period
-        return await self._client.request(
-            "GET", "/api/v1/calibration/history", params=params or None
-        )
+            params: dict[str, Any] = {}
+            if period:
+                params["period"] = period
+            return await self._client.request(
+                "GET", f"/api/v1/agent/{agent}/calibration-summary", params=params or None
+            )
+        return await self.get_visualization()

@@ -1,6 +1,7 @@
 'use client';
 
 import Link from 'next/link';
+import { RETURN_URL_STORAGE_KEY } from '@/utils/returnUrl';
 
 // ---------------------------------------------------------------------------
 // Types (shared with Playground.tsx)
@@ -83,7 +84,7 @@ interface DebateResultPreviewProps {
   result: DebateResponse;
 }
 
-export const RETURN_URL_KEY = 'aragora_return_url';
+export const RETURN_URL_KEY = RETURN_URL_STORAGE_KEY;
 export const PENDING_DEBATE_KEY = 'aragora_pending_debate';
 
 export function DebateResultPreview({ result }: DebateResultPreviewProps) {

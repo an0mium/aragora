@@ -3,6 +3,7 @@
 import { useState, useCallback, FormEvent } from 'react';
 import Link from 'next/link';
 import { DebateResultPreview, RETURN_URL_KEY, PENDING_DEBATE_KEY, type DebateResponse } from './DebateResultPreview';
+import { getCurrentReturnUrl, normalizeReturnUrl } from '@/utils/returnUrl';
 
 interface LandingPageProps {
   apiBase?: string;
@@ -107,7 +108,8 @@ export function LandingPage({ apiBase, onEnterDashboard }: LandingPageProps) {
   const saveDebateBeforeLogin = useCallback(() => {
     if (result) {
       sessionStorage.setItem(PENDING_DEBATE_KEY, JSON.stringify(result));
-      sessionStorage.setItem(RETURN_URL_KEY, '/');
+      const debateDestination = result.id ? `/debates/${encodeURIComponent(result.id)}` : getCurrentReturnUrl();
+      sessionStorage.setItem(RETURN_URL_KEY, normalizeReturnUrl(debateDestination));
     }
   }, [result]);
 

@@ -6,6 +6,23 @@
 
 import type { AragoraClient } from '../client';
 
+type RequestOptions = {
+  params?: Record<string, unknown>;
+  body?: unknown;
+};
+
+type RequestMethod = (
+  method: string,
+  path: string,
+  options?: RequestOptions
+) => Promise<unknown>;
+
+type LegacyMethod = (...args: unknown[]) => Promise<unknown>;
+
+type CompatClient = AragoraClient & {
+  request?: RequestMethod;
+} & Record<string, unknown>;
+
 /**
  * Workflows API namespace.
  *
@@ -18,6 +35,32 @@ import type { AragoraClient } from '../client';
 export class WorkflowsAPI {
   constructor(private client: AragoraClient) {}
 
+  private request<T>(
+    method: string,
+    path: string,
+    options?: RequestOptions
+  ): Promise<T> {
+    const request = (this.client as CompatClient).request;
+    if (typeof request !== 'function') {
+      throw new TypeError('this.client.request is not a function');
+    }
+    return request(method, path, options) as Promise<T>;
+  }
+
+  private invoke<T>(
+    legacyMethod: string,
+    legacyArgs: unknown[],
+    method: string,
+    path: string,
+    options?: RequestOptions
+  ): Promise<T> {
+    const legacy = (this.client as CompatClient)[legacyMethod];
+    if (typeof legacy === 'function') {
+      return (legacy as LegacyMethod).apply(this.client, legacyArgs) as Promise<T>;
+    }
+    return this.request<T>(method, path, options);
+  }
+
   // ===========================================================================
   // Workflows CRUD
   // ===========================================================================
@@ -27,9 +70,13 @@ export class WorkflowsAPI {
    * @route GET /api/v1/workflows
    */
   async list(params?: { limit?: number; offset?: number }): Promise<Record<string, unknown>> {
-    return this.client.request('GET', '/api/v1/workflows', {
-      params: params as Record<string, unknown>,
-    }) as Promise<Record<string, unknown>>;
+    return this.invoke<Record<string, unknown>>(
+      'listWorkflows',
+      [params],
+      'GET',
+      '/api/v1/workflows',
+      { params: params as Record<string, unknown> }
+    );
   }
 
   /**
@@ -37,9 +84,13 @@ export class WorkflowsAPI {
    * @route POST /api/v1/workflows
    */
   async create(body: Record<string, unknown>): Promise<Record<string, unknown>> {
-    return this.client.request('POST', '/api/v1/workflows', {
-      body,
-    }) as Promise<Record<string, unknown>>;
+    return this.invoke<Record<string, unknown>>(
+      'createWorkflow',
+      [body],
+      'POST',
+      '/api/v1/workflows',
+      { body }
+    );
   }
 
   /**
@@ -47,10 +98,12 @@ export class WorkflowsAPI {
    * @route GET /api/v1/workflows/{workflow_id}
    */
   async get(workflowId: string): Promise<Record<string, unknown>> {
-    return this.client.request(
+    return this.invoke<Record<string, unknown>>(
+      'getWorkflow',
+      [workflowId],
       'GET',
       `/api/v1/workflows/${encodeURIComponent(workflowId)}`
-    ) as Promise<Record<string, unknown>>;
+    );
   }
 
   /**
@@ -58,11 +111,13 @@ export class WorkflowsAPI {
    * @route PUT /api/v1/workflows/{workflow_id}
    */
   async update(workflowId: string, body: Record<string, unknown>): Promise<Record<string, unknown>> {
-    return this.client.request(
+    return this.invoke<Record<string, unknown>>(
+      'updateWorkflow',
+      [workflowId, body],
       'PUT',
       `/api/v1/workflows/${encodeURIComponent(workflowId)}`,
       { body }
-    ) as Promise<Record<string, unknown>>;
+    );
   }
 
   /**
@@ -70,7 +125,7 @@ export class WorkflowsAPI {
    * @route PATCH /api/v1/workflows/{workflow_id}
    */
   async patch(workflowId: string, body: Record<string, unknown>): Promise<Record<string, unknown>> {
-    return this.client.request(
+    return this.request(
       'PATCH',
       `/api/v1/workflows/${encodeURIComponent(workflowId)}`,
       { body }
@@ -82,10 +137,12 @@ export class WorkflowsAPI {
    * @route DELETE /api/v1/workflows/{workflow_id}
    */
   async delete(workflowId: string): Promise<void> {
-    return this.client.request(
+    return this.invoke<void>(
+      'deleteWorkflow',
+      [workflowId],
       'DELETE',
       `/api/v1/workflows/${encodeURIComponent(workflowId)}`
-    ) as Promise<void>;
+    );
   }
 
   /**
@@ -93,11 +150,13 @@ export class WorkflowsAPI {
    * @route POST /api/v1/workflows/{workflow_id}/execute
    */
   async execute(workflowId: string, inputs?: Record<string, unknown>): Promise<Record<string, unknown>> {
-    return this.client.request(
+    return this.invoke<Record<string, unknown>>(
+      'executeWorkflow',
+      [workflowId, inputs],
       'POST',
       `/api/v1/workflows/${encodeURIComponent(workflowId)}/execute`,
       { body: inputs }
-    ) as Promise<Record<string, unknown>>;
+    );
   }
 
   /**
@@ -105,11 +164,13 @@ export class WorkflowsAPI {
    * @route POST /api/v1/workflows/{workflow_id}/simulate
    */
   async simulate(workflowId: string, inputs?: Record<string, unknown>): Promise<Record<string, unknown>> {
-    return this.client.request(
+    return this.invoke<Record<string, unknown>>(
+      'simulateWorkflow',
+      [workflowId, inputs],
       'POST',
       `/api/v1/workflows/${encodeURIComponent(workflowId)}/simulate`,
       { body: inputs }
-    ) as Promise<Record<string, unknown>>;
+    );
   }
 
   /**
@@ -117,10 +178,12 @@ export class WorkflowsAPI {
    * @route GET /api/v1/workflows/{workflow_id}/status
    */
   async getStatus(workflowId: string): Promise<Record<string, unknown>> {
-    return this.client.request(
+    return this.invoke<Record<string, unknown>>(
+      'getWorkflowStatus',
+      [workflowId],
       'GET',
       `/api/v1/workflows/${encodeURIComponent(workflowId)}/status`
-    ) as Promise<Record<string, unknown>>;
+    );
   }
 
   /**
@@ -128,10 +191,12 @@ export class WorkflowsAPI {
    * @route GET /api/v1/workflows/{workflow_id}/versions
    */
   async getVersions(workflowId: string): Promise<Record<string, unknown>> {
-    return this.client.request(
+    return this.invoke<Record<string, unknown>>(
+      'getWorkflowVersions',
+      [workflowId],
       'GET',
       `/api/v1/workflows/${encodeURIComponent(workflowId)}/versions`
-    ) as Promise<Record<string, unknown>>;
+    );
   }
 
   /**
@@ -139,10 +204,12 @@ export class WorkflowsAPI {
    * @route POST /api/v1/workflows/{workflow_id}/versions/{version}/restore
    */
   async restoreVersion(workflowId: string, version: number): Promise<Record<string, unknown>> {
-    return this.client.request(
+    return this.invoke<Record<string, unknown>>(
+      'restoreWorkflowVersion',
+      [workflowId, version],
       'POST',
       `/api/v1/workflows/${encodeURIComponent(workflowId)}/versions/${version}/restore`
-    ) as Promise<Record<string, unknown>>;
+    );
   }
 
   // ===========================================================================
@@ -154,9 +221,13 @@ export class WorkflowsAPI {
    * @route POST /api/v1/workflows/executions
    */
   async listExecutions(params?: Record<string, unknown>): Promise<Record<string, unknown>> {
-    return this.client.request('POST', '/api/v1/workflows/executions', {
-      body: params,
-    }) as Promise<Record<string, unknown>>;
+    return this.invoke<Record<string, unknown>>(
+      'listWorkflowExecutions',
+      [params],
+      'POST',
+      '/api/v1/workflows/executions',
+      { body: params }
+    );
   }
 
   /**
@@ -164,10 +235,12 @@ export class WorkflowsAPI {
    * @route GET /api/v1/workflows/executions/{execution_id}
    */
   async getExecution(executionId: string): Promise<Record<string, unknown>> {
-    return this.client.request(
+    return this.invoke<Record<string, unknown>>(
+      'getWorkflowExecution',
+      [executionId],
       'GET',
       `/api/v1/workflows/executions/${encodeURIComponent(executionId)}`
-    ) as Promise<Record<string, unknown>>;
+    );
   }
 
   /**
@@ -175,10 +248,12 @@ export class WorkflowsAPI {
    * @route DELETE /api/v1/workflows/executions/{execution_id}
    */
   async deleteExecution(executionId: string): Promise<void> {
-    return this.client.request(
+    return this.invoke<void>(
+      'deleteWorkflowExecution',
+      [executionId],
       'DELETE',
       `/api/v1/workflows/executions/${encodeURIComponent(executionId)}`
-    ) as Promise<void>;
+    );
   }
 
   /**
@@ -186,7 +261,7 @@ export class WorkflowsAPI {
    * @route PATCH /api/v1/workflows/executions
    */
   async updateExecutions(body: Record<string, unknown>): Promise<Record<string, unknown>> {
-    return this.client.request('PATCH', '/api/v1/workflows/executions', {
+    return this.request('PATCH', '/api/v1/workflows/executions', {
       body,
     }) as Promise<Record<string, unknown>>;
   }
@@ -196,7 +271,7 @@ export class WorkflowsAPI {
    * @route PUT /api/v1/workflows/executions
    */
   async replaceExecutions(body: Record<string, unknown>): Promise<Record<string, unknown>> {
-    return this.client.request('PUT', '/api/v1/workflows/executions', {
+    return this.request('PUT', '/api/v1/workflows/executions', {
       body,
     }) as Promise<Record<string, unknown>>;
   }
@@ -206,7 +281,7 @@ export class WorkflowsAPI {
    * @route DELETE /api/v1/workflows/executions
    */
   async deleteExecutions(): Promise<void> {
-    return this.client.request('DELETE', '/api/v1/workflows/executions') as Promise<void>;
+    return this.request('DELETE', '/api/v1/workflows/executions') as Promise<void>;
   }
 
   // ===========================================================================
@@ -218,7 +293,7 @@ export class WorkflowsAPI {
    * @route POST /api/v1/workflows/templates
    */
   async createTemplate(body: Record<string, unknown>): Promise<Record<string, unknown>> {
-    return this.client.request('POST', '/api/v1/workflows/templates', {
+    return this.request('POST', '/api/v1/workflows/templates', {
       body,
     }) as Promise<Record<string, unknown>>;
   }
@@ -228,10 +303,12 @@ export class WorkflowsAPI {
    * @route GET /api/v1/workflows/templates/{template_id}
    */
   async getTemplate(templateId: string): Promise<Record<string, unknown>> {
-    return this.client.request(
+    return this.invoke<Record<string, unknown>>(
+      'getWorkflowTemplate',
+      [templateId],
       'GET',
       `/api/v1/workflows/templates/${encodeURIComponent(templateId)}`
-    ) as Promise<Record<string, unknown>>;
+    );
   }
 
   /**
@@ -239,7 +316,7 @@ export class WorkflowsAPI {
    * @route PUT /api/v1/workflows/templates/{template_id}
    */
   async updateTemplate(templateId: string, body: Record<string, unknown>): Promise<Record<string, unknown>> {
-    return this.client.request(
+    return this.request(
       'PUT',
       `/api/v1/workflows/templates/${encodeURIComponent(templateId)}`,
       { body }
@@ -251,7 +328,7 @@ export class WorkflowsAPI {
    * @route DELETE /api/v1/workflows/templates/{template_id}
    */
   async deleteTemplate(templateId: string): Promise<void> {
-    return this.client.request(
+    return this.request(
       'DELETE',
       `/api/v1/workflows/templates/${encodeURIComponent(templateId)}`
     ) as Promise<void>;
@@ -262,7 +339,7 @@ export class WorkflowsAPI {
    * @route PATCH /api/v1/workflows/templates
    */
   async patchTemplates(body: Record<string, unknown>): Promise<Record<string, unknown>> {
-    return this.client.request('PATCH', '/api/v1/workflows/templates', {
+    return this.request('PATCH', '/api/v1/workflows/templates', {
       body,
     }) as Promise<Record<string, unknown>>;
   }
@@ -272,7 +349,7 @@ export class WorkflowsAPI {
    * @route PUT /api/v1/workflows/templates
    */
   async replaceTemplates(body: Record<string, unknown>): Promise<Record<string, unknown>> {
-    return this.client.request('PUT', '/api/v1/workflows/templates', {
+    return this.request('PUT', '/api/v1/workflows/templates', {
       body,
     }) as Promise<Record<string, unknown>>;
   }
@@ -282,7 +359,7 @@ export class WorkflowsAPI {
    * @route DELETE /api/v1/workflows/templates
    */
   async deleteTemplates(): Promise<void> {
-    return this.client.request('DELETE', '/api/v1/workflows/templates') as Promise<void>;
+    return this.request('DELETE', '/api/v1/workflows/templates') as Promise<void>;
   }
 
   // ===========================================================================
@@ -294,9 +371,162 @@ export class WorkflowsAPI {
    * @route GET /api/v1/workflow-templates
    */
   async listWorkflowTemplates(params?: { category?: string }): Promise<Record<string, unknown>> {
-    return this.client.request('GET', '/api/v1/workflow-templates', {
-      params: params as Record<string, unknown>,
-    }) as Promise<Record<string, unknown>>;
+    return this.invoke<Record<string, unknown>>(
+      'listWorkflowTemplates',
+      [params],
+      'GET',
+      '/api/v1/workflow-templates',
+      { params: params as Record<string, unknown> }
+    );
+  }
+
+  /**
+   * Run a workflow template.
+   * @route POST /api/v1/workflow-templates/{template_id}/run
+   */
+  async runWorkflowTemplate(
+    templateId: string,
+    body?: Record<string, unknown>
+  ): Promise<Record<string, unknown>> {
+    return this.invoke<Record<string, unknown>>(
+      'runWorkflowTemplate',
+      [templateId, body],
+      'POST',
+      `/api/v1/workflow-templates/${encodeURIComponent(templateId)}/run`,
+      { body }
+    );
+  }
+
+  /**
+   * Get a workflow template package.
+   * @route GET /api/v1/workflow-templates/{template_id}/package
+   */
+  async getWorkflowTemplatePackage(
+    templateId: string,
+    options?: { include_examples?: boolean }
+  ): Promise<Record<string, unknown>> {
+    return this.invoke<Record<string, unknown>>(
+      'getWorkflowTemplatePackage',
+      [templateId, options],
+      'GET',
+      `/api/v1/workflow-templates/${encodeURIComponent(templateId)}/package`,
+      { params: options as Record<string, unknown> }
+    );
+  }
+
+  /**
+   * List workflow categories.
+   * @route GET /api/v1/workflow/categories
+   */
+  async listWorkflowCategories(): Promise<Record<string, unknown>> {
+    return this.invoke<Record<string, unknown>>(
+      'listWorkflowCategories',
+      [],
+      'GET',
+      '/api/v1/workflow/categories'
+    );
+  }
+
+  /**
+   * List workflow patterns.
+   * @route GET /api/v1/workflow/patterns
+   */
+  async listWorkflowPatterns(): Promise<Record<string, unknown>> {
+    return this.invoke<Record<string, unknown>>(
+      'listWorkflowPatterns',
+      [],
+      'GET',
+      '/api/v1/workflow/patterns'
+    );
+  }
+
+  /**
+   * List pattern templates.
+   * @route GET /api/v1/workflow/pattern-templates
+   */
+  async listPatternTemplates(): Promise<Record<string, unknown>> {
+    return this.invoke<Record<string, unknown>>(
+      'listPatternTemplates',
+      [],
+      'GET',
+      '/api/v1/workflow/pattern-templates'
+    );
+  }
+
+  /**
+   * Get pattern template details.
+   * @route GET /api/v1/workflow/pattern-templates/{pattern_id}
+   */
+  async getPatternTemplate(patternId: string): Promise<Record<string, unknown>> {
+    return this.invoke<Record<string, unknown>>(
+      'getPatternTemplate',
+      [patternId],
+      'GET',
+      `/api/v1/workflow/pattern-templates/${encodeURIComponent(patternId)}`
+    );
+  }
+
+  /**
+   * List recommended workflow templates.
+   * @route GET /api/v1/templates/recommended
+   */
+  async listRecommendedTemplates(): Promise<Record<string, unknown>> {
+    return this.invoke<Record<string, unknown>>(
+      'listRecommendedTemplates',
+      [],
+      'GET',
+      '/api/v1/templates/recommended'
+    );
+  }
+
+  /**
+   * Create a workflow from a workflow pattern.
+   * @route POST /api/v1/workflow/patterns/{pattern_id}/instantiate
+   */
+  async instantiatePattern(
+    patternId: string,
+    body: Record<string, unknown>
+  ): Promise<Record<string, unknown>> {
+    return this.invoke<Record<string, unknown>>(
+      'instantiatePattern',
+      [patternId, body],
+      'POST',
+      `/api/v1/workflow/patterns/${encodeURIComponent(patternId)}/instantiate`,
+      { body }
+    );
+  }
+
+  /**
+   * Backward-compatible aliases for workflow template operations.
+   */
+  async listTemplates(params?: { category?: string }): Promise<Record<string, unknown>> {
+    return this.listWorkflowTemplates(params);
+  }
+
+  async runTemplate(
+    templateId: string,
+    body?: Record<string, unknown>
+  ): Promise<Record<string, unknown>> {
+    return this.runWorkflowTemplate(templateId, body);
+  }
+
+  async getTemplatePackage(
+    templateId: string,
+    options?: { include_examples?: boolean }
+  ): Promise<Record<string, unknown>> {
+    return this.getWorkflowTemplatePackage(templateId, options);
+  }
+
+  async listRecommended(): Promise<Record<string, unknown>> {
+    return this.listRecommendedTemplates();
+  }
+
+  async listCategories(): Promise<Record<string, unknown>> {
+    return this.listWorkflowCategories();
+  }
+
+  async listPatterns(): Promise<Record<string, unknown>> {
+    return this.listWorkflowPatterns();
   }
 
   // ===========================================================================
@@ -312,9 +542,13 @@ export class WorkflowsAPI {
     status?: string;
     limit?: number;
   }): Promise<Record<string, unknown>> {
-    return this.client.request('GET', '/api/v1/workflow-executions', {
-      params: params as Record<string, unknown>,
-    }) as Promise<Record<string, unknown>>;
+    return this.invoke<Record<string, unknown>>(
+      'listWorkflowExecutions',
+      [params],
+      'GET',
+      '/api/v1/workflow-executions',
+      { params: params as Record<string, unknown> }
+    );
   }
 
   /**
@@ -322,10 +556,12 @@ export class WorkflowsAPI {
    * @route GET /api/v1/workflow-executions/{execution_id}
    */
   async getWorkflowExecution(executionId: string): Promise<Record<string, unknown>> {
-    return this.client.request(
+    return this.invoke<Record<string, unknown>>(
+      'getWorkflowExecution',
+      [executionId],
       'GET',
       `/api/v1/workflow-executions/${encodeURIComponent(executionId)}`
-    ) as Promise<Record<string, unknown>>;
+    );
   }
 
   /**
@@ -333,10 +569,12 @@ export class WorkflowsAPI {
    * @route DELETE /api/v1/workflow-executions/{execution_id}
    */
   async terminateExecution(executionId: string): Promise<Record<string, unknown>> {
-    return this.client.request(
+    return this.invoke<Record<string, unknown>>(
+      'deleteWorkflowExecution',
+      [executionId],
       'DELETE',
       `/api/v1/workflow-executions/${encodeURIComponent(executionId)}`
-    ) as Promise<Record<string, unknown>>;
+    );
   }
 
   // ===========================================================================
@@ -349,11 +587,16 @@ export class WorkflowsAPI {
    */
   async listApprovals(params?: {
     workflow_id?: string;
+    status?: string;
     tenant_id?: string;
   }): Promise<Record<string, unknown>> {
-    return this.client.request('GET', '/api/v1/workflow-approvals', {
-      params: params as Record<string, unknown>,
-    }) as Promise<Record<string, unknown>>;
+    return this.invoke<Record<string, unknown>>(
+      'listWorkflowApprovals',
+      [params],
+      'GET',
+      '/api/v1/workflow-approvals',
+      { params: params as Record<string, unknown> }
+    );
   }
 
   /**
@@ -362,13 +605,88 @@ export class WorkflowsAPI {
    */
   async resolveApproval(
     requestId: string,
-    body: { status?: string; notes?: string; checklist?: Record<string, unknown> }
+    body: {
+      status?: string;
+      notes?: string;
+      checklist?: Record<string, unknown>;
+      approved?: boolean;
+      comment?: string;
+      reason?: string;
+    }
   ): Promise<Record<string, unknown>> {
-    return this.client.request(
+    return this.invoke<Record<string, unknown>>(
+      'resolveWorkflowApproval',
+      [requestId, body],
       'POST',
       `/api/v1/workflow-approvals/${encodeURIComponent(requestId)}/resolve`,
       { body }
-    ) as Promise<Record<string, unknown>>;
+    );
+  }
+
+  // ===========================================================================
+  // SME Workflows
+  // ===========================================================================
+
+  /**
+   * List SME workflow templates.
+   * @route GET /api/v1/sme/workflows
+   */
+  async listSMEWorkflows(params?: Record<string, unknown>): Promise<Record<string, unknown>> {
+    return this.invoke<Record<string, unknown>>(
+      'listSMEWorkflows',
+      [params],
+      'GET',
+      '/api/v1/sme/workflows',
+      { params }
+    );
+  }
+
+  /**
+   * Get SME workflow details.
+   * @route GET /api/v1/sme/workflows/{workflow_id}
+   */
+  async getSMEWorkflow(workflowId: string): Promise<Record<string, unknown>> {
+    return this.invoke<Record<string, unknown>>(
+      'getSMEWorkflow',
+      [workflowId],
+      'GET',
+      `/api/v1/sme/workflows/${encodeURIComponent(workflowId)}`
+    );
+  }
+
+  /**
+   * Execute an SME workflow.
+   * @route POST /api/v1/sme/workflows/{workflow_id}
+   */
+  async executeSMEWorkflow(
+    workflowId: string,
+    body: Record<string, unknown>
+  ): Promise<Record<string, unknown>> {
+    return this.invoke<Record<string, unknown>>(
+      'executeSMEWorkflow',
+      [workflowId, body],
+      'POST',
+      `/api/v1/sme/workflows/${encodeURIComponent(workflowId)}`,
+      { body }
+    );
+  }
+
+  /**
+   * Backward-compatible aliases for SME workflows.
+   */
+  async listSME(params?: Record<string, unknown>): Promise<Record<string, unknown>> {
+    return this.listSMEWorkflows(params);
+  }
+
+  async getSME(workflowId: string): Promise<Record<string, unknown>> {
+    return this.getSMEWorkflow(workflowId);
+  }
+
+  async executeSME(
+    workflowId: string,
+    body: Record<string, unknown>
+  ): Promise<Record<string, unknown>> {
+    return this.executeSMEWorkflow(workflowId, body);
   }
 
   // ===========================================================================
@@ -380,7 +698,7 @@ export class WorkflowsAPI {
    * @route POST /api/v1/workflows/auto-layout
    */
   async autoLayout(body: Record<string, unknown>): Promise<Record<string, unknown>> {
-    return this.client.request('POST', '/api/v1/workflows/auto-layout', {
+    return this.request('POST', '/api/v1/workflows/auto-layout', {
       body,
     }) as Promise<Record<string, unknown>>;
   }
@@ -390,7 +708,7 @@ export class WorkflowsAPI {
    * @route POST /api/v1/workflows/from-pattern
    */
   async fromPattern(body: Record<string, unknown>): Promise<Record<string, unknown>> {
-    return this.client.request('POST', '/api/v1/workflows/from-pattern', {
+    return this.request('POST', '/api/v1/workflows/from-pattern', {
       body,
     }) as Promise<Record<string, unknown>>;
   }
@@ -400,7 +718,7 @@ export class WorkflowsAPI {
    * @route POST /api/v1/workflows/generate
    */
   async generate(body: Record<string, unknown>): Promise<Record<string, unknown>> {
-    return this.client.request('POST', '/api/v1/workflows/generate', {
+    return this.request('POST', '/api/v1/workflows/generate', {
       body,
     }) as Promise<Record<string, unknown>>;
   }
@@ -410,7 +728,7 @@ export class WorkflowsAPI {
    * @route GET /api/v1/workflows/step-types
    */
   async listStepTypes(params?: { category?: string }): Promise<Record<string, unknown>> {
-    return this.client.request('GET', '/api/v1/workflows/step-types', {
+    return this.request('GET', '/api/v1/workflows/step-types', {
       params: params as Record<string, unknown>,
     }) as Promise<Record<string, unknown>>;
   }
@@ -420,7 +738,7 @@ export class WorkflowsAPI {
    * @route POST /api/v1/workflows/validate
    */
   async validate(body: Record<string, unknown>): Promise<Record<string, unknown>> {
-    return this.client.request('POST', '/api/v1/workflows/validate', {
+    return this.request('POST', '/api/v1/workflows/validate', {
       body,
     }) as Promise<Record<string, unknown>>;
   }
@@ -430,7 +748,7 @@ export class WorkflowsAPI {
    * @route POST /api/v1/workflows/{workflow_id}/replay
    */
   async replay(workflowId: string, body?: Record<string, unknown>): Promise<Record<string, unknown>> {
-    return this.client.request('POST', `/api/v1/workflows/${encodeURIComponent(workflowId)}/replay`, {
+    return this.request('POST', `/api/v1/workflows/${encodeURIComponent(workflowId)}/replay`, {
       body,
     }) as Promise<Record<string, unknown>>;
   }

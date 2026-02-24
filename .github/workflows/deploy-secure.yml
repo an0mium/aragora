@@ -62,7 +62,7 @@ jobs:
       - name: Install dependencies
         run: |
           python -m pip install --upgrade pip
-          pip install -r requirements.txt || true
+          pip install -r requirements.txt
           pip install -e ".[dev]"
           pip install pytest-timeout httpx
 
@@ -288,21 +288,46 @@ jobs:
           echo "command_id=$COMMAND_ID" >> $GITHUB_OUTPUT
           echo "Started deployment command: $COMMAND_ID"
 
-          # Poll for command completion (up to 5 minutes) with error handling and backoff
+          # Poll for command completion on ALL instances (up to 5 minutes)
           MAX_POLL=60
           CONSECUTIVE_ERRORS=0
           MAX_CONSECUTIVE_ERRORS=5
           BACKOFF=5
           RESULT="Pending"
-          for i in $(seq 1 $MAX_POLL); do
-            RESULT=$(aws ssm get-command-invocation \
-              --command-id "$COMMAND_ID" \
-              --instance-id "${{ steps.get-instance.outputs.instance_id }}" \
-              --query 'Status' \
-              --output text 2>/dev/null)
-            EXIT_CODE=$?
+          FAILED_INSTANCE_IDS=""
 
-            if [[ $EXIT_CODE -ne 0 ]]; then
+          for i in $(seq 1 $MAX_POLL); do
+            POLL_ERROR=false
+            ALL_DONE=true
+            FAILED_INSTANCE_IDS=""
+
+            for INST_ID in "${IDS[@]}"; do
+              STATUS=$(aws ssm get-command-invocation \
+                --command-id "$COMMAND_ID" \
+                --instance-id "$INST_ID" \
+                --query 'Status' \
+                --output text 2>/dev/null)
+              EXIT_CODE=$?
+
+              if [[ $EXIT_CODE -ne 0 ]]; then
+                POLL_ERROR=true
+                break
+              fi
+
+              case "$STATUS" in
+                Success)
+                  ;;
+                Failed|Cancelled|TimedOut)
+                  ALL_DONE=false
+                  FAILED_INSTANCE_IDS="${FAILED_INSTANCE_IDS}${FAILED_INSTANCE_IDS:+,}$INST_ID"
+                  ;;
+                *)
+                  ALL_DONE=false
+                  ;;
+              esac
+            done
+
+            if [[ "$POLL_ERROR" == "true" ]]; then
               CONSECUTIVE_ERRORS=$((CONSECUTIVE_ERRORS + 1))
               echo "::warning::SSM API error (attempt $i, consecutive errors: $CONSECUTIVE_ERRORS/$MAX_CONSECUTIVE_ERRORS)"
               if [[ $CONSECUTIVE_ERRORS -ge $MAX_CONSECUTIVE_ERRORS ]]; then
@@ -310,7 +335,6 @@ jobs:
                 exit 1
               fi
               BACKOFF=$((BACKOFF * 2 > 30 ? 30 : BACKOFF * 2))
-              RESULT="Pending"
               sleep $BACKOFF
               continue
             fi
@@ -318,48 +342,58 @@ jobs:
             CONSECUTIVE_ERRORS=0
             BACKOFF=5
 
-            if [[ "$RESULT" == "Success" ]] || [[ "$RESULT" == "Failed" ]] || [[ "$RESULT" == "Cancelled" ]] || [[ "$RESULT" == "TimedOut" ]]; then
+            if [[ -n "$FAILED_INSTANCE_IDS" ]]; then
+              RESULT="Failed"
               break
             fi
-            echo "Waiting for SSM command... attempt $i/$MAX_POLL (status: $RESULT)"
+
+            if [[ "$ALL_DONE" == "true" ]]; then
+              RESULT="Success"
+              break
+            fi
+
+            echo "Waiting for SSM command... attempt $i/$MAX_POLL"
             sleep 5
           done
 
-          # Get final command result
-          RESULT=$(aws ssm get-command-invocation \
-            --command-id "$COMMAND_ID" \
-            --instance-id "${{ steps.get-instance.outputs.instance_id }}" \
-            --query '[Status, StatusDetails]' \
-            --output text)
-
-          echo "Command result: $RESULT"
-
-          if [[ "$RESULT" == *"Success"* ]]; then
+          if [[ "$RESULT" == "Success" ]]; then
             echo "deploy_success=true" >> $GITHUB_OUTPUT
           else
             echo "deploy_success=false" >> $GITHUB_OUTPUT
-            # Get output for debugging
-            aws ssm get-command-invocation \
-              --command-id "$COMMAND_ID" \
-              --instance-id "${{ steps.get-instance.outputs.instance_id }}" \
-              --query 'StandardOutputContent' \
-              --output text || true
-            aws ssm get-command-invocation \
-              --command-id "$COMMAND_ID" \
-              --instance-id "${{ steps.get-instance.outputs.instance_id }}" \
-              --query 'StandardErrorContent' \
-              --output text || true
+
+            for INST_ID in "${IDS[@]}"; do
+              INST_STATUS=$(aws ssm get-command-invocation \
+                --command-id "$COMMAND_ID" \
+                --instance-id "$INST_ID" \
+                --query 'Status' \
+                --output text 2>/dev/null || echo "Unknown")
+
+              if [[ "$INST_STATUS" != "Success" ]]; then
+                echo "=== Instance $INST_ID status: $INST_STATUS ==="
+                aws ssm get-command-invocation \
+                  --command-id "$COMMAND_ID" \
+                  --instance-id "$INST_ID" \
+                  --query 'StandardOutputContent' \
+                  --output text || true
+                aws ssm get-command-invocation \
+                  --command-id "$COMMAND_ID" \
+                  --instance-id "$INST_ID" \
+                  --query 'StandardErrorContent' \
+                  --output text || true
+              fi
+            done
           fi
 
       - name: Verify deployment health and SHA
         id: health
         if: steps.deploy.outputs.deploy_success == 'true'
         run: |
-          # Health check via SSM (security groups block direct IP access from GitHub Actions)
-          echo "Checking health and build SHA via SSM on instance..."
+          # Health/SHA check via SSM (security groups block direct IP access from GitHub Actions)
+          IFS=',' read -ra IDS <<< "${{ steps.get-instance.outputs.instance_ids }}"
+          echo "Checking health and build SHA via SSM on all instances..."
 
           HEALTH_CMD_ID=$(aws ssm send-command \
-            --instance-ids "${{ steps.get-instance.outputs.instance_id }}" \
+            --instance-ids "${IDS[@]}" \
             --document-name "AWS-RunShellScript" \
             --comment "Health check from GitHub Actions run ${{ github.run_id }}" \
             --parameters 'commands=[
@@ -377,26 +411,60 @@ jobs:
             --query 'Command.CommandId' \
             --output text)
 
-          # Poll for health check completion
-          for i in {1..20}; do
-            STATUS=$(aws ssm get-command-invocation \
-              --command-id "$HEALTH_CMD_ID" \
-              --instance-id "${{ steps.get-instance.outputs.instance_id }}" \
-              --query 'Status' \
-              --output text 2>/dev/null || echo "Pending")
+          MAX_POLL=20
+          HEALTH_OK=true
 
-            if [[ "$STATUS" == "Success" ]]; then
-              echo "Health check passed (via SSM localhost)"
-              echo "health_ok=true" >> $GITHUB_OUTPUT
-              exit 0
-            elif [[ "$STATUS" == "Failed" ]] || [[ "$STATUS" == "TimedOut" ]]; then
+          for i in $(seq 1 $MAX_POLL); do
+            ALL_DONE=true
+            HEALTH_OK=true
+            for INST_ID in "${IDS[@]}"; do
+              STATUS=$(aws ssm get-command-invocation \
+                --command-id "$HEALTH_CMD_ID" \
+                --instance-id "$INST_ID" \
+                --query 'Status' \
+                --output text 2>/dev/null || echo "Pending")
+              case "$STATUS" in
+                Success)
+                  ;;
+                Failed|TimedOut|Cancelled)
+                  ALL_DONE=true
+                  HEALTH_OK=false
+                  ;;
+                *)
+                  ALL_DONE=false
+                  ;;
+              esac
+            done
+
+            if [[ "$ALL_DONE" == "true" ]]; then
               break
             fi
             sleep 5
           done
 
+          if [[ "$HEALTH_OK" == "true" ]]; then
+            echo "Health check passed on all instances (via SSM localhost)"
+            echo "health_ok=true" >> $GITHUB_OUTPUT
+            exit 0
+          fi
+
           echo "health_ok=false" >> $GITHUB_OUTPUT
-          echo "::warning::Health check failed (status: $STATUS)"
+          echo "::warning::Health check failed on one or more instances"
+          for INST_ID in "${IDS[@]}"; do
+            INST_STATUS=$(aws ssm get-command-invocation \
+              --command-id "$HEALTH_CMD_ID" \
+              --instance-id "$INST_ID" \
+              --query 'Status' \
+              --output text 2>/dev/null || echo "Unknown")
+            if [[ "$INST_STATUS" != "Success" ]]; then
+              echo "=== Health check failure on instance $INST_ID (status: $INST_STATUS) ==="
+              aws ssm get-command-invocation \
+                --command-id "$HEALTH_CMD_ID" \
+                --instance-id "$INST_ID" \
+                --query 'StandardErrorContent' \
+                --output text || true
+            fi
+          done
 
       - name: Verify external access via Cloudflare
         id: external_health
@@ -420,9 +488,10 @@ jobs:
         if: steps.deploy.outputs.deploy_success != 'true' || steps.health.outputs.health_ok == 'false'
         run: |
           echo "::warning::Deployment failed - initiating rollback"
+          IFS=',' read -ra IDS <<< "${{ steps.get-instance.outputs.instance_ids }}"
 
           aws ssm send-command \
-            --instance-ids "${{ steps.get-instance.outputs.instance_id }}" \
+            --instance-ids "${IDS[@]}" \
             --document-name "AWS-RunShellScript" \
             --comment "Rollback aragora from GitHub Actions run ${{ github.run_id }}" \
             --parameters 'commands=[
@@ -580,20 +649,46 @@ jobs:
             --query 'Command.CommandId' \
             --output text)
 
-          # Poll for command completion (up to 5 minutes) with error handling and backoff
+          # Poll for command completion on ALL production instances (up to 5 minutes)
           MAX_POLL=60
           CONSECUTIVE_ERRORS=0
           MAX_CONSECUTIVE_ERRORS=5
           BACKOFF=5
-          for i in $(seq 1 $MAX_POLL); do
-            STATUS=$(aws ssm get-command-invocation \
-              --command-id "$COMMAND_ID" \
-              --instance-id "${{ steps.get-instance.outputs.instance_id }}" \
-              --query 'Status' \
-              --output text 2>/dev/null)
-            EXIT_CODE=$?
+          RESULT="Pending"
+          FAILED_INSTANCE_IDS=""
 
-            if [[ $EXIT_CODE -ne 0 ]]; then
+          for i in $(seq 1 $MAX_POLL); do
+            POLL_ERROR=false
+            ALL_DONE=true
+            FAILED_INSTANCE_IDS=""
+
+            for INST_ID in "${IDS[@]}"; do
+              STATUS=$(aws ssm get-command-invocation \
+                --command-id "$COMMAND_ID" \
+                --instance-id "$INST_ID" \
+                --query 'Status' \
+                --output text 2>/dev/null)
+              EXIT_CODE=$?
+
+              if [[ $EXIT_CODE -ne 0 ]]; then
+                POLL_ERROR=true
+                break
+              fi
+
+              case "$STATUS" in
+                Success)
+                  ;;
+                Failed|Cancelled|TimedOut)
+                  ALL_DONE=false
+                  FAILED_INSTANCE_IDS="${FAILED_INSTANCE_IDS}${FAILED_INSTANCE_IDS:+,}$INST_ID"
+                  ;;
+                *)
+                  ALL_DONE=false
+                  ;;
+              esac
+            done
+
+            if [[ "$POLL_ERROR" == "true" ]]; then
               CONSECUTIVE_ERRORS=$((CONSECUTIVE_ERRORS + 1))
               echo "::warning::SSM API error (attempt $i, consecutive errors: $CONSECUTIVE_ERRORS/$MAX_CONSECUTIVE_ERRORS)"
               if [[ $CONSECUTIVE_ERRORS -ge $MAX_CONSECUTIVE_ERRORS ]]; then
@@ -608,41 +703,55 @@ jobs:
             CONSECUTIVE_ERRORS=0
             BACKOFF=5
 
-            if [[ "$STATUS" == "Success" ]]; then
-              echo "Production deploy completed successfully"
+            if [[ -n "$FAILED_INSTANCE_IDS" ]]; then
+              RESULT="Failed"
               break
-            elif [[ "$STATUS" == "Failed" ]] || [[ "$STATUS" == "Cancelled" ]] || [[ "$STATUS" == "TimedOut" ]]; then
-              echo "::error::Production deploy failed with status: $STATUS"
-              echo "=== SSM STDOUT ==="
-              aws ssm get-command-invocation \
-                --command-id "$COMMAND_ID" \
-                --instance-id "${{ steps.get-instance.outputs.instance_id }}" \
-                --query 'StandardOutputContent' \
-                --output text || true
-              echo "=== SSM STDERR ==="
-              aws ssm get-command-invocation \
-                --command-id "$COMMAND_ID" \
-                --instance-id "${{ steps.get-instance.outputs.instance_id }}" \
-                --query 'StandardErrorContent' \
-                --output text || true
-              exit 1
             fi
-            echo "Waiting for SSM command... attempt $i/$MAX_POLL (status: $STATUS)"
+
+            if [[ "$ALL_DONE" == "true" ]]; then
+              RESULT="Success"
+              break
+            fi
+
+            echo "Waiting for SSM command... attempt $i/$MAX_POLL"
             sleep 5
           done
 
-          if [[ "$STATUS" != "Success" ]]; then
-            echo "::error::Production deploy timed out after $MAX_POLL attempts"
+          if [[ "$RESULT" != "Success" ]]; then
+            echo "::error::Production deploy failed or timed out (result: $RESULT)"
+            for INST_ID in "${IDS[@]}"; do
+              INST_STATUS=$(aws ssm get-command-invocation \
+                --command-id "$COMMAND_ID" \
+                --instance-id "$INST_ID" \
+                --query 'Status' \
+                --output text 2>/dev/null || echo "Unknown")
+              if [[ "$INST_STATUS" != "Success" ]]; then
+                echo "=== Instance $INST_ID status: $INST_STATUS ==="
+                aws ssm get-command-invocation \
+                  --command-id "$COMMAND_ID" \
+                  --instance-id "$INST_ID" \
+                  --query 'StandardOutputContent' \
+                  --output text || true
+                aws ssm get-command-invocation \
+                  --command-id "$COMMAND_ID" \
+                  --instance-id "$INST_ID" \
+                  --query 'StandardErrorContent' \
+                  --output text || true
+              fi
+            done
             exit 1
           fi
+
+          echo "Production deploy completed successfully on all instances"
 
       - name: Post-deploy SHA verification
         run: |
           EXPECTED_SHA="${{ github.sha }}"
           echo "Expected deployed SHA: $EXPECTED_SHA"
+          IFS=',' read -ra IDS <<< "${{ steps.get-instance.outputs.instance_ids }}"
 
           SHA_CMD_ID=$(aws ssm send-command \
-            --instance-ids "${{ steps.get-instance.outputs.instance_id }}" \
+            --instance-ids "${IDS[@]}" \
             --document-name "AWS-RunShellScript" \
             --comment "SHA verification from GitHub Actions run ${{ github.run_id }}" \
             --parameters 'commands=[
@@ -652,35 +761,57 @@ jobs:
             --query 'Command.CommandId' \
             --output text)
 
-          for i in {1..12}; do
-            STATUS=$(aws ssm get-command-invocation \
-              --command-id "$SHA_CMD_ID" \
-              --instance-id "${{ steps.get-instance.outputs.instance_id }}" \
-              --query 'Status' \
-              --output text 2>/dev/null || echo "Pending")
-            if [[ "$STATUS" == "Success" ]] || [[ "$STATUS" == "Failed" ]]; then
+          MAX_POLL=12
+          for i in $(seq 1 $MAX_POLL); do
+            ALL_DONE=true
+            for INST_ID in "${IDS[@]}"; do
+              STATUS=$(aws ssm get-command-invocation \
+                --command-id "$SHA_CMD_ID" \
+                --instance-id "$INST_ID" \
+                --query 'Status' \
+                --output text 2>/dev/null || echo "Pending")
+              if [[ "$STATUS" != "Success" ]] && [[ "$STATUS" != "Failed" ]]; then
+                ALL_DONE=false
+              fi
+            done
+            if [[ "$ALL_DONE" == "true" ]]; then
               break
             fi
             sleep 5
           done
 
-          if [[ "$STATUS" != "Success" ]]; then
-            echo "::error::Failed to retrieve deployed SHA"
+          SHA_MISMATCH=false
+          for INST_ID in "${IDS[@]}"; do
+            STATUS=$(aws ssm get-command-invocation \
+              --command-id "$SHA_CMD_ID" \
+              --instance-id "$INST_ID" \
+              --query 'Status' \
+              --output text 2>/dev/null || echo "Unknown")
+
+            if [[ "$STATUS" != "Success" ]]; then
+              echo "::error::Failed to retrieve deployed SHA from $INST_ID (status: $STATUS)"
+              SHA_MISMATCH=true
+              continue
+            fi
+
+            DEPLOYED_SHA=$(aws ssm get-command-invocation \
+              --command-id "$SHA_CMD_ID" \
+              --instance-id "$INST_ID" \
+              --query 'StandardOutputContent' \
+              --output text | tr -d '[:space:]')
+
+            echo "Deployed SHA on $INST_ID: $DEPLOYED_SHA"
+            if [[ "$DEPLOYED_SHA" != "$EXPECTED_SHA" ]]; then
+              echo "::error::SHA mismatch on $INST_ID! Expected $EXPECTED_SHA but found $DEPLOYED_SHA"
+              SHA_MISMATCH=true
+            fi
+          done
+
+          if [[ "$SHA_MISMATCH" == "true" ]]; then
             exit 1
           fi
 
-          DEPLOYED_SHA=$(aws ssm get-command-invocation \
-            --command-id "$SHA_CMD_ID" \
-            --instance-id "${{ steps.get-instance.outputs.instance_id }}" \
-            --query 'StandardOutputContent' \
-            --output text | tr -d '[:space:]')
-
-          echo "Deployed SHA: $DEPLOYED_SHA"
-          if [[ "$DEPLOYED_SHA" != "$EXPECTED_SHA" ]]; then
-            echo "::error::SHA mismatch! Expected $EXPECTED_SHA but found $DEPLOYED_SHA"
-            exit 1
-          fi
-          echo "SHA verification passed"
+          echo "SHA verification passed on all instances"
 
   notify:
     needs: [deploy-cloudflare, deploy-ec2-staging, deploy-ec2-production]
