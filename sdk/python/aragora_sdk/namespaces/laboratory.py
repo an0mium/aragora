@@ -84,6 +84,7 @@ class LaboratoryAPI:
         Returns:
             Trait analysis with strengths, weaknesses, and recommendations.
         """
+        # TODO: server route not yet implemented
         return self._client.request("GET", f"/api/v1/laboratory/agent/{agent_name}/analysis")
 
     def run_experiment(
@@ -174,6 +175,7 @@ class AsyncLaboratoryAPI:
         agent_name: str,
     ) -> dict[str, Any]:
         """Get detailed trait analysis for an agent."""
+        # TODO: server route not yet implemented
         return await self._client.request("GET", f"/api/v1/laboratory/agent/{agent_name}/analysis")
 
     async def run_experiment(

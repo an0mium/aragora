@@ -29,6 +29,7 @@ class GrokAgent(OpenAICompatibleMixin, APIAgent):
     OPENROUTER_MODEL_MAP = {
         "grok-4-latest": "x-ai/grok-4",
         "grok-4": "x-ai/grok-4",
+        "grok-4-fast": "x-ai/grok-4-fast",
         "grok-3": "x-ai/grok-3",
         "grok-2": "x-ai/grok-2-1212",
         "grok-2-1212": "x-ai/grok-2-1212",

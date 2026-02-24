@@ -37,8 +37,8 @@ class MistralAPIAgent(OpenAICompatibleMixin, APIAgent):
 
     # OpenRouter fallback mapping (in case direct API fails)
     OPENROUTER_MODEL_MAP = {
-        "mistral-large-2512": "mistralai/mistral-large-2411",  # Mistral Large 3
-        "mistral-large-latest": "mistralai/mistral-large-2411",
+        "mistral-large-2512": "mistralai/mistral-large-2512",  # Mistral Large 3
+        "mistral-large-latest": "mistralai/mistral-large-2512",
         "mistral-large-2411": "mistralai/mistral-large-2411",
         "mistral-medium-latest": "mistralai/mistral-medium",
         "mistral-small-latest": "mistralai/mistral-small",
@@ -46,7 +46,7 @@ class MistralAPIAgent(OpenAICompatibleMixin, APIAgent):
         "ministral-8b-latest": "mistralai/ministral-8b",
         "ministral-3b-latest": "mistralai/ministral-3b",
     }
-    DEFAULT_FALLBACK_MODEL = "mistralai/mistral-large-2411"
+    DEFAULT_FALLBACK_MODEL = "mistralai/mistral-large-2512"
 
     def __init__(
         self,

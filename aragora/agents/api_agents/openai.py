@@ -63,6 +63,8 @@ class OpenAIAPIAgent(OpenAICompatibleMixin, APIAgent):
         "gpt-4": "openai/gpt-4",
         "gpt-3.5-turbo": "openai/gpt-3.5-turbo",
         "gpt-4o-search-preview": "openai/gpt-4o",  # Search model fallback
+        "o3": "openai/o3",
+        "o3-mini": "openai/o3-mini",
     }
     DEFAULT_FALLBACK_MODEL = "openai/gpt-4.1"
 

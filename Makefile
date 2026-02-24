@@ -1,7 +1,7 @@
 # Aragora Makefile
 # Common development tasks for the Aragora multi-agent debate platform
 
-.PHONY: help install dev test test-e2e lint format typecheck check check-all ci guard guard-strict clean clean-all clean-runtime clean-runtime-dry docs serve docker demo demo-docker demo-stop worktree-ensure worktree-reconcile worktree-cleanup worktree-maintain codex-session branch-start pr-open
+.PHONY: help install dev test test-e2e lint format typecheck check check-all ci guard guard-strict clean clean-all clean-runtime clean-runtime-dry docs serve docker demo demo-docker demo-stop worktree-ensure worktree-reconcile worktree-cleanup worktree-maintain worktree-maintainer-install worktree-maintainer-uninstall worktree-maintainer-status codex-session branch-start pr-open
 
 # Default target
 help:
@@ -52,6 +52,9 @@ help:
 	@echo "  make worktree-reconcile Rebase managed Codex worktrees onto main"
 	@echo "  make worktree-cleanup Cleanup stale managed Codex worktrees"
 	@echo "  make worktree-maintain Reconcile+cleanup managed Codex worktrees"
+	@echo "  make worktree-maintainer-install Install launchd auto-maintainer (macOS)"
+	@echo "  make worktree-maintainer-uninstall Uninstall launchd auto-maintainer"
+	@echo "  make worktree-maintainer-status Show launchd auto-maintainer status"
 	@echo ""
 	@echo "Documentation:"
 	@echo "  make docs         Generate documentation"
@@ -172,6 +175,15 @@ worktree-cleanup:
 
 worktree-maintain:
 	python3 scripts/codex_worktree_autopilot.py maintain --base main --strategy merge --ttl-hours 24 --no-delete-branches
+
+worktree-maintainer-install:
+	./scripts/install_worktree_maintainer_launchd.sh --interval-seconds 300 --base main --strategy merge --ttl-hours 24
+
+worktree-maintainer-uninstall:
+	./scripts/uninstall_worktree_maintainer_launchd.sh
+
+worktree-maintainer-status:
+	./scripts/status_worktree_maintainer_launchd.sh
 
 branch-start:
 	@if [ -z "$(TYPE)" ] || [ -z "$(SLUG)" ]; then \

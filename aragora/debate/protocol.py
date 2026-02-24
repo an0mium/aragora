@@ -658,6 +658,45 @@ class DebateProtocol:
         defaults.update(kwargs)
         return cls(**defaults)  # type: ignore[arg-type]
 
+    @classmethod
+    def with_epistemic_hygiene(
+        cls,
+        penalty: float = 0.15,
+        min_alternatives: int = 1,
+        **kwargs: Any,
+    ) -> DebateProtocol:
+        """Create a protocol with epistemic hygiene enforcement.
+
+        Agents must include alternatives considered, falsifiability statements,
+        confidence intervals, and explicit unknowns in every proposal and
+        revision.  Claims missing required elements are penalized during
+        consensus vote weighting.
+
+        Args:
+            penalty: Consensus weight penalty for missing elements (default 0.15)
+            min_alternatives: Minimum alternatives per proposal (default 1)
+            **kwargs: Additional DebateProtocol parameters
+
+        Returns:
+            DebateProtocol with epistemic hygiene enabled.
+
+        Example:
+            protocol = DebateProtocol.with_epistemic_hygiene(
+                penalty=0.2,
+                rounds=5,
+            )
+            arena = Arena(environment=env, agents=agents, protocol=protocol)
+        """
+        return cls(
+            enable_epistemic_hygiene=True,
+            epistemic_hygiene_penalty=penalty,
+            epistemic_min_alternatives=min_alternatives,
+            epistemic_require_falsifiers=True,
+            epistemic_require_confidence=True,
+            epistemic_require_unknowns=True,
+            **kwargs,
+        )
+
 
 def user_vote_multiplier(intensity: int, protocol: DebateProtocol) -> float:
     """

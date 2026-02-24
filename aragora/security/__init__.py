@@ -108,6 +108,24 @@ from .ssrf_protection import (
     BLOCKED_PROTOCOLS,
 )
 
+# AWS Secrets Manager Rotation
+from .aws_key_rotation import (
+    AWSSecretRotator,
+    AWSRotationStatus,
+    RotationConfig,
+    RotationEvent,
+    RotationEventType,
+    RotationMonitor,
+    RotationStep,
+    SecretType,
+    get_rotation_monitor,
+    init_rotation_on_startup,
+    start_rotation_monitor,
+    stop_rotation_monitor,
+    lambda_handler as rotation_lambda_handler,
+    DEFAULT_ROTATION_DAYS,
+)
+
 # Anomaly Detection
 from .anomaly_detection import (
     AnomalyDetector,
@@ -178,6 +196,21 @@ __all__ = [
     "get_ssrf_config",
     "ALLOWED_PROTOCOLS",
     "BLOCKED_PROTOCOLS",
+    # AWS Secrets Manager Rotation
+    "AWSSecretRotator",
+    "AWSRotationStatus",
+    "RotationConfig",
+    "RotationEvent",
+    "RotationEventType",
+    "RotationMonitor",
+    "RotationStep",
+    "SecretType",
+    "get_rotation_monitor",
+    "init_rotation_on_startup",
+    "start_rotation_monitor",
+    "stop_rotation_monitor",
+    "rotation_lambda_handler",
+    "DEFAULT_ROTATION_DAYS",
     # Anomaly Detection
     "AnomalyDetector",
     "AnomalyDetectorConfig",

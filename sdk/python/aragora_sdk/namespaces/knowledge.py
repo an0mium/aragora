@@ -212,19 +212,24 @@ class KnowledgeAPI:
     # ========== Index Operations ==========
 
     def create_index(self, data: dict[str, Any]) -> dict[str, Any]:
-        """Create a knowledge index."""
-        return self._client.request("POST", "/api/v1/knowledge/index", json=data)
+        """Create a knowledge index.
+
+        .. note:: Uses the Knowledge Mound index repository endpoint.
+        """
+        return self._client.request(
+            "POST", "/api/v1/knowledge/mound/index/repository", json=data
+        )
 
     def embed_batch(self, texts: list[str]) -> dict[str, Any]:
         """Create embeddings for a batch of texts."""
         return self._client.request(
-            "POST", "/api/v1/knowledge/index/embed-batch", json={"texts": texts}
+            "POST", "/api/v1/knowledge/embeddings", json={"texts": texts}
         )
 
     def search_index(self, query: str, limit: int = 10) -> dict[str, Any]:
         """Search the knowledge index."""
         params: dict[str, Any] = {"q": query, "limit": limit}
-        return self._client.request("GET", "/api/v1/knowledge/index/search", params=params)
+        return self._client.request("GET", "/api/v1/knowledge/search", params=params)
 
     def create_embeddings(self, text: str, **kwargs: Any) -> dict[str, Any]:
         """Create embeddings for text."""
@@ -841,19 +846,24 @@ class AsyncKnowledgeAPI:
         return await self._client.request("POST", "/api/v1/knowledge/facts/validate", json=data)
 
     async def create_index(self, data: dict[str, Any]) -> dict[str, Any]:
-        """Create a knowledge index."""
-        return await self._client.request("POST", "/api/v1/knowledge/index", json=data)
+        """Create a knowledge index.
+
+        .. note:: Uses the Knowledge Mound index repository endpoint.
+        """
+        return await self._client.request(
+            "POST", "/api/v1/knowledge/mound/index/repository", json=data
+        )
 
     async def embed_batch(self, texts: list[str]) -> dict[str, Any]:
         """Create embeddings for a batch of texts."""
         return await self._client.request(
-            "POST", "/api/v1/knowledge/index/embed-batch", json={"texts": texts}
+            "POST", "/api/v1/knowledge/embeddings", json={"texts": texts}
         )
 
     async def search_index(self, query: str, limit: int = 10) -> dict[str, Any]:
         """Search the knowledge index."""
         params: dict[str, Any] = {"q": query, "limit": limit}
-        return await self._client.request("GET", "/api/v1/knowledge/index/search", params=params)
+        return await self._client.request("GET", "/api/v1/knowledge/search", params=params)
 
     # ========== KM Checkpoints ==========
 

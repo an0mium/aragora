@@ -901,15 +901,38 @@ class TestSearchIndex:
 
     def test_search_index_with_external(self, handler, mock_http, mock_continuum):
         """Test include_external flag triggers external searches."""
-        result = handler.handle(
-            "/api/v1/memory/search-index",
-            {"q": "test", "include_external": "true"},
-            mock_http,
-        )
+        mock_super_result = {
+            "id": "super_0",
+            "source": "supermemory",
+            "preview": "Supermemory result",
+            "score": 0.95,
+            "token_estimate": 5,
+            "metadata": {},
+            "container_tag": None,
+        }
+        mock_claude_result = {
+            "id": "cm_0",
+            "source": "claude-mem",
+            "preview": "Claude-mem result",
+            "token_estimate": 4,
+            "metadata": {},
+            "created_at": None,
+        }
+        with (
+            patch.object(handler, "_search_supermemory", return_value=[mock_super_result]),
+            patch.object(handler, "_search_claude_mem", return_value=[mock_claude_result]),
+        ):
+            result = handler.handle(
+                "/api/v1/memory/search-index",
+                {"q": "test", "include_external": "true"},
+                mock_http,
+            )
         assert _status(result) == 200
         body = _body(result)
         assert "external_results" in body
         assert "external_sources" in body
+        assert len(body["external_results"]) == 2
+        assert body["external_sources"] == ["supermemory", "claude-mem"]
 
     def test_search_index_continuum_not_initialized(self, handler, mock_http):
         handler.ctx["continuum_memory"] = None

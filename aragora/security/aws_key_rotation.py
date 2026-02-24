@@ -209,7 +209,7 @@ class RotationEvent:
 
 
 @dataclass
-class RotationStatus:
+class AWSRotationStatus:
     """Current rotation status for a managed secret."""
 
     secret_id: str
@@ -792,11 +792,11 @@ class AWSSecretRotator:
 
     # -- Status tracking -----------------------------------------------------
 
-    def get_rotation_status(self, secret_id: str) -> RotationStatus | None:
+    def get_rotation_status(self, secret_id: str) -> AWSRotationStatus | None:
         """Get the rotation status for a managed secret."""
         return self._statuses.get(secret_id)
 
-    def get_all_rotation_statuses(self) -> list[RotationStatus]:
+    def get_all_rotation_statuses(self) -> list[AWSRotationStatus]:
         """Get rotation statuses for all tracked secrets."""
         return list(self._statuses.values())
 
@@ -805,7 +805,7 @@ class AWSSecretRotator:
         secret_id: str,
         secret_type: SecretType,
         last_rotated_at: datetime | None = None,
-    ) -> RotationStatus:
+    ) -> AWSRotationStatus:
         """Start tracking a secret for rotation status reporting."""
         interval = self._config.rotation_intervals.get(
             secret_type, DEFAULT_ROTATION_DAYS.get(secret_type, 90)
@@ -817,7 +817,7 @@ class AWSSecretRotator:
         if last_rotated_at:
             next_rotation = last_rotated_at + timedelta(days=interval)
 
-        status = RotationStatus(
+        status = AWSRotationStatus(
             secret_id=secret_id,
             secret_type=secret_type,
             last_rotated_at=last_rotated_at,
@@ -827,7 +827,7 @@ class AWSSecretRotator:
         self._statuses[secret_id] = status
         return status
 
-    def check_secrets_due(self) -> list[RotationStatus]:
+    def check_secrets_due(self) -> list[AWSRotationStatus]:
         """Return all tracked secrets that are due for rotation."""
         return [s for s in self._statuses.values() if s.is_due()]
 
@@ -1155,7 +1155,7 @@ __all__ = [
     "RotationEvent",
     "RotationEventType",
     "RotationMonitor",
-    "RotationStatus",
+    "AWSRotationStatus",
     "RotationStep",
     "SecretType",
     "get_rotation_monitor",

@@ -47,3 +47,20 @@ make worktree-reconcile
 make worktree-cleanup
 make worktree-maintain
 ```
+
+## Auto-Maintainer (macOS launchd)
+
+```bash
+# Install background maintainer (every 5 minutes)
+make worktree-maintainer-install
+
+# Check status
+make worktree-maintainer-status
+
+# Uninstall
+make worktree-maintainer-uninstall
+```
+
+The maintainer runs non-destructive upkeep by default:
+- Integration strategy: `merge`
+- Branch retention: keeps local `codex/*` branches (`--no-delete-branches`)

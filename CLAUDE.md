@@ -18,6 +18,7 @@ For high-churn parallel sessions, use managed disposable worktrees and auto-reco
   `python3 scripts/codex_worktree_autopilot.py maintain --base main --strategy merge --ttl-hours 24`.
 - Reconcile frequently via `python3 scripts/codex_worktree_autopilot.py reconcile --all --base main`.
 - Cleanup stale session worktrees via `python3 scripts/codex_worktree_autopilot.py cleanup --base main --ttl-hours 24`.
+- Optional macOS automation: `make worktree-maintainer-install` to run background upkeep every 5 minutes.
 
 ## Quick Reference
 

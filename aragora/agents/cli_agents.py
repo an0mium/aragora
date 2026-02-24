@@ -96,8 +96,11 @@ class CLIAgent(CritiqueMixin, Agent):
         "gpt-4": "openai/gpt-4",
         # Gemini models
         "gemini-3.1-pro-preview": "google/gemini-3.1-pro-preview",
+        "gemini-3.1-pro": "google/gemini-3.1-pro-preview",
         "gemini-3-pro-preview": "google/gemini-3.1-pro-preview",
         "gemini-3-pro": "google/gemini-3.1-pro-preview",
+        "gemini-3-flash-preview": "google/gemini-3-flash-preview",
+        "gemini-3-flash": "google/gemini-3-flash-preview",
         "gemini-2.0-flash": "google/gemini-2.0-flash-001",
         "gemini-1.5-pro": "google/gemini-pro-1.5",
         # Grok models
@@ -108,8 +111,13 @@ class CLIAgent(CritiqueMixin, Agent):
         # Deepseek models
         "deepseek-coder": "deepseek/deepseek-chat",
         "deepseek-v3": "deepseek/deepseek-chat",
+        "deepseek-v3.2": "deepseek/deepseek-v3.2",
         # Qwen models
         "qwen-2.5-coder": "qwen/qwen-2.5-coder-32b-instruct",
+        "qwen3-coder": "qwen/qwen3-coder-next",
+        "qwen3-max": "qwen/qwen3-max",
+        # Mistral models
+        "mistral-large-2512": "mistralai/mistral-large-2512",
     }
 
     def __init__(

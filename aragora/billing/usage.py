@@ -30,27 +30,53 @@ class UsageEventType(Enum):
     AGENT_CALL = "agent_call"
 
 
-# Provider pricing per 1M tokens (as of Jan 2026)
+# Provider pricing per 1M tokens (as of Feb 2026)
 PROVIDER_PRICING: dict[str, dict[str, Decimal]] = {
     "anthropic": {
-        "claude-opus-4": Decimal("15.00"),  # Input
-        "claude-opus-4-output": Decimal("75.00"),
+        "claude-opus-4.6": Decimal("5.00"),  # Input
+        "claude-opus-4.6-output": Decimal("25.00"),
+        "claude-opus-4": Decimal("5.00"),
+        "claude-opus-4-output": Decimal("25.00"),
+        "claude-sonnet-4.6": Decimal("3.00"),
+        "claude-sonnet-4.6-output": Decimal("15.00"),
         "claude-sonnet-4": Decimal("3.00"),
         "claude-sonnet-4-output": Decimal("15.00"),
+        "claude-haiku-4.5": Decimal("0.80"),
+        "claude-haiku-4.5-output": Decimal("4.00"),
     },
     "openai": {
+        "gpt-4.1": Decimal("2.00"),
+        "gpt-4.1-output": Decimal("8.00"),
+        "gpt-4.1-mini": Decimal("0.40"),
+        "gpt-4.1-mini-output": Decimal("1.60"),
         "gpt-4o": Decimal("2.50"),
         "gpt-4o-output": Decimal("10.00"),
         "gpt-4o-mini": Decimal("0.15"),
         "gpt-4o-mini-output": Decimal("0.60"),
     },
     "google": {
+        "gemini-3.1-pro": Decimal("2.00"),
+        "gemini-3.1-pro-output": Decimal("12.00"),
+        "gemini-3-flash": Decimal("0.50"),
+        "gemini-3-flash-output": Decimal("3.00"),
         "gemini-pro": Decimal("1.25"),
         "gemini-pro-output": Decimal("5.00"),
     },
     "deepseek": {
-        "deepseek-v3": Decimal("0.14"),
-        "deepseek-v3-output": Decimal("0.28"),
+        "deepseek-v3.2": Decimal("0.28"),
+        "deepseek-v3.2-output": Decimal("0.42"),
+        "deepseek-v3": Decimal("0.28"),
+        "deepseek-v3-output": Decimal("0.42"),
+        "deepseek-r1": Decimal("0.28"),
+        "deepseek-r1-output": Decimal("0.42"),
+    },
+    "xai": {
+        "grok-4": Decimal("3.00"),
+        "grok-4-output": Decimal("15.00"),
+    },
+    "mistral": {
+        "mistral-large-3": Decimal("2.00"),
+        "mistral-large-3-output": Decimal("6.00"),
     },
     "openrouter": {
         "default": Decimal("2.00"),

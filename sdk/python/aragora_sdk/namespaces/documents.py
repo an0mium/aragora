@@ -308,4 +308,5 @@ class AsyncDocumentsAPI:
 
     async def reprocess(self, document_id: str) -> dict[str, Any]:
         """Reprocess a document (regenerate chunks/embeddings)."""
+        # TODO: server route not yet implemented
         return await self._client._request("POST", f"/api/v1/documents/{document_id}/reprocess")

@@ -97,6 +97,7 @@ class MonitoringAPI:
         if comment:
             data["comment"] = comment
 
+        # TODO: server route not yet implemented
         return self._client.request(
             "POST", f"/api/v1/monitoring/alerts/{alert_id}/acknowledge", json=data
         )
@@ -116,6 +117,7 @@ class MonitoringAPI:
         if resolution:
             data["resolution"] = resolution
 
+        # TODO: server route not yet implemented
         return self._client.request(
             "POST", f"/api/v1/monitoring/alerts/{alert_id}/resolve", json=data
         )
@@ -139,6 +141,7 @@ class MonitoringAPI:
         Returns:
             Dashboard configuration
         """
+        # TODO: server route not yet implemented
         return self._client.request("GET", f"/api/v1/monitoring/dashboards/{dashboard_id}")
 
     def get_logs(
@@ -258,6 +261,7 @@ class AsyncMonitoringAPI:
         if comment:
             data["comment"] = comment
 
+        # TODO: server route not yet implemented
         return await self._client.request(
             "POST", f"/api/v1/monitoring/alerts/{alert_id}/acknowledge", json=data
         )
@@ -268,6 +272,7 @@ class AsyncMonitoringAPI:
         if resolution:
             data["resolution"] = resolution
 
+        # TODO: server route not yet implemented
         return await self._client.request(
             "POST", f"/api/v1/monitoring/alerts/{alert_id}/resolve", json=data
         )
@@ -278,6 +283,7 @@ class AsyncMonitoringAPI:
 
     async def get_dashboard(self, dashboard_id: str) -> dict[str, Any]:
         """Get dashboard details."""
+        # TODO: server route not yet implemented
         return await self._client.request("GET", f"/api/v1/monitoring/dashboards/{dashboard_id}")
 
     async def get_logs(

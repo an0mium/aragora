@@ -114,9 +114,13 @@ class GeminiAgent(QuotaFallbackMixin, APIAgent):
     # Model mapping from Gemini to OpenRouter format (used by QuotaFallbackMixin)
     OPENROUTER_MODEL_MAP = {
         "gemini-3.1-pro-preview": "google/gemini-3.1-pro-preview",
+        "gemini-3.1-pro": "google/gemini-3.1-pro-preview",
         "gemini-3-flash-preview": "google/gemini-3-flash-preview",
+        "gemini-3-flash": "google/gemini-3-flash-preview",
         "gemini-3-pro-preview": "google/gemini-3.1-pro-preview",
+        "gemini-3-pro": "google/gemini-3.1-pro-preview",
         "gemini-2.5-pro": "google/gemini-3.1-pro-preview",
+        "gemini-2.5-flash": "google/gemini-3-flash-preview",
         "gemini-2.0-flash": "google/gemini-2.0-flash-001",
         "gemini-2.0-flash-001": "google/gemini-2.0-flash-001",
         "gemini-1.5-pro": "google/gemini-pro-1.5",

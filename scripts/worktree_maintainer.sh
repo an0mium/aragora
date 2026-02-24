@@ -22,6 +22,7 @@ Options:
                                 Integration strategy (default: merge)
   --managed-dir <path>          Managed dir relative to repo root (repeatable)
   --delete-branches             Allow cleanup to delete local codex/* branches
+  --no-delete-branches          Keep local codex/* branches during cleanup
   --help                        Show this help
 
 If no --managed-dir values are provided, the script auto-discovers
@@ -53,6 +54,10 @@ while [[ $# -gt 0 ]]; do
             ;;
         --delete-branches)
             KEEP_BRANCHES=false
+            shift
+            ;;
+        --no-delete-branches)
+            KEEP_BRANCHES=true
             shift
             ;;
         --help|-h)

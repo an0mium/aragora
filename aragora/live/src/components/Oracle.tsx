@@ -278,6 +278,230 @@ function ConvergenceMap({ tentacles }: { tentacles: Map<string, { text: string; 
 }
 
 // ---------------------------------------------------------------------------
+// Agent thinking indicator — pulsing dots with step description
+// ---------------------------------------------------------------------------
+
+function AgentThinkingIndicator({ agent, step }: { agent: string; step: string }) {
+  const color = getTentacleColor(agent);
+  return (
+    <div className="flex items-center gap-2 text-xs py-1">
+      <span className="inline-block w-1.5 h-1.5 rounded-full animate-pulse" style={{ backgroundColor: color }} />
+      <span style={{ color }} className="font-bold">{agent.toUpperCase()}</span>
+      <span className="text-[var(--text-muted)] italic">{step || 'thinking...'}</span>
+      <span className="flex gap-0.5">
+        <span className="inline-block w-1 h-1 rounded-full bg-[var(--acid-cyan)] animate-pulse" style={{ animationDelay: '0s' }} />
+        <span className="inline-block w-1 h-1 rounded-full bg-[var(--acid-cyan)] animate-pulse" style={{ animationDelay: '0.2s' }} />
+        <span className="inline-block w-1 h-1 rounded-full bg-[var(--acid-cyan)] animate-pulse" style={{ animationDelay: '0.4s' }} />
+      </span>
+    </div>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Debate event message — renders a single debate event
+// ---------------------------------------------------------------------------
+
+function DebateEventMessage({ event }: { event: DebateEvent }) {
+  const color = event.agent ? getTentacleColor(event.agent) : 'var(--acid-magenta)';
+
+  switch (event.type) {
+    case 'debate_start':
+      return (
+        <div className="prophecy-reveal text-xs text-[var(--acid-cyan)] py-2">
+          <span style={{ filter: 'drop-shadow(0 0 5px var(--acid-cyan))' }}>DEBATE STARTED</span>
+          <span className="text-[var(--text-muted)]">
+            {' '}&middot; {(event.data?.agents as string[])?.length || 0} agents
+            {event.data?.task ? ` &middot; "${String(event.data.task).slice(0, 60)}..."` : ''}
+          </span>
+        </div>
+      );
+
+    case 'round_start':
+      return (
+        <div className="prophecy-reveal text-xs text-[var(--gold,#ffd700)] py-1 flex items-center gap-2">
+          <span className="inline-block w-full h-[1px] bg-[var(--gold,#ffd700)]/20" />
+          <span className="whitespace-nowrap">ROUND {event.round}</span>
+          <span className="inline-block w-full h-[1px] bg-[var(--gold,#ffd700)]/20" />
+        </div>
+      );
+
+    case 'agent_thinking':
+      return (
+        <AgentThinkingIndicator agent={event.agent || 'unknown'} step={event.content || ''} />
+      );
+
+    case 'agent_message':
+      return (
+        <div className="prophecy-reveal mb-2">
+          <div className="text-xs mb-1 flex items-center gap-2">
+            <span className="inline-block w-1.5 h-1.5 rounded-full" style={{ backgroundColor: color }} />
+            <span style={{ color }} className="font-bold">
+              {(event.agent || 'unknown').toUpperCase()}
+            </span>
+            <span className="text-[var(--text-muted)]">
+              ({event.role || 'proposer'}) &middot; round {event.round || 0}
+            </span>
+          </div>
+          <div
+            className="border-l-2 pl-4 py-2 pr-3 text-sm leading-relaxed whitespace-pre-wrap ml-1 rounded-r-lg"
+            style={{ borderColor: color, color: '#2d1b4e', backgroundColor: 'rgba(200, 235, 210, 0.9)' }}
+          >
+            {event.content}
+          </div>
+        </div>
+      );
+
+    case 'critique':
+      return (
+        <div className="prophecy-reveal mb-2">
+          <div className="text-xs mb-1 flex items-center gap-2">
+            <span className="inline-block w-1.5 h-1.5 rounded-full" style={{ backgroundColor: color }} />
+            <span style={{ color }} className="font-bold">
+              {(event.agent || 'unknown').toUpperCase()}
+            </span>
+            <span className="text-[var(--crimson,#ff3333)]">CRITIQUE</span>
+            {event.data?.target && (
+              <span className="text-[var(--text-muted)]">
+                of {String(event.data.target).toUpperCase()}
+              </span>
+            )}
+          </div>
+          <div
+            className="border-l-2 border-[var(--crimson,#ff3333)] pl-4 py-2 pr-3 text-sm leading-relaxed whitespace-pre-wrap ml-1 rounded-r-lg"
+            style={{ color: '#2d1b4e', backgroundColor: 'rgba(255, 220, 220, 0.9)' }}
+          >
+            {event.content || (event.data?.issues as string[])?.map((issue: string) => `- ${issue}`).join('\n') || 'No details'}
+          </div>
+        </div>
+      );
+
+    case 'vote':
+      return (
+        <div className="prophecy-reveal text-xs py-1 flex items-center gap-2">
+          <span className="inline-block w-1.5 h-1.5 rounded-full" style={{ backgroundColor: color }} />
+          <span style={{ color }} className="font-bold">{(event.agent || 'unknown').toUpperCase()}</span>
+          <span className="text-[var(--acid-green)]">VOTED</span>
+          <span className="text-[var(--text-muted)]">
+            &ldquo;{String(event.data?.vote || '').slice(0, 80)}&rdquo;
+            {event.data?.confidence !== undefined && (
+              <> (confidence: {((event.data.confidence as number) * 100).toFixed(0)}%)</>
+            )}
+          </span>
+        </div>
+      );
+
+    case 'consensus':
+      return (
+        <div className="prophecy-reveal my-2 border border-[var(--acid-green)]/30 bg-[var(--acid-green)]/5 rounded-lg p-3">
+          <div className="text-xs font-bold text-[var(--acid-green)] mb-1">
+            {event.data?.reached ? 'CONSENSUS REACHED' : 'NO CONSENSUS'}
+          </div>
+          {event.data?.confidence !== undefined && (
+            <div className="text-xs text-[var(--text-muted)]">
+              Confidence: {((event.data.confidence as number) * 100).toFixed(0)}%
+            </div>
+          )}
+          {event.data?.answer && (
+            <div className="text-sm text-[var(--text)] mt-1 whitespace-pre-wrap">
+              {String(event.data.answer).slice(0, 500)}
+            </div>
+          )}
+        </div>
+      );
+
+    case 'debate_end':
+      return (
+        <div className="prophecy-reveal text-xs text-[var(--acid-magenta)] py-2">
+          <span style={{ filter: 'drop-shadow(0 0 5px var(--acid-magenta))' }}>DEBATE COMPLETE</span>
+          <span className="text-[var(--text-muted)]">
+            {' '}&middot; {event.data?.rounds || 0} round(s)
+            {event.data?.duration !== undefined && ` &middot; ${(event.data.duration as number).toFixed(1)}s`}
+          </span>
+        </div>
+      );
+
+    case 'agent_error':
+      return (
+        <div className="prophecy-reveal text-xs py-1">
+          <span className="text-[var(--crimson,#ff3333)]">
+            AGENT ERROR: {event.agent || 'unknown'}
+          </span>
+          <span className="text-[var(--text-muted)]"> &middot; {String(event.data?.message || 'Unknown error')}</span>
+        </div>
+      );
+
+    default:
+      return null;
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Debate stream display — renders the full debate event feed
+// ---------------------------------------------------------------------------
+
+function DebateStreamDisplay({
+  events,
+  agents,
+  round,
+  debateId,
+}: {
+  events: DebateEvent[];
+  agents: Map<string, DebateAgentState>;
+  round: number;
+  debateId: string | null;
+}) {
+  if (events.length === 0 && agents.size === 0) return null;
+
+  // Get currently thinking agents
+  const thinkingAgents = Array.from(agents.values()).filter(a => a.thinking);
+  // Get agents streaming tokens
+  const streamingAgents = Array.from(agents.values()).filter(a => a.streamingTokens);
+
+  return (
+    <div className="space-y-1">
+      {/* Debate events */}
+      {events.map((event, i) => (
+        <DebateEventMessage key={i} event={event} />
+      ))}
+
+      {/* Currently streaming agent tokens */}
+      {streamingAgents.map(agent => (
+        <div key={`stream-${agent.name}`} className="prophecy-reveal mb-2">
+          <div className="text-xs mb-1 flex items-center gap-2">
+            <span className="inline-block w-1.5 h-1.5 rounded-full" style={{ backgroundColor: getTentacleColor(agent.name) }} />
+            <span style={{ color: getTentacleColor(agent.name) }} className="font-bold">
+              {agent.name.toUpperCase()}
+            </span>
+            <span className="text-[var(--text-muted)]">({agent.role})</span>
+            <span className="inline-block w-1.5 h-1.5 rounded-full bg-[var(--acid-cyan)] animate-pulse" />
+          </div>
+          <div
+            className="border-l-2 pl-4 py-2 pr-3 text-sm leading-relaxed whitespace-pre-wrap ml-1 rounded-r-lg"
+            style={{
+              borderColor: getTentacleColor(agent.name),
+              color: '#2d1b4e',
+              backgroundColor: 'rgba(200, 235, 210, 0.9)',
+            }}
+          >
+            {agent.streamingTokens}
+            <span className="inline-block w-[2px] h-4 bg-[var(--acid-cyan)] ml-0.5 animate-pulse align-middle" />
+          </div>
+        </div>
+      ))}
+
+      {/* Currently thinking agents */}
+      {thinkingAgents.map(agent => (
+        <AgentThinkingIndicator
+          key={`think-${agent.name}`}
+          agent={agent.name}
+          step={agent.thinkingStep}
+        />
+      ))}
+    </div>
+  );
+}
+
+// ---------------------------------------------------------------------------
 // Oracle component
 // ---------------------------------------------------------------------------
 
@@ -296,6 +520,7 @@ export default function Oracle() {
   const [debating, setDebating] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [showIntro, setShowIntro] = useState(true);
+  const [useDebateStreaming, setUseDebateStreaming] = useState(false);
   const chatEndRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const avatarRef = useRef<HTMLIFrameElement>(null);
@@ -898,7 +1123,13 @@ export default function Oracle() {
     const canStream = await waitForStreamingSocket();
     if (canStream) {
       setLoading(true);
-      oracle.ask(question, mode, { sessionId: sessionIdRef.current, summaryDepth: 'light' });
+      if (useDebateStreaming) {
+        // Full debate mode: run multi-agent debate with streaming events
+        oracle.debate(question, mode, { sessionId: sessionIdRef.current });
+      } else {
+        // Direct LLM streaming mode (reflex + deep + tentacles)
+        oracle.ask(question, mode, { sessionId: sessionIdRef.current, summaryDepth: 'light' });
+      }
       // The WebSocket hook manages phase/token/tentacle state reactively.
       // We'll display streaming content via the oracle.* state below.
       // Loading state will be cleared when phase transitions past reflex/deep.
@@ -1008,8 +1239,14 @@ export default function Oracle() {
     return 'idle';
   }, [oracle.fallbackMode, oracle.connected, oracle.phase, loading, debating]);
 
+  // Auto-scroll when debate events arrive
+  useEffect(() => {
+    chatEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+  }, [oracle.debateEvents.length]);
+
   const streamStatusLabel = useMemo(() => {
     if (oracle.fallbackMode) return 'batch fallback';
+    if (oracle.isDebateMode && oracle.connected) return 'live debate';
     if (oracle.connected) return 'live stream';
     return 'reconnecting';
   }, [oracle.fallbackMode, oracle.connected]);

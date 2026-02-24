@@ -27,26 +27,37 @@ logger = logging.getLogger(__name__)
 # These mirror PROVIDER_PRICING from usage.py but can be overridden per-instance.
 DEFAULT_PROVIDER_RATES: dict[str, dict[str, tuple[Decimal, Decimal]]] = {
     "anthropic": {
-        "claude-opus-4": (Decimal("15.00"), Decimal("75.00")),
+        "claude-opus-4.6": (Decimal("5.00"), Decimal("25.00")),
+        "claude-opus-4": (Decimal("5.00"), Decimal("25.00")),
+        "claude-sonnet-4.6": (Decimal("3.00"), Decimal("15.00")),
         "claude-sonnet-4": (Decimal("3.00"), Decimal("15.00")),
+        "claude-haiku-4.5": (Decimal("0.80"), Decimal("4.00")),
     },
     "openai": {
+        "gpt-4.1": (Decimal("2.00"), Decimal("8.00")),
+        "gpt-4.1-mini": (Decimal("0.40"), Decimal("1.60")),
         "gpt-4o": (Decimal("2.50"), Decimal("10.00")),
         "gpt-4o-mini": (Decimal("0.15"), Decimal("0.60")),
     },
     "google": {
+        "gemini-3.1-pro": (Decimal("2.00"), Decimal("12.00")),
+        "gemini-3-flash": (Decimal("0.50"), Decimal("3.00")),
         "gemini-pro": (Decimal("1.25"), Decimal("5.00")),
     },
     "mistral": {
+        "mistral-large-3": (Decimal("2.00"), Decimal("6.00")),
         "mistral-large": (Decimal("2.00"), Decimal("6.00")),
         "codestral": (Decimal("0.30"), Decimal("0.90")),
     },
     "xai": {
-        "grok-2": (Decimal("2.00"), Decimal("10.00")),
+        "grok-4": (Decimal("3.00"), Decimal("15.00")),
         "grok-3": (Decimal("3.00"), Decimal("15.00")),
+        "grok-2": (Decimal("2.00"), Decimal("10.00")),
     },
     "deepseek": {
-        "deepseek-v3": (Decimal("0.14"), Decimal("0.28")),
+        "deepseek-v3.2": (Decimal("0.28"), Decimal("0.42")),
+        "deepseek-v3": (Decimal("0.28"), Decimal("0.42")),
+        "deepseek-r1": (Decimal("0.28"), Decimal("0.42")),
     },
     "openrouter": {
         "default": (Decimal("2.00"), Decimal("8.00")),
