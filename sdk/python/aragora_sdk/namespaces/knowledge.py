@@ -216,15 +216,11 @@ class KnowledgeAPI:
 
         .. note:: Uses the Knowledge Mound index repository endpoint.
         """
-        return self._client.request(
-            "POST", "/api/v1/knowledge/mound/index/repository", json=data
-        )
+        return self._client.request("POST", "/api/v1/knowledge/mound/index/repository", json=data)
 
     def embed_batch(self, texts: list[str]) -> dict[str, Any]:
         """Create embeddings for a batch of texts."""
-        return self._client.request(
-            "POST", "/api/v1/knowledge/embeddings", json={"texts": texts}
-        )
+        return self._client.request("POST", "/api/v1/knowledge/embeddings", json={"texts": texts})
 
     def search_index(self, query: str, limit: int = 10) -> dict[str, Any]:
         """Search the knowledge index."""

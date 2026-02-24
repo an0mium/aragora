@@ -60,9 +60,7 @@ class AudioAPI:
         Returns:
             Audio file metadata including format, duration, and size.
         """
-        return self._client.request(
-            "GET", "/api/v1/media/audio", params={"audio_id": audio_id}
-        )
+        return self._client.request("GET", "/api/v1/media/audio", params={"audio_id": audio_id})
 
     def list_episodes(
         self,
