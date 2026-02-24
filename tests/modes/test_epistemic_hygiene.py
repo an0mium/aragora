@@ -466,6 +466,7 @@ class TestDebateControllerIntegration:
         assert metadata["mode"] == "epistemic_hygiene"
         assert metadata["epistemic_hygiene"] is True
         assert "settlement" in metadata
+        assert metadata["settlement"]["claim"]
         assert metadata["settlement"]["status"] == "needs_definition"
 
     def test_debate_request_from_dict_with_mode(self):

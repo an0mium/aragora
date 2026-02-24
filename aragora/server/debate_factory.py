@@ -125,6 +125,8 @@ class DebateConfig:
     enable_cartographer: bool | None = None  # Enable argument cartography
     enable_introspection: bool | None = None  # Enable agent introspection
     enable_auto_execution: bool | None = None  # Enable post-debate auto-execution
+    enable_settlement_tracking: bool | None = None  # Enable settlement claim extraction
+    enable_interventions: bool | None = None  # Enable intervention queue for human-in-the-loop
 
     def parse_agent_specs(self) -> list[AgentSpec]:
         """Parse agent specifications from comma-separated string or list.
@@ -634,18 +636,19 @@ class DebateFactory:
         if config.mode == "epistemic_hygiene":
             from dataclasses import fields as dc_fields
 
-            epistemic_keys = {
+            override_keys = {
                 "enable_epistemic_hygiene",
                 "epistemic_hygiene_penalty",
                 "epistemic_min_alternatives",
                 "epistemic_require_falsifiers",
                 "epistemic_require_confidence",
                 "epistemic_require_unknowns",
+                "enable_settlement_tracking",
             }
             base_kwargs = {
                 f.name: getattr(protocol, f.name)
                 for f in dc_fields(protocol)
-                if f.name not in epistemic_keys
+                if f.name not in override_keys
             }
             protocol = DebateProtocol(
                 **base_kwargs,
@@ -655,8 +658,21 @@ class DebateFactory:
                 epistemic_require_falsifiers=True,
                 epistemic_require_confidence=True,
                 epistemic_require_unknowns=True,
+                enable_settlement_tracking=True,
             )
-            logger.info("Epistemic hygiene mode enabled on protocol")
+            logger.info("Epistemic hygiene mode enabled on protocol (settlement tracking auto-enabled)")
+
+        # Enable settlement tracking on the protocol when explicitly requested
+        if config.enable_settlement_tracking and not protocol.enable_settlement_tracking:
+            from dataclasses import fields as dc_fields
+
+            base_kwargs = {
+                f.name: getattr(protocol, f.name)
+                for f in dc_fields(protocol)
+                if f.name != "enable_settlement_tracking"
+            }
+            protocol = DebateProtocol(**base_kwargs, enable_settlement_tracking=True)
+            logger.info("Settlement tracking enabled on protocol")
 
         # Prepare event hooks with RLM training hook if enabled
         hooks = dict(event_hooks or {})

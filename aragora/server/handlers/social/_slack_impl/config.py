@@ -303,12 +303,29 @@ try:
     rate_limit = _rate_limit
 except ImportError as e:
     logger.warning("Failed to import handler utilities: %s", e)
-    # Define stubs to prevent import errors
-    # Note: These are typed as Any at module level (lines 243-244), so None is valid
+    # Define stubs to prevent import errors.
+    # SecureHandler MUST be a real class (not None) so that SlackHandler
+    # can inherit from it without a TypeError at class-definition time.
     HandlerResult = None
-    SecureHandler = None
     ForbiddenError = Exception
     UnauthorizedError = Exception
+
+    class _SecureHandlerStub:
+        """Minimal stub for SecureHandler when handler utilities are unavailable."""
+
+        def __init__(self, ctx: dict[str, Any] | None = None):
+            self.ctx = ctx or {}
+
+        def can_handle(self, path: str, method: str = "GET") -> bool:
+            return False
+
+        async def get_auth_context(self, handler: Any, **kwargs: Any) -> Any:
+            return None
+
+        def check_permission(self, auth_context: Any, permission: str) -> None:
+            pass
+
+    SecureHandler = _SecureHandlerStub
 
     def error_response(*args: Any, **kwargs: Any) -> Any:
         return None

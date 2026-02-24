@@ -26,7 +26,17 @@ from .config import (
     json_response,
     get_slack_integration,
 )
-from aragora.server.handlers.base import handle_errors
+try:
+    from aragora.server.handlers.base import handle_errors
+except ImportError:
+
+    def handle_errors(operation: str):  # type: ignore[misc]
+        """No-op stub when handler base is unavailable."""
+
+        def decorator(func):  # type: ignore[no-untyped-def]
+            return func
+
+        return decorator
 from .commands import CommandsMixin
 from .events import EventsMixin
 from .interactive import InteractiveMixin

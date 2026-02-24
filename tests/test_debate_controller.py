@@ -91,6 +91,35 @@ class TestDebateRequest:
         assert request.metadata["mode"] == "epistemic_hygiene"
         assert "Epistemic hygiene protocol" in (request.context or "")
 
+    def test_from_dict_epistemic_hygiene_production_requires_settlement_fields(self, monkeypatch):
+        """Production requests must provide explicit settlement fields."""
+        monkeypatch.setenv("ARAGORA_ENV", "production")
+        data = {
+            "question": "Should we approve migration?",
+            "mode": "epistemic_hygiene",
+            "metadata": {"settlement": {"falsifier": "CPU p95 worsens"}},
+        }
+        with pytest.raises(ValueError, match="requires settlement fields in production"):
+            DebateRequest.from_dict(data)
+
+    def test_from_dict_epistemic_hygiene_production_accepts_complete_settlement(self, monkeypatch):
+        """Production requests pass when settlement metadata is complete."""
+        monkeypatch.setenv("ARAGORA_ENV", "production")
+        data = {
+            "question": "Should we approve migration?",
+            "mode": "epistemic_hygiene",
+            "metadata": {
+                "settlement": {
+                    "falsifier": "CPU p95 worsens by >10%",
+                    "metric": "cpu_p95_ms",
+                    "review_horizon_days": 14,
+                }
+            },
+        }
+        request = DebateRequest.from_dict(data)
+        assert request.metadata["settlement"]["claim"] == "Should we approve migration?"
+        assert request.metadata["settlement"]["review_horizon_days"] == 14
+
     def test_from_dict_missing_question_raises(self):
         """Should raise ValueError if question is missing."""
         with pytest.raises(ValueError, match="question or task field is required"):
@@ -499,6 +528,43 @@ class TestDebateControllerRunDebate:
         assert result_payload["mode"] == "epistemic_hygiene"
         assert result_payload["settlement"]["status"] == "needs_definition"
         assert "falsifier" in result_payload["settlement"]
+
+    @patch("aragora.storage.receipt_store.get_receipt_store")
+    @patch("aragora.server.debate_controller.update_debate_status")
+    def test_run_debate_persists_settlement_snapshot_in_receipt(
+        self, mock_update, mock_get_receipt_store
+    ):
+        """Generated receipts should include normalized settlement metadata."""
+        from aragora.server.debate_factory import DebateConfig
+
+        mock_store = Mock()
+        mock_store.save.return_value = "receipt-xyz"
+        mock_get_receipt_store.return_value = mock_store
+
+        controller = DebateController(factory=self.factory, emitter=self.emitter)
+        config = DebateConfig(
+            question="Should we migrate to service mesh?",
+            agents_str="agent1",
+            rounds=1,
+            debate_id="test_123",
+            mode="epistemic_hygiene",
+            metadata={
+                "settlement": {
+                    "falsifier": "p95 latency degrades >15%",
+                    "metric": "p95_latency_ms",
+                    "review_horizon_days": 21,
+                }
+            },
+        )
+
+        controller._run_debate(config, "test_123")
+
+        saved = mock_store.save.call_args[0][0]
+        assert saved["mode"] == "epistemic_hygiene"
+        assert saved["settlement"]["claim"] == "Should we migrate to service mesh?"
+        assert saved["settlement"]["falsifier"] == "p95 latency degrades >15%"
+        assert saved["settlement"]["metric"] == "p95_latency_ms"
+        assert saved["settlement"]["review_horizon_days"] == 21
 
     @patch("aragora.server.debate_controller.update_debate_status")
     def test_run_debate_handles_validation_error(self, mock_update):

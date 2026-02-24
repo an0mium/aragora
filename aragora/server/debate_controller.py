@@ -10,6 +10,7 @@ from __future__ import annotations
 
 import asyncio
 import logging
+import os
 import uuid
 from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass, field
@@ -62,6 +63,8 @@ _EPISTEMIC_HYGIENE_PROMPT = (
     "3) State confidence bounds and key uncertainty drivers.\n"
     "4) End with a concrete falsifier and measurable settlement metric."
 )
+_PRODUCTION_LIKE_ENVS = {"production", "prod", "live", "staging", "stage"}
+_REQUIRED_PRODUCTION_SETTLEMENT_FIELDS = ("falsifier", "metric", "review_horizon_days")
 
 if TYPE_CHECKING:
     from aragora.server.stream import SyncEventEmitter
@@ -183,19 +186,83 @@ def _append_epistemic_hygiene_prompt(context: Any) -> str:
     return f"{base_context}\n\n{_EPISTEMIC_HYGIENE_PROMPT}"
 
 
-def _ensure_epistemic_hygiene_metadata(metadata: dict[str, Any]) -> None:
+def _is_production_like_env() -> bool:
+    """True when running in production-like environments."""
+    return os.environ.get("ARAGORA_ENV", "development").strip().lower() in _PRODUCTION_LIKE_ENVS
+
+
+def _coerce_positive_int(value: Any, *, default: int) -> int:
+    """Best-effort conversion for positive integer fields."""
+    try:
+        parsed = int(value)
+    except (ValueError, TypeError):
+        return default
+    return parsed if parsed > 0 else default
+
+
+def _normalize_settlement_metadata(
+    settlement: Any,
+    *,
+    claim_fallback: str | None = None,
+) -> dict[str, Any]:
+    """Normalize settlement metadata into a stable shape."""
+    raw = settlement if isinstance(settlement, dict) else {}
+    claim = str(
+        raw.get("claim")
+        or claim_fallback
+        or "Define the primary claim under debate."
+    ).strip()
+    normalized: dict[str, Any] = {
+        "status": str(raw.get("status") or "needs_definition").strip() or "needs_definition",
+        "falsifier": (
+            str(raw.get("falsifier") or "Define an objective falsifier for the primary claim.")
+            .strip()
+        ),
+        "metric": str(raw.get("metric") or "Define a measurable metric for decision settlement.").strip(),
+        "review_horizon_days": _coerce_positive_int(raw.get("review_horizon_days"), default=30),
+        "claim": claim,
+    }
+    return normalized
+
+
+def _validate_production_settlement_metadata(metadata: dict[str, Any]) -> None:
+    """Require explicit settlement fields for epistemic hygiene debates in production."""
+    settlement = metadata.get("settlement")
+    if not isinstance(settlement, dict):
+        raise ValueError("epistemic_hygiene mode requires metadata.settlement in production")
+
+    missing: list[str] = []
+    if not isinstance(settlement.get("falsifier"), str) or not settlement.get("falsifier", "").strip():
+        missing.append("falsifier")
+    if not isinstance(settlement.get("metric"), str) or not settlement.get("metric", "").strip():
+        missing.append("metric")
+    horizon = settlement.get("review_horizon_days")
+    try:
+        if int(horizon) <= 0:
+            missing.append("review_horizon_days")
+    except (ValueError, TypeError):
+        missing.append("review_horizon_days")
+
+    if missing:
+        fields = ", ".join(_REQUIRED_PRODUCTION_SETTLEMENT_FIELDS)
+        raise ValueError(
+            f"epistemic_hygiene mode requires settlement fields in production: {fields} "
+            f"(missing/invalid: {', '.join(missing)})"
+        )
+
+
+def _ensure_epistemic_hygiene_metadata(
+    metadata: dict[str, Any],
+    *,
+    question: str | None = None,
+) -> None:
     """Attach default settlement scaffolding for hygiene-mode debates."""
     metadata["mode"] = _EPISTEMIC_HYGIENE_MODE
     metadata["epistemic_hygiene"] = True
-
-    settlement = metadata.get("settlement")
-    if not isinstance(settlement, dict):
-        settlement = {}
-    settlement.setdefault("status", "needs_definition")
-    settlement.setdefault("falsifier", "Define an objective falsifier for the primary claim.")
-    settlement.setdefault("metric", "Define a measurable metric for decision settlement.")
-    settlement.setdefault("review_horizon_days", 30)
-    metadata["settlement"] = settlement
+    metadata["settlement"] = _normalize_settlement_metadata(
+        metadata.get("settlement"),
+        claim_fallback=question,
+    )
 
 
 @dataclass
@@ -308,7 +375,9 @@ class DebateRequest:
 
         context = data.get("context")
         if mode == _EPISTEMIC_HYGIENE_MODE:
-            _ensure_epistemic_hygiene_metadata(metadata)
+            if _is_production_like_env():
+                _validate_production_settlement_metadata(metadata)
+            _ensure_epistemic_hygiene_metadata(metadata, question=question)
             context = _append_epistemic_hygiene_prompt(context)
         elif mode is not None:
             metadata["mode"] = mode
@@ -1141,6 +1210,16 @@ class DebateController:
             input_content = f"{config.question}|{config.agents_str}|{config.rounds}"
             input_hash = hashlib.sha256(input_content.encode()).hexdigest()
 
+            mode_meta = config.mode or (
+                config.metadata.get("mode") if isinstance(config.metadata, dict) else None
+            )
+            settlement_meta = (
+                config.metadata.get("settlement") if isinstance(config.metadata, dict) else None
+            )
+            settlement_snapshot = _normalize_settlement_metadata(
+                settlement_meta,
+                claim_fallback=config.question,
+            ) if (mode_meta == _EPISTEMIC_HYGIENE_MODE or isinstance(settlement_meta, dict)) else None
             is_onboarding = bool(config.metadata and config.metadata.get("is_onboarding"))
 
             receipt_dict = {
@@ -1165,6 +1244,10 @@ class DebateController:
                 "is_onboarding": is_onboarding,
                 "agent_calibration": self._collect_agent_calibration(agents_list),
             }
+            if mode_meta:
+                receipt_dict["mode"] = mode_meta
+            if settlement_snapshot:
+                receipt_dict["settlement"] = settlement_snapshot
 
             # Calculate checksum
             checksum_content = f"{receipt_id}|{debate_id}|{input_hash}|{verdict}"
