@@ -959,10 +959,13 @@ class TestUniversalGraph:
         assert len(d["nodes"]) == 3
 
     def test_valid_subtypes_mapping_completeness(self):
-        """_VALID_SUBTYPES covers all four pipeline stages."""
-        assert set(_VALID_SUBTYPES.keys()) == {
+        """_VALID_SUBTYPES covers all pipeline stages."""
+        expected = {
             PipelineStage.IDEAS,
             PipelineStage.GOALS,
             PipelineStage.ACTIONS,
             PipelineStage.ORCHESTRATION,
         }
+        # PRINCIPLES is opt-in and may not be in _VALID_SUBTYPES
+        actual = set(_VALID_SUBTYPES.keys())
+        assert expected.issubset(actual)

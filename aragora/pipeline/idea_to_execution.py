@@ -123,6 +123,7 @@ class PipelineConfig:
     enable_beads: bool = False  # Map Stage 4 tasks to Bead lifecycle objects
     enable_fractal: bool = False  # Use FractalOrchestrator for recursive ideation
     enable_meta_tuning: bool = False  # MetaLearner self-tuning
+    enable_workspace_context: bool = True  # Check workspace for existing work
 
 
 @dataclass
@@ -177,6 +178,8 @@ class PipelineResult:
     duration: float = 0.0
     # Universal graph (populated when use_universal=True)
     universal_graph: Any | None = None  # UniversalGraph
+    # Workspace context (populated when enable_workspace_context=True)
+    workspace_context: Any | None = None  # WorkspaceContext
 
     def to_dict(self) -> dict[str, Any]:
         result = {
@@ -208,6 +211,8 @@ class PipelineResult:
             result["duration"] = self.duration
         if self.universal_graph is not None and hasattr(self.universal_graph, "to_dict"):
             result["universal_graph"] = self.universal_graph.to_dict()
+        if self.workspace_context is not None and hasattr(self.workspace_context, "to_dict"):
+            result["workspace_context"] = self.workspace_context.to_dict()
         return result
 
     def _compute_integrity_hash(self) -> str:
@@ -865,6 +870,30 @@ class IdeaToExecutionPipeline:
             except (ImportError, RuntimeError, ValueError, TypeError, AttributeError) as exc:
                 logger.debug("MetaLearner tuning unavailable: %s", exc)
 
+        # Workspace context: check for existing execution history
+        workspace_ctx = None
+        if cfg.enable_workspace_context:
+            try:
+                from aragora.pipeline.workspace_bridge import WorkspacePipelineBridge
+
+                ws_bridge = WorkspacePipelineBridge()
+                workspace_ctx = await ws_bridge.query_context(input_text)
+                if workspace_ctx and workspace_ctx.has_context:
+                    logger.info(
+                        "Workspace context: %d related beads, %d completed goals",
+                        len(workspace_ctx.related_beads),
+                        len(workspace_ctx.completed_goals),
+                    )
+                    _spectate(
+                        "pipeline.workspace_context",
+                        f"found {len(workspace_ctx.related_beads)} related beads",
+                    )
+            except (ImportError, RuntimeError, ValueError, TypeError, AttributeError) as exc:
+                logger.debug("Workspace context unavailable: %s", exc)
+
+        if workspace_ctx and workspace_ctx.has_context:
+            result.workspace_context = workspace_ctx
+
         self._emit(cfg, "started", {"pipeline_id": pipeline_id, "stages": cfg.stages_to_run})
 
         try:
@@ -954,6 +983,25 @@ class IdeaToExecutionPipeline:
                                     "label": goal.title,
                                 },
                             )
+                    # Mark goals already completed in workspace
+                    if workspace_ctx and workspace_ctx.has_context and goal_graph:
+                        try:
+                            from aragora.pipeline.workspace_bridge import (
+                                WorkspacePipelineBridge,
+                            )
+
+                            ws_bridge = WorkspacePipelineBridge()
+                            marked = await ws_bridge.mark_completed_goals(
+                                goal_graph, workspace_ctx
+                            )
+                            if marked:
+                                logger.info(
+                                    "Marked %d goals as already done from workspace",
+                                    marked,
+                                )
+                        except (ImportError, RuntimeError, TypeError, AttributeError) as exc:
+                            logger.debug("Workspace goal marking unavailable: %s", exc)
+
                     result.stage_status[PipelineStage.GOALS.value] = "complete"
                 elif sr.status == "failed":
                     result.stage_status[PipelineStage.GOALS.value] = "failed"

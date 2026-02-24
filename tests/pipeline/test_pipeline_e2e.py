@@ -115,7 +115,7 @@ class TestStageTypes:
     def test_orchestration_node_types(self):
         from aragora.canvas.stages import OrchestrationNodeType
 
-        expected = {"agent_task", "debate", "human_gate", "parallel_fan", "merge", "verification"}
+        expected = {"agent_task", "agent_assignment", "debate", "human_gate", "parallel_fan", "merge", "verification"}
         actual = {t.value for t in OrchestrationNodeType}
         assert expected == actual
 
