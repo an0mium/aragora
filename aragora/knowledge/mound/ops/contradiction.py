@@ -399,9 +399,9 @@ class ContradictionDetector:
                     # Auto-create debate topic for high-severity contradictions
                     if conflict.conflict_score >= self.config.auto_debate_threshold:
                         try:
-                            from aragora.events.dispatcher import get_event_dispatcher
+                            from aragora.events.dispatcher import get_dispatcher
 
-                            dispatcher = get_event_dispatcher()
+                            dispatcher = get_dispatcher()
                             await dispatcher.dispatch(
                                 "contradiction_debate_requested",
                                 {

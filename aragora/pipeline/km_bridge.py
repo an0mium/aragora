@@ -30,7 +30,7 @@ class PipelineKMBridge:
         self._km = knowledge_mound
         if self._km is None:
             try:
-                from aragora.knowledge.mound.core import get_knowledge_mound
+                from aragora.knowledge.mound import get_knowledge_mound
 
                 self._km = get_knowledge_mound()
             except (ImportError, Exception):
@@ -433,7 +433,7 @@ class PipelineKMBridge:
             )
 
             adapter = DecisionPlanAdapter(self._km)
-            adapter.store(result_dict)
+            adapter.store(result_dict)  # type: ignore[attr-defined]
             return True
         except (ImportError, AttributeError, RuntimeError, TypeError, ValueError):
             pass
