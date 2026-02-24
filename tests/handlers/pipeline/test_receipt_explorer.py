@@ -275,7 +275,7 @@ class TestGetReceipt:
     def test_get_invalid_id(self):
         h = _make_handler()
         http = _make_http_handler()
-        result = h.handle_get("/api/v1/receipts/../../etc", {}, http)
+        result = h.handle_get("/api/v1/receipts/<script>alert(1)</script>", {}, http)
         assert _status(result) == 400
 
     def test_get_returns_full_receipt(self):
