@@ -245,14 +245,19 @@ export class BudgetsAPI {
     budgetId: string,
     body: { user_id: string; limit: number; reason?: string }
   ): Promise<{ added: boolean }> {
-    return this.client.addBudgetOverride(budgetId, body);
+    return this.client.request('POST', `/api/v1/budgets/${encodeURIComponent(budgetId)}/overrides`, {
+      body,
+    });
   }
 
   /**
    * Remove a user-specific budget override.
    */
   async removeOverride(budgetId: string, userId: string): Promise<{ removed: boolean }> {
-    return this.client.removeBudgetOverride(budgetId, userId);
+    return this.client.request(
+      'DELETE',
+      `/api/v1/budgets/${encodeURIComponent(budgetId)}/overrides/${encodeURIComponent(userId)}`
+    );
   }
 
   // ===========================================================================
@@ -296,7 +301,9 @@ export class BudgetsAPI {
     budgetId: string,
     params?: TransactionFilterOptions
   ): Promise<BudgetTransactionList> {
-    return this.client.getBudgetTransactions(budgetId, params);
+    return this.client.request('GET', `/api/v1/budgets/${encodeURIComponent(budgetId)}/transactions`, {
+      params: params as Record<string, unknown> | undefined,
+    });
   }
 
   // ===========================================================================
@@ -330,7 +337,9 @@ export class BudgetsAPI {
    * ```
    */
   async getTrends(budgetId: string, params?: TrendsOptions): Promise<BudgetTrendsResponse> {
-    return this.client.getBudgetTrends(budgetId, params);
+    return this.client.request('GET', `/api/v1/budgets/${encodeURIComponent(budgetId)}/trends`, {
+      params: params as Record<string, unknown> | undefined,
+    });
   }
 
   /**

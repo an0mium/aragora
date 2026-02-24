@@ -329,6 +329,58 @@ export class KnowledgeAPI {
     return this.client.request('POST', '/api/v1/knowledge/facts/relations', { json: payload });
   }
 
+  /**
+   * Bulk create facts.
+   */
+  async batchCreateFacts(facts: Record<string, unknown>[]): Promise<Record<string, unknown>> {
+    return this.client.request('POST', '/api/v1/knowledge/facts/batch', {
+      json: { facts },
+    });
+  }
+
+  /**
+   * Bulk delete facts.
+   */
+  async batchDeleteFacts(factIds: string[]): Promise<Record<string, unknown>> {
+    return this.client.request('POST', '/api/v1/knowledge/facts/batch/delete', {
+      json: { fact_ids: factIds },
+    });
+  }
+
+  /**
+   * Merge duplicate or related facts.
+   */
+  async mergeFacts(body: Record<string, unknown>): Promise<Record<string, unknown>> {
+    return this.client.request('POST', '/api/v1/knowledge/facts/merge', {
+      json: body,
+    });
+  }
+
+  /**
+   * List global fact relationships.
+   */
+  async listFactRelationships(params?: Record<string, unknown>): Promise<Record<string, unknown>> {
+    return this.client.request('GET', '/api/v1/knowledge/facts/relationships', {
+      params,
+    });
+  }
+
+  /**
+   * Get fact statistics.
+   */
+  async getFactStats(): Promise<Record<string, unknown>> {
+    return this.client.request('GET', '/api/v1/knowledge/facts/stats');
+  }
+
+  /**
+   * Validate facts.
+   */
+  async validateFacts(body?: { fact_ids?: string[] }): Promise<Record<string, unknown>> {
+    return this.client.request('POST', '/api/v1/knowledge/facts/validate', {
+      json: body ?? {},
+    });
+  }
+
   // =========================================================================
   // Knowledge Mound Node Operations (Additional)
   // =========================================================================

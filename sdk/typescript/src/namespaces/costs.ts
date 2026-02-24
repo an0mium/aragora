@@ -232,4 +232,33 @@ export class CostsNamespace {
   async estimate(data: { operation: string; tokens_input?: number; tokens_output?: number; model?: string; provider?: string }): Promise<CostEstimate> {
     return this.client.request('POST', '/api/v1/costs/estimate', { body: data });
   }
+
+  // ===========================================================================
+  // Analytics (Cross-SDK parity)
+  // ===========================================================================
+
+  /** Get cost trend analytics. */
+  async getAnalyticsTrend(params?: Record<string, unknown>): Promise<Record<string, unknown>> {
+    return this.client.request('GET', '/api/v1/costs/analytics/trend', { params });
+  }
+
+  /** Get costs grouped by agent. */
+  async getAnalyticsByAgent(params?: Record<string, unknown>): Promise<Record<string, unknown>> {
+    return this.client.request('GET', '/api/v1/costs/analytics/by-agent', { params });
+  }
+
+  /** Get costs grouped by model. */
+  async getAnalyticsByModel(params?: Record<string, unknown>): Promise<Record<string, unknown>> {
+    return this.client.request('GET', '/api/v1/costs/analytics/by-model', { params });
+  }
+
+  /** Get costs grouped by debate. */
+  async getAnalyticsByDebate(params?: Record<string, unknown>): Promise<Record<string, unknown>> {
+    return this.client.request('GET', '/api/v1/costs/analytics/by-debate', { params });
+  }
+
+  /** Get budget utilization analytics. */
+  async getAnalyticsBudgetUtilization(params?: Record<string, unknown>): Promise<Record<string, unknown>> {
+    return this.client.request('GET', '/api/v1/costs/analytics/budget-utilization', { params });
+  }
 }

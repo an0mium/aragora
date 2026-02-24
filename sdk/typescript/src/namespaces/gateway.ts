@@ -626,4 +626,56 @@ export class GatewayAPI {
   async createConfigDefaults(data: Record<string, unknown>): Promise<Record<string, unknown>> {
     return this.client.request('POST', '/api/v1/gateway/config/defaults', { json: data });
   }
+
+  // =========================================================================
+  // OpenClaw Gateway Legacy Compatibility
+  // =========================================================================
+
+  /**
+   * List OpenClaw sessions via legacy gateway route.
+   * @route GET /api/gateway/openclaw/sessions
+   */
+  async listOpenClawSessions(params?: Record<string, unknown>): Promise<Record<string, unknown>> {
+    return this.client.request('GET', '/api/gateway/openclaw/sessions', { params });
+  }
+
+  /**
+   * Execute OpenClaw action via legacy gateway route.
+   * @route POST /api/gateway/openclaw/actions
+   */
+  async executeOpenClawAction(body: Record<string, unknown>): Promise<Record<string, unknown>> {
+    return this.client.request('POST', '/api/gateway/openclaw/actions', { json: body });
+  }
+
+  /**
+   * List OpenClaw credentials via legacy gateway route.
+   * @route GET /api/gateway/openclaw/credentials
+   */
+  async listOpenClawCredentials(): Promise<Record<string, unknown>> {
+    return this.client.request('GET', '/api/gateway/openclaw/credentials');
+  }
+
+  /**
+   * Get OpenClaw gateway health via legacy route.
+   * @route GET /api/gateway/openclaw/health
+   */
+  async getOpenClawHealth(): Promise<Record<string, unknown>> {
+    return this.client.request('GET', '/api/gateway/openclaw/health');
+  }
+
+  /**
+   * Get OpenClaw gateway metrics via legacy route.
+   * @route GET /api/gateway/openclaw/metrics
+   */
+  async getOpenClawMetrics(): Promise<Record<string, unknown>> {
+    return this.client.request('GET', '/api/gateway/openclaw/metrics');
+  }
+
+  /**
+   * Get OpenClaw audit events via legacy route.
+   * @route GET /api/gateway/openclaw/audit
+   */
+  async getOpenClawAudit(params?: Record<string, unknown>): Promise<Record<string, unknown>> {
+    return this.client.request('GET', '/api/gateway/openclaw/audit', { params });
+  }
 }

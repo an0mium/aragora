@@ -475,4 +475,309 @@ export class PipelineNamespace {
       { body }
     );
   }
+
+  // ===========================================================================
+  // Pipeline Demo, Automation, and Intelligence
+  // ===========================================================================
+
+  /**
+   * Create a pre-populated demo pipeline.
+   */
+  async demo(options?: { ideas?: string[] }): Promise<Record<string, unknown>> {
+    return this.client.request<Record<string, unknown>>(
+      'POST',
+      '/api/v1/canvas/pipeline/demo',
+      { body: options ?? {} }
+    );
+  }
+
+  /**
+   * Auto-run the full pipeline from unstructured text.
+   */
+  async autoRun(
+    text: string,
+    options?: { automationLevel?: string },
+  ): Promise<Record<string, unknown>> {
+    return this.client.request<Record<string, unknown>>(
+      'POST',
+      '/api/v1/canvas/pipeline/auto-run',
+      {
+        body: {
+          text,
+          automation_level: options?.automationLevel ?? 'full',
+        },
+      }
+    );
+  }
+
+  /**
+   * Extract principles/values from an ideas canvas.
+   */
+  async extractPrinciples(
+    ideasCanvas: Record<string, unknown>,
+  ): Promise<Record<string, unknown>> {
+    return this.client.request<Record<string, unknown>>(
+      'POST',
+      '/api/v1/canvas/pipeline/extract-principles',
+      { body: { ideas_canvas: ideasCanvas } }
+    );
+  }
+
+  /**
+   * Generate a pipeline from current system metrics.
+   */
+  async fromSystemMetrics(): Promise<Record<string, unknown>> {
+    return this.client.request<Record<string, unknown>>(
+      'POST',
+      '/api/v1/canvas/pipeline/from-system-metrics',
+      { body: {} }
+    );
+  }
+
+  /**
+   * Get intelligence view for a pipeline.
+   */
+  async getIntelligence(pipelineId: string): Promise<Record<string, unknown>> {
+    return this.client.request<Record<string, unknown>>(
+      'GET',
+      `/api/v1/canvas/pipeline/${encodeURIComponent(pipelineId)}/intelligence`
+    );
+  }
+
+  /**
+   * Get belief network state for pipeline nodes.
+   */
+  async getBeliefs(pipelineId: string): Promise<Record<string, unknown>> {
+    return this.client.request<Record<string, unknown>>(
+      'GET',
+      `/api/v1/canvas/pipeline/${encodeURIComponent(pipelineId)}/beliefs`
+    );
+  }
+
+  /**
+   * Get explanations for pipeline nodes.
+   */
+  async getExplanations(pipelineId: string): Promise<Record<string, unknown>> {
+    return this.client.request<Record<string, unknown>>(
+      'GET',
+      `/api/v1/canvas/pipeline/${encodeURIComponent(pipelineId)}/explanations`
+    );
+  }
+
+  /**
+   * Get precedent links for pipeline nodes.
+   */
+  async getPrecedents(pipelineId: string): Promise<Record<string, unknown>> {
+    return this.client.request<Record<string, unknown>>(
+      'GET',
+      `/api/v1/canvas/pipeline/${encodeURIComponent(pipelineId)}/precedents`
+    );
+  }
+
+  /**
+   * Trigger self-improvement analysis for a pipeline.
+   */
+  async selfImprove(pipelineId: string): Promise<Record<string, unknown>> {
+    return this.client.request<Record<string, unknown>>(
+      'POST',
+      `/api/v1/canvas/pipeline/${encodeURIComponent(pipelineId)}/self-improve`
+    );
+  }
+
+  // ===========================================================================
+  // Pipeline Graph Detail Operations
+  // ===========================================================================
+
+  /**
+   * Get a specific pipeline graph.
+   */
+  async getGraphById(graphId: string): Promise<Record<string, unknown>> {
+    return this.client.request<Record<string, unknown>>(
+      'GET',
+      `/api/v1/pipeline/graph/${encodeURIComponent(graphId)}`
+    );
+  }
+
+  /**
+   * Delete a specific pipeline graph.
+   */
+  async deleteGraphById(graphId: string): Promise<Record<string, unknown>> {
+    return this.client.request<Record<string, unknown>>(
+      'DELETE',
+      `/api/v1/pipeline/graph/${encodeURIComponent(graphId)}`
+    );
+  }
+
+  /**
+   * Add a node to a pipeline graph.
+   */
+  async addGraphNode(
+    graphId: string,
+    node: Record<string, unknown>,
+  ): Promise<Record<string, unknown>> {
+    return this.client.request<Record<string, unknown>>(
+      'POST',
+      `/api/v1/pipeline/graph/${encodeURIComponent(graphId)}/node`,
+      { body: node }
+    );
+  }
+
+  /**
+   * Update a node in a pipeline graph.
+   */
+  async updateGraphNode(
+    graphId: string,
+    nodeId: string,
+    node: Record<string, unknown>,
+  ): Promise<Record<string, unknown>> {
+    return this.client.request<Record<string, unknown>>(
+      'PUT',
+      `/api/v1/pipeline/graph/${encodeURIComponent(graphId)}/node/${encodeURIComponent(nodeId)}`,
+      { body: node }
+    );
+  }
+
+  /**
+   * Reassign node ownership in a pipeline graph.
+   */
+  async reassignGraphNode(
+    graphId: string,
+    nodeId: string,
+    body: Record<string, unknown>,
+  ): Promise<Record<string, unknown>> {
+    return this.client.request<Record<string, unknown>>(
+      'POST',
+      `/api/v1/pipeline/graph/${encodeURIComponent(graphId)}/node/${encodeURIComponent(nodeId)}/reassign`,
+      { body }
+    );
+  }
+
+  /**
+   * List nodes for a pipeline graph.
+   */
+  async listGraphNodes(
+    graphId: string,
+    params?: Record<string, unknown>,
+  ): Promise<Record<string, unknown>> {
+    return this.client.request<Record<string, unknown>>(
+      'GET',
+      `/api/v1/pipeline/graph/${encodeURIComponent(graphId)}/nodes`,
+      { params }
+    );
+  }
+
+  /**
+   * Promote a node in a pipeline graph.
+   */
+  async promoteGraphNode(
+    graphId: string,
+    body: Record<string, unknown>,
+  ): Promise<Record<string, unknown>> {
+    return this.client.request<Record<string, unknown>>(
+      'POST',
+      `/api/v1/pipeline/graph/${encodeURIComponent(graphId)}/promote`,
+      { body }
+    );
+  }
+
+  /**
+   * Get provenance for a graph node.
+   */
+  async getGraphNodeProvenance(
+    graphId: string,
+    nodeId: string,
+  ): Promise<Record<string, unknown>> {
+    return this.client.request<Record<string, unknown>>(
+      'GET',
+      `/api/v1/pipeline/graph/${encodeURIComponent(graphId)}/provenance/${encodeURIComponent(nodeId)}`
+    );
+  }
+
+  /**
+   * Get React Flow view for a specific graph.
+   */
+  async getGraphReactFlow(graphId: string): Promise<Record<string, unknown>> {
+    return this.client.request<Record<string, unknown>>(
+      'GET',
+      `/api/v1/pipeline/graph/${encodeURIComponent(graphId)}/react-flow`
+    );
+  }
+
+  /**
+   * Check graph integrity.
+   */
+  async getGraphIntegrity(graphId: string): Promise<Record<string, unknown>> {
+    return this.client.request<Record<string, unknown>>(
+      'GET',
+      `/api/v1/pipeline/graph/${encodeURIComponent(graphId)}/integrity`
+    );
+  }
+
+  /**
+   * Get graph improvement suggestions.
+   */
+  async getGraphSuggestions(graphId: string): Promise<Record<string, unknown>> {
+    return this.client.request<Record<string, unknown>>(
+      'GET',
+      `/api/v1/pipeline/graph/${encodeURIComponent(graphId)}/suggestions`
+    );
+  }
+
+  // ===========================================================================
+  // Pipeline Transition Helpers
+  // ===========================================================================
+
+  /**
+   * Run idea-to-goals transition helper.
+   */
+  async ideasToGoals(body: Record<string, unknown>): Promise<Record<string, unknown>> {
+    return this.client.request<Record<string, unknown>>(
+      'POST',
+      '/api/v1/pipeline/transitions/ideas-to-goals',
+      { body }
+    );
+  }
+
+  /**
+   * Run goals-to-tasks transition helper.
+   */
+  async goalsToTasks(body: Record<string, unknown>): Promise<Record<string, unknown>> {
+    return this.client.request<Record<string, unknown>>(
+      'POST',
+      '/api/v1/pipeline/transitions/goals-to-tasks',
+      { body }
+    );
+  }
+
+  /**
+   * Run tasks-to-workflow transition helper.
+   */
+  async tasksToWorkflow(body: Record<string, unknown>): Promise<Record<string, unknown>> {
+    return this.client.request<Record<string, unknown>>(
+      'POST',
+      '/api/v1/pipeline/transitions/tasks-to-workflow',
+      { body }
+    );
+  }
+
+  /**
+   * Execute transition plan.
+   */
+  async executeTransitions(body: Record<string, unknown>): Promise<Record<string, unknown>> {
+    return this.client.request<Record<string, unknown>>(
+      'POST',
+      '/api/v1/pipeline/transitions/execute',
+      { body }
+    );
+  }
+
+  /**
+   * Get transition provenance for a node.
+   */
+  async getTransitionProvenance(nodeId: string): Promise<Record<string, unknown>> {
+    return this.client.request<Record<string, unknown>>(
+      'GET',
+      `/api/v1/pipeline/transitions/${encodeURIComponent(nodeId)}/provenance`
+    );
+  }
 }
