@@ -252,8 +252,8 @@ class TestCostCalculationPerProvider:
             tokens_out=500_000,
         )
 
-        # Opus: $15/1M input, $75/1M output
-        expected = Decimal("15.00") + Decimal("37.50")
+        # Opus: $5/1M input, $25/1M output
+        expected = Decimal("5.00") + Decimal("12.500")
         assert large_cost == expected
 
     def test_zero_token_cost(self):

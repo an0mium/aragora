@@ -1,6 +1,6 @@
 {
   "handler_routes_count": 1950,
-  "openapi_routes_count": 2504,
+  "openapi_routes_count": 2496,
   "missing_in_spec": [
     "/api/v1/admin/feature-flags/{param}",
     "/api/v1/admin/system-health",

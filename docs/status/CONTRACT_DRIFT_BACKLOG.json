@@ -1,18 +1,18 @@
 {
   "generated_on": "2026-02-24",
-  "total_items": 733,
+  "total_items": 704,
   "counts_by_source": {
-    "verify_python_sdk_drift": 74,
-    "verify_typescript_sdk_drift": 430,
-    "routes_missing_in_spec": 183,
-    "routes_orphaned_in_spec": 46,
-    "sdk_missing_from_both": 0
+    "verify_python_sdk_drift": 72,
+    "verify_typescript_sdk_drift": 375,
+    "routes_missing_in_spec": 186,
+    "routes_orphaned_in_spec": 49,
+    "sdk_missing_from_both": 22
   },
   "counts_by_owner": {
-    "@team-platform": 559,
-    "@team-core": 92,
-    "@team-analytics": 21,
-    "@team-integrations": 51,
+    "@team-platform": 574,
+    "@team-core": 43,
+    "@team-analytics": 27,
+    "@team-integrations": 50,
     "@team-growth": 3,
     "@team-risk": 2,
     "@team-finops": 5
@@ -21,55 +21,47 @@
     {
       "week": 1,
       "date": "2026-03-03",
-      "target_max_open_items": 660
+      "target_max_open_items": 634
     },
     {
       "week": 2,
       "date": "2026-03-10",
-      "target_max_open_items": 594
+      "target_max_open_items": 571
     },
     {
       "week": 3,
       "date": "2026-03-17",
-      "target_max_open_items": 535
+      "target_max_open_items": 514
     },
     {
       "week": 4,
       "date": "2026-03-24",
-      "target_max_open_items": 482
+      "target_max_open_items": 463
     },
     {
       "week": 5,
       "date": "2026-03-31",
-      "target_max_open_items": 434
+      "target_max_open_items": 417
     },
     {
       "week": 6,
       "date": "2026-04-07",
-      "target_max_open_items": 391
+      "target_max_open_items": 375
     },
     {
       "week": 7,
       "date": "2026-04-14",
-      "target_max_open_items": 352
+      "target_max_open_items": 338
     },
     {
       "week": 8,
       "date": "2026-04-21",
-      "target_max_open_items": 317
+      "target_max_open_items": 304
     }
   ],
   "tickets": [
     {
       "ticket": "CD-001",
-      "source": "verify_python_sdk_drift",
-      "domain": "ideas",
-      "owner": "@team-platform",
-      "open_items": 12,
-      "target_weekly_burn": 1
-    },
-    {
-      "ticket": "CD-002",
       "source": "verify_python_sdk_drift",
       "domain": "index",
       "owner": "@team-platform",
@@ -77,11 +69,19 @@
       "target_weekly_burn": 1
     },
     {
-      "ticket": "CD-003",
+      "ticket": "CD-002",
       "source": "verify_python_sdk_drift",
       "domain": "tenants",
       "owner": "@team-platform",
       "open_items": 11,
+      "target_weekly_burn": 1
+    },
+    {
+      "ticket": "CD-003",
+      "source": "verify_python_sdk_drift",
+      "domain": "ideas",
+      "owner": "@team-platform",
+      "open_items": 10,
       "target_weekly_burn": 1
     },
     {
@@ -95,15 +95,15 @@
     {
       "ticket": "CD-005",
       "source": "verify_python_sdk_drift",
-      "domain": "media",
+      "domain": "decisions",
       "owner": "@team-platform",
-      "open_items": 5,
+      "open_items": 7,
       "target_weekly_burn": 1
     },
     {
       "ticket": "CD-006",
       "source": "verify_python_sdk_drift",
-      "domain": "admin",
+      "domain": "media",
       "owner": "@team-platform",
       "open_items": 5,
       "target_weekly_burn": 1
@@ -111,7 +111,7 @@
     {
       "ticket": "CD-007",
       "source": "verify_python_sdk_drift",
-      "domain": "decisions",
+      "domain": "admin",
       "owner": "@team-platform",
       "open_items": 5,
       "target_weekly_burn": 1
@@ -143,17 +143,17 @@
     {
       "ticket": "CD-011",
       "source": "verify_python_sdk_drift",
-      "domain": "debates",
-      "owner": "@team-core",
-      "open_items": 3,
+      "domain": "personas",
+      "owner": "@team-platform",
+      "open_items": 2,
       "target_weekly_burn": 1
     },
     {
       "ticket": "CD-012",
       "source": "verify_python_sdk_drift",
-      "domain": "personas",
-      "owner": "@team-platform",
-      "open_items": 2,
+      "domain": "debates",
+      "owner": "@team-core",
+      "open_items": 1,
       "target_weekly_burn": 1
     },
     {
@@ -167,37 +167,13 @@
     {
       "ticket": "CD-014",
       "source": "verify_typescript_sdk_drift",
-      "domain": "debates",
-      "owner": "@team-core",
-      "open_items": 28,
-      "target_weekly_burn": 3
-    },
-    {
-      "ticket": "CD-015",
-      "source": "verify_typescript_sdk_drift",
-      "domain": "accounting",
-      "owner": "@team-platform",
-      "open_items": 25,
-      "target_weekly_burn": 2
-    },
-    {
-      "ticket": "CD-016",
-      "source": "verify_typescript_sdk_drift",
-      "domain": "knowledge",
-      "owner": "@team-core",
-      "open_items": 21,
-      "target_weekly_burn": 2
-    },
-    {
-      "ticket": "CD-017",
-      "source": "verify_typescript_sdk_drift",
       "domain": "payments",
       "owner": "@team-platform",
       "open_items": 14,
       "target_weekly_burn": 1
     },
     {
-      "ticket": "CD-018",
+      "ticket": "CD-015",
       "source": "verify_typescript_sdk_drift",
       "domain": "admin",
       "owner": "@team-platform",
@@ -205,7 +181,7 @@
       "target_weekly_burn": 1
     },
     {
-      "ticket": "CD-019",
+      "ticket": "CD-016",
       "source": "verify_typescript_sdk_drift",
       "domain": "facts",
       "owner": "@team-platform",
@@ -213,7 +189,7 @@
       "target_weekly_burn": 1
     },
     {
-      "ticket": "CD-020",
+      "ticket": "CD-017",
       "source": "verify_typescript_sdk_drift",
       "domain": "index",
       "owner": "@team-platform",
@@ -221,7 +197,7 @@
       "target_weekly_burn": 1
     },
     {
-      "ticket": "CD-021",
+      "ticket": "CD-018",
       "source": "verify_typescript_sdk_drift",
       "domain": "integrations",
       "owner": "@team-integrations",
@@ -229,7 +205,7 @@
       "target_weekly_burn": 1
     },
     {
-      "ticket": "CD-022",
+      "ticket": "CD-019",
       "source": "verify_typescript_sdk_drift",
       "domain": "tenants",
       "owner": "@team-platform",
@@ -237,7 +213,7 @@
       "target_weekly_burn": 1
     },
     {
-      "ticket": "CD-023",
+      "ticket": "CD-020",
       "source": "verify_typescript_sdk_drift",
       "domain": "webhooks",
       "owner": "@team-platform",
@@ -245,7 +221,7 @@
       "target_weekly_burn": 1
     },
     {
-      "ticket": "CD-024",
+      "ticket": "CD-021",
       "source": "verify_typescript_sdk_drift",
       "domain": "analytics",
       "owner": "@team-analytics",
@@ -253,7 +229,7 @@
       "target_weekly_burn": 1
     },
     {
-      "ticket": "CD-025",
+      "ticket": "CD-022",
       "source": "verify_typescript_sdk_drift",
       "domain": "inbox",
       "owner": "@team-platform",
@@ -261,7 +237,15 @@
       "target_weekly_burn": 1
     },
     {
-      "ticket": "CD-026",
+      "ticket": "CD-023",
+      "source": "verify_typescript_sdk_drift",
+      "domain": "gateway",
+      "owner": "@team-platform",
+      "open_items": 10,
+      "target_weekly_burn": 1
+    },
+    {
+      "ticket": "CD-024",
       "source": "verify_typescript_sdk_drift",
       "domain": "compliance",
       "owner": "@team-platform",
@@ -269,7 +253,7 @@
       "target_weekly_burn": 1
     },
     {
-      "ticket": "CD-027",
+      "ticket": "CD-025",
       "source": "verify_typescript_sdk_drift",
       "domain": "connectors",
       "owner": "@team-integrations",
@@ -277,7 +261,7 @@
       "target_weekly_burn": 1
     },
     {
-      "ticket": "CD-028",
+      "ticket": "CD-026",
       "source": "verify_typescript_sdk_drift",
       "domain": "replays",
       "owner": "@team-platform",
@@ -285,7 +269,7 @@
       "target_weekly_burn": 1
     },
     {
-      "ticket": "CD-029",
+      "ticket": "CD-027",
       "source": "verify_typescript_sdk_drift",
       "domain": "agents",
       "owner": "@team-platform",
@@ -293,7 +277,7 @@
       "target_weekly_burn": 1
     },
     {
-      "ticket": "CD-030",
+      "ticket": "CD-028",
       "source": "verify_typescript_sdk_drift",
       "domain": "incidents",
       "owner": "@team-platform",
@@ -301,7 +285,7 @@
       "target_weekly_burn": 1
     },
     {
-      "ticket": "CD-031",
+      "ticket": "CD-029",
       "source": "verify_typescript_sdk_drift",
       "domain": "plans",
       "owner": "@team-platform",
@@ -309,7 +293,7 @@
       "target_weekly_burn": 1
     },
     {
-      "ticket": "CD-032",
+      "ticket": "CD-030",
       "source": "verify_typescript_sdk_drift",
       "domain": "support",
       "owner": "@team-platform",
@@ -317,7 +301,7 @@
       "target_weekly_burn": 1
     },
     {
-      "ticket": "CD-033",
+      "ticket": "CD-031",
       "source": "verify_typescript_sdk_drift",
       "domain": "policies",
       "owner": "@team-platform",
@@ -325,7 +309,7 @@
       "target_weekly_burn": 1
     },
     {
-      "ticket": "CD-034",
+      "ticket": "CD-032",
       "source": "verify_typescript_sdk_drift",
       "domain": "voice",
       "owner": "@team-platform",
@@ -333,7 +317,7 @@
       "target_weekly_burn": 1
     },
     {
-      "ticket": "CD-035",
+      "ticket": "CD-033",
       "source": "verify_typescript_sdk_drift",
       "domain": "memory",
       "owner": "@team-core",
@@ -341,7 +325,15 @@
       "target_weekly_burn": 1
     },
     {
-      "ticket": "CD-036",
+      "ticket": "CD-034",
+      "source": "verify_typescript_sdk_drift",
+      "domain": "knowledge",
+      "owner": "@team-core",
+      "open_items": 6,
+      "target_weekly_burn": 1
+    },
+    {
+      "ticket": "CD-035",
       "source": "verify_typescript_sdk_drift",
       "domain": "learning",
       "owner": "@team-core",
@@ -349,15 +341,7 @@
       "target_weekly_burn": 1
     },
     {
-      "ticket": "CD-037",
-      "source": "verify_typescript_sdk_drift",
-      "domain": "self-improve",
-      "owner": "@team-platform",
-      "open_items": 6,
-      "target_weekly_burn": 1
-    },
-    {
-      "ticket": "CD-038",
+      "ticket": "CD-036",
       "source": "verify_typescript_sdk_drift",
       "domain": "cross-pollination",
       "owner": "@team-platform",
@@ -365,7 +349,7 @@
       "target_weekly_burn": 1
     },
     {
-      "ticket": "CD-039",
+      "ticket": "CD-037",
       "source": "verify_typescript_sdk_drift",
       "domain": "gmail",
       "owner": "@team-platform",
@@ -373,7 +357,7 @@
       "target_weekly_burn": 1
     },
     {
-      "ticket": "CD-040",
+      "ticket": "CD-038",
       "source": "verify_typescript_sdk_drift",
       "domain": "media",
       "owner": "@team-platform",
@@ -381,7 +365,7 @@
       "target_weekly_burn": 1
     },
     {
-      "ticket": "CD-041",
+      "ticket": "CD-039",
       "source": "verify_typescript_sdk_drift",
       "domain": "code-review",
       "owner": "@team-platform",
@@ -389,9 +373,25 @@
       "target_weekly_burn": 1
     },
     {
+      "ticket": "CD-040",
+      "source": "verify_typescript_sdk_drift",
+      "domain": "decisions",
+      "owner": "@team-platform",
+      "open_items": 5,
+      "target_weekly_burn": 1
+    },
+    {
+      "ticket": "CD-041",
+      "source": "verify_typescript_sdk_drift",
+      "domain": "documents",
+      "owner": "@team-platform",
+      "open_items": 5,
+      "target_weekly_burn": 1
+    },
+    {
       "ticket": "CD-042",
       "source": "verify_typescript_sdk_drift",
-      "domain": "gateway",
+      "domain": "outcome-dashboard",
       "owner": "@team-platform",
       "open_items": 5,
       "target_weekly_burn": 1
@@ -399,7 +399,7 @@
     {
       "ticket": "CD-043",
       "source": "verify_typescript_sdk_drift",
-      "domain": "outcome-dashboard",
+      "domain": "self-improve",
       "owner": "@team-platform",
       "open_items": 5,
       "target_weekly_burn": 1
@@ -415,7 +415,7 @@
     {
       "ticket": "CD-045",
       "source": "verify_typescript_sdk_drift",
-      "domain": "checkpoints",
+      "domain": "budgets",
       "owner": "@team-platform",
       "open_items": 4,
       "target_weekly_burn": 1
@@ -423,13 +423,21 @@
     {
       "ticket": "CD-046",
       "source": "verify_typescript_sdk_drift",
+      "domain": "checkpoints",
+      "owner": "@team-platform",
+      "open_items": 4,
+      "target_weekly_burn": 1
+    },
+    {
+      "ticket": "CD-047",
+      "source": "verify_typescript_sdk_drift",
       "domain": "email",
       "owner": "@team-integrations",
       "open_items": 4,
       "target_weekly_burn": 1
     },
     {
-      "ticket": "CD-047",
+      "ticket": "CD-048",
       "source": "verify_typescript_sdk_drift",
       "domain": "transcription",
       "owner": "@team-platform",
@@ -437,7 +445,7 @@
       "target_weekly_burn": 1
     },
     {
-      "ticket": "CD-048",
+      "ticket": "CD-049",
       "source": "verify_typescript_sdk_drift",
       "domain": "crm",
       "owner": "@team-integrations",
@@ -445,7 +453,7 @@
       "target_weekly_burn": 1
     },
     {
-      "ticket": "CD-049",
+      "ticket": "CD-050",
       "source": "verify_typescript_sdk_drift",
       "domain": "ecommerce",
       "owner": "@team-integrations",
@@ -453,23 +461,7 @@
       "target_weekly_burn": 1
     },
     {
-      "ticket": "CD-050",
-      "source": "verify_typescript_sdk_drift",
-      "domain": "gusto",
-      "owner": "@team-platform",
-      "open_items": 4,
-      "target_weekly_burn": 1
-    },
-    {
       "ticket": "CD-051",
-      "source": "verify_typescript_sdk_drift",
-      "domain": "moderation",
-      "owner": "@team-platform",
-      "open_items": 4,
-      "target_weekly_burn": 1
-    },
-    {
-      "ticket": "CD-052",
       "source": "verify_typescript_sdk_drift",
       "domain": "outlook",
       "owner": "@team-integrations",
@@ -477,7 +469,7 @@
       "target_weekly_burn": 1
     },
     {
-      "ticket": "CD-053",
+      "ticket": "CD-052",
       "source": "verify_typescript_sdk_drift",
       "domain": "pulse",
       "owner": "@team-platform",
@@ -485,7 +477,7 @@
       "target_weekly_burn": 1
     },
     {
-      "ticket": "CD-054",
+      "ticket": "CD-053",
       "source": "verify_typescript_sdk_drift",
       "domain": "rbac",
       "owner": "@team-platform",
@@ -493,7 +485,7 @@
       "target_weekly_burn": 1
     },
     {
-      "ticket": "CD-055",
+      "ticket": "CD-054",
       "source": "verify_typescript_sdk_drift",
       "domain": "reconciliation",
       "owner": "@team-platform",
@@ -501,7 +493,7 @@
       "target_weekly_burn": 1
     },
     {
-      "ticket": "CD-056",
+      "ticket": "CD-055",
       "source": "verify_typescript_sdk_drift",
       "domain": "backups",
       "owner": "@team-platform",
@@ -509,7 +501,7 @@
       "target_weekly_burn": 1
     },
     {
-      "ticket": "CD-057",
+      "ticket": "CD-056",
       "source": "verify_typescript_sdk_drift",
       "domain": "rlm",
       "owner": "@team-platform",
@@ -517,7 +509,7 @@
       "target_weekly_burn": 1
     },
     {
-      "ticket": "CD-058",
+      "ticket": "CD-057",
       "source": "verify_typescript_sdk_drift",
       "domain": "users",
       "owner": "@team-platform",
@@ -525,7 +517,7 @@
       "target_weekly_burn": 1
     },
     {
-      "ticket": "CD-059",
+      "ticket": "CD-058",
       "source": "verify_typescript_sdk_drift",
       "domain": "batch",
       "owner": "@team-platform",
@@ -533,7 +525,7 @@
       "target_weekly_burn": 1
     },
     {
-      "ticket": "CD-060",
+      "ticket": "CD-059",
       "source": "verify_typescript_sdk_drift",
       "domain": "breakpoints",
       "owner": "@team-platform",
@@ -541,15 +533,15 @@
       "target_weekly_burn": 1
     },
     {
-      "ticket": "CD-061",
+      "ticket": "CD-060",
       "source": "verify_typescript_sdk_drift",
-      "domain": "decisions",
+      "domain": "consensus",
       "owner": "@team-platform",
       "open_items": 3,
       "target_weekly_burn": 1
     },
     {
-      "ticket": "CD-062",
+      "ticket": "CD-061",
       "source": "verify_typescript_sdk_drift",
       "domain": "devices",
       "owner": "@team-platform",
@@ -557,7 +549,7 @@
       "target_weekly_burn": 1
     },
     {
-      "ticket": "CD-063",
+      "ticket": "CD-062",
       "source": "verify_typescript_sdk_drift",
       "domain": "genesis",
       "owner": "@team-platform",
@@ -565,7 +557,7 @@
       "target_weekly_burn": 1
     },
     {
-      "ticket": "CD-064",
+      "ticket": "CD-063",
       "source": "verify_typescript_sdk_drift",
       "domain": "leaderboard",
       "owner": "@team-platform",
@@ -573,7 +565,7 @@
       "target_weekly_burn": 1
     },
     {
-      "ticket": "CD-065",
+      "ticket": "CD-064",
       "source": "verify_typescript_sdk_drift",
       "domain": "org",
       "owner": "@team-platform",
@@ -581,7 +573,7 @@
       "target_weekly_burn": 1
     },
     {
-      "ticket": "CD-066",
+      "ticket": "CD-065",
       "source": "verify_typescript_sdk_drift",
       "domain": "agent-dashboard",
       "owner": "@team-platform",
@@ -589,9 +581,17 @@
       "target_weekly_burn": 1
     },
     {
-      "ticket": "CD-067",
+      "ticket": "CD-066",
       "source": "verify_typescript_sdk_drift",
       "domain": "ap",
+      "owner": "@team-platform",
+      "open_items": 3,
+      "target_weekly_burn": 1
+    },
+    {
+      "ticket": "CD-067",
+      "source": "verify_typescript_sdk_drift",
+      "domain": "control-plane",
       "owner": "@team-platform",
       "open_items": 3,
       "target_weekly_burn": 1
@@ -631,7 +631,7 @@
     {
       "ticket": "CD-072",
       "source": "verify_typescript_sdk_drift",
-      "domain": "computer-use",
+      "domain": "evolution",
       "owner": "@team-platform",
       "open_items": 2,
       "target_weekly_burn": 1
@@ -639,23 +639,23 @@
     {
       "ticket": "CD-073",
       "source": "verify_typescript_sdk_drift",
-      "domain": "evolution",
-      "owner": "@team-platform",
-      "open_items": 2,
-      "target_weekly_burn": 1
-    },
-    {
-      "ticket": "CD-074",
-      "source": "verify_typescript_sdk_drift",
       "domain": "notifications",
       "owner": "@team-integrations",
       "open_items": 2,
       "target_weekly_burn": 1
     },
     {
-      "ticket": "CD-075",
+      "ticket": "CD-074",
       "source": "verify_typescript_sdk_drift",
       "domain": "orchestration",
+      "owner": "@team-platform",
+      "open_items": 2,
+      "target_weekly_burn": 1
+    },
+    {
+      "ticket": "CD-075",
+      "source": "verify_typescript_sdk_drift",
+      "domain": "outcomes",
       "owner": "@team-platform",
       "open_items": 2,
       "target_weekly_burn": 1
@@ -671,7 +671,7 @@
     {
       "ticket": "CD-077",
       "source": "verify_typescript_sdk_drift",
-      "domain": "workflow",
+      "domain": "skills",
       "owner": "@team-platform",
       "open_items": 2,
       "target_weekly_burn": 1
@@ -679,7 +679,7 @@
     {
       "ticket": "CD-078",
       "source": "verify_typescript_sdk_drift",
-      "domain": "scim",
+      "domain": "workflow",
       "owner": "@team-platform",
       "open_items": 2,
       "target_weekly_burn": 1
@@ -687,7 +687,7 @@
     {
       "ticket": "CD-079",
       "source": "verify_typescript_sdk_drift",
-      "domain": "feedback",
+      "domain": "scim",
       "owner": "@team-platform",
       "open_items": 2,
       "target_weekly_burn": 1
@@ -695,7 +695,7 @@
     {
       "ticket": "CD-080",
       "source": "verify_typescript_sdk_drift",
-      "domain": "sme",
+      "domain": "feedback",
       "owner": "@team-platform",
       "open_items": 2,
       "target_weekly_burn": 1
@@ -719,7 +719,7 @@
     {
       "ticket": "CD-083",
       "source": "verify_typescript_sdk_drift",
-      "domain": "documents",
+      "domain": "external-agents",
       "owner": "@team-platform",
       "open_items": 1,
       "target_weekly_burn": 1
@@ -727,7 +727,7 @@
     {
       "ticket": "CD-084",
       "source": "verify_typescript_sdk_drift",
-      "domain": "external-agents",
+      "domain": "feature-flags",
       "owner": "@team-platform",
       "open_items": 1,
       "target_weekly_burn": 1
@@ -735,7 +735,7 @@
     {
       "ticket": "CD-085",
       "source": "verify_typescript_sdk_drift",
-      "domain": "feature-flags",
+      "domain": "features",
       "owner": "@team-platform",
       "open_items": 1,
       "target_weekly_burn": 1
@@ -743,7 +743,7 @@
     {
       "ticket": "CD-086",
       "source": "verify_typescript_sdk_drift",
-      "domain": "features",
+      "domain": "gauntlet",
       "owner": "@team-platform",
       "open_items": 1,
       "target_weekly_burn": 1
@@ -751,7 +751,7 @@
     {
       "ticket": "CD-087",
       "source": "verify_typescript_sdk_drift",
-      "domain": "gauntlet",
+      "domain": "keys",
       "owner": "@team-platform",
       "open_items": 1,
       "target_weekly_burn": 1
@@ -759,7 +759,7 @@
     {
       "ticket": "CD-088",
       "source": "verify_typescript_sdk_drift",
-      "domain": "keys",
+      "domain": "laboratory",
       "owner": "@team-platform",
       "open_items": 1,
       "target_weekly_burn": 1
@@ -767,7 +767,7 @@
     {
       "ticket": "CD-089",
       "source": "verify_typescript_sdk_drift",
-      "domain": "laboratory",
+      "domain": "moderation",
       "owner": "@team-platform",
       "open_items": 1,
       "target_weekly_burn": 1
@@ -791,7 +791,7 @@
     {
       "ticket": "CD-092",
       "source": "verify_typescript_sdk_drift",
-      "domain": "playground",
+      "domain": "playbooks",
       "owner": "@team-platform",
       "open_items": 1,
       "target_weekly_burn": 1
@@ -799,7 +799,7 @@
     {
       "ticket": "CD-093",
       "source": "verify_typescript_sdk_drift",
-      "domain": "podcast",
+      "domain": "playground",
       "owner": "@team-platform",
       "open_items": 1,
       "target_weekly_burn": 1
@@ -807,7 +807,7 @@
     {
       "ticket": "CD-094",
       "source": "verify_typescript_sdk_drift",
-      "domain": "probes",
+      "domain": "podcast",
       "owner": "@team-platform",
       "open_items": 1,
       "target_weekly_burn": 1
@@ -815,7 +815,7 @@
     {
       "ticket": "CD-095",
       "source": "verify_typescript_sdk_drift",
-      "domain": "repository",
+      "domain": "probes",
       "owner": "@team-platform",
       "open_items": 1,
       "target_weekly_burn": 1
@@ -823,7 +823,7 @@
     {
       "ticket": "CD-096",
       "source": "verify_typescript_sdk_drift",
-      "domain": "services",
+      "domain": "repository",
       "owner": "@team-platform",
       "open_items": 1,
       "target_weekly_burn": 1
@@ -831,7 +831,7 @@
     {
       "ticket": "CD-097",
       "source": "verify_typescript_sdk_drift",
-      "domain": "skills",
+      "domain": "services",
       "owner": "@team-platform",
       "open_items": 1,
       "target_weekly_burn": 1
@@ -847,15 +847,15 @@
     {
       "ticket": "CD-099",
       "source": "verify_typescript_sdk_drift",
-      "domain": "workflows",
-      "owner": "@team-core",
+      "domain": "audience",
+      "owner": "@team-platform",
       "open_items": 1,
       "target_weekly_burn": 1
     },
     {
       "ticket": "CD-100",
       "source": "verify_typescript_sdk_drift",
-      "domain": "audience",
+      "domain": "receipts",
       "owner": "@team-platform",
       "open_items": 1,
       "target_weekly_burn": 1
@@ -863,7 +863,7 @@
     {
       "ticket": "CD-101",
       "source": "verify_typescript_sdk_drift",
-      "domain": "receipts",
+      "domain": "sme",
       "owner": "@team-platform",
       "open_items": 1,
       "target_weekly_burn": 1
@@ -1023,7 +1023,7 @@
     {
       "ticket": "CD-121",
       "source": "routes_missing_in_spec",
-      "domain": "autonomous",
+      "domain": "auth",
       "owner": "@team-platform",
       "open_items": 3,
       "target_weekly_burn": 1
@@ -1031,7 +1031,7 @@
     {
       "ticket": "CD-122",
       "source": "routes_missing_in_spec",
-      "domain": "checkpoints",
+      "domain": "autonomous",
       "owner": "@team-platform",
       "open_items": 3,
       "target_weekly_burn": 1
@@ -1039,7 +1039,7 @@
     {
       "ticket": "CD-123",
       "source": "routes_missing_in_spec",
-      "domain": "docs",
+      "domain": "checkpoints",
       "owner": "@team-platform",
       "open_items": 3,
       "target_weekly_burn": 1
@@ -1047,7 +1047,7 @@
     {
       "ticket": "CD-124",
       "source": "routes_missing_in_spec",
-      "domain": "health",
+      "domain": "docs",
       "owner": "@team-platform",
       "open_items": 3,
       "target_weekly_burn": 1
@@ -1055,7 +1055,7 @@
     {
       "ticket": "CD-125",
       "source": "routes_missing_in_spec",
-      "domain": "moderation",
+      "domain": "health",
       "owner": "@team-platform",
       "open_items": 3,
       "target_weekly_burn": 1
@@ -1063,7 +1063,7 @@
     {
       "ticket": "CD-126",
       "source": "routes_missing_in_spec",
-      "domain": "org",
+      "domain": "moderation",
       "owner": "@team-platform",
       "open_items": 3,
       "target_weekly_burn": 1
@@ -1071,7 +1071,7 @@
     {
       "ticket": "CD-127",
       "source": "routes_missing_in_spec",
-      "domain": "rbac",
+      "domain": "org",
       "owner": "@team-platform",
       "open_items": 3,
       "target_weekly_burn": 1
@@ -1079,13 +1079,21 @@
     {
       "ticket": "CD-128",
       "source": "routes_missing_in_spec",
+      "domain": "rbac",
+      "owner": "@team-platform",
+      "open_items": 3,
+      "target_weekly_burn": 1
+    },
+    {
+      "ticket": "CD-129",
+      "source": "routes_missing_in_spec",
       "domain": "gateway",
       "owner": "@team-platform",
       "open_items": 2,
       "target_weekly_burn": 1
     },
     {
-      "ticket": "CD-129",
+      "ticket": "CD-130",
       "source": "routes_missing_in_spec",
       "domain": "agents",
       "owner": "@team-platform",
@@ -1093,7 +1101,7 @@
       "target_weekly_burn": 1
     },
     {
-      "ticket": "CD-130",
+      "ticket": "CD-131",
       "source": "routes_missing_in_spec",
       "domain": "bindings",
       "owner": "@team-platform",
@@ -1101,7 +1109,7 @@
       "target_weekly_burn": 1
     },
     {
-      "ticket": "CD-131",
+      "ticket": "CD-132",
       "source": "routes_missing_in_spec",
       "domain": "consensus",
       "owner": "@team-platform",
@@ -1109,7 +1117,7 @@
       "target_weekly_burn": 1
     },
     {
-      "ticket": "CD-132",
+      "ticket": "CD-133",
       "source": "routes_missing_in_spec",
       "domain": "decisions",
       "owner": "@team-platform",
@@ -1117,7 +1125,7 @@
       "target_weekly_burn": 1
     },
     {
-      "ticket": "CD-133",
+      "ticket": "CD-134",
       "source": "routes_missing_in_spec",
       "domain": "deploy",
       "owner": "@team-platform",
@@ -1125,7 +1133,7 @@
       "target_weekly_burn": 1
     },
     {
-      "ticket": "CD-134",
+      "ticket": "CD-135",
       "source": "routes_missing_in_spec",
       "domain": "external-agents",
       "owner": "@team-platform",
@@ -1133,7 +1141,7 @@
       "target_weekly_burn": 1
     },
     {
-      "ticket": "CD-135",
+      "ticket": "CD-136",
       "source": "routes_missing_in_spec",
       "domain": "features",
       "owner": "@team-platform",
@@ -1141,7 +1149,7 @@
       "target_weekly_burn": 1
     },
     {
-      "ticket": "CD-136",
+      "ticket": "CD-137",
       "source": "routes_missing_in_spec",
       "domain": "incidents",
       "owner": "@team-platform",
@@ -1149,7 +1157,7 @@
       "target_weekly_burn": 1
     },
     {
-      "ticket": "CD-137",
+      "ticket": "CD-138",
       "source": "routes_missing_in_spec",
       "domain": "keys",
       "owner": "@team-platform",
@@ -1157,7 +1165,7 @@
       "target_weekly_burn": 1
     },
     {
-      "ticket": "CD-138",
+      "ticket": "CD-139",
       "source": "routes_missing_in_spec",
       "domain": "marketplace",
       "owner": "@team-growth",
@@ -1165,7 +1173,7 @@
       "target_weekly_burn": 1
     },
     {
-      "ticket": "CD-139",
+      "ticket": "CD-140",
       "source": "routes_missing_in_spec",
       "domain": "oncall",
       "owner": "@team-platform",
@@ -1173,17 +1181,9 @@
       "target_weekly_burn": 1
     },
     {
-      "ticket": "CD-140",
-      "source": "routes_missing_in_spec",
-      "domain": "orchestration",
-      "owner": "@team-platform",
-      "open_items": 1,
-      "target_weekly_burn": 1
-    },
-    {
       "ticket": "CD-141",
       "source": "routes_missing_in_spec",
-      "domain": "platform",
+      "domain": "orchestration",
       "owner": "@team-platform",
       "open_items": 1,
       "target_weekly_burn": 1
@@ -1191,7 +1191,7 @@
     {
       "ticket": "CD-142",
       "source": "routes_missing_in_spec",
-      "domain": "relationship",
+      "domain": "platform",
       "owner": "@team-platform",
       "open_items": 1,
       "target_weekly_burn": 1
@@ -1199,7 +1199,7 @@
     {
       "ticket": "CD-143",
       "source": "routes_missing_in_spec",
-      "domain": "repository",
+      "domain": "relationship",
       "owner": "@team-platform",
       "open_items": 1,
       "target_weekly_burn": 1
@@ -1207,7 +1207,7 @@
     {
       "ticket": "CD-144",
       "source": "routes_missing_in_spec",
-      "domain": "services",
+      "domain": "repository",
       "owner": "@team-platform",
       "open_items": 1,
       "target_weekly_burn": 1
@@ -1215,7 +1215,7 @@
     {
       "ticket": "CD-145",
       "source": "routes_missing_in_spec",
-      "domain": "shared",
+      "domain": "services",
       "owner": "@team-platform",
       "open_items": 1,
       "target_weekly_burn": 1
@@ -1223,7 +1223,7 @@
     {
       "ticket": "CD-146",
       "source": "routes_missing_in_spec",
-      "domain": "skills",
+      "domain": "shared",
       "owner": "@team-platform",
       "open_items": 1,
       "target_weekly_burn": 1
@@ -1231,7 +1231,7 @@
     {
       "ticket": "CD-147",
       "source": "routes_missing_in_spec",
-      "domain": "slo",
+      "domain": "skills",
       "owner": "@team-platform",
       "open_items": 1,
       "target_weekly_burn": 1
@@ -1239,7 +1239,7 @@
     {
       "ticket": "CD-148",
       "source": "routes_missing_in_spec",
-      "domain": "social",
+      "domain": "slo",
       "owner": "@team-platform",
       "open_items": 1,
       "target_weekly_burn": 1
@@ -1247,7 +1247,7 @@
     {
       "ticket": "CD-149",
       "source": "routes_missing_in_spec",
-      "domain": "status",
+      "domain": "social",
       "owner": "@team-platform",
       "open_items": 1,
       "target_weekly_burn": 1
@@ -1255,7 +1255,7 @@
     {
       "ticket": "CD-150",
       "source": "routes_missing_in_spec",
-      "domain": "templates",
+      "domain": "status",
       "owner": "@team-platform",
       "open_items": 1,
       "target_weekly_burn": 1
@@ -1263,13 +1263,21 @@
     {
       "ticket": "CD-151",
       "source": "routes_missing_in_spec",
-      "domain": "workflow",
+      "domain": "templates",
       "owner": "@team-platform",
       "open_items": 1,
       "target_weekly_burn": 1
     },
     {
       "ticket": "CD-152",
+      "source": "routes_missing_in_spec",
+      "domain": "workflow",
+      "owner": "@team-platform",
+      "open_items": 1,
+      "target_weekly_burn": 1
+    },
+    {
+      "ticket": "CD-153",
       "source": "routes_orphaned_in_spec",
       "domain": "canvas",
       "owner": "@team-platform",
@@ -1277,7 +1285,7 @@
       "target_weekly_burn": 1
     },
     {
-      "ticket": "CD-153",
+      "ticket": "CD-154",
       "source": "routes_orphaned_in_spec",
       "domain": "coordination",
       "owner": "@team-platform",
@@ -1285,7 +1293,23 @@
       "target_weekly_burn": 1
     },
     {
-      "ticket": "CD-154",
+      "ticket": "CD-155",
+      "source": "routes_orphaned_in_spec",
+      "domain": "differentiation",
+      "owner": "@team-platform",
+      "open_items": 5,
+      "target_weekly_burn": 1
+    },
+    {
+      "ticket": "CD-156",
+      "source": "routes_orphaned_in_spec",
+      "domain": "spend",
+      "owner": "@team-platform",
+      "open_items": 5,
+      "target_weekly_burn": 1
+    },
+    {
+      "ticket": "CD-157",
       "source": "routes_orphaned_in_spec",
       "domain": "workflows",
       "owner": "@team-core",
@@ -1293,7 +1317,7 @@
       "target_weekly_burn": 1
     },
     {
-      "ticket": "CD-155",
+      "ticket": "CD-158",
       "source": "routes_orphaned_in_spec",
       "domain": "spectate",
       "owner": "@team-platform",
@@ -1301,7 +1325,7 @@
       "target_weekly_burn": 1
     },
     {
-      "ticket": "CD-156",
+      "ticket": "CD-159",
       "source": "routes_orphaned_in_spec",
       "domain": "context",
       "owner": "@team-platform",
@@ -1309,7 +1333,7 @@
       "target_weekly_burn": 1
     },
     {
-      "ticket": "CD-157",
+      "ticket": "CD-160",
       "source": "routes_orphaned_in_spec",
       "domain": "email",
       "owner": "@team-integrations",
@@ -1317,15 +1341,7 @@
       "target_weekly_burn": 1
     },
     {
-      "ticket": "CD-158",
-      "source": "routes_orphaned_in_spec",
-      "domain": "memory",
-      "owner": "@team-core",
-      "open_items": 2,
-      "target_weekly_burn": 1
-    },
-    {
-      "ticket": "CD-159",
+      "ticket": "CD-161",
       "source": "routes_orphaned_in_spec",
       "domain": "notifications",
       "owner": "@team-integrations",
@@ -1333,7 +1349,7 @@
       "target_weekly_burn": 1
     },
     {
-      "ticket": "CD-160",
+      "ticket": "CD-162",
       "source": "routes_orphaned_in_spec",
       "domain": "accounting",
       "owner": "@team-platform",
@@ -1341,25 +1357,9 @@
       "target_weekly_burn": 1
     },
     {
-      "ticket": "CD-161",
-      "source": "routes_orphaned_in_spec",
-      "domain": "chat",
-      "owner": "@team-integrations",
-      "open_items": 1,
-      "target_weekly_burn": 1
-    },
-    {
-      "ticket": "CD-162",
-      "source": "routes_orphaned_in_spec",
-      "domain": "debates",
-      "owner": "@team-core",
-      "open_items": 1,
-      "target_weekly_burn": 1
-    },
-    {
       "ticket": "CD-163",
       "source": "routes_orphaned_in_spec",
-      "domain": "devices",
+      "domain": "bots",
       "owner": "@team-platform",
       "open_items": 1,
       "target_weekly_burn": 1
@@ -1367,15 +1367,15 @@
     {
       "ticket": "CD-164",
       "source": "routes_orphaned_in_spec",
-      "domain": "feature-flags",
-      "owner": "@team-platform",
+      "domain": "debates",
+      "owner": "@team-core",
       "open_items": 1,
       "target_weekly_burn": 1
     },
     {
       "ticket": "CD-165",
       "source": "routes_orphaned_in_spec",
-      "domain": "km",
+      "domain": "feature-flags",
       "owner": "@team-platform",
       "open_items": 1,
       "target_weekly_burn": 1
@@ -1383,21 +1383,13 @@
     {
       "ticket": "CD-166",
       "source": "routes_orphaned_in_spec",
-      "domain": "knowledge",
-      "owner": "@team-core",
-      "open_items": 1,
-      "target_weekly_burn": 1
-    },
-    {
-      "ticket": "CD-167",
-      "source": "routes_orphaned_in_spec",
-      "domain": "orchestration",
+      "domain": "km",
       "owner": "@team-platform",
       "open_items": 1,
       "target_weekly_burn": 1
     },
     {
-      "ticket": "CD-168",
+      "ticket": "CD-167",
       "source": "routes_orphaned_in_spec",
       "domain": "plans",
       "owner": "@team-platform",
@@ -1405,15 +1397,7 @@
       "target_weekly_burn": 1
     },
     {
-      "ticket": "CD-169",
-      "source": "routes_orphaned_in_spec",
-      "domain": "quotas",
-      "owner": "@team-platform",
-      "open_items": 1,
-      "target_weekly_burn": 1
-    },
-    {
-      "ticket": "CD-170",
+      "ticket": "CD-168",
       "source": "routes_orphaned_in_spec",
       "domain": "readiness",
       "owner": "@team-platform",
@@ -1421,15 +1405,7 @@
       "target_weekly_burn": 1
     },
     {
-      "ticket": "CD-171",
-      "source": "routes_orphaned_in_spec",
-      "domain": "shared",
-      "owner": "@team-platform",
-      "open_items": 1,
-      "target_weekly_burn": 1
-    },
-    {
-      "ticket": "CD-172",
+      "ticket": "CD-169",
       "source": "routes_orphaned_in_spec",
       "domain": "templates",
       "owner": "@team-platform",
@@ -1437,11 +1413,43 @@
       "target_weekly_burn": 1
     },
     {
-      "ticket": "CD-173",
+      "ticket": "CD-170",
       "source": "routes_orphaned_in_spec",
       "domain": "users",
       "owner": "@team-platform",
       "open_items": 1,
+      "target_weekly_burn": 1
+    },
+    {
+      "ticket": "CD-171",
+      "source": "sdk_missing_from_both",
+      "domain": "analytics",
+      "owner": "@team-analytics",
+      "open_items": 6,
+      "target_weekly_burn": 1
+    },
+    {
+      "ticket": "CD-172",
+      "source": "sdk_missing_from_both",
+      "domain": "spend",
+      "owner": "@team-platform",
+      "open_items": 6,
+      "target_weekly_burn": 1
+    },
+    {
+      "ticket": "CD-173",
+      "source": "sdk_missing_from_both",
+      "domain": "differentiation",
+      "owner": "@team-platform",
+      "open_items": 5,
+      "target_weekly_burn": 1
+    },
+    {
+      "ticket": "CD-174",
+      "source": "sdk_missing_from_both",
+      "domain": "self-improve",
+      "owner": "@team-platform",
+      "open_items": 5,
       "target_weekly_burn": 1
     }
   ]

@@ -82,8 +82,16 @@ export interface CalibrationPoint {
   count: number;
 }
 
+export interface CalibrationBin {
+  predicted_confidence: number;
+  actual_accuracy: number;
+  count: number;
+}
+
 export interface CalibrationData {
   points: CalibrationPoint[];
+  bins?: CalibrationBin[];
+  ece?: number;
   total_observations: number;
   period: string;
 }

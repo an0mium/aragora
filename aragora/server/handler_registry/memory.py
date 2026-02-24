@@ -142,6 +142,11 @@ SharingNotificationsHandler = _safe_import(
     "aragora.server.handlers.knowledge.sharing_notifications", "SharingNotificationsHandler"
 )
 
+# Context budget handler
+ContextBudgetHandler = _safe_import(
+    "aragora.server.handlers.context_budget", "ContextBudgetHandler"
+)
+
 # =============================================================================
 # Memory/Knowledge Handler Registry Entries
 # =============================================================================
@@ -186,6 +191,8 @@ MEMORY_HANDLER_REGISTRY: list[tuple[str, object]] = [
     ("_unified_memory_handler", UnifiedMemoryHandler),
     # Memory unified gateway (fan-out, retention, dedup)
     ("_memory_unified_handler", MemoryUnifiedGatewayHandler),
+    # Context budget
+    ("_context_budget_handler", ContextBudgetHandler),
 ]
 
 __all__ = [

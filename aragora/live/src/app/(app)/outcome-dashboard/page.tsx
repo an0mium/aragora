@@ -11,6 +11,7 @@ import {
   useOutcomeAgents,
   useDecisionHistory,
   useCalibrationCurve,
+  type CalibrationBin,
 } from '@/hooks/useOutcomeAnalytics';
 
 export default function OutcomeDashboardPage() {
@@ -164,7 +165,7 @@ export default function OutcomeDashboardPage() {
                       ECE: {calibration.ece?.toFixed(4) || 'N/A'} | Bins: {calibration.bins.length}
                     </div>
                     <div className="space-y-1">
-                      {calibration.bins.map((bin, i) => {
+                      {calibration.bins.map((bin: CalibrationBin, i: number) => {
                         const predicted = bin.predicted_confidence * 100;
                         const actual = bin.actual_accuracy * 100;
                         const gap = Math.abs(predicted - actual);

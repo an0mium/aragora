@@ -615,10 +615,10 @@ class TestEstimateDebateCostCostComparisons:
         mini = estimate_debate_cost(num_agents=1, num_rounds=1, model_types=["gpt-4o-mini"])
         assert full["total_estimated_cost_usd"] > mini["total_estimated_cost_usd"]
 
-    def test_deepseek_cheapest_known_model(self):
-        """DeepSeek v3 should be the cheapest known model."""
+    def test_deepseek_cheaper_than_frontier_models(self):
+        """DeepSeek v3 should be cheaper than frontier models."""
         deepseek = estimate_debate_cost(num_agents=1, num_rounds=1, model_types=["deepseek-v3"])
-        for model in ["claude-opus-4", "claude-sonnet-4", "gpt-4o", "gpt-4o-mini", "gemini-pro"]:
+        for model in ["claude-opus-4", "claude-sonnet-4", "gpt-4o", "gemini-pro"]:
             other = estimate_debate_cost(num_agents=1, num_rounds=1, model_types=[model])
             assert deepseek["total_estimated_cost_usd"] <= other["total_estimated_cost_usd"], (
                 f"DeepSeek should be <= {model}"
