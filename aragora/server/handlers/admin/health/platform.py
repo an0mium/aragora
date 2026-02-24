@@ -198,7 +198,7 @@ def encryption_health(handler: Any) -> HandlerResult:
 
     # Check 5: Key rotation scheduler status
     try:
-        scheduler = None
+        scheduler: Any = None
         try:
             from aragora.ops.key_rotation import get_key_rotation_scheduler as _get_ops
 

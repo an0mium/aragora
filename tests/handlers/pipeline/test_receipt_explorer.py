@@ -6,7 +6,9 @@ Covers:
   GET  /api/v1/receipts/:id/verify   - Re-verify SHA-256 hashes
   register_receipt() and retrieval
   Rate limiting
-  Invalid ID validation
+  Invalid ID validation (SAFE_ID_PATTERN)
+  Routing edge cases
+  Constructor / initialization
 """
 
 from __future__ import annotations
@@ -125,6 +127,31 @@ def _bypass_rate_limit():
 
 
 # ===========================================================================
+# Constructor / initialization
+# ===========================================================================
+
+
+class TestConstructor:
+    """Tests for handler construction and initialization."""
+
+    def test_creates_with_empty_context(self):
+        h = _make_handler()
+        assert h.ctx == {}
+
+    def test_limiter_is_set(self):
+        h = _make_handler()
+        # The limiter should be set (or None if RateLimiter init failed)
+        assert hasattr(h, "_limiter")
+
+    def test_check_rate_limit_returns_none_when_no_limiter(self):
+        h = _make_handler()
+        h._limiter = None
+        http = _make_http_handler()
+        result = h._check_rate_limit(http)
+        assert result is None
+
+
+# ===========================================================================
 # register_receipt
 # ===========================================================================
 
@@ -155,6 +182,15 @@ class TestRegisterReceipt:
         register_receipt(_make_receipt("r1", pipeline_id="old"))
         register_receipt(_make_receipt("r1", pipeline_id="new"))
         assert _receipt_store["r1"]["pipeline_id"] == "new"
+
+    def test_register_preserves_all_fields(self):
+        receipt = _make_receipt("r1")
+        register_receipt(receipt)
+        stored = _receipt_store["r1"]
+        assert stored["generated_at"] == "2026-02-23T10:00:00Z"
+        assert "execution" in stored
+        assert "provenance" in stored
+        assert "content_hash" in stored
 
 
 # ===========================================================================
@@ -218,6 +254,16 @@ class TestListReceipts:
         body = _body(result)
         assert body["count"] == 3
 
+    def test_list_default_limit(self):
+        """Without explicit limit, default is 50."""
+        for i in range(5):
+            register_receipt(_make_receipt(f"r{i}"))
+        h = _make_handler()
+        http = _make_http_handler()
+        result = h.handle_get("/api/v1/receipts", {}, http)
+        body = _body(result)
+        assert body["count"] == 5
+
     def test_list_combined_filters(self):
         register_receipt(_make_receipt("r1", pipeline_id="pipe-A", status="completed"))
         register_receipt(_make_receipt("r2", pipeline_id="pipe-A", status="failed"))
@@ -245,6 +291,28 @@ class TestListReceipts:
         assert "generated_at" in r
         assert "status" in r
         assert "content_hash" in r
+
+    def test_list_filter_no_match(self):
+        register_receipt(_make_receipt("r1", pipeline_id="pipe-A"))
+        h = _make_handler()
+        http = _make_http_handler()
+        result = h.handle_get("/api/v1/receipts", {"pipeline_id": "pipe-Z"}, http)
+        body = _body(result)
+        assert body["count"] == 0
+        assert body["receipts"] == []
+
+    def test_list_status_unknown_for_missing_execution(self):
+        """Receipt without execution block should report status 'unknown'."""
+        _receipt_store["r1"] = {
+            "receipt_id": "r1",
+            "pipeline_id": "p1",
+            "generated_at": "2026-01-01",
+        }
+        h = _make_handler()
+        http = _make_http_handler()
+        result = h.handle_get("/api/v1/receipts", {}, http)
+        body = _body(result)
+        assert body["receipts"][0]["status"] == "unknown"
 
 
 # ===========================================================================
@@ -287,6 +355,37 @@ class TestGetReceipt:
         body = _body(result)
         assert body["pipeline_id"] == receipt["pipeline_id"]
         assert body["content_hash"] == receipt["content_hash"]
+
+    def test_get_path_traversal_id_rejected(self):
+        """IDs with path traversal characters should be rejected."""
+        h = _make_handler()
+        http = _make_http_handler()
+        result = h.handle_get("/api/v1/receipts/../../etc/passwd", {}, http)
+        assert _status(result) == 400
+
+    def test_get_id_with_spaces_rejected(self):
+        """IDs with spaces should be rejected by SAFE_ID_PATTERN."""
+        h = _make_handler()
+        http = _make_http_handler()
+        result = h.handle_get("/api/v1/receipts/bad id", {}, http)
+        assert _status(result) == 400
+
+    def test_get_very_long_id_rejected(self):
+        """IDs longer than 64 chars should be rejected by SAFE_ID_PATTERN."""
+        h = _make_handler()
+        http = _make_http_handler()
+        long_id = "a" * 65
+        result = h.handle_get(f"/api/v1/receipts/{long_id}", {}, http)
+        assert _status(result) == 400
+
+    def test_get_valid_id_max_length(self):
+        """IDs with exactly 64 chars should be accepted."""
+        valid_id = "a" * 64
+        register_receipt(_make_receipt(valid_id))
+        h = _make_handler()
+        http = _make_http_handler()
+        result = h.handle_get(f"/api/v1/receipts/{valid_id}", {}, http)
+        assert _status(result) == 200
 
 
 # ===========================================================================
@@ -342,6 +441,29 @@ class TestVerifyReceipt:
         result = h.handle_get("/api/v1/receipts/<script>/verify", {}, http)
         assert _status(result) == 400
 
+    def test_verify_recomputed_hash_is_sha256(self):
+        """Verify that the recomputed hash is a valid SHA-256 hex string."""
+        receipt = _make_receipt("rcpt-sha")
+        register_receipt(receipt)
+        h = _make_handler()
+        http = _make_http_handler()
+        result = h.handle_get("/api/v1/receipts/rcpt-sha/verify", {}, http)
+        body = _body(result)
+        recomputed = body["recomputed_hash"]
+        assert len(recomputed) == 64  # SHA-256 hex digest is 64 chars
+        assert all(c in "0123456789abcdef" for c in recomputed)
+
+    def test_verify_empty_content_hash_is_invalid(self):
+        """Receipt with empty content_hash should fail verification."""
+        receipt = _make_receipt("rcpt-empty", content_hash="")
+        register_receipt(receipt)
+        h = _make_handler()
+        http = _make_http_handler()
+        result = h.handle_get("/api/v1/receipts/rcpt-empty/verify", {}, http)
+        body = _body(result)
+        assert body["valid"] is False
+        assert body["stored_hash"] == ""
+
 
 # ===========================================================================
 # Routing edge cases
@@ -369,6 +491,25 @@ class TestRoutingEdgeCases:
         result = h.handle_get("/api/v1/receipts/rcpt-1/verify/extra", {}, http)
         assert result is None
 
+    def test_wrong_base_path_returns_none(self):
+        h = _make_handler()
+        http = _make_http_handler()
+        result = h.handle_get("/api/v1/pipeline/graphs", {}, http)
+        assert result is None
+
+    def test_empty_path_returns_none(self):
+        h = _make_handler()
+        http = _make_http_handler()
+        result = h.handle_get("/", {}, http)
+        assert result is None
+
+    def test_receipts_with_unknown_sub_resource_returns_none(self):
+        """e.g. /api/v1/receipts/rcpt-1/export should return None (not handled)."""
+        h = _make_handler()
+        http = _make_http_handler()
+        result = h.handle_get("/api/v1/receipts/rcpt-1/export", {}, http)
+        assert result is None
+
 
 # ===========================================================================
 # Rate limiting
@@ -387,6 +528,40 @@ class TestRateLimiting:
                 body=json.dumps({"error": "Rate limit exceeded"}).encode(),
             )
             result = h.handle_get("/api/v1/receipts", {}, http)
+        assert _status(result) == 429
+
+    def test_rate_limit_allowed_passes_through(self):
+        """When rate limit check returns None, request proceeds."""
+        h = _make_handler()
+        http = _make_http_handler()
+        with patch.object(h, "_check_rate_limit", return_value=None):
+            result = h.handle_get("/api/v1/receipts", {}, http)
+        assert _status(result) == 200
+
+    def test_rate_limited_on_get_single(self):
+        """Rate limiting applies to single receipt GET as well."""
+        register_receipt(_make_receipt("rcpt-1"))
+        h = _make_handler()
+        http = _make_http_handler()
+        with patch.object(h, "_check_rate_limit") as mock_rl:
+            mock_rl.return_value = MagicMock(
+                status_code=429,
+                body=json.dumps({"error": "Rate limit exceeded"}).encode(),
+            )
+            result = h.handle_get("/api/v1/receipts/rcpt-1", {}, http)
+        assert _status(result) == 429
+
+    def test_rate_limited_on_verify(self):
+        """Rate limiting applies to verify endpoint too."""
+        register_receipt(_make_receipt("rcpt-1"))
+        h = _make_handler()
+        http = _make_http_handler()
+        with patch.object(h, "_check_rate_limit") as mock_rl:
+            mock_rl.return_value = MagicMock(
+                status_code=429,
+                body=json.dumps({"error": "Rate limit exceeded"}).encode(),
+            )
+            result = h.handle_get("/api/v1/receipts/rcpt-1/verify", {}, http)
         assert _status(result) == 429
 
 
