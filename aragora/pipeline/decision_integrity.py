@@ -130,12 +130,12 @@ async def capture_context_snapshot(
     start = time.monotonic()
     snapshot = ContextSnapshot()
 
-    filter_entries = None
-    resolve_tenant_id = None
-    tenant_enforcement_enabled = None
-    has_memory_read_access = None
-    build_access_envelope = None
-    emit_denial_telemetry = None
+    filter_entries: Any = None
+    resolve_tenant_id: Any = None
+    tenant_enforcement_enabled: Any = None
+    has_memory_read_access: Any = None
+    build_access_envelope: Any = None
+    emit_denial_telemetry: Any = None
     tenant_id: str | None = None
     enforce_tenant = False
 

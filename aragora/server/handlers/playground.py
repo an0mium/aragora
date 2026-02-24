@@ -348,8 +348,9 @@ def _call_provider_llm(
                 max_tokens=max_tokens,
                 messages=[{"role": "user", "content": prompt}],
             )
-            if resp.content and resp.content[0].text:
-                return resp.content[0].text
+            block = resp.content[0] if resp.content else None
+            if block and hasattr(block, "text") and block.text:
+                return block.text
         except (
             ImportError,
             OSError,
@@ -369,8 +370,8 @@ def _call_provider_llm(
         try:
             import openai
 
-            client = openai.OpenAI(api_key=key, timeout=timeout)
-            resp = client.chat.completions.create(
+            oai_client = openai.OpenAI(api_key=key, timeout=timeout)
+            resp = oai_client.chat.completions.create(
                 model=model,
                 max_tokens=max_tokens,
                 messages=[{"role": "user", "content": prompt}],
@@ -396,8 +397,8 @@ def _call_provider_llm(
         try:
             import openai
 
-            client = openai.OpenAI(api_key=key, base_url="https://api.x.ai/v1", timeout=timeout)
-            resp = client.chat.completions.create(
+            xai_client = openai.OpenAI(api_key=key, base_url="https://api.x.ai/v1", timeout=timeout)
+            resp = xai_client.chat.completions.create(
                 model=model,
                 max_tokens=max_tokens,
                 messages=[{"role": "user", "content": prompt}],
@@ -423,12 +424,12 @@ def _call_provider_llm(
         try:
             import openai
 
-            client = openai.OpenAI(
+            or_client = openai.OpenAI(
                 api_key=key,
                 base_url="https://openrouter.ai/api/v1",
                 timeout=timeout,
             )
-            resp = client.chat.completions.create(
+            resp = or_client.chat.completions.create(
                 model=model,
                 max_tokens=max_tokens,
                 messages=[{"role": "user", "content": prompt}],

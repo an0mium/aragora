@@ -23,12 +23,12 @@ from typing import Any
 from aragora.server.versioning.compat import strip_version_prefix
 
 from ..base import (
-    BaseHandler,
     HandlerResult,
     error_response,
     handle_errors,
     json_response,
 )
+from ..secure import SecureHandler
 from ..utils.rate_limit import rate_limit
 
 logger = logging.getLogger(__name__)
@@ -91,7 +91,7 @@ def _compute_fingerprint(message: str, stack: str | None) -> str:
 # ---------------------------------------------------------------------------
 
 
-class CrashTelemetryHandler(BaseHandler):
+class CrashTelemetryHandler(SecureHandler):
     """Handler for frontend crash telemetry collection and querying.
 
     RBAC Permissions:
@@ -120,7 +120,7 @@ class CrashTelemetryHandler(BaseHandler):
         path = strip_version_prefix(path)
 
         if path == "/api/observability/crashes/stats":
-            return self._get_stats(query_params)
+            return self._get_stats(query_params, handler)
 
         if path == "/api/observability/crashes":
             return self._list_crashes(query_params, handler)
@@ -251,7 +251,7 @@ class CrashTelemetryHandler(BaseHandler):
         self, query_params: dict[str, Any], handler: Any
     ) -> HandlerResult:
         # Admin check
-        user, err = self.require_admin_or_error(handler)
+        _user, err = self.require_admin_or_error(handler)
         if err:
             return err
 
@@ -275,7 +275,12 @@ class CrashTelemetryHandler(BaseHandler):
     # Stats (admin)
     # ------------------------------------------------------------------
 
-    def _get_stats(self, query_params: dict[str, Any]) -> HandlerResult:
+    def _get_stats(self, query_params: dict[str, Any], handler: Any) -> HandlerResult:
+        # Admin check
+        user, err = self.require_admin_or_error(handler)
+        if err:
+            return err
+
         now = time.time()
         # Count crashes in last hour / last 24h
         last_hour = sum(

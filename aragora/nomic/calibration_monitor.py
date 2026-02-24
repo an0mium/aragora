@@ -204,13 +204,9 @@ class CalibrationDriftDetector:
             stream = SpectatorStream()
             for warning in warnings:
                 stream.emit(
-                    event="calibration_drift",
-                    details={
-                        "type": warning.type,
-                        "agent": warning.agent_name,
-                        "severity": warning.severity,
-                        "message": warning.message,
-                    },
+                    event_type="calibration_drift",
+                    agent=warning.agent_name,
+                    details=f"{warning.type}: {warning.message} (severity={warning.severity})",
                 )
         except ImportError:
             pass
@@ -220,7 +216,6 @@ class CalibrationDriftDetector:
     def _persist_to_km(self, warnings: list[DriftWarning]) -> None:
         """Store drift metrics in KM via lightweight ingestion."""
         try:
-            from aragora.knowledge.mound.core import KnowledgeItem
             from aragora.knowledge.mound.adapters.receipt_adapter import ReceiptAdapter
 
             adapter = ReceiptAdapter()
@@ -229,17 +224,17 @@ class CalibrationDriftDetector:
             async def _ingest() -> None:
                 for warning in warnings:
                     try:
-                        item = KnowledgeItem(
-                            content=warning.message,
-                            source="calibration_drift_detector",
-                            tags=[
+                        item = {
+                            "content": warning.message,
+                            "source": "calibration_drift_detector",
+                            "tags": [
                                 "calibration_drift",
                                 warning.type,
                                 warning.agent_name,
                                 warning.severity,
                             ],
-                        )
-                        await adapter.ingest(item)
+                        }
+                        adapter.ingest(item)
                     except (RuntimeError, ValueError, TypeError, AttributeError) as exc:
                         logger.debug("KM drift ingestion failed: %s", exc)
 

@@ -24,12 +24,12 @@ from typing import Any
 from aragora.server.versioning.compat import strip_version_prefix
 
 from .base import (
-    BaseHandler,
     HandlerResult,
     error_response,
     handle_errors,
     json_response,
 )
+from .secure import SecureHandler
 from .utils.rate_limit import RateLimiter, get_client_ip
 
 logger = logging.getLogger(__name__)
@@ -60,7 +60,7 @@ def _get_budget_manager() -> Any:
         return None
 
 
-class SpendAnalyticsDashboardHandler(BaseHandler):
+class SpendAnalyticsDashboardHandler(SecureHandler):
     """Handler for the spend analytics dashboard endpoints.
 
     Aggregates data from billing CostTracker and BudgetManager to provide
