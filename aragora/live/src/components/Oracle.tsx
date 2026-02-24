@@ -966,6 +966,12 @@ export default function Oracle() {
     return 'idle';
   }, [oracle.fallbackMode, oracle.connected, oracle.phase, loading, debating]);
 
+  const streamStatusLabel = useMemo(() => {
+    if (oracle.fallbackMode) return 'batch fallback';
+    if (oracle.connected) return 'live stream';
+    return 'reconnecting';
+  }, [oracle.fallbackMode, oracle.connected]);
+
   // When streaming completes (synthesis received), commit tokens to messages
   useEffect(() => {
     if (oracle.phase === 'synthesis' && oracle.tokens) {
@@ -1259,6 +1265,25 @@ export default function Oracle() {
 
         {/* Oracle Phase Progress Indicator */}
         <OraclePhaseProgress currentPhase={effectivePhase} />
+
+        {/* Streaming telemetry strip */}
+        <div className="mt-2 mb-4 flex flex-wrap items-center gap-2 text-[10px] uppercase tracking-wider">
+          <span className="px-2 py-1 border rounded border-[var(--border)]/40 text-[var(--text-muted)]">
+            Stream: {streamStatusLabel}
+          </span>
+          {oracle.connected && oracle.phase !== 'idle' && (
+            <span className="px-2 py-1 border rounded border-[var(--acid-cyan)]/30 text-[var(--acid-cyan)]">
+              {oracle.timeToFirstTokenMs === null
+                ? 'TTFT measuring...'
+                : `TTFT ${(oracle.timeToFirstTokenMs / 1000).toFixed(2)}s`}
+            </span>
+          )}
+          {oracle.streamDurationMs !== null && (
+            <span className="px-2 py-1 border rounded border-[var(--acid-green)]/30 text-[var(--acid-green)]">
+              Duration {(oracle.streamDurationMs / 1000).toFixed(2)}s
+            </span>
+          )}
+        </div>
 
         {/* Input */}
         <form onSubmit={consultOracle} className="flex gap-3 mb-4">

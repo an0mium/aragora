@@ -38,6 +38,10 @@ export interface UseOracleWebSocket {
   synthesis: string;
   /** True if WebSocket failed and component should use fetch fallback. */
   fallbackMode: boolean;
+  /** Client-observed time to first token (ms) for the current/last stream. */
+  timeToFirstTokenMs: number | null;
+  /** Client-observed end-to-end stream duration (ms) for the current/last stream. */
+  streamDurationMs: number | null;
   /** Streaming audio controls. */
   audio: ReturnType<typeof useStreamingAudio>;
 }
@@ -58,12 +62,16 @@ export function useOracleWebSocket(): UseOracleWebSocket {
   const [tentacles, setTentacles] = useState<Map<string, TentacleState>>(new Map());
   const [synthesis, setSynthesis] = useState('');
   const [fallbackMode, setFallbackMode] = useState(false);
+  const [timeToFirstTokenMs, setTimeToFirstTokenMs] = useState<number | null>(null);
+  const [streamDurationMs, setStreamDurationMs] = useState<number | null>(null);
 
   const wsRef = useRef<WebSocket | null>(null);
   const reconnectAttempts = useRef(0);
   const reconnectTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const mountedRef = useRef(true);
   const phaseRef = useRef<OraclePhase>('idle');
+  const askStartedAtRef = useRef<number | null>(null);
+  const firstTokenSeenRef = useRef(false);
   const audio = useStreamingAudio();
 
   const cleanup = useCallback(() => {
@@ -162,6 +170,10 @@ export function useOracleWebSocket(): UseOracleWebSocket {
             break;
 
           case 'token':
+            if (!firstTokenSeenRef.current && askStartedAtRef.current !== null) {
+              firstTokenSeenRef.current = true;
+              setTimeToFirstTokenMs(Math.round(performance.now() - askStartedAtRef.current));
+            }
             setTokens(prev => prev + (data.text || ''));
             if (data.phase === 'deep' && phaseRef.current !== 'deep') {
               phaseRef.current = 'deep';
@@ -216,6 +228,9 @@ export function useOracleWebSocket(): UseOracleWebSocket {
             phaseRef.current = 'synthesis';
             setPhase('synthesis');
             setSynthesis(data.text || '');
+            if (askStartedAtRef.current !== null) {
+              setStreamDurationMs(Math.round(performance.now() - askStartedAtRef.current));
+            }
             break;
 
           case 'error':
@@ -250,7 +265,11 @@ export function useOracleWebSocket(): UseOracleWebSocket {
     if (!wsRef.current || wsRef.current.readyState !== WebSocket.OPEN) return;
 
     // Reset state for new question
+    askStartedAtRef.current = performance.now();
+    firstTokenSeenRef.current = false;
     setTokens('');
+    setTimeToFirstTokenMs(null);
+    setStreamDurationMs(null);
     phaseRef.current = 'idle';
     setPhase('idle');
     setTentacles(new Map());
@@ -267,10 +286,13 @@ export function useOracleWebSocket(): UseOracleWebSocket {
     if (wsRef.current?.readyState === WebSocket.OPEN) {
       wsRef.current.send(JSON.stringify({ type: 'stop' }));
     }
+    if (askStartedAtRef.current !== null && streamDurationMs === null) {
+      setStreamDurationMs(Math.round(performance.now() - askStartedAtRef.current));
+    }
     phaseRef.current = 'idle';
     setPhase('idle');
     audio.stop();
-  }, [audio]);
+  }, [audio, streamDurationMs]);
 
   const sendInterim = useCallback((text: string) => {
     if (wsRef.current?.readyState === WebSocket.OPEN) {
@@ -288,6 +310,8 @@ export function useOracleWebSocket(): UseOracleWebSocket {
     tentacles,
     synthesis,
     fallbackMode,
+    timeToFirstTokenMs,
+    streamDurationMs,
     audio,
   };
 }
