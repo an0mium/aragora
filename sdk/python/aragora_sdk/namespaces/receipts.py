@@ -54,7 +54,9 @@ class ReceiptsAPI:
             List of receipts with pagination info.
         """
         return self._client.request(
-            "GET", "/api/v2/receipts", params={"limit": limit, "offset": offset},
+            "GET",
+            "/api/v2/receipts",
+            params={"limit": limit, "offset": offset},
         )
 
     def get(self, receipt_id: str) -> dict[str, Any]:
@@ -86,7 +88,8 @@ class ReceiptsAPI:
         """
         format_value = "md" if format == "markdown" else format
         return self._client.request(
-            "GET", f"/api/v2/receipts/{receipt_id}/export",
+            "GET",
+            f"/api/v2/receipts/{receipt_id}/export",
             params={"format": format_value},
         )
 
@@ -112,7 +115,8 @@ class ReceiptsAPI:
         if compact:
             params["compact"] = "true"
         return self._client.request(
-            "GET", f"/api/v2/receipts/{receipt_id}/formatted/{channel_type}",
+            "GET",
+            f"/api/v2/receipts/{receipt_id}/formatted/{channel_type}",
             params=params,
         )
 
@@ -147,7 +151,39 @@ class ReceiptsAPI:
         if options:
             payload["options"] = options
         return self._client.request(
-            "POST", f"/api/v2/receipts/{receipt_id}/send-to-channel", json=payload,
+            "POST",
+            f"/api/v2/receipts/{receipt_id}/send-to-channel",
+            json=payload,
+        )
+
+    def deliver_v1(
+        self,
+        receipt_id: str,
+        channel: str,
+        destination: str,
+        *,
+        workspace_id: str | None = None,
+        message: str | None = None,
+        options: dict[str, Any] | None = None,
+    ) -> dict[str, Any]:
+        """
+        Deliver a receipt using the v1 bridge endpoint.
+
+        This maps to POST /api/v1/receipts/{id}/deliver for frontend compatibility.
+        """
+        payload: dict[str, Any] = {
+            "channel": channel,
+            "destination": destination,
+            "options": options or {},
+        }
+        if workspace_id:
+            payload["workspace_id"] = workspace_id
+        if message:
+            payload["message"] = message
+        return self._client.request(
+            "POST",
+            f"/api/v1/receipts/{receipt_id}/deliver",
+            json=payload,
         )
 
     def deliver_v1(
@@ -199,7 +235,9 @@ class ReceiptsAPI:
             Share result with link or delivery status.
         """
         return self._client.request(
-            "POST", f"/api/v2/receipts/{receipt_id}/share", json=kwargs,
+            "POST",
+            f"/api/v2/receipts/{receipt_id}/share",
+            json=kwargs,
         )
 
     def verify(self, receipt_id: str) -> dict[str, Any]:
@@ -213,7 +251,8 @@ class ReceiptsAPI:
             Verification result with valid status and hash.
         """
         return self._client.request(
-            "POST", f"/api/v2/receipts/{receipt_id}/verify",
+            "POST",
+            f"/api/v2/receipts/{receipt_id}/verify",
         )
 
     def verify_signature(self, receipt_id: str) -> dict[str, Any]:
@@ -227,7 +266,8 @@ class ReceiptsAPI:
             Signature verification result.
         """
         return self._client.request(
-            "POST", f"/api/v2/receipts/{receipt_id}/verify-signature",
+            "POST",
+            f"/api/v2/receipts/{receipt_id}/verify-signature",
         )
 
     # =========================================================================
@@ -317,7 +357,9 @@ class ReceiptsAPI:
             "pretty_print": str(pretty_print).lower(),
         }
         return self._client.request(
-            "GET", f"/api/v1/gauntlet/receipts/{receipt_id}/export", params=params,
+            "GET",
+            f"/api/v1/gauntlet/receipts/{receipt_id}/export",
+            params=params,
         )
 
     def export_bundle(
@@ -350,7 +392,9 @@ class ReceiptsAPI:
             "include_dissent": include_dissent,
         }
         return self._client.request(
-            "POST", "/api/v1/gauntlet/receipts/export/bundle", json=payload,
+            "POST",
+            "/api/v1/gauntlet/receipts/export/bundle",
+            json=payload,
         )
 
     def stream(self, receipt_id: str) -> dict[str, Any]:
@@ -364,7 +408,8 @@ class ReceiptsAPI:
             Streamed receipt data.
         """
         return self._client.request(
-            "GET", f"/api/v1/gauntlet/receipts/{receipt_id}/stream",
+            "GET",
+            f"/api/v1/gauntlet/receipts/{receipt_id}/stream",
         )
 
     # =========================================================================
@@ -539,7 +584,9 @@ class AsyncReceiptsAPI:
     ) -> dict[str, Any]:
         """List decision receipts."""
         return await self._client.request(
-            "GET", "/api/v2/receipts", params={"limit": limit, "offset": offset},
+            "GET",
+            "/api/v2/receipts",
+            params={"limit": limit, "offset": offset},
         )
 
     async def get(self, receipt_id: str) -> dict[str, Any]:
@@ -554,7 +601,8 @@ class AsyncReceiptsAPI:
         """Export a decision receipt."""
         format_value = "md" if format == "markdown" else format
         return await self._client.request(
-            "GET", f"/api/v2/receipts/{receipt_id}/export",
+            "GET",
+            f"/api/v2/receipts/{receipt_id}/export",
             params={"format": format_value},
         )
 
@@ -570,7 +618,8 @@ class AsyncReceiptsAPI:
         if compact:
             params["compact"] = "true"
         return await self._client.request(
-            "GET", f"/api/v2/receipts/{receipt_id}/formatted/{channel_type}",
+            "GET",
+            f"/api/v2/receipts/{receipt_id}/formatted/{channel_type}",
             params=params,
         )
 
@@ -593,7 +642,39 @@ class AsyncReceiptsAPI:
         if options:
             payload["options"] = options
         return await self._client.request(
-            "POST", f"/api/v2/receipts/{receipt_id}/send-to-channel", json=payload,
+            "POST",
+            f"/api/v2/receipts/{receipt_id}/send-to-channel",
+            json=payload,
+        )
+
+    async def deliver_v1(
+        self,
+        receipt_id: str,
+        channel: str,
+        destination: str,
+        *,
+        workspace_id: str | None = None,
+        message: str | None = None,
+        options: dict[str, Any] | None = None,
+    ) -> dict[str, Any]:
+        """
+        Deliver a receipt using the v1 bridge endpoint.
+
+        This maps to POST /api/v1/receipts/{id}/deliver for frontend compatibility.
+        """
+        payload: dict[str, Any] = {
+            "channel": channel,
+            "destination": destination,
+            "options": options or {},
+        }
+        if workspace_id:
+            payload["workspace_id"] = workspace_id
+        if message:
+            payload["message"] = message
+        return await self._client.request(
+            "POST",
+            f"/api/v1/receipts/{receipt_id}/deliver",
+            json=payload,
         )
 
     async def deliver_v1(
@@ -631,19 +712,23 @@ class AsyncReceiptsAPI:
     async def share(self, receipt_id: str, **kwargs: Any) -> dict[str, Any]:
         """Share a receipt."""
         return await self._client.request(
-            "POST", f"/api/v2/receipts/{receipt_id}/share", json=kwargs,
+            "POST",
+            f"/api/v2/receipts/{receipt_id}/share",
+            json=kwargs,
         )
 
     async def verify(self, receipt_id: str) -> dict[str, Any]:
         """Verify a decision receipt's integrity."""
         return await self._client.request(
-            "POST", f"/api/v2/receipts/{receipt_id}/verify",
+            "POST",
+            f"/api/v2/receipts/{receipt_id}/verify",
         )
 
     async def verify_signature(self, receipt_id: str) -> dict[str, Any]:
         """Verify a receipt's cryptographic signature."""
         return await self._client.request(
-            "POST", f"/api/v2/receipts/{receipt_id}/verify-signature",
+            "POST",
+            f"/api/v2/receipts/{receipt_id}/verify-signature",
         )
 
     # =========================================================================
@@ -698,7 +783,9 @@ class AsyncReceiptsAPI:
             "pretty_print": str(pretty_print).lower(),
         }
         return await self._client.request(
-            "GET", f"/api/v1/gauntlet/receipts/{receipt_id}/export", params=params,
+            "GET",
+            f"/api/v1/gauntlet/receipts/{receipt_id}/export",
+            params=params,
         )
 
     async def export_bundle(
@@ -719,13 +806,16 @@ class AsyncReceiptsAPI:
             "include_dissent": include_dissent,
         }
         return await self._client.request(
-            "POST", "/api/v1/gauntlet/receipts/export/bundle", json=payload,
+            "POST",
+            "/api/v1/gauntlet/receipts/export/bundle",
+            json=payload,
         )
 
     async def stream(self, receipt_id: str) -> dict[str, Any]:
         """Stream receipt export data (for large receipts)."""
         return await self._client.request(
-            "GET", f"/api/v1/gauntlet/receipts/{receipt_id}/stream",
+            "GET",
+            f"/api/v1/gauntlet/receipts/{receipt_id}/stream",
         )
 
     # =========================================================================
