@@ -283,7 +283,7 @@ class TestUpdateNode:
             {"data": {"new_key": "val"}},
             http,
         )
-        node.data.update.assert_called_once_with({"new_key": "val"})
+        assert node.data == {"existing": True, "new_key": "val"}
 
     def test_update_metadata_merges(self, patched_store):
         graph = _mock_graph()
@@ -299,7 +299,7 @@ class TestUpdateNode:
             {"metadata": {"tag": "b"}},
             http,
         )
-        node.metadata.update.assert_called_once_with({"tag": "b"})
+        assert node.metadata == {"tag": "b"}
 
     def test_update_multiple_fields(self, patched_store):
         graph = _mock_graph()
@@ -347,7 +347,7 @@ class TestUpdateNode:
         h = _make_handler()
         http = _make_http_handler()
         result = h.handle_patch(
-            "/api/v1/pipeline/graphs/../../bad/nodes/node-1",
+            "/api/v1/pipeline/graphs/bad%20graph!@#/nodes/node-1",
             {"label": "X"},
             http,
         )
@@ -420,8 +420,8 @@ class TestUpdateNode:
             {"data": "not-a-dict"},
             http,
         )
-        # data.update should NOT have been called with non-dict
-        node.data.update.assert_not_called()
+        # Non-dict data should be ignored — original data unchanged
+        assert node.data == {"existing": True}
 
 
 # ===========================================================================

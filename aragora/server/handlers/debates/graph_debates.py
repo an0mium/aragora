@@ -226,8 +226,8 @@ class GraphDebatesHandler(SecureHandler):
             max_rounds: int - Maximum rounds per branch (1-20, default: 5)
             branch_policy: dict - Custom branch policy settings
         """
-        # Validate task
-        task = data.get("task")
+        # Validate task (accept "question" as alias for frontend compatibility)
+        task = data.get("task") or data.get("question")
         if not task:
             return error_response("task is required", 400)
         if not isinstance(task, str):

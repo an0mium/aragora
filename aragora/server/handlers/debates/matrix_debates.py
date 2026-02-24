@@ -259,8 +259,8 @@ class MatrixDebatesHandler(SecureHandler):
                 - is_baseline: bool - Whether this is the baseline scenario
             max_rounds: int - Maximum rounds per scenario (1-10, default: global debate default)
         """
-        # Validate task
-        task = data.get("task")
+        # Validate task (accept "question" as alias for frontend compatibility)
+        task = data.get("task") or data.get("question")
         if not task:
             return error_response("task is required", 400)
         if not isinstance(task, str):
