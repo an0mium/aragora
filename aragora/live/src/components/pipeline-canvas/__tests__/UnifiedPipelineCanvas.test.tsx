@@ -438,7 +438,7 @@ describe('UnifiedPipelineCanvas', () => {
     render(<UnifiedPipelineCanvas />);
 
     // Default zoom 1.0 is between 0.8 and 1.5
-    expect(screen.getByTestId('zoom-indicator')).toHaveTextContent('ideas + goals + actions');
+    expect(screen.getByTestId('zoom-indicator')).toHaveTextContent('ideas + principles + goals + actions');
 
     // Change to high zoom
     act(() => {
@@ -450,7 +450,7 @@ describe('UnifiedPipelineCanvas', () => {
     act(() => {
       capturedOnViewportChange?.({ zoom: 0.5, x: 0, y: 0 });
     });
-    expect(screen.getByTestId('zoom-indicator')).toHaveTextContent('ideas + goals');
+    expect(screen.getByTestId('zoom-indicator')).toHaveTextContent('ideas + principles + goals');
   });
 
   it('hides AI transition toolbar in readOnly mode', () => {
