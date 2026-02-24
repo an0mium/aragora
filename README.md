@@ -6,6 +6,8 @@ Aragora orchestrates 42 AI agents to adversarially vet decisions through structu
 
 [![PyPI](https://img.shields.io/pypi/v/aragora)](https://pypi.org/project/aragora/)
 [![Tests](https://github.com/an0mium/aragora/actions/workflows/test.yml/badge.svg)](https://github.com/an0mium/aragora/actions/workflows/test.yml)
+[![Smoke Tests](https://github.com/an0mium/aragora/actions/workflows/smoke.yml/badge.svg)](https://github.com/an0mium/aragora/actions/workflows/smoke.yml)
+[![Deploy](https://github.com/an0mium/aragora/actions/workflows/deploy-lightsail.yml/badge.svg)](https://github.com/an0mium/aragora/actions/workflows/deploy-lightsail.yml)
 [![Python 3.10+](https://img.shields.io/badge/python-3.10+-blue.svg)](https://www.python.org/downloads/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 

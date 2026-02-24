@@ -234,9 +234,9 @@ class PlanManagementHandler(BaseHandler):
             if hasattr(plan, "debate_result") and plan.debate_result:
                 try:
                     from aragora.pipeline.pr_generator import PRGenerator
-                    from aragora.export.artifact import DebateArtifact
+                    from aragora.export.artifact import create_artifact_from_debate
 
-                    artifact = DebateArtifact.from_debate_result(plan.debate_result)  # type: ignore[attr-defined]
+                    artifact = create_artifact_from_debate(plan.debate_result)
                     generator = PRGenerator(artifact)
                     memo = generator.generate_decision_memo()
                     memo_md = memo.to_markdown()
@@ -304,12 +304,12 @@ class PlanManagementHandler(BaseHandler):
                 "created_at": plan.get("created_at", ""),
                 "requires_approval": plan.get("requires_human_approval", False),
             }
+        status_obj = getattr(plan, "status", "")
+        status_value = getattr(status_obj, "value", status_obj)
         return {
             "id": getattr(plan, "id", ""),
             "task": getattr(plan, "task", ""),
-            "status": getattr(plan, "status", "").value  # type: ignore[union-attr]
-            if hasattr(getattr(plan, "status", ""), "value")
-            else str(getattr(plan, "status", "")),
+            "status": str(status_value),
             "debate_id": getattr(plan, "debate_id", ""),
             "created_at": getattr(plan, "created_at", ""),
             "requires_approval": getattr(plan, "requires_human_approval", False),

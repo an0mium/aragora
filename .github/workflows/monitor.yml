@@ -12,6 +12,12 @@ jobs:
     timeout-minutes: 5
 
     steps:
+      - name: Checkout (for frontend route verification script)
+        uses: actions/checkout@v4
+        with:
+          sparse-checkout: scripts/verify_frontend_routes.sh
+          sparse-checkout-cone-mode: false
+
       - name: Check Cloudflare Pages (Frontend Critical Routes)
         run: |
           # Retry once on transient failure

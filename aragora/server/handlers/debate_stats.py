@@ -20,14 +20,19 @@ from aragora.server.versioning.compat import strip_version_prefix
 logger = logging.getLogger(__name__)
 
 
+async def _await_awaitable(value: Any) -> Any:
+    """Await generic awaitables while presenting a concrete coroutine type."""
+    return await value
+
+
 def _resolve(maybe_coro: Any) -> Any:
     """Resolve a value that may be a coroutine (from async def) to its result."""
     if inspect.isawaitable(maybe_coro):
         try:
             loop = asyncio.get_running_loop()
-            return loop.run_until_complete(maybe_coro)
+            return loop.run_until_complete(_await_awaitable(maybe_coro))
         except RuntimeError:
-            return asyncio.run(maybe_coro)  # type: ignore[arg-type]
+            return asyncio.run(_await_awaitable(maybe_coro))
     return maybe_coro
 
 

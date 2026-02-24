@@ -841,7 +841,7 @@ async def run_debate(
     if enable_cartographer is not None:
         setattr(arena, "enable_cartographer", enable_cartographer)
     if enable_introspection is not None:
-        arena.enable_introspection = enable_introspection
+        setattr(arena, "enable_introspection", enable_introspection)
 
     # Enable auto-explanation if requested
     if auto_explain and hasattr(arena, "extensions") and arena.extensions is not None:
@@ -867,8 +867,9 @@ def cmd_ask(args: argparse.Namespace) -> None:
         task_brief = handle_ambiguous_task(task)
         task = task_brief.goal  # The core goal is now the task
         context += f"\n\n--- Structured Task Brief (Confidence: {task_brief.confidence:.2f}) ---\n"
-        if getattr(task_brief, "objective", None):
-            context += f"Objective: {getattr(task_brief, 'objective', '')}\n"
+        objective = getattr(task_brief, "objective", None)
+        if objective:
+            context += f"Objective: {objective}\n"
         if task_brief.assumptions:
             context += "Assumptions:\n" + "\n".join(f"- {a}" for a in task_brief.assumptions)
         # Non-goals and evaluation_criteria are not in V1, but check defensively

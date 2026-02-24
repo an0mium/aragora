@@ -48,16 +48,20 @@ class AuditMixin:
 
         # Try to log via AuditLog
         try:
-            from aragora.audit.log import AuditLog
+            from aragora.audit.log import AuditCategory, AuditEvent, AuditLog
 
             audit = AuditLog()
-            audit.log(  # type: ignore[call-arg]
-                event="orchestration_reconciliation",  # type: ignore[arg-type]
-                data={
-                    "overlapping_files": overlaps,
-                    "assignment_count": len(completed),
-                    "overlap_count": len(overlaps),
-                },
+            audit.log(
+                AuditEvent(
+                    category=AuditCategory.SYSTEM,
+                    action="orchestration_reconciliation",
+                    actor_id="system:hardened_orchestrator",
+                    details={
+                        "overlapping_files": overlaps,
+                        "assignment_count": len(completed),
+                        "overlap_count": len(overlaps),
+                    },
+                )
             )
         except (ImportError, Exception) as e:
             logger.debug("AuditLog unavailable for reconciliation: %s", e)

@@ -38,8 +38,9 @@ def _emit_intervention_event(
     try:
         from aragora.events.types import StreamEvent, StreamEventType
 
+        resolved_event_type = StreamEventType.__members__.get(event_type, StreamEventType.LOG_MESSAGE)
         event = StreamEvent(
-            type=getattr(StreamEventType, event_type, event_type),  # type: ignore[arg-type]
+            type=resolved_event_type,
             data={"debate_id": debate_id, **data},
             loop_id=debate_id,
         )

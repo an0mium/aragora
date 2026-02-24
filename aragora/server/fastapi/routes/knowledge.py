@@ -500,10 +500,13 @@ async def get_knowledge_gaps(
                     )
 
             raw_contradictions = await detector.detect_contradictions()
-            contradictions: list[dict[str, Any]] = [
-                c.to_dict() if hasattr(c, "to_dict") else c  # type: ignore[misc]
-                for c in raw_contradictions[:50]
-            ]
+            contradictions: list[dict[str, Any]] = []
+            for contradiction in raw_contradictions[:50]:
+                contradiction_dict = (
+                    contradiction.to_dict() if hasattr(contradiction, "to_dict") else contradiction
+                )
+                if isinstance(contradiction_dict, dict):
+                    contradictions.append(contradiction_dict)
 
             return KnowledgeGapsResponse(
                 workspace_id=workspace_id,
@@ -738,10 +741,10 @@ async def get_staleness_analysis(
     ),
     limit: int = Query(50, ge=1, le=100, description="Max stale items to return"),
     km=Depends(get_knowledge_mound),
-) -> StalenessResponse:
+    ) -> StalenessResponse:
     """Analyze staleness of knowledge items."""
     if not km:
-        return StalenessResponse(storage_backend="not_initialized")
+        return StalenessResponse(threshold_days=threshold_days)
 
     try:
         stale_items: list[StalenessItem] = []

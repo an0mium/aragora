@@ -23,9 +23,9 @@ from aragora.knowledge.mound_types import (
     KnowledgeNode,
     KnowledgeRelationship,
     NodeType,
-    RelationshipType,
     ProvenanceChain,
     ProvenanceType,
+    RelationshipType,
 )
 
 logger = logging.getLogger(__name__)
@@ -42,7 +42,7 @@ class IdeaCanvasAdapter(KnowledgeMoundAdapter):
     adapter_name = "idea_canvas"
 
     # Mapping from IdeaNodeType value → KM NodeType
-    _IDEA_TO_KM_TYPE: dict[str, str] = {
+    _IDEA_TO_KM_TYPE: dict[str, NodeType] = {
         "concept": "idea_concept",
         "cluster": "idea_cluster",
         "question": "idea_question",
@@ -90,7 +90,8 @@ class IdeaCanvasAdapter(KnowledgeMoundAdapter):
         """
         data = canvas_node.get("data", {})
         idea_type = data.get("idea_type", "concept")
-        km_type = self._IDEA_TO_KM_TYPE.get(idea_type, "idea_concept")
+        default_node_type: NodeType = "idea_concept"
+        km_type = self._IDEA_TO_KM_TYPE.get(idea_type, default_node_type)
 
         label = canvas_node.get("label", "")
         body = data.get("body", "")
@@ -291,9 +292,9 @@ class IdeaCanvasAdapter(KnowledgeMoundAdapter):
     # ------------------------------------------------------------------
 
     @staticmethod
-    def _map_edge_type(edge_type: str) -> str:
+    def _map_edge_type(edge_type: str) -> RelationshipType:
         """Map a canvas/stage edge type to a KM RelationshipType."""
-        mapping = {
+        mapping: dict[str, RelationshipType] = {
             "supports": "supports",
             "refutes": "contradicts",
             "inspires": "inspires",
@@ -305,7 +306,8 @@ class IdeaCanvasAdapter(KnowledgeMoundAdapter):
             "conflicts": "contradicts",
             "relates_to": "related_to",
         }
-        return mapping.get(edge_type, "related_to")
+        default_relationship: RelationshipType = "related_to"
+        return mapping.get(edge_type, default_relationship)
 
 
 __all__ = ["IdeaCanvasAdapter"]

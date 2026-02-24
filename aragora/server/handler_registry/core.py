@@ -19,7 +19,7 @@ import importlib
 import logging
 import os
 from functools import lru_cache
-from typing import TYPE_CHECKING, Any, Optional
+from typing import TYPE_CHECKING, Any, Optional, cast
 
 if TYPE_CHECKING:
     pass
@@ -307,7 +307,7 @@ class _DeferredImport:
                     e,
                 )
                 self._resolved = None
-        return self._resolved  # type: ignore[return-value]
+        return cast(HandlerType, self._resolved)
 
     def __bool__(self) -> bool:
         # Always truthy before resolution — assume import will succeed
@@ -983,7 +983,9 @@ def check_handler_coverage(handler_registry: list[tuple[str, Any]]) -> None:
                     and len(node.args) >= 2
                     and isinstance(node.args[1], ast.Constant)
                 ):
-                    registered_names.add(node.args[1].value)  # type: ignore[arg-type]
+                    class_name = node.args[1].value
+                    if isinstance(class_name, str):
+                        registered_names.add(class_name)
         except (SyntaxError, OSError):
             continue
 

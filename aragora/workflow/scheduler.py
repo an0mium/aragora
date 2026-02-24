@@ -18,6 +18,7 @@ Usage:
 from __future__ import annotations
 
 import asyncio
+import inspect
 import json
 import logging
 import sqlite3
@@ -470,14 +471,11 @@ class WorkflowScheduler:
             store = get_workflow_store()
 
             # Look up the workflow definition from the persistent store
-            import inspect
-
-            execution_result = store.get_execution(entry.workflow_id)
-            execution = (
-                await execution_result
-                if inspect.isawaitable(execution_result)
-                else execution_result
-            )
+            execution_candidate = store.get_execution(entry.workflow_id)
+            if inspect.isawaitable(execution_candidate):
+                execution = await execution_candidate
+            else:
+                execution = execution_candidate
             if execution and "definition" in execution:
                 from aragora.workflow.types import WorkflowDefinition
 

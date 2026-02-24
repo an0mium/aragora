@@ -23,9 +23,9 @@ from aragora.knowledge.mound_types import (
     KnowledgeNode,
     KnowledgeRelationship,
     NodeType,
-    RelationshipType,  # noqa: F401 — used by subclasses
     ProvenanceChain,
     ProvenanceType,
+    RelationshipType,
 )
 
 logger = logging.getLogger(__name__)
@@ -42,7 +42,7 @@ class GoalCanvasAdapter(KnowledgeMoundAdapter):
     adapter_name = "goal_canvas"
 
     # Mapping from GoalNodeType value → KM NodeType
-    _GOAL_TO_KM_TYPE: dict[str, str] = {
+    _GOAL_TO_KM_TYPE: dict[str, NodeType] = {
         "goal": "goal_goal",
         "principle": "goal_principle",
         "strategy": "goal_strategy",
@@ -87,7 +87,8 @@ class GoalCanvasAdapter(KnowledgeMoundAdapter):
         """
         data = canvas_node.get("data", {})
         goal_type = data.get("goal_type", "goal")
-        km_type = self._GOAL_TO_KM_TYPE.get(goal_type, "goal_goal")
+        default_node_type: NodeType = "goal_goal"
+        km_type = self._GOAL_TO_KM_TYPE.get(goal_type, default_node_type)
 
         label = canvas_node.get("label", "")
         description = data.get("description", "")
@@ -289,9 +290,9 @@ class GoalCanvasAdapter(KnowledgeMoundAdapter):
     # ------------------------------------------------------------------
 
     @staticmethod
-    def _map_edge_type(edge_type: str) -> str:
+    def _map_edge_type(edge_type: str) -> RelationshipType:
         """Map a canvas/stage edge type to a KM RelationshipType."""
-        mapping = {
+        mapping: dict[str, RelationshipType] = {
             "requires": "related_to",
             "blocks": "related_to",
             "follows": "related_to",
@@ -301,7 +302,8 @@ class GoalCanvasAdapter(KnowledgeMoundAdapter):
             "conflicts": "contradicts",
             "decomposes_into": "related_to",
         }
-        return mapping.get(edge_type, "related_to")
+        default_relationship: RelationshipType = "related_to"
+        return mapping.get(edge_type, default_relationship)
 
 
 __all__ = ["GoalCanvasAdapter"]

@@ -13,6 +13,7 @@ Endpoints:
 
 from __future__ import annotations
 
+import asyncio
 import logging
 from typing import Any
 
@@ -27,6 +28,13 @@ from .utils.auth_mixins import SecureEndpointMixin
 from .utils.rate_limit import rate_limit
 
 logger = logging.getLogger(__name__)
+
+
+async def _maybe_await(value: Any) -> Any:
+    """Await value when it is a coroutine, otherwise return as-is."""
+    if asyncio.iscoroutine(value):
+        return await value
+    return value
 
 
 class SystemIntelligenceHandler(SecureEndpointMixin, SecureHandler):  # type: ignore[misc]
@@ -103,13 +111,29 @@ class SystemIntelligenceHandler(SecureEndpointMixin, SecureHandler):  # type: ig
             from aragora.nomic.cycle_store import get_cycle_store
 
             store = get_cycle_store()
-            recent = store.get_recent_cycles(n=50)
-            total_cycles = len(recent)
-            successes = sum(
-                1
-                for c in recent
-                if (c if isinstance(c, dict) else getattr(c, "__dict__", {})).get("success", False)
-            )
+            recent_cycles: list[Any] = []
+            recent_cycles_getter = getattr(store, "get_recent_cycles", None)
+            if callable(recent_cycles_getter):
+                recent_candidate = recent_cycles_getter(50)
+                if isinstance(recent_candidate, list):
+                    recent_cycles = recent_candidate
+
+            if not recent_cycles:
+                recent_getter = getattr(store, "get_recent", None)
+                if callable(recent_getter):
+                    recent_candidate = recent_getter(limit=50)
+                    if isinstance(recent_candidate, list):
+                        recent_cycles = recent_candidate
+
+            total_cycles = len(recent_cycles)
+            successes = 0
+            for cycle in recent_cycles:
+                if isinstance(cycle, dict):
+                    is_success = bool(cycle.get("success", False))
+                else:
+                    is_success = bool(getattr(cycle, "success", False))
+                if is_success:
+                    successes += 1
             if total_cycles > 0:
                 success_rate = round(successes / total_cycles, 4)
         except (ImportError, RuntimeError, ValueError, OSError, AttributeError):
@@ -121,23 +145,20 @@ class SystemIntelligenceHandler(SecureEndpointMixin, SecureHandler):  # type: ig
 
             elo = EloSystem()
             leaderboard = elo.get_leaderboard(limit=10)
-            for entry in leaderboard:
-                if isinstance(entry, dict):
-                    top_agents.append(
-                        {
-                            "id": entry.get("agent_name", ""),
-                            "elo": entry.get("rating", 1500),
-                            "wins": entry.get("wins", 0),
-                        }
-                    )
+            for rating in leaderboard:
+                if isinstance(rating, dict):
+                    agent_id = rating.get("agent_name", "")
+                    elo_score = rating.get("elo", rating.get("rating", 1500))
+                    wins = rating.get("wins", 0)
                 else:
-                    top_agents.append(
-                        {
-                            "id": getattr(entry, "agent_name", ""),
-                            "elo": getattr(entry, "rating", 1500),
-                            "wins": getattr(entry, "wins", 0),
-                        }
-                    )
+                    agent_id = getattr(rating, "agent_name", "")
+                    elo_score = getattr(rating, "elo", getattr(rating, "rating", 1500))
+                    wins = getattr(rating, "wins", 0)
+                top_agents.append({
+                    "id": agent_id,
+                    "elo": elo_score,
+                    "wins": wins,
+                })
             active_agents = len(leaderboard)
         except (ImportError, RuntimeError, ValueError, OSError, AttributeError):
             logger.debug("EloSystem not available for overview")
@@ -147,8 +168,12 @@ class SystemIntelligenceHandler(SecureEndpointMixin, SecureHandler):  # type: ig
             from aragora.knowledge.mound.core import KnowledgeMoundCore
 
             km = KnowledgeMoundCore()
-            stats = km.get_stats()
-            knowledge_items = stats.get("total_items", 0) if isinstance(stats, dict) else 0
+            get_stats = getattr(km, "get_stats", None)
+            stats: Any = await _maybe_await(get_stats()) if callable(get_stats) else {}
+            if isinstance(stats, dict):
+                knowledge_items = int(stats.get("total_items", stats.get("total_nodes", 0)))
+            else:
+                knowledge_items = int(getattr(stats, "total_nodes", 0))
         except (ImportError, RuntimeError, ValueError, OSError, AttributeError):
             logger.debug("KnowledgeMound not available for overview")
 
@@ -203,12 +228,12 @@ class SystemIntelligenceHandler(SecureEndpointMixin, SecureHandler):  # type: ig
             for entry in leaderboard:
                 if isinstance(entry, dict):
                     name = entry.get("agent_name", "")
-                    rating = entry.get("rating", 1500)
+                    rating = entry.get("elo", entry.get("rating", 1500))
                     wins = entry.get("wins", 0)
                     losses = entry.get("losses", 0)
                 else:
                     name = getattr(entry, "agent_name", "")
-                    rating = getattr(entry, "rating", 1500)
+                    rating = getattr(entry, "elo", getattr(entry, "rating", 1500))
                     wins = getattr(entry, "wins", 0)
                     losses = getattr(entry, "losses", 0)
 
@@ -218,35 +243,42 @@ class SystemIntelligenceHandler(SecureEndpointMixin, SecureHandler):  # type: ig
                 # ELO history
                 elo_history: list[dict[str, Any]] = []
                 try:
-                    history = elo.get_elo_history(name, limit=20)
-                    for h in history:
-                        if isinstance(h, dict):
-                            elo_history.append(
-                                {
-                                    "date": h.get("timestamp", ""),
-                                    "elo": h.get("rating", rating),
-                                }
-                            )
-                        else:
-                            elo_history.append(
-                                {
-                                    "date": getattr(h, "timestamp", ""),
-                                    "elo": getattr(h, "rating", rating),
-                                }
-                            )
+                    get_agent_history = getattr(elo, "get_agent_history", None)
+                    if callable(get_agent_history):
+                        history = get_agent_history(name, limit=20)
+                        for history_entry in history:
+                            if isinstance(history_entry, dict):
+                                elo_history.append({
+                                    "date": history_entry.get("timestamp", ""),
+                                    "elo": history_entry.get("rating", rating),
+                                })
+                            else:
+                                elo_history.append({
+                                    "date": getattr(history_entry, "timestamp", ""),
+                                    "elo": getattr(history_entry, "rating", rating),
+                                })
+                    else:
+                        history = elo.get_elo_history(name, limit=20)
+                        for ts, elo_value in history:
+                            elo_history.append({
+                                "date": ts,
+                                "elo": elo_value,
+                            })
                 except (AttributeError, TypeError, ValueError):
                     pass
 
                 # Calibration score
                 calibration = 0.0
                 try:
-                    cal_history = elo.get_agent_calibration_history(name, limit=1)
-                    if cal_history:
-                        entry = cal_history[0]  # type: ignore[assignment]
-                        if isinstance(entry, dict):
-                            calibration = float(entry.get("score", 0.0))
-                        elif isinstance(entry, (int, float)):
-                            calibration = float(entry)
+                    get_calibration_score = getattr(elo, "get_calibration_score", None)
+                    if callable(get_calibration_score):
+                        cal_data = get_calibration_score(name)
+                        if isinstance(cal_data, (int, float)):
+                            calibration = float(cal_data)
+                        elif isinstance(cal_data, dict):
+                            calibration = float(cal_data.get("score", 0.0))
+                    else:
+                        calibration = float(elo.get_rating(name).calibration_score)
                 except (AttributeError, TypeError, ValueError):
                     pass
 
@@ -329,10 +361,16 @@ class SystemIntelligenceHandler(SecureEndpointMixin, SecureHandler):  # type: ig
             from aragora.memory.cross_debate_rlm import CrossDebateMemory
 
             cdm = CrossDebateMemory()
-            stats = cdm.get_statistics()
+            stats_getter = getattr(cdm, "get_statistics", None)
+            stats: Any = {}
+            if callable(stats_getter):
+                stats = stats_getter()
+            if not isinstance(stats, dict):
+                legacy_stats_getter = getattr(cdm, "get_stats", None)
+                stats = legacy_stats_getter() if callable(legacy_stats_getter) else {}
             if isinstance(stats, dict):
-                total_injections = stats.get("total_injections", 0)
-                retrieval_count = stats.get("retrieval_count", 0)
+                total_injections = int(stats.get("total_injections", stats.get("total_entries", 0)))
+                retrieval_count = int(stats.get("retrieval_count", stats.get("total_tokens", 0)))
         except (ImportError, RuntimeError, AttributeError):
             logger.debug("CrossDebateMemory not available")
 
@@ -341,16 +379,26 @@ class SystemIntelligenceHandler(SecureEndpointMixin, SecureHandler):  # type: ig
             from aragora.knowledge.mound.core import KnowledgeMoundCore
 
             km = KnowledgeMoundCore()
-            decay_stats: list[Any] = getattr(km, "get_confidence_decay_stats", lambda: [])()
-            if isinstance(decay_stats, list):
-                for entry in decay_stats[:10]:
-                    confidence_changes.append(
-                        {
-                            "topic": entry.get("topic", ""),
-                            "before": entry.get("initial_confidence", 0.0),
-                            "after": entry.get("current_confidence", 0.0),
-                        }
-                    )
+            decay_getter = getattr(km, "get_confidence_decay_stats", None)
+            if callable(decay_getter):
+                decay_stats = await _maybe_await(decay_getter())
+                if isinstance(decay_stats, list):
+                    for entry in decay_stats[:10]:
+                        if isinstance(entry, dict):
+                            confidence_changes.append({
+                                "topic": entry.get("topic", ""),
+                                "before": entry.get("initial_confidence", 0.0),
+                                "after": entry.get("current_confidence", 0.0),
+                            })
+            else:
+                get_stats = getattr(km, "get_stats", None)
+                mound_stats: Any = await _maybe_await(get_stats()) if callable(get_stats) else None
+                if mound_stats is not None and hasattr(mound_stats, "average_confidence"):
+                    confidence_changes.append({
+                        "topic": "global",
+                        "before": float(getattr(mound_stats, "average_confidence", 0.0)),
+                        "after": float(getattr(mound_stats, "average_confidence", 0.0)),
+                    })
         except (ImportError, RuntimeError, AttributeError):
             logger.debug("KM confidence decay stats not available")
 

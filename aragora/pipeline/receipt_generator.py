@@ -34,25 +34,27 @@ async def generate_pipeline_receipt(
     # Load pipeline graph for provenance data
     stages: dict[str, list[dict[str, Any]]] = {}
     try:
-        from aragora.pipeline.graph_store import GraphStore
+        from aragora.canvas.stages import PipelineStage
+        from aragora.pipeline.graph_store import get_graph_store
 
-        graph = GraphStore()
-        for stage_name in ("ideas", "goals", "actions", "orchestration"):
-            stage_nodes = graph.query_nodes(
+        graph_store = get_graph_store()
+        stage_mapping = {
+            "ideas": PipelineStage.IDEAS,
+            "goals": PipelineStage.GOALS,
+            "actions": PipelineStage.ACTIONS,
+            "orchestration": PipelineStage.ORCHESTRATION,
+        }
+
+        for stage_name, stage in stage_mapping.items():
+            stage_nodes = graph_store.query_nodes(
                 graph_id=pipeline_id,
-                stage=stage_name,  # type: ignore[arg-type]
+                stage=stage,
             )
             stages[stage_name] = [
                 {
-                    "id": getattr(n, "id", n.get("id", ""))
-                    if isinstance(n, dict)
-                    else getattr(n, "id", ""),
-                    "label": getattr(n, "label", n.get("label", ""))
-                    if isinstance(n, dict)
-                    else getattr(n, "label", ""),
-                    "type": getattr(n, "node_type", n.get("node_type", ""))
-                    if isinstance(n, dict)
-                    else getattr(n, "node_type", ""),
+                    "id": getattr(n, "id", ""),
+                    "label": getattr(n, "label", ""),
+                    "type": getattr(n, "node_subtype", ""),
                 }
                 for n in (stage_nodes or [])
             ]
