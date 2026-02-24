@@ -7,19 +7,19 @@ import { ThemeToggle } from '@/components/ThemeToggle';
 import { BackendSelector, useBackend } from '@/components/BackendSelector';
 import { PanelErrorBoundary } from '@/components/PanelErrorBoundary';
 import {
-  useSystemOverview,
+  useSystemIntelligence,
   useAgentPerformance,
   useInstitutionalMemory,
   useImprovementQueue,
 } from '@/hooks/useSystemIntelligence';
 
 export default function SystemIntelligencePage() {
-  const { config } = useBackend();
+  const { config: _config } = useBackend();
 
-  const { data: overview, isLoading: overviewLoading } = useSystemOverview();
-  const { data: agentPerf, isLoading: agentLoading } = useAgentPerformance();
-  const { data: memory, isLoading: memoryLoading } = useInstitutionalMemory();
-  const { data: queue, isLoading: queueLoading } = useImprovementQueue();
+  const { overview, isLoading: overviewLoading } = useSystemIntelligence();
+  const { agents: agentPerfAgents, isLoading: agentLoading } = useAgentPerformance();
+  const { memory, isLoading: memoryLoading } = useInstitutionalMemory();
+  const { items: queueItems, isLoading: queueLoading } = useImprovementQueue();
 
   return (
     <>
@@ -100,9 +100,9 @@ export default function SystemIntelligencePage() {
                 </h2>
                 {agentLoading ? (
                   <div className="text-acid-green font-mono animate-pulse text-sm">Loading...</div>
-                ) : agentPerf?.agents && agentPerf.agents.length > 0 ? (
+                ) : agentPerfAgents && agentPerfAgents.length > 0 ? (
                   <div className="space-y-2 max-h-[400px] overflow-y-auto">
-                    {agentPerf.agents.map((agent) => (
+                    {agentPerfAgents.map((agent) => (
                       <div key={agent.id} className="p-3 bg-bg rounded flex items-center gap-3">
                         <div className="flex-1">
                           <div className="font-mono text-sm text-text">{agent.name}</div>
@@ -147,11 +147,11 @@ export default function SystemIntelligencePage() {
                   <div className="text-acid-green font-mono animate-pulse text-sm">Loading...</div>
                 ) : memory ? (
                   <div className="space-y-4">
-                    {memory.patterns && memory.patterns.length > 0 && (
+                    {memory.topPatterns && memory.topPatterns.length > 0 && (
                       <div>
                         <h3 className="text-xs text-text-muted uppercase mb-2">Learned Patterns</h3>
                         <div className="space-y-1">
-                          {memory.patterns.slice(0, 8).map((p, i) => (
+                          {memory.topPatterns.slice(0, 8).map((p, i) => (
                             <div key={i} className="flex items-center gap-2 text-sm p-2 bg-bg rounded">
                               <span className="text-text flex-1">{p.pattern}</span>
                               <span className="text-xs font-mono text-acid-green">
@@ -194,9 +194,9 @@ export default function SystemIntelligencePage() {
               </h2>
               {queueLoading ? (
                 <div className="text-acid-green font-mono animate-pulse text-sm">Loading...</div>
-              ) : queue?.items && queue.items.length > 0 ? (
+              ) : queueItems && queueItems.length > 0 ? (
                 <div className="space-y-2 max-h-[300px] overflow-y-auto">
-                  {queue.items.map((item, i) => (
+                  {queueItems.map((item, i) => (
                     <div key={i} className="flex items-center gap-3 p-3 bg-bg rounded">
                       <span className={`px-2 py-0.5 text-xs font-mono rounded ${
                         item.priority === 'high' ? 'bg-red-500/20 text-red-400' :

@@ -27,6 +27,7 @@ from aragora.server.handlers.auth.sso_handlers import (
     _auth_sessions,
     _cleanup_expired_sessions,
     _get_sso_provider,
+    _idp_circuit_breakers,
     _sso_providers,
     _sso_providers_lock,
     get_sso_handlers,
@@ -127,10 +128,12 @@ def _clear_sso_state():
     _auth_sessions.clear()
     with _sso_providers_lock:
         _sso_providers.clear()
+    _idp_circuit_breakers.clear()
     yield
     _auth_sessions.clear()
     with _sso_providers_lock:
         _sso_providers.clear()
+    _idp_circuit_breakers.clear()
 
 
 @pytest.fixture

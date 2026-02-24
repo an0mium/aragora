@@ -8,7 +8,7 @@ import { BackendSelector, useBackend } from '@/components/BackendSelector';
 import { PanelErrorBoundary } from '@/components/PanelErrorBoundary';
 import {
   useQualityScore,
-  useAgentLeaderboard,
+  useOutcomeAgents,
   useDecisionHistory,
   useCalibrationCurve,
 } from '@/hooks/useOutcomeAnalytics';
@@ -16,10 +16,10 @@ import {
 export default function OutcomeDashboardPage() {
   useBackend();
 
-  const { data: quality, isLoading: qualityLoading } = useQualityScore();
-  const { data: agents, isLoading: agentsLoading } = useAgentLeaderboard();
-  const { data: history, isLoading: historyLoading } = useDecisionHistory();
-  const { data: calibration, isLoading: calibrationLoading } = useCalibrationCurve();
+  const { quality, isLoading: qualityLoading } = useQualityScore();
+  const { leaderboard: agents, isLoading: agentsLoading } = useOutcomeAgents();
+  const { history, isLoading: historyLoading } = useDecisionHistory();
+  const { calibration, isLoading: calibrationLoading } = useCalibrationCurve();
 
   const getScoreColor = (score: number) => {
     if (score >= 0.8) return 'text-acid-green';
@@ -116,7 +116,7 @@ export default function OutcomeDashboardPage() {
                   <div className="text-acid-green font-mono animate-pulse text-sm">Loading...</div>
                 ) : agents?.agents && agents.agents.length > 0 ? (
                   <div className="space-y-2 max-h-[400px] overflow-y-auto">
-                    {agents.agents.map((agent, i) => (
+                    {agents.agents.map((agent: { agent_id: string; rank: number; agent_name: string; provider: string; model: string; elo: number; elo_change: number; brier_score: number | null; win_rate: number }) => (
                       <div key={agent.agent_id} className="flex items-center gap-3 p-3 bg-bg rounded">
                         <span className="text-xs font-mono text-text-muted w-6">#{agent.rank}</span>
                         <div className="flex-1">

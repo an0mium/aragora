@@ -139,6 +139,31 @@ SpendAnalyticsDashboardHandler = _safe_import(
     "aragora.server.handlers.spend_analytics_dashboard", "SpendAnalyticsDashboardHandler"
 )
 
+# Pipeline handlers
+PipelineExecuteHandler = _safe_import(
+    "aragora.server.handlers.pipeline.execute", "PipelineExecuteHandler"
+)
+PipelineGraphHandler = _safe_import(
+    "aragora.server.handlers.pipeline_graph", "PipelineGraphHandler"
+)
+PlanManagementHandler = _safe_import(
+    "aragora.server.handlers.pipeline.plans", "PlanManagementHandler"
+)
+ReceiptExplorerHandler = _safe_import(
+    "aragora.server.handlers.pipeline.receipts", "ReceiptExplorerHandler"
+)
+DecompositionHandler = _safe_import(
+    "aragora.server.handlers.pipeline.decomposition", "DecompositionHandler"
+)
+
+# Differentiation and moderation analytics
+DifferentiationHandler = _safe_import(
+    "aragora.server.handlers.differentiation", "DifferentiationHandler"
+)
+ModerationAnalyticsHandler = _safe_import(
+    "aragora.server.handlers.moderation_analytics", "ModerationAnalyticsHandler"
+)
+
 # =============================================================================
 # Analytics Handler Registry Entries
 # =============================================================================
@@ -191,6 +216,15 @@ ANALYTICS_HANDLER_REGISTRY: list[tuple[str, object]] = [
     ("_outcome_dashboard_handler", OutcomeDashboardHandler),
     # Spend analytics dashboard
     ("_spend_analytics_dashboard_handler", SpendAnalyticsDashboardHandler),
+    # Pipeline handlers
+    ("_pipeline_execute_handler", PipelineExecuteHandler),
+    ("_pipeline_graph_handler", PipelineGraphHandler),
+    ("_plan_management_handler", PlanManagementHandler),
+    ("_receipt_explorer_handler", ReceiptExplorerHandler),
+    ("_decomposition_handler", DecompositionHandler),
+    # Differentiation and moderation analytics
+    ("_differentiation_handler", DifferentiationHandler),
+    ("_moderation_analytics_handler", ModerationAnalyticsHandler),
 ]
 
 __all__ = [
@@ -235,6 +269,15 @@ __all__ = [
     "OutcomeDashboardHandler",
     # Spend analytics dashboard
     "SpendAnalyticsDashboardHandler",
+    # Pipeline handlers
+    "PipelineExecuteHandler",
+    "PipelineGraphHandler",
+    "PlanManagementHandler",
+    "ReceiptExplorerHandler",
+    "DecompositionHandler",
+    # Differentiation and moderation analytics
+    "DifferentiationHandler",
+    "ModerationAnalyticsHandler",
     # Registry
     "ANALYTICS_HANDLER_REGISTRY",
 ]

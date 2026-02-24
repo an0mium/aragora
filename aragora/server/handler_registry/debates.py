@@ -88,6 +88,32 @@ TemplateDiscoveryHandler = _safe_import(
     "aragora.server.handlers.template_discovery", "TemplateDiscoveryHandler"
 )
 
+# Composite, stats, share, interventions, settlement, spectate, receipt export
+CompositeHandler = _safe_import(
+    "aragora.server.handlers.composite", "CompositeHandler"
+)
+DebateStatsHandler = _safe_import(
+    "aragora.server.handlers.debate_stats", "DebateStatsHandler"
+)
+DebateShareHandler = _safe_import(
+    "aragora.server.handlers.debates.share", "DebateShareHandler"
+)
+DebateInterventionsHandler = _safe_import(
+    "aragora.server.handlers.debates.interventions", "DebateInterventionsHandler"
+)
+DecisionPackageHandler = _safe_import(
+    "aragora.server.handlers.debates.decision_package", "DecisionPackageHandler"
+)
+SettlementHandler = _safe_import(
+    "aragora.server.handlers.settlements", "SettlementHandler"
+)
+SpectateStreamHandler = _safe_import(
+    "aragora.server.handlers.spectate_ws", "SpectateStreamHandler"
+)
+ReceiptExportHandler = _safe_import(
+    "aragora.server.handlers.receipt_export", "ReceiptExportHandler"
+)
+
 # =============================================================================
 # Debate Handler Registry Entries
 # =============================================================================
@@ -131,6 +157,20 @@ DEBATE_HANDLER_REGISTRY: list[tuple[str, object]] = [
     ("_security_debate_handler", SecurityDebateHandler),
     # Template discovery
     ("_template_discovery_handler", TemplateDiscoveryHandler),
+    # Composite debate
+    ("_composite_handler", CompositeHandler),
+    # Debate stats, share, interventions
+    ("_debate_stats_handler", DebateStatsHandler),
+    ("_debate_share_handler", DebateShareHandler),
+    ("_debate_interventions_handler", DebateInterventionsHandler),
+    # Decision package
+    ("_decision_package_handler", DecisionPackageHandler),
+    # Settlements
+    ("_settlement_handler", SettlementHandler),
+    # Spectate stream
+    ("_spectate_stream_handler", SpectateStreamHandler),
+    # Receipt export
+    ("_receipt_export_handler", ReceiptExportHandler),
 ]
 
 __all__ = [
@@ -174,6 +214,14 @@ __all__ = [
     "EmailDebateHandler",
     "SecurityDebateHandler",
     "TemplateDiscoveryHandler",
+    "CompositeHandler",
+    "DebateStatsHandler",
+    "DebateShareHandler",
+    "DebateInterventionsHandler",
+    "DecisionPackageHandler",
+    "SettlementHandler",
+    "SpectateStreamHandler",
+    "ReceiptExportHandler",
     # Registry
     "DEBATE_HANDLER_REGISTRY",
 ]

@@ -23,6 +23,7 @@ from aragora.modes.builtin import (
     ArchitectMode,
     CoderMode,
     DebuggerMode,
+    EpistemicHygieneMode,
     OrchestratorMode,
     ReviewerMode,
     register_all_builtins,
@@ -115,6 +116,7 @@ __all__ = [
     "ReviewerMode",
     "DebuggerMode",
     "OrchestratorMode",
+    "EpistemicHygieneMode",
     "register_all_builtins",
     # Debate Modes (lazy)
     "RedTeamMode",

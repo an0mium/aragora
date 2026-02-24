@@ -1267,7 +1267,7 @@ Please provide an improved answer based on the feedback."""
     def __enter__(self) -> "AragoraRLM":
         return self
 
-    def __exit__(self, exc_type: Any, exc_val: Any, exc_tb: Any) -> bool:
+    def __exit__(self, exc_type: Any, exc_val: Any, exc_tb: Any) -> bool | None:
         self.close()
         return False
 

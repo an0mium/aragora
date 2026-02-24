@@ -442,8 +442,8 @@ function DebateEventMessage({ event }: { event: DebateEvent }) {
 function DebateStreamDisplay({
   events,
   agents,
-  round,
-  debateId,
+  round: _round,
+  debateId: _debateId,
 }: {
   events: DebateEvent[];
   agents: Map<string, DebateAgentState>;
@@ -1249,7 +1249,7 @@ export default function Oracle() {
     if (oracle.isDebateMode && oracle.connected) return 'live debate';
     if (oracle.connected) return 'live stream';
     return 'reconnecting';
-  }, [oracle.fallbackMode, oracle.connected]);
+  }, [oracle.fallbackMode, oracle.connected, oracle.isDebateMode]);
 
   // When streaming completes (synthesis received), commit tokens to messages
   useEffect(() => {

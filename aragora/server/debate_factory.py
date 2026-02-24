@@ -630,6 +630,34 @@ class DebateFactory:
             enable_breakpoints=base_protocol.enable_breakpoints,
         )
 
+        # Enable epistemic hygiene flags when mode is set
+        if config.mode == "epistemic_hygiene":
+            from dataclasses import fields as dc_fields
+
+            epistemic_keys = {
+                "enable_epistemic_hygiene",
+                "epistemic_hygiene_penalty",
+                "epistemic_min_alternatives",
+                "epistemic_require_falsifiers",
+                "epistemic_require_confidence",
+                "epistemic_require_unknowns",
+            }
+            base_kwargs = {
+                f.name: getattr(protocol, f.name)
+                for f in dc_fields(protocol)
+                if f.name not in epistemic_keys
+            }
+            protocol = DebateProtocol(
+                **base_kwargs,
+                enable_epistemic_hygiene=True,
+                epistemic_hygiene_penalty=0.15,
+                epistemic_min_alternatives=1,
+                epistemic_require_falsifiers=True,
+                epistemic_require_confidence=True,
+                epistemic_require_unknowns=True,
+            )
+            logger.info("Epistemic hygiene mode enabled on protocol")
+
         # Prepare event hooks with RLM training hook if enabled
         hooks = dict(event_hooks or {})
         if enable_rlm_training:
