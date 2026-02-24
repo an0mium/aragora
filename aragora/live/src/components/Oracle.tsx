@@ -1542,6 +1542,37 @@ export default function Oracle() {
           />
         </div>
 
+        {/* Debate mode toggle */}
+        <div className="flex items-center justify-between mb-3">
+          <div className="flex items-center gap-3">
+            <button
+              type="button"
+              onClick={() => setUseDebateStreaming(false)}
+              className={`px-3 py-1.5 text-xs font-mono border rounded-lg transition-all ${
+                !useDebateStreaming
+                  ? 'border-[var(--acid-magenta)]/60 text-[var(--acid-magenta)] bg-[var(--acid-magenta)]/10'
+                  : 'border-[var(--border)]/30 text-[var(--text-muted)] hover:border-[var(--border)]/60'
+              }`}
+            >
+              STREAM
+            </button>
+            <button
+              type="button"
+              onClick={() => setUseDebateStreaming(true)}
+              className={`px-3 py-1.5 text-xs font-mono border rounded-lg transition-all ${
+                useDebateStreaming
+                  ? 'border-[var(--acid-cyan)]/60 text-[var(--acid-cyan)] bg-[var(--acid-cyan)]/10'
+                  : 'border-[var(--border)]/30 text-[var(--text-muted)] hover:border-[var(--border)]/60'
+              }`}
+            >
+              DEBATE
+            </button>
+          </div>
+          <span className="text-[9px] text-[var(--text-muted)] tracking-wider">
+            {useDebateStreaming ? 'Full multi-agent debate with structured events' : 'Direct LLM streaming with tentacles'}
+          </span>
+        </div>
+
         {/* Oracle Phase Progress Indicator */}
         <OraclePhaseProgress currentPhase={effectivePhase} />
 

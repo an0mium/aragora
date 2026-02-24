@@ -53,7 +53,7 @@ class PrivacyAPI:
             Paginated list of users.
         """
         params: dict[str, Any] = {"limit": limit, "offset": offset}
-        return self._client.request("GET", "/api/v1/privacy/users", params=params)
+        return self._client.request("GET", "/api/v1/users", params=params)
 
     def invite_user(
         self,
@@ -73,7 +73,7 @@ class PrivacyAPI:
         data: dict[str, Any] = {"email": email}
         if role:
             data["role"] = role
-        return self._client.request("POST", "/api/v1/privacy/users/invite", json=data)
+        return self._client.request("POST", "/api/v1/users/invite", json=data)
 
     def list_platform_users(self, limit: int = 50, offset: int = 0) -> dict[str, Any]:
         """
@@ -256,14 +256,14 @@ class AsyncPrivacyAPI:
     async def list_users(self, limit: int = 50, offset: int = 0) -> dict[str, Any]:
         """List users with their privacy settings."""
         params: dict[str, Any] = {"limit": limit, "offset": offset}
-        return await self._client.request("GET", "/api/v1/privacy/users", params=params)
+        return await self._client.request("GET", "/api/v1/users", params=params)
 
     async def invite_user(self, email: str, role: str | None = None) -> dict[str, Any]:
         """Invite a user."""
         data: dict[str, Any] = {"email": email}
         if role:
             data["role"] = role
-        return await self._client.request("POST", "/api/v1/privacy/users/invite", json=data)
+        return await self._client.request("POST", "/api/v1/users/invite", json=data)
 
     async def list_platform_users(self, limit: int = 50, offset: int = 0) -> dict[str, Any]:
         """List platform users."""

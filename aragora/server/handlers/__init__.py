@@ -185,6 +185,7 @@ if TYPE_CHECKING:
         ZoomHandler,
     )
     from .breakpoints import BreakpointsHandler
+    from .debate_intervention import DebateInterventionHandler
     from .budgets import BudgetHandler
     from .canvas import CanvasHandler
     from .checkpoints import CheckpointHandler
@@ -635,6 +636,7 @@ __all__ = [
     "KnowledgeChatHandler",
     "GalleryHandler",
     "BreakpointsHandler",
+    "DebateInterventionHandler",
     "LearningHandler",
     "AuthHandler",
     "BillingHandler",

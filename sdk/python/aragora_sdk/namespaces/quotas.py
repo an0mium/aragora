@@ -55,6 +55,7 @@ class QuotasAPI:
             Dict with detailed quota information including usage history,
             limit, and reset schedule.
         """
+        # TODO: server route not yet implemented
         return self._client.request("GET", f"/api/v1/quotas/{resource}")
 
     def get_usage(self, period: str | None = None) -> dict[str, Any]:
@@ -71,6 +72,7 @@ class QuotasAPI:
         params: dict[str, Any] = {}
         if period:
             params["period"] = period
+        # TODO: server route not yet implemented
         return self._client.request("GET", "/api/v1/quotas/usage", params=params or None)
 
     def request_increase(self, resource: str, **kwargs: Any) -> dict[str, Any]:
