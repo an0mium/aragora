@@ -34,6 +34,7 @@ python3 scripts/codex_worktree_autopilot.py status
 ## Recommended Operating Loop
 
 1. Start each agent with `./scripts/codex_session.sh --agent <name>`.
+   This creates a `.codex_session_active` lock file so background maintainer skips active sessions.
 2. Before major test/fix cycles, run `... maintain --base main --strategy merge --ttl-hours 24`.
 3. Use `... reconcile --all --base main` when you need explicit sync reporting.
 4. Use short-lived worktrees; do not keep long-running stale session trees.

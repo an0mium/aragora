@@ -51,6 +51,7 @@ HANDLER_TIERS: dict[str, str] = {
     "_consensus_handler": "core",
     "_receipts_handler": "core",
     "_gauntlet_handler": "core",
+    "_gauntlet_secure_handler": "core",
     "_skills_handler": "core",
     "_webhook_handler": "core",
     "_features_handler": "core",

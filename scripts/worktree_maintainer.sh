@@ -25,7 +25,7 @@ Options:
   --managed-dir <path>          Managed dir relative to repo root (repeatable)
   --delete-branches             Allow cleanup to delete local codex/* branches
   --no-delete-branches          Keep local codex/* branches during cleanup
-  --include-active              Also maintain worktrees with active processes
+  --include-active              Also maintain worktrees with active session lock files
   --reconcile-only             Reconcile only; skip cleanup/removal phase
   --help                        Show this help
 
@@ -121,12 +121,12 @@ for managed_dir in "${MANAGED_DIRS[@]}"; do
         continue
     fi
 
-    if [[ "${INCLUDE_ACTIVE}" == false ]] && command -v lsof >/dev/null 2>&1; then
-        active_cwd_pids="$(
-            lsof -t -a -d cwd +D "$abs_dir" 2>/dev/null | tr '\n' ' ' || true
+    if [[ "${INCLUDE_ACTIVE}" == false ]]; then
+        active_locks="$(
+            find "$abs_dir" -maxdepth 3 -type f -name '.codex_session_active' 2>/dev/null || true
         )"
-        if [[ -n "${active_cwd_pids// }" ]]; then
-            echo "worktree-maintainer: skipping ${managed_dir} (active cwd pids: ${active_cwd_pids})"
+        if [[ -n "${active_locks// }" ]]; then
+            echo "worktree-maintainer: skipping ${managed_dir} (active session lock present)"
             continue
         fi
     fi

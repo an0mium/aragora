@@ -84,8 +84,16 @@ WORKTREE_PATH="$(
 cd "${WORKTREE_PATH}"
 echo "Codex worktree: ${WORKTREE_PATH}"
 
+LOCK_FILE="${WORKTREE_PATH}/.codex_session_active"
+printf 'pid=%s\nagent=%s\nstarted_at=%s\n' "$$" "${AGENT}" "$(date -u +%Y-%m-%dT%H:%M:%SZ)" > "${LOCK_FILE}"
+cleanup_lock() {
+    rm -f "${LOCK_FILE}" 2>/dev/null || true
+}
+trap cleanup_lock EXIT INT TERM
+
 if [[ $# -eq 0 ]]; then
-    exec codex
+    codex
+    exit $?
 fi
 
-exec "$@"
+"$@"

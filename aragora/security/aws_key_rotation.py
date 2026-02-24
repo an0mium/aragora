@@ -402,7 +402,7 @@ class AWSSecretRotator:
         self._config = config or RotationConfig.from_env()
         self._client: Any | None = None
         self._audit_log: list[RotationEvent] = []
-        self._statuses: dict[str, RotationStatus] = {}
+        self._statuses: dict[str, AWSRotationStatus] = {}
 
     # -- AWS client ----------------------------------------------------------
 

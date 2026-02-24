@@ -11,6 +11,7 @@ Context for Claude Code when working with the Aragora codebase.
 For high-churn parallel sessions, use managed disposable worktrees and auto-recovery.
 
 - Before starting a Codex session, run `./scripts/codex_session.sh` (or `make codex-session`).
+  This writes an active-session lock so the maintainer skips in-use worktrees.
 - If branch/worktree state changes unexpectedly, do **not** pause for manual routing by default:
   run `python3 scripts/codex_worktree_autopilot.py ensure --agent codex --base main --reconcile --print-path`
   and continue work in the returned path.
