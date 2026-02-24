@@ -663,12 +663,14 @@ capabilities:
 
 models:
   anthropic:
+    - claude-opus-4-5
+    - claude-opus-4
+    - claude-sonnet-4
+    - claude-haiku-4-5
+    # Legacy (still supported via API)
     - claude-3-opus
-    - claude-3-sonnet
-    - claude-3-haiku
     - claude-3.5-sonnet
-    - claude-4-opus
-    - claude-4-sonnet
+    - claude-3-haiku
   openai:
     - gpt-4o
     - gpt-4-turbo

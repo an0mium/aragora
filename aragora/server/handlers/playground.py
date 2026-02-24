@@ -1718,7 +1718,7 @@ class PlaygroundHandler(BaseHandler):
 
         if not has_api_keys:
             # Fall back to mock debate with a note
-            result = self._run_debate(topic, rounds, agent_count, question=question, mode=mode)
+            result = self._run_debate(topic, rounds, agent_count, question=question, mode=mode, session_id=session_id)
             if result is None:
                 return error_response("Playground unavailable", 503)
             # Inject mock fallback info into the response body
@@ -1754,7 +1754,7 @@ class PlaygroundHandler(BaseHandler):
                 "Live debate returned %d, falling back to mock debate",
                 live_result.status_code,
             )
-            mock_result = self._run_debate(topic, rounds, agent_count, question=question, mode=mode)
+            mock_result = self._run_debate(topic, rounds, agent_count, question=question, mode=mode, session_id=session_id)
             if mock_result is not None:
                 import json as _json
 

@@ -400,6 +400,25 @@ jobs:
           echo "instance_ids=$INSTANCE_IDS_CSV" >> $GITHUB_OUTPUT
           echo "Found $COUNT production instance(s): $INSTANCE_IDS_CSV"
 
+      - name: Pre-deploy instance health check
+        run: |
+          echo "Verifying instance health before deployment..."
+          IFS=',' read -ra IDS <<< "${{ steps.get-instance.outputs.instance_ids }}"
+          for INST_ID in "${IDS[@]}"; do
+            STATUS=$(aws ec2 describe-instance-status \
+              --instance-ids "$INST_ID" \
+              --query 'InstanceStatuses[0].[InstanceStatus.Status, SystemStatus.Status]' \
+              --output text 2>/dev/null || echo "unknown unknown")
+            INST_STATUS=$(echo "$STATUS" | awk '{print $1}')
+            SYS_STATUS=$(echo "$STATUS" | awk '{print $2}')
+            if [[ "$INST_STATUS" != "ok" ]] || [[ "$SYS_STATUS" != "ok" ]]; then
+              echo "::error::Instance $INST_ID health check failed: instance=$INST_STATUS system=$SYS_STATUS (expected: ok/ok)"
+              exit 1
+            fi
+            echo "Instance $INST_ID: instance=$INST_STATUS system=$SYS_STATUS"
+          done
+          echo "All instances healthy"
+
       - name: Deploy via SSM
         run: |
           # Deploy to ALL production instances
@@ -434,14 +453,14 @@ jobs:
               "echo \"Environment=ARAGORA_SECRET_NAME=aragora/production\" | sudo tee -a /etc/systemd/system/aragora.service.d/secrets.conf",
               "echo \"Environment=ARAGORA_DB_BACKEND=postgres\" | sudo tee -a /etc/systemd/system/aragora.service.d/secrets.conf",
               "echo \"Environment=ARAGORA_ENV=production\" | sudo tee -a /etc/systemd/system/aragora.service.d/secrets.conf",
-              "echo \"Environment=ARAGORA_SECRETS_STRICT=false\" | sudo tee -a /etc/systemd/system/aragora.service.d/secrets.conf",
+              "echo \"Environment=ARAGORA_SECRETS_STRICT=true\" | sudo tee -a /etc/systemd/system/aragora.service.d/secrets.conf",
               "sudo systemctl daemon-reload",
               "echo \"Initializing PostgreSQL stores...\"",
               "export ARAGORA_USE_SECRETS_MANAGER=true",
               "export AWS_REGION=us-east-2",
               "export ARAGORA_SECRET_NAME=aragora/production",
               "export ARAGORA_ENV=production",
-              "export ARAGORA_SECRETS_STRICT=false",
+              "export ARAGORA_SECRETS_STRICT=true",
               "python scripts/init_postgres_db.py || echo \"PostgreSQL init skipped (may not be configured)\"",
               "sudo systemctl restart aragora",
               "sleep 8",

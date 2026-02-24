@@ -308,21 +308,16 @@ class KnowledgeFlowHandler(BaseHandler):
 
     def _get_km_outcome_bridge(self) -> Any:
         """Get the KMOutcomeBridge instance if available."""
-        try:
-            from aragora.debate.km_outcome_bridge import KMOutcomeBridge
+        ctx = self.server_context or {}
+        bridge = ctx.get("km_outcome_bridge")
+        if bridge is not None:
+            return bridge
 
-            ctx = self.server_context or {}
-            bridge = ctx.get("km_outcome_bridge")
-            if bridge is not None:
-                return bridge
+        # Try to get from arena
+        arena = ctx.get("arena")
+        if arena is not None:
+            return getattr(arena, "km_outcome_bridge", None)
 
-            # Try to get from arena
-            arena = ctx.get("arena")
-            if arena is not None:
-                return getattr(arena, "km_outcome_bridge", None)
-
-        except ImportError:
-            pass
         return None
 
     def _get_knowledge_injector(self) -> Any:

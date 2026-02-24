@@ -137,6 +137,54 @@ export function InterventionPanel({
     }
   }, [apiBase, debateId, followUpQuestion, onInject]);
 
+  // Handle nudge direction
+  const handleNudge = useCallback(async () => {
+    if (!nudgeDirection.trim()) return;
+    setInjecting(true);
+    try {
+      const response = await fetch(
+        `${apiBase}/api/debates/${debateId}/intervention/inject`,
+        {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ content: `[DIRECTION] ${nudgeDirection}`, type: 'nudge', source: 'user' }),
+        }
+      );
+      if (response.ok) {
+        onInject?.(nudgeDirection);
+        setNudgeDirection('');
+      }
+    } catch (error) {
+      logger.error('Failed to nudge direction:', error);
+    } finally {
+      setInjecting(false);
+    }
+  }, [apiBase, debateId, nudgeDirection, onInject]);
+
+  // Handle challenge claim
+  const handleChallenge = useCallback(async () => {
+    if (!challengeClaim.trim()) return;
+    setInjecting(true);
+    try {
+      const response = await fetch(
+        `${apiBase}/api/debates/${debateId}/intervention/inject`,
+        {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ content: `[CHALLENGE] ${challengeClaim}`, type: 'challenge', source: 'user' }),
+        }
+      );
+      if (response.ok) {
+        onInject?.(challengeClaim);
+        setChallengeClaim('');
+      }
+    } catch (error) {
+      logger.error('Failed to challenge claim:', error);
+    } finally {
+      setInjecting(false);
+    }
+  }, [apiBase, debateId, challengeClaim, onInject]);
+
   // Handle weight change
   const handleWeightChange = useCallback(
     async (agent: string, weight: number) => {
@@ -225,6 +273,7 @@ export function InterventionPanel({
       <div className="flex border-b border-[var(--border)]">
         {[
           { id: 'inject', label: 'Inject', icon: '' },
+          { id: 'nudge', label: 'Nudge', icon: '' },
           { id: 'control', label: 'Control', icon: '' },
           { id: 'weights', label: 'Weights', icon: '' },
         ].map((tab) => (
@@ -286,6 +335,55 @@ export function InterventionPanel({
                 className="mt-2 w-full px-3 py-2 text-xs font-mono bg-[var(--surface)] text-[var(--text-muted)] border border-[var(--border)] hover:border-[var(--acid-green)]/30 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
               >
                  ADD FOLLOW-UP
+              </button>
+            </div>
+          </div>
+        )}
+
+        {/* Nudge Tab */}
+        {activeTab === 'nudge' && (
+          <div className="space-y-4">
+            <div>
+              <label className="block text-xs font-mono text-[var(--text-muted)] mb-2">
+                NUDGE DIRECTION
+              </label>
+              <p className="text-[10px] font-mono text-[var(--text-muted)] mb-2">
+                Redirect the debate focus without adding a specific argument.
+              </p>
+              <input
+                type="text"
+                value={nudgeDirection}
+                onChange={(e) => setNudgeDirection(e.target.value)}
+                placeholder="e.g., Consider the economic implications..."
+                className="w-full bg-[var(--bg)] border border-[var(--border)] text-[var(--text)] font-mono text-sm p-2 focus:border-[var(--acid-green)] focus:outline-none"
+              />
+              <button
+                onClick={handleNudge}
+                disabled={!nudgeDirection.trim() || injecting}
+                className="mt-2 w-full px-3 py-2 text-xs font-mono bg-[var(--acid-green)]/10 text-[var(--acid-green)] border border-[var(--acid-green)]/30 hover:bg-[var(--acid-green)]/20 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                {injecting ? 'NUDGING...' : 'NUDGE DIRECTION'}
+              </button>
+            </div>
+            <div>
+              <label className="block text-xs font-mono text-[var(--text-muted)] mb-2">
+                CHALLENGE CLAIM
+              </label>
+              <p className="text-[10px] font-mono text-[var(--text-muted)] mb-2">
+                Challenge a specific claim. Injected as a counter-argument.
+              </p>
+              <textarea
+                value={challengeClaim}
+                onChange={(e) => setChallengeClaim(e.target.value)}
+                placeholder="e.g., The claim that X is incorrect because..."
+                className="w-full h-20 bg-[var(--bg)] border border-[var(--border)] text-[var(--text)] font-mono text-sm p-2 resize-none focus:border-[var(--acid-yellow)] focus:outline-none"
+              />
+              <button
+                onClick={handleChallenge}
+                disabled={!challengeClaim.trim() || injecting}
+                className="mt-2 w-full px-3 py-2 text-xs font-mono bg-red-500/10 text-red-400 border border-red-500/30 hover:bg-red-500/20 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                {injecting ? 'CHALLENGING...' : 'CHALLENGE CLAIM'}
               </button>
             </div>
           </div>
