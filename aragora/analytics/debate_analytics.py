@@ -259,7 +259,16 @@ class DebateAnalytics:
 
     def __init__(self, db_path: str | None = None):
         """Initialize debate analytics."""
-        self.db_path = db_path or ":memory:"
+        if db_path is None:
+            try:
+                from aragora.persistence.db_config import get_default_data_dir
+
+                data_dir = get_default_data_dir()
+                data_dir.mkdir(parents=True, exist_ok=True)
+                db_path = str(data_dir / "debate_analytics.db")
+            except (ImportError, OSError):
+                db_path = ":memory:"
+        self.db_path = db_path
         self._lock = threading.Lock()
         self._init_db()
 

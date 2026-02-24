@@ -557,6 +557,114 @@ def seed_receipts(clear: bool) -> int:
     return count
 
 
+# -- Seed analytics records ------------------------------------------------
+def seed_analytics(clear: bool) -> int:
+    """Seed DebateAnalytics with 30 days of realistic decision data."""
+    try:
+        from aragora.analytics.debate_analytics import get_debate_analytics
+    except ImportError:
+        logger.warning("DebateAnalytics not importable, skipping")
+        return 0
+
+    import asyncio
+    from decimal import Decimal
+
+    db_path = str(_data_dir() / "debate_analytics.db")
+    analytics = get_debate_analytics(db_path=db_path)
+    count = 0
+
+    # Extend debates with more entries for 30-day coverage
+    extended_debates = DEBATES + [
+        ("Should we implement feature flags for all new features?", "engineering", True, 0.87),
+        ("Is pair programming worth the productivity cost?", "process", False, 0.45),
+        ("Should we adopt trunk-based development?", "engineering", True, 0.82),
+        ("Build an internal developer portal?", "platform", True, 0.76),
+        ("Should we require ADRs for all architecture changes?", "process", True, 0.91),
+        ("Migrate to ARM-based instances for cost savings?", "infrastructure", True, 0.85),
+        ("Should we implement canary deployments?", "devops", True, 0.89),
+        ("Is it time to adopt WebAssembly for edge compute?", "architecture", False, 0.41),
+        ("Should we standardize on Protocol Buffers?", "api_design", True, 0.74),
+        ("Implement chaos engineering practices?", "reliability", True, 0.78),
+        ("Should we adopt OpenTelemetry for all services?", "observability", True, 0.92),
+        ("Replace Jenkins with GitHub Actions?", "ci_cd", True, 0.86),
+        ("Should we implement SLO-based alerting?", "observability", True, 0.83),
+        ("Adopt Nix for reproducible builds?", "tooling", False, 0.38),
+        ("Should we enforce semantic versioning?", "process", True, 0.94),
+        ("Migrate auth to passkeys?", "security", True, 0.71),
+        ("Should we implement blue-green deployments?", "devops", True, 0.80),
+        ("Adopt Dagger for CI pipelines?", "ci_cd", False, 0.49),
+        ("Should we use vector databases for search?", "architecture", True, 0.77),
+        ("Implement progressive delivery with feature gates?", "devops", True, 0.88),
+    ]
+
+    agent_names = [a[0] for a in AGENTS]
+    providers = {
+        "claude-opus": ("anthropic", "claude-opus-4-6"),
+        "gpt-4o": ("openai", "gpt-4o"),
+        "gemini-pro": ("google", "gemini-2.5-pro"),
+        "mistral-large": ("mistral", "mistral-large-latest"),
+        "grok-2": ("xai", "grok-2"),
+        "deepseek-v3": ("deepseek", "deepseek-chat"),
+        "llama-405b": ("openrouter", "meta-llama/llama-3.1-405b"),
+        "qwen-72b": ("openrouter", "qwen/qwen-72b-chat"),
+    }
+
+    async def _seed():
+        nonlocal count
+        for i, (topic, domain, consensus, confidence) in enumerate(extended_debates):
+            debate_id = f"demo_analytics_{i:03d}"
+            days_ago = random.randint(0, 29)
+            rounds = random.randint(2, 5) if consensus else random.randint(3, 7)
+            duration = random.uniform(30.0, 240.0)
+            num_agents = random.randint(3, min(6, len(agent_names)))
+            debate_agents = random.sample(agent_names, num_agents)
+            total_messages = rounds * num_agents * 2
+            total_votes = num_agents
+
+            await analytics.record_debate(
+                debate_id=debate_id,
+                rounds=rounds,
+                consensus_reached=consensus,
+                duration_seconds=duration,
+                agents=debate_agents,
+                status="completed",
+                protocol=domain,
+                total_messages=total_messages,
+                total_votes=total_votes,
+                total_cost=Decimal(str(round(random.uniform(0.02, 0.50), 4))),
+            )
+
+            # Record per-agent activity
+            for agent in debate_agents:
+                provider_name, model_name = providers.get(agent, ("unknown", agent))
+                await analytics.record_agent_activity(
+                    agent_id=agent,
+                    debate_id=debate_id,
+                    response_time_ms=random.uniform(200, 3500),
+                    tokens_in=random.randint(500, 4000),
+                    tokens_out=random.randint(200, 2000),
+                    cost=Decimal(str(round(random.uniform(0.005, 0.08), 4))),
+                    error=random.random() < 0.03,
+                    agent_name=agent,
+                    provider=provider_name,
+                    model=model_name,
+                )
+            count += 1
+
+        # Record ELO updates with realistic drift
+        for agent_name, base_elo, *_ in AGENTS:
+            for day in range(30, 0, -3):
+                drift = random.randint(-15, 20)
+                await analytics.record_elo_update(
+                    agent_id=agent_name,
+                    elo_rating=base_elo + drift + (30 - day),
+                    debate_id=f"demo_analytics_{random.randint(0, len(extended_debates) - 1):03d}",
+                )
+
+    asyncio.get_event_loop().run_until_complete(_seed())
+    return count
+
+
 # -- Check ------------------------------------------------------------------
 def _safe_count(fn):
     try:
@@ -638,6 +746,7 @@ def main() -> int:
         ("tournament_matches", seed_tournament),
         ("pipelines", seed_pipelines),
         ("receipts", seed_receipts),
+        ("analytics", seed_analytics),
     ]
     r = {}
     for name, fn in steps:

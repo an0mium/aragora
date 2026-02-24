@@ -60,6 +60,7 @@ const navSections: NavSection[] = [
       { label: 'Home', href: '/', icon: '\u2261' },
       { label: 'Dashboard', href: '/dashboard', icon: '\u25A6' },
       { label: 'Debates', href: '/debates', icon: '\u2318' },
+      { label: 'Oracle', href: '/oracle', icon: '\u25C9' },
       { label: 'Pipeline', href: '/pipeline', icon: '\u25B8', minMode: 'standard' },
       { label: 'Ideas', href: '/ideas', icon: '\u2726', minMode: 'standard' },
       { label: 'Goals', href: '/goals', icon: '\u25CE', minMode: 'standard' },
