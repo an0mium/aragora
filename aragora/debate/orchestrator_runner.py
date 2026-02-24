@@ -182,20 +182,44 @@ async def _populate_result_cost(
     Called after extensions.on_debate_complete() to ensure the result
     object carries accurate cost information for downstream consumers
     (DecisionPlanFactory, budget coordinator, etc.).
+
+    Uses DebateCostTracker (via extensions) as the primary source for
+    per-agent breakdowns, falling back to the global CostTracker buffer.
     """
     try:
-        # Aggregate per-agent costs from cost tracker
-        cost_tracker = getattr(extensions, "cost_tracker", None)
-        if cost_tracker is not None:
-            debate_costs = await cost_tracker.get_debate_cost(debate_id)
-            if debate_costs:
-                total = float(debate_costs.get("total_cost_usd", 0))
-                if total > 0:
-                    result.total_cost_usd = total
+        # Primary source: DebateCostTracker (has per-agent, per-round, per-model)
+        debate_summary = None
+        get_summary = getattr(extensions, "get_debate_cost_summary", None)
+        if get_summary is not None:
+            debate_summary = get_summary(debate_id)
 
-                cost_by_agent = debate_costs.get("cost_by_agent", {})
-                if cost_by_agent:
-                    result.per_agent_cost = {str(k): float(v) for k, v in cost_by_agent.items()}
+        if debate_summary is not None:
+            total = float(debate_summary.total_cost_usd)
+            if total > 0:
+                result.total_cost_usd = total
+            result.total_tokens = (
+                debate_summary.total_tokens_in + debate_summary.total_tokens_out
+            )
+            per_agent: dict[str, float] = {}
+            for name, breakdown in debate_summary.per_agent.items():
+                per_agent[name] = float(breakdown.total_cost_usd)
+            if per_agent:
+                result.per_agent_cost = per_agent
+        else:
+            # Fallback: global CostTracker buffer
+            cost_tracker = getattr(extensions, "cost_tracker", None)
+            if cost_tracker is not None:
+                debate_costs = await cost_tracker.get_debate_cost(debate_id)
+                if debate_costs:
+                    total = float(debate_costs.get("total_cost_usd", 0))
+                    if total > 0:
+                        result.total_cost_usd = total
+
+                    cost_by_agent = debate_costs.get("cost_by_agent", {})
+                    if cost_by_agent:
+                        result.per_agent_cost = {
+                            str(k): float(v) for k, v in cost_by_agent.items()
+                        }
 
         # Carry budget limit through to result
         budget_limit = getattr(extensions, "debate_budget_limit_usd", None)

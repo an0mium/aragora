@@ -188,31 +188,38 @@ export default function ReasoningPage() {
     <div className="space-y-6">
       {/* Crux Claims */}
       <div>
-        <h2 className="text-lg font-mono font-bold text-acid-green mb-3">Crux Claims</h2>
+        <h2 className="text-xs font-mono text-acid-green mb-3">
+          &gt; CRUX CLAIMS ({cruxes.length})
+        </h2>
         {cruxes.length === 0 ? (
           <p className="text-text-muted font-mono text-sm">No crux claims found for this debate.</p>
         ) : (
-          <div className="grid gap-3 md:grid-cols-2">
+          <div className="space-y-3">
             {cruxes.map((c, i) => (
-              <div key={i} className="p-4 bg-surface border border-border rounded-lg">
+              <div key={c.claim_id ?? i} className="p-4 border border-acid-green/20 bg-bg">
                 <p className="text-sm font-mono text-text mb-3">{c.claim}</p>
-                <div className="mb-2">
+                <div className="flex items-center gap-4 text-xs font-mono text-text-muted mb-2">
+                  {c.source_agent && (
+                    <span className="text-acid-cyan">{c.source_agent}</span>
+                  )}
+                  <span>Sensitivity: {(c.sensitivity * 100).toFixed(0)}%</span>
+                </div>
+                {/* Probability bar */}
+                <div>
                   <div className="flex items-center justify-between text-xs text-text-muted font-mono mb-1">
-                    <span>Probability</span>
+                    <span>P = {c.probability.toFixed(2)}</span>
                     <span>{(c.probability * 100).toFixed(0)}%</span>
                   </div>
-                  <div className="h-2 bg-bg rounded-full overflow-hidden">
+                  <div className="h-2 bg-bg border border-acid-green/20 rounded-sm overflow-hidden">
                     <div
-                      className="h-full rounded-full"
+                      className="h-full transition-all"
                       style={{
                         width: `${c.probability * 100}%`,
                         backgroundColor: 'var(--acid-green)',
+                        opacity: 0.6,
                       }}
                     />
                   </div>
-                </div>
-                <div className="text-xs text-text-muted font-mono">
-                  Sensitivity: <span className="text-text">{c.sensitivity.toFixed(3)}</span>
                 </div>
               </div>
             ))}
@@ -222,20 +229,33 @@ export default function ReasoningPage() {
 
       {/* Load-Bearing Claims */}
       <div>
-        <h2 className="text-lg font-mono font-bold text-acid-green mb-3">Load-Bearing Claims</h2>
+        <h2 className="text-xs font-mono text-acid-green mb-3">
+          &gt; LOAD-BEARING CLAIMS ({loadBearing.length})
+        </h2>
         {loadBearing.length === 0 ? (
           <p className="text-text-muted font-mono text-sm">No load-bearing claims found.</p>
         ) : (
-          <div className="space-y-2">
+          <div className="space-y-3">
             {loadBearing.map((lb, i) => (
-              <div
-                key={i}
-                className="flex items-center justify-between p-3 bg-surface border border-border rounded-lg"
-              >
-                <span className="text-sm font-mono text-text flex-1 mr-4">{lb.claim}</span>
-                <span className="text-xs font-mono text-acid-green whitespace-nowrap">
-                  centrality: {lb.centrality.toFixed(3)}
-                </span>
+              <div key={lb.claim_id ?? i} className="p-4 border border-acid-green/20 bg-bg">
+                <p className="text-sm font-mono text-text mb-2">{lb.claim}</p>
+                <div className="flex items-center gap-4 text-xs font-mono text-text-muted mb-2">
+                  {lb.source_agent && (
+                    <span className="text-acid-cyan">{lb.source_agent}</span>
+                  )}
+                  <span>Centrality: {lb.centrality.toFixed(3)}</span>
+                </div>
+                {/* Centrality bar */}
+                <div className="h-2 bg-bg border border-acid-green/20 rounded-sm overflow-hidden">
+                  <div
+                    className="h-full transition-all"
+                    style={{
+                      width: `${Math.min(lb.centrality * 100, 100)}%`,
+                      backgroundColor: 'var(--acid-cyan, #00e5ff)',
+                      opacity: 0.6,
+                    }}
+                  />
+                </div>
               </div>
             ))}
           </div>
@@ -246,49 +266,47 @@ export default function ReasoningPage() {
 
   /* ---- Claims tab ---- */
   const renderClaims = () => (
-    <div className="space-y-4">
-      <h2 className="text-lg font-mono font-bold text-acid-green mb-3">Claim Graph</h2>
+    <div>
+      <h2 className="text-xs font-mono text-acid-green mb-3">
+        &gt; CLAIM GRAPH ({claims.length} claims)
+      </h2>
       {claims.length === 0 ? (
         <p className="text-text-muted font-mono text-sm">No claims found for this debate.</p>
       ) : (
-        <div className="space-y-2">
+        <div className="space-y-3">
           {claims.map((c, i) => {
             const hasContradiction = c.contradicts && c.contradicts.length > 0;
             return (
               <div
                 key={c.id || i}
-                className={`p-3 bg-surface border rounded-lg ${
-                  hasContradiction ? 'border-red-500/60' : 'border-border'
+                className={`p-3 border bg-bg ${
+                  hasContradiction ? 'border-red-500/50' : 'border-acid-green/20'
                 }`}
               >
-                <div className="flex items-start gap-3">
-                  <span
-                    className="px-2 py-0.5 text-xs font-mono rounded border whitespace-nowrap"
-                    style={{
-                      borderColor: hasContradiction ? '#ef4444' : 'var(--border)',
-                      color: hasContradiction ? '#ef4444' : 'var(--acid-green)',
-                      backgroundColor: hasContradiction
-                        ? 'rgba(239,68,68,0.1)'
-                        : 'rgba(0,255,65,0.1)',
-                    }}
-                  >
+                <div className="flex items-center gap-2 mb-2 flex-wrap">
+                  <span className="px-2 py-0.5 bg-acid-green/20 text-acid-green text-xs font-mono uppercase">
                     {c.type}
                   </span>
-                  <div className="flex-1">
-                    <p className="text-sm font-mono text-text">{c.text}</p>
-                    <div className="flex gap-4 mt-1 text-xs text-text-muted font-mono">
-                      {c.agent && <span>Agent: {c.agent}</span>}
-                      {c.evidence_count !== undefined && (
-                        <span>Evidence: {c.evidence_count}</span>
-                      )}
-                      {hasContradiction && (
-                        <span className="text-red-400">
-                          Contradicts: {c.contradicts!.join(', ')}
-                        </span>
-                      )}
-                    </div>
-                  </div>
+                  {c.agent && (
+                    <span className="text-acid-cyan text-xs font-mono">{c.agent}</span>
+                  )}
+                  {c.evidence_count !== undefined && c.evidence_count > 0 && (
+                    <span className="text-text-muted text-xs font-mono">
+                      {c.evidence_count} evidence
+                    </span>
+                  )}
+                  {hasContradiction && (
+                    <span className="px-2 py-0.5 bg-red-500/20 text-red-400 text-xs font-mono">
+                      CONTRADICTED
+                    </span>
+                  )}
                 </div>
+                <p className="text-sm font-mono text-text">{c.text}</p>
+                {hasContradiction && (
+                  <div className="mt-2 text-xs font-mono text-red-400/70">
+                    Contradicts: {c.contradicts!.join(', ')}
+                  </div>
+                )}
               </div>
             );
           })}

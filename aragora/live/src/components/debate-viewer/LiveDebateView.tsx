@@ -165,47 +165,80 @@ export function LiveDebateView({
 
   // Extract per-agent reasoning summaries from stream events and messages
   const agentReasoningSummary = useMemo(() => {
-    const summary: Record<string, { confidence: number | null; lastRole: string; messageCount: number; lastSnippet: string }> = {};
+    type AgentSummary = {
+      confidence: number | null;
+      lastRole: string;
+      messageCount: number;
+      lastSnippet: string;
+      phase: string;
+      positionSummary: string;
+    };
+    const defaultEntry = (): AgentSummary => ({
+      confidence: null, lastRole: '', messageCount: 0, lastSnippet: '', phase: '', positionSummary: '',
+    });
+    const summary: Record<string, AgentSummary> = {};
     for (const agent of agents) {
-      summary[agent] = { confidence: null, lastRole: '', messageCount: 0, lastSnippet: '' };
+      summary[agent] = defaultEntry();
     }
     // Aggregate from completed messages
     for (const msg of messages) {
       if (!summary[msg.agent]) {
-        summary[msg.agent] = { confidence: null, lastRole: '', messageCount: 0, lastSnippet: '' };
+        summary[msg.agent] = defaultEntry();
       }
-      summary[msg.agent].messageCount++;
-      summary[msg.agent].lastRole = msg.role ?? '';
-      summary[msg.agent].lastSnippet = msg.content?.slice(0, 80) ?? '';
+      const entry = summary[msg.agent];
+      entry.messageCount++;
+      entry.lastRole = msg.role ?? '';
+      entry.lastSnippet = msg.content?.slice(0, 120) ?? '';
+      // Build position summary from the latest non-critique message
+      if (msg.content && msg.role !== 'critic' && msg.role !== 'system') {
+        const sentences = msg.content.split(/(?<=[.!?])\s+/).slice(0, 2).join(' ');
+        entry.positionSummary = sentences.length > 120 ? sentences.slice(0, 120) + '...' : sentences;
+      }
+      // Use message-level confidence and phase when available
+      if (msg.confidence_score !== null && msg.confidence_score !== undefined) {
+        entry.confidence = msg.confidence_score;
+      }
+      if (msg.reasoning_phase) {
+        entry.phase = msg.reasoning_phase;
+      }
     }
-    // Overlay with confidence from stream events
+    // Overlay with confidence and phase from stream events
     for (const event of streamEvents) {
       if (event.type === 'agent_message' && event.agent) {
         const data = event.data as Record<string, unknown>;
         if (data?.confidence_score !== undefined && data.confidence_score !== null) {
-          if (!summary[event.agent]) {
-            summary[event.agent] = { confidence: null, lastRole: '', messageCount: 0, lastSnippet: '' };
-          }
+          if (!summary[event.agent]) summary[event.agent] = defaultEntry();
           summary[event.agent].confidence = data.confidence_score as number;
+        }
+        if (data?.reasoning_phase) {
+          if (!summary[event.agent]) summary[event.agent] = defaultEntry();
+          summary[event.agent].phase = data.reasoning_phase as string;
+        }
+      }
+      if (event.type === 'agent_confidence' && event.agent) {
+        const data = event.data as Record<string, unknown>;
+        if (data?.confidence !== undefined) {
+          if (!summary[event.agent]) summary[event.agent] = defaultEntry();
+          summary[event.agent].confidence = data.confidence as number;
         }
       }
       if (event.type === 'vote' && event.agent) {
         const data = event.data as Record<string, unknown>;
         if (data?.confidence !== undefined) {
-          if (!summary[event.agent]) {
-            summary[event.agent] = { confidence: null, lastRole: '', messageCount: 0, lastSnippet: '' };
-          }
+          if (!summary[event.agent]) summary[event.agent] = defaultEntry();
           summary[event.agent].confidence = data.confidence as number;
         }
       }
     }
     // Overlay with streaming message confidence
     for (const [, streamMsg] of streamingMessages) {
+      if (!summary[streamMsg.agent]) summary[streamMsg.agent] = defaultEntry();
       if (streamMsg.confidence !== null && streamMsg.confidence !== undefined) {
-        if (!summary[streamMsg.agent]) {
-          summary[streamMsg.agent] = { confidence: null, lastRole: '', messageCount: 0, lastSnippet: '' };
-        }
         summary[streamMsg.agent].confidence = streamMsg.confidence;
+      }
+      // Mark actively streaming agents with a phase indicator
+      if (!summary[streamMsg.agent].phase) {
+        summary[streamMsg.agent].phase = 'RESPONDING';
       }
     }
     return summary;
@@ -453,21 +486,39 @@ export function LiveDebateView({
             </div>
             <div className="p-3 space-y-3 max-h-[600px] overflow-y-auto">
               {Object.entries(agentReasoningSummary).map(([agent, info]) => {
-                const colors = getAgentColors(agent);
+                const agentColors = getAgentColors(agent);
+                const confColor = info.confidence !== null
+                  ? info.confidence >= 0.8 ? 'bg-acid-green' : info.confidence >= 0.5 ? 'bg-acid-yellow' : 'bg-red-400'
+                  : '';
                 return (
                   <div key={agent} className="border border-border p-2 space-y-1">
                     <div className="flex items-center justify-between">
-                      <span className={`font-mono text-xs font-bold ${colors.text}`}>{agent.toUpperCase()}</span>
+                      <div className="flex items-center gap-1.5">
+                        {/* Color-coded confidence dot */}
+                        {info.confidence !== null && (
+                          <span className={`w-2 h-2 rounded-full ${confColor}`} title={`${Math.round(info.confidence * 100)}% confidence`} />
+                        )}
+                        <span className={`font-mono text-xs font-bold ${agentColors.text}`}>{agent.toUpperCase()}</span>
+                      </div>
                       {info.confidence !== null && (
                         <span className="text-[10px] font-mono text-acid-yellow border border-acid-yellow/30 px-1">
                           {Math.round(info.confidence * 100)}%
                         </span>
                       )}
                     </div>
+                    {/* Phase indicator */}
+                    {info.phase && (
+                      <div className="flex items-center gap-1">
+                        <span className="w-1 h-1 rounded-full bg-acid-green animate-pulse" />
+                        <span className="text-[9px] font-mono text-acid-green/70 uppercase tracking-wider">
+                          {info.phase}
+                        </span>
+                      </div>
+                    )}
                     {info.confidence !== null && (
                       <div className="h-1 bg-bg border border-border rounded-full overflow-hidden">
                         <div
-                          className="h-full bg-acid-cyan transition-all duration-500"
+                          className={`h-full transition-all duration-500 ${confColor}`}
                           style={{ width: `${Math.round(info.confidence * 100)}%` }}
                         />
                       </div>
@@ -482,9 +533,10 @@ export function LiveDebateView({
                         <span className="opacity-50">awaiting response...</span>
                       )}
                     </div>
-                    {info.lastSnippet && (
-                      <div className="text-[10px] font-mono text-text-muted/60 truncate">
-                        {info.lastSnippet}...
+                    {/* Position summary - first 1-2 sentences */}
+                    {info.positionSummary && (
+                      <div className="text-[10px] font-mono text-text-muted/70 line-clamp-2 leading-tight">
+                        {info.positionSummary}
                       </div>
                     )}
                   </div>

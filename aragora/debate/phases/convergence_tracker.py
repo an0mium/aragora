@@ -11,6 +11,7 @@ Extracted from debate_rounds.py to handle:
 from __future__ import annotations
 
 import logging
+import time
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, Any
 from collections.abc import Callable
@@ -115,9 +116,32 @@ class DebateConvergenceTracker:
             self._previous_round_responses = current_responses
             return result
 
-        convergence = self.convergence_detector.check_convergence(
-            current_responses, self._previous_round_responses, round_num
-        )
+        # Latency optimization (issue #268): prefer the ANN-optimized fast
+        # path when available (vectorized cosine similarity with early
+        # termination).  The fast method exists on ConvergenceDetector and
+        # uses numpy-vectorized operations internally.
+        _conv_start = time.perf_counter()
+        convergence = None
+
+        # Only attempt fast path when detector explicitly defines it
+        # (avoid MagicMock auto-attribute creation in tests).
+        _has_fast = "check_convergence_fast" in type(self.convergence_detector).__dict__
+        if _has_fast:
+            try:
+                convergence = self.convergence_detector.check_convergence_fast(
+                    current_responses, self._previous_round_responses, round_num
+                )
+            except (TypeError, ValueError, ImportError, RuntimeError) as _fast_err:
+                logger.debug("check_convergence_fast failed, using standard: %s", _fast_err)
+                convergence = None
+
+        if convergence is None:
+            convergence = self.convergence_detector.check_convergence(
+                current_responses, self._previous_round_responses, round_num
+            )
+
+        _conv_elapsed_ms = (time.perf_counter() - _conv_start) * 1000
+        logger.debug("convergence_check_elapsed_ms=%.1f round=%d", _conv_elapsed_ms, round_num)
 
         self._previous_round_responses = current_responses
 

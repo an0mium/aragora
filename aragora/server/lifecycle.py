@@ -396,6 +396,32 @@ class ServerLifecycleManager:
         except (ImportError, RuntimeError, AttributeError) as e:
             logger.debug("Pulse scheduler shutdown: %s", e)
 
+        # Stop key rotation schedulers (security + ops modules)
+        try:
+            from aragora.security.key_rotation import (
+                get_key_rotation_scheduler as _get_sec_scheduler,
+                stop_key_rotation_scheduler,
+            )
+
+            sec_scheduler = _get_sec_scheduler()
+            if sec_scheduler is not None and sec_scheduler.status.value != "stopped":
+                await stop_key_rotation_scheduler()
+                logger.info("Security key rotation scheduler stopped")
+        except (ImportError, RuntimeError, AttributeError) as e:
+            logger.debug("Security key rotation scheduler shutdown: %s", e)
+
+        try:
+            from aragora.ops.key_rotation import (
+                get_key_rotation_scheduler as _get_ops_scheduler,
+            )
+
+            ops_scheduler = _get_ops_scheduler()
+            if ops_scheduler is not None:
+                await ops_scheduler.stop()
+                logger.info("Ops key rotation scheduler stopped")
+        except (ImportError, RuntimeError, AttributeError) as e:
+            logger.debug("Ops key rotation scheduler shutdown: %s", e)
+
     async def _close_websockets(self) -> None:
         """Close WebSocket connections."""
         if not self.stream_server:

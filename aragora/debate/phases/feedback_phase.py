@@ -958,25 +958,40 @@ class FeedbackPhase:
             return None
 
         try:
-            from aragora.export.decision_receipt import DecisionReceipt
+            from aragora.gauntlet.receipt_models import DecisionReceipt
 
-            # Gather cost data if available
-            cost_data = None
+            # Build cost summary from DebateCostTracker if available
+            cost_summary = None
             if self.cost_tracker:
                 try:
-                    cost_data = {
-                        "cost_usd": self.cost_tracker.get_debate_cost(ctx.debate_id),
-                        "tokens_used": self.cost_tracker.get_total_tokens(ctx.debate_id),
-                        "budget_limit_usd": getattr(self.cost_tracker, "budget_limit", None),
-                    }
-                except (TypeError, ValueError, AttributeError) as e:
-                    logger.debug("[receipt] Cost data extraction failed: %s", e)
+                    from aragora.billing.debate_costs import get_debate_cost_tracker
+
+                    dct = get_debate_cost_tracker()
+                    summary = dct.get_debate_cost(ctx.debate_id)
+                    if summary and summary.total_calls > 0:
+                        cost_summary = summary.to_dict()
+                except (ImportError, TypeError, ValueError, AttributeError) as e:
+                    logger.debug("[receipt] DebateCostTracker cost extraction failed: %s", e)
+
+                # Fallback: build minimal cost_summary from CostTracker buffer
+                if cost_summary is None:
+                    try:
+                        debate_costs = await self.cost_tracker.get_debate_cost(
+                            ctx.debate_id
+                        )
+                        if debate_costs and float(
+                            debate_costs.get("total_cost_usd", 0)
+                        ) > 0:
+                            cost_summary = debate_costs
+                    except (TypeError, ValueError, AttributeError) as e:
+                        logger.debug(
+                            "[receipt] CostTracker cost extraction failed: %s", e
+                        )
 
             # Generate receipt from debate result
             receipt = DecisionReceipt.from_debate_result(
                 result=result,
-                include_cost=True,
-                cost_data=cost_data,
+                cost_summary=cost_summary,
             )
 
             # Attach explainability data
