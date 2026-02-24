@@ -545,14 +545,15 @@ def register_intervention_routes(router: Any) -> None:
             return err
         return await handle_get_intervention_log(debate_id, context, limit)
 
-    # Register routes
-    router.add_route("POST", "/api/debates/{debate_id}/intervention/pause", pause_debate)
-    router.add_route("POST", "/api/debates/{debate_id}/intervention/resume", resume_debate)
-    router.add_route("POST", "/api/debates/{debate_id}/intervention/inject", inject_argument)
-    router.add_route("POST", "/api/debates/{debate_id}/intervention/weights", update_weights)
-    router.add_route("POST", "/api/debates/{debate_id}/intervention/threshold", update_threshold)
-    router.add_route("GET", "/api/debates/{debate_id}/intervention/state", get_state)
-    router.add_route("GET", "/api/debates/{debate_id}/intervention/log", get_log)
+    # Register legacy and versioned API routes for compatibility.
+    for base in ("/api/debates", "/api/v1/debates"):
+        router.add_route("POST", f"{base}/{{debate_id}}/intervention/pause", pause_debate)
+        router.add_route("POST", f"{base}/{{debate_id}}/intervention/resume", resume_debate)
+        router.add_route("POST", f"{base}/{{debate_id}}/intervention/inject", inject_argument)
+        router.add_route("POST", f"{base}/{{debate_id}}/intervention/weights", update_weights)
+        router.add_route("POST", f"{base}/{{debate_id}}/intervention/threshold", update_threshold)
+        router.add_route("GET", f"{base}/{{debate_id}}/intervention/state", get_state)
+        router.add_route("GET", f"{base}/{{debate_id}}/intervention/log", get_log)
 
 
 __all__ = [

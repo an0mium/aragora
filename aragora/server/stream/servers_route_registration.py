@@ -127,6 +127,13 @@ try:
 except ImportError:
     ORACLE_STREAM_AVAILABLE = False
 
+try:
+    from aragora.server.handlers.debates.intervention import register_intervention_routes
+
+    INTERVENTION_HANDLER_AVAILABLE = True
+except ImportError:
+    INTERVENTION_HANDLER_AVAILABLE = False
+
 
 def _register_optional_routes(app: Any) -> None:
     """Register optional handler routes on the aiohttp application.
@@ -171,6 +178,9 @@ def _register_optional_routes(app: Any) -> None:
         MonitoringHandler.register_routes(app)
         LearningHandler.register_routes(app)
         logger.info("Registered autonomous agent routes")
+    if INTERVENTION_HANDLER_AVAILABLE:
+        register_intervention_routes(app.router)
+        logger.info("Registered debate intervention routes")
 
 
 class RouteRegistrationMixin:

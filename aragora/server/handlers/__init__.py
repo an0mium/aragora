@@ -374,6 +374,7 @@ if TYPE_CHECKING:
     from .reviews import ReviewsHandler
     from .rlm import RLMContextHandler
     from .routing import RoutingHandler
+    from .sandbox import SandboxHandler
     from .scim_handler import SCIMHandler
     from .selection import SelectionHandler
     from .skill_marketplace import SkillMarketplaceHandler
@@ -412,6 +413,7 @@ if TYPE_CHECKING:
     from .usage_metering import UsageMeteringHandler
     from .verification import FormalVerificationHandler, VerificationHandler
     from .verticals import VerticalsHandler
+    from .visualization import VisualizationHandler
     from .webhooks import WebhookHandler
     from .workflow_templates import (
         SMEWorkflowsHandler,
@@ -882,6 +884,10 @@ __all__ = [
     "WorkflowBuilderHandler",
     # Readiness check (SME onboarding)
     "ReadinessCheckHandler",
+    # Sandbox (code execution)
+    "SandboxHandler",
+    # Visualization (argument cartography)
+    "VisualizationHandler",
     # Stability utilities
     "HANDLER_STABILITY",
     "get_handler_stability",

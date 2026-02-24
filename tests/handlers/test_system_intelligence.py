@@ -450,11 +450,13 @@ class TestAgentPerformance:
         elo.get_leaderboard.return_value = [
             {"agent_name": "claude", "rating": 1650, "wins": 40, "losses": 10},
         ]
-        elo.get_elo_history.return_value = [
+        # Handler calls get_agent_history first; return dict-style entries
+        elo.get_agent_history.return_value = [
             {"timestamp": "2026-01-01T00:00:00Z", "rating": 1600},
             {"timestamp": "2026-02-01T00:00:00Z", "rating": 1650},
         ]
-        elo.get_agent_calibration_history.return_value = [{"score": 0.85}]
+        # Handler calls get_calibration_score first; return dict with score
+        elo.get_calibration_score.return_value = {"score": 0.85}
 
         feedback = MagicMock()
         feedback.get_agent_state.return_value = MockAgentState()
@@ -485,8 +487,8 @@ class TestAgentPerformance:
         entry = MockLeaderboardEntry(agent_name="gpt4", rating=1600, wins=30, losses=20)
         elo = MagicMock()
         elo.get_leaderboard.return_value = [entry]
-        elo.get_elo_history.return_value = []
-        elo.get_agent_calibration_history.return_value = [{"score": 0.75}]
+        elo.get_agent_history.return_value = []
+        elo.get_calibration_score.return_value = {"score": 0.75}
 
         with (
             patch("aragora.ranking.elo.EloSystem", return_value=elo),
@@ -511,8 +513,8 @@ class TestAgentPerformance:
         elo.get_leaderboard.return_value = [
             {"agent_name": "newbie", "rating": 1500, "wins": 0, "losses": 0},
         ]
-        elo.get_elo_history.return_value = []
-        elo.get_agent_calibration_history.return_value = [0.0]
+        elo.get_agent_history.return_value = []
+        elo.get_calibration_score.return_value = 0.0
 
         with (
             patch("aragora.ranking.elo.EloSystem", return_value=elo),
@@ -541,8 +543,8 @@ class TestAgentPerformance:
             {"agent_name": "claude", "rating": 1650, "wins": 10, "losses": 5},
         ]
         hist_entry = MockHistoryEntry(timestamp="2026-01-15", rating=1620)
-        elo.get_elo_history.return_value = [hist_entry]
-        elo.get_agent_calibration_history.return_value = [{"score": 0.9}]
+        elo.get_agent_history.return_value = [hist_entry]
+        elo.get_calibration_score.return_value = {"score": 0.9}
 
         with (
             patch("aragora.ranking.elo.EloSystem", return_value=elo),
@@ -563,8 +565,8 @@ class TestAgentPerformance:
         elo.get_leaderboard.return_value = [
             {"agent_name": "claude", "rating": 1650, "wins": 10, "losses": 5},
         ]
-        elo.get_elo_history.return_value = []
-        elo.get_agent_calibration_history.return_value = [42]  # int
+        elo.get_agent_history.return_value = []
+        elo.get_calibration_score.return_value = 42  # int
 
         with (
             patch("aragora.ranking.elo.EloSystem", return_value=elo),
@@ -584,8 +586,8 @@ class TestAgentPerformance:
         elo.get_leaderboard.return_value = [
             {"agent_name": "claude", "rating": 1650, "wins": 10, "losses": 5},
         ]
-        elo.get_elo_history.return_value = []
-        elo.get_agent_calibration_history.side_effect = AttributeError("no calibration")
+        elo.get_agent_history.return_value = []
+        elo.get_calibration_score.side_effect = AttributeError("no calibration")
 
         with (
             patch("aragora.ranking.elo.EloSystem", return_value=elo),
@@ -614,8 +616,8 @@ class TestAgentPerformance:
         elo.get_leaderboard.return_value = [
             {"agent_name": "claude", "rating": 1650, "wins": 10, "losses": 5},
         ]
-        elo.get_elo_history.return_value = []
-        elo.get_agent_calibration_history.return_value = [{"score": 0.8}]
+        elo.get_agent_history.return_value = []
+        elo.get_calibration_score.return_value = {"score": 0.8}
 
         with (
             patch("aragora.ranking.elo.EloSystem", return_value=elo),

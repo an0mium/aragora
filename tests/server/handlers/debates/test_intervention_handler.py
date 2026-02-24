@@ -524,8 +524,8 @@ class TestRouteRegistration:
 
         intervention.register_intervention_routes(mock_router)
 
-        # Verify all routes registered
-        assert mock_router.add_route.call_count == 7
+        # Verify all routes registered (legacy + /api/v1 aliases).
+        assert mock_router.add_route.call_count == 14
 
         # Check route paths
         calls = mock_router.add_route.call_args_list
@@ -538,3 +538,10 @@ class TestRouteRegistration:
         assert ("POST", "/api/debates/{debate_id}/intervention/threshold") in routes
         assert ("GET", "/api/debates/{debate_id}/intervention/state") in routes
         assert ("GET", "/api/debates/{debate_id}/intervention/log") in routes
+        assert ("POST", "/api/v1/debates/{debate_id}/intervention/pause") in routes
+        assert ("POST", "/api/v1/debates/{debate_id}/intervention/resume") in routes
+        assert ("POST", "/api/v1/debates/{debate_id}/intervention/inject") in routes
+        assert ("POST", "/api/v1/debates/{debate_id}/intervention/weights") in routes
+        assert ("POST", "/api/v1/debates/{debate_id}/intervention/threshold") in routes
+        assert ("GET", "/api/v1/debates/{debate_id}/intervention/state") in routes
+        assert ("GET", "/api/v1/debates/{debate_id}/intervention/log") in routes
