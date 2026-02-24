@@ -279,6 +279,22 @@ export function useDebateWebSocket({
     }
   }, [debateId]);
 
+  // Helper to add message with deduplication
+  const addMessageIfNew = useCallback((msg: TranscriptMessage) => {
+    let msgKey: string;
+
+    if (msg.role === 'critic') {
+      msgKey = `${msg.agent}-critic-r${msg.round || 0}`;
+    } else {
+      msgKey = `${msg.agent}-${msg.content.slice(0, 100)}`;
+    }
+
+    if (seenMessagesRef.current.has(msgKey)) return false;
+    seenMessagesRef.current.add(msgKey);
+    setMessages(prev => [...prev, msg]);
+    return true;
+  }, []);
+
   // Create event handler context for extracted handlers
   const createHandlerContext = useCallback((): EventHandlerContext => ({
     debateId,
