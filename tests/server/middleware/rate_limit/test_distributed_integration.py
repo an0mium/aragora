@@ -174,10 +174,6 @@ class TestDistributedLimiterBasic:
 # ============================================================================
 
 
-@pytest.mark.skipif(
-    get_redis_client() is None,
-    reason="Redis required for multi-instance tests",
-)
 class TestMultiInstanceCoordination:
     """Tests for multi-instance rate limit coordination via Redis."""
 
