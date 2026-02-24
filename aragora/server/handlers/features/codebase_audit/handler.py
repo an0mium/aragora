@@ -132,7 +132,7 @@ class CodebaseAuditHandler(SecureHandler):
         """Check if this handler can process the given path."""
         return path.startswith("/api/v1/codebase")
 
-    async def handle(
+    async def handle(  # type: ignore[override]
         self, request: Any, path: str, method: str = "GET", **kwargs: Any
     ) -> HandlerResult:
         """Route requests (delegates to handle_request)."""

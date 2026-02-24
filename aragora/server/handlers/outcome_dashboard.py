@@ -300,7 +300,7 @@ class OutcomeDashboardHandler(SecureHandler):
                 from aragora.ranking.elo import EloSystem
 
                 elo_sys = EloSystem()
-                cal_lb = elo_sys.get_calibration_leaderboard(limit=50)
+                cal_lb: list[Any] = elo_sys.get_calibration_leaderboard(limit=50)
                 for entry in cal_lb:
                     agent_name = entry.get("agent_name", entry.get("agent", ""))
                     if agent_name:

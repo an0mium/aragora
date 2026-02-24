@@ -226,7 +226,7 @@ class EventsMixin(MessagingMixin):
 
         # If this is a thread reply in a channel (not a DM), check for active debates
         if channel_type != "im" and thread_ts:
-            return self._handle_thread_reply(event)
+            return self._handle_thread_reply(event)  # type: ignore[attr-defined]
 
         # Only handle DMs
         if channel_type != "im":

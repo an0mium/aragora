@@ -38,6 +38,9 @@ _default_evaluate_controls = AsyncMock(return_value=[])
 if not hasattr(_soc2_mod, "evaluate_controls"):
     _soc2_mod.evaluate_controls = _default_evaluate_controls  # type: ignore[attr-defined]
 
+# The status module's internal function is _evaluate_controls (with underscore).
+# We need to patch that, not the non-underscored variant.
+
 # Now we can safely import the status module
 # Remove cached status module if present to force re-import with patched soc2
 _status_key = "aragora.server.handlers.compliance.status"
@@ -94,10 +97,11 @@ def _make_controls(compliant: int, non_compliant: int) -> list[dict]:
 
 @pytest.fixture(autouse=True)
 def _reset_evaluate_controls():
-    """Reset evaluate_controls mock before each test to prevent cross-talk."""
+    """Reset _evaluate_controls mock before each test to prevent cross-talk."""
+    original = status_mod._evaluate_controls
     yield
-    # Restore default mock after each test
-    status_mod.evaluate_controls = _default_evaluate_controls
+    # Restore original after each test
+    status_mod._evaluate_controls = original
 
 
 # ---------------------------------------------------------------------------
@@ -111,14 +115,14 @@ class TestGetStatusBasicStructure:
     @pytest.mark.asyncio
     async def test_returns_handler_result(self):
         """get_status returns a HandlerResult with status 200."""
-        status_mod.evaluate_controls = AsyncMock(return_value=_make_controls(10, 0))
+        status_mod._evaluate_controls = AsyncMock(return_value=_make_controls(10, 0))
         result = await get_status()
         assert _status(result) == 200
 
     @pytest.mark.asyncio
     async def test_response_body_is_valid_json(self):
         """Response body should be valid JSON."""
-        status_mod.evaluate_controls = AsyncMock(return_value=_make_controls(8, 2))
+        status_mod._evaluate_controls = AsyncMock(return_value=_make_controls(8, 2))
         result = await get_status()
         body = _body(result)
         assert isinstance(body, dict)
@@ -126,7 +130,7 @@ class TestGetStatusBasicStructure:
     @pytest.mark.asyncio
     async def test_response_contains_required_top_level_keys(self):
         """Response must contain all top-level keys."""
-        status_mod.evaluate_controls = AsyncMock(return_value=_make_controls(5, 5))
+        status_mod._evaluate_controls = AsyncMock(return_value=_make_controls(5, 5))
         result = await get_status()
         body = _body(result)
         required_keys = {
@@ -143,7 +147,7 @@ class TestGetStatusBasicStructure:
     @pytest.mark.asyncio
     async def test_content_type_is_json(self):
         """Response content type should be application/json."""
-        status_mod.evaluate_controls = AsyncMock(return_value=_make_controls(5, 0))
+        status_mod._evaluate_controls = AsyncMock(return_value=_make_controls(5, 0))
         result = await get_status()
         if hasattr(result, "content_type"):
             assert result.content_type == "application/json"
@@ -160,7 +164,7 @@ class TestComplianceScoreCalculation:
     @pytest.mark.asyncio
     async def test_all_compliant_score_100(self):
         """100% compliant controls yields a score of 100."""
-        status_mod.evaluate_controls = AsyncMock(return_value=_make_controls(10, 0))
+        status_mod._evaluate_controls = AsyncMock(return_value=_make_controls(10, 0))
         result = await get_status()
         body = _body(result)
         assert body["compliance_score"] == 100
@@ -168,7 +172,7 @@ class TestComplianceScoreCalculation:
     @pytest.mark.asyncio
     async def test_all_non_compliant_score_0(self):
         """0% compliant controls yields a score of 0."""
-        status_mod.evaluate_controls = AsyncMock(return_value=_make_controls(0, 10))
+        status_mod._evaluate_controls = AsyncMock(return_value=_make_controls(0, 10))
         result = await get_status()
         body = _body(result)
         assert body["compliance_score"] == 0
@@ -176,7 +180,7 @@ class TestComplianceScoreCalculation:
     @pytest.mark.asyncio
     async def test_half_compliant_score_50(self):
         """50% compliant controls yields a score of 50."""
-        status_mod.evaluate_controls = AsyncMock(return_value=_make_controls(5, 5))
+        status_mod._evaluate_controls = AsyncMock(return_value=_make_controls(5, 5))
         result = await get_status()
         body = _body(result)
         assert body["compliance_score"] == 50
@@ -185,7 +189,7 @@ class TestComplianceScoreCalculation:
     async def test_score_is_integer(self):
         """Compliance score should always be an integer."""
         # 3 out of 7 = 42.857... should truncate to 42
-        status_mod.evaluate_controls = AsyncMock(return_value=_make_controls(3, 4))
+        status_mod._evaluate_controls = AsyncMock(return_value=_make_controls(3, 4))
         result = await get_status()
         body = _body(result)
         assert isinstance(body["compliance_score"], int)
@@ -195,7 +199,7 @@ class TestComplianceScoreCalculation:
     async def test_score_truncates_not_rounds(self):
         """Score should truncate (int()), not round."""
         # 2 out of 3 = 66.666... should be 66, not 67
-        status_mod.evaluate_controls = AsyncMock(return_value=_make_controls(2, 1))
+        status_mod._evaluate_controls = AsyncMock(return_value=_make_controls(2, 1))
         result = await get_status()
         body = _body(result)
         assert body["compliance_score"] == 66
@@ -203,7 +207,7 @@ class TestComplianceScoreCalculation:
     @pytest.mark.asyncio
     async def test_empty_controls_score_0(self):
         """Empty controls list yields a score of 0."""
-        status_mod.evaluate_controls = AsyncMock(return_value=[])
+        status_mod._evaluate_controls = AsyncMock(return_value=[])
         result = await get_status()
         body = _body(result)
         assert body["compliance_score"] == 0
@@ -211,7 +215,7 @@ class TestComplianceScoreCalculation:
     @pytest.mark.asyncio
     async def test_single_compliant_control_score_100(self):
         """Single compliant control yields score 100."""
-        status_mod.evaluate_controls = AsyncMock(return_value=_make_controls(1, 0))
+        status_mod._evaluate_controls = AsyncMock(return_value=_make_controls(1, 0))
         result = await get_status()
         body = _body(result)
         assert body["compliance_score"] == 100
@@ -219,7 +223,7 @@ class TestComplianceScoreCalculation:
     @pytest.mark.asyncio
     async def test_single_non_compliant_control_score_0(self):
         """Single non-compliant control yields score 0."""
-        status_mod.evaluate_controls = AsyncMock(return_value=_make_controls(0, 1))
+        status_mod._evaluate_controls = AsyncMock(return_value=_make_controls(0, 1))
         result = await get_status()
         body = _body(result)
         assert body["compliance_score"] == 0
@@ -228,7 +232,7 @@ class TestComplianceScoreCalculation:
     async def test_score_95_boundary(self):
         """95% score (boundary for compliant status)."""
         # 19 out of 20 = 95%
-        status_mod.evaluate_controls = AsyncMock(return_value=_make_controls(19, 1))
+        status_mod._evaluate_controls = AsyncMock(return_value=_make_controls(19, 1))
         result = await get_status()
         body = _body(result)
         assert body["compliance_score"] == 95
@@ -245,7 +249,7 @@ class TestOverallStatusDetermination:
     @pytest.mark.asyncio
     async def test_status_compliant_at_95(self):
         """Score >= 95 yields 'compliant' status."""
-        status_mod.evaluate_controls = AsyncMock(return_value=_make_controls(19, 1))
+        status_mod._evaluate_controls = AsyncMock(return_value=_make_controls(19, 1))
         result = await get_status()
         body = _body(result)
         assert body["status"] == "compliant"
@@ -253,7 +257,7 @@ class TestOverallStatusDetermination:
     @pytest.mark.asyncio
     async def test_status_compliant_at_100(self):
         """Score = 100 yields 'compliant' status."""
-        status_mod.evaluate_controls = AsyncMock(return_value=_make_controls(10, 0))
+        status_mod._evaluate_controls = AsyncMock(return_value=_make_controls(10, 0))
         result = await get_status()
         body = _body(result)
         assert body["status"] == "compliant"
@@ -261,7 +265,7 @@ class TestOverallStatusDetermination:
     @pytest.mark.asyncio
     async def test_status_compliant_at_96(self):
         """Score of 96 yields 'compliant' status."""
-        status_mod.evaluate_controls = AsyncMock(return_value=_make_controls(96, 4))
+        status_mod._evaluate_controls = AsyncMock(return_value=_make_controls(96, 4))
         result = await get_status()
         body = _body(result)
         assert body["status"] == "compliant"
@@ -269,7 +273,7 @@ class TestOverallStatusDetermination:
     @pytest.mark.asyncio
     async def test_status_mostly_compliant_at_94(self):
         """Score of 94 yields 'mostly_compliant' status."""
-        status_mod.evaluate_controls = AsyncMock(return_value=_make_controls(94, 6))
+        status_mod._evaluate_controls = AsyncMock(return_value=_make_controls(94, 6))
         result = await get_status()
         body = _body(result)
         assert body["status"] == "mostly_compliant"
@@ -277,7 +281,7 @@ class TestOverallStatusDetermination:
     @pytest.mark.asyncio
     async def test_status_mostly_compliant_at_80(self):
         """Score of 80 yields 'mostly_compliant' status."""
-        status_mod.evaluate_controls = AsyncMock(return_value=_make_controls(80, 20))
+        status_mod._evaluate_controls = AsyncMock(return_value=_make_controls(80, 20))
         result = await get_status()
         body = _body(result)
         assert body["status"] == "mostly_compliant"
@@ -285,7 +289,7 @@ class TestOverallStatusDetermination:
     @pytest.mark.asyncio
     async def test_status_partial_at_79(self):
         """Score of 79 yields 'partial' status."""
-        status_mod.evaluate_controls = AsyncMock(return_value=_make_controls(79, 21))
+        status_mod._evaluate_controls = AsyncMock(return_value=_make_controls(79, 21))
         result = await get_status()
         body = _body(result)
         assert body["status"] == "partial"
@@ -293,7 +297,7 @@ class TestOverallStatusDetermination:
     @pytest.mark.asyncio
     async def test_status_partial_at_60(self):
         """Score of 60 yields 'partial' status."""
-        status_mod.evaluate_controls = AsyncMock(return_value=_make_controls(60, 40))
+        status_mod._evaluate_controls = AsyncMock(return_value=_make_controls(60, 40))
         result = await get_status()
         body = _body(result)
         assert body["status"] == "partial"
@@ -301,7 +305,7 @@ class TestOverallStatusDetermination:
     @pytest.mark.asyncio
     async def test_status_non_compliant_at_59(self):
         """Score of 59 yields 'non_compliant' status."""
-        status_mod.evaluate_controls = AsyncMock(return_value=_make_controls(59, 41))
+        status_mod._evaluate_controls = AsyncMock(return_value=_make_controls(59, 41))
         result = await get_status()
         body = _body(result)
         assert body["status"] == "non_compliant"
@@ -309,7 +313,7 @@ class TestOverallStatusDetermination:
     @pytest.mark.asyncio
     async def test_status_non_compliant_at_0(self):
         """Score of 0 yields 'non_compliant' status."""
-        status_mod.evaluate_controls = AsyncMock(return_value=_make_controls(0, 10))
+        status_mod._evaluate_controls = AsyncMock(return_value=_make_controls(0, 10))
         result = await get_status()
         body = _body(result)
         assert body["status"] == "non_compliant"
@@ -317,7 +321,7 @@ class TestOverallStatusDetermination:
     @pytest.mark.asyncio
     async def test_empty_controls_yields_non_compliant(self):
         """Empty controls list should yield 'non_compliant' (score=0)."""
-        status_mod.evaluate_controls = AsyncMock(return_value=[])
+        status_mod._evaluate_controls = AsyncMock(return_value=[])
         result = await get_status()
         body = _body(result)
         assert body["status"] == "non_compliant"
@@ -334,7 +338,7 @@ class TestFrameworksSummary:
     @pytest.mark.asyncio
     async def test_frameworks_contains_all_three(self):
         """Response should contain soc2_type2, gdpr, and hipaa frameworks."""
-        status_mod.evaluate_controls = AsyncMock(return_value=_make_controls(5, 0))
+        status_mod._evaluate_controls = AsyncMock(return_value=_make_controls(5, 0))
         result = await get_status()
         body = _body(result)
         assert "soc2_type2" in body["frameworks"]
@@ -344,7 +348,7 @@ class TestFrameworksSummary:
     @pytest.mark.asyncio
     async def test_soc2_controls_assessed_matches_total(self):
         """SOC 2 controls_assessed should match total controls count."""
-        status_mod.evaluate_controls = AsyncMock(return_value=_make_controls(7, 3))
+        status_mod._evaluate_controls = AsyncMock(return_value=_make_controls(7, 3))
         result = await get_status()
         body = _body(result)
         soc2 = body["frameworks"]["soc2_type2"]
@@ -353,7 +357,7 @@ class TestFrameworksSummary:
     @pytest.mark.asyncio
     async def test_soc2_controls_compliant_matches_count(self):
         """SOC 2 controls_compliant should match compliant controls count."""
-        status_mod.evaluate_controls = AsyncMock(return_value=_make_controls(7, 3))
+        status_mod._evaluate_controls = AsyncMock(return_value=_make_controls(7, 3))
         result = await get_status()
         body = _body(result)
         soc2 = body["frameworks"]["soc2_type2"]
@@ -362,7 +366,7 @@ class TestFrameworksSummary:
     @pytest.mark.asyncio
     async def test_soc2_status_is_in_progress(self):
         """SOC 2 framework status is always 'in_progress'."""
-        status_mod.evaluate_controls = AsyncMock(return_value=_make_controls(10, 0))
+        status_mod._evaluate_controls = AsyncMock(return_value=_make_controls(10, 0))
         result = await get_status()
         body = _body(result)
         assert body["frameworks"]["soc2_type2"]["status"] == "in_progress"
@@ -370,7 +374,7 @@ class TestFrameworksSummary:
     @pytest.mark.asyncio
     async def test_gdpr_fields(self):
         """GDPR framework should have expected fields and values."""
-        status_mod.evaluate_controls = AsyncMock(return_value=_make_controls(5, 0))
+        status_mod._evaluate_controls = AsyncMock(return_value=_make_controls(5, 0))
         result = await get_status()
         body = _body(result)
         gdpr = body["frameworks"]["gdpr"]
@@ -382,7 +386,7 @@ class TestFrameworksSummary:
     @pytest.mark.asyncio
     async def test_hipaa_status_is_partial(self):
         """HIPAA status is always 'partial'."""
-        status_mod.evaluate_controls = AsyncMock(return_value=_make_controls(5, 0))
+        status_mod._evaluate_controls = AsyncMock(return_value=_make_controls(5, 0))
         result = await get_status()
         body = _body(result)
         assert body["frameworks"]["hipaa"]["status"] == "partial"
@@ -390,7 +394,7 @@ class TestFrameworksSummary:
     @pytest.mark.asyncio
     async def test_hipaa_note_mentions_phi(self):
         """HIPAA note should mention PHI configuration."""
-        status_mod.evaluate_controls = AsyncMock(return_value=_make_controls(5, 0))
+        status_mod._evaluate_controls = AsyncMock(return_value=_make_controls(5, 0))
         result = await get_status()
         body = _body(result)
         assert "note" in body["frameworks"]["hipaa"]
@@ -399,7 +403,7 @@ class TestFrameworksSummary:
     @pytest.mark.asyncio
     async def test_soc2_with_zero_controls(self):
         """SOC 2 with zero controls should show 0 assessed and 0 compliant."""
-        status_mod.evaluate_controls = AsyncMock(return_value=[])
+        status_mod._evaluate_controls = AsyncMock(return_value=[])
         result = await get_status()
         body = _body(result)
         soc2 = body["frameworks"]["soc2_type2"]
@@ -418,7 +422,7 @@ class TestControlsSummary:
     @pytest.mark.asyncio
     async def test_controls_summary_total(self):
         """controls_summary total matches total controls."""
-        status_mod.evaluate_controls = AsyncMock(return_value=_make_controls(6, 4))
+        status_mod._evaluate_controls = AsyncMock(return_value=_make_controls(6, 4))
         result = await get_status()
         body = _body(result)
         assert body["controls_summary"]["total"] == 10
@@ -426,7 +430,7 @@ class TestControlsSummary:
     @pytest.mark.asyncio
     async def test_controls_summary_compliant(self):
         """controls_summary compliant count matches."""
-        status_mod.evaluate_controls = AsyncMock(return_value=_make_controls(6, 4))
+        status_mod._evaluate_controls = AsyncMock(return_value=_make_controls(6, 4))
         result = await get_status()
         body = _body(result)
         assert body["controls_summary"]["compliant"] == 6
@@ -434,7 +438,7 @@ class TestControlsSummary:
     @pytest.mark.asyncio
     async def test_controls_summary_non_compliant(self):
         """controls_summary non_compliant count matches."""
-        status_mod.evaluate_controls = AsyncMock(return_value=_make_controls(6, 4))
+        status_mod._evaluate_controls = AsyncMock(return_value=_make_controls(6, 4))
         result = await get_status()
         body = _body(result)
         assert body["controls_summary"]["non_compliant"] == 4
@@ -442,7 +446,7 @@ class TestControlsSummary:
     @pytest.mark.asyncio
     async def test_controls_summary_adds_up(self):
         """compliant + non_compliant should equal total."""
-        status_mod.evaluate_controls = AsyncMock(return_value=_make_controls(13, 7))
+        status_mod._evaluate_controls = AsyncMock(return_value=_make_controls(13, 7))
         result = await get_status()
         body = _body(result)
         summary = body["controls_summary"]
@@ -451,7 +455,7 @@ class TestControlsSummary:
     @pytest.mark.asyncio
     async def test_empty_controls_summary(self):
         """Empty controls yield zero totals."""
-        status_mod.evaluate_controls = AsyncMock(return_value=[])
+        status_mod._evaluate_controls = AsyncMock(return_value=[])
         result = await get_status()
         body = _body(result)
         assert body["controls_summary"]["total"] == 0
@@ -470,7 +474,7 @@ class TestAuditDates:
     @pytest.mark.asyncio
     async def test_last_audit_is_7_days_ago(self):
         """last_audit should be exactly 7 days before generated_at."""
-        status_mod.evaluate_controls = AsyncMock(return_value=_make_controls(5, 0))
+        status_mod._evaluate_controls = AsyncMock(return_value=_make_controls(5, 0))
         result = await get_status()
         body = _body(result)
         generated = datetime.fromisoformat(body["generated_at"])
@@ -481,7 +485,7 @@ class TestAuditDates:
     @pytest.mark.asyncio
     async def test_next_audit_is_83_days_ahead(self):
         """next_audit_due should be exactly 83 days after generated_at."""
-        status_mod.evaluate_controls = AsyncMock(return_value=_make_controls(5, 0))
+        status_mod._evaluate_controls = AsyncMock(return_value=_make_controls(5, 0))
         result = await get_status()
         body = _body(result)
         generated = datetime.fromisoformat(body["generated_at"])
@@ -492,7 +496,7 @@ class TestAuditDates:
     @pytest.mark.asyncio
     async def test_generated_at_is_recent(self):
         """generated_at should be close to now."""
-        status_mod.evaluate_controls = AsyncMock(return_value=_make_controls(5, 0))
+        status_mod._evaluate_controls = AsyncMock(return_value=_make_controls(5, 0))
         before = datetime.now(timezone.utc)
         result = await get_status()
         after = datetime.now(timezone.utc)
@@ -503,7 +507,7 @@ class TestAuditDates:
     @pytest.mark.asyncio
     async def test_dates_are_iso_format(self):
         """All date fields should be valid ISO 8601 strings."""
-        status_mod.evaluate_controls = AsyncMock(return_value=_make_controls(5, 0))
+        status_mod._evaluate_controls = AsyncMock(return_value=_make_controls(5, 0))
         result = await get_status()
         body = _body(result)
         for key in ("last_audit", "next_audit_due", "generated_at"):
@@ -513,7 +517,7 @@ class TestAuditDates:
     @pytest.mark.asyncio
     async def test_last_audit_before_generated_at(self):
         """last_audit must be strictly before generated_at."""
-        status_mod.evaluate_controls = AsyncMock(return_value=_make_controls(5, 0))
+        status_mod._evaluate_controls = AsyncMock(return_value=_make_controls(5, 0))
         result = await get_status()
         body = _body(result)
         generated = datetime.fromisoformat(body["generated_at"])
@@ -523,7 +527,7 @@ class TestAuditDates:
     @pytest.mark.asyncio
     async def test_next_audit_after_generated_at(self):
         """next_audit_due must be strictly after generated_at."""
-        status_mod.evaluate_controls = AsyncMock(return_value=_make_controls(5, 0))
+        status_mod._evaluate_controls = AsyncMock(return_value=_make_controls(5, 0))
         result = await get_status()
         body = _body(result)
         generated = datetime.fromisoformat(body["generated_at"])
@@ -542,7 +546,7 @@ class TestEdgeCases:
     @pytest.mark.asyncio
     async def test_large_number_of_controls(self):
         """Handler works with a large number of controls."""
-        status_mod.evaluate_controls = AsyncMock(return_value=_make_controls(950, 50))
+        status_mod._evaluate_controls = AsyncMock(return_value=_make_controls(950, 50))
         result = await get_status()
         body = _body(result)
         assert body["compliance_score"] == 95
@@ -558,7 +562,7 @@ class TestEdgeCases:
             {"control_id": "C", "status": "unknown"},
             {"control_id": "D", "status": ""},
         ]
-        status_mod.evaluate_controls = AsyncMock(return_value=controls)
+        status_mod._evaluate_controls = AsyncMock(return_value=controls)
         result = await get_status()
         body = _body(result)
         assert body["controls_summary"]["compliant"] == 1
@@ -567,16 +571,16 @@ class TestEdgeCases:
 
     @pytest.mark.asyncio
     async def test_evaluate_controls_called_once(self):
-        """evaluate_controls should be called exactly once per invocation."""
+        """_evaluate_controls should be called exactly once per invocation."""
         mock_eval = AsyncMock(return_value=_make_controls(5, 0))
-        status_mod.evaluate_controls = mock_eval
+        status_mod._evaluate_controls = mock_eval
         await get_status()
         mock_eval.assert_awaited_once()
 
     @pytest.mark.asyncio
     async def test_evaluate_controls_exception_propagates(self):
         """If evaluate_controls raises, the exception propagates up."""
-        status_mod.evaluate_controls = AsyncMock(side_effect=RuntimeError("DB connection failed"))
+        status_mod._evaluate_controls = AsyncMock(side_effect=RuntimeError("DB connection failed"))
         with pytest.raises(RuntimeError, match="DB connection failed"):
             await get_status()
 
@@ -588,7 +592,7 @@ class TestEdgeCases:
             {"control_id": "B", "status": "Compliant"},
             {"control_id": "C", "status": "COMPLIANT"},
         ]
-        status_mod.evaluate_controls = AsyncMock(return_value=controls)
+        status_mod._evaluate_controls = AsyncMock(return_value=controls)
         result = await get_status()
         body = _body(result)
         # Only exact match "compliant" counts
@@ -602,7 +606,7 @@ class TestEdgeCases:
             {"control_id": "A", "status": "compliant", "extra_field": "data", "nested": {"a": 1}},
             {"control_id": "B", "status": "non_compliant", "tags": ["important"]},
         ]
-        status_mod.evaluate_controls = AsyncMock(return_value=controls)
+        status_mod._evaluate_controls = AsyncMock(return_value=controls)
         result = await get_status()
         body = _body(result)
         assert body["compliance_score"] == 50

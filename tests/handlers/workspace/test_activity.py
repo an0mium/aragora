@@ -688,9 +688,10 @@ class TestHandleWorkspaceActivity:
         handler._mock_audit_log.query.return_value = []
         req = make_request()
         result = raw_fn(handler, req)
-        assert result["status"] == 200
-        assert "events" in result["body"]
-        assert isinstance(result["body"]["events"], list)
+        assert _status(result) == 200
+        body = _body(result)
+        assert "events" in body
+        assert isinstance(body["events"], list)
 
 
 # ===========================================================================

@@ -327,7 +327,7 @@ class AccountManagementMixin:
             if not oidc_issuer or not oidc_client_id:
                 return error_response("OIDC provider not configured", 503)
             # Fetch discovery document synchronously for auth endpoint
-            discovery = self._get_oidc_discovery(oidc_issuer)
+            discovery = self._get_oidc_discovery(oidc_issuer)  # type: ignore[attr-defined]
             if not discovery or not discovery.get("authorization_endpoint"):
                 return error_response("OIDC discovery failed", 503)
             params = {

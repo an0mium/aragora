@@ -27,7 +27,7 @@ def _resolve(maybe_coro: Any) -> Any:
             loop = asyncio.get_running_loop()
             return loop.run_until_complete(maybe_coro)
         except RuntimeError:
-            return asyncio.run(maybe_coro)
+            return asyncio.run(maybe_coro)  # type: ignore[arg-type]
     return maybe_coro
 
 

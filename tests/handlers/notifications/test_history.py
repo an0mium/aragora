@@ -525,23 +525,19 @@ class TestGetDeliveryStats:
         mock_service.get_history.return_value = []
         mock_dispatcher = MagicMock()
         mock_dispatcher.dead_letter_count = 42
-        with patch(
-            "aragora.server.handlers.notifications.history.get_notification_dispatcher",
-            create=True,
-        ):
-            with patch.dict(
-                "sys.modules",
-                {
-                    "aragora.control_plane.notifications": MagicMock(
-                        get_notification_dispatcher=MagicMock(return_value=mock_dispatcher)
-                    )
-                },
-            ):
-                result = handler_with_service.handle(
-                    "/api/v1/notifications/delivery-stats", {}, http_handler
+        with patch.dict(
+            "sys.modules",
+            {
+                "aragora.control_plane.notifications": MagicMock(
+                    get_default_notification_dispatcher=MagicMock(return_value=mock_dispatcher)
                 )
-                body = _body(result)
-                assert body["dlq_count"] == 42
+            },
+        ):
+            result = handler_with_service.handle(
+                "/api/v1/notifications/delivery-stats", {}, http_handler
+            )
+            body = _body(result)
+            assert body["dlq_count"] == 42
 
     def test_dlq_count_zero_when_dispatcher_unavailable(
         self, handler_with_service, http_handler, mock_service
@@ -563,7 +559,7 @@ class TestGetDeliveryStats:
             "sys.modules",
             {
                 "aragora.control_plane.notifications": MagicMock(
-                    get_notification_dispatcher=MagicMock(return_value=mock_dispatcher)
+                    get_default_notification_dispatcher=MagicMock(return_value=mock_dispatcher)
                 )
             },
         ):

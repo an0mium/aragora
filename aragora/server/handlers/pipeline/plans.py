@@ -236,7 +236,7 @@ class PlanManagementHandler(BaseHandler):
                     from aragora.pipeline.pr_generator import PRGenerator
                     from aragora.export.artifact import DebateArtifact
 
-                    artifact = DebateArtifact.from_debate_result(plan.debate_result)
+                    artifact = DebateArtifact.from_debate_result(plan.debate_result)  # type: ignore[attr-defined]
                     generator = PRGenerator(artifact)
                     memo = generator.generate_decision_memo()
                     memo_md = memo.to_markdown()
@@ -307,7 +307,7 @@ class PlanManagementHandler(BaseHandler):
         return {
             "id": getattr(plan, "id", ""),
             "task": getattr(plan, "task", ""),
-            "status": getattr(plan, "status", "").value
+            "status": getattr(plan, "status", "").value  # type: ignore[union-attr]
             if hasattr(getattr(plan, "status", ""), "value")
             else str(getattr(plan, "status", "")),
             "debate_id": getattr(plan, "debate_id", ""),

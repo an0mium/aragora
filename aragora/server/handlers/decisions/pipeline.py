@@ -68,14 +68,14 @@ def _normalize_string_list(value: Any, field_name: str) -> list[str] | None:
         items = [item.strip() for item in value.split(",") if item.strip()]
         return items or None
     if isinstance(value, (list, tuple)):
-        items: list[str] = []
+        str_items: list[str] = []
         for item in value:
             if not isinstance(item, str):
                 raise ValueError(f"{field_name} must be a string or list of strings")
             normalized = item.strip()
             if normalized:
-                items.append(normalized)
-        return items or None
+                str_items.append(normalized)
+        return str_items or None
     raise ValueError(f"{field_name} must be a string or list of strings")
 
 
@@ -686,7 +686,7 @@ class DecisionPipelineHandler(SecureHandler):
                 executor.execute(
                     plan,
                     auth_context=auth_context,
-                    execution_mode=execution_mode,
+                    execution_mode=execution_mode,  # type: ignore[arg-type]  # validated above
                     parallel_execution=parallel_execution,
                 )
             )

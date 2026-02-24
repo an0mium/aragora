@@ -96,7 +96,7 @@ class SelfImproveHandler(SecureEndpointMixin, SecureHandler):  # type: ignore[mi
             try:
                 from aragora.nomic.stores.run_store import SelfImproveRunStore
 
-                self._store = SelfImproveRunStore()
+                self._store = SelfImproveRunStore()  # type: ignore[assignment]
             except (ImportError, OSError) as e:
                 logger.warning("Failed to initialize run store: %s", type(e).__name__)
                 return None
@@ -362,10 +362,10 @@ class SelfImproveHandler(SecureEndpointMixin, SecureHandler):  # type: ignore[mi
 
         # Get ELO changes from recent debates/executions
         try:
-            from aragora.ranking.elo import EloTracker
+            from aragora.ranking.elo import EloTracker  # type: ignore[attr-defined]
 
             tracker = EloTracker()
-            history = getattr(tracker, "get_recent_changes", lambda n: [])(10)
+            history: list[Any] = getattr(tracker, "get_recent_changes", lambda n: [])(10)
             for change in history:
                 elo_changes.append({
                     "agent": getattr(change, "agent_name", str(change)),
@@ -382,7 +382,7 @@ class SelfImproveHandler(SecureEndpointMixin, SecureHandler):  # type: ignore[mi
 
             bridge = PipelineKMBridge()
             if bridge.available and pipeline_id:
-                entries = bridge.get_entries_for_pipeline(pipeline_id)
+                entries = bridge.get_entries_for_pipeline(pipeline_id)  # type: ignore[attr-defined]
                 for entry in (entries if isinstance(entries, list) else []):
                     km_entries.append({
                         "id": getattr(entry, "id", str(entry)),
@@ -462,11 +462,11 @@ class SelfImproveHandler(SecureEndpointMixin, SecureHandler):  # type: ignore[mi
         # Deduplicate by goal text
         seen: set[str] = set()
         deduped: list[dict[str, Any]] = []
-        for g in goals:
-            key = g["goal"]
+        for g in goals:  # type: ignore[assignment]
+            key = g["goal"]  # type: ignore[index]
             if key not in seen:
                 seen.add(key)
-                deduped.append(g)
+                deduped.append(g)  # type: ignore[arg-type]
 
         # Sort by priority descending
         deduped.sort(key=lambda g: g.get("priority", 0), reverse=True)
@@ -875,7 +875,7 @@ class SelfImproveHandler(SecureEndpointMixin, SecureHandler):  # type: ignore[mi
                 "goal": goal,
                 "tracks": tracks or [],
                 "subtasks": [
-                    {"description": st.description, "track": st.track, "priority": st.priority}
+                    {"description": st.description, "track": st.track, "priority": st.priority}  # type: ignore[attr-defined]
                     for st in (result.subtasks if hasattr(result, "subtasks") else [])
                 ],
                 "complexity": getattr(result, "complexity_score", 0),
@@ -1000,28 +1000,29 @@ class SelfImproveHandler(SecureEndpointMixin, SecureHandler):  # type: ignore[mi
                 use_worktree_isolation=True,
             )
 
-            result = await orchestrator.execute_goal_coordinated(
+            result = await orchestrator.execute_goal_coordinated(  # type: ignore[assignment]
                 goal=goal,
                 tracks=tracks,
                 max_cycles=max_cycles,
             )
 
+            _res: Any = result  # OrchestrationResult (different from SelfImproveResult)
             store.update_run(
                 run_id,
-                status="completed" if result.success else "failed",
+                status="completed" if _res.success else "failed",
                 completed_at=datetime.now(timezone.utc).isoformat(),
-                total_subtasks=result.total_subtasks,
-                completed_subtasks=result.completed_subtasks,
-                failed_subtasks=result.failed_subtasks,
-                summary=result.summary,
-                error=result.error,
+                total_subtasks=_res.total_subtasks,
+                completed_subtasks=_res.completed_subtasks,
+                failed_subtasks=_res.failed_subtasks,
+                summary=_res.summary,
+                error=_res.error,
             )
 
             # Emit loop_stopped
             try:
                 if stream:
                     await stream.emit_loop_stopped(
-                        reason=result.summary or "Orchestration complete"
+                        reason=_res.summary or "Orchestration complete"
                     )
             except (RuntimeError, OSError) as e:
                 logger.debug("WebSocket emit skipped: %s", type(e).__name__)

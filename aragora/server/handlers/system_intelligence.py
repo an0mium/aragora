@@ -103,7 +103,7 @@ class SystemIntelligenceHandler(SecureEndpointMixin, SecureHandler):  # type: ig
             from aragora.nomic.cycle_store import get_cycle_store
 
             store = get_cycle_store()
-            recent = store.get_recent(limit=50)
+            recent = store.get_recent_cycles(n=50)
             total_cycles = len(recent)
             successes = sum(
                 1 for c in recent
@@ -209,7 +209,7 @@ class SystemIntelligenceHandler(SecureEndpointMixin, SecureHandler):  # type: ig
                 # ELO history
                 elo_history: list[dict[str, Any]] = []
                 try:
-                    history = elo.get_agent_history(name, limit=20)
+                    history = elo.get_elo_history(name, limit=20)
                     for h in history:
                         if isinstance(h, dict):
                             elo_history.append({
@@ -227,11 +227,13 @@ class SystemIntelligenceHandler(SecureEndpointMixin, SecureHandler):  # type: ig
                 # Calibration score
                 calibration = 0.0
                 try:
-                    cal_data = elo.get_calibration_score(name)
-                    if isinstance(cal_data, (int, float)):
-                        calibration = float(cal_data)
-                    elif isinstance(cal_data, dict):
-                        calibration = cal_data.get("score", 0.0)
+                    cal_history = elo.get_agent_calibration_history(name, limit=1)
+                    if cal_history:
+                        entry = cal_history[0]  # type: ignore[assignment]
+                        if isinstance(entry, dict):
+                            calibration = float(entry.get("score", 0.0))
+                        elif isinstance(entry, (int, float)):
+                            calibration = float(entry)
                 except (AttributeError, TypeError, ValueError):
                     pass
 
@@ -310,7 +312,7 @@ class SystemIntelligenceHandler(SecureEndpointMixin, SecureHandler):  # type: ig
             from aragora.memory.cross_debate_rlm import CrossDebateMemory
 
             cdm = CrossDebateMemory()
-            stats = cdm.get_stats()
+            stats = cdm.get_statistics()
             if isinstance(stats, dict):
                 total_injections = stats.get("total_injections", 0)
                 retrieval_count = stats.get("retrieval_count", 0)
@@ -322,7 +324,7 @@ class SystemIntelligenceHandler(SecureEndpointMixin, SecureHandler):  # type: ig
             from aragora.knowledge.mound.core import KnowledgeMoundCore
 
             km = KnowledgeMoundCore()
-            decay_stats = km.get_confidence_decay_stats()
+            decay_stats: list[Any] = getattr(km, "get_confidence_decay_stats", lambda: [])()
             if isinstance(decay_stats, list):
                 for entry in decay_stats[:10]:
                     confidence_changes.append({

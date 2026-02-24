@@ -39,7 +39,7 @@ def _emit_intervention_event(
         from aragora.events.types import StreamEvent, StreamEventType
 
         event = StreamEvent(
-            type=getattr(StreamEventType, event_type, event_type),
+            type=getattr(StreamEventType, event_type, event_type),  # type: ignore[arg-type]
             data={"debate_id": debate_id, **data},
             loop_id=debate_id,
         )

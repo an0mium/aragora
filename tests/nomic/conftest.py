@@ -98,6 +98,26 @@ def _mock_scan_code_markers(request, monkeypatch):
 
 
 @pytest.fixture(autouse=True)
+def _mock_goal_proposer(request, monkeypatch):
+    """Prevent GoalProposer from scanning the entire repo.
+
+    ``GoalProposer._signal_coverage_gaps`` calls ``rglob`` on the source
+    and test directories, which takes minutes on a 3000+ module codebase.
+    Patching ``propose_goals`` to return an empty list avoids this entirely.
+
+    Skipped for tests that specifically test goal proposer logic.
+    """
+    if "test_goal_proposer" in request.fspath.basename:
+        return
+    try:
+        from aragora.nomic.goal_proposer import GoalProposer
+
+        monkeypatch.setattr(GoalProposer, "propose_goals", lambda self: [])
+    except (ImportError, AttributeError):
+        pass
+
+
+@pytest.fixture(autouse=True)
 def _mock_km_operations(request, monkeypatch):
     """Prevent KnowledgeMound operations from blocking on real I/O.
 
@@ -125,6 +145,9 @@ def _mock_km_operations(request, monkeypatch):
 
         mock_adapter = MagicMock()
         mock_adapter.ingest_cycle_outcome = AsyncMock()
+        # TaskDecomposer awaits these adapter methods during KM enrichment.
+        mock_adapter.find_recurring_failures = AsyncMock(return_value=[])
+        mock_adapter.find_high_roi_goal_types = AsyncMock(return_value=[])
         monkeypatch.setattr(
             nca_mod,
             "get_nomic_cycle_adapter",

@@ -307,7 +307,7 @@ class _DeferredImport:
                     e,
                 )
                 self._resolved = None
-        return self._resolved
+        return self._resolved  # type: ignore[return-value]
 
     def __bool__(self) -> bool:
         # Always truthy before resolution — assume import will succeed
@@ -983,7 +983,7 @@ def check_handler_coverage(handler_registry: list[tuple[str, Any]]) -> None:
                     and len(node.args) >= 2
                     and isinstance(node.args[1], ast.Constant)
                 ):
-                    registered_names.add(node.args[1].value)
+                    registered_names.add(node.args[1].value)  # type: ignore[arg-type]
         except (SyntaxError, OSError):
             continue
 

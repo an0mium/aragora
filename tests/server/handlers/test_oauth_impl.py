@@ -1565,8 +1565,8 @@ class TestOAuthConfig:
             assert "example.com" in hosts
             assert "app.example.com" in hosts
 
-    def test_allowed_redirect_hosts_production_empty(self):
-        """Allowed hosts should be empty in production with no config."""
+    def test_allowed_redirect_hosts_production_defaults(self):
+        """Allowed hosts should default to Aragora domains in production."""
         from aragora.server.handlers.oauth.config import _get_allowed_redirect_hosts
 
         with (
@@ -1574,7 +1574,9 @@ class TestOAuthConfig:
             patch("aragora.server.handlers.oauth.config._is_production", return_value=True),
         ):
             hosts = _get_allowed_redirect_hosts()
-            assert len(hosts) == 0
+            assert "aragora.ai" in hosts
+            assert "www.aragora.ai" in hosts
+            assert "api.aragora.ai" in hosts
 
     def test_provider_endpoint_constants(self):
         """Provider endpoint URLs should be properly defined."""
