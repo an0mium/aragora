@@ -203,4 +203,31 @@ export class FeedbackAPI {
   async getPrompts(): Promise<{ prompts: FeedbackPrompt[] }> {
     return this.client.request('GET', '/api/v1/feedback/prompts');
   }
+
+  /**
+   * Get per-domain feedback distribution for a specific agent.
+   * @route GET /api/agents/{agent_id}/feedback/domains
+   */
+  async getAgentFeedbackDomains(agentId: string): Promise<Record<string, unknown>> {
+    return this.client.request(
+      'GET',
+      `/api/agents/${encodeURIComponent(agentId)}/feedback/domains`
+    );
+  }
+
+  /**
+   * Get aggregate feedback metrics across agents.
+   * @route GET /api/agents/feedback/metrics
+   */
+  async getAgentFeedbackMetrics(params?: Record<string, unknown>): Promise<Record<string, unknown>> {
+    return this.client.request('GET', '/api/agents/feedback/metrics', { params });
+  }
+
+  /**
+   * Get available agent feedback workflow states.
+   * @route GET /api/agents/feedback/states
+   */
+  async getAgentFeedbackStates(): Promise<Record<string, unknown>> {
+    return this.client.request('GET', '/api/agents/feedback/states');
+  }
 }

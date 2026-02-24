@@ -114,6 +114,14 @@ export class SSONamespace {
   }
 
   /**
+   * Get SSO status through compatibility route.
+   * @route GET /api/sso/status
+   */
+  async getStatusCompat(): Promise<SSOStatus> {
+    return this.client.request<SSOStatus>('GET', '/api/sso/status');
+  }
+
+  /**
    * Initiate SSO login flow.
    *
    * Returns a redirect URL to the identity provider.
@@ -128,6 +136,20 @@ export class SSONamespace {
 
     const query = params.toString();
     const path = query ? `/auth/sso/login?${query}` : '/auth/sso/login';
+    return this.client.request<SSOLoginResponse>('GET', path);
+  }
+
+  /**
+   * Initiate SSO login via compatibility route.
+   * @route GET /api/sso/login
+   */
+  async loginCompat(options?: { returnUrl?: string; prompt?: string }): Promise<SSOLoginResponse> {
+    const params = new URLSearchParams();
+    if (options?.returnUrl) params.set('return_url', options.returnUrl);
+    if (options?.prompt) params.set('prompt', options.prompt);
+
+    const query = params.toString();
+    const path = query ? `/api/sso/login?${query}` : '/api/sso/login';
     return this.client.request<SSOLoginResponse>('GET', path);
   }
 
@@ -149,6 +171,19 @@ export class SSONamespace {
   }
 
   /**
+   * Handle SSO callback through compatibility route.
+   * @route POST /api/sso/callback
+   */
+  async callbackCompat(params: {
+    code?: string;
+    state?: string;
+    SAMLResponse?: string;
+    RelayState?: string;
+  }): Promise<SSOCallbackResult> {
+    return this.client.request<SSOCallbackResult>('POST', '/api/sso/callback', { body: params });
+  }
+
+  /**
    * Initiate SSO logout.
    *
    * @param options.everywhere - Log out from all sessions (SLO)
@@ -159,6 +194,15 @@ export class SSONamespace {
   }
 
   /**
+   * Logout through compatibility route.
+   * @route POST /api/sso/logout
+   */
+  async logoutCompat(options?: { everywhere?: boolean }): Promise<SSOLogoutResponse> {
+    const body = options?.everywhere ? { everywhere: true } : undefined;
+    return this.client.request<SSOLogoutResponse>('POST', '/api/sso/logout', { body });
+  }
+
+  /**
    * Get SAML Service Provider metadata.
    *
    * Returns XML metadata for configuring your Identity Provider.
@@ -166,6 +210,14 @@ export class SSONamespace {
    */
   async getMetadata(): Promise<SAMLMetadata> {
     return this.client.request<SAMLMetadata>('GET', '/auth/sso/metadata');
+  }
+
+  /**
+   * Get metadata through compatibility route.
+   * @route GET /api/sso/metadata
+   */
+  async getMetadataCompat(): Promise<SAMLMetadata> {
+    return this.client.request<SAMLMetadata>('GET', '/api/sso/metadata');
   }
 
   /**
@@ -197,5 +249,10 @@ export class SSONamespace {
   /** Initiate SSO login via auth endpoint. */
   async ssoLogin(): Promise<Record<string, unknown>> {
     return this.client.request('GET', '/auth/sso/login');
+  }
+
+  /** Initiate SSO login via unversioned compatibility route. */
+  async ssoLoginCompat(): Promise<Record<string, unknown>> {
+    return this.client.request('GET', '/api/sso/login');
   }
 }

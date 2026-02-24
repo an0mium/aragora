@@ -204,6 +204,22 @@ export class WebhooksAPI {
     return this.client.get('/api/v1/webhooks/events');
   }
 
+  /**
+   * List supported webhook platforms.
+   * @route GET /api/v1/webhooks/platforms
+   */
+  async listPlatforms(): Promise<Record<string, unknown>> {
+    return this.client.request('GET', '/api/v1/webhooks/platforms');
+  }
+
+  /**
+   * Dispatch a webhook event immediately.
+   * @route POST /api/v1/webhooks/dispatch
+   */
+  async dispatch(body: Record<string, unknown>): Promise<Record<string, unknown>> {
+    return this.client.request('POST', '/api/v1/webhooks/dispatch', { json: body });
+  }
+
   // ===========================================================================
   // SLO Monitoring
   // ===========================================================================

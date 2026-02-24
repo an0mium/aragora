@@ -255,6 +255,26 @@ export class SMEAPI {
   }
 
   /**
+   * List channels for legacy Slack route compatibility.
+   * @route GET /api/v1/sme/slack/channels
+   * @route GET /api/v1/sme/slack/channels/{workspace_id}
+   */
+  async listSlackChannels(workspaceId?: string): Promise<Record<string, unknown>> {
+    const path = workspaceId
+      ? `/api/v1/sme/slack/channels/${encodeURIComponent(workspaceId)}`
+      : '/api/v1/sme/slack/channels';
+    return this.client.request('GET', path) as Promise<Record<string, unknown>>;
+  }
+
+  /**
+   * List channels via legacy unversioned path.
+   * @route GET /api/sme/slack/channels
+   */
+  async listSlackChannelsCompat(): Promise<Record<string, unknown>> {
+    return this.client.request('GET', '/api/sme/slack/channels') as Promise<Record<string, unknown>>;
+  }
+
+  /**
    * Test a Slack workspace connection.
    * @route POST /api/v1/sme/slack/workspaces/{workspace_id}/test
    */

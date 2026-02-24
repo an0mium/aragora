@@ -75,6 +75,39 @@ export class ControlPlaneAPI {
     ) as Promise<Record<string, unknown>>;
   }
 
+  /**
+   * Get detailed metrics for a specific agent.
+   * @route GET /api/control-plane/agents/{agent_id}/metrics
+   */
+  async getAgentMetrics(agentId: string): Promise<Record<string, unknown>> {
+    return this.client.request(
+      'GET',
+      `/api/control-plane/agents/${encodeURIComponent(agentId)}/metrics`
+    ) as Promise<Record<string, unknown>>;
+  }
+
+  /**
+   * Pause an agent.
+   * @route POST /api/control-plane/agents/{agent_id}/pause
+   */
+  async pauseAgent(agentId: string): Promise<Record<string, unknown>> {
+    return this.client.request(
+      'POST',
+      `/api/control-plane/agents/${encodeURIComponent(agentId)}/pause`
+    ) as Promise<Record<string, unknown>>;
+  }
+
+  /**
+   * Resume a paused agent.
+   * @route POST /api/control-plane/agents/{agent_id}/resume
+   */
+  async resumeAgent(agentId: string): Promise<Record<string, unknown>> {
+    return this.client.request(
+      'POST',
+      `/api/control-plane/agents/${encodeURIComponent(agentId)}/resume`
+    ) as Promise<Record<string, unknown>>;
+  }
+
   // ===========================================================================
   // Health
   // ===========================================================================
@@ -196,6 +229,22 @@ export class ControlPlaneAPI {
   }
 
   /**
+   * Get system-level metrics.
+   * @route GET /api/control-plane/metrics/system
+   */
+  async getSystemMetrics(): Promise<Record<string, unknown>> {
+    return this.client.request('GET', '/api/control-plane/metrics/system') as Promise<Record<string, unknown>>;
+  }
+
+  /**
+   * Get task-level metrics.
+   * @route GET /api/control-plane/metrics/tasks
+   */
+  async getTaskMetrics(): Promise<Record<string, unknown>> {
+    return this.client.request('GET', '/api/control-plane/metrics/tasks') as Promise<Record<string, unknown>>;
+  }
+
+  /**
    * Get control plane statistics.
    * @route GET /api/control-plane/stats
    */
@@ -231,6 +280,16 @@ export class ControlPlaneAPI {
     return this.client.request('GET', '/api/control-plane/queue/metrics') as Promise<Record<string, unknown>>;
   }
 
+  /**
+   * Prioritize queued work.
+   * @route POST /api/control-plane/queue/prioritize
+   */
+  async prioritizeQueue(body: Record<string, unknown>): Promise<Record<string, unknown>> {
+    return this.client.request('POST', '/api/control-plane/queue/prioritize', {
+      body,
+    }) as Promise<Record<string, unknown>>;
+  }
+
   // ===========================================================================
   // Audit
   // ===========================================================================
@@ -241,6 +300,14 @@ export class ControlPlaneAPI {
    */
   async getAudit(): Promise<Record<string, unknown>> {
     return this.client.request('GET', '/api/control-plane/audit') as Promise<Record<string, unknown>>;
+  }
+
+  /**
+   * Get control plane audit logs.
+   * @route GET /api/control-plane/audit-logs
+   */
+  async getAuditLogs(): Promise<Record<string, unknown>> {
+    return this.client.request('GET', '/api/control-plane/audit-logs') as Promise<Record<string, unknown>>;
   }
 
   /**
@@ -257,6 +324,14 @@ export class ControlPlaneAPI {
    */
   async verifyAudit(): Promise<Record<string, unknown>> {
     return this.client.request('GET', '/api/control-plane/audit/verify') as Promise<Record<string, unknown>>;
+  }
+
+  /**
+   * List control plane policies.
+   * @route GET /api/control-plane/policies
+   */
+  async listPolicies(): Promise<Record<string, unknown>> {
+    return this.client.request('GET', '/api/control-plane/policies') as Promise<Record<string, unknown>>;
   }
 
   // ===========================================================================
@@ -336,6 +411,33 @@ export class ControlPlaneAPI {
       'GET',
       `/api/control-plane/deliberations/${encodeURIComponent(requestId)}/status`
     ) as Promise<Record<string, unknown>>;
+  }
+
+  /**
+   * Get deliberation transcript.
+   * @route GET /api/control-plane/deliberations/{request_id}/transcript
+   */
+  async getDeliberationTranscript(requestId: string): Promise<Record<string, unknown>> {
+    return this.client.request(
+      'GET',
+      `/api/control-plane/deliberations/${encodeURIComponent(requestId)}/transcript`
+    ) as Promise<Record<string, unknown>>;
+  }
+
+  /**
+   * List control plane schedules.
+   * @route GET /api/control-plane/schedules
+   */
+  async listSchedules(): Promise<Record<string, unknown>> {
+    return this.client.request('GET', '/api/control-plane/schedules') as Promise<Record<string, unknown>>;
+  }
+
+  /**
+   * Get stream connection info for control plane events.
+   * @route GET /api/control-plane/stream
+   */
+  async getStreamInfo(): Promise<Record<string, unknown>> {
+    return this.client.request('GET', '/api/control-plane/stream') as Promise<Record<string, unknown>>;
   }
 
   // ===========================================================================

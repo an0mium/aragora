@@ -2723,12 +2723,32 @@ export class DebatesAPI {
   }
 
   /**
+   * Revoke public sharing for a debate.
+   */
+  async revokeShare(debateId: string): Promise<Record<string, unknown>> {
+    return this.client.request(
+      'POST',
+      `/api/debates/${encodeURIComponent(debateId)}/share/revoke`
+    );
+  }
+
+  /**
    * Get public spectate status for a shared debate.
    */
   async getPublicSpectate(debateId: string): Promise<Record<string, unknown>> {
     return this.client.request(
       'GET',
       `/api/debates/${encodeURIComponent(debateId)}/spectate/public`
+    );
+  }
+
+  /**
+   * Get diagnostics for a debate.
+   */
+  async getDiagnostics(debateId: string): Promise<Record<string, unknown>> {
+    return this.client.request(
+      'GET',
+      `/api/debates/${encodeURIComponent(debateId)}/diagnostics`
     );
   }
 

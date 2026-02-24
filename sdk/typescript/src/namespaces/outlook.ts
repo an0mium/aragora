@@ -338,6 +338,16 @@ export class OutlookAPI {
   }
 
   /**
+   * Send a message using compatibility route.
+   * @route POST /api/v1/outlook/send
+   */
+  async sendCompat(request: SendMessageRequest): Promise<{ success: boolean; message?: string }> {
+    return this.client.request('POST', '/api/v1/outlook/send', {
+      json: request as unknown as Record<string, unknown>,
+    });
+  }
+
+  /**
    * Reply to a message.
    *
    * @example
@@ -351,6 +361,16 @@ export class OutlookAPI {
    */
   async reply(request: ReplyMessageRequest): Promise<{ success: boolean; message?: string; in_reply_to?: string }> {
     return this.client.request('POST', '/api/v1/outlook/messages/reply', {
+      json: request as unknown as Record<string, unknown>,
+    });
+  }
+
+  /**
+   * Reply to a message using compatibility route.
+   * @route POST /api/v1/outlook/reply
+   */
+  async replyCompat(request: ReplyMessageRequest): Promise<{ success: boolean; message?: string; in_reply_to?: string }> {
+    return this.client.request('POST', '/api/v1/outlook/reply', {
       json: request as unknown as Record<string, unknown>,
     });
   }
@@ -373,6 +393,20 @@ export class OutlookAPI {
         max_results: maxResults,
         ...(folderId && { folder_id: folderId }),
       },
+    });
+  }
+
+  /**
+   * Search messages using compatibility route.
+   * @route GET /api/v1/outlook/search
+   */
+  async searchCompat(params: {
+    query: string;
+    max_results?: number;
+    folder_id?: string;
+  }): Promise<SearchResponse> {
+    return this.client.request('GET', '/api/v1/outlook/search', {
+      params: params as Record<string, unknown>,
     });
   }
 

@@ -87,6 +87,33 @@ export class GitHubNamespace {
     );
   }
 
+  /** Fetch audit issues for a finding session. */
+  async getAuditIssues(params?: Record<string, unknown>): Promise<Record<string, unknown>> {
+    return this.client.request<Record<string, unknown>>(
+      'GET',
+      '/api/v1/github/audit/issues',
+      { params: params as Record<string, unknown> }
+    );
+  }
+
+  /** Bulk create audit issues from findings. */
+  async createAuditIssuesBulk(body: Record<string, unknown>): Promise<Record<string, unknown>> {
+    return this.client.request<Record<string, unknown>>(
+      'POST',
+      '/api/v1/github/audit/issues/bulk',
+      { body }
+    );
+  }
+
+  /** Create a PR with automated fixes from audit findings. */
+  async createAuditPR(body: Record<string, unknown>): Promise<Record<string, unknown>> {
+    return this.client.request<Record<string, unknown>>(
+      'POST',
+      '/api/v1/github/audit/pr',
+      { body }
+    );
+  }
+
   /** Get PR details. */
   async getPullRequest(repo: string, prNumber: number): Promise<PullRequest> {
     return this.client.request<PullRequest>(

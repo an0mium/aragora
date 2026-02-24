@@ -196,4 +196,40 @@ export class SkillsAPI {
       json: (options ?? {}) as unknown as Record<string, unknown>,
     });
   }
+
+  /**
+   * List installed marketplace skills.
+   * @route GET /api/skills/marketplace/installed
+   */
+  async listMarketplaceInstalled(): Promise<Record<string, unknown>> {
+    return this.client.request('GET', '/api/skills/marketplace/installed');
+  }
+
+  /**
+   * Publish a skill to marketplace.
+   * @route POST /api/skills/marketplace/publish
+   */
+  async publishMarketplaceSkill(body: Record<string, unknown>): Promise<Record<string, unknown>> {
+    return this.client.request('POST', '/api/skills/marketplace/publish', {
+      json: body,
+    });
+  }
+
+  /**
+   * Search marketplace skills.
+   * @route GET /api/skills/marketplace/search
+   */
+  async searchMarketplaceSkills(params?: Record<string, unknown>): Promise<Record<string, unknown>> {
+    return this.client.request('GET', '/api/skills/marketplace/search', {
+      params,
+    });
+  }
+
+  /**
+   * Get marketplace stats.
+   * @route GET /api/skills/marketplace/stats
+   */
+  async getMarketplaceStats(): Promise<Record<string, unknown>> {
+    return this.client.request('GET', '/api/skills/marketplace/stats');
+  }
 }
