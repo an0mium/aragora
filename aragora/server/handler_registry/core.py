@@ -60,6 +60,7 @@ HANDLER_TIERS: dict[str, str] = {
     "_leaderboard_handler": "core",
     "_onboarding_handler": "core",
     "_status_page_handler": "core",
+    "_platform_config_handler": "core",
     # ── Extended (loaded by default, can disable) ─────────────────────
     "_nomic_handler": "extended",
     "_analytics_dashboard_handler": "extended",

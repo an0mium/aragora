@@ -47,13 +47,16 @@ const MOCK_API_RESPONSE: PipelineResultResponse = {
     edges: [],
     metadata: {},
   },
+  principles: null,
   goals: null,
   actions: null,
   orchestration: null,
   transitions: [],
+  provenance: [],
   provenance_count: 0,
   stage_status: {
     ideas: 'complete',
+    principles: 'pending',
     goals: 'pending',
     actions: 'pending',
     orchestration: 'pending',
@@ -86,6 +89,7 @@ describe('usePipelineCanvas', () => {
     expect(result.current.error).toBeNull();
     expect(result.current.stageStatus).toEqual({
       ideas: 'pending',
+      principles: 'pending',
       goals: 'pending',
       actions: 'pending',
       orchestration: 'pending',
