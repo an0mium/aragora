@@ -183,6 +183,29 @@ class DeleteKnowledgeResponse(BaseModel):
     message: str = ""
 
 
+class CoverageGap(BaseModel):
+    """A single coverage gap in knowledge."""
+
+    domain: str = ""
+    description: str = ""
+    severity: str = "medium"
+    recommendation: str = ""
+
+    model_config = {"extra": "allow"}
+
+
+class KnowledgeGapsResponse(BaseModel):
+    """Response for knowledge gap detection."""
+
+    workspace_id: str = "default"
+    coverage_gaps: list[CoverageGap] = Field(default_factory=list)
+    stale_entries: list[StalenessItem] = Field(default_factory=list)
+    stale_count: int = 0
+    contradictions: list[dict[str, Any]] = Field(default_factory=list)
+    contradiction_count: int = 0
+    status: str = "ok"
+
+
 # =============================================================================
 # Dependencies
 # =============================================================================
