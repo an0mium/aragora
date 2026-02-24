@@ -1537,7 +1537,7 @@ class MetaPlanner:
         try:
             from aragora.nomic.cycle_store import get_recent_cycles
 
-            cycles = get_recent_cycles(limit=20)
+            cycles = get_recent_cycles(n=20)
             outcomes: list[dict[str, Any]] = []
             for cycle in cycles:
                 for contrib in getattr(cycle, "agent_contributions", []):

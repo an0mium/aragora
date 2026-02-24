@@ -107,7 +107,7 @@ def _get_google_redirect_uri() -> str:
     if val:
         return val
     if _is_production():
-        return ""
+        return "https://api.aragora.ai/api/auth/oauth/google/callback"
     return "http://localhost:8080/api/auth/oauth/google/callback"
 
 
@@ -116,7 +116,7 @@ def _get_github_redirect_uri() -> str:
     if val:
         return val
     if _is_production():
-        return ""
+        return "https://api.aragora.ai/api/auth/oauth/github/callback"
     return "http://localhost:8080/api/auth/oauth/github/callback"
 
 
@@ -125,7 +125,7 @@ def _get_microsoft_redirect_uri() -> str:
     if val:
         return val
     if _is_production():
-        return ""
+        return "https://api.aragora.ai/api/auth/oauth/microsoft/callback"
     return "http://localhost:8080/api/auth/oauth/microsoft/callback"
 
 
@@ -134,7 +134,7 @@ def _get_apple_redirect_uri() -> str:
     if val:
         return val
     if _is_production():
-        return ""
+        return "https://api.aragora.ai/api/auth/oauth/apple/callback"
     return "http://localhost:8080/api/auth/oauth/apple/callback"
 
 
@@ -143,7 +143,7 @@ def _get_oidc_redirect_uri() -> str:
     if val:
         return val
     if _is_production():
-        return ""
+        return "https://api.aragora.ai/api/auth/oauth/oidc/callback"
     return "http://localhost:8080/api/auth/oauth/oidc/callback"
 
 
@@ -157,7 +157,7 @@ def _get_oauth_success_url() -> str:
     if val:
         return val
     if _is_production():
-        return ""
+        return "https://aragora.ai/auth/callback"
     return "http://localhost:3000/auth/callback"
 
 
@@ -166,7 +166,7 @@ def _get_oauth_error_url() -> str:
     if val:
         return val
     if _is_production():
-        return ""
+        return "https://aragora.ai/auth/error"
     return "http://localhost:3000/auth/error"
 
 
@@ -174,8 +174,9 @@ def _get_allowed_redirect_hosts() -> frozenset:
     val = _get_secret("OAUTH_ALLOWED_REDIRECT_HOSTS", "")
     if not val:
         if _is_production():
-            return frozenset()
-        val = "localhost,127.0.0.1"
+            val = "aragora.ai,www.aragora.ai,api.aragora.ai"
+        else:
+            val = "localhost,127.0.0.1"
     return frozenset(host.strip().lower() for host in val.split(",") if host.strip())
 
 

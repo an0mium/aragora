@@ -34,22 +34,23 @@ class DebateStatsHandler(BaseHandler):
         return stripped in ("/api/debates/stats", "/api/debates/stats/agents")
 
     @require_permission("debates:read")
-    def handle(self, path: str, query_params: dict[str, Any], handler: Any) -> HandlerResult | None:
+    async def handle(self, path: str, query_params: dict[str, Any], handler: Any) -> HandlerResult | None:
         if handler.command != "GET":
             return error_response("Method not allowed", 405)
 
         stripped = strip_version_prefix(path)
 
         if stripped == "/api/debates/stats":
-            return self._get_stats(query_params, handler)
+            return await self._get_stats(query_params, handler)
         if stripped == "/api/debates/stats/agents":
-            return self._get_agent_stats(query_params, handler)
+            return await self._get_agent_stats(query_params, handler)
 
         return None
 
-    def _get_stats(self, query_params: dict[str, Any], handler: Any) -> HandlerResult:
+    async def _get_stats(self, query_params: dict[str, Any], handler: Any) -> HandlerResult:
         period = query_params.get("period", "all")
-        if period not in ("all", "day", "week", "month"):
+        _period_to_days = {"all": 3650, "day": 1, "week": 7, "month": 30}
+        if period not in _period_to_days:
             return error_response("period must be one of: all, day, week, month", 400)
 
         try:
@@ -60,7 +61,7 @@ class DebateStatsHandler(BaseHandler):
                 return error_response("Storage not available", 503)
 
             service = DebateAnalytics(storage)
-            stats = service.get_debate_stats(period=period)
+            stats = await service.get_debate_stats(days_back=_period_to_days[period])
             return json_response(stats.to_dict())
         except (
             ImportError,
@@ -74,7 +75,7 @@ class DebateStatsHandler(BaseHandler):
             logger.error("Failed to get debate stats: %s", exc)
             return error_response("Failed to get debate stats", 500)
 
-    def _get_agent_stats(self, query_params: dict[str, Any], handler: Any) -> HandlerResult:
+    async def _get_agent_stats(self, query_params: dict[str, Any], handler: Any) -> HandlerResult:
         limit = safe_query_int(query_params, "limit", default=20, min_val=1, max_val=100)
 
         try:
@@ -85,11 +86,11 @@ class DebateStatsHandler(BaseHandler):
                 return error_response("Storage not available", 503)
 
             service = DebateAnalytics(storage)
-            agent_stats = service.get_agent_stats(limit=limit)
+            agents = await service.get_agent_leaderboard(limit=limit)
             return json_response(
                 {
-                    "agents": agent_stats,
-                    "count": len(agent_stats),
+                    "agents": [a.to_dict() for a in agents] if hasattr(agents[0], "to_dict") else agents if agents else [],
+                    "count": len(agents),
                 }
             )
         except (
@@ -100,6 +101,7 @@ class DebateStatsHandler(BaseHandler):
             AttributeError,
             OSError,
             RuntimeError,
+            IndexError,
         ) as exc:
             logger.error("Failed to get agent stats: %s", exc)
             return error_response("Failed to get agent stats", 500)

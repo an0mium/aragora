@@ -27,7 +27,7 @@ from typing import Any
 
 from .emitter import TokenBucket
 from .events import AudienceMessage, StreamEvent, StreamEventType
-from .replay_buffer import EventReplayBuffer
+from .replay_buffer import ConnectionQualityTracker, EventReplayBuffer
 from .server_base import ServerBase
 from .state_manager import LoopInstance
 
@@ -198,6 +198,9 @@ class DebateStreamServer(ServerBase):
         # Event replay buffer for reconnection support
         self._replay_buffer = EventReplayBuffer()
         set_global_replay_buffer(self._replay_buffer)
+
+        # Connection quality tracker for per-client metrics
+        self._quality_tracker = ConnectionQualityTracker()
 
         # Stop event for graceful shutdown
         self._stop_event: asyncio.Event | None = None
@@ -1371,11 +1374,83 @@ class DebateStreamServer(ServerBase):
                                 )
 
                         if subscribe_allowed:
+                            # Detect reconnection: if client was already subscribed
+                            was_subscribed = ws_id in self._client_subscriptions
                             self._client_subscriptions[ws_id] = debate_id
-                            logger.info(
-                                "[ws] Client %s... subscribed to %s", client_id[:8], debate_id
-                            )
-                            await self._send_debate_state(websocket, debate_id)
+
+                            # Check if client is requesting replay (reconnection)
+                            replay_from_seq = data.get("replay_from_seq")
+                            if replay_from_seq is not None and isinstance(replay_from_seq, (int, float)):
+                                replay_from_seq = int(replay_from_seq)
+                                self._quality_tracker.record_reconnect(ws_id)
+                                logger.info(
+                                    "[ws] Client %s... reconnected to %s, replaying from seq %d",
+                                    client_id[:8],
+                                    debate_id,
+                                    replay_from_seq,
+                                )
+                                # Replay missed events from the buffer
+                                missed = self._replay_buffer.replay_since(
+                                    debate_id, replay_from_seq
+                                )
+                                replayed_count = len(missed)
+                                self._quality_tracker.record_replay(ws_id, replayed_count)
+
+                                # Send replay_start so client knows replay is beginning
+                                await websocket.send(
+                                    json.dumps(
+                                        {
+                                            "type": "replay_start",
+                                            "data": {
+                                                "debate_id": debate_id,
+                                                "from_seq": replay_from_seq,
+                                                "event_count": replayed_count,
+                                                "buffer_oldest_seq": self._replay_buffer.get_oldest_seq(debate_id),
+                                                "buffer_latest_seq": self._replay_buffer.get_latest_seq(debate_id),
+                                            },
+                                        }
+                                    )
+                                )
+
+                                # Send replayed events in order
+                                for event_json in missed:
+                                    try:
+                                        await asyncio.wait_for(
+                                            websocket.send(event_json), timeout=5.0
+                                        )
+                                    except (asyncio.TimeoutError, OSError, RuntimeError):
+                                        logger.warning(
+                                            "[ws] Replay send failed for client %s...",
+                                            client_id[:8],
+                                        )
+                                        break
+
+                                # Send replay_end so client knows replay is complete
+                                await websocket.send(
+                                    json.dumps(
+                                        {
+                                            "type": "replay_end",
+                                            "data": {
+                                                "debate_id": debate_id,
+                                                "replayed_count": replayed_count,
+                                                "latest_seq": self._replay_buffer.get_latest_seq(debate_id),
+                                            },
+                                        }
+                                    )
+                                )
+                                logger.info(
+                                    "[ws] Replayed %d events to client %s...",
+                                    replayed_count,
+                                    client_id[:8],
+                                )
+                            else:
+                                # Fresh subscription - send current debate state
+                                logger.info(
+                                    "[ws] Client %s... subscribed to %s",
+                                    client_id[:8],
+                                    debate_id,
+                                )
+                                await self._send_debate_state(websocket, debate_id)
                     else:
                         await websocket.send(
                             json.dumps(

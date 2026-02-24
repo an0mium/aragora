@@ -16,7 +16,7 @@ from __future__ import annotations
 
 __all__ = [
     "RegistrySpec",
-    "AgentRegistry",
+    "AgentFactory",
     "register_all_agents",
 ]
 
@@ -94,7 +94,7 @@ class AgentRegistry:
 
     Usage:
         # Registration (done in agent modules)
-        @AgentRegistry.register(
+        @AgentFactory.register(
             "claude",
             default_model="claude-sonnet-4",
             agent_type="CLI",

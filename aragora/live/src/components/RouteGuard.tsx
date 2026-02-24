@@ -69,8 +69,22 @@ export function RouteGuard({
 
   const checkAuth = async () => {
     try {
-      // Check for auth token in localStorage
-      const token = localStorage.getItem('aragora_token');
+      // Check for auth tokens in localStorage (JSON object with access_token)
+      const stored = localStorage.getItem('aragora_tokens');
+
+      if (!stored) {
+        setAuthState({ isAuthenticated: false, isLoading: false, user: null });
+        return;
+      }
+
+      let token: string;
+      try {
+        const parsed = JSON.parse(stored);
+        token = parsed.access_token;
+      } catch {
+        setAuthState({ isAuthenticated: false, isLoading: false, user: null });
+        return;
+      }
 
       if (!token) {
         setAuthState({ isAuthenticated: false, isLoading: false, user: null });
@@ -93,7 +107,7 @@ export function RouteGuard({
         });
       } else {
         // Token invalid, clear it
-        localStorage.removeItem('aragora_token');
+        localStorage.removeItem('aragora_tokens');
         setAuthState({ isAuthenticated: false, isLoading: false, user: null });
       }
     } catch {
@@ -195,7 +209,21 @@ export function useAuth(): AuthState & { logout: () => void; refresh: () => Prom
 
   const checkAuth = async () => {
     try {
-      const token = localStorage.getItem('aragora_token');
+      const stored = localStorage.getItem('aragora_tokens');
+
+      if (!stored) {
+        setAuthState({ isAuthenticated: false, isLoading: false, user: null });
+        return;
+      }
+
+      let token: string;
+      try {
+        const parsed = JSON.parse(stored);
+        token = parsed.access_token;
+      } catch {
+        setAuthState({ isAuthenticated: false, isLoading: false, user: null });
+        return;
+      }
 
       if (!token) {
         setAuthState({ isAuthenticated: false, isLoading: false, user: null });
@@ -216,7 +244,7 @@ export function useAuth(): AuthState & { logout: () => void; refresh: () => Prom
           user: data.user,
         });
       } else {
-        localStorage.removeItem('aragora_token');
+        localStorage.removeItem('aragora_tokens');
         setAuthState({ isAuthenticated: false, isLoading: false, user: null });
       }
     } catch {

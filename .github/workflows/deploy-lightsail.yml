@@ -1,6 +1,13 @@
 name: Deploy to Lightsail
 
 on:
+  push:
+    branches: [main]
+    paths:
+      - 'aragora/**'
+      - 'pyproject.toml'
+      - 'setup.py'
+      - 'requirements*.txt'
   workflow_dispatch:
     inputs:
       skip_tests:

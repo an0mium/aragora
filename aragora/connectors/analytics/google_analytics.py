@@ -18,9 +18,16 @@ from dataclasses import dataclass, field
 from enum import Enum
 from typing import Any
 
+import asyncio
+import random
+
 import httpx
 
 logger = logging.getLogger(__name__)
+
+_MAX_RETRIES = 3
+_BASE_DELAY = 1.0
+_MAX_DELAY = 30.0
 
 
 class MetricAggregation(str, Enum):
@@ -274,25 +281,65 @@ class GoogleAnalyticsConnector:
         path: str,
         json_data: dict | None = None,
     ) -> dict[str, Any]:
-        """Make API request."""
+        """Make API request with retry and exponential backoff."""
         client = await self._get_client()
-        response = await client.request(method, path, json=json_data)
+        last_error: Exception | None = None
 
-        if response.status_code >= 400:
+        for attempt in range(_MAX_RETRIES + 1):
             try:
-                error_data = response.json()
-                error = error_data.get("error", {})
-                raise GoogleAnalyticsError(
-                    message=error.get("message", response.text),
-                    status_code=response.status_code,
-                    error_details=error,
-                )
-            except ValueError:
-                raise GoogleAnalyticsError(
-                    f"HTTP {response.status_code}: {response.text}", response.status_code
-                )
+                response = await client.request(method, path, json=json_data)
 
-        return response.json()
+                if response.status_code == 429:
+                    retry_after = float(response.headers.get("Retry-After", _BASE_DELAY * (2 ** attempt)))
+                    jitter = random.uniform(0, retry_after * 0.3)
+                    delay = min(retry_after + jitter, _MAX_DELAY)
+                    logger.warning("Google Analytics rate limited, retrying in %.1fs (attempt %d/%d)", delay, attempt + 1, _MAX_RETRIES)
+                    await asyncio.sleep(delay)
+                    continue
+
+                if response.status_code >= 500 and attempt < _MAX_RETRIES:
+                    delay = min(_BASE_DELAY * (2 ** attempt) + random.uniform(0, 1), _MAX_DELAY)
+                    logger.warning("Google Analytics server error %d, retrying in %.1fs (attempt %d/%d)", response.status_code, delay, attempt + 1, _MAX_RETRIES)
+                    await asyncio.sleep(delay)
+                    continue
+
+                if response.status_code >= 400:
+                    try:
+                        error_data = response.json()
+                        error = error_data.get("error", {})
+                        raise GoogleAnalyticsError(
+                            message=error.get("message", response.text),
+                            status_code=response.status_code,
+                            error_details=error,
+                        )
+                    except ValueError:
+                        raise GoogleAnalyticsError(
+                            f"HTTP {response.status_code}: {response.text}", response.status_code
+                        )
+
+                return response.json()
+
+            except httpx.TimeoutException as e:
+                last_error = e
+                if attempt < _MAX_RETRIES:
+                    delay = min(_BASE_DELAY * (2 ** attempt) + random.uniform(0, 1), _MAX_DELAY)
+                    logger.warning("Google Analytics request timeout, retrying in %.1fs (attempt %d/%d)", delay, attempt + 1, _MAX_RETRIES)
+                    await asyncio.sleep(delay)
+                    continue
+            except httpx.ConnectError as e:
+                last_error = e
+                if attempt < _MAX_RETRIES:
+                    delay = min(_BASE_DELAY * (2 ** attempt) + random.uniform(0, 1), _MAX_DELAY)
+                    logger.warning("Google Analytics connection error, retrying in %.1fs (attempt %d/%d)", delay, attempt + 1, _MAX_RETRIES)
+                    await asyncio.sleep(delay)
+                    continue
+            except GoogleAnalyticsError:
+                raise
+
+        raise GoogleAnalyticsError(
+            f"Request failed after {_MAX_RETRIES + 1} attempts: {last_error}",
+            status_code=None,
+        )
 
     # =========================================================================
     # Reports

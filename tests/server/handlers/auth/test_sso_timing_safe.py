@@ -323,8 +323,12 @@ class TestSsoCallbackStateValidation:
             mock_get.return_value = mock_oidc_provider
             with patch.object(sso_handlers._sso_state_store, "get") as mock_store:
                 mock_store.return_value = memory_state_store
-                with patch("aragora.billing.jwt_auth.create_access_token") as mock_jwt:
-                    mock_jwt.return_value = "test_jwt_token"
+                with patch("aragora.billing.jwt_auth.create_token_pair") as mock_jwt:
+                    mock_tokens = MagicMock()
+                    mock_tokens.access_token = "test_jwt_token"
+                    mock_tokens.refresh_token = "test_refresh_token"
+                    mock_tokens.expires_in = 86400
+                    mock_jwt.return_value = mock_tokens
 
                     result = await handle_sso_callback(
                         {

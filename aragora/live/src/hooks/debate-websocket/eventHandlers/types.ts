@@ -3,7 +3,7 @@
  */
 
 import type { StreamEvent } from '@/types/events';
-import type { TranscriptMessage, StreamingMessage } from '../types';
+import type { TranscriptMessage, StreamingMessage, DebateConnectionStatus } from '../types';
 
 /**
  * Context provided to all event handlers for state access
@@ -14,7 +14,7 @@ export interface EventHandlerContext {
   // State setters
   setTask: React.Dispatch<React.SetStateAction<string>>;
   setAgents: React.Dispatch<React.SetStateAction<string[]>>;
-  setStatus: React.Dispatch<React.SetStateAction<'connecting' | 'streaming' | 'complete' | 'error'>>;
+  setStatus: React.Dispatch<React.SetStateAction<DebateConnectionStatus>>;
   setError: React.Dispatch<React.SetStateAction<string | null>>;
   setErrorDetails: React.Dispatch<React.SetStateAction<string | null>>;
   setHasCitations: React.Dispatch<React.SetStateAction<boolean>>;

@@ -1,5 +1,5 @@
 import type { DebateArtifact } from '@/utils/supabase';
-import type { TranscriptMessage } from '@/hooks/useDebateWebSocket';
+import type { TranscriptMessage, DebateConnectionStatus } from '@/hooks/useDebateWebSocket';
 import type { StreamEvent } from '@/types/events';
 
 export interface DebateViewerProps {
@@ -9,7 +9,7 @@ export interface DebateViewerProps {
 
 export interface LiveDebateViewProps {
   debateId: string;
-  status: 'connecting' | 'streaming' | 'complete' | 'error';
+  status: DebateConnectionStatus;
   task: string;
   agents: string[];
   messages: TranscriptMessage[];
