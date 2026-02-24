@@ -435,7 +435,9 @@ async def get_knowledge_stats(
 async def get_knowledge_gaps(
     request: Request,
     domain: str | None = Query(None, description="Domain to check for coverage gaps"),
-    max_age_days: int = Query(90, ge=1, le=365, description="Max age in days before an item is stale"),
+    max_age_days: int = Query(
+        90, ge=1, le=365, description="Max age in days before an item is stale"
+    ),
     workspace_id: str = Query("default", description="Workspace ID"),
     km=Depends(get_knowledge_mound),
 ) -> KnowledgeGapsResponse:
@@ -464,32 +466,35 @@ async def get_knowledge_gaps(
                 for g in raw_gaps:
                     g_dict = g.to_dict() if hasattr(g, "to_dict") else g
                     if isinstance(g_dict, dict):
-                        coverage_gaps.append(CoverageGap(
-                            domain=g_dict.get("domain", domain),
-                            description=g_dict.get("description", ""),
-                            severity=g_dict.get("severity", "medium"),
-                            recommendation=g_dict.get("recommendation", ""),
-                        ))
+                        coverage_gaps.append(
+                            CoverageGap(
+                                domain=g_dict.get("domain", domain),
+                                description=g_dict.get("description", ""),
+                                severity=g_dict.get("severity", "medium"),
+                                recommendation=g_dict.get("recommendation", ""),
+                            )
+                        )
 
             stale = await detector.detect_staleness(max_age_days=max_age_days)
             stale_entries: list[StalenessItem] = []
             for s in stale[:50]:
                 s_dict = s.to_dict() if hasattr(s, "to_dict") else s
                 if isinstance(s_dict, dict):
-                    stale_entries.append(StalenessItem(
-                        id=s_dict.get("id", ""),
-                        title=s_dict.get("title", ""),
-                        source=s_dict.get("source", ""),
-                        created_at=s_dict.get("created_at"),
-                        updated_at=s_dict.get("updated_at"),
-                        age_days=s_dict.get("age_days", 0.0),
-                        stale=True,
-                    ))
+                    stale_entries.append(
+                        StalenessItem(
+                            id=s_dict.get("id", ""),
+                            title=s_dict.get("title", ""),
+                            source=s_dict.get("source", ""),
+                            created_at=s_dict.get("created_at"),
+                            updated_at=s_dict.get("updated_at"),
+                            age_days=s_dict.get("age_days", 0.0),
+                            stale=True,
+                        )
+                    )
 
             raw_contradictions = await detector.detect_contradictions()
             contradictions = [
-                c.to_dict() if hasattr(c, "to_dict") else c
-                for c in raw_contradictions[:50]
+                c.to_dict() if hasattr(c, "to_dict") else c for c in raw_contradictions[:50]
             ]
 
             return KnowledgeGapsResponse(
@@ -637,17 +642,21 @@ async def list_adapters(
                 if isinstance(a, str):
                     adapters.append(AdapterInfo(name=a))
                 elif isinstance(a, dict):
-                    adapters.append(AdapterInfo(
-                        name=a.get("name", a.get("id", "")),
-                        description=a.get("description", ""),
-                        status=a.get("status", "active"),
-                    ))
+                    adapters.append(
+                        AdapterInfo(
+                            name=a.get("name", a.get("id", "")),
+                            description=a.get("description", ""),
+                            status=a.get("status", "active"),
+                        )
+                    )
                 else:
-                    adapters.append(AdapterInfo(
-                        name=getattr(a, "name", getattr(a, "id", str(a))),
-                        description=getattr(a, "description", ""),
-                        status=getattr(a, "status", "active"),
-                    ))
+                    adapters.append(
+                        AdapterInfo(
+                            name=getattr(a, "name", getattr(a, "id", str(a))),
+                            description=getattr(a, "description", ""),
+                            status=getattr(a, "status", "active"),
+                        )
+                    )
 
         return AdapterListResponse(adapters=adapters, total=len(adapters))
 
@@ -702,7 +711,7 @@ async def structured_query(
                 items.append(_item_to_summary(result))
 
         return StructuredQueryResponse(
-            items=items[:body.limit],
+            items=items[: body.limit],
             total=len(items),
             query=body.query,
             filters_applied=filters_applied,
@@ -740,7 +749,9 @@ async def get_staleness_analysis(
                     stale_items=raw.get("stale_items", 0),
                     stale_percent=raw.get("stale_percent", 0.0),
                     items=[
-                        StalenessItem(**i) if isinstance(i, dict) else StalenessItem(
+                        StalenessItem(**i)
+                        if isinstance(i, dict)
+                        else StalenessItem(
                             id=getattr(i, "id", ""),
                             title=getattr(i, "title", ""),
                         )
@@ -768,9 +779,7 @@ async def get_staleness_analysis(
         raise HTTPException(status_code=500, detail="Failed to analyze staleness")
 
 
-@router.delete(
-    "/knowledge/{item_id}", response_model=DeleteKnowledgeResponse
-)
+@router.delete("/knowledge/{item_id}", response_model=DeleteKnowledgeResponse)
 async def delete_knowledge_item(
     item_id: str,
     auth: AuthorizationContext = Depends(require_permission("knowledge:write")),
