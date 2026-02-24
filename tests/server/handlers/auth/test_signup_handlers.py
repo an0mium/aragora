@@ -1435,6 +1435,7 @@ class TestGetSignupHandlers:
 # ===========================================================================
 
 
+@pytest.mark.no_auto_auth
 class TestRBACPermissionDenied:
     """Tests for RBAC permission denied scenarios."""
 

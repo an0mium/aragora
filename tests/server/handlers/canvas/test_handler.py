@@ -369,6 +369,7 @@ class TestAuthentication:
 # ===========================================================================
 
 
+@pytest.mark.no_auto_auth
 class TestRBACEnforcement:
     """Test RBAC enforcement via @require_permission decorators.
 
