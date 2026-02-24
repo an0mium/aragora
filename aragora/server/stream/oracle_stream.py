@@ -129,6 +129,46 @@ def _build_oracle_prompt(
         return question
 
 
+def _sanitize_oracle_input(question: str) -> str:
+    """Strip prompt injection attempts from user questions.
+
+    Delegates to the canonical implementation in playground.py when
+    available, falling back to a local re-implementation.
+    """
+    try:
+        from aragora.server.handlers.playground import _sanitize_oracle_input as _sanitize
+
+        return _sanitize(question)
+    except ImportError:
+        # Inline fallback — mirrors the playground implementation
+        question = re.sub(
+            r"(?i)(ignore|forget|disregard)\s+(all\s+)?(previous|above|prior)", "", question
+        )
+        question = re.sub(r"(?i)you\s+are\s+now\s+", "", question)
+        question = re.sub(r"(?i)system\s*:\s*", "", question)
+        question = question[:2000]
+        question = re.sub(
+            r"</?(?:essay|system|assistant|user|instruction)[^>]*>", "", question, flags=re.IGNORECASE
+        )
+        return question.strip()
+
+
+def _filter_oracle_response(text: str) -> str:
+    """Remove accidentally leaked sensitive content from streamed text.
+
+    Delegates to the canonical implementation in playground.py when
+    available, falling back to a local re-implementation.
+    """
+    try:
+        from aragora.server.handlers.playground import _filter_oracle_response as _filter
+
+        return _filter(text)
+    except ImportError:
+        text = re.sub(r"(?:sk-|key-|Bearer\s+)[a-zA-Z0-9_-]{20,}", "[REDACTED]", text)
+        text = re.sub(r"(?i)(?:system prompt|my instructions|I was told to)", "my perspective", text)
+        return text
+
+
 # ---------------------------------------------------------------------------
 # Session state for think-while-listening
 # ---------------------------------------------------------------------------
@@ -526,7 +566,7 @@ async def _stream_phase(
     if tts_tasks:
         await asyncio.gather(*tts_tasks, return_exceptions=True)
 
-    full_text = accumulator.full_text
+    full_text = _filter_oracle_response(accumulator.full_text)
 
     if not session.cancelled and not ws.closed:
         await ws.send_json(
@@ -662,11 +702,11 @@ async def _stream_tentacles(
         if session.cancelled or ws.closed:
             return
 
-        # Build model-specific tentacle prompt with role
+        # Build model-specific tentacle prompt with role and model name
         if has_tentacle_prompts:
             role = _TENTACLE_ROLE_PROMPTS[role_idx % len(_TENTACLE_ROLE_PROMPTS)]
             tent_prompt = _build_tentacle_prompt(
-                mode, question, role, source="oracle",
+                mode, question, role, source="oracle", model_name=name,
             )
             # Append model identity so the LLM knows which perspective it represents
             tent_prompt += f"\n\nYou are responding as the {name} model."
@@ -737,7 +777,7 @@ async def _stream_tentacles(
                 {
                     "type": "tentacle_done",
                     "agent": name,
-                    "full_text": full_text,
+                    "full_text": _filter_oracle_response(full_text),
                 }
             )
 
@@ -818,21 +858,31 @@ _MAX_WS_SESSIONS_PER_IP = 3
 _WS_RATE_LIMIT = 10  # asks per minute
 _WS_RATE_WINDOW = 60.0
 _ws_ask_timestamps: dict[str, list[float]] = {}
+_ws_rate_limit_hits: dict[str, int] = {}  # IP -> consecutive rate limit hits
 
 
 def _check_ws_rate_limit(client_ip: str) -> tuple[bool, int]:
     """Check per-IP rate limit for WebSocket ask messages.
 
-    Returns ``(allowed, retry_after_seconds)``.
+    Returns ``(allowed, retry_after_seconds)``.  On repeated rate limit
+    hits the ``retry_after`` grows exponentially (2^n) to discourage
+    aggressive retry loops.
     """
     now = time.monotonic()
     cutoff = now - _WS_RATE_WINDOW
     timestamps = _ws_ask_timestamps.get(client_ip, [])
     timestamps = [t for t in timestamps if t > cutoff]
     if len(timestamps) >= _WS_RATE_LIMIT:
-        retry_after = int(timestamps[0] + _WS_RATE_WINDOW - now) + 1
+        base_retry = int(timestamps[0] + _WS_RATE_WINDOW - now) + 1
+        # Exponential backoff for consecutive hits
+        hits = _ws_rate_limit_hits.get(client_ip, 0) + 1
+        _ws_rate_limit_hits[client_ip] = hits
+        backoff_multiplier = min(2 ** (hits - 1), 32)  # cap at 32x
+        retry_after = max(base_retry, 1) * backoff_multiplier
         _ws_ask_timestamps[client_ip] = timestamps
-        return False, max(retry_after, 1)
+        return False, retry_after
+    # Successful request — reset consecutive hit counter
+    _ws_rate_limit_hits.pop(client_ip, None)
     timestamps.append(now)
     _ws_ask_timestamps[client_ip] = timestamps
     return True, 0
@@ -885,7 +935,9 @@ async def oracle_websocket_handler(request: web.Request) -> web.WebSocketRespons
                         await ws.send_json({"type": "pong", "timestamp": time.time()})
 
                     elif msg_type == "ask":
-                        question = str(data.get("question", "")).strip()
+                        question = _sanitize_oracle_input(
+                            str(data.get("question", "")).strip()
+                        )
                         mode = str(data.get("mode", "consult"))
                         if not question:
                             await ws.send_json(
