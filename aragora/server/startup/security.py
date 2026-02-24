@@ -746,7 +746,9 @@ async def init_aws_rotation_monitor() -> bool:
 
     # Auto-enable when AWS Secrets Manager is configured
     use_aws = os.environ.get("ARAGORA_USE_SECRETS_MANAGER", "").lower() in (
-        "true", "1", "yes",
+        "true",
+        "1",
+        "yes",
     )
     explicit = os.environ.get("ARAGORA_ROTATION_MONITOR_ENABLED", "").lower()
 

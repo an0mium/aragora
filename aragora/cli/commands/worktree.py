@@ -141,9 +141,7 @@ def cmd_worktree(args: argparse.Namespace) -> None:
     """Dispatch worktree subcommand."""
     action = getattr(args, "wt_action", None)
     if not action:
-        print(
-            "Usage: aragora worktree {create|list|merge|merge-all|conflicts|cleanup|autopilot}"
-        )
+        print("Usage: aragora worktree {create|list|merge|merge-all|conflicts|cleanup|autopilot}")
         print("Run 'aragora worktree --help' for details.")
         return
 
