@@ -8,6 +8,7 @@ reducing duplication and ensuring consistent test setup.
 import importlib.util
 import json
 import os
+import sys
 import tempfile
 from pathlib import Path
 from typing import TYPE_CHECKING
@@ -18,6 +19,14 @@ import pytest
 
 from aragora.resilience import reset_all_circuit_breakers
 from tests.utils import managed_fixture
+
+# Ensure local Python SDK package imports resolve during test collection.
+_PROJECT_ROOT = Path(__file__).resolve().parents[1]
+_SDK_PYTHON_ROOT = _PROJECT_ROOT / "sdk" / "python"
+if _SDK_PYTHON_ROOT.is_dir():
+    _sdk_python = str(_SDK_PYTHON_ROOT)
+    if _sdk_python not in sys.path:
+        sys.path.insert(0, _sdk_python)
 
 # Register skip governance plugin for expiry checking
 pytest_plugins = ["tests.plugins.skip_governance"]
