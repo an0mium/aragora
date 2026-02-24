@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "aragora-debate"
-version = "0.2.2"
+version = "0.2.3"
 description = "Adversarial multi-model debate engine -- pit LLMs against each other, detect hollow consensus, and produce cryptographic decision receipts. Zero required dependencies."
 readme = "README.md"
 license = "MIT"
