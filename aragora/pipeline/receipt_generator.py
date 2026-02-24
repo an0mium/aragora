@@ -101,7 +101,7 @@ async def generate_pipeline_receipt(
         from aragora.knowledge.mound.adapters.receipt_adapter import ReceiptAdapter
 
         adapter = ReceiptAdapter()
-        await adapter.ingest(receipt)
+        adapter.ingest(receipt)
         logger.info("Pipeline receipt %s persisted to KM", receipt_id)
     except (ImportError, RuntimeError, ValueError, OSError, AttributeError) as e:
         logger.debug("Receipt KM persistence skipped: %s", type(e).__name__)
