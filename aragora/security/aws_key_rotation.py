@@ -704,9 +704,13 @@ class AWSSecretRotator:
 
             conn.autocommit = True
             with conn.cursor() as cur:
-                # Use parameter binding to avoid SQL injection
+                # Use psycopg2.sql for safe identifier quoting
+                from psycopg2 import sql as psql  # type: ignore[import-untyped]
+
                 cur.execute(
-                    "ALTER USER %s WITH PASSWORD %%s" % username,  # noqa: S608
+                    psql.SQL("ALTER USER {} WITH PASSWORD %s").format(
+                        psql.Identifier(username)
+                    ),
                     (new_password,),
                 )
             conn.close()

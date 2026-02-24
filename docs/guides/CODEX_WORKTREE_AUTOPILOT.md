@@ -64,3 +64,4 @@ make worktree-maintainer-uninstall
 The maintainer runs non-destructive upkeep by default:
 - Integration strategy: `merge`
 - Branch retention: keeps local `codex/*` branches (`--no-delete-branches`)
+- Safety: skips worktrees with active processes (use `--include-active` only if needed)
