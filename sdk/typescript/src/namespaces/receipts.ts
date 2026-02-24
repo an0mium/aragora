@@ -170,6 +170,37 @@ export class ReceiptsAPI {
   }
 
   /**
+   * Deliver a receipt via the legacy v1 bridge endpoint.
+   *
+   * Accepts both modern (channelType/channelId) and legacy
+   * (channel/destination) field names.
+   */
+  async deliverV1(
+    receiptId: string,
+    options: {
+      channelType?: string;
+      channelId?: string;
+      channel?: string;
+      destination?: string;
+      workspaceId?: string;
+      message?: string;
+      deliveryOptions?: Record<string, unknown>;
+    }
+  ): Promise<Record<string, unknown>> {
+    const body: Record<string, unknown> = {};
+    if (options.channelType) body.channel_type = options.channelType;
+    if (options.channelId) body.channel_id = options.channelId;
+    if (options.channel) body.channel = options.channel;
+    if (options.destination) body.destination = options.destination;
+    if (options.workspaceId) body.workspace_id = options.workspaceId;
+    if (options.message) body.message = options.message;
+    if (options.deliveryOptions) body.options = options.deliveryOptions;
+    return this.client.request('POST', `/api/v1/receipts/${encodeURIComponent(receiptId)}/deliver`, {
+      json: body,
+    });
+  }
+
+  /**
    * Share a receipt (generate shareable link or send to recipients).
    *
    * @param receiptId - Receipt identifier

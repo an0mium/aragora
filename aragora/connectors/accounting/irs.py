@@ -145,7 +145,7 @@ class IRSConnector(BaseConnector):
             logger.warning("httpx not available, cannot search IRS")
             return []
 
-        query = (query or "").strip()
+        query = _sanitize_query((query or "").strip())
         if not query:
             return []
 
@@ -161,7 +161,7 @@ class IRSConnector(BaseConnector):
 
         await self._rate_limit()
 
-        try:
+        async def _do_request() -> Any:
             async with httpx.AsyncClient(timeout=self.timeout) as client:
                 if method == "POST":
                     response = await client.post(
@@ -176,8 +176,11 @@ class IRSConnector(BaseConnector):
                         headers=self._headers(),
                     )
                 response.raise_for_status()
-                data = response.json()
-        except (httpx.HTTPStatusError, httpx.RequestError, OSError, ValueError) as e:
+                return response.json()
+
+        try:
+            data = await self._request_with_retry(_do_request, "search")
+        except (ConnectorError, httpx.HTTPError, OSError, ValueError) as e:
             logger.warning("IRS search failed: %s", e)
             return []
 

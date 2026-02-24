@@ -1465,6 +1465,179 @@ class SlackDebateLifecycle:
             }
 
 
+    # -- Receipt delivery with approval flow ---------------------------------
+
+    async def deliver_receipt_to_thread(
+        self,
+        debate_id: str,
+        channel_id: str,
+        thread_ts: str,
+        receipt: Any | None = None,
+        receipt_url: str = "",
+    ) -> bool:
+        """Deliver a decision receipt to a Slack thread with approval buttons.
+
+        Fetches the receipt for the debate (or uses the provided one), formats
+        it as a Block Kit summary card with verdict, confidence, key arguments,
+        and cost, then posts it with approval action buttons.
+
+        Args:
+            debate_id: The debate ID whose receipt to deliver.
+            channel_id: Slack channel ID.
+            thread_ts: Thread timestamp to post into.
+            receipt: Optional pre-loaded receipt object.  If ``None``, attempts
+                to load from the receipt store.
+            receipt_url: Optional URL to the full receipt web page.
+
+        Returns:
+            True if the receipt was delivered successfully.
+        """
+        import os as _os
+
+        # Load receipt if not provided
+        if receipt is None:
+            receipt = self._load_receipt(debate_id)
+            if receipt is None:
+                logger.warning("No receipt found for debate %s", debate_id)
+                return False
+
+        # Build receipt URL if not provided
+        if not receipt_url:
+            base_url = _os.environ.get("ARAGORA_PUBLIC_URL", "https://aragora.ai")
+            receipt_id = getattr(receipt, "receipt_id", "")
+            if receipt_id:
+                receipt_url = f"{base_url}/receipts/{receipt_id}"
+
+        blocks = _build_receipt_with_approval_blocks(
+            receipt, debate_id=debate_id, receipt_url=receipt_url
+        )
+
+        verdict = getattr(receipt, "verdict", "UNKNOWN")
+        text = f"Decision receipt: {verdict}"
+        success = await self._post_to_thread(channel_id, thread_ts, text, blocks)
+
+        if success:
+            logger.info(
+                "Delivered receipt for debate %s to %s (thread=%s)",
+                debate_id,
+                channel_id,
+                thread_ts,
+            )
+
+        return success
+
+    @staticmethod
+    def _load_receipt(debate_id: str) -> Any:
+        """Attempt to load a receipt for a debate from the store."""
+        try:
+            from aragora.storage.receipt_store import get_receipt_store
+
+            store = get_receipt_store()
+            data = store.get_by_debate(debate_id)
+            if data:
+                from aragora.export.decision_receipt import DecisionReceipt
+
+                if isinstance(data, dict):
+                    return DecisionReceipt.from_dict(data)
+                return data
+        except (ImportError, AttributeError, RuntimeError, OSError, KeyError):
+            pass
+        return None
+
+
+def _build_receipt_with_approval_blocks(
+    receipt: Any,
+    debate_id: str = "",
+    receipt_url: str = "",
+) -> list[dict[str, Any]]:
+    """Build Block Kit blocks for a receipt with approval action buttons.
+
+    Extends the standard receipt blocks with Approve, Request Re-debate,
+    and Escalate buttons.
+
+    Args:
+        receipt: A DecisionReceipt or duck-typed receipt object.
+        debate_id: Debate identifier.
+        receipt_url: URL to the full receipt page.
+
+    Returns:
+        List of Block Kit blocks.
+    """
+    # Start with the base receipt blocks
+    blocks = _build_receipt_blocks(receipt, debate_id=debate_id, receipt_url=receipt_url)
+
+    # Add cost info if available
+    cost_usd = getattr(receipt, "cost_usd", 0.0) or 0.0
+    tokens_used = getattr(receipt, "tokens_used", 0) or 0
+    if cost_usd > 0 or tokens_used > 0:
+        cost_parts = []
+        if cost_usd > 0:
+            cost_parts.append(f"*Cost:* ${cost_usd:.4f}")
+        if tokens_used > 0:
+            cost_parts.append(f"*Tokens:* {tokens_used:,}")
+        # Insert cost section before the last actions block
+        cost_block = {
+            "type": "section",
+            "text": {
+                "type": "mrkdwn",
+                "text": " | ".join(cost_parts),
+            },
+        }
+        # Find the actions block index and insert before it
+        actions_idx = None
+        for i, b in enumerate(blocks):
+            if b.get("type") == "actions":
+                actions_idx = i
+                break
+        if actions_idx is not None:
+            blocks.insert(actions_idx, cost_block)
+        else:
+            blocks.append(cost_block)
+
+    # Remove existing actions block (we'll replace it)
+    blocks = [b for b in blocks if b.get("type") != "actions"]
+
+    # Add approval action buttons
+    approval_actions: list[dict[str, Any]] = []
+    if receipt_url:
+        approval_actions.append(
+            {
+                "type": "button",
+                "text": {"type": "plain_text", "text": "View Full Receipt"},
+                "url": receipt_url,
+                "action_id": "view_receipt",
+            }
+        )
+    approval_actions.extend(
+        [
+            {
+                "type": "button",
+                "text": {"type": "plain_text", "text": "Approve Decision"},
+                "style": "primary",
+                "action_id": f"approve_decision_{debate_id}",
+                "value": debate_id,
+            },
+            {
+                "type": "button",
+                "text": {"type": "plain_text", "text": "Request Re-debate"},
+                "action_id": f"request_redebate_{debate_id}",
+                "value": debate_id,
+            },
+            {
+                "type": "button",
+                "text": {"type": "plain_text", "text": "Escalate"},
+                "style": "danger",
+                "action_id": f"escalate_decision_{debate_id}",
+                "value": debate_id,
+            },
+        ]
+    )
+
+    blocks.append({"type": "actions", "elements": approval_actions})
+
+    return blocks
+
+
 __all__ = [
     "SlackActiveDebateState",
     "SlackDebateConfig",
@@ -1477,6 +1650,7 @@ __all__ = [
     "_build_critique_summary_blocks",
     "_build_error_blocks",
     "_build_receipt_blocks",
+    "_build_receipt_with_approval_blocks",
     "_build_stop_blocks",
     "_build_vote_summary_blocks",
     "_build_voting_results_blocks",
