@@ -847,6 +847,47 @@ jobs:
           path: aragora/live/test-results/
           retention-days: 7
 
+  # Lightweight frontend type checking (PR-only, path-filtered)
+  frontend-typecheck:
+    name: Frontend TypeScript Type Check
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    if: github.event_name == 'pull_request'
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Check for frontend changes
+        uses: dorny/paths-filter@v3
+        id: changes
+        with:
+          filters: |
+            frontend:
+              - 'aragora/live/**'
+
+      - name: Set up Node.js
+        if: steps.changes.outputs.frontend == 'true'
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+          cache-dependency-path: aragora/live/package-lock.json
+
+      - name: Install dependencies
+        if: steps.changes.outputs.frontend == 'true'
+        working-directory: aragora/live
+        run: npm ci
+
+      - name: TypeScript type check
+        if: steps.changes.outputs.frontend == 'true'
+        working-directory: aragora/live
+        run: npx tsc --noEmit
+
+      - name: Skip (no frontend changes)
+        if: steps.changes.outputs.frontend != 'true'
+        run: echo "No frontend file changes detected, skipping TypeScript type check."
+
   security:
     name: Security Scan
     runs-on: ubuntu-latest

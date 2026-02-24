@@ -23,7 +23,7 @@ Build Aragora into a complete control plane for:
 As of 2026-02-23 (updated 2026-02-24):
 - Capability matrix coverage: API 100%, CLI 100%, Python SDK 100%, TypeScript SDK 100%, UI 100%, catalog mapped 100%
 - All previously "missing" surfaces (consensus_detection, compliance_framework, rbac_v2) now implemented
-- Connector maturity: 99 Production, 48 Beta, 4 Stub
+- Connector maturity: 103 Production, 48 Beta, 0 Stub
 - GA checklist: 58/59 complete, primary blocker listed as external penetration test
 - Note: Surface parity gaps are CLOSED. Remaining work is hardening, promotion, and productization.
 
@@ -182,15 +182,17 @@ From `docs/CAPABILITY_MATRIX.md`:
 ### 2) Connector maturity debt
 
 From `docs/connectors/STATUS.md`:
-- Production: 99
+- Production: 103
 - Beta: 48
-- Stub: 4
+- Stub: 0
 
-Stub connectors that should be eliminated:
-- `aragora/connectors/communication/sendgrid.py`
-- `aragora/connectors/communication/twilio.py`
-- `aragora/connectors/productivity/trello.py`
-- `aragora/connectors/social/instagram.py`
+All 4 former stub connectors have been promoted to Production:
+- `aragora/connectors/communication/sendgrid.py` -- email activity search, templates, query sanitization
+- `aragora/connectors/communication/twilio.py` -- SMS/MMS/call history, query sanitization
+- `aragora/connectors/productivity/trello.py` -- card/board search via Trello API
+- `aragora/connectors/social/instagram.py` -- media/comments via Graph API
+
+Remaining maturity debt is concentrated in 48 Beta connectors that lack circuit breaker patterns and advanced retry logic.
 
 ### 3) Readiness and release-gating debt
 
@@ -277,7 +279,7 @@ Deliverables:
 - Workspace budget policy engine
 - Per-debate cost accounting in receipts
 - Spend analytics dashboard
-- Top beta connectors promoted and all stubs removed
+- Top beta connectors promoted (all stubs already removed pre-program)
 
 ### Phase 3: Scale and Reliability (2026-06-01 to 2026-07-31)
 
@@ -330,7 +332,8 @@ Deliverables:
 - Data source: `docs/CAPABILITY_MATRIX.md`
 
 4. `Connector Production Ratio`
-- Target: Production 99 -> >= 120, Beta 48 -> <= 25, Stub 4 -> 0
+- Baseline: Production 103, Beta 48, Stub 0
+- Target: Production 103 -> >= 120, Beta 48 -> <= 25, Stub 0 (achieved)
 - Data source: `docs/connectors/STATUS.md`
 
 5. `Debate Runtime`
@@ -416,7 +419,7 @@ Primary outcomes:
 
 Must-hit KPIs:
 - Budget Protection metric active and <= 5% overrun during rollout
-- Stub connectors reduced from 4 to <= 1
+- Stub connectors: 0 (achieved; all 4 promoted to Production pre-program)
 - Channel workflow success >= 95% on pilot tenants
 
 ## Backlog Artifacts

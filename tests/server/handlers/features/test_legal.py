@@ -1617,8 +1617,8 @@ class TestEdgeCases:
         # Split gives ['', 'api', 'v1', 'legal', 'envelopes', '']
         result = await handler.handle(mock_request, "/api/v1/legal/envelopes/", "GET")
         # With parts[4] = 'envelopes' and parts[5] = '' this hits the action routing
-        # but '' doesn't match any action, so returns 404
-        assert result.status_code in (200, 404, 500)
+        # but '' doesn't match any action, so returns 404 (or 503 if DocuSign unconfigured)
+        assert result.status_code in (200, 404, 500, 503)
 
     @pytest.mark.asyncio
     async def test_envelope_unknown_action(self, handler, mock_request):

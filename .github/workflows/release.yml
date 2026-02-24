@@ -152,17 +152,25 @@ jobs:
           node-version: "20"
 
       # npm audit: fail on high/critical vulnerabilities in frontend deps
+      # Low/moderate vulnerabilities are logged as warnings but do not block.
       - name: "BLOCKING: npm audit high/critical (live frontend)"
         working-directory: aragora/live
         run: |
           npm ci --ignore-scripts
+          echo "--- Checking for low/moderate advisories (non-blocking) ---"
+          npm audit --omit=dev --audit-level=moderate 2>&1 || true
+          echo "--- Checking for high/critical advisories (BLOCKING) ---"
           npm audit --omit=dev --audit-level=high
 
       # npm audit: fail on high/critical vulnerabilities in TypeScript SDK deps
+      # Install must succeed; if it fails, the step fails immediately.
       - name: "BLOCKING: npm audit high/critical (TypeScript SDK)"
         working-directory: sdk/typescript
         run: |
-          npm ci --ignore-scripts 2>/dev/null || npm install --ignore-scripts 2>/dev/null || true
+          npm ci --ignore-scripts 2>/dev/null || npm install --ignore-scripts
+          echo "--- Checking for low/moderate advisories (non-blocking) ---"
+          npm audit --omit=dev --audit-level=moderate 2>&1 || true
+          echo "--- Checking for high/critical advisories (BLOCKING) ---"
           npm audit --omit=dev --audit-level=high
 
   # ---------------------------------------------------------------------------
@@ -222,15 +230,31 @@ jobs:
       - name: Skip baseline enforcement
         run: |
           CURRENT=$(python scripts/audit_test_skips.py --count-only)
-          BASELINE=$(cat tests/.skip_baseline 2>/dev/null || echo 600)
-          THRESHOLD=2
+          if [ ! -f tests/.skip_baseline ]; then
+            echo "::error::tests/.skip_baseline file is missing — cannot enforce skip count"
+            exit 1
+          fi
+          BASELINE=$(cat tests/.skip_baseline)
+          # Validate that both values are integers
+          if ! [[ "$CURRENT" =~ ^[0-9]+$ ]] || ! [[ "$BASELINE" =~ ^[0-9]+$ ]]; then
+            echo "::error::Invalid skip count values: current='$CURRENT', baseline='$BASELINE'"
+            exit 1
+          fi
           echo "Current skip count: $CURRENT"
           echo "Baseline: $BASELINE"
           DIFF=$((CURRENT - BASELINE))
-          if [ "$DIFF" -gt "$THRESHOLD" ]; then
-            echo "::error::Skip count increased by $DIFF (from $BASELINE to $CURRENT)"
+          if [ "$DIFF" -gt 0 ]; then
+            echo "::error::Skip count increased by $DIFF (from $BASELINE to $CURRENT). No increase allowed without updating tests/.skip_baseline."
+            echo ""
+            echo "If this increase is intentional, update the baseline:"
+            echo "  echo $CURRENT > tests/.skip_baseline"
+            echo "  git add tests/.skip_baseline && git commit -m 'chore: update skip baseline to $CURRENT'"
             exit 1
           fi
+          if [ "$DIFF" -lt 0 ]; then
+            echo "::notice::Skip count decreased by $((-DIFF)). Consider updating tests/.skip_baseline to $CURRENT."
+          fi
+          echo "Skip baseline check passed (current=$CURRENT, baseline=$BASELINE)"
         env:
           PYTHONPATH: .
 
