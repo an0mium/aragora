@@ -359,6 +359,7 @@ describe('UnifiedPipelineCanvas', () => {
       makeMockCanvas({
         stageNodes: {
           ideas: [makeIdeaNode('idea-1', 'Test Idea')],
+          principles: [],
           goals: [],
           actions: [],
           orchestration: [],
@@ -390,12 +391,14 @@ describe('UnifiedPipelineCanvas', () => {
       makeMockCanvas({
         stageNodes: {
           ideas: [makeIdeaNode('idea-1', 'Idea')],
+          principles: [],
           goals: [makeGoalNode('goal-1', 'Goal')],
           actions: [],
           orchestration: [],
         },
         stageEdges: {
           ideas: [edge],
+          principles: [],
           goals: [],
           actions: [],
           orchestration: [],
@@ -414,6 +417,7 @@ describe('UnifiedPipelineCanvas', () => {
       makeMockCanvas({
         stageNodes: {
           ideas: [makeIdeaNode('i1', 'A'), makeIdeaNode('i2', 'B')],
+          principles: [],
           goals: [makeGoalNode('g1', 'G')],
           actions: [],
           orchestration: [makeOrchNode('o1', 'O'), makeOrchNode('o2', 'O2'), makeOrchNode('o3', 'O3')],
@@ -463,6 +467,7 @@ describe('UnifiedPipelineCanvas', () => {
         aiGenerate,
         stageNodes: {
           ideas: [makeIdeaNode('idea-1', 'Idea')],
+          principles: [],
           goals: [makeGoalNode('goal-1', 'Goal')],
           actions: [makeActionNode('action-1', 'Action')],
           orchestration: [],
