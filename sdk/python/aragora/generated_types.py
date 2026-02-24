@@ -463,6 +463,49 @@ class ConsensusStats(BaseModel):
     by_domain: dict[str, ByDomain] | None = None
 
 
+class ConsensusDetectionData(BaseModel):
+    debate_id: str | None = None
+    consensus_reached: bool | None = None
+    confidence: float | None = None
+    threshold: float | None = None
+    agreement_ratio: float | None = None
+    has_strong_consensus: bool | None = None
+    final_claim: str | None = None
+    reasoning_summary: str | None = None
+    supporting_agents: list[str] | None = None
+    dissenting_agents: list[str] | None = None
+    claims_count: int | None = None
+    evidence_count: int | None = None
+    unresolved_tensions_count: int | None = None
+    proof: dict[str, Any] | None = None
+    checksum: str | None = None
+
+
+class ConsensusDetectionResponse(BaseModel):
+    data: ConsensusDetectionData
+
+
+class ConsensusStatusData(BaseModel):
+    debate_id: str | None = None
+    consensus_reached: bool | None = None
+    confidence: float | None = None
+    agreement_ratio: float | None = None
+    has_strong_consensus: bool | None = None
+    final_claim: str | None = None
+    supporting_agents: list[str] | None = None
+    dissenting_agents: list[str] | None = None
+    claims_count: int | None = None
+    dissents_count: int | None = None
+    unresolved_tensions_count: int | None = None
+    partial_consensus: dict[str, Any] | None = None
+    proof: dict[str, Any] | None = None
+    checksum: str | None = None
+
+
+class ConsensusStatusResponse(BaseModel):
+    data: ConsensusStatusData
+
+
 class DissentingView(BaseModel):
     debate_id: str | None = None
     agent: str | None = None

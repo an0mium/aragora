@@ -11,8 +11,8 @@ description: Generated Aragora CLI command catalog from live parser
 
 This reference documents the command surface as implemented in code. It includes all top-level commands and known aliases.
 
-- Canonical top-level commands: **73**
-- Total top-level invocations (including aliases): **74**
+- Canonical top-level commands: **74**
+- Total top-level invocations (including aliases): **75**
 
 ## Installation
 
@@ -51,10 +51,11 @@ For full runtime configuration, see [ENVIRONMENT](../getting-started/environment
 | `batch` | - | Process multiple debates from a file | - |
 | `bench` | - | Benchmark agents | - |
 | `billing` | - | Manage billing, usage, and subscriptions | `invoices`, `portal`, `status`, `subscribe`, `usage` |
-| `compliance` | - | EU AI Act compliance tools | `audit`, `classify`, `eu-ai-act` |
+| `compliance` | - | Compliance framework and EU AI Act tools | `audit`, `check`, `classify`, `eu-ai-act`, `report`, `status` |
 | `computer-use` | - | Computer use task management | `list`, `run`, `status` |
 | `config` | - | Manage configuration | - |
 | `connectors` | - | Connector management commands | `list`, `status`, `test` |
+| `consensus` | - | Analyze consensus from debate proposals or check debate consensus status | `detect`, `status` |
 | `context` | - | Build codebase context for RLM-powered analysis | - |
 | `control-plane` | - | Control plane status and management | - |
 | `coordinate` | - | Multi-agent worktree coordination | `events`, `merge`, `plan`, `register`, `scope`, `status`, `sync` |
@@ -89,7 +90,7 @@ For full runtime configuration, see [ENVIRONMENT](../getting-started/environment
 | `playbook` | - | List and run decision playbooks | `list`, `run` |
 | `publish` | - | Build, test, and publish packages to PyPI/npm | - |
 | `quickstart` | - | Guided zero-to-receipt first debate (new user onboarding) | - |
-| `rbac` | - | RBAC management commands | `assign`, `check`, `permissions`, `roles` |
+| `rbac` | - | RBAC management commands | `assign`, `check`, `check-local`, `list-permissions`, `list-roles`, `permissions`, `roles` |
 | `receipt` | - | View, verify, and export decision receipts | `export`, `inspect`, `list`, `show`, `verify`, `view` |
 | `repl` | - | Interactive debate mode | - |
 | `replay` | - | Replay stored debates | - |
