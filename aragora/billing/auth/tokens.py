@@ -493,12 +493,23 @@ class TokenPair:
         self.expires_in = JWT_EXPIRY_HOURS * 3600
 
     def to_dict(self) -> dict[str, Any]:
-        """Convert to dictionary for API response."""
+        """Convert to dictionary for API response.
+
+        Returns both ``expires_in`` (OAuth 2.0 standard, seconds) and
+        ``expires_at`` (ISO-8601 timestamp) so the frontend can schedule
+        token refresh without manual conversion.
+        """
+        from datetime import datetime, timezone, timedelta
+
+        expires_at = (
+            datetime.now(timezone.utc) + timedelta(seconds=self.expires_in)
+        ).isoformat()
         return {
             "access_token": self.access_token,
             "refresh_token": self.refresh_token,
             "token_type": self.token_type,
             "expires_in": self.expires_in,
+            "expires_at": expires_at,
         }
 
 

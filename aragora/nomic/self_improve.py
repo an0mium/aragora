@@ -1025,12 +1025,224 @@ class SelfImprovePipeline:
 
         return waves
 
+    async def _execute_with_coordination(
+        self,
+        subtasks: list[Any],
+        cycle_id: str,
+    ) -> list[dict[str, Any]] | None:
+        """Execute subtasks using the coordination module with health monitoring.
+
+        Uses TaskDispatcher for priority-based scheduling, WorktreeManager for
+        health-tracked worktrees, HealthWatchdog for stall detection, and
+        GitReconciler for conflict-aware merging.
+
+        Returns None if the coordination module is unavailable, signaling
+        fallback to BranchCoordinator.
+        """
+        try:
+            from aragora.coordination import (
+                TaskDispatcher,
+                DispatcherConfig,
+                WorktreeManager,
+                WorktreeManagerConfig,
+                HealthWatchdog,
+                WatchdogConfig,
+                GitReconciler,
+                ReconcilerConfig,
+            )
+        except ImportError:
+            return None
+
+        from pathlib import Path as P
+
+        repo_path = P.cwd()
+
+        # Initialize coordination components
+        dispatcher = TaskDispatcher(
+            DispatcherConfig(
+                max_retries=getattr(self.config, "debug_loop_max_retries", 2),
+                max_concurrent=self.config.max_parallel,
+            )
+        )
+        wt_manager = WorktreeManager(
+            repo_path=repo_path,
+            config=WorktreeManagerConfig(max_worktrees=self.config.max_parallel * 2),
+        )
+        watchdog = HealthWatchdog(
+            worktree_manager=wt_manager,
+            task_dispatcher=dispatcher,
+            config=WatchdogConfig(
+                check_interval_seconds=30.0,
+                auto_reassign_stalled=True,
+                auto_cleanup_abandoned=True,
+            ),
+        )
+        reconciler = GitReconciler(
+            repo_path=repo_path,
+            config=ReconcilerConfig(),
+        )
+
+        # Submit all subtasks to the dispatcher
+        task_id_map: dict[str, Any] = {}  # dispatcher task_id -> original subtask
+        for i, subtask in enumerate(subtasks):
+            desc = self._extract_subtask_desc(subtask)
+            track = getattr(subtask, "track", None)
+            if isinstance(track, str):
+                track_str = track
+            elif hasattr(track, "value"):
+                track_str = track.value
+            else:
+                track_str = "core"
+
+            # Extract dependency IDs if present
+            deps = getattr(subtask, "dependencies", []) or []
+
+            task = dispatcher.submit(
+                title=desc[:200],
+                description=desc,
+                priority=i + 1,
+                track=track_str,
+                depends_on=deps,
+            )
+            task_id_map[task.task_id] = subtask
+
+        # Start the health watchdog background loop
+        await watchdog.start()
+
+        results: list[dict[str, Any]] = []
+        worktree_branches: list[str] = []  # track branches for merge
+
+        try:
+            while dispatcher.pending_tasks or dispatcher.running_tasks:
+                # Check budget
+                if self._total_spend_usd > self.config.budget_limit_usd:
+                    logger.warning(
+                        "coordination_budget_exceeded spend=%.2f limit=%.2f",
+                        self._total_spend_usd,
+                        self.config.budget_limit_usd,
+                    )
+                    break
+
+                # Get next available task
+                task = dispatcher.get_next()
+                if task is None:
+                    # All remaining tasks are blocked or running; wait briefly
+                    await asyncio.sleep(1)
+                    continue
+
+                # Create a worktree for this task
+                try:
+                    wt_state = await wt_manager.create(
+                        name=f"si-{cycle_id[:8]}-{task.task_id}",
+                        track=task.track,
+                        agent_id=f"self-improve-{cycle_id}",
+                    )
+                except RuntimeError as exc:
+                    logger.warning("worktree_create_failed task=%s: %s", task.task_id, exc)
+                    dispatcher.fail(task.task_id, str(exc))
+                    results.append({
+                        "success": False,
+                        "subtask": task.title[:100],
+                        "files_changed": [],
+                        "tests_passed": 0,
+                        "tests_failed": 0,
+                    })
+                    continue
+
+                # Assign and start the task
+                dispatcher.assign(task.task_id, wt_state.worktree_id)
+                dispatcher.start(task.task_id)
+
+                # Execute the subtask in the worktree
+                original_subtask = task_id_map[task.task_id]
+                # Set worktree path on subtask for downstream use
+                if hasattr(original_subtask, "__dict__"):
+                    original_subtask.worktree_path = str(wt_state.path)
+
+                exec_result = await self._execute_single(
+                    original_subtask, cycle_id
+                )
+
+                # Update dispatcher and track results
+                if exec_result.get("success"):
+                    dispatcher.complete(task.task_id, exec_result)
+                    worktree_branches.append(wt_state.branch_name)
+                else:
+                    dispatcher.fail(task.task_id, exec_result.get("error", "execution failed"))
+
+                # Update worktree activity
+                wt_manager.record_activity(wt_state.worktree_id)
+
+                results.append(exec_result)
+
+                # Track cost
+                cost = exec_result.get("cost_usd", 0.0)
+                self._total_spend_usd += cost
+
+        finally:
+            # Stop the watchdog
+            await watchdog.stop()
+
+            # Reconcile: merge successful branches back
+            for branch in worktree_branches:
+                try:
+                    merge_result = await reconciler.safe_merge(branch)
+                    if not merge_result.success:
+                        logger.warning(
+                            "coordination_merge_failed branch=%s conflicts=%d",
+                            branch,
+                            len(merge_result.conflicts),
+                        )
+                except (RuntimeError, subprocess.CalledProcessError) as exc:
+                    logger.warning("coordination_merge_error branch=%s: %s", branch, exc)
+
+            # Clean up worktrees
+            for wt_state in list(wt_manager.worktrees.values()):
+                try:
+                    await wt_manager.destroy(wt_state.worktree_id)
+                except (RuntimeError, OSError) as exc:
+                    logger.debug("worktree_cleanup_failed: %s", exc)
+
+        logger.info(
+            "coordination_execution_complete cycle=%s tasks=%d/%d branches_merged=%d",
+            cycle_id,
+            len([r for r in results if r.get("success")]),
+            len(results),
+            len(worktree_branches),
+        )
+        return results
+
+    @staticmethod
+    def _extract_subtask_desc(subtask: Any) -> str:
+        """Extract a description string from various subtask types."""
+        if isinstance(subtask, str):
+            return subtask
+        if hasattr(subtask, "goal") and hasattr(subtask.goal, "description"):
+            return str(subtask.goal.description)
+        if hasattr(subtask, "original_task"):
+            return str(subtask.original_task)
+        if hasattr(subtask, "description"):
+            return str(subtask.description)
+        if hasattr(subtask, "title"):
+            return str(subtask.title)
+        return str(subtask)
+
     async def _execute_in_worktrees(
         self,
         subtasks: list[Any],
         cycle_id: str,
     ) -> list[dict[str, Any]]:
-        """Execute subtasks in isolated worktrees using BranchCoordinator."""
+        """Execute subtasks in isolated worktrees.
+
+        Prefers the coordination module (TaskDispatcher + WorktreeManager +
+        HealthWatchdog + GitReconciler) when available. Falls back to
+        BranchCoordinator, then to wave-based parallel execution.
+        """
+        # Prefer coordination module (health-tracked, priority-scheduled)
+        coordination_result = await self._execute_with_coordination(subtasks, cycle_id)
+        if coordination_result is not None:
+            return coordination_result
+
         try:
             from aragora.nomic.branch_coordinator import (
                 BranchCoordinator,
