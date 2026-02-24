@@ -13,7 +13,7 @@ import logging
 from typing import Any, TYPE_CHECKING
 
 from aragora.rbac.decorators import require_permission
-from aragora.server.handlers.base import handle_errors
+from aragora.server.handlers.base import handle_errors, json_response
 from aragora.server.handlers.openapi_decorator import api_endpoint
 from aragora.server.handlers.utils.rate_limit import rate_limit
 
@@ -112,10 +112,7 @@ class WorkspaceActivityMixin:
             except (TypeError, ValueError, AttributeError, OSError) as exc:
                 logger.debug("Activity feed query failed: %s", exc)
 
-        return {
-            "status": 200,
-            "body": {"events": events},
-        }
+        return json_response({"events": events})
 
 
 def _describe_event(evt: Any) -> str:
