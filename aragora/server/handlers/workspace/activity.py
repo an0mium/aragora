@@ -38,27 +38,36 @@ class WorkspaceActivityMixin:
         path="/api/v1/workspaces/{workspace_id}/activity",
         summary="Get recent workspace activity",
         tags=["Workspace"],
-        response_model={
-            "type": "object",
-            "properties": {
-                "events": {
-                    "type": "array",
-                    "items": {
-                        "type": "object",
-                        "properties": {
-                            "id": {"type": "string"},
-                            "type": {"type": "string"},
-                            "actor": {"type": "string"},
-                            "description": {"type": "string"},
-                            "timestamp": {"type": "string", "format": "date-time"},
-                            "metadata": {"type": "object"},
-                        },
-                    },
+        responses={
+            "200": {
+                "description": "Workspace activity events",
+                "content": {
+                    "application/json": {
+                        "schema": {
+                            "type": "object",
+                            "properties": {
+                                "events": {
+                                    "type": "array",
+                                    "items": {
+                                        "type": "object",
+                                        "properties": {
+                                            "id": {"type": "string"},
+                                            "type": {"type": "string"},
+                                            "actor": {"type": "string"},
+                                            "description": {"type": "string"},
+                                            "timestamp": {"type": "string", "format": "date-time"},
+                                            "metadata": {"type": "object"},
+                                        },
+                                    },
+                                },
+                            },
+                        }
+                    }
                 },
-            },
+            }
         },
     )
-    @handle_errors
+    @handle_errors("workspace activity")
     @require_permission("workspaces:read")
     @rate_limit(requests_per_minute=60)
     def handle_workspace_activity(self: Any, handler: HTTPRequestHandler) -> HandlerResult:
