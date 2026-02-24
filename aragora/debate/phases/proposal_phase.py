@@ -270,7 +270,10 @@ class ProposalPhase:
             for idx, agent in enumerate(proposers)
         ]
 
-        # Wait for all proposals and process as they complete
+        # Wait for all proposals and process as they complete.
+        # Track time-to-first-response for latency visibility (issue #268).
+        _first_response_logged = False
+        _proposals_start = time.perf_counter()
         for completed_task in asyncio.as_completed(tasks):
             try:
                 agent, result_or_error = await completed_task
@@ -279,6 +282,11 @@ class ProposalPhase:
             except Exception as e:  # noqa: BLE001 - phase isolation
                 logger.error("task_exception phase=proposal error=%s", e)
                 continue
+
+            if not _first_response_logged:
+                _first_ms = (time.perf_counter() - _proposals_start) * 1000
+                logger.info("time_to_first_proposal_ms=%.1f agent=%s", _first_ms, agent.name)
+                _first_response_logged = True
 
             # Process the result
             self._process_proposal_result(ctx, agent, result_or_error)

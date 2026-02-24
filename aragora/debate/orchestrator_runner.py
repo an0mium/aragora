@@ -320,7 +320,11 @@ async def initialize_debate_context(
         if isinstance(agent, APIAgent):
             agent.set_complexity_governor(governor)
 
-    # Classify question domain using LLM for accurate persona selection
+    # Classify question domain for accurate persona selection.
+    # Latency optimization (issue #268): when LLM classification is enabled
+    # it is dispatched as a background task so that it does not block the
+    # time-to-first-proposal.  The keyword-based fallback runs synchronously
+    # and is fast enough to complete inline.
     if arena.prompt_builder:
         try:
             from aragora.utils.env import is_offline_mode
@@ -329,7 +333,28 @@ async def initialize_debate_context(
             if is_offline_mode():
                 use_llm = False
 
-            await arena.prompt_builder.classify_question_async(use_llm=use_llm)
+            if use_llm:
+                # Run fast heuristic classification first (keyword-based,
+                # sub-millisecond) so agents always have a domain before
+                # their first prompt is built.
+                _classify_start = time.perf_counter()
+                await arena.prompt_builder.classify_question_async(use_llm=False)
+                _classify_ms = (time.perf_counter() - _classify_start) * 1000
+                logger.debug("question_classification_heuristic elapsed_ms=%.1f", _classify_ms)
+
+                # Dispatch LLM classification in the background -- proposals
+                # can start before it finishes.
+                async def _bg_classify() -> None:
+                    try:
+                        await arena.prompt_builder.classify_question_async(use_llm=True)
+                    except (asyncio.CancelledError, asyncio.TimeoutError):
+                        pass
+                    except Exception:  # noqa: BLE001
+                        pass
+
+                ctx.background_classification_task = asyncio.create_task(_bg_classify())  # type: ignore[attr-defined]
+            else:
+                await arena.prompt_builder.classify_question_async(use_llm=False)
         except (asyncio.TimeoutError, asyncio.CancelledError) as e:
             logger.warning("Question classification timed out: %s", e)
         except (ValueError, TypeError, AttributeError) as e:
@@ -774,6 +799,10 @@ async def handle_debate_completion(
     # Populate DebateResult cost fields from cost tracker
     if ctx.result:
         await _populate_result_cost(ctx.result, state.debate_id, arena.extensions)
+
+    # Persist debate cost summary to Knowledge Mound via CostAdapter
+    if ctx.result:
+        _persist_debate_cost_to_km(state.debate_id, arena.extensions)
 
     # Record debate cost against organization budget
     if ctx.result:
