@@ -70,7 +70,7 @@ class SLOAPI:
             Dict with availability SLO metrics including current value,
             target, and compliance status.
         """
-        return self._client.request("GET", "/api/v1/slos/availability")
+        return self._client.request("GET", "/api/slos/availability")
 
     def get_latency(self) -> dict[str, Any]:
         """
@@ -79,7 +79,7 @@ class SLOAPI:
         Returns:
             Dict with latency SLO metrics including P50, P95, P99 values.
         """
-        return self._client.request("GET", "/api/v1/slos/latency")
+        return self._client.request("GET", "/api/slos/latency")
 
     def get_debate_success(self) -> dict[str, Any]:
         """
@@ -88,7 +88,7 @@ class SLOAPI:
         Returns:
             Dict with debate success SLO metrics.
         """
-        return self._client.request("GET", "/api/v1/slos/debate-success")
+        return self._client.request("GET", "/api/slos/debate-success")
 
     def get_slo(self, slo_name: str) -> dict[str, Any]:
         """
@@ -100,7 +100,7 @@ class SLOAPI:
         Returns:
             Dict with individual SLO details including current value and target.
         """
-        return self._client.request("GET", f"/api/v1/slos/{slo_name}")
+        return self._client.request("GET", f"/api/slos/{slo_name}")
 
     # =========================================================================
     # Error Budget

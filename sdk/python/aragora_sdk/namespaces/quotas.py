@@ -111,6 +111,7 @@ class AsyncQuotasAPI:
 
     async def get(self, resource: str) -> dict[str, Any]:
         """Get quota details for a specific resource type."""
+        # TODO: server route not yet implemented
         return await self._client.request("GET", f"/api/v1/quotas/{resource}")
 
     async def get_usage(self, period: str | None = None) -> dict[str, Any]:
@@ -118,6 +119,7 @@ class AsyncQuotasAPI:
         params: dict[str, Any] = {}
         if period:
             params["period"] = period
+        # TODO: server route not yet implemented
         return await self._client.request("GET", "/api/v1/quotas/usage", params=params or None)
 
     async def request_increase(self, resource: str, **kwargs: Any) -> dict[str, Any]:

@@ -245,6 +245,17 @@ _EXPORT_MAP = {
     "WeightSource": ("aragora.debate.voting_engine", "WeightSource"),
     "VotingEngine": ("aragora.debate.voting_engine", "VotingEngine"),
     "VoteWeightCalculator": ("aragora.debate.voting_engine", "VoteWeightCalculator"),
+    # Adversarial Protocol Tests
+    "AdversarialBenchmark": ("aragora.debate.adversarial_protocols", "AdversarialBenchmark"),
+    "ExploitType": ("aragora.debate.adversarial_protocols", "ExploitType"),
+    "ExploitDetection": ("aragora.debate.adversarial_protocols", "ExploitDetection"),
+    "BenchmarkScorecard": ("aragora.debate.adversarial_protocols", "BenchmarkScorecard"),
+    "SycophancyDetector": ("aragora.debate.adversarial_protocols", "SycophancyDetector"),
+    "AppealToAuthorityDetector": ("aragora.debate.adversarial_protocols", "AppealToAuthorityDetector"),
+    "VerboseBullshitDetector": ("aragora.debate.adversarial_protocols", "VerboseBullshitDetector"),
+    "ConsensusGamingDetector": ("aragora.debate.adversarial_protocols", "ConsensusGamingDetector"),
+    "MetricGamingDetector": ("aragora.debate.adversarial_protocols", "MetricGamingDetector"),
+    "adversarial_benchmark": ("aragora.debate.adversarial_protocols", "adversarial_benchmark"),
 }
 
 
@@ -499,4 +510,15 @@ __all__ = [
     "WeightSource",
     "VotingEngine",
     "VoteWeightCalculator",
+    # Adversarial Protocol Tests
+    "AdversarialBenchmark",
+    "ExploitType",
+    "ExploitDetection",
+    "BenchmarkScorecard",
+    "SycophancyDetector",
+    "AppealToAuthorityDetector",
+    "VerboseBullshitDetector",
+    "ConsensusGamingDetector",
+    "MetricGamingDetector",
+    "adversarial_benchmark",
 ]

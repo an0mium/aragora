@@ -1760,8 +1760,18 @@ export default function Oracle() {
               </div>
             ))}
 
-            {/* WebSocket streaming display — real-time token flow */}
-            {oracle.connected && !oracle.fallbackMode && oracle.phase !== 'idle' && (
+            {/* Debate mode streaming display */}
+            {oracle.connected && !oracle.fallbackMode && oracle.isDebateMode && oracle.phase !== 'idle' && (
+              <DebateStreamDisplay
+                events={oracle.debateEvents}
+                agents={oracle.debateAgents}
+                round={oracle.debateRound}
+                debateId={oracle.debateId}
+              />
+            )}
+
+            {/* WebSocket streaming display — real-time token flow (non-debate mode) */}
+            {oracle.connected && !oracle.fallbackMode && !oracle.isDebateMode && oracle.phase !== 'idle' && (
               <>
                 {/* Streaming Oracle response (reflex + deep tokens) */}
                 {oracle.tokens && (

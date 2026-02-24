@@ -117,6 +117,7 @@ HANDLER_STABILITY: dict[str, Stability] = {
     "SchedulerHandler": Stability.EXPERIMENTAL,
     "AuditSessionsHandler": Stability.EXPERIMENTAL,
     "BreakpointsHandler": Stability.STABLE,
+    "DebateInterventionHandler": Stability.EXPERIMENTAL,
     "SlackHandler": Stability.STABLE,
     "EvidenceHandler": Stability.STABLE,
     "WebhookHandler": Stability.STABLE,

@@ -196,6 +196,7 @@ StatusPageHandler = _safe_import("aragora.server.handlers.public.status_page", "
 LaboratoryHandler = _safe_import("aragora.server.handlers", "LaboratoryHandler")
 ProbesHandler = _safe_import("aragora.server.handlers", "ProbesHandler")
 BreakpointsHandler = _safe_import("aragora.server.handlers", "BreakpointsHandler")
+DebateInterventionHandler = _safe_import("aragora.server.handlers", "DebateInterventionHandler")
 IntrospectionHandler = _safe_import("aragora.server.handlers", "IntrospectionHandler")
 
 # =============================================================================
@@ -492,6 +493,7 @@ ADMIN_HANDLER_REGISTRY: list[tuple[str, object]] = [
     ("_laboratory_handler", LaboratoryHandler),
     ("_probes_handler", ProbesHandler),
     ("_breakpoints_handler", BreakpointsHandler),
+    ("_debate_intervention_handler", DebateInterventionHandler),
     ("_introspection_handler", IntrospectionHandler),
     # Evolution
     ("_evolution_handler", EvolutionHandler),
@@ -660,6 +662,7 @@ __all__ = [
     "LaboratoryHandler",
     "ProbesHandler",
     "BreakpointsHandler",
+    "DebateInterventionHandler",
     "IntrospectionHandler",
     # Evolution
     "EvolutionHandler",

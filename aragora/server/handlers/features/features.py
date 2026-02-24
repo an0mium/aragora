@@ -874,6 +874,7 @@ class FeaturesHandler(BaseHandler):
             "SocialMediaHandler": "media",
             "DocumentHandler": "documents",
             "BreakpointsHandler": "debugging",
+            "DebateInterventionHandler": "live_debate",
             "CheckpointHandler": "debugging",
             "ReplaysHandler": "debugging",
             "RoutingHandler": "routing",
