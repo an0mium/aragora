@@ -9,6 +9,7 @@ TTL_HOURS="${CODEX_WORKTREE_TTL_HOURS:-24}"
 STRATEGY="merge"
 KEEP_BRANCHES=true
 INCLUDE_ACTIVE=false
+RECONCILE_ONLY=false
 declare -a MANAGED_DIRS=()
 
 usage() {
@@ -25,6 +26,7 @@ Options:
   --delete-branches             Allow cleanup to delete local codex/* branches
   --no-delete-branches          Keep local codex/* branches during cleanup
   --include-active              Also maintain worktrees with active processes
+  --reconcile-only             Reconcile only; skip cleanup/removal phase
   --help                        Show this help
 
 If no --managed-dir values are provided, the script auto-discovers
@@ -64,6 +66,10 @@ while [[ $# -gt 0 ]]; do
             ;;
         --include-active)
             INCLUDE_ACTIVE=true
+            shift
+            ;;
+        --reconcile-only)
+            RECONCILE_ONLY=true
             shift
             ;;
         --help|-h)
@@ -125,18 +131,31 @@ for managed_dir in "${MANAGED_DIRS[@]}"; do
         fi
     fi
 
-    cmd=(
-        python3 "${REPO_ROOT}/scripts/codex_worktree_autopilot.py"
-        --repo "${REPO_ROOT}"
-        --managed-dir "${managed_dir}"
-        maintain
-        --base "${BASE_BRANCH}"
-        --strategy "${STRATEGY}"
-        --ttl-hours "${TTL_HOURS}"
-        --json
-    )
-    if [[ "${KEEP_BRANCHES}" == true ]]; then
-        cmd+=(--no-delete-branches)
+    if [[ "${RECONCILE_ONLY}" == true ]]; then
+        cmd=(
+            python3 "${REPO_ROOT}/scripts/codex_worktree_autopilot.py"
+            --repo "${REPO_ROOT}"
+            --managed-dir "${managed_dir}"
+            reconcile
+            --all
+            --base "${BASE_BRANCH}"
+            --strategy "${STRATEGY}"
+            --json
+        )
+    else
+        cmd=(
+            python3 "${REPO_ROOT}/scripts/codex_worktree_autopilot.py"
+            --repo "${REPO_ROOT}"
+            --managed-dir "${managed_dir}"
+            maintain
+            --base "${BASE_BRANCH}"
+            --strategy "${STRATEGY}"
+            --ttl-hours "${TTL_HOURS}"
+            --json
+        )
+        if [[ "${KEEP_BRANCHES}" == true ]]; then
+            cmd+=(--no-delete-branches)
+        fi
     fi
 
     echo "worktree-maintainer: maintaining ${managed_dir}"

@@ -99,7 +99,7 @@ cat >"${PLIST_PATH}" <<EOF
   <array>
     <string>/bin/bash</string>
     <string>-lc</string>
-    <string>cd "${REPO_ROOT}" &amp;&amp; ./scripts/worktree_maintainer.sh --base "${BASE_BRANCH}" --ttl-hours "${TTL_HOURS}" --strategy "${STRATEGY}" ${KEEP_FLAG}</string>
+    <string>cd "${REPO_ROOT}" &amp;&amp; ./scripts/worktree_maintainer.sh --base "${BASE_BRANCH}" --ttl-hours "${TTL_HOURS}" --strategy "${STRATEGY}" --reconcile-only ${KEEP_FLAG}</string>
   </array>
   <key>RunAtLoad</key>
   <true/>

@@ -199,11 +199,11 @@ export default function SystemIntelligencePage() {
                   {queueItems.map((item, i) => (
                     <div key={i} className="flex items-center gap-3 p-3 bg-bg rounded">
                       <span className={`px-2 py-0.5 text-xs font-mono rounded ${
-                        item.priority === 'high' ? 'bg-red-500/20 text-red-400' :
-                        item.priority === 'medium' ? 'bg-yellow-500/20 text-yellow-400' :
+                        item.priority >= 75 ? 'bg-red-500/20 text-red-400' :
+                        item.priority >= 50 ? 'bg-yellow-500/20 text-yellow-400' :
                         'bg-blue-400/20 text-blue-400'
                       }`}>
-                        {item.priority}
+                        {item.priority >= 75 ? 'high' : item.priority >= 50 ? 'medium' : 'low'}
                       </span>
                       <span className="text-sm text-text flex-1">{item.goal}</span>
                       <span className="text-xs text-text-muted">{item.status}</span>
