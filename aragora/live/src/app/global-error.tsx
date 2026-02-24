@@ -1,5 +1,8 @@
 'use client';
 
+import { useEffect } from 'react';
+import { getCrashReporter } from '@/lib/crash-reporter';
+
 /**
  * Global error page for root layout errors
  *
@@ -13,6 +16,17 @@ export default function GlobalError({
   error: Error & { digest?: string };
   reset: () => void;
 }) {
+  useEffect(() => {
+    console.error('Global app error:', error);
+    const reporter = getCrashReporter();
+    const accepted = reporter.capture(error, {
+      componentName: 'next-global-error-boundary',
+    });
+    if (accepted) {
+      reporter.flush();
+    }
+  }, [error]);
+
   return (
     <html lang="en" className="dark">
       <body className="bg-[#0a0a0a] text-[#e0e0e0]" style={{ fontFamily: 'JetBrains Mono, monospace' }}>

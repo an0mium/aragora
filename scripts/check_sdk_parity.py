@@ -280,8 +280,14 @@ def extract_sdk_paths_typescript() -> dict[str, set[str]]:
     # The generic type parameter can contain nested angle brackets, e.g.
     # request<Record<string, unknown>>(...) -- so we use (?:<[^(]*>)? to match
     # everything between the first < and the last > before the opening paren.
-    path_pattern = re.compile(
+    request_path_pattern = re.compile(
         r'request(?:<[^(]*>)?\(\s*["\'][A-Z]+["\']\s*,\s*[`"\']([^`"\']+)[`"\']'
+    )
+
+    # Compatibility wrappers in some namespaces use:
+    # invoke('legacyMethod', [...], 'GET', '/api/v1/...')
+    invoke_path_pattern = re.compile(
+        r'invoke(?:<[^(]*>)?\(\s*["\'][^"\']+["\']\s*,\s*\[[^\]]*\]\s*,\s*["\'][A-Z]+["\']\s*,\s*[`"\']([^`"\']+)[`"\']'
     )
 
     namespace_paths: dict[str, set[str]] = {}
@@ -298,7 +304,13 @@ def extract_sdk_paths_typescript() -> dict[str, set[str]]:
         except OSError:
             continue
 
-        for match in path_pattern.finditer(content):
+        for match in request_path_pattern.finditer(content):
+            raw_path = match.group(1)
+            # Replace template expressions ${...} with {param}
+            cleaned = re.sub(r"\$\{[^}]+\}", "{param}", raw_path)
+            paths.add(cleaned)
+
+        for match in invoke_path_pattern.finditer(content):
             raw_path = match.group(1)
             # Replace template expressions ${...} with {param}
             cleaned = re.sub(r"\$\{[^}]+\}", "{param}", raw_path)

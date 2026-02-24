@@ -144,18 +144,21 @@ function makeMockCanvas(overrides: Record<string, unknown> = {}) {
     setActiveStage: jest.fn(),
     stageStatus: {
       ideas: 'pending',
+      principles: 'pending',
       goals: 'pending',
       actions: 'pending',
       orchestration: 'pending',
     },
     stageNodes: {
       ideas: [] as unknown[],
+      principles: [] as unknown[],
       goals: [] as unknown[],
       actions: [] as unknown[],
       orchestration: [] as unknown[],
     },
     stageEdges: {
       ideas: [] as unknown[],
+      principles: [] as unknown[],
       goals: [] as unknown[],
       actions: [] as unknown[],
       orchestration: [] as unknown[],
@@ -210,6 +213,7 @@ describe('UnifiedPipelineCanvas', () => {
       makeMockCanvas({
         stageNodes: {
           ideas: [ideaNode],
+          principles: [],
           goals: [goalNode],
           actions: [actionNode],
           orchestration: [orchNode],
@@ -235,6 +239,7 @@ describe('UnifiedPipelineCanvas', () => {
       makeMockCanvas({
         stageNodes: {
           ideas: [makeIdeaNode('idea-1', 'Idea')],
+          principles: [],
           goals: [makeGoalNode('goal-1', 'Goal')],
           actions: [makeActionNode('action-1', 'Action')],
           orchestration: [orchNode],
@@ -264,6 +269,7 @@ describe('UnifiedPipelineCanvas', () => {
       makeMockCanvas({
         stageNodes: {
           ideas: [makeIdeaNode('idea-1', 'Idea')],
+          principles: [],
           goals: [makeGoalNode('goal-1', 'Goal')],
           actions: [makeActionNode('action-1', 'Action')],
           orchestration: [makeOrchNode('orch-1', 'Agent')],
@@ -290,6 +296,7 @@ describe('UnifiedPipelineCanvas', () => {
       makeMockCanvas({
         stageNodes: {
           ideas: [makeIdeaNode('idea-1', 'Idea')],
+          principles: [],
           goals: [makeGoalNode('goal-1', 'Goal')],
           actions: [],
           orchestration: [],
@@ -318,6 +325,7 @@ describe('UnifiedPipelineCanvas', () => {
       makeMockCanvas({
         stageNodes: {
           ideas: [makeIdeaNode('idea-1', 'Idea')],
+          principles: [],
           goals: [makeGoalNode('goal-1', 'Goal')],
           actions: [makeActionNode('action-1', 'Action')],
           orchestration: [],

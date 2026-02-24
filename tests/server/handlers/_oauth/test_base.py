@@ -661,6 +661,44 @@ class TestOAuthUserCreation:
         assert user.name == "New User"
         assert len(mock_user_store.created_users) == 1
 
+    @pytest.mark.asyncio
+    async def test_create_oauth_user_trusted_provider_allows_unverified_email(
+        self, oauth_handler, mock_user_store
+    ):
+        """Trusted providers should still auto-provision when email_verified is false."""
+        user_info = OAuthUserInfo(
+            provider="google",
+            provider_user_id="google_unverified",
+            email="unverified-google@example.com",
+            name="Unverified Google User",
+            email_verified=False,
+        )
+
+        user = await oauth_handler._create_oauth_user(mock_user_store, user_info)
+
+        assert user is not None
+        assert user.email == "unverified-google@example.com"
+        assert user.id in mock_user_store.oauth_links
+        assert mock_user_store.oauth_links[user.id]["google"] == "google_unverified"
+
+    @pytest.mark.asyncio
+    async def test_create_oauth_user_untrusted_provider_requires_verified_email(
+        self, oauth_handler, mock_user_store
+    ):
+        """Untrusted providers must not auto-provision with unverified email."""
+        user_info = OAuthUserInfo(
+            provider="oidc",
+            provider_user_id="oidc_unverified",
+            email="unverified-oidc@example.com",
+            name="Unverified OIDC User",
+            email_verified=False,
+        )
+
+        user = await oauth_handler._create_oauth_user(mock_user_store, user_info)
+
+        assert user is None
+        assert not any(u.email == "unverified-oidc@example.com" for u in mock_user_store.created_users)
+
 
 # ===========================================================================
 # Method Not Allowed Tests

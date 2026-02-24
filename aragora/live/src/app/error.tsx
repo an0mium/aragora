@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
+import { getCrashReporter } from '@/lib/crash-reporter';
 
 export default function Error({
   error,
@@ -14,6 +15,13 @@ export default function Error({
 
   useEffect(() => {
     console.error('App error:', error);
+    const reporter = getCrashReporter();
+    const accepted = reporter.capture(error, {
+      componentName: 'next-app-error-boundary',
+    });
+    if (accepted) {
+      reporter.flush();
+    }
   }, [error]);
 
   // Detect hydration mismatch errors (React Error #418, #423, #425)
@@ -23,6 +31,8 @@ export default function Error({
     error.message?.includes('server-rendered') ||
     error.message?.includes('Text content does not match') ||
     error.digest?.includes('NEXT_');
+  const reactMinifiedMatch = error.message?.match(/React error #(\d+)/i);
+  const reactMinifiedCode = reactMinifiedMatch?.[1] ?? null;
 
   // Hard refresh: bypass cache and force full page reload
   const handleHardRefresh = () => {
@@ -45,6 +55,11 @@ export default function Error({
                 ? 'A rendering mismatch occurred. This is usually harmless — try refreshing.'
                 : 'Something went wrong in the Aragora Live interface'}
             </div>
+            {reactMinifiedCode && (
+              <div className="text-warning text-xs">
+                React production invariant #{reactMinifiedCode}
+              </div>
+            )}
             {error.digest && (
               <div className="text-text-muted text-xs">
                 Error ID: {error.digest}
