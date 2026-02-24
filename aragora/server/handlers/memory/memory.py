@@ -425,7 +425,7 @@ class MemoryHandler(
     # Unified Memory Gateway Endpoints
     # =========================================================================
 
-    def _get_unified_handler(self):
+    def _get_unified_handler(self) -> Any:
         """Get or create UnifiedMemoryHandler."""
         if not hasattr(self, "_unified_handler"):
             try:
@@ -448,7 +448,7 @@ class MemoryHandler(
         try:
             body = getattr(handler, "_request_body", None) or query_params
             result = run_async(uh.handle_search(body))
-            return HandlerResult(data=result)
+            return json_response(result)
         except (RuntimeError, ValueError, TypeError, AttributeError) as e:
             logger.warning("Unified search failed: %s", e)
             return error_response("Unified memory search failed", 500)
@@ -463,7 +463,7 @@ class MemoryHandler(
 
         try:
             result = run_async(uh.handle_stats())
-            return HandlerResult(data=result)
+            return json_response(result)
         except (RuntimeError, ValueError, TypeError, AttributeError) as e:
             logger.warning("Unified stats failed: %s", e)
             return error_response("Unified memory stats retrieval failed", 500)

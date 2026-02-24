@@ -503,27 +503,26 @@ class AnalysisOperationsMixin:
             alerts = []
             interventions = []
 
-            for round_num, round_data in enumerate(result.rounds, 1):
-                # Check for hollow consensus
-                messages = [m for m in result.messages if m.round == round_num]
-                alert = trickster.check_hollow_consensus(
+            for round_num in range(1, result.rounds_used + 1):
+                # Check for hollow consensus via check_and_intervene
+                messages = [m for m in result.messages if getattr(m, "round", 0) == round_num]
+                responses = {
+                    getattr(m, "agent", "unknown"): getattr(m, "content", "")
+                    for m in messages
+                }
+                intervention = trickster.check_and_intervene(
+                    responses=responses,
+                    convergence_similarity=getattr(result, "convergence_similarity", 0.0),
                     round_num=round_num,
-                    messages=[{"agent": m.agent, "content": m.content} for m in messages],
                 )
-                if alert:
+                if intervention:
                     alerts.append(
                         {
                             "round": round_num,
-                            "severity": alert.severity,
-                            "evidence_quality": alert.evidence_quality,
-                            "convergence": alert.convergence,
-                            "gaps": alert.evidence_gaps,
+                            "severity": getattr(intervention, "severity", "medium"),
+                            "intervention_type": intervention.intervention_type.value,
                         }
                     )
-
-                # Check for interventions
-                intervention = trickster.get_intervention(round_num)
-                if intervention:
                     interventions.append(
                         {
                             "round": round_num,
