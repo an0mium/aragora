@@ -266,6 +266,8 @@ const adminNavItems: NavItem[] = [
   { label: 'Admin Verticals', href: '/admin/verticals', icon: '/', adminOnly: true },
   { label: 'Workspace', href: '/admin/workspace', icon: '\u25A3', adminOnly: true },
   { label: 'AB Tests', href: '/admin/ab-tests', icon: 'A|B', adminOnly: true },
+  { label: 'Intelligence', href: '/admin/intelligence', icon: '\u269B', adminOnly: true },
+  { label: 'System Health', href: '/admin/system-health', icon: '\u2764', adminOnly: true },
 ];
 
 // ---------------------------------------------------------------------------
