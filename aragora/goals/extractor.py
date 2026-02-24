@@ -764,7 +764,7 @@ class GoalExtractor:
             # Parse JSON from response
             parsed = self._parse_ai_goals(text, nodes)
             return parsed
-        except Exception as e:
+        except (RuntimeError, ValueError, TypeError, OSError, AttributeError, KeyError, ConnectionError, TimeoutError) as e:
             logger.warning("AI goal extraction failed: %s", e)
             return None
 

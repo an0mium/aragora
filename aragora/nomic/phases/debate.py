@@ -785,7 +785,7 @@ DO NOT propose features that already exist below.
             result = fn(*args)
             if asyncio.iscoroutine(result):
                 await result
-        except Exception as e:
+        except Exception as e:  # noqa: BLE001 - external hook callbacks must not crash debate phase
             self._log(f"  Hook error: {e}")
 
 

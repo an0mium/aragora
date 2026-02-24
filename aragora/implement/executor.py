@@ -517,7 +517,7 @@ Follow existing code style and tests.""",
                         content = getattr(r, "content", str(r))
                         lines.append(f"[{source}, {confidence:.0%}] {content}")
                     gateway_result = "\n".join(lines)
-            except Exception as exc:
+            except (ImportError, RuntimeError, ValueError, TypeError, OSError, AttributeError, KeyError) as exc:
                 logger.debug("Memory context fetch failed: %s", exc)
 
         if gateway_result:

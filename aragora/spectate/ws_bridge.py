@@ -228,7 +228,7 @@ class SpectateWebSocketBridge:
                 subscriber(event)
             except (KeyboardInterrupt, SystemExit):
                 raise
-            except Exception:
+            except Exception:  # noqa: BLE001 - external subscriber callbacks must not crash event dispatch
                 logger.debug("spectate_subscriber_error", exc_info=True)
 
 

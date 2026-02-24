@@ -83,10 +83,10 @@ const DEFAULT_STATUS_ITEMS = [
   { name: 'Audit System', key: 'audit', icon: '' },
 ];
 
-function SystemStatusPanel() {
+function SystemStatusPanel({ refreshInterval = 30000 }: { refreshInterval?: number }) {
   const { data: health, error: healthError } = useSWRFetch<HealthResponse>(
     '/api/health',
-    { refreshInterval: 30000 }
+    { refreshInterval }
   );
 
   const getComponentStatus = (key: string): string => {
@@ -179,13 +179,15 @@ export default function DashboardPage() {
 
   const { setContext, clearContext } = useRightSidebar();
 
-  // WebSocket-driven live refresh — invalidates SWR cache on debate lifecycle events
+  // WebSocket-driven live refresh — invalidates SWR cache on debate lifecycle events.
+  // When connected, we rely on push-based invalidation and only poll as a safety net.
   const { isConnected: wsConnected } = useDashboardEvents();
+  const pollInterval = wsConnected ? 120_000 : 30_000; // 120 s safety-net vs 30 s fallback
 
   // Fetch debates from backend API
   const { data: backendDebates, error: backendError, isLoading: backendLoading } = useSWRFetch<BackendDebatesResponse>(
     '/api/v1/debates?limit=5&sort=created_at:desc',
-    { refreshInterval: 30000 }
+    { refreshInterval: pollInterval }
   );
 
   // When backend data arrives, use it; otherwise fall back to Supabase
@@ -318,7 +320,7 @@ export default function DashboardPage() {
           </div>
 
           {/* Executive Summary KPIs */}
-          <ExecutiveSummary refreshInterval={30000} />
+          <ExecutiveSummary refreshInterval={pollInterval} />
 
           {/* Trial / Subscription Status */}
           <div className="mt-6">
@@ -409,7 +411,7 @@ export default function DashboardPage() {
             </div>
 
             {/* System Status */}
-            <SystemStatusPanel />
+            <SystemStatusPanel refreshInterval={pollInterval} />
           </div>
 
           {/* Cost Overview */}
