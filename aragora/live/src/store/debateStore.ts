@@ -335,6 +335,9 @@ export const useDebateStore = create<DebateStore>()(
               startTime: Date.now(),
               expectedSeq: agentSeq && agentSeq > 0 ? agentSeq + 1 : 1,
               pendingTokens: new Map(),
+              reasoning: [],
+              evidence: [],
+              confidence: null,
             });
           }
 
