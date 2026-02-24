@@ -132,6 +132,14 @@ jobs:
 
       - name: Run Playwright tests
         working-directory: aragora/live
+        run: npx playwright test e2e/auth-callback-reliability.spec.ts --project=chromium --reporter=list
+        env:
+          BASE_URL: http://localhost:3000
+          API_URL: http://localhost:8080
+          WS_URL: ws://localhost:8765
+
+      - name: Run Playwright tests
+        working-directory: aragora/live
         run: npx playwright test --reporter=html
         env:
           BASE_URL: http://localhost:3000
