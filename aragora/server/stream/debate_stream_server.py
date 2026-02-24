@@ -23,6 +23,7 @@ import sys
 import threading
 import time
 from contextlib import asynccontextmanager
+from typing import Any
 
 from .emitter import TokenBucket
 from .events import AudienceMessage, StreamEvent, StreamEventType
@@ -156,13 +157,17 @@ class DebateStreamServer(ServerBase):
     # Cleanup interval for rate limiters
     _CLEANUP_INTERVAL = 100
 
-    def __init__(self, host: str = "localhost", port: int = 8765):
+    def __init__(self, host: str = "localhost", port: int = 8765, enable_tts: bool = False):
         # Initialize base class with common functionality
         super().__init__()
 
         self.host = host
         self.port = port
         self.current_debate: dict | None = None
+        self.enable_tts = enable_tts
+
+        # TTS event bridge (lazily created when enable_tts is True)
+        self._tts_bridge: Any | None = None
 
         # WebSocket-specific: connection rate limiting per IP
         self._ws_conn_rate: dict[str, list[float]] = {}  # ip -> list of connection timestamps
@@ -1339,6 +1344,46 @@ class DebateStreamServer(ServerBase):
         finally:
             await self._cleanup_connection(client_ip, client_id, ws_id, websocket)
 
+    def start_tts_bridge(self, event_bus: Any, tts_integration: Any, voice_handler: Any) -> None:
+        """Create and connect a TTS event bridge for live voice synthesis.
+
+        Call this after enabling ``enable_tts`` when a voice session becomes
+        active.  The bridge subscribes to ``agent_message`` events on the
+        supplied event bus and automatically synthesizes TTS audio through the
+        voice handler.
+
+        Args:
+            event_bus: Debate :class:`EventBus` instance.
+            tts_integration: :class:`TTSIntegration` instance.
+            voice_handler: :class:`VoiceStreamHandler` instance.
+        """
+        if not self.enable_tts:
+            logger.debug("[ws] TTS bridge not started (enable_tts=False)")
+            return
+
+        try:
+            from aragora.server.stream.tts_event_bridge import TTSEventBridge
+
+            self._tts_bridge = TTSEventBridge(
+                tts=tts_integration,
+                voice_handler=voice_handler,
+            )
+            self._tts_bridge.connect(event_bus)
+            logger.info("[ws] TTS event bridge started")
+        except (ImportError, RuntimeError, TypeError) as e:
+            logger.warning("[ws] Failed to start TTS event bridge: %s", e)
+
+    async def stop_tts_bridge(self) -> None:
+        """Shut down the TTS event bridge if running."""
+        if self._tts_bridge is not None:
+            try:
+                await self._tts_bridge.shutdown()
+            except (RuntimeError, OSError) as e:
+                logger.warning("[ws] Error stopping TTS bridge: %s", e)
+            finally:
+                self._tts_bridge = None
+            logger.info("[ws] TTS event bridge stopped")
+
     async def start(self) -> None:
         """Start the WebSocket server."""
         try:
@@ -1386,6 +1431,8 @@ class DebateStreamServer(ServerBase):
     async def graceful_shutdown(self) -> None:
         """Gracefully close all client connections and stop the server."""
         self._running = False
+        # Shut down TTS bridge before closing connections
+        await self.stop_tts_bridge()
         # Signal the server to stop
         if self._stop_event:
             self._stop_event.set()

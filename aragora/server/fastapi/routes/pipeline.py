@@ -1,0 +1,555 @@
+"""
+Pipeline Endpoints (FastAPI v2).
+
+Surfaces the idea-to-execution pipeline backend as REST endpoints:
+- GET    /api/v2/pipeline/runs                 - List pipeline runs with pagination
+- POST   /api/v2/pipeline/runs                 - Start a new pipeline run
+- GET    /api/v2/pipeline/runs/{run_id}        - Get pipeline run status and details
+- GET    /api/v2/pipeline/runs/{run_id}/stages - Get individual stage results
+- POST   /api/v2/pipeline/runs/{run_id}/approve - Approve a stage gate
+- DELETE /api/v2/pipeline/runs/{run_id}        - Cancel a pipeline run
+"""
+
+from __future__ import annotations
+
+import logging
+import time
+import uuid
+from typing import Any
+
+from fastapi import APIRouter, Depends, HTTPException, Query, Request
+from pydantic import BaseModel, Field
+
+from aragora.rbac.models import AuthorizationContext
+
+from ..dependencies.auth import require_permission
+from ..middleware.error_handling import NotFoundError
+
+logger = logging.getLogger(__name__)
+
+router = APIRouter(prefix="/api/v2", tags=["Pipeline"])
+
+# =============================================================================
+# Pydantic Models
+# =============================================================================
+
+
+class PipelineRunCreate(BaseModel):
+    """Request body for POST /pipeline/runs."""
+
+    idea: str = Field(..., min_length=1, max_length=5000, description="Idea or goal text to process")
+    config: dict[str, Any] | None = Field(None, description="Optional pipeline configuration overrides")
+
+
+class PipelineStageResponse(BaseModel):
+    """Individual pipeline stage result."""
+
+    stage_name: str
+    status: str  # pending, running, completed, failed, skipped
+    output: dict[str, Any] | None = None
+    started_at: str | None = None
+    completed_at: str | None = None
+    duration: float = 0.0
+    error: str | None = None
+
+
+class PipelineRunResponse(BaseModel):
+    """Full pipeline run details."""
+
+    id: str
+    idea: str
+    status: str  # pending, running, completed, failed, cancelled
+    stages: list[PipelineStageResponse] = Field(default_factory=list)
+    created_at: str
+    updated_at: str
+    config: dict[str, Any] = Field(default_factory=dict)
+    result: dict[str, Any] | None = None
+
+    model_config = {"extra": "allow"}
+
+
+class PipelineRunSummary(BaseModel):
+    """Summary of a pipeline run for list views."""
+
+    id: str
+    idea: str
+    status: str
+    created_at: str
+    updated_at: str
+    stage_count: int = 0
+    completed_stages: int = 0
+
+
+class PipelineListResponse(BaseModel):
+    """Response for pipeline run listing."""
+
+    runs: list[PipelineRunSummary]
+    total: int
+    limit: int
+    offset: int
+
+
+class PipelineApproveRequest(BaseModel):
+    """Request body for POST /pipeline/runs/{run_id}/approve."""
+
+    stage: str = Field(..., description="Stage name to approve (e.g., 'ideation', 'goals')")
+    feedback: str | None = Field(None, max_length=2000, description="Optional reviewer feedback")
+
+
+class PipelineApproveResponse(BaseModel):
+    """Response for stage approval."""
+
+    approved: bool
+    run_id: str
+    stage: str
+    message: str
+
+
+class PipelineDeleteResponse(BaseModel):
+    """Response for DELETE /pipeline/runs/{run_id}."""
+
+    cancelled: bool
+    id: str
+
+
+class PipelineStagesResponse(BaseModel):
+    """Response for GET /pipeline/runs/{run_id}/stages."""
+
+    run_id: str
+    stages: list[PipelineStageResponse]
+    total: int
+
+
+# =============================================================================
+# In-memory store (production would use persistent storage)
+# =============================================================================
+
+_pipeline_runs: dict[str, dict[str, Any]] = {}
+
+
+def _get_pipeline_store() -> dict[str, dict[str, Any]]:
+    """Return the pipeline run store."""
+    return _pipeline_runs
+
+
+# =============================================================================
+# Dependencies
+# =============================================================================
+
+
+async def get_pipeline_store(request: Request) -> dict[str, dict[str, Any]]:
+    """Dependency to get the pipeline store from app state or fallback to module store."""
+    ctx = getattr(request.app.state, "context", None)
+    if ctx and ctx.get("pipeline_store") is not None:
+        return ctx["pipeline_store"]
+    return _get_pipeline_store()
+
+
+# =============================================================================
+# Endpoints
+# =============================================================================
+
+
+@router.get("/pipeline/runs", response_model=PipelineListResponse)
+async def list_pipeline_runs(
+    request: Request,
+    limit: int = Query(50, ge=1, le=100, description="Max results to return"),
+    offset: int = Query(0, ge=0, description="Number of results to skip"),
+    status: str | None = Query(None, description="Filter by status"),
+    store: dict[str, dict[str, Any]] = Depends(get_pipeline_store),
+) -> PipelineListResponse:
+    """
+    List all pipeline runs with pagination.
+
+    Returns a paginated list of pipeline run summaries.
+    """
+    try:
+        all_runs = list(store.values())
+
+        # Filter by status if provided
+        if status:
+            all_runs = [r for r in all_runs if r.get("status") == status]
+
+        total = len(all_runs)
+
+        # Sort by created_at descending (most recent first)
+        all_runs.sort(key=lambda r: r.get("created_at", ""), reverse=True)
+
+        # Paginate
+        paginated = all_runs[offset : offset + limit]
+
+        runs = []
+        for r in paginated:
+            stages = r.get("stages", [])
+            completed = sum(1 for s in stages if s.get("status") == "completed")
+            runs.append(
+                PipelineRunSummary(
+                    id=r["id"],
+                    idea=r.get("idea", ""),
+                    status=r.get("status", "unknown"),
+                    created_at=r.get("created_at", ""),
+                    updated_at=r.get("updated_at", ""),
+                    stage_count=len(stages),
+                    completed_stages=completed,
+                )
+            )
+
+        return PipelineListResponse(
+            runs=runs,
+            total=total,
+            limit=limit,
+            offset=offset,
+        )
+
+    except (RuntimeError, ValueError, TypeError, OSError, KeyError, AttributeError) as e:
+        logger.exception("Error listing pipeline runs: %s", e)
+        raise HTTPException(status_code=500, detail="Failed to list pipeline runs")
+
+
+@router.post("/pipeline/runs", response_model=PipelineRunResponse, status_code=201)
+async def create_pipeline_run(
+    body: PipelineRunCreate,
+    auth: AuthorizationContext = Depends(require_permission("pipeline:create")),
+    store: dict[str, dict[str, Any]] = Depends(get_pipeline_store),
+) -> PipelineRunResponse:
+    """
+    Start a new pipeline run.
+
+    Creates a pipeline run from an idea/goal text and begins processing.
+    Requires `pipeline:create` permission.
+    """
+    try:
+        run_id = f"pipe-{uuid.uuid4().hex[:12]}"
+        now = time.strftime("%Y-%m-%dT%H:%M:%S")
+
+        # Build config
+        config = body.config or {}
+
+        # Default stages
+        default_stages = ["ideation", "goals", "workflow", "orchestration"]
+        stages_to_run = config.get("stages_to_run", default_stages)
+
+        stages = [
+            {
+                "stage_name": stage,
+                "status": "pending",
+                "output": None,
+                "started_at": None,
+                "completed_at": None,
+                "duration": 0.0,
+                "error": None,
+            }
+            for stage in stages_to_run
+        ]
+
+        run_data: dict[str, Any] = {
+            "id": run_id,
+            "idea": body.idea,
+            "status": "pending",
+            "stages": stages,
+            "created_at": now,
+            "updated_at": now,
+            "config": config,
+            "result": None,
+        }
+
+        # Try to start the pipeline
+        try:
+            from aragora.pipeline.idea_to_execution import (
+                IdeaToExecutionPipeline,
+                PipelineConfig,
+            )
+
+            pipeline_config = PipelineConfig(
+                stages_to_run=stages_to_run,
+                dry_run=config.get("dry_run", False),
+                human_approval_required=config.get("human_approval_required", False),
+            )
+
+            pipeline = IdeaToExecutionPipeline()
+            result = pipeline.from_ideas(
+                [body.idea],
+                auto_advance=not pipeline_config.human_approval_required,
+                pipeline_id=run_id,
+            )
+
+            run_data["status"] = "completed"
+            run_data["updated_at"] = time.strftime("%Y-%m-%dT%H:%M:%S")
+            if result:
+                run_data["result"] = result.to_dict() if hasattr(result, "to_dict") else None
+                # Update stage statuses from result
+                if hasattr(result, "stage_results") and result.stage_results:
+                    for sr in result.stage_results:
+                        for stage in run_data["stages"]:
+                            if stage["stage_name"] == sr.stage_name:
+                                stage["status"] = sr.status
+                                stage["duration"] = sr.duration
+                                if sr.error:
+                                    stage["error"] = sr.error
+                                if sr.output and hasattr(sr.output, "to_dict"):
+                                    stage["output"] = {"type": type(sr.output).__name__}
+                                break
+                # Update stage statuses from result.stage_status
+                if hasattr(result, "stage_status") and result.stage_status:
+                    for stage in run_data["stages"]:
+                        stage_key = stage["stage_name"]
+                        if stage_key in result.stage_status:
+                            mapped = result.stage_status[stage_key]
+                            if mapped == "complete":
+                                stage["status"] = "completed"
+                            elif mapped != "pending":
+                                stage["status"] = mapped
+
+        except (ImportError, RuntimeError, ValueError, TypeError, AttributeError) as e:
+            logger.warning("Pipeline execution failed, storing as pending: %s", e)
+            run_data["status"] = "pending"
+
+        store[run_id] = run_data
+
+        stage_responses = [
+            PipelineStageResponse(
+                stage_name=s["stage_name"],
+                status=s["status"],
+                output=s.get("output"),
+                started_at=s.get("started_at"),
+                completed_at=s.get("completed_at"),
+                duration=s.get("duration", 0.0),
+                error=s.get("error"),
+            )
+            for s in run_data["stages"]
+        ]
+
+        logger.info("Pipeline run %s created for idea: %s", run_id, body.idea[:80])
+
+        return PipelineRunResponse(
+            id=run_id,
+            idea=body.idea,
+            status=run_data["status"],
+            stages=stage_responses,
+            created_at=run_data["created_at"],
+            updated_at=run_data["updated_at"],
+            config=config,
+            result=run_data.get("result"),
+        )
+
+    except NotFoundError:
+        raise
+    except HTTPException:
+        raise
+    except (RuntimeError, ValueError, TypeError, OSError, KeyError, AttributeError) as e:
+        logger.exception("Error creating pipeline run: %s", e)
+        raise HTTPException(status_code=500, detail="Failed to create pipeline run")
+
+
+@router.get("/pipeline/runs/{run_id}", response_model=PipelineRunResponse)
+async def get_pipeline_run(
+    run_id: str,
+    store: dict[str, dict[str, Any]] = Depends(get_pipeline_store),
+) -> PipelineRunResponse:
+    """
+    Get pipeline run status and details.
+
+    Returns full pipeline run details including all stage results.
+    """
+    try:
+        run_data = store.get(run_id)
+        if not run_data:
+            raise NotFoundError(f"Pipeline run {run_id} not found")
+
+        stage_responses = [
+            PipelineStageResponse(
+                stage_name=s["stage_name"],
+                status=s["status"],
+                output=s.get("output"),
+                started_at=s.get("started_at"),
+                completed_at=s.get("completed_at"),
+                duration=s.get("duration", 0.0),
+                error=s.get("error"),
+            )
+            for s in run_data.get("stages", [])
+        ]
+
+        return PipelineRunResponse(
+            id=run_data["id"],
+            idea=run_data.get("idea", ""),
+            status=run_data.get("status", "unknown"),
+            stages=stage_responses,
+            created_at=run_data.get("created_at", ""),
+            updated_at=run_data.get("updated_at", ""),
+            config=run_data.get("config", {}),
+            result=run_data.get("result"),
+        )
+
+    except NotFoundError:
+        raise
+    except (RuntimeError, ValueError, TypeError, OSError, KeyError, AttributeError) as e:
+        logger.exception("Error getting pipeline run %s: %s", run_id, e)
+        raise HTTPException(status_code=500, detail="Failed to get pipeline run")
+
+
+@router.get("/pipeline/runs/{run_id}/stages", response_model=PipelineStagesResponse)
+async def get_pipeline_stages(
+    run_id: str,
+    store: dict[str, dict[str, Any]] = Depends(get_pipeline_store),
+) -> PipelineStagesResponse:
+    """
+    Get individual stage results for a pipeline run.
+
+    Returns detailed information about each stage in the pipeline.
+    """
+    try:
+        run_data = store.get(run_id)
+        if not run_data:
+            raise NotFoundError(f"Pipeline run {run_id} not found")
+
+        stages = [
+            PipelineStageResponse(
+                stage_name=s["stage_name"],
+                status=s["status"],
+                output=s.get("output"),
+                started_at=s.get("started_at"),
+                completed_at=s.get("completed_at"),
+                duration=s.get("duration", 0.0),
+                error=s.get("error"),
+            )
+            for s in run_data.get("stages", [])
+        ]
+
+        return PipelineStagesResponse(
+            run_id=run_id,
+            stages=stages,
+            total=len(stages),
+        )
+
+    except NotFoundError:
+        raise
+    except (RuntimeError, ValueError, TypeError, OSError, KeyError, AttributeError) as e:
+        logger.exception("Error getting stages for pipeline run %s: %s", run_id, e)
+        raise HTTPException(status_code=500, detail="Failed to get pipeline stages")
+
+
+_VALID_STAGE_NAMES = {"ideation", "goals", "workflow", "orchestration", "principles"}
+
+
+@router.post("/pipeline/runs/{run_id}/approve", response_model=PipelineApproveResponse)
+async def approve_pipeline_stage(
+    run_id: str,
+    body: PipelineApproveRequest,
+    auth: AuthorizationContext = Depends(require_permission("pipeline:approve")),
+    store: dict[str, dict[str, Any]] = Depends(get_pipeline_store),
+) -> PipelineApproveResponse:
+    """
+    Approve a stage gate in a pipeline run.
+
+    Human-in-the-loop approval to advance the pipeline to the next stage.
+    Requires `pipeline:approve` permission.
+    """
+    try:
+        run_data = store.get(run_id)
+        if not run_data:
+            raise NotFoundError(f"Pipeline run {run_id} not found")
+
+        if run_data.get("status") == "cancelled":
+            raise HTTPException(status_code=400, detail="Cannot approve a cancelled pipeline run")
+
+        if body.stage not in _VALID_STAGE_NAMES:
+            raise HTTPException(
+                status_code=400,
+                detail=f"Invalid stage name. Must be one of: {', '.join(sorted(_VALID_STAGE_NAMES))}",
+            )
+
+        # Find and approve the stage
+        stage_found = False
+        for stage in run_data.get("stages", []):
+            if stage["stage_name"] == body.stage:
+                stage_found = True
+                if stage["status"] == "completed":
+                    raise HTTPException(
+                        status_code=400,
+                        detail=f"Stage '{body.stage}' is already completed",
+                    )
+                stage["status"] = "completed"
+                stage["completed_at"] = time.strftime("%Y-%m-%dT%H:%M:%S")
+                break
+
+        if not stage_found:
+            raise HTTPException(
+                status_code=400,
+                detail=f"Stage '{body.stage}' not found in this pipeline run",
+            )
+
+        run_data["updated_at"] = time.strftime("%Y-%m-%dT%H:%M:%S")
+
+        # Check if all stages are completed
+        all_completed = all(
+            s.get("status") in ("completed", "skipped")
+            for s in run_data.get("stages", [])
+        )
+        if all_completed:
+            run_data["status"] = "completed"
+
+        logger.info(
+            "Pipeline run %s stage '%s' approved by %s",
+            run_id,
+            body.stage,
+            auth.user_id,
+        )
+
+        return PipelineApproveResponse(
+            approved=True,
+            run_id=run_id,
+            stage=body.stage,
+            message=f"Stage '{body.stage}' approved successfully",
+        )
+
+    except NotFoundError:
+        raise
+    except HTTPException:
+        raise
+    except (RuntimeError, ValueError, TypeError, OSError, KeyError, AttributeError) as e:
+        logger.exception("Error approving pipeline stage %s/%s: %s", run_id, body.stage, e)
+        raise HTTPException(status_code=500, detail="Failed to approve pipeline stage")
+
+
+@router.delete("/pipeline/runs/{run_id}", response_model=PipelineDeleteResponse)
+async def cancel_pipeline_run(
+    run_id: str,
+    auth: AuthorizationContext = Depends(require_permission("pipeline:delete")),
+    store: dict[str, dict[str, Any]] = Depends(get_pipeline_store),
+) -> PipelineDeleteResponse:
+    """
+    Cancel a pipeline run.
+
+    Marks the pipeline run as cancelled and stops any further processing.
+    Requires `pipeline:delete` permission.
+    """
+    try:
+        run_data = store.get(run_id)
+        if not run_data:
+            raise NotFoundError(f"Pipeline run {run_id} not found")
+
+        if run_data.get("status") in ("completed", "cancelled"):
+            raise HTTPException(
+                status_code=400,
+                detail=f"Pipeline run is already {run_data['status']}",
+            )
+
+        run_data["status"] = "cancelled"
+        run_data["updated_at"] = time.strftime("%Y-%m-%dT%H:%M:%S")
+
+        # Mark pending stages as skipped
+        for stage in run_data.get("stages", []):
+            if stage.get("status") == "pending":
+                stage["status"] = "skipped"
+
+        logger.info("Pipeline run %s cancelled by %s", run_id, auth.user_id)
+
+        return PipelineDeleteResponse(cancelled=True, id=run_id)
+
+    except NotFoundError:
+        raise
+    except HTTPException:
+        raise
+    except (RuntimeError, ValueError, TypeError, OSError, KeyError, AttributeError) as e:
+        logger.exception("Error cancelling pipeline run %s: %s", run_id, e)
+        raise HTTPException(status_code=500, detail="Failed to cancel pipeline run")

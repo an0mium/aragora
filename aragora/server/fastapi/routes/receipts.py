@@ -332,6 +332,21 @@ async def get_receipt(
         raise HTTPException(status_code=500, detail="Failed to get receipt")
 
 
+@router.post("/receipts/{receipt_id}/verify", response_model=VerifyResponse)
+async def verify_receipt_post(
+    receipt_id: str,
+    store=Depends(get_receipt_store),
+) -> VerifyResponse:
+    """
+    Verify receipt integrity (POST).
+
+    Checks the receipt checksum to detect tampering.
+    Returns verification result with detailed status.
+    Equivalent to the GET variant, provided for clients that prefer POST for verification actions.
+    """
+    return await verify_receipt(receipt_id=receipt_id, store=store)
+
+
 @router.get("/receipts/{receipt_id}/verify", response_model=VerifyResponse)
 async def verify_receipt(
     receipt_id: str,

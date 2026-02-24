@@ -1,10 +1,22 @@
 """
 Agent Endpoints (FastAPI v2).
 
+Migrated from: aragora/server/handlers/ (aiohttp handler)
+
 Provides async agent management endpoints:
-- List available agents
-- Get agent details by ID
-- Get agent leaderboard
+- GET  /api/v2/agents                - List available agents with optional filters
+- GET  /api/v2/agents/rankings       - Get ELO rankings
+- GET  /api/v2/agents/leaderboard    - Get agent leaderboard
+- GET  /api/v2/agents/{agent_id}     - Get agent details by ID
+- POST /api/v2/agents                - Register a new agent
+
+Migration Notes:
+    This module replaces legacy agent handler endpoints with native FastAPI
+    routes. Key improvements:
+    - Pydantic request/response models with automatic validation
+    - FastAPI dependency injection for auth and storage
+    - Proper HTTP status codes (422 for validation, 404 for not found)
+    - OpenAPI schema auto-generation
 """
 
 from __future__ import annotations
@@ -13,8 +25,11 @@ import logging
 from typing import Any
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Request
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
+from aragora.rbac.models import AuthorizationContext
+
+from ..dependencies.auth import require_permission
 from ..middleware.error_handling import NotFoundError
 
 logger = logging.getLogger(__name__)
@@ -85,6 +100,21 @@ class LeaderboardResponse(BaseModel):
     leaderboard: list[LeaderboardEntry]
     total: int
     domain: str | None = None
+
+
+class RegisterAgentRequest(BaseModel):
+    """Request body for POST /agents."""
+
+    name: str = Field(..., min_length=1, max_length=100, description="Agent name/identifier")
+    type: str = Field("custom", description="Agent type (e.g. api, cli, custom)")
+    config: dict[str, Any] = Field(default_factory=dict, description="Agent configuration")
+
+
+class RegisterAgentResponse(BaseModel):
+    """Response for POST /agents."""
+
+    success: bool
+    agent: AgentDetail
 
 
 # =============================================================================
@@ -192,6 +222,21 @@ async def list_agents(
     except (RuntimeError, ValueError, TypeError, OSError, KeyError, AttributeError) as e:
         logger.exception("Error listing agents: %s", e)
         raise HTTPException(status_code=500, detail="Failed to list agents")
+
+
+@router.get("/agents/rankings", response_model=LeaderboardResponse)
+async def get_rankings(
+    request: Request,
+    limit: int = Query(20, ge=1, le=100, description="Max entries to return"),
+    domain: str | None = Query(None, description="Filter by domain"),
+    elo=Depends(get_elo_system),
+) -> LeaderboardResponse:
+    """
+    Get ELO rankings.
+
+    Alias for /agents/leaderboard. Returns agents ranked by ELO rating.
+    """
+    return await get_leaderboard(request=request, limit=limit, domain=domain, elo=elo)
 
 
 @router.get("/agents/leaderboard", response_model=LeaderboardResponse)
@@ -319,3 +364,58 @@ async def get_agent(
     except (RuntimeError, ValueError, TypeError, OSError, KeyError, AttributeError) as e:
         logger.exception("Error getting agent %s: %s", agent_id, e)
         raise HTTPException(status_code=500, detail="Failed to get agent")
+
+
+@router.post("/agents", response_model=RegisterAgentResponse, status_code=201)
+async def register_agent(
+    body: RegisterAgentRequest,
+    auth: AuthorizationContext = Depends(require_permission("agents:write")),
+    elo=Depends(get_elo_system),
+) -> RegisterAgentResponse:
+    """
+    Register a new agent.
+
+    Registers a custom agent in the system with an initial ELO rating.
+    Requires `agents:write` permission.
+    """
+    try:
+        # Check if agent already exists
+        known_agents = _get_known_agents()
+        if body.name in known_agents:
+            raise HTTPException(
+                status_code=409,
+                detail=f"Agent '{body.name}' already exists",
+            )
+
+        # Register in ELO system if available
+        if elo and hasattr(elo, "register_agent"):
+            try:
+                elo.register_agent(body.name, config=body.config)
+            except (RuntimeError, ValueError, TypeError, AttributeError) as e:
+                logger.warning("Could not register agent %s in ELO: %s", body.name, e)
+
+        # Register in agent registry if available
+        try:
+            from aragora.agents.registry import AgentRegistry
+
+            AgentRegistry.register(body.name, agent_type=body.type, config=body.config)
+        except (ImportError, RuntimeError, AttributeError) as e:
+            logger.debug("Could not register agent %s in registry: %s", body.name, e)
+
+        logger.info("Registered agent: %s (type=%s)", body.name, body.type)
+
+        return RegisterAgentResponse(
+            success=True,
+            agent=AgentDetail(
+                name=body.name,
+                type=body.type,
+                elo=1500.0,
+                available=True,
+            ),
+        )
+
+    except HTTPException:
+        raise
+    except (RuntimeError, ValueError, TypeError, OSError, KeyError, AttributeError) as e:
+        logger.exception("Error registering agent: %s", e)
+        raise HTTPException(status_code=500, detail="Failed to register agent")

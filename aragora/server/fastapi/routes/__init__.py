@@ -8,5 +8,6 @@ from . import receipts
 from . import gauntlet
 from . import agents
 from . import consensus
+from . import pipeline
 
-__all__ = ["health", "debates", "decisions", "testfixer", "receipts", "gauntlet", "agents", "consensus"]
+__all__ = ["health", "debates", "decisions", "testfixer", "receipts", "gauntlet", "agents", "consensus", "pipeline"]
