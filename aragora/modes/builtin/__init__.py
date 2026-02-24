@@ -12,6 +12,7 @@ These modes provide standard operational patterns:
 from aragora.modes.builtin.architect import ArchitectMode
 from aragora.modes.builtin.coder import CoderMode
 from aragora.modes.builtin.debugger import DebuggerMode
+from aragora.modes.builtin.epistemic_hygiene import EpistemicHygieneMode
 from aragora.modes.builtin.orchestrator import OrchestratorMode
 from aragora.modes.builtin.reviewer import ReviewerMode
 
@@ -21,6 +22,7 @@ __all__ = [
     "ReviewerMode",
     "DebuggerMode",
     "OrchestratorMode",
+    "EpistemicHygieneMode",
 ]
 
 
@@ -37,6 +39,7 @@ def register_all_builtins() -> None:
     ReviewerMode()
     DebuggerMode()
     OrchestratorMode()
+    EpistemicHygieneMode()
 
 
 # Auto-register on import
