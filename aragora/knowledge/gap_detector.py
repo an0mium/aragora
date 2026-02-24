@@ -6,6 +6,9 @@ areas to strengthen. Works with the Knowledge Mound to analyze:
 - Coverage gaps: domains/topics with sparse or missing knowledge
 - Staleness: outdated entries that need refresh
 - Contradictions: conflicting knowledge entries
+- Debate receipt analysis: low-confidence decisions and question topics
+- Frequently asked topics: query patterns with sparse knowledge coverage
+- Coverage map: domain-by-domain coverage overview
 - Recommendations: prioritized actions to improve knowledge quality
 
 Usage:
@@ -17,11 +20,18 @@ Usage:
     contradictions = await detector.detect_contradictions()
     recommendations = await detector.get_recommendations()
     score = await detector.get_coverage_score("technical")
+    coverage_map = await detector.get_coverage_map()
+
+    # Track debate receipts and queries for gap signal enrichment
+    await detector.analyze_debate_receipt(receipt)
+    detector.record_query("contract termination clauses")
+    frequent_gaps = detector.get_frequently_asked_gaps(min_queries=3)
 """
 
 from __future__ import annotations
 
 import logging
+from collections import defaultdict
 from dataclasses import dataclass, field
 from datetime import datetime, timedelta
 from enum import Enum
@@ -53,6 +63,7 @@ class RecommendedAction(str, Enum):
     UPDATE = "update"
     REVIEW = "review"
     ARCHIVE = "archive"
+    ACQUIRE = "acquire"
 
 
 @dataclass
@@ -155,6 +166,87 @@ class Recommendation:
         }
 
 
+@dataclass
+class DebateInsight:
+    """Insight extracted from a debate receipt indicating a knowledge gap.
+
+    When a debate finishes with low confidence or high disagreement, that
+    signals a domain where the Knowledge Mound may be lacking.
+    """
+
+    debate_id: str
+    topic: str
+    domain: str
+    confidence: float  # Final debate confidence (lower = bigger gap signal)
+    disagreement_score: float  # 0-1, how much agents disagreed
+    question: str  # The question or task that was debated
+    detected_at: datetime = field(default_factory=datetime.now)
+
+    def to_dict(self) -> dict[str, Any]:
+        """Convert to dictionary."""
+        return {
+            "debate_id": self.debate_id,
+            "topic": self.topic,
+            "domain": self.domain,
+            "confidence": round(self.confidence, 3),
+            "disagreement_score": round(self.disagreement_score, 3),
+            "question": self.question[:300],
+            "detected_at": self.detected_at.isoformat(),
+        }
+
+
+@dataclass
+class FrequentlyAskedGap:
+    """A topic that is frequently queried but has sparse knowledge coverage.
+
+    Tracks the intersection of high demand (many queries) and low supply
+    (few or low-quality knowledge items).
+    """
+
+    topic: str
+    query_count: int
+    coverage_score: float  # 0-1, how well covered this topic is
+    gap_severity: float  # 0-1, higher = more urgent
+    sample_queries: list[str] = field(default_factory=list)
+
+    def to_dict(self) -> dict[str, Any]:
+        """Convert to dictionary."""
+        return {
+            "topic": self.topic,
+            "query_count": self.query_count,
+            "coverage_score": round(self.coverage_score, 3),
+            "gap_severity": round(self.gap_severity, 3),
+            "sample_queries": self.sample_queries[:5],
+        }
+
+
+@dataclass
+class DomainCoverageEntry:
+    """Coverage information for a single domain in the coverage map."""
+
+    domain: str
+    coverage_score: float
+    total_items: int
+    expected_items: int
+    average_confidence: float
+    gap_count: int
+    stale_count: int
+    contradiction_count: int
+
+    def to_dict(self) -> dict[str, Any]:
+        """Convert to dictionary."""
+        return {
+            "domain": self.domain,
+            "coverage_score": round(self.coverage_score, 3),
+            "total_items": self.total_items,
+            "expected_items": self.expected_items,
+            "average_confidence": round(self.average_confidence, 3),
+            "gap_count": self.gap_count,
+            "stale_count": self.stale_count,
+            "contradiction_count": self.contradiction_count,
+        }
+
+
 # =============================================================================
 # Gap Detector
 # =============================================================================
@@ -191,7 +283,13 @@ class KnowledgeGapDetector:
     - Topics with sparse coverage
     - Outdated entries needing refresh
     - Conflicting knowledge entries
+    - Debate receipts with low confidence (knowledge gap signals)
+    - Frequently asked topics with sparse coverage
     - Prioritized improvement recommendations
+
+    The detector also tracks queries and debate outcomes over time to identify
+    patterns in what knowledge is missing. Call ``record_query()`` and
+    ``analyze_debate_receipt()`` to feed these signals into the gap analysis.
 
     Args:
         mound: KnowledgeMound instance to analyze
@@ -205,6 +303,11 @@ class KnowledgeGapDetector:
     ) -> None:
         self._mound = mound
         self._workspace_id = workspace_id
+        # Track debate receipt insights (low-confidence decisions)
+        self._debate_insights: list[DebateInsight] = []
+        # Track query topics for frequently-asked-gap detection
+        # Maps normalized topic -> list of raw queries
+        self._query_topics: dict[str, list[str]] = defaultdict(list)
 
     async def detect_coverage_gaps(
         self,
@@ -434,6 +537,345 @@ class KnowledgeGapDetector:
 
         contradictions.sort(key=lambda c: c.conflict_score, reverse=True)
         return contradictions
+
+    async def analyze_debate_receipt(
+        self,
+        receipt: dict[str, Any] | Any,
+    ) -> DebateInsight | None:
+        """Analyze a debate receipt to identify knowledge gaps.
+
+        Examines the outcome of a debate to determine if low confidence
+        or high disagreement indicates a domain where knowledge is lacking.
+        Records the insight for future recommendation generation.
+
+        Args:
+            receipt: A debate receipt dict or object with fields like
+                debate_id, topic/task, confidence, consensus_score, domain.
+
+        Returns:
+            DebateInsight if a gap signal was detected, None otherwise.
+        """
+        # Extract fields from dict or object
+        if isinstance(receipt, dict):
+            debate_id = receipt.get("debate_id", receipt.get("id", ""))
+            topic = receipt.get("topic", receipt.get("task", ""))
+            confidence = float(receipt.get("confidence", receipt.get("consensus_confidence", 1.0)))
+            consensus_score = float(receipt.get("consensus_score", receipt.get("agreement", 1.0)))
+            domain = receipt.get("domain", "general")
+            question = receipt.get("question", receipt.get("task", topic))
+        else:
+            debate_id = getattr(receipt, "debate_id", getattr(receipt, "id", ""))
+            topic = getattr(receipt, "topic", getattr(receipt, "task", ""))
+            confidence = float(getattr(receipt, "confidence", getattr(receipt, "consensus_confidence", 1.0)))
+            consensus_score = float(getattr(receipt, "consensus_score", getattr(receipt, "agreement", 1.0)))
+            domain = getattr(receipt, "domain", "general")
+            question = getattr(receipt, "question", getattr(receipt, "task", topic))
+
+        # Only flag as a gap signal if confidence is below threshold
+        # or disagreement is high
+        disagreement_score = max(0.0, 1.0 - consensus_score)
+        if confidence >= 0.7 and disagreement_score < 0.3:
+            return None
+
+        # Classify the domain from the topic text if not provided
+        if not domain or domain == "general":
+            domain = self._classify_domain(str(topic) + " " + str(question))
+
+        insight = DebateInsight(
+            debate_id=str(debate_id),
+            topic=str(topic),
+            domain=str(domain),
+            confidence=confidence,
+            disagreement_score=disagreement_score,
+            question=str(question),
+        )
+
+        self._debate_insights.append(insight)
+        logger.info(
+            "Debate gap signal: debate=%s domain=%s confidence=%.2f disagreement=%.2f",
+            debate_id, domain, confidence, disagreement_score,
+        )
+        return insight
+
+    def _classify_domain(self, text: str) -> str:
+        """Classify text into a domain using keyword matching.
+
+        Uses the DOMAIN_KEYWORDS from taxonomy if available, otherwise
+        uses the built-in subdomain expectations keys.
+
+        Args:
+            text: Text to classify
+
+        Returns:
+            Domain string (e.g., "legal", "technical/security")
+        """
+        text_lower = text.lower()
+
+        try:
+            from aragora.knowledge.mound.taxonomy import DOMAIN_KEYWORDS
+            best_domain = "general"
+            best_score = 0
+            for domain_path, keywords in DOMAIN_KEYWORDS.items():
+                score = sum(1 for kw in keywords if kw in text_lower)
+                if score > best_score:
+                    best_score = score
+                    best_domain = domain_path
+            if best_score > 0:
+                return best_domain
+        except ImportError:
+            pass
+
+        # Fallback: check top-level domain names
+        for domain in _DOMAIN_EXPECTATIONS:
+            if domain in text_lower:
+                return domain
+
+        return "general"
+
+    def record_query(self, query: str) -> None:
+        """Record a query for frequently-asked-gap tracking.
+
+        Call this each time a user or agent queries the Knowledge Mound.
+        The detector accumulates queries to identify topics that are
+        frequently requested but poorly covered.
+
+        Args:
+            query: The query string submitted to the Knowledge Mound.
+        """
+        if not query or not query.strip():
+            return
+
+        # Normalize: lowercase, strip whitespace
+        normalized = query.strip().lower()
+
+        # Extract a topic key (first 3 significant words)
+        words = [w for w in normalized.split() if len(w) > 2]
+        topic_key = " ".join(words[:3]) if words else normalized
+
+        self._query_topics[topic_key].append(query)
+
+    def get_frequently_asked_gaps(
+        self,
+        min_queries: int = 3,
+        max_coverage: float = 0.5,
+    ) -> list[FrequentlyAskedGap]:
+        """Identify topics that are frequently queried but have sparse coverage.
+
+        Cross-references recorded query patterns against coverage scores
+        to find high-demand, low-supply knowledge areas.
+
+        This is a synchronous method that returns cached data. For
+        coverage scores that require async mound queries, call
+        ``get_frequently_asked_gaps_async()`` instead.
+
+        Args:
+            min_queries: Minimum number of queries for a topic to be considered
+            max_coverage: Maximum coverage score to be considered a gap
+
+        Returns:
+            List of FrequentlyAskedGap entries sorted by gap severity
+        """
+        gaps: list[FrequentlyAskedGap] = []
+
+        for topic_key, queries in self._query_topics.items():
+            if len(queries) < min_queries:
+                continue
+
+            # Estimate coverage from query count vs domain expectations
+            # Higher query count with no resolution = bigger gap
+            query_count = len(queries)
+            # Placeholder coverage score (will be 0 since we have no async here)
+            coverage_score = 0.0
+            gap_severity = min(1.0, query_count / 20.0) * (1.0 - coverage_score)
+
+            if coverage_score <= max_coverage:
+                gaps.append(
+                    FrequentlyAskedGap(
+                        topic=topic_key,
+                        query_count=query_count,
+                        coverage_score=coverage_score,
+                        gap_severity=gap_severity,
+                        sample_queries=list(dict.fromkeys(queries))[:5],
+                    )
+                )
+
+        gaps.sort(key=lambda g: g.gap_severity, reverse=True)
+        return gaps
+
+    async def get_frequently_asked_gaps_async(
+        self,
+        min_queries: int = 3,
+        max_coverage: float = 0.5,
+    ) -> list[FrequentlyAskedGap]:
+        """Identify frequently queried topics with sparse coverage (async version).
+
+        Like ``get_frequently_asked_gaps()`` but queries the Knowledge Mound
+        for actual coverage scores.
+
+        Args:
+            min_queries: Minimum number of queries for a topic to be considered
+            max_coverage: Maximum coverage score to be considered a gap
+
+        Returns:
+            List of FrequentlyAskedGap entries sorted by gap severity
+        """
+        gaps: list[FrequentlyAskedGap] = []
+
+        for topic_key, queries in self._query_topics.items():
+            if len(queries) < min_queries:
+                continue
+
+            query_count = len(queries)
+
+            # Query the mound for this topic to estimate coverage
+            try:
+                result = await self._mound.query(
+                    query=topic_key,
+                    workspace_id=self._workspace_id,
+                    limit=50,
+                )
+                items = result.items if hasattr(result, "items") else []
+            except (RuntimeError, ValueError, TypeError, AttributeError) as e:
+                logger.warning("Failed to query topic '%s' for gap analysis: %s", topic_key, e)
+                items = []
+
+            # Coverage score based on item count and confidence
+            if items:
+                item_count = len(items)
+                confidences = [
+                    float(getattr(item, "confidence", 0.5))
+                    for item in items
+                    if getattr(item, "confidence", None) is not None
+                ]
+                avg_conf = sum(confidences) / len(confidences) if confidences else 0.5
+                # Coverage combines quantity and quality
+                coverage_score = min(1.0, (item_count / 10.0) * avg_conf)
+            else:
+                coverage_score = 0.0
+
+            if coverage_score <= max_coverage:
+                # Gap severity combines demand (query frequency) with supply shortage
+                demand_factor = min(1.0, query_count / 20.0)
+                gap_severity = demand_factor * (1.0 - coverage_score)
+
+                gaps.append(
+                    FrequentlyAskedGap(
+                        topic=topic_key,
+                        query_count=query_count,
+                        coverage_score=round(coverage_score, 3),
+                        gap_severity=round(gap_severity, 3),
+                        sample_queries=list(dict.fromkeys(queries))[:5],
+                    )
+                )
+
+        gaps.sort(key=lambda g: g.gap_severity, reverse=True)
+        return gaps
+
+    def get_debate_insights(
+        self,
+        domain: str | None = None,
+        min_disagreement: float = 0.0,
+    ) -> list[DebateInsight]:
+        """Get debate receipt insights indicating knowledge gaps.
+
+        Args:
+            domain: Optional domain filter
+            min_disagreement: Minimum disagreement score to include
+
+        Returns:
+            List of DebateInsight entries sorted by confidence (lowest first)
+        """
+        insights = self._debate_insights
+        if domain:
+            insights = [i for i in insights if i.domain == domain or i.domain.startswith(f"{domain}/")]
+        if min_disagreement > 0:
+            insights = [i for i in insights if i.disagreement_score >= min_disagreement]
+
+        return sorted(insights, key=lambda i: i.confidence)
+
+    async def get_coverage_map(self) -> list[DomainCoverageEntry]:
+        """Generate a coverage map across all known domains.
+
+        Queries each domain in the taxonomy for item counts, confidence,
+        gaps, staleness, and contradictions to build a comprehensive
+        overview of knowledge health.
+
+        Returns:
+            List of DomainCoverageEntry sorted by coverage score (lowest first,
+            so the weakest domains appear first).
+        """
+        entries: list[DomainCoverageEntry] = []
+
+        for domain, expected in _DOMAIN_EXPECTATIONS.items():
+            # Get coverage score
+            coverage_score = await self.get_coverage_score(domain)
+
+            # Query items for statistics
+            try:
+                result = await self._mound.query(
+                    query=domain,
+                    workspace_id=self._workspace_id,
+                    limit=200,
+                )
+                items = result.items if hasattr(result, "items") else []
+            except (RuntimeError, ValueError, TypeError, AttributeError) as e:
+                logger.warning("Failed to query domain '%s' for coverage map: %s", domain, e)
+                items = []
+
+            total_items = len(items)
+
+            # Average confidence
+            confidences = [
+                float(getattr(item, "confidence", 0.5))
+                for item in items
+                if getattr(item, "confidence", None) is not None
+            ]
+            avg_confidence = sum(confidences) / len(confidences) if confidences else 0.0
+
+            # Count gaps
+            try:
+                gaps = await self.detect_coverage_gaps(domain)
+                gap_count = len(gaps)
+            except (RuntimeError, ValueError, TypeError, AttributeError):
+                gap_count = 0
+
+            # Estimate stale and contradiction counts from cached data
+            # (avoid expensive re-queries by using domain-filtered insights)
+            stale_count = 0
+            try:
+                now = datetime.now()
+                for item in items:
+                    updated_at = getattr(item, "updated_at", None) or getattr(item, "created_at", None)
+                    if updated_at is None:
+                        continue
+                    if isinstance(updated_at, str):
+                        try:
+                            updated_at = datetime.fromisoformat(updated_at)
+                        except (ValueError, TypeError):
+                            continue
+                    if (now - updated_at).days > 90:
+                        stale_count += 1
+            except (RuntimeError, ValueError, TypeError, AttributeError):
+                pass
+
+            contradiction_count = 0  # Would require domain-specific contradiction query
+
+            entries.append(
+                DomainCoverageEntry(
+                    domain=domain,
+                    coverage_score=coverage_score,
+                    total_items=total_items,
+                    expected_items=expected,
+                    average_confidence=avg_confidence,
+                    gap_count=gap_count,
+                    stale_count=stale_count,
+                    contradiction_count=contradiction_count,
+                )
+            )
+
+        # Sort by coverage score ascending (weakest first)
+        entries.sort(key=lambda e: e.coverage_score)
+        return entries
 
     async def get_recommendations(
         self,

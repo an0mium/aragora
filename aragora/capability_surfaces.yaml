@@ -2,7 +2,7 @@
 # Maps core capabilities to their surface exposure (API / CLI / SDK / UI / Channels).
 # This file is used by scripts/capability_gap_report.py to highlight gaps.
 
-version: "1.1"
+version: "2.0"
 last_updated: "2026-02-23"
 
 capabilities:
@@ -253,4 +253,397 @@ capabilities:
         - "policies"
     ui:
       - "/compliance"
+    channels: []
+
+  # ============================================================================
+  # ENTERPRISE CAPABILITIES
+  # ============================================================================
+
+  backup_disaster_recovery:
+    api:
+      - "GET /api/v2/backups"
+      - "POST /api/v2/backups"
+      - "GET /api/v2/backups/{backup_id}"
+      - "POST /api/v2/backups/{backup_id}/verify"
+      - "POST /api/v2/backups/{backup_id}/restore-test"
+      - "DELETE /api/v2/backups/{backup_id}"
+      - "POST /api/v2/backups/cleanup"
+      - "GET /api/v2/backups/stats"
+    cli:
+      - "aragora backup create"
+      - "aragora backup list"
+      - "aragora backup restore"
+    sdk:
+      python:
+        - "backups"
+        - "disaster_recovery"
+      typescript:
+        - "backups"
+        - "disasterRecovery"
+    ui: []
+    channels: []
+
+  control_plane:
+    api:
+      - "GET /api/control-plane/agents"
+      - "GET /api/control-plane/health"
+      - "GET /api/control-plane/health/detailed"
+      - "GET /api/control-plane/policies"
+      - "POST /api/control-plane/policies"
+      - "GET /api/control-plane/breakers"
+      - "GET /api/control-plane/queue/metrics"
+      - "GET /api/agent-dashboard/agents"
+      - "GET /api/agent-dashboard/metrics"
+    cli:
+      - "aragora control-plane status"
+      - "aragora control-plane agents"
+      - "aragora control-plane channels"
+    sdk:
+      python:
+        - "control_plane"
+      typescript:
+        - "controlPlane"
+    ui:
+      - "/control-plane"
+    channels: []
+
+  multi_tenancy:
+    api: []
+    cli:
+      - "aragora tenant list"
+      - "aragora tenant create"
+      - "aragora tenant quota-get"
+      - "aragora tenant quota-set"
+      - "aragora tenant export"
+    sdk:
+      python:
+        - "tenants"
+      typescript:
+        - "tenants"
+    ui:
+      - "/admin/tenants"
+    channels: []
+
+  sso_authentication:
+    api:
+      - "GET /auth/sso/login"
+      - "GET /auth/sso/callback"
+      - "POST /auth/sso/logout"
+      - "GET /auth/sso/metadata"
+      - "GET /auth/sso/status"
+      - "GET /api/v1/auth/sso/login"
+      - "GET /api/v1/auth/sso/callback"
+      - "POST /api/v1/auth/sso/refresh"
+      - "POST /api/v1/auth/sso/logout"
+      - "GET /api/v1/auth/sso/providers"
+      - "GET /api/v1/auth/oauth/oidc"
+      - "GET /api/v1/auth/oauth/oidc/callback"
+    cli: []
+    sdk:
+      python:
+        - "sso"
+      typescript:
+        - "sso"
+    ui:
+      - "/auth (SocialLoginButtons)"
+    channels: []
+
+  # ============================================================================
+  # OBSERVABILITY CAPABILITIES
+  # ============================================================================
+
+  distributed_tracing:
+    api: []
+    cli: []
+    sdk:
+      python: []
+      typescript: []
+    ui: []
+    channels: []
+
+  prometheus_metrics:
+    api:
+      - "GET /metrics"
+      - "GET /api/v1/metrics/prometheus"
+      - "GET /api/v1/metrics/prometheus/summary"
+      - "GET /api/metrics/health"
+      - "GET /api/metrics/cache"
+      - "GET /api/metrics/system"
+    cli: []
+    sdk:
+      python:
+        - "metrics"
+      typescript:
+        - "metrics"
+    ui:
+      - "/observability"
+    channels: []
+
+  slo_alerting:
+    api:
+      - "GET /api/slos/status"
+      - "GET /api/slos/error-budget"
+      - "GET /api/slos/violations"
+      - "GET /api/slos/targets"
+      - "GET /api/slos/availability"
+      - "GET /api/slos/latency"
+      - "GET /api/slos/debate-success"
+      - "GET /api/slo/status"
+    cli: []
+    sdk:
+      python:
+        - "slo"
+      typescript:
+        - "slo"
+    ui:
+      - "/admin/system-health (SLO section)"
+    channels: []
+
+  structured_logging:
+    api: []
+    cli: []
+    sdk:
+      python: []
+      typescript: []
+    ui: []
+    channels: []
+
+  # ============================================================================
+  # MESSAGING / CONNECTOR CAPABILITIES
+  # ============================================================================
+
+  kafka_streaming:
+    api: []
+    cli: []
+    sdk:
+      python: []
+      typescript: []
+    ui:
+      - "/admin/streaming"
+    channels: []
+
+  rabbitmq_streaming:
+    api: []
+    cli: []
+    sdk:
+      python: []
+      typescript: []
+    ui:
+      - "/admin/streaming"
+    channels: []
+
+  slack_integration:
+    api:
+      - "GET /api/integrations/slack/install"
+      - "GET /api/integrations/slack/callback"
+      - "POST /api/integrations/slack/uninstall"
+      - "GET /api/integrations/slack/preview"
+      - "GET /api/integrations/slack/workspaces"
+      - "POST /api/v1/integrations/slack/commands"
+      - "POST /api/v1/integrations/slack/interactive"
+      - "POST /api/v1/integrations/slack/events"
+      - "GET /api/v1/integrations/slack/status"
+    cli: []
+    sdk:
+      python: []
+      typescript: []
+    ui:
+      - "/integrations (SlackAppWizard)"
+    channels:
+      - "slack"
+
+  teams_integration:
+    api:
+      - "GET /api/v1/integrations/teams/status"
+      - "POST /api/v1/integrations/teams/commands"
+      - "POST /api/v1/integrations/teams/interactive"
+      - "POST /api/v1/integrations/teams/notify"
+      - "POST /api/v1/bots/teams/messages"
+      - "GET /api/v1/bots/teams/status"
+    cli: []
+    sdk:
+      python:
+        - "teams"
+      typescript:
+        - "teams"
+    ui:
+      - "/integrations (TeamsAppWizard)"
+    channels:
+      - "teams"
+
+  telegram_connector:
+    api:
+      - "POST /api/v1/bots/telegram/webhook"
+      - "POST /api/v1/bots/telegram/webhook/{token}"
+      - "GET /api/v1/bots/telegram/status"
+    cli: []
+    sdk:
+      python: []
+      typescript: []
+    ui:
+      - "/integrations (IntegrationSetupWizard)"
+    channels:
+      - "telegram"
+
+  whatsapp_connector:
+    api:
+      - "POST /api/v1/bots/whatsapp/webhook"
+      - "GET /api/v1/bots/whatsapp/status"
+    cli: []
+    sdk:
+      python: []
+      typescript: []
+    ui:
+      - "/integrations (IntegrationSetupWizard)"
+    channels:
+      - "whatsapp"
+
+  webhook_integrations:
+    api:
+      - "POST /api/v1/webhooks"
+      - "GET /api/v1/webhooks"
+      - "GET /api/v1/webhooks/events"
+      - "GET /api/v1/webhooks/{id}"
+      - "DELETE /api/v1/webhooks/{id}"
+      - "POST /api/v1/webhooks/{id}/test"
+      - "POST /api/integrations/zapier/apps"
+      - "GET /api/integrations/zapier/apps"
+    cli: []
+    sdk:
+      python:
+        - "webhooks"
+      typescript:
+        - "webhooks"
+    ui: []
+    channels: []
+
+  # ============================================================================
+  # FEATURE CAPABILITIES
+  # ============================================================================
+
+  belief_network:
+    api:
+      - "GET /api/belief-network/{debate_id}/cruxes"
+      - "GET /api/belief-network/{debate_id}/load-bearing-claims"
+      - "GET /api/provenance/{debate_id}/claims/{claim_id}/support"
+    cli: []
+    sdk:
+      python:
+        - "belief_network"
+      typescript:
+        - "beliefNetwork"
+    ui:
+      - "/belief (BeliefNetworkGraph)"
+      - "/crux (CruxPanel)"
+    channels: []
+
+  circuit_breaker:
+    api:
+      - "GET /api/circuit-breakers"
+      - "GET /api/v1/circuit-breakers"
+      - "GET /api/v1/admin/nomic/circuit-breakers"
+      - "POST /api/v1/admin/nomic/circuit-breakers/reset"
+    cli: []
+    sdk:
+      python: []
+      typescript: []
+    ui:
+      - "/admin/system-health (CircuitBreakerGrid)"
+    channels: []
+
+  decision_receipts:
+    api:
+      - "GET /api/gauntlet/receipts"
+      - "GET /api/gauntlet/receipts/{receipt_id}"
+      - "GET /api/gauntlet/receipts/{receipt_id}/export"
+      - "POST /api/gauntlet/receipts/export/bundle"
+      - "GET /api/gauntlet/receipts/{receipt_id}/stream"
+    cli:
+      - "aragora receipt view"
+      - "aragora receipt verify"
+      - "aragora receipt inspect"
+      - "aragora receipt export"
+    sdk:
+      python:
+        - "receipts"
+      typescript:
+        - "receipts"
+    ui:
+      - "/receipts"
+      - "/receipts (ReceiptsBrowser)"
+    channels:
+      - "slack"
+      - "teams"
+      - "telegram"
+      - "discord"
+      - "google_chat"
+
+  extended_debates:
+    api: []
+    cli: []
+    sdk:
+      python: []
+      typescript: []
+    ui: []
+    channels: []
+
+  prompt_evolution:
+    api:
+      - "GET /api/evolution/{agent}/history"
+      - "GET /api/v1/evolution/{agent}/history"
+    cli: []
+    sdk:
+      python: []
+      typescript: []
+    ui:
+      - "/evolution (EvolutionPanel)"
+      - "/evolution (EvolutionTimeline)"
+    channels: []
+
+  pulse_trending:
+    api:
+      - "GET /api/pulse/trending"
+      - "GET /api/pulse/suggest"
+      - "POST /api/pulse/debate-topic"
+      - "GET /api/pulse/scheduler/status"
+      - "POST /api/pulse/scheduler/start"
+      - "POST /api/pulse/scheduler/stop"
+    cli: []
+    sdk:
+      python:
+        - "pulse"
+      typescript:
+        - "pulse"
+    ui:
+      - "/pulse"
+      - "/pulse (PulseSchedulerControlPanel)"
+    channels: []
+
+  rlm:
+    api:
+      - "GET /api/v1/rlm/stats"
+      - "GET /api/v1/rlm/strategies"
+      - "POST /api/v1/rlm/compress"
+      - "POST /api/v1/rlm/query"
+      - "GET /api/v1/rlm/contexts"
+      - "GET /api/v1/rlm/stream"
+      - "GET /api/v1/rlm/status"
+    cli: []
+    sdk:
+      python:
+        - "rlm"
+      typescript:
+        - "rlm"
+    ui:
+      - "/rlm (RLMStreamingPanel)"
+    channels: []
+
+  supermemory:
+    api: []
+    cli: []
+    sdk:
+      python: []
+      typescript: []
+    ui:
+      - "/supermemory"
     channels: []
