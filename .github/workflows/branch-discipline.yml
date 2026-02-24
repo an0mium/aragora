@@ -1,8 +1,10 @@
 name: Branch Discipline
 
 on:
-  push:
-    branches: [main]
+  # Disabled during rapid parallel development phase.
+  # Re-enable push trigger when adopting PR-based workflow.
+  # push:
+  #   branches: [main]
   workflow_dispatch:
 
 concurrency:
