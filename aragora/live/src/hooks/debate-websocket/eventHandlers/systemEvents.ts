@@ -83,10 +83,23 @@ export function handleAuthRevokedEvent(data: ParsedEventData, ctx: EventHandlerC
 }
 
 /**
+ * Handle heartbeat event - server liveness signal
+ *
+ * Updates the last-seen timestamp so the frontend can detect stalls
+ * without guessing.  No UI update needed — the timestamp is read by
+ * stall-detection logic in useDebateWebSocket.
+ */
+export function handleHeartbeatEvent(data: ParsedEventData, ctx: EventHandlerContext): void {
+  // Update last activity timestamp (used by stall detection)
+  ctx.lastActivityRef.current = Date.now();
+}
+
+/**
  * Registry of system event handlers
  */
 export const systemHandlers = {
   ack: handleAckEvent,
   error: handleErrorEvent,
   auth_revoked: handleAuthRevokedEvent,
+  heartbeat: handleHeartbeatEvent,
 };

@@ -233,7 +233,9 @@ export const useDebateStore = create<DebateStore>()(
       // Message actions with deduplication
       addMessage: (message) => {
         const state = get();
-        const msgKey = `${message.agent}-${message.timestamp}-${message.content.slice(0, 50)}`;
+        // Use agent + round + first 120 chars for dedup key (avoids hash
+        // collisions from truncation while keeping key size bounded)
+        const msgKey = `${message.agent}-r${message.round ?? 0}-${message.content.slice(0, 120)}`;
 
         if (state._seenMessages.has(msgKey)) {
           return false;

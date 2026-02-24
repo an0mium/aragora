@@ -358,6 +358,7 @@ export function useDebateWebSocket({
     ackCallbackRef,
     seenMessagesRef,
     lastSeqRef,
+    lastActivityRef: lastEventTimestampRef,
     onAuthRevoked,
   }), [debateId, addMessageIfNew, addStreamEvent, clearDebateStartTimeout, onAuthRevoked]);
 

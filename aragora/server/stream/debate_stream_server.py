@@ -157,6 +157,12 @@ class DebateStreamServer(ServerBase):
     # Cleanup interval for rate limiters
     _CLEANUP_INTERVAL = 100
 
+    # Application-level heartbeat interval (seconds).
+    # WebSocket-level ping/pong handles connection liveness, but frontends
+    # cannot observe those frames.  This sends a visible JSON heartbeat so
+    # the client can detect stalls without guessing.
+    _HEARTBEAT_INTERVAL_S = 15.0
+
     def __init__(self, host: str = "localhost", port: int = 8765, enable_tts: bool = False):
         # Initialize base class with common functionality
         super().__init__()
@@ -654,6 +660,34 @@ class DebateStreamServer(ServerBase):
                     )
 
             await asyncio.sleep(STREAM_DRAIN_INTERVAL_MS / 1000.0)
+
+    async def _heartbeat_loop(self) -> None:
+        """Send periodic heartbeat messages to all connected clients.
+
+        Heartbeats are application-level JSON frames that let the frontend
+        distinguish "server is alive but quiet" from "connection stalled".
+        """
+        while self._running:
+            await asyncio.sleep(self._HEARTBEAT_INTERVAL_S)
+            if not self._running:
+                break
+            async with self._clients_lock:
+                clients = list(self.clients)
+            if not clients:
+                continue
+            heartbeat = json.dumps({
+                "type": "heartbeat",
+                "data": {
+                    "server_time": time.time(),
+                    "active_debates": len(self.debate_states),
+                    "connected_clients": len(clients),
+                },
+            })
+            for ws in clients:
+                try:
+                    await asyncio.wait_for(ws.send(heartbeat), timeout=2.0)
+                except (asyncio.TimeoutError, OSError, RuntimeError):
+                    pass  # Skip slow/closed clients
 
     def register_loop(self, loop_id: str, name: str, path: str = "") -> None:
         """Register a new nomic loop instance."""
@@ -1397,6 +1431,8 @@ class DebateStreamServer(ServerBase):
         # Store task reference and add error callback to prevent silent failures
         self._drain_task = asyncio.create_task(self._drain_loop())
         self._drain_task.add_done_callback(self._handle_drain_task_error)
+        # Start application-level heartbeat
+        self._heartbeat_task = asyncio.create_task(self._heartbeat_loop())
 
         async with websockets.serve(
             self.handler,
