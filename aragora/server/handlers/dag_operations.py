@@ -22,6 +22,14 @@ from typing import Any
 
 from aragora.server.handlers.base import HandlerResult, error_response, handle_errors, json_response
 
+try:
+    from aragora.rbac.decorators import require_permission
+except ImportError:  # pragma: no cover
+    def require_permission(*_a, **_kw):  # type: ignore[misc]
+        def _noop(fn):  # type: ignore[no-untyped-def]
+            return fn
+        return _noop
+
 logger = logging.getLogger(__name__)
 
 # Path patterns
@@ -78,6 +86,7 @@ class DAGOperationsHandler:
         """Check if this handler can handle the given path."""
         return "/api/v1/pipeline/dag/" in path
 
+    @require_permission("pipeline:read")
     def handle(self, path: str, query_params: dict[str, Any], handler: Any) -> Any:
         """Dispatch GET requests."""
         m = _DAG_BASE.match(path)
@@ -85,6 +94,7 @@ class DAGOperationsHandler:
             return self._handle_get_graph(m.group(1))
         return None
 
+    @require_permission("pipeline:write")
     @handle_errors("DAG operation")
     def handle_post(self, path: str, query_params: dict[str, Any], handler: Any) -> Any:
         """Dispatch POST requests."""

@@ -28,6 +28,14 @@ from aragora.server.handlers.base import (
 )
 from aragora.server.handlers.utils.rate_limit import rate_limit
 
+try:
+    from aragora.rbac.decorators import require_permission
+except ImportError:  # pragma: no cover
+    def require_permission(*_a, **_kw):  # type: ignore[misc]
+        def _noop(fn):  # type: ignore[no-untyped-def]
+            return fn
+        return _noop
+
 logger = logging.getLogger(__name__)
 
 
@@ -51,6 +59,7 @@ class SystemHealthDashboardHandler(BaseHandler):
             return method == "GET"
         return False
 
+    @require_permission("system:read")
     @rate_limit(requests_per_minute=30)
     async def handle(
         self,

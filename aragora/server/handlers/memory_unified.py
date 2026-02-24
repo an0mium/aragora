@@ -29,6 +29,14 @@ from aragora.server.handlers.base import (
 from aragora.server.handlers.utils.decorators import handle_errors
 from aragora.server.handlers.utils.rate_limit import rate_limit
 
+try:
+    from aragora.rbac.decorators import require_permission
+except ImportError:  # pragma: no cover
+    def require_permission(*_a, **_kw):  # type: ignore[misc]
+        def _noop(fn):  # type: ignore[no-untyped-def]
+            return fn
+        return _noop
+
 logger = logging.getLogger(__name__)
 
 
@@ -52,6 +60,7 @@ class MemoryUnifiedHandler(BaseHandler):
             "/api/memory/unified/sources",
         )
 
+    @require_permission("memory:read")
     def handle_get(
         self, path: str, query_params: dict[str, Any], handler: Any
     ) -> HandlerResult | None:
@@ -64,6 +73,7 @@ class MemoryUnifiedHandler(BaseHandler):
             return self._handle_sources()
         return None
 
+    @require_permission("memory:write")
     @handle_errors("unified memory query")
     def handle_post(
         self, path: str, query_params: dict[str, Any], handler: Any

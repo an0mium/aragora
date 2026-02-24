@@ -92,25 +92,28 @@ class TestUnknownSource:
 
 
 class TestRouteUserFeedback:
-    @patch("aragora.nomic.feedback_hub.FeedbackHub._route_user_feedback")
-    def test_user_feedback_calls_router(self, mock_router, hub: FeedbackHub):
-        mock_router.return_value = RouteResult(
-            source="user_feedback", targets_hit=["improvement_queue"]
-        )
-        result = hub.route("user_feedback", {"limit": 10})
-        mock_router.assert_called_once()
+    def test_user_feedback_delegates_to_analyzer(self, hub: FeedbackHub):
+        """user_feedback route calls FeedbackAnalyzer and hits improvement_queue."""
+        mock_analyzer = MagicMock()
+        mock_analysis = MagicMock()
+        mock_analysis.goals_created = 2
+        mock_analysis.feedback_processed = 5
+        mock_analyzer.return_value.process_new_feedback.return_value = mock_analysis
+
+        with patch(
+            "aragora.nomic.feedback_analyzer.FeedbackAnalyzer",
+            mock_analyzer,
+        ):
+            result = hub.route("user_feedback", {"limit": 10})
+            assert "improvement_queue" in result.targets_hit
+            mock_analyzer.return_value.process_new_feedback.assert_called_once()
 
     def test_user_feedback_with_missing_analyzer(self, hub: FeedbackHub):
         """When FeedbackAnalyzer import fails, target is marked failed."""
-        with patch(
-            "aragora.nomic.feedback_analyzer.FeedbackAnalyzer",
-            side_effect=ImportError("no module"),
-        ):
-            # The import happens inside the method, so we patch the import path
-            with patch.dict("sys.modules", {"aragora.nomic.feedback_analyzer": None}):
-                result = hub.route("user_feedback", {})
-                assert "improvement_queue" in result.targets_failed
-                assert len(result.errors) > 0
+        with patch.dict("sys.modules", {"aragora.nomic.feedback_analyzer": None}):
+            result = hub.route("user_feedback", {})
+            assert "improvement_queue" in result.targets_failed
+            assert len(result.errors) > 0
 
 
 # ---------------------------------------------------------------------------

@@ -332,6 +332,62 @@ jobs:
         env:
           PYTHONPATH: .
 
+  # Integration smoke lane for high-risk paths (PR only)
+  integration-smoke:
+    name: Integration Smoke
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    needs: baseline-determinism
+    if: github.event_name == 'pull_request'
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Check for high-risk path changes
+        uses: dorny/paths-filter@v3
+        id: changes
+        with:
+          filters: |
+            high_risk:
+              - 'aragora/server/**'
+              - 'aragora/debate/**'
+              - 'aragora/memory/**'
+              - 'aragora/auth/**'
+              - 'aragora/rbac/**'
+              - 'aragora/storage/**'
+
+      - name: Set up Python 3.11
+        if: steps.changes.outputs.high_risk == 'true'
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: 'pip'
+          cache-dependency-path: pyproject.toml
+
+      - name: Install dependencies
+        if: steps.changes.outputs.high_risk == 'true'
+        run: |
+          python -m pip install --upgrade pip
+          pip install -e ".[dev,research,test]"
+          pip install pytest-timeout
+
+      - name: Run integration smoke tests
+        if: steps.changes.outputs.high_risk == 'true'
+        run: |
+          pytest tests/handlers/ tests/debate/test_arena*.py tests/memory/ \
+            -x \
+            --timeout=60 \
+            -q \
+            --ignore=tests/connectors \
+            -k "not benchmark and not slow"
+        env:
+          PYTHONPATH: .
+
+      - name: Skip (no high-risk changes)
+        if: steps.changes.outputs.high_risk != 'true'
+        run: echo "No high-risk path changes detected, skipping integration smoke tests."
+
   test-pollution-randomized:
     name: Randomized Order Pollution Guard
     runs-on: ubuntu-latest

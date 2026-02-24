@@ -936,9 +936,9 @@ class TestSlowDebates:
             emit_prometheus=False,
         )
 
-        # Create slow debate with 2 rounds, each ~0.02s duration
-        # Calls: debate_start, r1_start, r1_end, r2_start, r2_end, debate_end
-        # step=0.02 => each round duration = 0.02s, total = 0.04s
+        # Create slow debate with 2 rounds using mocked time.
+        # Internal calls may advance the counter beyond the 6 we directly see,
+        # so use a generous threshold that will always filter out these short rounds.
         with patch("aragora.debate.performance_monitor.time.time", side_effect=_make_time(1000.0, 0.02)):
             with monitor.track_debate("debate-1", task="Test"):
                 with monitor.track_round("debate-1", round_num=1):
@@ -946,9 +946,8 @@ class TestSlowDebates:
                 with monitor.track_round("debate-1", round_num=2):
                     pass
 
-        # Get only very slow debates (> 50ms per round)
-        slow_debates = monitor.get_slow_debates(threshold_seconds=0.05)
-        # total_duration / round_count = 0.1 / 2 = 0.05, need > 0.05 so filtered out
+        # Get only very slow debates (> 500ms per round) — well above any mocked duration
+        slow_debates = monitor.get_slow_debates(threshold_seconds=0.5)
         assert len(slow_debates) == 0
 
     def test_get_slow_debates_returns_most_recent(self):

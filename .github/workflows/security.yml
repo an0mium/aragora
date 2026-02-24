@@ -189,27 +189,23 @@ jobs:
         working-directory: aragora/live
         run: npm ci --ignore-scripts 2>/dev/null || npm install --ignore-scripts 2>/dev/null || true
 
-      - name: Audit npm dependencies (live)
+      - name: "BLOCKING: npm audit high/critical (live)"
         id: npm-audit-live
         working-directory: aragora/live
         run: npm audit --omit=dev --audit-level=high
-        # Non-blocking here so npm-audit-js also runs; aggregated in report step below.
-        continue-on-error: true
 
       - name: Install npm dependencies (typescript-sdk)
         if: always()
         working-directory: sdk/typescript
         run: npm ci --ignore-scripts 2>/dev/null || npm install --ignore-scripts 2>/dev/null || true
 
-      - name: Audit npm dependencies (typescript-sdk)
+      - name: "BLOCKING: npm audit high/critical (typescript-sdk)"
         id: npm-audit-js
         if: always()
         working-directory: sdk/typescript
         run: npm audit --omit=dev --audit-level=high
-        # Non-blocking here so report step runs; aggregated below.
-        continue-on-error: true
 
-      # Blocking: fail the job if either npm audit found high/critical vulnerabilities.
+      # Aggregate: report which npm audits failed (both steps above are already blocking).
       - name: Report npm dependency status
         if: always() && (steps.npm-audit-live.outcome == 'failure' || steps.npm-audit-js.outcome == 'failure')
         run: |

@@ -338,19 +338,14 @@ class TestQueueIntegration:
 class TestGenesisIntegration:
     """Recommendations optionally feed into Genesis breeding configs."""
 
-    @patch("aragora.introspection.evolution_bridge.PopulationManager", autospec=False)
-    def test_feed_genesis_adjusts_fitness(
-        self,
-        mock_pm_cls: MagicMock,
-    ) -> None:
+    def test_feed_genesis_adjusts_fitness(self) -> None:
         """High-severity recommendations lower genome fitness."""
-        # Set up mock PopulationManager
         mock_manager = MagicMock()
-        mock_pm_cls.return_value = mock_manager
-
         mock_genome = MagicMock()
         mock_genome.genome_id = "genome-abc"
         mock_manager.genome_store.get_by_name.return_value = mock_genome
+
+        mock_pm_cls = MagicMock(return_value=mock_manager)
 
         bridge = IntrospectionEvolutionBridge()
         recs = [
@@ -361,10 +356,9 @@ class TestGenesisIntegration:
             ),
         ]
 
-        # We need to patch the import inside feed_genesis
-        with patch.dict(
-            "sys.modules",
-            {"aragora.genesis.breeding": MagicMock(PopulationManager=mock_pm_cls)},
+        with patch(
+            "aragora.genesis.breeding.PopulationManager",
+            mock_pm_cls,
         ):
             adjusted = bridge.feed_genesis(recs)
 
@@ -393,14 +387,7 @@ class TestGenesisIntegration:
         bridge = IntrospectionEvolutionBridge()
         assert bridge.feed_genesis([]) == 0
 
-    @patch(
-        "aragora.introspection.evolution_bridge.PopulationManager",
-        side_effect=ImportError("genesis not available"),
-    )
-    def test_feed_genesis_handles_missing_module(
-        self,
-        mock_pm_cls: MagicMock,
-    ) -> None:
+    def test_feed_genesis_handles_missing_module(self) -> None:
         """Gracefully handles ImportError when genesis module is unavailable."""
         bridge = IntrospectionEvolutionBridge()
         recs = [
@@ -410,7 +397,6 @@ class TestGenesisIntegration:
                 severity="high",
             ),
         ]
-        # The patch makes the import raise ImportError
         with patch.dict("sys.modules", {"aragora.genesis.breeding": None}):
             adjusted = bridge.feed_genesis(recs)
         assert adjusted == 0

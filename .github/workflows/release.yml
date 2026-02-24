@@ -152,14 +152,14 @@ jobs:
           node-version: "20"
 
       # npm audit: fail on high/critical vulnerabilities in frontend deps
-      - name: npm audit (live frontend)
+      - name: "BLOCKING: npm audit high/critical (live frontend)"
         working-directory: aragora/live
         run: |
           npm ci --ignore-scripts
           npm audit --omit=dev --audit-level=high
 
       # npm audit: fail on high/critical vulnerabilities in TypeScript SDK deps
-      - name: npm audit (TypeScript SDK)
+      - name: "BLOCKING: npm audit high/critical (TypeScript SDK)"
         working-directory: sdk/typescript
         run: |
           npm ci --ignore-scripts 2>/dev/null || npm install --ignore-scripts 2>/dev/null || true
