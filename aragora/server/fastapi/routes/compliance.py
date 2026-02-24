@@ -4,10 +4,16 @@ Compliance Endpoints (FastAPI v2).
 Migrated from: aragora/server/handlers/compliance/ (aiohttp handler)
 
 Provides async compliance management endpoints:
-- GET  /api/v2/compliance/status             - Compliance framework status
-- GET  /api/v2/compliance/policies           - List policies
-- POST /api/v2/compliance/artifacts/generate - Generate compliance artifacts
-- GET  /api/v2/compliance/audit-log          - Query audit log
+- GET  /api/v2/compliance/status                    - Compliance framework status
+- GET  /api/v2/compliance/controls                  - List compliance controls
+- GET  /api/v2/compliance/policies                  - List policies
+- GET  /api/v2/compliance/frameworks                - List frameworks
+- GET  /api/v2/compliance/frameworks/{framework_id} - Framework details
+- GET  /api/v2/compliance/violations                - List violations
+- GET  /api/v2/compliance/audit-log                 - Query audit log
+- POST /api/v2/compliance/check                     - Run compliance check
+- POST /api/v2/compliance/artifacts/generate        - Generate compliance artifacts
+- GET  /api/v2/compliance/report/{debate_id}        - Compliance report for debate
 
 Migration Notes:
     This module replaces the legacy compliance handler endpoints with native

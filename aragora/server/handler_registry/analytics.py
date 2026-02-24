@@ -124,6 +124,11 @@ KnowledgeFlowHandler = _safe_import(
     "aragora.server.handlers.knowledge_flow", "KnowledgeFlowHandler"
 )
 
+# Decision Analytics (issue #281)
+DecisionAnalyticsHandler = _safe_import(
+    "aragora.server.handlers.decision_analytics", "DecisionAnalyticsHandler"
+)
+
 # =============================================================================
 # Analytics Handler Registry Entries
 # =============================================================================
@@ -170,6 +175,8 @@ ANALYTICS_HANDLER_REGISTRY: list[tuple[str, object]] = [
     ("_playbook_handler", PlaybookHandler),
     # Knowledge flow (flywheel visualization)
     ("_knowledge_flow_handler", KnowledgeFlowHandler),
+    # Decision analytics (issue #281)
+    ("_decision_analytics_handler", DecisionAnalyticsHandler),
 ]
 
 __all__ = [
@@ -208,6 +215,8 @@ __all__ = [
     "BenchmarkingHandler",
     # Knowledge flow
     "KnowledgeFlowHandler",
+    # Decision analytics
+    "DecisionAnalyticsHandler",
     # Registry
     "ANALYTICS_HANDLER_REGISTRY",
 ]

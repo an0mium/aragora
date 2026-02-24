@@ -101,6 +101,7 @@ HANDLER_TIERS: dict[str, str] = {
     "_universal_graph_handler": "extended",
     "_pipeline_transitions_handler": "extended",
     "_outcome_handler": "extended",
+    "_decision_analytics_handler": "extended",
     "_benchmarking_handler": "extended",
     "_knowledge_flow_handler": "extended",
     "_self_improve_details_handler": "extended",

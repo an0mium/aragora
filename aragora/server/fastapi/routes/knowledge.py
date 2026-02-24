@@ -4,10 +4,16 @@ Knowledge Endpoints (FastAPI v2).
 Migrated from: aragora/server/handlers/knowledge/ (aiohttp handler)
 
 Provides async knowledge mound management endpoints:
-- GET  /api/v2/knowledge/search          - Search knowledge mound
+- GET  /api/v2/knowledge/search          - Search knowledge mound (query param)
+- POST /api/v2/knowledge/search          - Semantic search (JSON body)
+- GET  /api/v2/knowledge/stats           - Knowledge mound statistics
+- GET  /api/v2/knowledge/gaps            - Knowledge gap detection
+- GET  /api/v2/knowledge/adapters        - List KM adapters
+- GET  /api/v2/knowledge/staleness       - Staleness analysis
+- POST /api/v2/knowledge/query           - Structured query with filters
 - GET  /api/v2/knowledge/items/{item_id} - Get knowledge item by ID
 - POST /api/v2/knowledge/items           - Ingest a new knowledge item
-- GET  /api/v2/knowledge/stats           - Knowledge mound statistics
+- DELETE /api/v2/knowledge/{item_id}     - Delete knowledge item
 
 Migration Notes:
     This module replaces the legacy knowledge handler endpoints with native

@@ -4,11 +4,15 @@ Agent Endpoints (FastAPI v2).
 Migrated from: aragora/server/handlers/ (aiohttp handler)
 
 Provides async agent management endpoints:
-- GET  /api/v2/agents                - List available agents with optional filters
-- GET  /api/v2/agents/rankings       - Get ELO rankings
-- GET  /api/v2/agents/leaderboard    - Get agent leaderboard
-- GET  /api/v2/agents/{agent_id}     - Get agent details by ID
-- POST /api/v2/agents                - Register a new agent
+- GET  /api/v2/agents                         - List available agents with optional filters
+- GET  /api/v2/agents/rankings                - Get ELO rankings
+- GET  /api/v2/agents/leaderboard             - Get agent leaderboard
+- GET  /api/v2/agents/domains                 - List agent domains
+- GET  /api/v2/agents/{agent_id}              - Get agent details by ID
+- GET  /api/v2/agents/{agent_id}/capabilities - Get agent capabilities and metadata
+- GET  /api/v2/agents/{agent_id}/stats        - Get agent performance stats
+- GET  /api/v2/agents/{agent_id}/calibration  - Get agent calibration scores
+- POST /api/v2/agents                         - Register a new agent
 
 Migration Notes:
     This module replaces legacy agent handler endpoints with native FastAPI
