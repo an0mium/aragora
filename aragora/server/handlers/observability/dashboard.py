@@ -302,13 +302,24 @@ class ObservabilityDashboardHandler(SecureEndpointMixin, SecureHandler):  # type
     def _collect_error_rates(self) -> dict[str, Any]:
         """Collect error rate info from observability metrics if available."""
         try:
-            from aragora.observability.metrics.server import (
-                get_request_error_count,
-                get_request_total_count,
+            from aragora.observability.metrics.request import (
+                REQUEST_COUNT,
+                _ensure_init,
             )
 
-            total = get_request_total_count()
-            errors = get_request_error_count()
+            _ensure_init()
+            # REQUEST_COUNT is a Prometheus Counter with labels (method, endpoint, status)
+            # or a NoOpMetric if Prometheus is not available
+            total = 0
+            errors = 0
+            if hasattr(REQUEST_COUNT, "collect"):
+                for metric_family in REQUEST_COUNT.collect():
+                    for sample in metric_family.samples:
+                        val = int(sample.value)
+                        total += val
+                        status = sample.labels.get("status", "200")
+                        if status.startswith("5"):
+                            errors += val
             rate = round(errors / total, 4) if total > 0 else 0
             return {
                 "total_requests": total,
