@@ -168,9 +168,21 @@ def _check_connector_status() -> list[dict]:
         return findings
 
     content = CONNECTOR_STATUS.read_text(encoding="utf-8", errors="replace")
-    stub_count = len(re.findall(r"(?i)\bstub\b", content))
-    beta_count = len(re.findall(r"(?i)\bbeta\b", content))
-    prod_count = len(re.findall(r"(?i)\bproduction\b", content))
+    # Prefer explicit summary counts when present to avoid false positives from
+    # status-definition prose ("Stub | Definition", etc.).
+    prod_match = re.search(r"(?im)^\s*-\s*\*\*Production\*\*:\s*(\d+)\s+connectors", content)
+    beta_match = re.search(r"(?im)^\s*-\s*\*\*Beta\*\*:\s*(\d+)\s+connectors", content)
+    stub_match = re.search(r"(?im)^\s*-\s*\*\*Stub\*\*:\s*(\d+)\s+connectors", content)
+
+    if prod_match and beta_match and stub_match:
+        prod_count = int(prod_match.group(1))
+        beta_count = int(beta_match.group(1))
+        stub_count = int(stub_match.group(1))
+    else:
+        # Fallback heuristic for non-standard connector status files.
+        stub_count = len(re.findall(r"(?i)\bstub\b", content))
+        beta_count = len(re.findall(r"(?i)\bbeta\b", content))
+        prod_count = len(re.findall(r"(?i)\bproduction\b", content))
 
     if stub_count > 0:
         findings.append({

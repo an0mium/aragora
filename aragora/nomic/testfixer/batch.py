@@ -207,9 +207,9 @@ class BatchOrchestrator:
         self._grouper = FailureGrouper()
 
         # Optional components initialized lazily
-        self._agent_selector = None
-        self._bug_checker = None
-        self._impact_analyzer = None
+        self._agent_selector: Any = None
+        self._bug_checker: Any = None
+        self._impact_analyzer: Any = None
 
     async def run(self, max_iterations: int | None = None) -> BatchFixResult:
         """Run the batch fix loop.

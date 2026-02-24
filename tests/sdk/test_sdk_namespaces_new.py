@@ -83,14 +83,14 @@ class TestModerationSync:
     def test_approve_item(self):
         result = self.api.approve_item("item-42")
         self.client.request.assert_called_once_with(
-            "POST", "/api/v1/moderation/queue/item-42/approve"
+            "POST", "/api/v1/moderation/items/item-42/approve"
         )
         assert result == {"status": "ok"}
 
     def test_reject_item(self):
         result = self.api.reject_item("item-99")
         self.client.request.assert_called_once_with(
-            "POST", "/api/v1/moderation/queue/item-99/reject"
+            "POST", "/api/v1/moderation/items/item-99/reject"
         )
         assert result == {"status": "ok"}
 
@@ -134,7 +134,7 @@ class TestModerationAsync:
     async def test_approve_item(self):
         result = await self.api.approve_item("item-async-1")
         self.client.request.assert_awaited_once_with(
-            "POST", "/api/v1/moderation/queue/item-async-1/approve"
+            "POST", "/api/v1/moderation/items/item-async-1/approve"
         )
         assert result == {"status": "ok"}
 
@@ -142,7 +142,7 @@ class TestModerationAsync:
     async def test_reject_item(self):
         result = await self.api.reject_item("item-async-2")
         self.client.request.assert_awaited_once_with(
-            "POST", "/api/v1/moderation/queue/item-async-2/reject"
+            "POST", "/api/v1/moderation/items/item-async-2/reject"
         )
         assert result == {"status": "ok"}
 

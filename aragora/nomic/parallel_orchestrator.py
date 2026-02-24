@@ -100,10 +100,10 @@ class ParallelOrchestrator:
         if use_worktrees:
             bc_config = BranchCoordinatorConfig(
                 use_worktrees=True,
-                worktree_base_dir=worktrees_base,
+                worktree_base_dir=Path(worktrees_base),
             )
             branch_coordinator = BranchCoordinator(
-                repo_path=str(self.aragora_path),
+                repo_path=self.aragora_path,
                 config=bc_config,
             )
             logger.info(
@@ -118,7 +118,7 @@ class ParallelOrchestrator:
                 from aragora.workspace.manager import WorkspaceManager
 
                 workspace_manager = WorkspaceManager(
-                    workspace_root=self.aragora_path,
+                    workspace_root=str(self.aragora_path),
                 )
                 logger.info("Convoy/bead tracking enabled")
             except ImportError:

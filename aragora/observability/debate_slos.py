@@ -670,7 +670,7 @@ class DebateSLOTracker:
         Returns:
             Dictionary with per-window status suitable for JSON response.
         """
-        result = {}
+        result: dict[str, Any] = {}
         for window_name in self.WINDOWS:
             status = self.get_status(window_name)
             result[window_name] = status.to_dict()

@@ -32,10 +32,10 @@ export class ModerationAPI {
   }
 
   async approveItem(itemId: string): Promise<Record<string, unknown>> {
-    return this.client.request('POST', `/api/v1/moderation/queue/${encodeURIComponent(itemId)}/approve`);
+    return this.client.request('POST', `/api/v1/moderation/items/${encodeURIComponent(itemId)}/approve`);
   }
 
   async rejectItem(itemId: string): Promise<Record<string, unknown>> {
-    return this.client.request('POST', `/api/v1/moderation/queue/${encodeURIComponent(itemId)}/reject`);
+    return this.client.request('POST', `/api/v1/moderation/items/${encodeURIComponent(itemId)}/reject`);
   }
 }
