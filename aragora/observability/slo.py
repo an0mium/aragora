@@ -122,6 +122,20 @@ def get_slo_targets() -> dict[str, SLOTarget]:
         os.getenv("SLO_DEBATE_SUCCESS_TARGET", str(DEFAULT_DEBATE_SUCCESS_TARGET))
     )
 
+    # Streaming SLO targets from environment
+    stream_error_rate_target = float(
+        os.getenv("SLO_STREAM_ERROR_RATE_TARGET", str(DEFAULT_STREAM_ERROR_RATE_TARGET))
+    )
+    stream_reconnect_p95_s = float(
+        os.getenv("SLO_STREAM_RECONNECT_P95_TARGET_S", str(DEFAULT_STREAM_RECONNECT_P95_TARGET_S))
+    )
+    stream_delivery_target = float(
+        os.getenv("SLO_STREAM_MESSAGE_DELIVERY_TARGET", str(DEFAULT_STREAM_MESSAGE_DELIVERY_TARGET))
+    )
+    tts_latency_p95_s = float(
+        os.getenv("SLO_TTS_SYNTHESIS_LATENCY_P95_TARGET_S", str(DEFAULT_TTS_SYNTHESIS_LATENCY_P95_TARGET_S))
+    )
+
     return {
         "availability": SLOTarget(
             name="API Availability",
@@ -143,6 +157,35 @@ def get_slo_targets() -> dict[str, SLOTarget]:
             unit="ratio",
             description="Percentage of debates reaching consensus or completing successfully",
             comparison="gte",
+        ),
+        # Streaming SLOs
+        "stream_error_rate": SLOTarget(
+            name="Stream Error Rate",
+            target=stream_error_rate_target,
+            unit="ratio",
+            description="WebSocket stream error rate over 5-minute window",
+            comparison="lte",
+        ),
+        "stream_reconnect_p95": SLOTarget(
+            name="Stream Reconnect p95",
+            target=stream_reconnect_p95_s,
+            unit="seconds",
+            description="95th percentile reconnection time",
+            comparison="lte",
+        ),
+        "stream_message_delivery_rate": SLOTarget(
+            name="Stream Message Delivery Rate",
+            target=stream_delivery_target,
+            unit="ratio",
+            description="Percentage of stream messages successfully delivered",
+            comparison="gte",
+        ),
+        "tts_synthesis_latency_p95": SLOTarget(
+            name="TTS Synthesis Latency p95",
+            target=tts_latency_p95_s,
+            unit="seconds",
+            description="95th percentile TTS synthesis latency",
+            comparison="lte",
         ),
     }
 

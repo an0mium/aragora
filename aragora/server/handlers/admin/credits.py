@@ -30,6 +30,7 @@ from aragora.server.handlers.secure import SecureHandler
 from aragora.server.handlers.utils.rate_limit import auth_rate_limit
 from aragora.server.validation.query_params import safe_query_int
 from aragora.rbac.decorators import require_permission
+from aragora.server.middleware.mfa import enforce_admin_mfa_policy
 
 logger = logging.getLogger(__name__)
 
@@ -67,6 +68,18 @@ class CreditsAdminHandler(SecureHandler):
         Returns:
             Created transaction details
         """
+        # Enforce MFA for admin users (SOC 2 CC5-01)
+        user_store = self.ctx.get("user_store")
+        if user_store:
+            user = user_store.get_user_by_id(user_id)
+            if user:
+                mfa_result = enforce_admin_mfa_policy(user, user_store)
+                if mfa_result and mfa_result.get("enforced"):
+                    return error_response(
+                        "Administrative access requires MFA. Please enable MFA at /api/auth/mfa/setup",
+                        403,
+                    )
+
         # Validate required fields
         amount_cents = data.get("amount_cents")
         if not amount_cents or not isinstance(amount_cents, int) or amount_cents <= 0:
