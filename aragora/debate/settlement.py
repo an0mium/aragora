@@ -634,7 +634,10 @@ class SettlementTracker:
                 KnowledgeSource,
             )
 
+            from datetime import datetime as dt_cls
+
             confidence_level = ConfidenceLevel.from_float(record.claim.confidence)
+            now = dt_cls.now(timezone.utc)
 
             item = KnowledgeItem(
                 id=f"settlement:{record.settlement_id}",
@@ -648,7 +651,10 @@ class SettlementTracker:
                     }
                 ),
                 source=KnowledgeSource.DEBATE,
+                source_id=record.settlement_id,
                 confidence=confidence_level,
+                created_at=now,
+                updated_at=now,
                 metadata={
                     "type": "settlement",
                     "debate_id": record.claim.debate_id,
@@ -809,7 +815,449 @@ class SettlementTracker:
         }
 
 
+# ---------------------------------------------------------------------------
+# Claim-level calibration tracking (register / settle / report)
+# ---------------------------------------------------------------------------
+
+_ClaimStatus = Literal[
+    "pending",
+    "verified_true",
+    "verified_false",
+    "expired",
+    "unfalsifiable",
+]
+
+
+@dataclass
+class Claim:
+    """A single falsifiable claim produced during a debate.
+
+    Lighter-weight than :class:`VerifiableClaim` -- intended for the
+    calibration-tracking workflow where users register explicit claims
+    and settle them later.
+    """
+
+    id: str = field(default_factory=lambda: f"clm-{uuid.uuid4().hex[:12]}")
+    debate_id: str = ""
+    agent: str = ""
+    statement: str = ""
+    confidence: float = 0.5
+    falsifiable: bool = True
+    verification_criteria: str = ""
+    deadline: datetime | None = None
+    status: _ClaimStatus = "pending"
+    created_at: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
+    settled_at: datetime | None = None
+    settled_by: str | None = None
+
+    def to_dict(self) -> dict[str, Any]:
+        """Serialize to a JSON-safe dict."""
+        return {
+            "id": self.id,
+            "debate_id": self.debate_id,
+            "agent": self.agent,
+            "statement": self.statement,
+            "confidence": self.confidence,
+            "falsifiable": self.falsifiable,
+            "verification_criteria": self.verification_criteria,
+            "deadline": self.deadline.isoformat() if self.deadline else None,
+            "status": self.status,
+            "created_at": self.created_at.isoformat(),
+            "settled_at": self.settled_at.isoformat() if self.settled_at else None,
+            "settled_by": self.settled_by,
+        }
+
+    @classmethod
+    def from_dict(cls, data: dict[str, Any]) -> Claim:
+        """Deserialize from a dict (inverse of :meth:`to_dict`)."""
+        deadline_raw = data.get("deadline")
+        settled_at_raw = data.get("settled_at")
+        created_at_raw = data.get("created_at")
+        return cls(
+            id=data.get("id", f"clm-{uuid.uuid4().hex[:12]}"),
+            debate_id=data.get("debate_id", ""),
+            agent=data.get("agent", ""),
+            statement=data.get("statement", ""),
+            confidence=float(data.get("confidence", 0.5)),
+            falsifiable=bool(data.get("falsifiable", True)),
+            verification_criteria=data.get("verification_criteria", ""),
+            deadline=datetime.fromisoformat(deadline_raw) if deadline_raw else None,
+            status=data.get("status", "pending"),
+            created_at=(
+                datetime.fromisoformat(created_at_raw)
+                if created_at_raw
+                else datetime.now(timezone.utc)
+            ),
+            settled_at=(datetime.fromisoformat(settled_at_raw) if settled_at_raw else None),
+            settled_by=data.get("settled_by"),
+        )
+
+
+# ---------------------------------------------------------------------------
+# ClaimStore -- in-memory + JSON file persistence
+# ---------------------------------------------------------------------------
+
+
+class ClaimStore:
+    """Simple store for :class:`Claim` objects.
+
+    Keeps an in-memory dict indexed by claim ID and optionally persists
+    to a JSON file under ``{data_dir}/settlement/claims.json``.
+
+    Args:
+        data_dir: Root data directory.  When *None* the store is
+            memory-only (no persistence).
+    """
+
+    def __init__(self, data_dir: Path | None = None) -> None:
+        self._claims: dict[str, Claim] = {}
+        self._data_dir = data_dir
+        self._json_path: Path | None = None
+        if data_dir is not None:
+            settlement_dir = data_dir / "settlement"
+            settlement_dir.mkdir(parents=True, exist_ok=True)
+            self._json_path = settlement_dir / "claims.json"
+            self._load()
+
+    # -- Public API --
+
+    def save(self, claim: Claim) -> None:
+        """Save (or update) a claim."""
+        self._claims[claim.id] = claim
+        self._persist()
+
+    def get(self, claim_id: str) -> Claim | None:
+        """Retrieve a claim by ID."""
+        return self._claims.get(claim_id)
+
+    def list_claims(
+        self,
+        *,
+        agent: str | None = None,
+        debate_id: str | None = None,
+        status: str | None = None,
+    ) -> list[Claim]:
+        """List claims with optional filters."""
+        results: list[Claim] = []
+        for claim in self._claims.values():
+            if agent is not None and claim.agent != agent:
+                continue
+            if debate_id is not None and claim.debate_id != debate_id:
+                continue
+            if status is not None and claim.status != status:
+                continue
+            results.append(claim)
+        return results
+
+    # -- Persistence --
+
+    def _persist(self) -> None:
+        if self._json_path is None:
+            return
+        try:
+            payload = [c.to_dict() for c in self._claims.values()]
+            tmp_path = self._json_path.with_suffix(".tmp")
+            tmp_path.write_text(json.dumps(payload, indent=2))
+            tmp_path.replace(self._json_path)
+        except OSError as e:
+            logger.warning("Failed to persist claims: %s", e)
+
+    def _load(self) -> None:
+        if self._json_path is None or not self._json_path.exists():
+            return
+        try:
+            raw = json.loads(self._json_path.read_text())
+            for item in raw:
+                claim = Claim.from_dict(item)
+                self._claims[claim.id] = claim
+        except (json.JSONDecodeError, OSError, KeyError, TypeError) as e:
+            logger.warning("Failed to load claims from %s: %s", self._json_path, e)
+
+
+# ---------------------------------------------------------------------------
+# CalibrationBucket / CalibrationReport
+# ---------------------------------------------------------------------------
+
+
+@dataclass
+class CalibrationBucket:
+    """Calibration statistics for a single confidence bucket.
+
+    Attributes:
+        predicted: Mean predicted confidence in this bucket.
+        actual: Fraction of claims that were actually true.
+        count: Number of settled claims in this bucket.
+    """
+
+    predicted: float = 0.0
+    actual: float = 0.0
+    count: int = 0
+
+    def to_dict(self) -> dict[str, Any]:
+        return {"predicted": self.predicted, "actual": self.actual, "count": self.count}
+
+
+@dataclass
+class CalibrationReport:
+    """Overall calibration report across settled claims.
+
+    Attributes:
+        total_claims: Total claims ever registered.
+        settled_claims: Number that have been settled.
+        calibration_buckets: Confidence-bucket -> CalibrationBucket mapping.
+        brier_score: Mean Brier score across settled claims (lower is better).
+        best_calibrated_agent: Agent with lowest Brier score (if any).
+        worst_calibrated_agent: Agent with highest Brier score (if any).
+    """
+
+    total_claims: int = 0
+    settled_claims: int = 0
+    calibration_buckets: dict[str, CalibrationBucket] = field(default_factory=dict)
+    brier_score: float = 0.0
+    best_calibrated_agent: str | None = None
+    worst_calibrated_agent: str | None = None
+
+    def to_dict(self) -> dict[str, Any]:
+        return {
+            "total_claims": self.total_claims,
+            "settled_claims": self.settled_claims,
+            "calibration_buckets": {k: v.to_dict() for k, v in self.calibration_buckets.items()},
+            "brier_score": self.brier_score,
+            "best_calibrated_agent": self.best_calibrated_agent,
+            "worst_calibrated_agent": self.worst_calibrated_agent,
+        }
+
+
+# ---------------------------------------------------------------------------
+# Calibration bucket helpers
+# ---------------------------------------------------------------------------
+
+_BUCKET_EDGES = [0, 20, 40, 60, 80, 100]
+_BUCKET_LABELS = [f"{lo}-{hi}%" for lo, hi in zip(_BUCKET_EDGES[:-1], _BUCKET_EDGES[1:])]
+
+
+def _bucket_label(confidence: float) -> str:
+    """Map a 0-1 confidence to its bucket label (e.g. '60-80%')."""
+    pct = confidence * 100
+    for lo, hi, label in zip(_BUCKET_EDGES[:-1], _BUCKET_EDGES[1:], _BUCKET_LABELS):
+        if pct < hi or hi == 100:
+            return label
+    return _BUCKET_LABELS[-1]  # pragma: no cover
+
+
+# ---------------------------------------------------------------------------
+# ClaimCalibrationTracker
+# ---------------------------------------------------------------------------
+
+
+class ClaimCalibrationTracker:
+    """Tracks debate claims through their lifecycle and computes calibration.
+
+    Provides a higher-level API than :class:`SettlementTracker` focused on
+    the calibration-scoring workflow:
+
+    * ``register_claim`` -- create a new :class:`Claim` and persist it.
+    * ``settle_claim``   -- mark a claim as verified true/false.
+    * ``get_calibration_score`` -- produce a :class:`CalibrationReport` with
+      confidence-bucket analysis and Brier scores.
+    * ``get_pending_claims`` / ``get_overdue_claims`` -- list open claims.
+
+    Args:
+        store: Optional :class:`ClaimStore` for persistence.  When *None*
+            a transient in-memory store is created.
+    """
+
+    def __init__(self, store: ClaimStore | None = None) -> None:
+        self._store = store or ClaimStore()
+
+    # -- Registration --
+
+    def register_claim(
+        self,
+        debate_id: str,
+        agent: str,
+        statement: str,
+        confidence: float,
+        verification_criteria: str = "",
+        deadline: datetime | None = None,
+        *,
+        falsifiable: bool = True,
+    ) -> Claim:
+        """Register a new claim for future calibration tracking.
+
+        Args:
+            debate_id: ID of the debate that produced the claim.
+            agent: Name of the agent that made the claim.
+            statement: The claim text.
+            confidence: Agent's confidence (0.0-1.0, clamped).
+            verification_criteria: How to verify the claim.
+            deadline: When the claim should be verified by.
+            falsifiable: Whether the claim can be empirically checked.
+
+        Returns:
+            The newly created :class:`Claim`.
+        """
+        confidence = max(0.0, min(1.0, confidence))
+        claim = Claim(
+            debate_id=debate_id,
+            agent=agent,
+            statement=statement,
+            confidence=confidence,
+            falsifiable=falsifiable,
+            verification_criteria=verification_criteria,
+            deadline=deadline,
+        )
+        self._store.save(claim)
+        logger.info(
+            "Registered claim %s (agent=%s, confidence=%.2f, debate=%s)",
+            claim.id,
+            agent,
+            confidence,
+            debate_id,
+        )
+        return claim
+
+    # -- Settlement --
+
+    def settle_claim(
+        self,
+        claim_id: str,
+        outcome: bool,
+        settled_by: str = "manual",
+    ) -> Claim:
+        """Settle a pending claim as verified true or false.
+
+        Args:
+            claim_id: The claim to settle.
+            outcome: *True* if the claim turned out to be correct.
+            settled_by: Identifier of the settling entity.
+
+        Returns:
+            The updated :class:`Claim`.
+
+        Raises:
+            KeyError: If the claim is not found.
+            ValueError: If the claim is not in ``pending`` status.
+        """
+        claim = self._store.get(claim_id)
+        if claim is None:
+            raise KeyError(f"Claim not found: {claim_id}")
+        if claim.status != "pending":
+            raise ValueError(f"Claim {claim_id} is not pending (status={claim.status})")
+
+        claim.status = "verified_true" if outcome else "verified_false"
+        claim.settled_at = datetime.now(timezone.utc)
+        claim.settled_by = settled_by
+        self._store.save(claim)
+
+        logger.info(
+            "Settled claim %s as %s (agent=%s, settled_by=%s)",
+            claim_id,
+            claim.status,
+            claim.agent,
+            settled_by,
+        )
+        return claim
+
+    # -- Calibration reporting --
+
+    def get_calibration_score(
+        self,
+        agent: str | None = None,
+    ) -> CalibrationReport:
+        """Compute a calibration report with confidence-bucket analysis.
+
+        Groups settled claims into 5 buckets (0-20%, 20-40%, ..., 80-100%)
+        and compares predicted confidence to actual outcome rates.  Also
+        computes a global Brier score and identifies best/worst agents.
+
+        Args:
+            agent: When provided, restrict the report to this agent.
+
+        Returns:
+            A :class:`CalibrationReport`.
+        """
+        all_claims = self._store.list_claims(agent=agent)
+        settled = [c for c in all_claims if c.status in ("verified_true", "verified_false")]
+
+        # Bucket accumulators: label -> [sum_confidence, sum_outcome, count]
+        bucket_acc: dict[str, list[float]] = {lbl: [0.0, 0.0, 0.0] for lbl in _BUCKET_LABELS}
+
+        brier_sum = 0.0
+        # Per-agent Brier accumulators
+        agent_brier: dict[str, list[float]] = {}
+
+        for c in settled:
+            outcome_val = 1.0 if c.status == "verified_true" else 0.0
+            label = _bucket_label(c.confidence)
+            acc = bucket_acc[label]
+            acc[0] += c.confidence
+            acc[1] += outcome_val
+            acc[2] += 1.0
+
+            brier_component = (c.confidence - outcome_val) ** 2
+            brier_sum += brier_component
+            agent_brier.setdefault(c.agent, []).append(brier_component)
+
+        # Build bucket dataclasses
+        buckets: dict[str, CalibrationBucket] = {}
+        for label in _BUCKET_LABELS:
+            acc = bucket_acc[label]
+            count = int(acc[2])
+            if count > 0:
+                buckets[label] = CalibrationBucket(
+                    predicted=acc[0] / count,
+                    actual=acc[1] / count,
+                    count=count,
+                )
+            else:
+                buckets[label] = CalibrationBucket(count=0)
+
+        brier_score = brier_sum / len(settled) if settled else 0.0
+
+        # Best / worst agent
+        best_agent: str | None = None
+        worst_agent: str | None = None
+        if agent_brier:
+            agent_scores = {a: sum(vals) / len(vals) for a, vals in agent_brier.items() if vals}
+            if agent_scores:
+                best_agent = min(agent_scores, key=agent_scores.get)  # type: ignore[arg-type]
+                worst_agent = max(agent_scores, key=agent_scores.get)  # type: ignore[arg-type]
+
+        return CalibrationReport(
+            total_claims=len(all_claims),
+            settled_claims=len(settled),
+            calibration_buckets=buckets,
+            brier_score=brier_score,
+            best_calibrated_agent=best_agent,
+            worst_calibrated_agent=worst_agent,
+        )
+
+    # -- Query helpers --
+
+    def get_pending_claims(
+        self,
+        agent: str | None = None,
+    ) -> list[Claim]:
+        """Return all claims still in ``pending`` status.
+
+        Args:
+            agent: Optionally filter by agent name.
+        """
+        return self._store.list_claims(agent=agent, status="pending")
+
+    def get_overdue_claims(self) -> list[Claim]:
+        """Return pending claims whose deadline has passed."""
+        now = datetime.now(timezone.utc)
+        return [
+            c
+            for c in self._store.list_claims(status="pending")
+            if c.deadline is not None and c.deadline <= now
+        ]
+
+
 __all__ = [
+    # Existing settlement types
     "SettlementBatch",
     "SettlementOutcome",
     "SettlementRecord",
@@ -817,4 +1265,10 @@ __all__ = [
     "SettlementTracker",
     "SettleResult",
     "VerifiableClaim",
+    # Claim calibration tracking
+    "Claim",
+    "ClaimStore",
+    "ClaimCalibrationTracker",
+    "CalibrationBucket",
+    "CalibrationReport",
 ]

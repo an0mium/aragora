@@ -937,7 +937,7 @@ class DeepseekCLIAgent(CLIAgent):
 
 @AgentRegistry.register(
     "openai",
-    default_model="gpt-4.1",
+    default_model="gpt-5.2",
     agent_type="CLI",
     requires="openai CLI (pip install openai)",
     env_vars="OPENAI_API_KEY",
@@ -949,7 +949,7 @@ class OpenAIAgent(CLIAgent):
     """
 
     def __init__(
-        self, name: str, model: str = "gpt-4.1", role: AgentRole = "proposer", timeout: int = 120
+        self, name: str, model: str = "gpt-5.2", role: AgentRole = "proposer", timeout: int = 120
     ) -> None:
         super().__init__(name, model, role, timeout)
 
@@ -1038,7 +1038,7 @@ def get_default_agents() -> list[Agent]:
     """
     agents: list[Agent] = [
         ClaudeAgent(name="claude", model="claude-sonnet-4-6"),
-        CodexAgent(name="codex", model="gpt-4.1-codex"),
+        CodexAgent(name="codex", model="gpt-5.2-codex"),
         GeminiCLIAgent(name="gemini-cli", model="gemini-3.1-pro-preview"),
     ]
     return agents

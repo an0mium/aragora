@@ -2,11 +2,20 @@
 
 from __future__ import annotations
 
+import json
+from datetime import datetime, timedelta, timezone
+from pathlib import Path
+
 import pytest
 from types import SimpleNamespace
 from unittest.mock import MagicMock, patch
 
 from aragora.debate.settlement import (
+    CalibrationBucket,
+    CalibrationReport,
+    Claim,
+    ClaimCalibrationTracker,
+    ClaimStore,
     SettlementBatch,
     SettlementOutcome,
     SettlementRecord,
@@ -604,3 +613,394 @@ class TestDebateProtocolIntegration:
 
         protocol = DebateProtocol(enable_settlement_tracking=True)
         assert protocol.enable_settlement_tracking is True
+
+
+# ---------------------------------------------------------------------------
+# Claim dataclass
+# ---------------------------------------------------------------------------
+
+
+class TestClaim:
+    def test_defaults(self):
+        claim = Claim()
+        assert claim.id.startswith("clm-")
+        assert claim.status == "pending"
+        assert claim.falsifiable is True
+        assert claim.settled_at is None
+        assert claim.settled_by is None
+
+    def test_custom_fields(self):
+        deadline = datetime(2026, 6, 1, tzinfo=timezone.utc)
+        claim = Claim(
+            debate_id="d1",
+            agent="claude",
+            statement="Will hit 99% uptime",
+            confidence=0.9,
+            verification_criteria="Check SLA dashboard",
+            deadline=deadline,
+        )
+        assert claim.debate_id == "d1"
+        assert claim.agent == "claude"
+        assert claim.confidence == 0.9
+        assert claim.deadline == deadline
+
+    def test_to_dict_and_from_dict_roundtrip(self):
+        deadline = datetime(2026, 6, 1, tzinfo=timezone.utc)
+        claim = Claim(
+            id="clm-abc123",
+            debate_id="d1",
+            agent="claude",
+            statement="Will reduce latency",
+            confidence=0.85,
+            verification_criteria="p99 < 100ms",
+            deadline=deadline,
+        )
+        d = claim.to_dict()
+        assert d["id"] == "clm-abc123"
+        assert d["confidence"] == 0.85
+        assert d["deadline"] is not None
+
+        restored = Claim.from_dict(d)
+        assert restored.id == claim.id
+        assert restored.agent == claim.agent
+        assert restored.confidence == claim.confidence
+        assert restored.deadline == deadline
+
+    def test_to_dict_json_serializable(self):
+        claim = Claim(debate_id="d1", agent="a", statement="test")
+        # Should not raise
+        serialized = json.dumps(claim.to_dict())
+        assert "d1" in serialized
+
+
+# ---------------------------------------------------------------------------
+# ClaimStore
+# ---------------------------------------------------------------------------
+
+
+class TestClaimStore:
+    def test_in_memory_save_and_get(self):
+        store = ClaimStore()
+        claim = Claim(id="c1", agent="alice", statement="test")
+        store.save(claim)
+        assert store.get("c1") is not None
+        assert store.get("c1").agent == "alice"
+
+    def test_get_nonexistent(self):
+        store = ClaimStore()
+        assert store.get("nope") is None
+
+    def test_list_claims_no_filter(self):
+        store = ClaimStore()
+        store.save(Claim(id="c1", agent="a"))
+        store.save(Claim(id="c2", agent="b"))
+        assert len(store.list_claims()) == 2
+
+    def test_list_claims_filter_agent(self):
+        store = ClaimStore()
+        store.save(Claim(id="c1", agent="a"))
+        store.save(Claim(id="c2", agent="b"))
+        assert len(store.list_claims(agent="a")) == 1
+
+    def test_list_claims_filter_status(self):
+        store = ClaimStore()
+        c1 = Claim(id="c1", status="pending")
+        c2 = Claim(id="c2", status="verified_true")
+        store.save(c1)
+        store.save(c2)
+        pending = store.list_claims(status="pending")
+        assert len(pending) == 1
+        assert pending[0].id == "c1"
+
+    def test_list_claims_filter_debate_id(self):
+        store = ClaimStore()
+        store.save(Claim(id="c1", debate_id="d1"))
+        store.save(Claim(id="c2", debate_id="d2"))
+        assert len(store.list_claims(debate_id="d1")) == 1
+
+    def test_persistence_to_json(self, tmp_path: Path):
+        store = ClaimStore(data_dir=tmp_path)
+        store.save(Claim(id="c1", agent="alice", statement="will pass"))
+        store.save(Claim(id="c2", agent="bob", statement="will fail"))
+
+        json_path = tmp_path / "settlement" / "claims.json"
+        assert json_path.exists()
+        data = json.loads(json_path.read_text())
+        assert len(data) == 2
+
+        # Load into a new store
+        store2 = ClaimStore(data_dir=tmp_path)
+        assert store2.get("c1") is not None
+        assert store2.get("c2") is not None
+        assert store2.get("c1").agent == "alice"
+
+    def test_update_existing_claim(self):
+        store = ClaimStore()
+        claim = Claim(id="c1", status="pending")
+        store.save(claim)
+        claim.status = "verified_true"
+        store.save(claim)
+        assert store.get("c1").status == "verified_true"
+
+
+# ---------------------------------------------------------------------------
+# ClaimCalibrationTracker: register and settle
+# ---------------------------------------------------------------------------
+
+
+class TestClaimCalibrationTracker:
+    def test_register_claim(self):
+        tracker = ClaimCalibrationTracker()
+        claim = tracker.register_claim(
+            debate_id="d1",
+            agent="claude",
+            statement="Latency will drop below 50ms",
+            confidence=0.8,
+            verification_criteria="Check p99",
+        )
+        assert claim.id.startswith("clm-")
+        assert claim.agent == "claude"
+        assert claim.confidence == 0.8
+        assert claim.status == "pending"
+
+    def test_register_claim_clamps_confidence(self):
+        tracker = ClaimCalibrationTracker()
+        c1 = tracker.register_claim("d1", "a", "over", 1.5)
+        c2 = tracker.register_claim("d1", "a", "under", -0.3)
+        assert c1.confidence == 1.0
+        assert c2.confidence == 0.0
+
+    def test_settle_claim_true(self):
+        tracker = ClaimCalibrationTracker()
+        claim = tracker.register_claim("d1", "alice", "will pass", 0.9)
+        settled = tracker.settle_claim(claim.id, outcome=True, settled_by="test")
+        assert settled.status == "verified_true"
+        assert settled.settled_by == "test"
+        assert settled.settled_at is not None
+
+    def test_settle_claim_false(self):
+        tracker = ClaimCalibrationTracker()
+        claim = tracker.register_claim("d1", "bob", "will fail", 0.3)
+        settled = tracker.settle_claim(claim.id, outcome=False)
+        assert settled.status == "verified_false"
+
+    def test_settle_claim_not_found(self):
+        tracker = ClaimCalibrationTracker()
+        with pytest.raises(KeyError, match="Claim not found"):
+            tracker.settle_claim("nonexistent", outcome=True)
+
+    def test_settle_claim_already_settled(self):
+        tracker = ClaimCalibrationTracker()
+        claim = tracker.register_claim("d1", "a", "test", 0.5)
+        tracker.settle_claim(claim.id, outcome=True)
+        with pytest.raises(ValueError, match="not pending"):
+            tracker.settle_claim(claim.id, outcome=False)
+
+    def test_get_pending_claims(self):
+        tracker = ClaimCalibrationTracker()
+        c1 = tracker.register_claim("d1", "a", "pending one", 0.5)
+        c2 = tracker.register_claim("d1", "b", "pending two", 0.6)
+        tracker.settle_claim(c1.id, outcome=True)
+
+        pending = tracker.get_pending_claims()
+        assert len(pending) == 1
+        assert pending[0].id == c2.id
+
+    def test_get_pending_claims_by_agent(self):
+        tracker = ClaimCalibrationTracker()
+        tracker.register_claim("d1", "alice", "a1", 0.5)
+        tracker.register_claim("d1", "bob", "b1", 0.5)
+        assert len(tracker.get_pending_claims(agent="alice")) == 1
+
+    def test_get_overdue_claims(self):
+        tracker = ClaimCalibrationTracker()
+        past = datetime.now(timezone.utc) - timedelta(days=1)
+        future = datetime.now(timezone.utc) + timedelta(days=1)
+        tracker.register_claim("d1", "a", "overdue", 0.5, deadline=past)
+        tracker.register_claim("d1", "b", "not yet", 0.5, deadline=future)
+        tracker.register_claim("d1", "c", "no deadline", 0.5)
+
+        overdue = tracker.get_overdue_claims()
+        assert len(overdue) == 1
+        assert overdue[0].agent == "a"
+
+
+# ---------------------------------------------------------------------------
+# CalibrationReport and Brier score
+# ---------------------------------------------------------------------------
+
+
+class TestCalibrationReport:
+    def _make_tracker_with_known_data(self) -> ClaimCalibrationTracker:
+        """Create a tracker with 10 claims at 80% confidence, 8 true."""
+        tracker = ClaimCalibrationTracker()
+        claims = []
+        for i in range(10):
+            c = tracker.register_claim(
+                debate_id="d1",
+                agent="claude",
+                statement=f"claim {i}",
+                confidence=0.8,
+            )
+            claims.append(c)
+
+        # 8 out of 10 are true -> well calibrated at 80%
+        for i, c in enumerate(claims):
+            tracker.settle_claim(c.id, outcome=(i < 8))
+
+        return tracker
+
+    def test_well_calibrated_report(self):
+        tracker = self._make_tracker_with_known_data()
+        report = tracker.get_calibration_score()
+
+        assert report.total_claims == 10
+        assert report.settled_claims == 10
+
+        # All claims at 80% confidence go to the "60-80%" bucket
+        bucket = report.calibration_buckets.get("60-80%")
+        assert bucket is not None
+        assert bucket.count == 10
+        assert bucket.predicted == pytest.approx(0.8)
+        # 8 of 10 were true
+        assert bucket.actual == pytest.approx(0.8)
+
+    def test_brier_score_well_calibrated(self):
+        tracker = self._make_tracker_with_known_data()
+        report = tracker.get_calibration_score()
+
+        # Brier: 8*(0.8-1.0)^2 + 2*(0.8-0.0)^2 = 8*0.04 + 2*0.64 = 0.32 + 1.28 = 1.60
+        # Mean Brier: 1.60 / 10 = 0.16
+        assert report.brier_score == pytest.approx(0.16)
+
+    def test_brier_score_perfect(self):
+        """Claims at 100% confidence all verified true -> Brier = 0."""
+        tracker = ClaimCalibrationTracker()
+        for i in range(5):
+            c = tracker.register_claim("d1", "perfect", f"claim {i}", 1.0)
+            tracker.settle_claim(c.id, outcome=True)
+
+        report = tracker.get_calibration_score()
+        assert report.brier_score == pytest.approx(0.0)
+
+    def test_brier_score_worst(self):
+        """Claims at 100% confidence all verified false -> Brier = 1."""
+        tracker = ClaimCalibrationTracker()
+        for i in range(5):
+            c = tracker.register_claim("d1", "bad", f"claim {i}", 1.0)
+            tracker.settle_claim(c.id, outcome=False)
+
+        report = tracker.get_calibration_score()
+        assert report.brier_score == pytest.approx(1.0)
+
+    def test_best_worst_agent(self):
+        tracker = ClaimCalibrationTracker()
+
+        # Good agent: 90% confidence, 9/10 true
+        for i in range(10):
+            c = tracker.register_claim("d1", "good-agent", f"good {i}", 0.9)
+            tracker.settle_claim(c.id, outcome=(i < 9))
+
+        # Bad agent: 90% confidence, 1/10 true
+        for i in range(10):
+            c = tracker.register_claim("d1", "bad-agent", f"bad {i}", 0.9)
+            tracker.settle_claim(c.id, outcome=(i < 1))
+
+        report = tracker.get_calibration_score()
+        assert report.best_calibrated_agent == "good-agent"
+        assert report.worst_calibrated_agent == "bad-agent"
+
+    def test_agent_filter(self):
+        tracker = ClaimCalibrationTracker()
+        c1 = tracker.register_claim("d1", "alice", "a claim", 0.7)
+        c2 = tracker.register_claim("d1", "bob", "b claim", 0.6)
+        tracker.settle_claim(c1.id, outcome=True)
+        tracker.settle_claim(c2.id, outcome=False)
+
+        report = tracker.get_calibration_score(agent="alice")
+        assert report.total_claims == 1
+        assert report.settled_claims == 1
+
+    def test_empty_report(self):
+        tracker = ClaimCalibrationTracker()
+        report = tracker.get_calibration_score()
+        assert report.total_claims == 0
+        assert report.settled_claims == 0
+        assert report.brier_score == 0.0
+        assert report.best_calibrated_agent is None
+
+    def test_report_to_dict(self):
+        tracker = self._make_tracker_with_known_data()
+        report = tracker.get_calibration_score()
+        d = report.to_dict()
+        assert d["total_claims"] == 10
+        assert "60-80%" in d["calibration_buckets"]
+        assert d["calibration_buckets"]["60-80%"]["count"] == 10
+
+    def test_multiple_buckets(self):
+        tracker = ClaimCalibrationTracker()
+        # Low confidence claims
+        for i in range(5):
+            c = tracker.register_claim("d1", "a", f"low {i}", 0.1)
+            tracker.settle_claim(c.id, outcome=False)
+
+        # High confidence claims
+        for i in range(5):
+            c = tracker.register_claim("d1", "a", f"high {i}", 0.95)
+            tracker.settle_claim(c.id, outcome=True)
+
+        report = tracker.get_calibration_score()
+        assert report.settled_claims == 10
+        # Low confidence in 0-20% bucket
+        assert report.calibration_buckets["0-20%"].count == 5
+        # High confidence in 80-100% bucket
+        assert report.calibration_buckets["80-100%"].count == 5
+
+
+# ---------------------------------------------------------------------------
+# CalibrationBucket dataclass
+# ---------------------------------------------------------------------------
+
+
+class TestCalibrationBucket:
+    def test_defaults(self):
+        b = CalibrationBucket()
+        assert b.predicted == 0.0
+        assert b.actual == 0.0
+        assert b.count == 0
+
+    def test_to_dict(self):
+        b = CalibrationBucket(predicted=0.7, actual=0.65, count=12)
+        d = b.to_dict()
+        assert d == {"predicted": 0.7, "actual": 0.65, "count": 12}
+
+
+# ---------------------------------------------------------------------------
+# ClaimStore persistence edge cases
+# ---------------------------------------------------------------------------
+
+
+class TestClaimStorePersistence:
+    def test_empty_dir_creates_settlement_subdir(self, tmp_path: Path):
+        store = ClaimStore(data_dir=tmp_path)
+        assert (tmp_path / "settlement").is_dir()
+
+    def test_load_from_corrupt_json(self, tmp_path: Path):
+        settlement_dir = tmp_path / "settlement"
+        settlement_dir.mkdir()
+        (settlement_dir / "claims.json").write_text("not valid json!!!")
+
+        # Should not raise, just log warning
+        store = ClaimStore(data_dir=tmp_path)
+        assert len(store.list_claims()) == 0
+
+    def test_roundtrip_with_deadline(self, tmp_path: Path):
+        store = ClaimStore(data_dir=tmp_path)
+        deadline = datetime(2026, 12, 31, 23, 59, 59, tzinfo=timezone.utc)
+        claim = Claim(id="c1", deadline=deadline, agent="test")
+        store.save(claim)
+
+        store2 = ClaimStore(data_dir=tmp_path)
+        loaded = store2.get("c1")
+        assert loaded is not None
+        assert loaded.deadline == deadline

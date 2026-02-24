@@ -207,6 +207,36 @@ export class SLONamespace {
   }
 
   /**
+   * Get debate SLO health for operational windows.
+   *
+   * @param options.window - Window to evaluate ("1h", "24h", "7d")
+   * @param options.allWindows - Include all windows when true
+   */
+  async getDebateHealth(options?: {
+    window?: '1h' | '24h' | '7d';
+    allWindows?: boolean;
+  }): Promise<Record<string, unknown>> {
+    const params: Record<string, string> = {};
+    if (options?.window) params.window = options.window;
+    if (options?.allWindows !== undefined) {
+      params.all_windows = String(options.allWindows);
+    }
+
+    return this.client.request<Record<string, unknown>>(
+      'GET',
+      '/api/health/slos',
+      Object.keys(params).length > 0 ? { params } : {}
+    );
+  }
+
+  /**
+   * Get SLO enforcer error budget information.
+   */
+  async getEnforcerBudget(): Promise<Record<string, unknown>> {
+    return this.client.request('GET', '/api/v1/slo/budget') as Promise<Record<string, unknown>>;
+  }
+
+  /**
    * Get SLO operational status.
    */
   async getSloStatus(): Promise<Record<string, unknown>> {

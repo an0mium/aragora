@@ -32,6 +32,7 @@ ALL_PRESET_NAMES = sorted(
         "research",
         "diverse",
         "financial",
+        "epistemic",
     ]
 )
 
@@ -57,8 +58,8 @@ class TestListPresets:
         result = list_presets()
         assert isinstance(result, list)
 
-    def test_count_is_ten(self) -> None:
-        assert len(list_presets()) == 10
+    def test_count_is_eleven(self) -> None:
+        assert len(list_presets()) == 11
 
 
 # ---------------------------------------------------------------------------

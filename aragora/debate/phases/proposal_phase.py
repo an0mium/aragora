@@ -426,6 +426,23 @@ class ProposalPhase:
                     metric=len(result_or_error),
                 )
 
+            # Emit argument strength based on response length heuristic
+            if self._notify_spectator:
+                try:
+                    # Simple heuristic: longer, more detailed proposals score higher
+                    content_len = len(result_or_error)
+                    strength = min(1.0, max(0.3, content_len / 3000))
+                    self._notify_spectator(
+                        "argument_strength",
+                        agent=agent.name,
+                        argument_summary=result_or_error[:200],
+                        strength_score=strength,
+                        factors={"detail": strength, "completeness": strength},
+                        round_num=0,
+                    )
+                except (RuntimeError, AttributeError, TypeError):  # noqa: BLE001
+                    pass
+
             # Record positions
             self._record_positions(ctx, agent, result_or_error)
 

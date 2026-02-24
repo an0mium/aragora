@@ -46,26 +46,26 @@ OPENROUTER_FALLBACK_MODELS: dict[str, str] = {
     "qwen/qwen3-235b-a22b": "deepseek/deepseek-chat",
     "qwen/qwen3-max": "deepseek/deepseek-chat",
     "qwen/qwen3.5-plus-02-15": "deepseek/deepseek-chat",
-    # DeepSeek -> GPT-4.1-mini (fast, reliable, 1M context)
-    "deepseek/deepseek-chat": "openai/gpt-4.1-mini",
-    "deepseek/deepseek-chat-v3-0324": "openai/gpt-4.1-mini",
-    "deepseek/deepseek-v3.2": "openai/gpt-4.1-mini",
-    "deepseek/deepseek-v3.2-exp": "openai/gpt-4.1-mini",
-    "deepseek/deepseek-chat-v3.1": "openai/gpt-4.1-mini",
+    # DeepSeek -> GPT-5.2-chat (fast, reliable)
+    "deepseek/deepseek-chat": "openai/gpt-5.2-chat",
+    "deepseek/deepseek-chat-v3-0324": "openai/gpt-5.2-chat",
+    "deepseek/deepseek-v3.2": "openai/gpt-5.2-chat",
+    "deepseek/deepseek-v3.2-exp": "openai/gpt-5.2-chat",
+    "deepseek/deepseek-chat-v3.1": "openai/gpt-5.2-chat",
     "deepseek/deepseek-reasoner": "anthropic/claude-haiku-4.5",
     # Kimi -> Claude Haiku 4.5
     "moonshotai/kimi-k2-0905": "anthropic/claude-haiku-4.5",
     "moonshotai/kimi-k2-thinking": "anthropic/claude-haiku-4.5",
     "moonshot/moonshot-v1-128k": "anthropic/claude-haiku-4.5",
-    # Mistral -> GPT-4.1-mini
-    "mistralai/mistral-large-2411": "openai/gpt-4.1-mini",
-    "mistralai/mistral-large-2512": "openai/gpt-4.1-mini",
+    # Mistral -> GPT-5.2-chat
+    "mistralai/mistral-large-2411": "openai/gpt-5.2-chat",
+    "mistralai/mistral-large-2512": "openai/gpt-5.2-chat",
     # Yi -> DeepSeek
     "01-ai/yi-large": "deepseek/deepseek-chat",
-    # Llama -> GPT-4.1-mini
-    "meta-llama/llama-3.3-70b-instruct": "openai/gpt-4.1-mini",
-    "meta-llama/llama-4-maverick": "openai/gpt-4.1-mini",
-    "meta-llama/llama-4-scout": "openai/gpt-4.1-mini",
+    # Llama -> GPT-5.2-chat
+    "meta-llama/llama-3.3-70b-instruct": "openai/gpt-5.2-chat",
+    "meta-llama/llama-4-maverick": "openai/gpt-5.2-chat",
+    "meta-llama/llama-4-scout": "openai/gpt-5.2-chat",
 }
 
 
@@ -95,7 +95,7 @@ class OpenRouterAgent(APIAgent):
     - moonshotai/kimi-k2-0905 (Kimi K2)
     - google/gemini-3.1-pro-preview (Gemini 3.1 Pro)
     - anthropic/claude-sonnet-4.6
-    - openai/gpt-4.1
+    - openai/gpt-5.2
     """
 
     def __init__(

@@ -41,6 +41,10 @@ class StatusAPI:
         """Get status summary."""
         return self._client.request("GET", "/api/v1/status/summary")
 
+    def get_uptime(self) -> dict[str, Any]:
+        """Get uptime percentages and current uptime details."""
+        return self._client.request("GET", "/api/v1/status/uptime")
+
 
 class AsyncStatusAPI:
     """Asynchronous Status API."""
@@ -67,3 +71,7 @@ class AsyncStatusAPI:
     async def get_summary(self) -> dict[str, Any]:
         """Get status summary."""
         return await self._client.request("GET", "/api/v1/status/summary")
+
+    async def get_uptime(self) -> dict[str, Any]:
+        """Get uptime percentages and current uptime details."""
+        return await self._client.request("GET", "/api/v1/status/uptime")

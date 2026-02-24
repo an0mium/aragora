@@ -98,6 +98,7 @@ class DocumentHandler(BaseHandler):
         "/api/v1/documents",
         "/api/v1/documents/formats",
         "/api/v1/documents/upload",
+        "/api/v1/documents/*",
     ]
 
     # Upload rate limiting (IP-based with LRU eviction)

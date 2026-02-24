@@ -297,6 +297,7 @@ class AragoraClient:
         from .namespaces.sme import SMEAPI
         from .namespaces.social import SocialAPI
         from .namespaces.spectate import SpectateAPI
+        from .namespaces.status import StatusAPI
         from .namespaces.sso import SSOAPI
         from .namespaces.support import SupportAPI
         from .namespaces.system import SystemAPI
@@ -462,6 +463,7 @@ class AragoraClient:
         self.sme = SMEAPI(self)
         self.social = SocialAPI(self)
         self.spectate = SpectateAPI(self)
+        self.status = StatusAPI(self)
         self.sso = SSOAPI(self)
         self.support = SupportAPI(self)
         self.system = SystemAPI(self)
@@ -899,6 +901,7 @@ class AragoraAsyncClient:
         from .namespaces.sme import AsyncSMEAPI
         from .namespaces.social import AsyncSocialAPI
         from .namespaces.spectate import AsyncSpectateAPI
+        from .namespaces.status import AsyncStatusAPI
         from .namespaces.sso import AsyncSSOAPI
         from .namespaces.support import AsyncSupportAPI
         from .namespaces.system import AsyncSystemAPI
@@ -1051,6 +1054,7 @@ class AragoraAsyncClient:
         self.sme = AsyncSMEAPI(self)
         self.social = AsyncSocialAPI(self)
         self.spectate = AsyncSpectateAPI(self)
+        self.status = AsyncStatusAPI(self)
         self.sso = AsyncSSOAPI(self)
         self.support = AsyncSupportAPI(self)
         self.system = AsyncSystemAPI(self)

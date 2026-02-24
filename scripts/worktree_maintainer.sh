@@ -116,8 +116,11 @@ for managed_dir in "${MANAGED_DIRS[@]}"; do
     fi
 
     if [[ "${INCLUDE_ACTIVE}" == false ]] && command -v lsof >/dev/null 2>&1; then
-        if lsof -t +D "$abs_dir" >/dev/null 2>&1; then
-            echo "worktree-maintainer: skipping ${managed_dir} (active processes detected)"
+        active_cwd_pids="$(
+            lsof -t -a -d cwd +D "$abs_dir" 2>/dev/null | tr '\n' ' ' || true
+        )"
+        if [[ -n "${active_cwd_pids// }" ]]; then
+            echo "worktree-maintainer: skipping ${managed_dir} (active cwd pids: ${active_cwd_pids})"
             continue
         fi
     fi

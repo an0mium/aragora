@@ -98,4 +98,9 @@ export class StatusNamespace {
     );
     return response.maintenance;
   }
+
+  /** Get uptime summary and historical uptime periods. */
+  async getUptime(): Promise<Record<string, unknown>> {
+    return this.client.request<Record<string, unknown>>('GET', '/api/v1/status/uptime');
+  }
 }

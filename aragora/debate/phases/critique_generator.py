@@ -246,6 +246,18 @@ class CritiqueGenerator:
         async def generate_critique_bounded(critic: Agent, proposal_agent: str, proposal: str):
             """Wrap critique generation with semaphore for bounded concurrency."""
             async with critique_semaphore:
+                # Emit agent_thinking event before critique generation
+                if self._notify_spectator:
+                    try:
+                        self._notify_spectator(
+                            "agent_thinking",
+                            agent=critic.name,
+                            step=f"Analyzing proposal from {proposal_agent}",
+                            phase="critique",
+                            round_num=round_num,
+                        )
+                    except (RuntimeError, AttributeError, TypeError):  # noqa: BLE001
+                        pass
                 # Mark molecule as in_progress
                 self._start_molecule(critic.name, proposal_agent)
                 return await generate_critique(critic, proposal_agent, proposal)
@@ -491,6 +503,25 @@ class CritiqueGenerator:
                 round_num=round_num,
                 full_content=critique_content,
             )
+
+        # Emit crux_identified for high-severity critiques (>= 0.7)
+        # High severity critiques identify key disagreements worth surfacing
+        if critique.severity >= 0.7 and critique.issues and self._notify_spectator:
+            try:
+                crux_description = critique.issues[0][:300] if critique.issues else ""
+                self._notify_spectator(
+                    "crux_identified",
+                    crux_description=crux_description,
+                    agents_disagreeing=[critic.name, proposal_agent],
+                    positions={
+                        critic.name: "challenges",
+                        proposal_agent: "defends",
+                    },
+                    severity=critique.severity,
+                    round_num=round_num,
+                )
+            except (RuntimeError, AttributeError, TypeError):  # noqa: BLE001
+                pass
 
         # Record critique
         if self.recorder:

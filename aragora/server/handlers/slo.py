@@ -114,6 +114,7 @@ class SLOHandler(BaseHandler):
         "/api/slos/availability",
         "/api/slos/latency",
         "/api/slos/debate-success",
+        "/api/slos/*",  # Dynamic per-SLO routes handled in can_handle
         # SDK v2 aliases (singular /api/slo/)
         "/api/slo/status",
         "/api/slo/budget",

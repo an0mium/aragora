@@ -114,6 +114,7 @@ class TeamsAPI:
         if settings is not None:
             data["settings"] = settings
 
+        # TODO: server route not yet implemented
         return self._client.request("PATCH", f"/api/v1/teams/{team_id}", json=data)
 
     def delete(self, team_id: str) -> dict[str, Any]:
@@ -126,6 +127,7 @@ class TeamsAPI:
         Returns:
             Deletion confirmation
         """
+        # TODO: server route not yet implemented
         return self._client.request("DELETE", f"/api/v1/teams/{team_id}")
 
     def list_members(self, team_id: str) -> dict[str, Any]:
@@ -138,6 +140,7 @@ class TeamsAPI:
         Returns:
             Team members
         """
+        # TODO: server route not yet implemented
         return self._client.request("GET", f"/api/v1/teams/{team_id}/members")
 
     def add_member(self, team_id: str, user_id: str, role: str = "member") -> dict[str, Any]:
@@ -152,6 +155,7 @@ class TeamsAPI:
         Returns:
             Membership record
         """
+        # TODO: server route not yet implemented
         return self._client.request(
             "POST",
             f"/api/v1/teams/{team_id}/members",
@@ -170,6 +174,7 @@ class TeamsAPI:
         Returns:
             Updated membership record
         """
+        # TODO: server route not yet implemented
         return self._client.request(
             "PATCH",
             f"/api/v1/teams/{team_id}/members/{user_id}",
@@ -187,6 +192,7 @@ class TeamsAPI:
         Returns:
             Removal confirmation
         """
+        # TODO: server route not yet implemented
         return self._client.request("DELETE", f"/api/v1/teams/{team_id}/members/{user_id}")
 
     def get_stats(self, team_id: str) -> dict[str, Any]:
@@ -199,6 +205,7 @@ class TeamsAPI:
         Returns:
             Team statistics
         """
+        # TODO: server route not yet implemented
         return self._client.request("GET", f"/api/v1/teams/{team_id}/stats")
 
     def send_debate(
@@ -247,6 +254,7 @@ class AsyncTeamsAPI:
 
     async def get(self, team_id: str) -> dict[str, Any]:
         """Get team details."""
+        # TODO: server route not yet implemented
         return await self._client.request("GET", f"/api/v1/teams/{team_id}")
 
     async def create(
@@ -283,18 +291,22 @@ class AsyncTeamsAPI:
         if settings is not None:
             data["settings"] = settings
 
+        # TODO: server route not yet implemented
         return await self._client.request("PATCH", f"/api/v1/teams/{team_id}", json=data)
 
     async def delete(self, team_id: str) -> dict[str, Any]:
         """Delete a team."""
+        # TODO: server route not yet implemented
         return await self._client.request("DELETE", f"/api/v1/teams/{team_id}")
 
     async def list_members(self, team_id: str) -> dict[str, Any]:
         """List team members."""
+        # TODO: server route not yet implemented
         return await self._client.request("GET", f"/api/v1/teams/{team_id}/members")
 
     async def add_member(self, team_id: str, user_id: str, role: str = "member") -> dict[str, Any]:
         """Add a member to the team."""
+        # TODO: server route not yet implemented
         return await self._client.request(
             "POST",
             f"/api/v1/teams/{team_id}/members",
@@ -303,6 +315,7 @@ class AsyncTeamsAPI:
 
     async def update_member(self, team_id: str, user_id: str, role: str) -> dict[str, Any]:
         """Update a team member's role."""
+        # TODO: server route not yet implemented
         return await self._client.request(
             "PATCH",
             f"/api/v1/teams/{team_id}/members/{user_id}",
@@ -311,10 +324,12 @@ class AsyncTeamsAPI:
 
     async def remove_member(self, team_id: str, user_id: str) -> dict[str, Any]:
         """Remove a member from the team."""
+        # TODO: server route not yet implemented
         return await self._client.request("DELETE", f"/api/v1/teams/{team_id}/members/{user_id}")
 
     async def get_stats(self, team_id: str) -> dict[str, Any]:
         """Get team statistics."""
+        # TODO: server route not yet implemented
         return await self._client.request("GET", f"/api/v1/teams/{team_id}/stats")
 
     async def send_debate(

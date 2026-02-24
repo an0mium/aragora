@@ -27,6 +27,8 @@ class GrokAgent(OpenAICompatibleMixin, APIAgent):
     """
 
     OPENROUTER_MODEL_MAP = {
+        "grok-4-1-fast": "x-ai/grok-4.1-fast",
+        "grok-4-1-fast-reasoning": "x-ai/grok-4.1-fast",
         "grok-4-latest": "x-ai/grok-4",
         "grok-4": "x-ai/grok-4",
         "grok-4-fast": "x-ai/grok-4-fast",
@@ -35,7 +37,7 @@ class GrokAgent(OpenAICompatibleMixin, APIAgent):
         "grok-2-1212": "x-ai/grok-2-1212",
         "grok-beta": "x-ai/grok-beta",
     }
-    DEFAULT_FALLBACK_MODEL = "x-ai/grok-4"
+    DEFAULT_FALLBACK_MODEL = "x-ai/grok-4.1-fast"
 
     def __init__(
         self,

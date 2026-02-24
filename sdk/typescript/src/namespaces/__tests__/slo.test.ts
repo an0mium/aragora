@@ -357,6 +357,50 @@ describe('SLONamespace', () => {
   });
 
   // ===========================================================================
+  // Debate Health + Enforcer Budget
+  // ===========================================================================
+
+  describe('Debate Health + Enforcer Budget', () => {
+    it('should get debate SLO health with defaults', async () => {
+      mockClient.request.mockResolvedValue({
+        data: { status: 'healthy', window: '1h' },
+      });
+
+      const result = await api.getDebateHealth();
+
+      expect(mockClient.request).toHaveBeenCalledWith('GET', '/api/health/slos', {});
+      expect((result as any).data.status).toBe('healthy');
+    });
+
+    it('should get debate SLO health with explicit options', async () => {
+      mockClient.request.mockResolvedValue({
+        data: { status: 'healthy', windows: ['1h', '24h', '7d'] },
+      });
+
+      const result = await api.getDebateHealth({ window: '24h', allWindows: true });
+
+      expect(mockClient.request).toHaveBeenCalledWith('GET', '/api/health/slos', {
+        params: {
+          window: '24h',
+          all_windows: 'true',
+        },
+      });
+      expect((result as any).data.status).toBe('healthy');
+    });
+
+    it('should get enforcer budget', async () => {
+      mockClient.request.mockResolvedValue({
+        data: { availability: { remaining: 99.9 } },
+      });
+
+      const result = await api.getEnforcerBudget();
+
+      expect(mockClient.request).toHaveBeenCalledWith('GET', '/api/v1/slo/budget');
+      expect((result as any).data).toBeDefined();
+    });
+  });
+
+  // ===========================================================================
   // Compliance Check
   // ===========================================================================
 
