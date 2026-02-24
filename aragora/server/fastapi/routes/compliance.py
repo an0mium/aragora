@@ -79,6 +79,16 @@ class ComplianceStatusResponse(BaseModel):
     last_assessment: str | None = None
 
 
+class ControlListResponse(BaseModel):
+    """Response for compliance controls listing."""
+
+    controls: list[ControlStatus]
+    total: int
+    framework: str = ""
+    limit: int
+    offset: int
+
+
 class PolicySummary(BaseModel):
     """Summary of a compliance policy."""
 
@@ -287,6 +297,83 @@ async def get_compliance_status(
     except (RuntimeError, ValueError, TypeError, OSError, KeyError, AttributeError) as e:
         logger.exception("Error getting compliance status: %s", e)
         raise HTTPException(status_code=500, detail="Failed to get compliance status")
+
+
+@router.get("/compliance/controls", response_model=ControlListResponse)
+async def list_compliance_controls(
+    request: Request,
+    framework: str = Query("soc2", description="Compliance framework"),
+    status: str | None = Query(None, description="Filter by status (passing, failing, not_assessed)"),
+    limit: int = Query(50, ge=1, le=200, description="Max results to return"),
+    offset: int = Query(0, ge=0, description="Number of results to skip"),
+    fw=Depends(get_compliance_framework),
+) -> ControlListResponse:
+    """
+    List compliance controls for a given framework.
+
+    Returns individual control statuses with evidence counts and assessment dates.
+    Supports filtering by status (passing, failing, not_assessed).
+    """
+    if not fw:
+        return ControlListResponse(
+            controls=[], total=0, framework=framework, limit=limit, offset=offset,
+        )
+
+    try:
+        controls: list[ControlStatus] = []
+
+        # Try dedicated controls listing
+        if hasattr(fw, "list_controls"):
+            raw_controls = fw.list_controls(framework=framework, status=status)
+        elif hasattr(fw, "get_controls"):
+            raw_controls = fw.get_controls(framework=framework)
+        elif hasattr(fw, "get_status"):
+            # Fall back to extracting controls from status
+            raw_status = fw.get_status(framework=framework)
+            raw_controls = raw_status.get("controls", []) if isinstance(raw_status, dict) else []
+        else:
+            raw_controls = []
+
+        for ctrl in raw_controls:
+            if isinstance(ctrl, dict):
+                ctrl_status = ctrl.get("status", "not_assessed")
+                if status and ctrl_status != status:
+                    continue
+                controls.append(ControlStatus(
+                    control_id=ctrl.get("control_id", ctrl.get("id", "")),
+                    name=ctrl.get("name", ""),
+                    description=ctrl.get("description", ""),
+                    status=ctrl_status,
+                    evidence_count=ctrl.get("evidence_count", 0),
+                    last_assessed=ctrl.get("last_assessed"),
+                ))
+            else:
+                ctrl_status = getattr(ctrl, "status", "not_assessed")
+                if status and ctrl_status != status:
+                    continue
+                controls.append(ControlStatus(
+                    control_id=getattr(ctrl, "control_id", getattr(ctrl, "id", "")),
+                    name=getattr(ctrl, "name", ""),
+                    description=getattr(ctrl, "description", ""),
+                    status=ctrl_status,
+                    evidence_count=getattr(ctrl, "evidence_count", 0),
+                    last_assessed=getattr(ctrl, "last_assessed", None),
+                ))
+
+        total = len(controls)
+        paginated = controls[offset: offset + limit]
+
+        return ControlListResponse(
+            controls=paginated,
+            total=total,
+            framework=framework,
+            limit=limit,
+            offset=offset,
+        )
+
+    except (RuntimeError, ValueError, TypeError, OSError, KeyError, AttributeError) as e:
+        logger.exception("Error listing compliance controls: %s", e)
+        raise HTTPException(status_code=500, detail="Failed to list compliance controls")
 
 
 @router.get("/compliance/policies", response_model=PolicyListResponse)

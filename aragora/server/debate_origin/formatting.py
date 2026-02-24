@@ -420,3 +420,196 @@ def format_workflow_event(result: dict[str, Any]) -> str:
         lines.append("**Action needed:** Please approve or reject this step.")
 
     return "\n".join(lines)
+
+
+def format_agent_team_event(result: dict[str, Any]) -> str:
+    """Format an agent team selection event for channel delivery."""
+    event_type = result.get("event", "selection")
+    team_size = result.get("team_size", 0)
+    strategy = result.get("strategy", "auto")
+    topic = result.get("topic", result.get("task", ""))
+    agents = result.get("agents", result.get("selected_agents", []))
+
+    title_map = {
+        "selection_complete": "Agent Team Selected",
+        "rebalance": "Team Rebalanced",
+        "agent_added": "Agent Added to Team",
+        "agent_removed": "Agent Removed from Team",
+    }
+    title = title_map.get(event_type, "Agent Team Update")
+    lines = [f"**{title}**"]
+    if topic:
+        lines.append(f"**Topic:** {str(topic)[:200]}")
+    if team_size or agents:
+        lines.append(f"**Team Size:** {team_size or len(agents)}")
+    lines.append(f"**Strategy:** {strategy}")
+    if agents:
+        names = [str(a.get("name", a) if isinstance(a, dict) else a) for a in agents[:6]]
+        lines.append(f"**Agents:** {', '.join(names)}")
+        if len(agents) > 6:
+            lines.append(f"  ...and {len(agents) - 6} more")
+
+    return "\n".join(lines)
+
+
+def format_continuum_memory_event(result: dict[str, Any]) -> str:
+    """Format a continuum memory event for channel delivery."""
+    event_type = result.get("cm_event", result.get("event", "update"))
+    tier = result.get("tier", "")
+    item_count = result.get("item_count", 0)
+
+    title_map = {
+        "consolidation": "Memory Consolidated",
+        "promotion": "Memory Promoted",
+        "eviction": "Memory Evicted",
+        "recall": "Memory Recalled",
+    }
+    title = title_map.get(event_type, "Memory Update")
+    lines = [f"**{title}**"]
+    if tier:
+        lines.append(f"**Tier:** {tier}")
+    if item_count:
+        lines.append(f"**Items:** {item_count}")
+
+    summary = result.get("summary", "")
+    if summary:
+        lines.append(f"**Summary:** {str(summary)[:200]}")
+
+    return "\n".join(lines)
+
+
+def format_marketplace_event(result: dict[str, Any]) -> str:
+    """Format a marketplace event for channel delivery."""
+    event_type = result.get("mp_event", result.get("event", "update"))
+    item_name = result.get("name", result.get("template_name", ""))
+    category = result.get("category", "")
+
+    title_map = {
+        "published": "Template Published",
+        "installed": "Template Installed",
+        "updated": "Template Updated",
+        "review": "Review Submitted",
+    }
+    title = title_map.get(event_type, "Marketplace Update")
+    lines = [f"**{title}**"]
+    if item_name:
+        lines.append(f"**Name:** {item_name}")
+    if category:
+        lines.append(f"**Category:** {category}")
+
+    rating = result.get("rating")
+    if isinstance(rating, (int, float)):
+        lines.append(f"**Rating:** {rating:.1f}/5")
+
+    return "\n".join(lines)
+
+
+def format_matrix_debate_event(result: dict[str, Any]) -> str:
+    """Format a matrix debate event for channel delivery."""
+    status = result.get("status", "running")
+    topic = result.get("topic", result.get("task", ""))
+    dimensions = result.get("dimensions", [])
+    cell_count = result.get("cell_count", 0)
+    conclusion = result.get("conclusion", result.get("final_answer", ""))
+
+    lines = [f"**Matrix Debate {status.title()}**"]
+    if topic:
+        lines.append(f"**Topic:** {str(topic)[:200]}")
+    if dimensions:
+        lines.append(f"**Dimensions:** {', '.join(str(d) for d in dimensions[:4])}")
+    if cell_count:
+        lines.append(f"**Cells:** {cell_count}")
+    if conclusion:
+        lines.append(f"**Conclusion:** {str(conclusion)[:300]}")
+
+    return "\n".join(lines)
+
+
+def format_nomic_loop_event(result: dict[str, Any]) -> str:
+    """Format a nomic loop event for channel delivery."""
+    event_type = result.get("nl_event", result.get("event", "update"))
+    cycle = result.get("cycle", 0)
+    phase = result.get("phase", "")
+    goal = result.get("goal", result.get("objective", ""))
+
+    title_map = {
+        "cycle_started": "Nomic Cycle Started",
+        "phase_complete": "Phase Complete",
+        "cycle_complete": "Nomic Cycle Complete",
+        "improvement_merged": "Improvement Merged",
+        "cycle_failed": "Cycle Failed",
+    }
+    title = title_map.get(event_type, "Nomic Loop Update")
+    lines = [f"**{title}**"]
+    if cycle:
+        lines.append(f"**Cycle:** {cycle}")
+    if phase:
+        lines.append(f"**Phase:** {phase}")
+    if goal:
+        lines.append(f"**Goal:** {str(goal)[:200]}")
+
+    files_changed = result.get("files_changed", [])
+    if files_changed:
+        lines.append(f"**Files Changed:** {len(files_changed)}")
+
+    return "\n".join(lines)
+
+
+def format_rbac_event(result: dict[str, Any]) -> str:
+    """Format an RBAC event for channel delivery."""
+    event_type = result.get("rbac_event", result.get("event", "update"))
+    user = result.get("user", result.get("user_id", ""))
+    role = result.get("role", "")
+    permission = result.get("permission", "")
+
+    title_map = {
+        "role_assigned": "Role Assigned",
+        "role_revoked": "Role Revoked",
+        "permission_granted": "Permission Granted",
+        "permission_denied": "Permission Denied",
+        "policy_updated": "Policy Updated",
+    }
+    title = title_map.get(event_type, "RBAC Update")
+    lines = [f"**{title}**"]
+    if user:
+        lines.append(f"**User:** {str(user)[:60]}")
+    if role:
+        lines.append(f"**Role:** {role}")
+    if permission:
+        lines.append(f"**Permission:** {permission}")
+
+    reason = result.get("reason", "")
+    if reason:
+        lines.append(f"**Reason:** {str(reason)[:200]}")
+
+    return "\n".join(lines)
+
+
+def format_vertical_specialist_event(result: dict[str, Any]) -> str:
+    """Format a vertical specialist event for channel delivery."""
+    event_type = result.get("vs_event", result.get("event", "update"))
+    vertical = result.get("vertical", result.get("domain", ""))
+    specialist = result.get("specialist", result.get("agent", ""))
+
+    title_map = {
+        "analysis_complete": "Specialist Analysis Complete",
+        "recommendation": "Specialist Recommendation",
+        "risk_assessment": "Risk Assessment",
+        "compliance_review": "Compliance Review",
+    }
+    title = title_map.get(event_type, "Specialist Update")
+    lines = [f"**{title}**"]
+    if vertical:
+        lines.append(f"**Vertical:** {vertical}")
+    if specialist:
+        lines.append(f"**Specialist:** {specialist}")
+
+    confidence = result.get("confidence")
+    if isinstance(confidence, (int, float)):
+        lines.append(f"**Confidence:** {confidence:.0%}")
+
+    summary = result.get("summary", result.get("recommendation", ""))
+    if summary:
+        lines.append(f"**Summary:** {str(summary)[:300]}")
+
+    return "\n".join(lines)

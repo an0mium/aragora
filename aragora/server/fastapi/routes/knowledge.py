@@ -130,6 +130,15 @@ class AdapterListResponse(BaseModel):
     total: int
 
 
+class SemanticSearchRequest(BaseModel):
+    """Request body for POST /knowledge/search (semantic search)."""
+
+    query: str = Field(..., min_length=1, description="Semantic search query")
+    limit: int = Field(20, ge=1, le=100, description="Max results to return")
+    content_type: str | None = Field(None, description="Filter by content type")
+    source: str | None = Field(None, description="Filter by source")
+
+
 class StructuredQueryRequest(BaseModel):
     """Request body for POST /knowledge/query."""
 
@@ -398,6 +407,91 @@ async def get_knowledge_stats(
     except (RuntimeError, ValueError, TypeError, OSError, KeyError, AttributeError) as e:
         logger.exception("Error getting knowledge stats: %s", e)
         raise HTTPException(status_code=500, detail="Failed to get knowledge stats")
+
+
+@router.get("/knowledge/gaps", response_model=KnowledgeGapsResponse)
+async def get_knowledge_gaps(
+    request: Request,
+    domain: str | None = Query(None, description="Domain to check for coverage gaps"),
+    max_age_days: int = Query(90, ge=1, le=365, description="Max age in days before an item is stale"),
+    workspace_id: str = Query("default", description="Workspace ID"),
+    km=Depends(get_knowledge_mound),
+) -> KnowledgeGapsResponse:
+    """
+    Detect knowledge gaps including coverage gaps, staleness, and contradictions.
+
+    Uses the KnowledgeGapDetector to analyze the knowledge mound for areas
+    that need attention: missing coverage, stale entries, and contradictions.
+    """
+    if not km:
+        return KnowledgeGapsResponse(
+            workspace_id=workspace_id,
+            status="knowledge_mound_unavailable",
+        )
+
+    try:
+        # Try to use the KnowledgeGapDetector
+        try:
+            from aragora.knowledge.gap_detector import KnowledgeGapDetector
+
+            detector = KnowledgeGapDetector(mound=km, workspace_id=workspace_id)
+
+            coverage_gaps: list[CoverageGap] = []
+            if domain:
+                raw_gaps = await detector.detect_coverage_gaps(domain)
+                for g in raw_gaps:
+                    g_dict = g.to_dict() if hasattr(g, "to_dict") else g
+                    if isinstance(g_dict, dict):
+                        coverage_gaps.append(CoverageGap(
+                            domain=g_dict.get("domain", domain),
+                            description=g_dict.get("description", ""),
+                            severity=g_dict.get("severity", "medium"),
+                            recommendation=g_dict.get("recommendation", ""),
+                        ))
+
+            stale = await detector.detect_staleness(max_age_days=max_age_days)
+            stale_entries: list[StalenessItem] = []
+            for s in stale[:50]:
+                s_dict = s.to_dict() if hasattr(s, "to_dict") else s
+                if isinstance(s_dict, dict):
+                    stale_entries.append(StalenessItem(
+                        id=s_dict.get("id", ""),
+                        title=s_dict.get("title", ""),
+                        source=s_dict.get("source", ""),
+                        created_at=s_dict.get("created_at"),
+                        updated_at=s_dict.get("updated_at"),
+                        age_days=s_dict.get("age_days", 0.0),
+                        stale=True,
+                    ))
+
+            raw_contradictions = await detector.detect_contradictions()
+            contradictions = [
+                c.to_dict() if hasattr(c, "to_dict") else c
+                for c in raw_contradictions[:50]
+            ]
+
+            return KnowledgeGapsResponse(
+                workspace_id=workspace_id,
+                coverage_gaps=coverage_gaps,
+                stale_entries=stale_entries,
+                stale_count=len(stale),
+                contradictions=contradictions,
+                contradiction_count=len(raw_contradictions),
+                status="ok",
+            )
+
+        except (ImportError, RuntimeError) as e:
+            logger.debug("KnowledgeGapDetector not available: %s", e)
+
+            # Fall back to basic staleness from KM stats
+            return KnowledgeGapsResponse(
+                workspace_id=workspace_id,
+                status="gap_detector_unavailable",
+            )
+
+    except (RuntimeError, ValueError, TypeError, OSError, KeyError, AttributeError) as e:
+        logger.exception("Error detecting knowledge gaps: %s", e)
+        raise HTTPException(status_code=500, detail="Failed to detect knowledge gaps")
 
 
 @router.get("/knowledge/items/{item_id}", response_model=KnowledgeItemDetail)

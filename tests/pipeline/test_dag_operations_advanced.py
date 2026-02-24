@@ -235,6 +235,11 @@ class TestDebateAssignment:
 # ---------------------------------------------------------------------------
 
 
+class _FakeCoordinator:
+    """Stub class so isinstance checks pass in _execute_federated."""
+    pass
+
+
 class TestExecuteFederated:
     """Tests for DAGOperationsCoordinator._execute_federated()."""
 
@@ -244,7 +249,7 @@ class TestExecuteFederated:
         graph = _make_graph()
         node = graph.nodes["orch-1"]
 
-        mock_federation = MagicMock()
+        mock_federation = _FakeCoordinator()
         mock_remote_result = MagicMock()
         mock_remote_result.success = True
         mock_remote_result.to_dict.return_value = {"status": "completed"}
@@ -252,20 +257,10 @@ class TestExecuteFederated:
 
         coord = DAGOperationsCoordinator(graph, federation_coordinator=mock_federation)
 
-        # Mock the CrossWorkspaceCoordinator isinstance check
-        monkeypatch.setattr(
-            "aragora.pipeline.dag_operations.DAGOperationsCoordinator._execute_federated",
-            coord._execute_federated,
-        )
-
-        # Patch the import to make isinstance work
-        mock_cwc_cls = MagicMock()
         monkeypatch.setattr(
             "aragora.coordination.cross_workspace.CrossWorkspaceCoordinator",
-            mock_cwc_cls,
+            _FakeCoordinator,
         )
-        # Make isinstance return False so it uses the coordinator as-is
-        # (coordinator is a MagicMock, not a CrossWorkspaceCoordinator)
 
         result = await coord._execute_federated(node, "remote-workspace-1")
 
@@ -304,19 +299,19 @@ class TestExecuteFederated:
         graph = _make_graph()
         node = graph.nodes["orch-1"]
 
-        mock_federation = MagicMock()
+        mock_federation = _FakeCoordinator()
         mock_federation.execute_remote = AsyncMock(
             side_effect=RuntimeError("network timeout"),
         )
 
         coord = DAGOperationsCoordinator(graph, federation_coordinator=mock_federation)
 
-        # Make isinstance check pass so it uses the mock directly
-        with patch(
+        monkeypatch.setattr(
             "aragora.coordination.cross_workspace.CrossWorkspaceCoordinator",
-            type(mock_federation),
-        ):
-            result = await coord._execute_federated(node, "remote-ws")
+            _FakeCoordinator,
+        )
+
+        result = await coord._execute_federated(node, "remote-ws")
 
         assert not result.success
         assert "failed" in result.message.lower()
@@ -328,7 +323,7 @@ class TestExecuteFederated:
         graph = _make_graph()
         node = graph.nodes["orch-1"]
 
-        mock_federation = MagicMock()
+        mock_federation = _FakeCoordinator()
         mock_remote_result = MagicMock(spec=[])  # No to_dict attribute
         mock_remote_result.success = True
 
@@ -336,11 +331,12 @@ class TestExecuteFederated:
 
         coord = DAGOperationsCoordinator(graph, federation_coordinator=mock_federation)
 
-        with patch(
+        monkeypatch.setattr(
             "aragora.coordination.cross_workspace.CrossWorkspaceCoordinator",
-            type(mock_federation),
-        ):
-            result = await coord._execute_federated(node, "ws-2")
+            _FakeCoordinator,
+        )
+
+        result = await coord._execute_federated(node, "ws-2")
 
         assert result.success
         # str() fallback used for result serialization
@@ -356,7 +352,7 @@ class TestExecuteFederated:
         mock_store = MagicMock()
         mock_store.update = lambda g: save_calls.append(True)
 
-        mock_federation = MagicMock()
+        mock_federation = _FakeCoordinator()
         mock_remote_result = MagicMock()
         mock_remote_result.success = True
         mock_remote_result.to_dict.return_value = {}
@@ -366,11 +362,12 @@ class TestExecuteFederated:
             graph, store=mock_store, federation_coordinator=mock_federation,
         )
 
-        with patch(
+        monkeypatch.setattr(
             "aragora.coordination.cross_workspace.CrossWorkspaceCoordinator",
-            type(mock_federation),
-        ):
-            await coord._execute_federated(node, "ws-3")
+            _FakeCoordinator,
+        )
+
+        await coord._execute_federated(node, "ws-3")
 
         assert len(save_calls) > 0
 
