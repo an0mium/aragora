@@ -1,5 +1,6 @@
 """Tests for Debate Performance Monitoring System."""
 
+import time
 from datetime import datetime, timezone
 from unittest.mock import MagicMock, patch
 
