@@ -32,3 +32,13 @@ export const STALL_WARNING_MS = 120000; // 2 minutes
 
 // Stream events buffer limit to prevent unbounded memory growth
 export const MAX_STREAM_EVENTS = 500;
+
+// Polling fallback interval (ms) when WebSocket is permanently unavailable
+export const POLLING_INTERVAL_MS = parseInt(
+  process.env.NEXT_PUBLIC_WS_POLLING_INTERVAL || '3000',
+  10
+); // 3 seconds
+
+// Heartbeat monitoring - if no heartbeat/event in this window, trigger
+// proactive reconnect (should be > server heartbeat interval of 15s)
+export const HEARTBEAT_TIMEOUT_MS = 45000; // 45 seconds
