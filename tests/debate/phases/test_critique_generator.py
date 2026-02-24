@@ -886,7 +886,8 @@ class TestProcessCritiqueResult:
             partial_critiques=partial_critiques,
         )
 
-        notify_spectator.assert_called_once()
+        # Called at least once for critique event; may also emit crux_identified
+        assert notify_spectator.call_count >= 1
 
     def test_records_turn_with_recorder(self):
         """Records critique turn with recorder when available."""
