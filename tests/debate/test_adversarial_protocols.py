@@ -431,10 +431,7 @@ class TestSycophancyDetector:
     def test_no_consensus_debates_not_flagged(self):
         """Debates without consensus are not analyzed for sycophancy."""
         detector = SycophancyDetector()
-        results = [
-            _make_debate(debate_id=f"d{i}", consensus=False, rounds=5)
-            for i in range(5)
-        ]
+        results = [_make_debate(debate_id=f"d{i}", consensus=False, rounds=5) for i in range(5)]
         detection = detector.detect(results)
         assert detection.detected is False
 
@@ -736,21 +733,23 @@ class TestMetricGamingDetector:
     def test_format_gaming_detected(self):
         """Proposal with excessive formatting is flagged."""
         detector = MetricGamingDetector(format_gaming_threshold=0.3)
-        formatted_proposal = "\n".join([
-            "# Rate Limiting",
-            "## Overview",
-            "### Details",
-            "- Point one",
-            "- Point two",
-            "- Point three",
-            "1. Step one",
-            "2. Step two",
-            "3. Step three",
-            "#### Sub-details",
-            "- More points",
-            "##### Deep nesting",
-            "- Even more",
-        ])
+        formatted_proposal = "\n".join(
+            [
+                "# Rate Limiting",
+                "## Overview",
+                "### Details",
+                "- Point one",
+                "- Point two",
+                "- Point three",
+                "1. Step one",
+                "2. Step two",
+                "3. Step three",
+                "#### Sub-details",
+                "- More points",
+                "##### Deep nesting",
+                "- Even more",
+            ]
+        )
         proposals = {"agent_a": formatted_proposal}
         votes = [_make_vote(agent="agent_b", choice="agent_a")]
         detection = detector.detect(proposals, votes)

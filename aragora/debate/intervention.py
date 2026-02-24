@@ -610,8 +610,7 @@ class InterventionQueue:
             except ValueError:
                 valid = [t.value for t in QueuedInterventionType]
                 raise ValueError(
-                    f"Invalid intervention type: {intervention_type}. "
-                    f"Must be one of: {valid}"
+                    f"Invalid intervention type: {intervention_type}. Must be one of: {valid}"
                 )
         else:
             iv_type = intervention_type
@@ -775,11 +774,7 @@ class InterventionQueue:
         """Get all queued interventions for a debate (all statuses)."""
         with self._lock:
             iv_ids = self._debate_interventions.get(debate_id, [])
-            return [
-                self._interventions[iv_id]
-                for iv_id in iv_ids
-                if iv_id in self._interventions
-            ]
+            return [self._interventions[iv_id] for iv_id in iv_ids if iv_id in self._interventions]
 
     def get_effect(self, intervention_id: str) -> InterventionEffect | None:
         """Get the recorded effect for an intervention."""

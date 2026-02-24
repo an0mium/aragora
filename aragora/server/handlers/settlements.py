@@ -163,13 +163,15 @@ class SettlementHandler(BaseHandler):
             limit=limit,
         )
 
-        return json_response({
-            "data": {
-                "settlements": [r.to_dict() for r in pending],
-                "count": len(pending),
-                "status": "pending",
+        return json_response(
+            {
+                "data": {
+                    "settlements": [r.to_dict() for r in pending],
+                    "count": len(pending),
+                    "status": "pending",
+                }
             }
-        })
+        )
 
     # ------------------------------------------------------------------
     # GET /api/v1/settlements/history
@@ -196,13 +198,15 @@ class SettlementHandler(BaseHandler):
             limit=limit,
         )
 
-        return json_response({
-            "data": {
-                "settlements": [r.to_dict() for r in history],
-                "count": len(history),
-                "status": "settled",
+        return json_response(
+            {
+                "data": {
+                    "settlements": [r.to_dict() for r in history],
+                    "count": len(history),
+                    "status": "settled",
+                }
             }
-        })
+        )
 
     # ------------------------------------------------------------------
     # GET /api/v1/settlements/summary
@@ -259,9 +263,7 @@ class SettlementHandler(BaseHandler):
             return error_response("outcome is required", 400)
 
         if outcome not in ("correct", "incorrect", "partial"):
-            return error_response(
-                "outcome must be 'correct', 'incorrect', or 'partial'", 400
-            )
+            return error_response("outcome must be 'correct', 'incorrect', or 'partial'", 400)
 
         evidence = body.get("evidence", "")
         settled_by = body.get("settled_by", "api")
@@ -305,9 +307,11 @@ class SettlementHandler(BaseHandler):
             settled_by=settled_by,
         )
 
-        return json_response({
-            "data": {
-                "results": [r.to_dict() for r in results],
-                "count": len(results),
+        return json_response(
+            {
+                "data": {
+                    "results": [r.to_dict() for r in results],
+                    "count": len(results),
+                }
             }
-        })
+        )

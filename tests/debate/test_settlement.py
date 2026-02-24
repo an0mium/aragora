@@ -32,11 +32,13 @@ def _make_debate_result(
 ) -> SimpleNamespace:
     """Build a lightweight debate result for testing."""
     msgs = []
-    for m in (messages or []):
-        msgs.append(SimpleNamespace(
-            content=m.get("content", ""),
-            agent=m.get("agent", "unknown"),
-        ))
+    for m in messages or []:
+        msgs.append(
+            SimpleNamespace(
+                content=m.get("content", ""),
+                agent=m.get("agent", "unknown"),
+            )
+        )
     return SimpleNamespace(
         messages=msgs,
         final_answer=final_answer,
@@ -128,8 +130,11 @@ class TestVerifiableClaim:
 class TestSettlementRecord:
     def test_default_status(self):
         claim = VerifiableClaim(
-            claim_id="c1", debate_id="d1",
-            statement="test", author="a", confidence=0.5,
+            claim_id="c1",
+            debate_id="d1",
+            statement="test",
+            author="a",
+            confidence=0.5,
         )
         record = SettlementRecord(settlement_id="s1", claim=claim)
         assert record.status == SettlementStatus.PENDING
@@ -137,8 +142,11 @@ class TestSettlementRecord:
 
     def test_to_dict(self):
         claim = VerifiableClaim(
-            claim_id="c1", debate_id="d1",
-            statement="test", author="a", confidence=0.5,
+            claim_id="c1",
+            debate_id="d1",
+            statement="test",
+            author="a",
+            confidence=0.5,
         )
         record = SettlementRecord(
             settlement_id="s1",
@@ -182,20 +190,18 @@ class TestExtractVerifiableClaims:
         assert isinstance(batch, SettlementBatch)
 
     def test_no_duplicates(self):
-        result = _make_debate_result(
-            messages=[_verifiable_message("agent-1")]
-        )
+        result = _make_debate_result(messages=[_verifiable_message("agent-1")])
         tracker = SettlementTracker()
         batch1 = tracker.extract_verifiable_claims("d1", result)
         batch2 = tracker.extract_verifiable_claims("d1", result)
 
         # Second extraction should skip already-registered claims
-        assert batch2.settlements_created == 0 or batch2.claims_skipped >= batch1.settlements_created
+        assert (
+            batch2.settlements_created == 0 or batch2.claims_skipped >= batch1.settlements_created
+        )
 
     def test_min_confidence_filter(self):
-        result = _make_debate_result(
-            messages=[_verifiable_message("agent-1")]
-        )
+        result = _make_debate_result(messages=[_verifiable_message("agent-1")])
         tracker = SettlementTracker()
         # Very high min_confidence should filter most claims
         batch = tracker.extract_verifiable_claims("d1", result, min_confidence=0.99)
@@ -204,6 +210,7 @@ class TestExtractVerifiableClaims:
 
     def test_extract_from_claims_kernel(self):
         """Test extraction using a ClaimsKernel-like object."""
+
         class FakeTypedClaim:
             def __init__(self):
                 self.claim_id = "c1"
@@ -439,15 +446,15 @@ class TestSettleBatch:
                 author="agent-1",
                 confidence=0.7,
             )
-            tracker._records[f"stl-{i}"] = SettlementRecord(
-                settlement_id=f"stl-{i}", claim=claim
-            )
+            tracker._records[f"stl-{i}"] = SettlementRecord(settlement_id=f"stl-{i}", claim=claim)
 
-        results = tracker.settle_batch([
-            {"settlement_id": "stl-0", "outcome": "correct", "evidence": "yes"},
-            {"settlement_id": "stl-1", "outcome": "incorrect"},
-            {"settlement_id": "stl-2", "outcome": "partial"},
-        ])
+        results = tracker.settle_batch(
+            [
+                {"settlement_id": "stl-0", "outcome": "correct", "evidence": "yes"},
+                {"settlement_id": "stl-1", "outcome": "incorrect"},
+                {"settlement_id": "stl-2", "outcome": "partial"},
+            ]
+        )
 
         assert len(results) == 3
         assert results[0].outcome == SettlementOutcome.CORRECT
@@ -456,9 +463,11 @@ class TestSettleBatch:
 
     def test_batch_settle_skips_invalid(self):
         tracker = SettlementTracker()
-        results = tracker.settle_batch([
-            {"settlement_id": "nonexistent", "outcome": "correct"},
-        ])
+        results = tracker.settle_batch(
+            [
+                {"settlement_id": "nonexistent", "outcome": "correct"},
+            ]
+        )
         assert len(results) == 0
 
 
@@ -472,12 +481,15 @@ class TestBrierScore:
         """Agent with confidence matching outcomes has brier ~0."""
         tracker = SettlementTracker()
         claim = VerifiableClaim(
-            claim_id="c1", debate_id="d1",
-            statement="test", author="perfect",
+            claim_id="c1",
+            debate_id="d1",
+            statement="test",
+            author="perfect",
             confidence=1.0,
         )
         record = SettlementRecord(
-            settlement_id="stl-1", claim=claim,
+            settlement_id="stl-1",
+            claim=claim,
             status=SettlementStatus.SETTLED_CORRECT,
             outcome=SettlementOutcome.CORRECT,
             score=1.0,
@@ -491,12 +503,15 @@ class TestBrierScore:
         """Agent confident but wrong has high brier score."""
         tracker = SettlementTracker()
         claim = VerifiableClaim(
-            claim_id="c1", debate_id="d1",
-            statement="test", author="bad",
+            claim_id="c1",
+            debate_id="d1",
+            statement="test",
+            author="bad",
             confidence=1.0,
         )
         record = SettlementRecord(
-            settlement_id="stl-1", claim=claim,
+            settlement_id="stl-1",
+            claim=claim,
             status=SettlementStatus.SETTLED_INCORRECT,
             outcome=SettlementOutcome.INCORRECT,
             score=0.0,
@@ -523,8 +538,11 @@ class TestEloIntegration:
 
         tracker = SettlementTracker(elo_system=mock_elo)
         claim = VerifiableClaim(
-            claim_id="c1", debate_id="d1",
-            statement="test", author="a", confidence=0.5,
+            claim_id="c1",
+            debate_id="d1",
+            statement="test",
+            author="a",
+            confidence=0.5,
         )
         tracker._records["stl-1"] = SettlementRecord(settlement_id="stl-1", claim=claim)
 
@@ -534,8 +552,11 @@ class TestEloIntegration:
     def test_no_elo_system(self):
         tracker = SettlementTracker()
         claim = VerifiableClaim(
-            claim_id="c1", debate_id="d1",
-            statement="test", author="a", confidence=0.5,
+            claim_id="c1",
+            debate_id="d1",
+            statement="test",
+            author="a",
+            confidence=0.5,
         )
         tracker._records["stl-1"] = SettlementRecord(settlement_id="stl-1", claim=claim)
         result = tracker.settle("stl-1", "correct")

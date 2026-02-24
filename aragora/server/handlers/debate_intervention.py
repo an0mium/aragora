@@ -60,9 +60,7 @@ class DebateInterventionHandler(BaseHandler):
     ]
 
     # Pattern for debate-specific routes
-    DEBATE_ACTION_PATTERN = re.compile(
-        r"^/api/v1/debates/([a-zA-Z0-9_-]+)/(intervene|reasoning)$"
-    )
+    DEBATE_ACTION_PATTERN = re.compile(r"^/api/v1/debates/([a-zA-Z0-9_-]+)/(intervene|reasoning)$")
 
     def __init__(self, storage: Any = None):
         """Initialize with optional storage backend."""
@@ -281,12 +279,14 @@ class DebateInterventionHandler(BaseHandler):
                 if isinstance(agents_data, list):
                     for agent_info in agents_data:
                         if isinstance(agent_info, dict):
-                            summary["agents"].append({
-                                "name": agent_info.get("name", "unknown"),
-                                "role": agent_info.get("role", ""),
-                                "last_position": agent_info.get("last_position", ""),
-                                "confidence": agent_info.get("confidence", 0.0),
-                            })
+                            summary["agents"].append(
+                                {
+                                    "name": agent_info.get("name", "unknown"),
+                                    "role": agent_info.get("role", ""),
+                                    "last_position": agent_info.get("last_position", ""),
+                                    "confidence": agent_info.get("confidence", 0.0),
+                                }
+                            )
 
                 # Extract crux points from debate metadata
                 cruxes = debate_state.get("cruxes", [])

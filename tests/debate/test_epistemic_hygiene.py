@@ -495,9 +495,7 @@ class TestVoteBonusCalculatorIntegration:
         vote_counts = {"claude": 3.0, "gpt4": 3.0}
         choice_mapping = {"claude": "claude", "gpt4": "gpt4"}
 
-        result = calculator.apply_epistemic_hygiene_penalties(
-            ctx, vote_counts, choice_mapping
-        )
+        result = calculator.apply_epistemic_hygiene_penalties(ctx, vote_counts, choice_mapping)
 
         # Claude's compliant response should not be penalized
         assert result["claude"] == 3.0
