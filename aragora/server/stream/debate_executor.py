@@ -74,13 +74,13 @@ _active_debates_lock = get_active_debates_lock()
 
 _ENV_VAR_RE = re.compile(r"[A-Z][A-Z0-9_]+")
 _OPENROUTER_FALLBACK_MODELS = {
-    "anthropic-api": "anthropic/claude-3.5-sonnet",
-    "openai-api": "openai/gpt-4o-mini",
-    "gemini": "google/gemini-2.0-flash-exp:free",
-    "grok": "x-ai/grok-2-1212",
-    "mistral-api": "mistralai/mistral-large-2411",
+    "anthropic-api": "anthropic/claude-sonnet-4.6",
+    "openai-api": "openai/gpt-5.2",
+    "gemini": "google/gemini-3-flash-preview",
+    "grok": "x-ai/grok-4.1-fast",
+    "mistral-api": "mistralai/mistral-large-2512",
 }
-_OPENROUTER_GENERIC_FALLBACK_MODEL = "openai/gpt-4o-mini"
+_OPENROUTER_GENERIC_FALLBACK_MODEL = "openai/gpt-5.2-chat"
 
 
 def _missing_required_env_vars(env_vars: str) -> list[str]:
