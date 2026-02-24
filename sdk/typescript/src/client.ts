@@ -144,7 +144,7 @@ import type {
   WorkflowTemplateRunResult,
   WorkflowVersion,
 } from './types';
-import { AragoraError, TimeoutError, ConnectionError } from './errors';
+import { AragoraError, ValidationError, TimeoutError, ConnectionError } from './errors';
 import { AragoraWebSocket, createWebSocket, streamDebate, type WebSocketOptions, type StreamOptions } from './websocket';
 import {
   DebatesAPI,
@@ -959,6 +959,28 @@ export class AragoraClient {
   readonly users: UsersAPI;
 
   constructor(config: AragoraConfig) {
+    // --- Input validation ---
+    if (!config || typeof config !== 'object') {
+      throw new ValidationError('AragoraConfig must be a non-null object');
+    }
+    if (!config.baseUrl || typeof config.baseUrl !== 'string') {
+      throw new ValidationError('AragoraConfig.baseUrl must be a non-empty string');
+    }
+    // Validate URL format
+    try {
+      new URL(config.baseUrl);
+    } catch {
+      throw new ValidationError(
+        `AragoraConfig.baseUrl is not a valid URL: ${config.baseUrl}`
+      );
+    }
+    if (config.timeout !== undefined && (typeof config.timeout !== 'number' || config.timeout <= 0)) {
+      throw new ValidationError('AragoraConfig.timeout must be a positive number');
+    }
+    if (config.maxRetries !== undefined && (typeof config.maxRetries !== 'number' || config.maxRetries < 0 || !Number.isInteger(config.maxRetries))) {
+      throw new ValidationError('AragoraConfig.maxRetries must be a non-negative integer');
+    }
+
     this.config = {
       baseUrl: config.baseUrl.replace(/\/+$/, ''), // Remove trailing slashes
       apiKey: config.apiKey,
@@ -1155,6 +1177,25 @@ export class AragoraClient {
     path: string,
     options: RequestOptions = {}
   ): Promise<T> {
+    // --- Request input validation ---
+    const VALID_METHODS = ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'HEAD', 'OPTIONS'];
+    if (!method || typeof method !== 'string') {
+      throw new ValidationError('HTTP method must be a non-empty string');
+    }
+    if (!VALID_METHODS.includes(method.toUpperCase())) {
+      throw new ValidationError(
+        `Invalid HTTP method: ${method}. Must be one of: ${VALID_METHODS.join(', ')}`
+      );
+    }
+    if (!path || typeof path !== 'string') {
+      throw new ValidationError('Request path must be a non-empty string');
+    }
+    if (!path.startsWith('/')) {
+      throw new ValidationError(
+        `Request path must start with '/': ${path}`
+      );
+    }
+
     const url = new URL(path, this.config.baseUrl);
 
     // Add query parameters
