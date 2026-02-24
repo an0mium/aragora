@@ -462,7 +462,7 @@ class TestSupermemorySubConfig:
 
     def test_defaults(self):
         c = SupermemorySubConfig()
-        assert c.enable_supermemory is False
+        assert c.enable_supermemory is True
         assert c.supermemory_enable_km_adapter is False
         assert c.supermemory_adapter is None
         assert c.supermemory_inject_on_start is True
