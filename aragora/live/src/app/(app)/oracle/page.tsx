@@ -275,10 +275,10 @@ function DebateEventLog({ events }: { events: DebateEvent[] }) {
             {evt.type === 'round_start' && (
               <span className="text-purple-400">Round {evt.round}</span>
             )}
-            {evt.type === 'consensus' && evt.data?.reached && (
+            {evt.type === 'consensus' && Boolean(evt.data?.reached) && (
               <span className="text-[var(--acid-green)]">
                 Consensus reached (
-                {Math.round(Number(evt.data.confidence ?? 0) * 100)}%
+                {Math.round(Number(evt.data?.confidence ?? 0) * 100)}%
                 confidence)
               </span>
             )}
