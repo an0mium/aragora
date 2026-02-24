@@ -814,6 +814,22 @@ export default function Oracle() {
     }
   }, []);
 
+  // Give the Oracle WebSocket a short grace period to connect before falling
+  // back to batch mode. This avoids unnecessary non-streaming responses on the
+  // first prompt right after page load.
+  const waitForStreamingSocket = useCallback(async (timeoutMs = 1500): Promise<boolean> => {
+    if (oracle.fallbackMode) return false;
+    if (oracle.connected) return true;
+
+    const deadline = Date.now() + timeoutMs;
+    while (Date.now() < deadline) {
+      await new Promise(resolve => setTimeout(resolve, 100));
+      if (oracle.fallbackMode) return false;
+      if (oracle.connected) return true;
+    }
+    return oracle.connected && !oracle.fallbackMode;
+  }, [oracle.connected, oracle.fallbackMode]);
+
   // ------------------------------------------------------------------
   // Two-phase oracle consultation
   // ------------------------------------------------------------------
@@ -837,7 +853,8 @@ export default function Oracle() {
     avatarRef.current?.contentWindow?.postMessage({ type: 'oracle-summon' }, '*');
 
     // ---- WebSocket streaming path (real-time tokens + audio) ----
-    if (oracle.connected && !oracle.fallbackMode) {
+    const canStream = await waitForStreamingSocket();
+    if (canStream) {
       setLoading(true);
       oracle.ask(question, mode, { sessionId: sessionIdRef.current, summaryDepth: 'light' });
       // The WebSocket hook manages phase/token/tentacle state reactively.

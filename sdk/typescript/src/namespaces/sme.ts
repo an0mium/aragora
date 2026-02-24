@@ -7,6 +7,23 @@
 
 import type { AragoraClient } from '../client';
 
+type RequestOptions = {
+  params?: Record<string, unknown>;
+  body?: unknown;
+};
+
+type RequestMethod = (
+  method: string,
+  path: string,
+  options?: RequestOptions
+) => Promise<unknown>;
+
+type LegacyMethod = (...args: unknown[]) => Promise<unknown>;
+
+type CompatClient = AragoraClient & {
+  request?: RequestMethod;
+} & Record<string, unknown>;
+
 /**
  * SME API namespace.
  *
@@ -16,6 +33,32 @@ import type { AragoraClient } from '../client';
  */
 export class SMEAPI {
   constructor(private client: AragoraClient) {}
+
+  private request<T>(
+    method: string,
+    path: string,
+    options?: RequestOptions
+  ): Promise<T> {
+    const request = (this.client as CompatClient).request;
+    if (typeof request !== 'function') {
+      throw new TypeError('this.client.request is not a function');
+    }
+    return request(method, path, options) as Promise<T>;
+  }
+
+  private invoke<T>(
+    legacyMethod: string,
+    legacyArgs: unknown[],
+    method: string,
+    path: string,
+    options?: RequestOptions
+  ): Promise<T> {
+    const legacy = (this.client as CompatClient)[legacyMethod];
+    if (typeof legacy === 'function') {
+      return (legacy as LegacyMethod).apply(this.client, legacyArgs) as Promise<T>;
+    }
+    return this.request<T>(method, path, options);
+  }
 
   // ===========================================================================
   // Budgets
@@ -395,11 +438,16 @@ export class SMEAPI {
   // ===========================================================================
 
   /**
-   * List SME-specific pre-built workflows.
-   * @route GET /api/v1/sme/workflows
+   * Get an SME workflow by ID.
+   * @route GET /api/v1/sme/workflows/{workflow_id}
    */
-  async listWorkflows(): Promise<Record<string, unknown>> {
-    return this.client.request('GET', '/api/v1/sme/workflows') as Promise<Record<string, unknown>>;
+  async getWorkflow(workflowId: string): Promise<Record<string, unknown>> {
+    return this.invoke<Record<string, unknown>>(
+      'getSMEWorkflow',
+      [workflowId],
+      'GET',
+      `/api/v1/sme/workflows/${encodeURIComponent(workflowId)}`
+    );
   }
 
   /**
@@ -410,10 +458,132 @@ export class SMEAPI {
    * @param inputs - Input parameters for the workflow
    */
   async executeWorkflow(workflowName: string, inputs?: Record<string, unknown>): Promise<Record<string, unknown>> {
-    const body: Record<string, unknown> = { workflow: workflowName };
-    if (inputs) body.inputs = inputs;
-    return this.client.request('POST', '/api/v1/sme/workflows', {
-      body,
-    }) as Promise<Record<string, unknown>>;
+    return this.invoke<Record<string, unknown>>(
+      'executeSMEWorkflow',
+      [workflowName, inputs],
+      'POST',
+      `/api/v1/sme/workflows/${encodeURIComponent(workflowName)}`,
+      { body: inputs }
+    );
+  }
+
+  /**
+   * List SME workflows (supports filters and pagination).
+   * @route GET /api/v1/sme/workflows
+   */
+  async listWorkflows(
+    params?: { category?: string; industry?: string; limit?: number; offset?: number }
+  ): Promise<Record<string, unknown>> {
+    return this.invoke<Record<string, unknown>>(
+      'listSMEWorkflows',
+      [params],
+      'GET',
+      '/api/v1/sme/workflows',
+      { params: params as Record<string, unknown> }
+    );
+  }
+
+  // ===========================================================================
+  // Onboarding
+  // ===========================================================================
+
+  /**
+   * Get onboarding status.
+   * @route GET /api/v1/onboarding/status
+   */
+  async getOnboardingStatus(): Promise<Record<string, unknown>> {
+    return this.invoke<Record<string, unknown>>(
+      'getOnboardingStatus',
+      [],
+      'GET',
+      '/api/v1/onboarding/status'
+    );
+  }
+
+  /**
+   * Complete onboarding.
+   * @route POST /api/v1/onboarding/complete
+   */
+  async completeOnboarding(request?: {
+    first_debate_id?: string;
+    template_used?: string;
+  }): Promise<Record<string, unknown>> {
+    return this.invoke<Record<string, unknown>>(
+      'completeOnboarding',
+      [request],
+      'POST',
+      '/api/v1/onboarding/complete',
+      { body: request }
+    );
+  }
+
+  // ===========================================================================
+  // Quick Start Helpers
+  // ===========================================================================
+
+  async quickInvoice(options: {
+    customerEmail: string;
+    customerName: string;
+    items: Array<{ name: string; price: number; quantity?: number }>;
+    dueDate?: string;
+  }): Promise<Record<string, unknown>> {
+    return this.executeWorkflow('invoice', {
+      inputs: {
+        customer_email: options.customerEmail,
+        customer_name: options.customerName,
+        items: options.items.map((item) => ({
+          name: item.name,
+          unit_price: item.price,
+          quantity: item.quantity ?? 1,
+        })),
+        due_date: options.dueDate,
+      },
+    });
+  }
+
+  async quickInventoryCheck(options: {
+    productId: string;
+    minThreshold: number;
+    notificationEmail: string;
+  }): Promise<Record<string, unknown>> {
+    return this.executeWorkflow('inventory', {
+      inputs: {
+        product_id: options.productId,
+        min_threshold: options.minThreshold,
+        notification_email: options.notificationEmail,
+      },
+    });
+  }
+
+  async quickReport(options: {
+    type: string;
+    period: string;
+    format?: string;
+    email?: string;
+  }): Promise<Record<string, unknown>> {
+    return this.executeWorkflow('report', {
+      inputs: {
+        report_type: options.type,
+        period: options.period,
+        format: options.format ?? 'pdf',
+        delivery_email: options.email,
+      },
+    });
+  }
+
+  async quickFollowup(options: {
+    customerId: string;
+    type: string;
+    message?: string;
+    delayDays?: number;
+  }): Promise<Record<string, unknown>> {
+    return this.executeWorkflow('followup', {
+      inputs: {
+        customer_id: options.customerId,
+        followup_type: options.type,
+        custom_message: options.message,
+        delay_days: options.delayDays ?? 0,
+      },
+    });
   }
 }
