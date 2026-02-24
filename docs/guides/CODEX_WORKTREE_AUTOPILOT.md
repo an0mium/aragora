@@ -24,8 +24,8 @@ python3 scripts/codex_worktree_autopilot.py reconcile --all --base main
 # Cleanup stale/expired managed worktrees
 python3 scripts/codex_worktree_autopilot.py cleanup --base main --ttl-hours 24
 
-# One-shot maintenance (reconcile + cleanup)
-python3 scripts/codex_worktree_autopilot.py maintain --base main --ttl-hours 24
+# One-shot maintenance (non-destructive merge integration + cleanup)
+python3 scripts/codex_worktree_autopilot.py maintain --base main --strategy merge --ttl-hours 24
 
 # Inspect managed sessions
 python3 scripts/codex_worktree_autopilot.py status
@@ -34,7 +34,7 @@ python3 scripts/codex_worktree_autopilot.py status
 ## Recommended Operating Loop
 
 1. Start each agent with `./scripts/codex_session.sh --agent <name>`.
-2. Before major test/fix cycles, run `... maintain --base main --ttl-hours 24`.
+2. Before major test/fix cycles, run `... maintain --base main --strategy merge --ttl-hours 24`.
 3. Use `... reconcile --all --base main` when you need explicit sync reporting.
 4. Use short-lived worktrees; do not keep long-running stale session trees.
 

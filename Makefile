@@ -1,7 +1,7 @@
 # Aragora Makefile
 # Common development tasks for the Aragora multi-agent debate platform
 
-.PHONY: help install dev test test-e2e lint format typecheck check check-all ci guard guard-strict clean clean-all clean-runtime clean-runtime-dry docs serve docker demo demo-docker demo-stop worktree-ensure worktree-reconcile worktree-cleanup worktree-maintain codex-session
+.PHONY: help install dev test test-e2e lint format typecheck check check-all ci guard guard-strict clean clean-all clean-runtime clean-runtime-dry docs serve docker demo demo-docker demo-stop worktree-ensure worktree-reconcile worktree-cleanup worktree-maintain codex-session branch-start pr-open
 
 # Default target
 help:
@@ -43,6 +43,10 @@ help:
 	@echo "  make serve        Start development server"
 	@echo "  make repl         Start interactive debate REPL"
 	@echo "  make doctor       Run system health checks"
+	@echo "  make branch-start TYPE=feat SLUG=my-change [BASE=origin/main]"
+	@echo "                    Create and switch to a feature branch from base ref"
+	@echo "  make pr-open [BASE=main] [ARGS='--draft']"
+	@echo "                    Push current branch and open/update PR via gh"
 	@echo "  make codex-session Start Codex in an auto-managed worktree"
 	@echo "  make worktree-ensure Ensure/reuse a managed Codex worktree"
 	@echo "  make worktree-reconcile Rebase managed Codex worktrees onto main"
@@ -167,7 +171,24 @@ worktree-cleanup:
 	python3 scripts/codex_worktree_autopilot.py cleanup --base main --ttl-hours 24
 
 worktree-maintain:
-	python3 scripts/codex_worktree_autopilot.py maintain --base main --ttl-hours 24 --no-delete-branches
+	python3 scripts/codex_worktree_autopilot.py maintain --base main --strategy merge --ttl-hours 24 --no-delete-branches
+
+branch-start:
+	@if [ -z "$(TYPE)" ] || [ -z "$(SLUG)" ]; then \
+		echo "Usage: make branch-start TYPE=feat SLUG=my-change [BASE=origin/main]"; \
+		exit 1; \
+	fi
+	@if [ -n "$(BASE)" ]; then \
+		bash scripts/start_feature_branch.sh "$(TYPE)" "$(SLUG)" --base "$(BASE)"; \
+	else \
+		bash scripts/start_feature_branch.sh "$(TYPE)" "$(SLUG)"; \
+	fi
+
+pr-open:
+	@cmd="bash scripts/open_pr.sh"; \
+	if [ -n "$(BASE)" ]; then cmd="$$cmd --base \"$(BASE)\""; fi; \
+	if [ -n "$(ARGS)" ]; then cmd="$$cmd $(ARGS)"; fi; \
+	eval "$$cmd"
 
 # Documentation
 docs:

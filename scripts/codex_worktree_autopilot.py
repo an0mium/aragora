@@ -198,7 +198,12 @@ def _worktree_status(repo_root: Path, worktree: Path, base: str) -> dict[str, An
     }
 
 
-def _rebase_worktree(repo_root: Path, worktree: Path, base: str) -> tuple[bool, str]:
+def _integrate_worktree(
+    repo_root: Path,
+    worktree: Path,
+    base: str,
+    strategy: str,
+) -> tuple[bool, str]:
     _ensure_fetched(repo_root, base)
     status = _worktree_status(repo_root, worktree, base)
     if status["dirty"]:
@@ -206,12 +211,27 @@ def _rebase_worktree(repo_root: Path, worktree: Path, base: str) -> tuple[bool, 
     if status["behind"] == 0:
         return True, "up_to_date"
 
-    rebase_proc = _run_git(repo_root, "rebase", f"origin/{base}", cwd=worktree)
-    if rebase_proc.returncode == 0:
-        return True, "rebased"
+    if strategy == "none":
+        return True, "skipped_strategy_none"
+    if strategy == "rebase":
+        rebase_proc = _run_git(repo_root, "rebase", f"origin/{base}", cwd=worktree)
+        if rebase_proc.returncode == 0:
+            return True, "rebased"
+        _run_git(repo_root, "rebase", "--abort", cwd=worktree)
+        return False, "rebase_failed"
+    if strategy == "ff-only":
+        ff_proc = _run_git(repo_root, "merge", "--ff-only", f"origin/{base}", cwd=worktree)
+        if ff_proc.returncode == 0:
+            return True, "fast_forwarded"
+        return False, "ff_only_failed"
+    if strategy == "merge":
+        merge_proc = _run_git(repo_root, "merge", "--no-edit", f"origin/{base}", cwd=worktree)
+        if merge_proc.returncode == 0:
+            return True, "merged"
+        _run_git(repo_root, "merge", "--abort", cwd=worktree)
+        return False, "merge_conflict"
 
-    _run_git(repo_root, "rebase", "--abort", cwd=worktree)
-    return False, "rebase_failed"
+    return False, "unknown_strategy"
 
 
 def _choose_reusable_session(
@@ -330,10 +350,15 @@ def cmd_ensure(args: argparse.Namespace) -> int:
     else:
         session["last_seen_at"] = _utc_now().isoformat()
         if args.reconcile:
-            ok, status = _rebase_worktree(repo_root, Path(session["path"]), args.base)
+            ok, status = _integrate_worktree(
+                repo_root,
+                Path(session["path"]),
+                args.base,
+                args.strategy,
+            )
             session["reconcile_status"] = status
             if not ok:
-                # Fallback: auto-create replacement worktree if rebase fails.
+                # Fallback: auto-create replacement worktree if integration fails.
                 session = _create_managed_worktree(
                     repo_root,
                     managed_root,
@@ -404,7 +429,7 @@ def cmd_reconcile(args: argparse.Namespace) -> int:
 
     for session in sessions:
         path = Path(session["path"])
-        ok, status = _rebase_worktree(repo_root, path, args.base)
+        ok, status = _integrate_worktree(repo_root, path, args.base, args.strategy)
         session["last_seen_at"] = _utc_now().isoformat()
         session["reconcile_status"] = status
         results.append(
@@ -578,6 +603,8 @@ def cmd_maintain(args: argparse.Namespace) -> int:
             "--all",
             "--base",
             args.base,
+            "--strategy",
+            args.strategy,
             "--json",
         ],
         text=True,
@@ -658,12 +685,24 @@ def _build_parser() -> argparse.ArgumentParser:
     ensure.add_argument("--session-id", default=None)
     ensure.add_argument("--force-new", action="store_true")
     ensure.add_argument("--reconcile", action="store_true")
+    ensure.add_argument(
+        "--strategy",
+        choices=("merge", "rebase", "ff-only", "none"),
+        default="merge",
+        help="Upstream integration strategy when --reconcile is enabled",
+    )
     ensure.add_argument("--print-path", action="store_true")
     ensure.add_argument("--json", action="store_true")
     ensure.set_defaults(func=cmd_ensure)
 
     reconcile = sub.add_parser("reconcile", help="Reconcile managed worktrees with origin/base")
     reconcile.add_argument("--base", default="main")
+    reconcile.add_argument(
+        "--strategy",
+        choices=("merge", "rebase", "ff-only", "none"),
+        default="rebase",
+        help="Upstream integration strategy",
+    )
     reconcile.add_argument("--all", action="store_true")
     reconcile.add_argument("--path", default=None, help="Specific worktree path to reconcile")
     reconcile.add_argument("--json", action="store_true")
@@ -689,6 +728,12 @@ def _build_parser() -> argparse.ArgumentParser:
         help="Reconcile all managed worktrees then cleanup stale/expired sessions",
     )
     maintain.add_argument("--base", default="main")
+    maintain.add_argument(
+        "--strategy",
+        choices=("merge", "rebase", "ff-only", "none"),
+        default="merge",
+        help="Upstream integration strategy for the reconcile phase",
+    )
     maintain.add_argument("--ttl-hours", type=int, default=24)
     maintain.add_argument("--force-unmerged", action="store_true")
     maintain.add_argument("--delete-branches", dest="delete_branches", action="store_true")
