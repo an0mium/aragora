@@ -585,6 +585,56 @@ class DashboardAPI:
         """
         return self._client.request("GET", "/api/v1/analytics/spend/budget")
 
+    # --- Spend Analytics (v1) ---
+
+    def get_spend_analytics(self, period: str = "30d") -> dict[str, Any]:
+        """Get spend analytics summary."""
+        return self._client.request(
+            "GET",
+            "/api/v1/spend/analytics",
+            params={"period": period},
+        )
+
+    def get_spend_analytics_trend(self, period: str = "30d") -> dict[str, Any]:
+        """Get spend analytics trend."""
+        return self._client.request(
+            "GET",
+            "/api/v1/spend/analytics/trend",
+            params={"period": period},
+        )
+
+    def get_spend_analytics_provider(self, period: str = "30d") -> dict[str, Any]:
+        """Get spend analytics by provider."""
+        return self._client.request(
+            "GET",
+            "/api/v1/spend/analytics/provider",
+            params={"period": period},
+        )
+
+    def get_spend_analytics_agent(self, period: str = "30d") -> dict[str, Any]:
+        """Get spend analytics by agent."""
+        return self._client.request(
+            "GET",
+            "/api/v1/spend/analytics/agent",
+            params={"period": period},
+        )
+
+    def get_spend_analytics_forecast(self, days: int = 30) -> dict[str, Any]:
+        """Get spend analytics forecast."""
+        return self._client.request(
+            "GET",
+            "/api/v1/spend/analytics/forecast",
+            params={"days": days},
+        )
+
+    def get_spend_analytics_anomalies(self, period: str = "30d") -> dict[str, Any]:
+        """Get spend analytics anomalies."""
+        return self._client.request(
+            "GET",
+            "/api/v1/spend/analytics/anomalies",
+            params={"period": period},
+        )
+
 
 class AsyncDashboardAPI:
     """Asynchronous Dashboard API."""
@@ -942,3 +992,53 @@ class AsyncDashboardAPI:
     async def get_spend_budget(self) -> dict[str, Any]:
         """Get budget limits, remaining, and forecast to exhaustion."""
         return await self._client.request("GET", "/api/v1/analytics/spend/budget")
+
+    # --- Spend Analytics (v1) ---
+
+    async def get_spend_analytics(self, period: str = "30d") -> dict[str, Any]:
+        """Get spend analytics summary."""
+        return await self._client.request(
+            "GET",
+            "/api/v1/spend/analytics",
+            params={"period": period},
+        )
+
+    async def get_spend_analytics_trend(self, period: str = "30d") -> dict[str, Any]:
+        """Get spend analytics trend."""
+        return await self._client.request(
+            "GET",
+            "/api/v1/spend/analytics/trend",
+            params={"period": period},
+        )
+
+    async def get_spend_analytics_provider(self, period: str = "30d") -> dict[str, Any]:
+        """Get spend analytics by provider."""
+        return await self._client.request(
+            "GET",
+            "/api/v1/spend/analytics/provider",
+            params={"period": period},
+        )
+
+    async def get_spend_analytics_agent(self, period: str = "30d") -> dict[str, Any]:
+        """Get spend analytics by agent."""
+        return await self._client.request(
+            "GET",
+            "/api/v1/spend/analytics/agent",
+            params={"period": period},
+        )
+
+    async def get_spend_analytics_forecast(self, days: int = 30) -> dict[str, Any]:
+        """Get spend analytics forecast."""
+        return await self._client.request(
+            "GET",
+            "/api/v1/spend/analytics/forecast",
+            params={"days": days},
+        )
+
+    async def get_spend_analytics_anomalies(self, period: str = "30d") -> dict[str, Any]:
+        """Get spend analytics anomalies."""
+        return await self._client.request(
+            "GET",
+            "/api/v1/spend/analytics/anomalies",
+            params={"period": period},
+        )

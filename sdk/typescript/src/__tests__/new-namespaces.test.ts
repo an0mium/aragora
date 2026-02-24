@@ -293,6 +293,50 @@ describe('New Namespace APIs', () => {
       expect(summary.counts.unread).toBe(15);
       expect(summary.by_priority.critical).toBe(2);
     });
+
+    it('should access v1 spend analytics routes via namespace', async () => {
+      const client = createClient({ baseUrl: 'https://api.example.com' });
+
+      mockFetch
+        .mockResolvedValueOnce({
+          ok: true,
+          text: () => Promise.resolve(JSON.stringify({ data: { total_spend: 100 } })),
+        })
+        .mockResolvedValueOnce({
+          ok: true,
+          text: () => Promise.resolve(JSON.stringify({ data: [{ date: '2026-02-24', value: 10 }] })),
+        })
+        .mockResolvedValueOnce({
+          ok: true,
+          text: () => Promise.resolve(JSON.stringify({ data: [{ provider: 'openai', spend: 50 }] })),
+        })
+        .mockResolvedValueOnce({
+          ok: true,
+          text: () => Promise.resolve(JSON.stringify({ data: [{ agent: 'coder', spend: 40 }] })),
+        })
+        .mockResolvedValueOnce({
+          ok: true,
+          text: () => Promise.resolve(JSON.stringify({ data: { forecast: 140 } })),
+        })
+        .mockResolvedValueOnce({
+          ok: true,
+          text: () => Promise.resolve(JSON.stringify({ data: [{ date: '2026-02-20', spike: true }] })),
+        });
+
+      await client.dashboard.getSpendAnalytics('7d');
+      await client.dashboard.getSpendAnalyticsTrend('30d');
+      await client.dashboard.getSpendAnalyticsProvider('30d');
+      await client.dashboard.getSpendAnalyticsAgent('30d');
+      await client.dashboard.getSpendAnalyticsForecast(14);
+      await client.dashboard.getSpendAnalyticsAnomalies('30d');
+
+      expect(mockFetch.mock.calls[0][0]).toContain('/api/v1/spend/analytics?period=7d');
+      expect(mockFetch.mock.calls[1][0]).toContain('/api/v1/spend/analytics/trend?period=30d');
+      expect(mockFetch.mock.calls[2][0]).toContain('/api/v1/spend/analytics/provider?period=30d');
+      expect(mockFetch.mock.calls[3][0]).toContain('/api/v1/spend/analytics/agent?period=30d');
+      expect(mockFetch.mock.calls[4][0]).toContain('/api/v1/spend/analytics/forecast?days=14');
+      expect(mockFetch.mock.calls[5][0]).toContain('/api/v1/spend/analytics/anomalies?period=30d');
+    });
   });
 
   // ===========================================================================

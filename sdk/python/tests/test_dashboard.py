@@ -448,3 +448,68 @@ class TestAsyncDashboard:
             )
             assert result["items"] == []
             await client.close()
+
+
+class TestDashboardSpendAnalyticsV1:
+    """Tests for v1 spend analytics routes."""
+
+    def test_get_spend_analytics(self) -> None:
+        with patch.object(AragoraClient, "request") as mock_request:
+            mock_request.return_value = {"data": {"total_spend": 123.45}}
+            client = AragoraClient(base_url="https://api.aragora.ai")
+            result = client.dashboard.get_spend_analytics(period="7d")
+            mock_request.assert_called_once_with(
+                "GET",
+                "/api/v1/spend/analytics",
+                params={"period": "7d"},
+            )
+            assert "data" in result
+            client.close()
+
+    def test_get_spend_analytics_breakdowns(self) -> None:
+        with patch.object(AragoraClient, "request") as mock_request:
+            mock_request.return_value = {"data": []}
+            client = AragoraClient(base_url="https://api.aragora.ai")
+
+            client.dashboard.get_spend_analytics_provider(period="30d")
+            mock_request.assert_called_with(
+                "GET",
+                "/api/v1/spend/analytics/provider",
+                params={"period": "30d"},
+            )
+
+            client.dashboard.get_spend_analytics_agent(period="30d")
+            mock_request.assert_called_with(
+                "GET",
+                "/api/v1/spend/analytics/agent",
+                params={"period": "30d"},
+            )
+            client.close()
+
+    @pytest.mark.asyncio
+    async def test_async_get_spend_analytics_trend_and_forecast(self) -> None:
+        with patch.object(AragoraAsyncClient, "request") as mock_request:
+            mock_request.return_value = {"data": []}
+            client = AragoraAsyncClient(base_url="https://api.aragora.ai")
+
+            await client.dashboard.get_spend_analytics_trend(period="30d")
+            mock_request.assert_called_with(
+                "GET",
+                "/api/v1/spend/analytics/trend",
+                params={"period": "30d"},
+            )
+
+            await client.dashboard.get_spend_analytics_forecast(days=14)
+            mock_request.assert_called_with(
+                "GET",
+                "/api/v1/spend/analytics/forecast",
+                params={"days": 14},
+            )
+
+            await client.dashboard.get_spend_analytics_anomalies(period="30d")
+            mock_request.assert_called_with(
+                "GET",
+                "/api/v1/spend/analytics/anomalies",
+                params={"period": "30d"},
+            )
+            await client.close()

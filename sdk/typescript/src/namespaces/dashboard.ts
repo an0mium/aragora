@@ -805,6 +805,60 @@ export class DashboardAPI {
   async getSpendBudget(): Promise<Record<string, unknown>> {
     return this.client.request('GET', '/api/v1/analytics/spend/budget');
   }
+
+  /**
+   * Get v1 spend analytics summary.
+   */
+  async getSpendAnalytics(period: string = '30d'): Promise<Record<string, unknown>> {
+    return this.client.request('GET', '/api/v1/spend/analytics', {
+      params: { period },
+    });
+  }
+
+  /**
+   * Get v1 spend analytics trend.
+   */
+  async getSpendAnalyticsTrend(period: string = '30d'): Promise<Record<string, unknown>> {
+    return this.client.request('GET', '/api/v1/spend/analytics/trend', {
+      params: { period },
+    });
+  }
+
+  /**
+   * Get v1 spend analytics by provider.
+   */
+  async getSpendAnalyticsProvider(period: string = '30d'): Promise<Record<string, unknown>> {
+    return this.client.request('GET', '/api/v1/spend/analytics/provider', {
+      params: { period },
+    });
+  }
+
+  /**
+   * Get v1 spend analytics by agent.
+   */
+  async getSpendAnalyticsAgent(period: string = '30d'): Promise<Record<string, unknown>> {
+    return this.client.request('GET', '/api/v1/spend/analytics/agent', {
+      params: { period },
+    });
+  }
+
+  /**
+   * Get v1 spend analytics forecast.
+   */
+  async getSpendAnalyticsForecast(days: number = 30): Promise<Record<string, unknown>> {
+    return this.client.request('GET', '/api/v1/spend/analytics/forecast', {
+      params: { days },
+    });
+  }
+
+  /**
+   * Get v1 spend analytics anomalies.
+   */
+  async getSpendAnalyticsAnomalies(period: string = '30d'): Promise<Record<string, unknown>> {
+    return this.client.request('GET', '/api/v1/spend/analytics/anomalies', {
+      params: { period },
+    });
+  }
 }
 
 export default DashboardAPI;
