@@ -126,6 +126,22 @@ def test_cleanup_parser_defaults_to_delete_branches():
     assert args.delete_branches is True
 
 
+def test_ensure_parser_defaults_to_merge_strategy():
+    import codex_worktree_autopilot as mod
+
+    parser = mod._build_parser()
+    args = parser.parse_args(["ensure"])
+    assert args.strategy == "merge"
+
+
+def test_reconcile_parser_defaults_to_rebase_strategy():
+    import codex_worktree_autopilot as mod
+
+    parser = mod._build_parser()
+    args = parser.parse_args(["reconcile"])
+    assert args.strategy == "rebase"
+
+
 def test_cleanup_parser_allows_no_delete_branches_toggle():
     import codex_worktree_autopilot as mod
 
@@ -140,6 +156,14 @@ def test_maintain_parser_allows_no_delete_branches_toggle():
     parser = mod._build_parser()
     args = parser.parse_args(["maintain", "--no-delete-branches"])
     assert args.delete_branches is False
+
+
+def test_maintain_parser_defaults_to_merge_strategy():
+    import codex_worktree_autopilot as mod
+
+    parser = mod._build_parser()
+    args = parser.parse_args(["maintain"])
+    assert args.strategy == "merge"
 
 
 def test_parse_ts_normalizes_naive_timestamp_to_utc():

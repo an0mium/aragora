@@ -15,7 +15,7 @@ For high-churn parallel sessions, use managed disposable worktrees and auto-reco
   run `python3 scripts/codex_worktree_autopilot.py ensure --agent codex --base main --reconcile --print-path`
   and continue work in the returned path.
 - For one-command drift recovery, run
-  `python3 scripts/codex_worktree_autopilot.py maintain --base main --ttl-hours 24`.
+  `python3 scripts/codex_worktree_autopilot.py maintain --base main --strategy merge --ttl-hours 24`.
 - Reconcile frequently via `python3 scripts/codex_worktree_autopilot.py reconcile --all --base main`.
 - Cleanup stale session worktrees via `python3 scripts/codex_worktree_autopilot.py cleanup --base main --ttl-hours 24`.
 

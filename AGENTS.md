@@ -10,7 +10,7 @@ When many agents are committing concurrently, use disposable worktrees with freq
 - Auto-heal unexpected worktree/branch drift with:
   `python3 scripts/codex_worktree_autopilot.py ensure --agent codex --base main --reconcile --print-path`
 - Prefer one-shot upkeep during rapid churn:
-  `python3 scripts/codex_worktree_autopilot.py maintain --base main --ttl-hours 24`
+  `python3 scripts/codex_worktree_autopilot.py maintain --base main --strategy merge --ttl-hours 24`
 - Reconcile managed sessions with:
   `python3 scripts/codex_worktree_autopilot.py reconcile --all --base main`
 - Remove stale managed worktrees with:
