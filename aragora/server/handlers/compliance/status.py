@@ -8,12 +8,22 @@ compliance across key frameworks (SOC 2, GDPR, HIPAA).
 from __future__ import annotations
 
 from datetime import datetime, timezone, timedelta
+from typing import Any
 
 from aragora.server.handlers.base import HandlerResult, json_response
 from aragora.rbac.decorators import require_permission
 from aragora.observability.metrics import track_handler
 
-from .soc2 import evaluate_controls  # type: ignore[attr-defined]
+
+async def _evaluate_controls() -> list[dict[str, Any]]:
+    """Evaluate SOC 2 controls using the SOC2Mixin if available."""
+    try:
+        from .soc2 import SOC2Mixin
+
+        mixin = SOC2Mixin()
+        return await mixin._evaluate_controls()
+    except (ImportError, AttributeError):
+        return []
 
 
 @track_handler("compliance/status", method="GET")
@@ -27,7 +37,7 @@ async def get_status() -> HandlerResult:
     now = datetime.now(timezone.utc)
 
     # Collect compliance metrics
-    controls = await evaluate_controls()
+    controls = await _evaluate_controls()
 
     # Calculate overall compliance score
     total_controls = len(controls)

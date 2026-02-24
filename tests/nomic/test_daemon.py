@@ -360,3 +360,233 @@ class TestDaemonRecordOutcome:
         with patch.dict("sys.modules", {"aragora.nomic.meta_planner": None}):
             # Should not raise
             daemon._record_outcome("Fix tests", pipeline_result)
+
+
+class TestAutoExecuteLowRisk:
+    """Tests for auto-execute low-risk goals feature."""
+
+    def test_config_defaults(self):
+        from aragora.nomic.daemon import DaemonConfig
+
+        config = DaemonConfig()
+        assert config.auto_execute_low_risk is False
+        assert config.low_risk_threshold == 0.3
+
+    def test_config_custom(self):
+        from aragora.nomic.daemon import DaemonConfig
+
+        config = DaemonConfig(auto_execute_low_risk=True, low_risk_threshold=0.2)
+        assert config.auto_execute_low_risk is True
+        assert config.low_risk_threshold == 0.2
+
+    @pytest.mark.asyncio
+    async def test_low_risk_goal_bypasses_approval(self):
+        from aragora.nomic.daemon import DaemonConfig, SelfImprovementDaemon
+
+        config = DaemonConfig(
+            auto_execute_low_risk=True,
+            low_risk_threshold=0.3,
+            require_approval=True,
+            dry_run=False,
+        )
+        daemon = SelfImprovementDaemon(config)
+
+        report = _mock_health_report(health_score=0.6)
+        after_report = _mock_health_report(health_score=0.65)
+        pipeline_result = _mock_pipeline_result(completed=1)
+
+        # Goal with low risk score
+        low_risk_goal = types.SimpleNamespace(
+            description="Fix lint warnings", risk_score=0.1
+        )
+
+        execute_mock = AsyncMock(return_value=pipeline_result)
+
+        with (
+            patch.object(
+                daemon, "_assess", new_callable=AsyncMock,
+                side_effect=[report, after_report],
+            ),
+            patch.object(daemon, "_generate_goals", return_value=[low_risk_goal]),
+            patch.object(daemon, "_execute", execute_mock),
+            patch.object(daemon, "_record_outcome"),
+        ):
+            result = await daemon.trigger_cycle()
+
+        assert result.success is True
+        # Verify _execute was called with require_approval=False
+        execute_mock.assert_called_once_with(
+            "Fix lint warnings", require_approval=False
+        )
+
+    @pytest.mark.asyncio
+    async def test_high_risk_goal_keeps_approval(self):
+        from aragora.nomic.daemon import DaemonConfig, SelfImprovementDaemon
+
+        config = DaemonConfig(
+            auto_execute_low_risk=True,
+            low_risk_threshold=0.3,
+            require_approval=True,
+            dry_run=False,
+        )
+        daemon = SelfImprovementDaemon(config)
+
+        report = _mock_health_report(health_score=0.6)
+        after_report = _mock_health_report(health_score=0.65)
+        pipeline_result = _mock_pipeline_result(completed=1)
+
+        # Goal with high risk score
+        high_risk_goal = types.SimpleNamespace(
+            description="Refactor core orchestrator", risk_score=0.8
+        )
+
+        execute_mock = AsyncMock(return_value=pipeline_result)
+
+        with (
+            patch.object(
+                daemon, "_assess", new_callable=AsyncMock,
+                side_effect=[report, after_report],
+            ),
+            patch.object(daemon, "_generate_goals", return_value=[high_risk_goal]),
+            patch.object(daemon, "_execute", execute_mock),
+            patch.object(daemon, "_record_outcome"),
+        ):
+            result = await daemon.trigger_cycle()
+
+        assert result.success is True
+        # Verify _execute was called with require_approval=True (not bypassed)
+        execute_mock.assert_called_once_with(
+            "Refactor core orchestrator", require_approval=True
+        )
+
+    @pytest.mark.asyncio
+    async def test_auto_execute_disabled_keeps_approval(self):
+        from aragora.nomic.daemon import DaemonConfig, SelfImprovementDaemon
+
+        config = DaemonConfig(
+            auto_execute_low_risk=False,  # Disabled
+            require_approval=True,
+            dry_run=False,
+        )
+        daemon = SelfImprovementDaemon(config)
+
+        report = _mock_health_report(health_score=0.6)
+        after_report = _mock_health_report(health_score=0.65)
+        pipeline_result = _mock_pipeline_result(completed=1)
+
+        low_risk_goal = types.SimpleNamespace(
+            description="Fix typo", risk_score=0.05
+        )
+
+        execute_mock = AsyncMock(return_value=pipeline_result)
+
+        with (
+            patch.object(
+                daemon, "_assess", new_callable=AsyncMock,
+                side_effect=[report, after_report],
+            ),
+            patch.object(daemon, "_generate_goals", return_value=[low_risk_goal]),
+            patch.object(daemon, "_execute", execute_mock),
+            patch.object(daemon, "_record_outcome"),
+        ):
+            result = await daemon.trigger_cycle()
+
+        # Even though goal is low risk, feature is disabled → approval kept
+        execute_mock.assert_called_once_with(
+            "Fix typo", require_approval=True
+        )
+
+    @pytest.mark.asyncio
+    async def test_goal_without_risk_score_uses_default_high(self):
+        from aragora.nomic.daemon import DaemonConfig, SelfImprovementDaemon
+
+        config = DaemonConfig(
+            auto_execute_low_risk=True,
+            low_risk_threshold=0.3,
+            require_approval=True,
+            dry_run=False,
+        )
+        daemon = SelfImprovementDaemon(config)
+
+        report = _mock_health_report(health_score=0.6)
+        after_report = _mock_health_report(health_score=0.65)
+        pipeline_result = _mock_pipeline_result(completed=1)
+
+        # Goal without risk_score attribute
+        goal_no_risk = types.SimpleNamespace(description="Unknown risk goal")
+
+        execute_mock = AsyncMock(return_value=pipeline_result)
+
+        with (
+            patch.object(
+                daemon, "_assess", new_callable=AsyncMock,
+                side_effect=[report, after_report],
+            ),
+            patch.object(daemon, "_generate_goals", return_value=[goal_no_risk]),
+            patch.object(daemon, "_execute", execute_mock),
+            patch.object(daemon, "_record_outcome"),
+        ):
+            result = await daemon.trigger_cycle()
+
+        # No risk_score → defaults to 1.0 → approval required
+        execute_mock.assert_called_once_with(
+            "Unknown risk goal", require_approval=True
+        )
+
+
+class TestStartupIntegration:
+    """Tests for server startup daemon integration."""
+
+    @pytest.mark.asyncio
+    async def test_daemon_disabled_by_default(self):
+        from aragora.server.startup.background import init_self_improvement_daemon
+
+        with patch.dict("os.environ", {}, clear=False):
+            # Remove the env var if present
+            import os
+            os.environ.pop("ARAGORA_SELF_IMPROVE_ENABLED", None)
+            result = await init_self_improvement_daemon()
+        assert result is None
+
+    @pytest.mark.asyncio
+    async def test_daemon_disabled_during_tests(self):
+        from aragora.server.startup.background import init_self_improvement_daemon
+
+        with patch.dict("os.environ", {
+            "PYTEST_CURRENT_TEST": "test_foo.py",
+            "ARAGORA_SELF_IMPROVE_ENABLED": "true",
+        }):
+            result = await init_self_improvement_daemon()
+        assert result is None
+
+    @pytest.mark.asyncio
+    async def test_daemon_starts_when_enabled(self):
+        from aragora.server.startup.background import init_self_improvement_daemon
+
+        mock_daemon = MagicMock()
+        mock_task = MagicMock()
+        mock_daemon._task = mock_task
+        mock_daemon.start = AsyncMock()
+
+        with (
+            patch.dict("os.environ", {
+                "ARAGORA_SELF_IMPROVE_ENABLED": "true",
+                "ARAGORA_SELF_IMPROVE_DRY_RUN": "true",
+            }, clear=False),
+            # Remove PYTEST_CURRENT_TEST to not trigger test guard
+            patch.dict("os.environ", {"PYTEST_CURRENT_TEST": ""}, clear=False),
+            patch(
+                "aragora.server.startup.background.SelfImprovementDaemon",
+                return_value=mock_daemon,
+            ) as mock_cls,
+            patch(
+                "aragora.server.startup.background._store_daemon_singleton",
+            ),
+        ):
+            # Need to remove PYTEST_CURRENT_TEST entirely
+            import os
+            os.environ.pop("PYTEST_CURRENT_TEST", None)
+            result = await init_self_improvement_daemon()
+
+        mock_daemon.start.assert_called_once()
+        assert result == mock_task

@@ -95,6 +95,8 @@ class DaemonConfig:
     # Safety
     dry_run: bool = False
     require_approval: bool = True
+    auto_execute_low_risk: bool = False  # Bypass approval for low-risk goals
+    low_risk_threshold: float = 0.3  # Risk score below this → auto-execute
 
     # Pipeline config passthrough
     use_worktrees: bool = True
@@ -334,7 +336,24 @@ class SelfImprovementDaemon:
                 )
                 return result
 
-            pipeline_result = await self._execute(objective)
+            # Determine if approval can be bypassed for low-risk goals
+            goal_risk = getattr(top_goal, "risk_score", 1.0)
+            require_approval = self.config.require_approval
+            if (
+                self.config.auto_execute_low_risk
+                and goal_risk <= self.config.low_risk_threshold
+            ):
+                require_approval = False
+                logger.info(
+                    "daemon_auto_execute risk=%.2f threshold=%.2f goal=%s",
+                    goal_risk,
+                    self.config.low_risk_threshold,
+                    objective[:60],
+                )
+
+            pipeline_result = await self._execute(
+                objective, require_approval=require_approval
+            )
 
             # Step 6: Measure health delta
             self._state = DaemonState.ASSESSING
@@ -381,14 +400,20 @@ class SelfImprovementDaemon:
         generator = GoalGenerator()
         return generator.generate_goals(report)
 
-    async def _execute(self, objective: str) -> Any:
+    async def _execute(
+        self, objective: str, require_approval: bool | None = None
+    ) -> Any:
         """Execute a self-improvement cycle via SelfImprovePipeline."""
         from aragora.nomic.self_improve import SelfImproveConfig, SelfImprovePipeline
 
         config = SelfImproveConfig(
             use_worktrees=self.config.use_worktrees,
             budget_limit_usd=self.config.budget_limit_per_cycle_usd,
-            require_approval=self.config.require_approval,
+            require_approval=(
+                require_approval
+                if require_approval is not None
+                else self.config.require_approval
+            ),
             autonomous=self.config.autonomous,
             run_tests=self.config.run_tests,
         )

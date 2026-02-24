@@ -346,3 +346,96 @@ async def init_slack_token_refresh_scheduler() -> asyncio.Task | None:
     except (RuntimeError, OSError) as e:
         logger.warning("Failed to start Slack token refresh scheduler: %s", e)
         return None
+
+
+async def init_self_improvement_daemon() -> asyncio.Task | None:
+    """Start the autonomous self-improvement daemon if configured.
+
+    The daemon continuously assesses codebase health, discovers improvement
+    goals from 12+ signal sources (test failures, lint, coverage, TODOs,
+    user feedback), and executes safe improvements autonomously.
+
+    Environment:
+        ARAGORA_SELF_IMPROVE_ENABLED: "true" to enable (default: "false")
+        ARAGORA_SELF_IMPROVE_INTERVAL: Seconds between cycles (default: 3600)
+        ARAGORA_SELF_IMPROVE_DRY_RUN: "true" for dry-run mode (default: "true")
+        ARAGORA_SELF_IMPROVE_AUTO_LOW_RISK: "true" to auto-execute low-risk
+            goals without approval (default: "false")
+        ARAGORA_SELF_IMPROVE_BUDGET: Per-cycle budget in USD (default: 5.0)
+
+    Returns:
+        The daemon task if started, None otherwise
+    """
+    import os
+
+    if os.environ.get("PYTEST_CURRENT_TEST") and not os.environ.get(
+        "ARAGORA_TEST_ENABLE_BACKGROUND_TASKS"
+    ):
+        return None
+
+    if os.environ.get("ARAGORA_SELF_IMPROVE_ENABLED", "false").lower() not in (
+        "true",
+        "1",
+        "yes",
+    ):
+        logger.debug(
+            "Self-improvement daemon disabled (set ARAGORA_SELF_IMPROVE_ENABLED=true)"
+        )
+        return None
+
+    try:
+        from aragora.nomic.daemon import DaemonConfig, SelfImprovementDaemon
+
+        interval = float(os.environ.get("ARAGORA_SELF_IMPROVE_INTERVAL", "3600"))
+        dry_run = os.environ.get("ARAGORA_SELF_IMPROVE_DRY_RUN", "true").lower() in (
+            "true",
+            "1",
+            "yes",
+        )
+        auto_low_risk = os.environ.get(
+            "ARAGORA_SELF_IMPROVE_AUTO_LOW_RISK", "false"
+        ).lower() in ("true", "1", "yes")
+        budget = float(os.environ.get("ARAGORA_SELF_IMPROVE_BUDGET", "5.0"))
+
+        config = DaemonConfig(
+            interval_seconds=interval,
+            dry_run=dry_run,
+            auto_execute_low_risk=auto_low_risk,
+            budget_limit_per_cycle_usd=budget,
+            require_approval=not auto_low_risk,
+            autonomous=auto_low_risk,
+        )
+
+        daemon = SelfImprovementDaemon(config=config)
+
+        # Store daemon singleton for handler access
+        _store_daemon_singleton(daemon)
+
+        await daemon.start()
+
+        logger.info(
+            "Self-improvement daemon started (interval=%ds, dry_run=%s, auto_low_risk=%s)",
+            int(interval),
+            dry_run,
+            auto_low_risk,
+        )
+
+        # Return the internal task for lifecycle management
+        return daemon._task
+
+    except ImportError as e:
+        logger.debug("Self-improvement daemon not available: %s", e)
+        return None
+    except (RuntimeError, OSError, ValueError) as e:
+        logger.warning("Failed to start self-improvement daemon: %s", e)
+        return None
+
+
+def _store_daemon_singleton(daemon: Any) -> None:
+    """Store daemon instance for access by self-improve handlers."""
+    try:
+        from aragora.mcp.tools_module import self_improve as si_module
+
+        si_module._daemon_instance = daemon
+    except (ImportError, AttributeError):
+        pass

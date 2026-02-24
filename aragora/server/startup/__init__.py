@@ -37,6 +37,7 @@ from aragora.server.startup.background import (
     init_background_tasks,
     init_circuit_breaker_persistence,
     init_pulse_scheduler,
+    init_self_improvement_daemon,
     init_slack_token_refresh_scheduler,
     init_state_cleanup_task,
     init_stuck_debate_watchdog,
@@ -540,6 +541,7 @@ async def _init_all_components(
     status["testfixer_task_worker"] = await init_testfixer_task_worker()
     status["slack_token_refresh_scheduler"] = await init_slack_token_refresh_scheduler()
     status["titans_memory_sweep"] = await init_titans_memory_sweep()
+    status["self_improvement_daemon"] = await init_self_improvement_daemon()
 
     # Scaling and routing
     status["redis_state_backend"] = await init_redis_state_backend()
@@ -700,6 +702,7 @@ __all__ = [
     "init_stuck_debate_watchdog",
     "init_slack_token_refresh_scheduler",
     "init_titans_memory_sweep",
+    "init_self_improvement_daemon",
     "init_control_plane_coordinator",
     "init_shared_control_plane_state",
     "init_tts_integration",
