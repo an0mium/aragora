@@ -15,7 +15,7 @@ When many agents are committing concurrently, use disposable worktrees with freq
   `python3 scripts/codex_worktree_autopilot.py reconcile --all --base main`
 - Remove stale managed worktrees with:
   `python3 scripts/codex_worktree_autopilot.py cleanup --base main --ttl-hours 24`
-- Optional macOS daemon: `make worktree-maintainer-install` for periodic background upkeep.
+- Optional macOS daemon: `make worktree-maintainer-install` for periodic background reconcile-only upkeep.
 
 ## Agent Types
 
