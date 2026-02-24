@@ -257,12 +257,14 @@ def demo_request(
     # Exact match first
     for route_method, route_path, handler in _ROUTES:
         if method_upper == route_method and path_clean == route_path:
-            return handler(json=json, params=params)
+            result: dict[str, Any] = handler(json=json, params=params)
+            return result
 
     # Prefix match for parameterized routes (e.g., /api/v1/debates/{id})
     for route_method, route_path, handler in _ROUTES:
         if method_upper == route_method and path_clean.startswith(route_path + "/"):
-            return handler(json=json, params=params)
+            result = handler(json=json, params=params)
+            return result
 
     # Fallback
     return _handle_not_found(path=path)

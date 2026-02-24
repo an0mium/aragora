@@ -10,6 +10,7 @@ Provides methods for decision receipt management:
 
 from __future__ import annotations
 
+import builtins
 from typing import TYPE_CHECKING, Any, Literal
 
 if TYPE_CHECKING:
@@ -734,7 +735,7 @@ class AsyncReceiptsAPI:
 
     async def export_bundle(
         self,
-        receipt_ids: list[str],
+        receipt_ids: builtins.list[str],
         *,
         format: str = "json",
         include_metadata: bool = True,

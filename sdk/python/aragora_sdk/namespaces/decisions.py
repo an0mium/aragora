@@ -7,6 +7,7 @@ across all decision types (debates, gauntlets, workflows).
 
 from __future__ import annotations
 
+import builtins
 from typing import TYPE_CHECKING, Any, Literal
 
 if TYPE_CHECKING:
@@ -290,7 +291,7 @@ class DecisionsAPI:
         self,
         plan_id: str,
         reason: str = "",
-        conditions: list[str] | None = None,
+        conditions: builtins.list[str] | None = None,
     ) -> dict[str, Any]:
         """
         Approve a DecisionPlan for execution.
@@ -547,7 +548,7 @@ class AsyncDecisionsAPI:
         self,
         plan_id: str,
         reason: str = "",
-        conditions: list[str] | None = None,
+        conditions: builtins.list[str] | None = None,
     ) -> dict[str, Any]:
         """Approve a DecisionPlan for execution."""
         data: dict[str, Any] = {}

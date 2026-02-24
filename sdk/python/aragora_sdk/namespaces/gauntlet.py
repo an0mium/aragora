@@ -9,6 +9,7 @@ Provides methods for the Gauntlet adversarial validation system:
 
 from __future__ import annotations
 
+import builtins
 from typing import TYPE_CHECKING, Any, Literal
 
 if TYPE_CHECKING:
@@ -50,7 +51,7 @@ class GauntletAPI:
         task: str | None = None,
         attack_rounds: int = 3,
         proposer_agent: str | None = None,
-        attacker_agents: list[str] | None = None,
+        attacker_agents: builtins.list[str] | None = None,
     ) -> dict[str, Any]:
         """
         Run a Gauntlet adversarial validation.
@@ -208,7 +209,7 @@ class AsyncGauntletAPI:
         task: str | None = None,
         attack_rounds: int = 3,
         proposer_agent: str | None = None,
-        attacker_agents: list[str] | None = None,
+        attacker_agents: builtins.list[str] | None = None,
     ) -> dict[str, Any]:
         """Run a Gauntlet adversarial validation."""
         data: dict[str, Any] = {"attack_rounds": attack_rounds}

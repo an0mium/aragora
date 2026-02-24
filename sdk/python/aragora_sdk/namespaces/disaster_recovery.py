@@ -79,6 +79,22 @@ class DisasterRecoveryAPI:
         return self._client.request("POST", f"/api/v1/backups/{backup_id}/restore-test")
 
     # ===========================================================================
+    # DR Status & Objectives
+    # ===========================================================================
+
+    def get_status(self) -> dict[str, Any]:
+        """Get disaster recovery status."""
+        return self._client.request("GET", "/api/v1/dr/status")
+
+    def validate(self) -> dict[str, Any]:
+        """Validate disaster recovery configuration."""
+        return self._client.request("POST", "/api/v1/dr/validate")
+
+    def get_objectives(self) -> dict[str, Any]:
+        """Get RPO/RTO objectives and compliance status."""
+        return self._client.request("GET", "/api/v1/dr/objectives")
+
+    # ===========================================================================
     # Convenience Methods
     # ===========================================================================
 
@@ -166,6 +182,22 @@ class AsyncDisasterRecoveryAPI:
     async def restore_test(self, backup_id: str) -> dict[str, Any]:
         """Run a restore test on a backup."""
         return await self._client.request("POST", f"/api/v1/backups/{backup_id}/restore-test")
+
+    # ===========================================================================
+    # DR Status & Objectives
+    # ===========================================================================
+
+    async def get_status(self) -> dict[str, Any]:
+        """Get disaster recovery status."""
+        return await self._client.request("GET", "/api/v1/dr/status")
+
+    async def validate(self) -> dict[str, Any]:
+        """Validate disaster recovery configuration."""
+        return await self._client.request("POST", "/api/v1/dr/validate")
+
+    async def get_objectives(self) -> dict[str, Any]:
+        """Get RPO/RTO objectives and compliance status."""
+        return await self._client.request("GET", "/api/v1/dr/objectives")
 
     # ===========================================================================
     # Convenience Methods

@@ -10,6 +10,8 @@ Provides methods for codebase repository indexing operations:
 
 from __future__ import annotations
 
+import asyncio
+import builtins
 import time
 from typing import TYPE_CHECKING, Any
 
@@ -74,8 +76,8 @@ class RepositoryAPI:
         repository_url: str | None = None,
         local_path: str | None = None,
         branch: str | None = None,
-        include_patterns: list[str] | None = None,
-        exclude_patterns: list[str] | None = None,
+        include_patterns: builtins.list[str] | None = None,
+        exclude_patterns: builtins.list[str] | None = None,
         max_file_size_kb: int | None = None,
         extract_entities: bool | None = None,
         build_graph: bool | None = None,
@@ -118,7 +120,7 @@ class RepositoryAPI:
     def incremental_index(
         self,
         index_id: str,
-        changed_files: list[str] | None = None,
+        changed_files: builtins.list[str] | None = None,
         since_commit: str | None = None,
     ) -> dict[str, Any]:
         """
@@ -141,7 +143,7 @@ class RepositoryAPI:
 
     def batch_index(
         self,
-        repositories: list[dict[str, Any]],
+        repositories: builtins.list[dict[str, Any]],
         parallel: bool | None = None,
         max_concurrent: int | None = None,
     ) -> dict[str, Any]:
@@ -301,8 +303,8 @@ class RepositoryAPI:
         repository_url: str | None = None,
         local_path: str | None = None,
         branch: str | None = None,
-        include_patterns: list[str] | None = None,
-        exclude_patterns: list[str] | None = None,
+        include_patterns: builtins.list[str] | None = None,
+        exclude_patterns: builtins.list[str] | None = None,
         max_file_size_kb: int | None = None,
         extract_entities: bool | None = None,
         build_graph: bool | None = None,
@@ -384,8 +386,8 @@ class AsyncRepositoryAPI:
         repository_url: str | None = None,
         local_path: str | None = None,
         branch: str | None = None,
-        include_patterns: list[str] | None = None,
-        exclude_patterns: list[str] | None = None,
+        include_patterns: builtins.list[str] | None = None,
+        exclude_patterns: builtins.list[str] | None = None,
         max_file_size_kb: int | None = None,
         extract_entities: bool | None = None,
         build_graph: bool | None = None,
@@ -428,7 +430,7 @@ class AsyncRepositoryAPI:
     async def incremental_index(
         self,
         index_id: str,
-        changed_files: list[str] | None = None,
+        changed_files: builtins.list[str] | None = None,
         since_commit: str | None = None,
     ) -> dict[str, Any]:
         """
@@ -451,7 +453,7 @@ class AsyncRepositoryAPI:
 
     async def batch_index(
         self,
-        repositories: list[dict[str, Any]],
+        repositories: builtins.list[dict[str, Any]],
         parallel: bool | None = None,
         max_concurrent: int | None = None,
     ) -> dict[str, Any]:
@@ -598,8 +600,8 @@ class AsyncRepositoryAPI:
         repository_url: str | None = None,
         local_path: str | None = None,
         branch: str | None = None,
-        include_patterns: list[str] | None = None,
-        exclude_patterns: list[str] | None = None,
+        include_patterns: builtins.list[str] | None = None,
+        exclude_patterns: builtins.list[str] | None = None,
         max_file_size_kb: int | None = None,
         extract_entities: bool | None = None,
         build_graph: bool | None = None,

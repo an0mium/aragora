@@ -6,6 +6,7 @@ Provides methods for running and comparing benchmarks.
 
 from __future__ import annotations
 
+import builtins
 from typing import TYPE_CHECKING, Any
 
 if TYPE_CHECKING:
@@ -38,7 +39,7 @@ class BenchmarksAPI:
 
     def compare(
         self,
-        benchmark_ids: list[str] | None = None,
+        benchmark_ids: builtins.list[str] | None = None,
         **params: Any,
     ) -> dict[str, Any]:
         """Compare benchmark results.
@@ -70,7 +71,7 @@ class AsyncBenchmarksAPI:
 
     async def compare(
         self,
-        benchmark_ids: list[str] | None = None,
+        benchmark_ids: builtins.list[str] | None = None,
         **params: Any,
     ) -> dict[str, Any]:
         """Compare benchmark results."""

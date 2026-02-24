@@ -897,9 +897,9 @@ class AsyncDebatesAPI:
             "GET", "/api/v1/history/debates", params={"limit": limit, "offset": offset}
         )
 
-    def get_summary(self, debate_id: str) -> dict[str, Any]:
+    async def get_summary(self, debate_id: str) -> dict[str, Any]:
         """Get a human-readable summary of the debate."""
-        return self._client.request("GET", f"/api/v1/debates/{debate_id}/summary")
+        return await self._client.request("GET", f"/api/v1/debates/{debate_id}/summary")
 
     async def get_verification_report(self, debate_id: str) -> dict[str, Any]:
         """Get the verification report for debate conclusions."""
