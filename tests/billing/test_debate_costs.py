@@ -586,3 +586,155 @@ class TestMultiDebateIsolation:
 
         assert summary_a.total_calls == 0
         assert summary_b.total_calls == 1
+
+
+# =============================================================================
+# End-to-End: DebateCostTracker -> DecisionReceipt cost_summary
+# =============================================================================
+
+
+class TestDebateCostToReceiptIntegration:
+    """Tests that debate costs flow through to DecisionReceipt cost_summary."""
+
+    def test_receipt_includes_per_agent_and_per_round_costs(self):
+        """Record agent calls, build receipt, verify cost_summary structure."""
+        from aragora.gauntlet.receipt_models import DecisionReceipt
+
+        tracker = DebateCostTracker()
+        debate_id = "debate-cost-receipt-test"
+
+        # Simulate a 2-round debate with 2 agents
+        tracker.record_agent_call(
+            debate_id=debate_id,
+            agent_name="claude",
+            provider="anthropic",
+            tokens_in=2000,
+            tokens_out=800,
+            model="claude-sonnet-4",
+            round_number=1,
+            operation="proposal",
+        )
+        tracker.record_agent_call(
+            debate_id=debate_id,
+            agent_name="gpt",
+            provider="openai",
+            tokens_in=1500,
+            tokens_out=600,
+            model="gpt-4o",
+            round_number=1,
+            operation="critique",
+        )
+        tracker.record_agent_call(
+            debate_id=debate_id,
+            agent_name="claude",
+            provider="anthropic",
+            tokens_in=2500,
+            tokens_out=1000,
+            model="claude-sonnet-4",
+            round_number=2,
+            operation="revision",
+        )
+
+        # Get cost summary
+        summary = tracker.get_debate_cost(debate_id)
+        assert summary.total_calls == 3
+        assert summary.total_cost_usd > Decimal("0")
+        cost_dict = summary.to_dict()
+
+        # Build receipt with cost_summary
+        mock_result = MagicMock()
+        mock_result.debate_id = debate_id
+        mock_result.id = debate_id
+        mock_result.messages = []
+        mock_result.votes = []
+        mock_result.consensus_reached = True
+        mock_result.confidence = 0.85
+        mock_result.participants = ["claude", "gpt"]
+        mock_result.dissenting_views = []
+        mock_result.consensus_strength = "strong"
+        mock_result.final_answer = "Test answer"
+        mock_result.task = "Design a rate limiter"
+        mock_result.winner = "claude"
+        mock_result.rounds_used = 2
+        mock_result.duration_seconds = 30.0
+        mock_result.convergence_similarity = 0.9
+
+        receipt = DecisionReceipt.from_debate_result(
+            mock_result,
+            cost_summary=cost_dict,
+        )
+
+        # Verify receipt has cost_summary with full breakdown
+        assert receipt.cost_summary is not None
+        assert receipt.cost_summary["debate_id"] == debate_id
+        assert Decimal(receipt.cost_summary["total_cost_usd"]) > 0
+        assert receipt.cost_summary["total_calls"] == 3
+
+        # Verify per-agent breakdown
+        per_agent = receipt.cost_summary["per_agent"]
+        assert "claude" in per_agent
+        assert "gpt" in per_agent
+        assert per_agent["claude"]["call_count"] == 2
+        assert per_agent["gpt"]["call_count"] == 1
+
+        # Verify per-round breakdown
+        per_round = receipt.cost_summary["per_round"]
+        assert "1" in per_round
+        assert "2" in per_round
+        assert per_round["1"]["call_count"] == 2
+        assert per_round["2"]["call_count"] == 1
+
+        # Verify model_usage breakdown
+        model_usage = receipt.cost_summary["model_usage"]
+        assert "anthropic/claude-sonnet-4" in model_usage
+        assert "openai/gpt-4o" in model_usage
+
+        # Verify round-trip: to_dict -> from_dict preserves cost_summary
+        receipt_dict = receipt.to_dict()
+        assert receipt_dict["cost_summary"] == cost_dict
+        restored = DecisionReceipt.from_dict(receipt_dict)
+        assert restored.cost_summary == receipt.cost_summary
+
+    def test_receipt_cost_summary_format_matches_spec(self):
+        """Verify cost_summary matches the expected output format:
+        {"total_usd": ..., "per_agent": {...}, "token_counts": {...}}
+        """
+        tracker = DebateCostTracker()
+        debate_id = "format-test"
+
+        tracker.record_agent_call(
+            debate_id=debate_id,
+            agent_name="claude",
+            provider="anthropic",
+            tokens_in=1000,
+            tokens_out=500,
+            model="claude-sonnet-4",
+            round_number=1,
+        )
+        tracker.record_agent_call(
+            debate_id=debate_id,
+            agent_name="gpt4",
+            provider="openai",
+            tokens_in=800,
+            tokens_out=400,
+            model="gpt-4o",
+            round_number=1,
+        )
+
+        summary = tracker.get_debate_cost(debate_id)
+        d = summary.to_dict()
+
+        # Verify the key fields expected by consumers
+        assert "total_cost_usd" in d
+        assert "per_agent" in d
+        assert "total_tokens_in" in d
+        assert "total_tokens_out" in d
+        assert float(Decimal(d["total_cost_usd"])) > 0
+
+        # Per-agent has cost breakdowns
+        for agent_name in ("claude", "gpt4"):
+            assert agent_name in d["per_agent"]
+            agent_data = d["per_agent"][agent_name]
+            assert "total_cost_usd" in agent_data
+            assert "total_tokens_in" in agent_data
+            assert "total_tokens_out" in agent_data
