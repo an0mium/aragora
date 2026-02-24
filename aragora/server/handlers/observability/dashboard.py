@@ -169,11 +169,11 @@ class ObservabilityDashboardHandler(SecureEndpointMixin, SecureHandler):  # type
         """Collect circuit breaker states from the resilience registry."""
         fallback: dict[str, Any] = {"breakers": [], "available": False}
         try:
-            from aragora.resilience.registry import get_registry
+            from aragora.resilience.registry import get_circuit_breakers
 
-            registry = get_registry()
+            all_breakers = get_circuit_breakers()
             breakers = []
-            for name, cb in registry.get_all().items():
+            for name, cb in all_breakers.items():
                 breakers.append(
                     {
                         "name": name,
