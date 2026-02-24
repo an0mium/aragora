@@ -452,11 +452,12 @@ class TestGracefulErrorHandling:
         assert result.canvas_result is None
 
 
-class TestDisabledByDefault:
-    """Test that the bridge does not fire when auto_trigger_canvas is off."""
+class TestDisabledExplicitly:
+    """Test that the bridge does not fire when auto_trigger_canvas is explicitly off."""
 
-    def test_default_config_does_not_trigger(self):
-        coordinator = PostDebateCoordinator()
+    def test_explicitly_disabled_does_not_trigger(self):
+        config = PostDebateConfig(auto_trigger_canvas=False)
+        coordinator = PostDebateCoordinator(config=config)
         msg = _make_message("test", agent="claude")
         debate_result = _make_debate_result(messages=[msg])
 
