@@ -415,7 +415,7 @@ class SegmentConnector:
             try:
                 response = await client.post(url, json=json_data)
 
-                if response.status_code == 429:
+                if response.status_code == 429 and attempt < _MAX_RETRIES:
                     retry_after = float(response.headers.get("Retry-After", _BASE_DELAY * (2 ** attempt)))
                     jitter = random.uniform(0, retry_after * 0.3)
                     delay = min(retry_after + jitter, _MAX_DELAY)
@@ -482,7 +482,7 @@ class SegmentConnector:
                     json=json_data,
                 )
 
-                if response.status_code == 429:
+                if response.status_code == 429 and attempt < _MAX_RETRIES:
                     retry_after = float(response.headers.get("Retry-After", _BASE_DELAY * (2 ** attempt)))
                     jitter = random.uniform(0, retry_after * 0.3)
                     delay = min(retry_after + jitter, _MAX_DELAY)
@@ -547,7 +547,7 @@ class SegmentConnector:
                     params=params,
                 )
 
-                if response.status_code == 429:
+                if response.status_code == 429 and attempt < _MAX_RETRIES:
                     retry_after = float(response.headers.get("Retry-After", _BASE_DELAY * (2 ** attempt)))
                     jitter = random.uniform(0, retry_after * 0.3)
                     delay = min(retry_after + jitter, _MAX_DELAY)

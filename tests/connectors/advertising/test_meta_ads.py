@@ -928,6 +928,7 @@ class TestAPIErrorHandling:
         with patch.object(meta_ads_connector, "_get_client") as mock_get_client:
             mock_client = AsyncMock()
             mock_response = MagicMock()
+            mock_response.status_code = 400
             mock_response.json.return_value = {
                 "error": {
                     "message": "Invalid OAuth access token",

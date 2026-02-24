@@ -113,6 +113,10 @@ class MetaPlannerConfig:
     enable_metrics_collection: bool = True
     # Scan mode: prioritize from codebase signals without LLM calls
     scan_mode: bool = False
+    # Auto-execute low-risk goals (test fixes, doc updates, lint) without approval
+    auto_execute_low_risk: bool = False
+    # Risk threshold: goals scoring below this are considered "low risk"
+    low_risk_threshold: float = 0.3
     # Generate self-explanations for planning decisions
     explain_decisions: bool = True
     # Use business context to re-rank goals by impact
@@ -1900,7 +1904,6 @@ class MetaPlanner:
         # Analyze patterns
         total = len(outcomes)
         succeeded = sum(1 for o in outcomes if o.get("goals_succeeded", 0) > 0)
-        failed = sum(1 for o in outcomes if o.get("goals_failed", 0) > 0)
         success_rate = succeeded / total if total > 0 else 0.0
 
         # Pattern 1: Low overall success rate
@@ -1995,6 +1998,80 @@ class MetaPlanner:
             )
 
         return goals[:self.config.max_goals]
+
+
+    def classify_goal_risk(self, goal: PrioritizedGoal) -> str:
+        """Classify a goal's risk level based on its description and focus areas.
+
+        Returns 'low', 'medium', or 'high'. Low-risk goals include test fixes,
+        documentation updates, and lint cleanup. High-risk goals include
+        security changes, database migrations, and API contract changes.
+
+        Args:
+            goal: The goal to classify.
+
+        Returns:
+            Risk category string: 'low', 'medium', or 'high'.
+        """
+        desc_lower = goal.description.lower()
+        focus = " ".join(goal.focus_areas).lower() if goal.focus_areas else ""
+        combined = f"{desc_lower} {focus}"
+
+        # High risk: security, auth, database, API changes, breaking changes
+        high_risk_patterns = [
+            "security", "auth", "encryption", "migration", "schema",
+            "database", "breaking change", "api contract", "delete",
+            "remove", "drop", "rbac", "permission",
+        ]
+        if any(p in combined for p in high_risk_patterns):
+            return "high"
+
+        # Low risk: tests, docs, lint, formatting, typos, comments
+        low_risk_patterns = [
+            "test", "lint", "format", "typo", "comment", "docstring",
+            "documentation", "readme", "type hint", "type annotation",
+            "unused import", "whitespace", "spelling",
+        ]
+        if any(p in combined for p in low_risk_patterns):
+            return "low"
+
+        return "medium"
+
+    def filter_auto_executable(
+        self, goals: list[PrioritizedGoal]
+    ) -> tuple[list[PrioritizedGoal], list[PrioritizedGoal]]:
+        """Split goals into auto-executable (low risk) and needs-review.
+
+        Only produces auto-executable goals when ``auto_execute_low_risk``
+        is enabled in config.
+
+        Args:
+            goals: List of prioritized goals to classify.
+
+        Returns:
+            Tuple of (auto_execute, needs_review) goal lists.
+        """
+        if not self.config.auto_execute_low_risk:
+            return [], goals
+
+        auto_execute: list[PrioritizedGoal] = []
+        needs_review: list[PrioritizedGoal] = []
+
+        for goal in goals:
+            risk = self.classify_goal_risk(goal)
+            if risk == "low":
+                auto_execute.append(goal)
+            else:
+                needs_review.append(goal)
+
+        if auto_execute:
+            logger.info(
+                "auto_execute_filter auto=%d review=%d",
+                len(auto_execute),
+                len(needs_review),
+            )
+
+        return auto_execute, needs_review
 
 
 __all__ = [

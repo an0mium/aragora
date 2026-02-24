@@ -2291,6 +2291,111 @@ class AutonomousOrchestrator:
             logger.debug("[fabric] Stats retrieval failed: %s", e)
             return None
 
+    async def schedule_scan(
+        self,
+        interval_hours: float = 24,
+        max_cycles: int = 0,
+        auto_execute_low_risk: bool = False,
+    ) -> None:
+        """Run periodic MetaPlanner scan cycles on a timer.
+
+        Each cycle runs MetaPlanner in ``scan_mode`` to gather codebase signals
+        (git log, test failures, lint violations, TODOs) and queue discovered
+        goals to the ImprovementQueue. No goals are auto-executed unless
+        ``auto_execute_low_risk`` is explicitly set.
+
+        Args:
+            interval_hours: Hours between scan cycles (default 24).
+            max_cycles: Stop after this many cycles (0 = run forever).
+            auto_execute_low_risk: When True, low-risk goals (test fixes,
+                lint, doc updates) are executed immediately without approval.
+        """
+        from aragora.nomic.meta_planner import MetaPlanner, MetaPlannerConfig
+
+        config = MetaPlannerConfig(
+            scan_mode=True,
+            auto_execute_low_risk=auto_execute_low_risk,
+            quick_mode=False,
+        )
+        planner = MetaPlanner(config)
+        interval_seconds = interval_hours * 3600
+        cycle_count = 0
+
+        logger.info(
+            "schedule_scan_started interval_hours=%.1f max_cycles=%d auto_low_risk=%s",
+            interval_hours,
+            max_cycles,
+            auto_execute_low_risk,
+        )
+
+        while True:
+            cycle_count += 1
+            logger.info("scan_cycle_start cycle=%d", cycle_count)
+
+            try:
+                goals = await planner.prioritize_work(
+                    objective=None,  # Self-directing scan mode
+                    available_tracks=list(Track),
+                )
+
+                if not goals:
+                    logger.info("scan_cycle_no_goals cycle=%d", cycle_count)
+                else:
+                    # Queue goals for future execution
+                    try:
+                        from aragora.nomic.improvement_queue import (
+                            get_improvement_queue,
+                            ImprovementItem,
+                        )
+
+                        queue = get_improvement_queue()
+                        for goal in goals:
+                            queue.enqueue(
+                                ImprovementItem(
+                                    task=goal.description,
+                                    category=goal.track.value,
+                                    confidence=0.8 if goal.estimated_impact == "high" else 0.5,
+                                )
+                            )
+                        logger.info(
+                            "scan_cycle_queued cycle=%d goals=%d",
+                            cycle_count,
+                            len(goals),
+                        )
+                    except ImportError:
+                        logger.debug("ImprovementQueue not available, goals not queued")
+
+                    # Auto-execute low-risk goals if enabled
+                    if auto_execute_low_risk:
+                        auto_goals, _ = planner.filter_auto_executable(goals)
+                        for goal in auto_goals:
+                            try:
+                                await self.execute_goal(
+                                    goal=goal.description,
+                                    tracks=[goal.track.value],
+                                    max_cycles=3,
+                                )
+                                logger.info(
+                                    "scan_auto_executed goal=%s track=%s",
+                                    goal.description[:60],
+                                    goal.track.value,
+                                )
+                            except (RuntimeError, ValueError, OSError) as exc:
+                                logger.warning(
+                                    "scan_auto_execute_failed goal=%s: %s",
+                                    goal.description[:60],
+                                    exc,
+                                )
+
+            except (RuntimeError, ValueError, OSError) as exc:
+                logger.warning("scan_cycle_failed cycle=%d: %s", cycle_count, exc)
+
+            if max_cycles > 0 and cycle_count >= max_cycles:
+                logger.info("scan_schedule_complete cycles=%d", cycle_count)
+                break
+
+            await asyncio.sleep(interval_seconds)
+
 
 # Singleton instance
 _orchestrator_instance: AutonomousOrchestrator | None = None

@@ -488,6 +488,61 @@ def _create_monitoring_hooks(
             )
         )
 
+    def on_agent_thinking(
+        agent: str,
+        step: str,
+        phase: str = "reasoning",
+        round_num: int = 0,
+    ) -> None:
+        emitter.emit(
+            StreamEvent(
+                type=StreamEventType.AGENT_THINKING,
+                data={
+                    "step": step[:500],
+                    "phase": phase,
+                },
+                agent=agent,
+                round=round_num,
+                loop_id=loop_id,
+            )
+        )
+
+    def on_agent_evidence(
+        agent: str,
+        source: str,
+        relevance: float = 0.0,
+        round_num: int = 0,
+    ) -> None:
+        emitter.emit(
+            StreamEvent(
+                type=StreamEventType.AGENT_EVIDENCE,
+                data={
+                    "source": source[:300],
+                    "relevance": relevance,
+                },
+                agent=agent,
+                round=round_num,
+                loop_id=loop_id,
+            )
+        )
+
+    def on_agent_confidence(
+        agent: str,
+        confidence: float,
+        round_num: int = 0,
+    ) -> None:
+        emitter.emit(
+            StreamEvent(
+                type=StreamEventType.AGENT_CONFIDENCE,
+                data={
+                    "confidence": confidence,
+                },
+                agent=agent,
+                round=round_num,
+                loop_id=loop_id,
+            )
+        )
+
     return {
         "on_agent_error": on_agent_error,
         "on_phase_progress": on_phase_progress,
@@ -495,6 +550,9 @@ def _create_monitoring_hooks(
         "on_trickster_intervention": on_trickster_intervention,
         "on_hollow_consensus": on_hollow_consensus,
         "on_rhetorical_observation": on_rhetorical_observation,
+        "on_agent_thinking": on_agent_thinking,
+        "on_agent_evidence": on_agent_evidence,
+        "on_agent_confidence": on_agent_confidence,
     }
 
 

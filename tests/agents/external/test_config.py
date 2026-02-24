@@ -187,7 +187,7 @@ class TestOpenHandsConfig:
         config = OpenHandsConfig()
         assert config.adapter_name == "openhands"
         assert "localhost:3000" in config.base_url
-        assert config.model == "claude-sonnet-4-20250514"
+        assert config.model == "claude-sonnet-4-6"
         assert config.temperature == 0.0
 
     def test_workspace_config(self) -> None:

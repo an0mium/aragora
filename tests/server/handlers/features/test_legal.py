@@ -301,16 +301,13 @@ class TestHandleRouting:
     async def test_route_to_void_envelope(self, handler, mock_request):
         """Test routing POST /envelopes/{id}/void to _handle_void_envelope.
 
-        Note: The router uses parts[4] as envelope_id and parts[5] as action.
-        For path /api/v1/legal/envelopes/{id}/void, parts[5] is the actual
-        envelope_id and parts[6] is the action. The handler routes based on
-        len(parts)==6 where parts[5] is the action name.
+        Path /api/v1/legal/envelopes/{id}/void splits into 7 parts:
+        ['', 'api', 'v1', 'legal', 'envelopes', '{id}', 'void']
+        where parts[5] is envelope_id and parts[6] is the action.
         """
         with patch.object(handler, "_handle_void_envelope", new_callable=AsyncMock) as mock_method:
             mock_method.return_value = MagicMock(status_code=200)
-            # With /api/v1/legal/envelopes/void, parts = ['', 'api', 'v1', 'legal', 'envelopes', 'void']
-            # len(parts)==6, parts[5]=='void', so it routes correctly (envelope_id=parts[4]='envelopes')
-            result = await handler.handle(mock_request, "/api/v1/legal/envelopes/void", "POST")
+            result = await handler.handle(mock_request, "/api/v1/legal/envelopes/env123/void", "POST")
             mock_method.assert_called_once()
 
     @pytest.mark.asyncio
@@ -320,7 +317,7 @@ class TestHandleRouting:
             handler, "_handle_resend_envelope", new_callable=AsyncMock
         ) as mock_method:
             mock_method.return_value = MagicMock(status_code=200)
-            result = await handler.handle(mock_request, "/api/v1/legal/envelopes/resend", "POST")
+            result = await handler.handle(mock_request, "/api/v1/legal/envelopes/env123/resend", "POST")
             mock_method.assert_called_once()
 
     @pytest.mark.asyncio
@@ -331,22 +328,22 @@ class TestHandleRouting:
         ) as mock_method:
             mock_method.return_value = MagicMock(status_code=200)
             result = await handler.handle(
-                mock_request, "/api/v1/legal/envelopes/certificate", "GET"
+                mock_request, "/api/v1/legal/envelopes/env123/certificate", "GET"
             )
             mock_method.assert_called_once()
 
     @pytest.mark.asyncio
     async def test_route_to_download_document(self, handler, mock_request):
-        """Test routing GET to document download (7-part path)."""
+        """Test routing GET to document download (8-part path)."""
         with patch.object(
             handler, "_handle_download_document", new_callable=AsyncMock
         ) as mock_method:
             mock_method.return_value = MagicMock(status_code=200)
-            # 7 parts: ['', 'api', 'v1', 'legal', 'envelopes', 'documents', 'doc456']
-            # parts[5]=='documents', parts[6]=='doc456'
+            # 8 parts: ['', 'api', 'v1', 'legal', 'envelopes', 'env123', 'documents', 'doc456']
+            # parts[5]=='env123', parts[6]=='documents', parts[7]=='doc456'
             result = await handler.handle(
                 mock_request,
-                "/api/v1/legal/envelopes/documents/doc456",
+                "/api/v1/legal/envelopes/env123/documents/doc456",
                 "GET",
             )
             mock_method.assert_called_once()

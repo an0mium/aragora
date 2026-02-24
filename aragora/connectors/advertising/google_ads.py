@@ -424,7 +424,7 @@ class GoogleAdsConnector:
                     json={"query": query},
                 )
 
-                if response.status_code == 429:
+                if response.status_code == 429 and attempt < _MAX_RETRIES:
                     retry_after = float(response.headers.get("Retry-After", _BASE_DELAY * (2 ** attempt)))
                     delay = min(retry_after + random.uniform(0, retry_after * 0.3), _MAX_DELAY)
                     logger.warning("Google Ads rate limited, retrying in %.1fs (attempt %d/%d)", delay, attempt + 1, _MAX_RETRIES)

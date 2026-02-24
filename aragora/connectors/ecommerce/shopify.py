@@ -444,7 +444,7 @@ class ShopifyConnector(EnterpriseConnector):
         for attempt in range(_MAX_RETRIES + 1):
             try:
                 async with self._session.request(method, url, params=params, json=json_data) as resp:
-                    if resp.status == 429:
+                    if resp.status == 429 and attempt < _MAX_RETRIES:
                         retry_after = float(resp.headers.get("Retry-After", _BASE_DELAY * (2 ** attempt)))
                         jitter = random.uniform(0, retry_after * 0.3)
                         delay = min(retry_after + jitter, _MAX_DELAY)

@@ -91,6 +91,7 @@ const browseItems: NavItem[] = [
   { label: 'Marketplace', href: '/marketplace', icon: '$', minMode: 'standard' },
   { label: 'Costs', href: '/usage', icon: '%', minMode: 'standard' },
   { label: 'Gallery', href: '/gallery', icon: '*' },
+  { label: 'Features', href: '/features', icon: '\u2756' },
   { label: 'About', href: '/about', icon: 'i' },
   { label: 'Portal', href: '/portal', icon: '\u2302', minMode: 'standard' },
   { label: 'Social', href: '/social', icon: '\u263A', minMode: 'standard' },
