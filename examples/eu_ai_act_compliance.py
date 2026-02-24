@@ -24,10 +24,8 @@ from __future__ import annotations
 
 import argparse
 import hashlib
-import json
 import sys
 import textwrap
-from datetime import datetime, timezone
 from typing import Any
 
 # Import from Aragora compliance module
@@ -35,7 +33,6 @@ from aragora.compliance.eu_ai_act import (
     ComplianceArtifactGenerator,
     ConformityReportGenerator,
     RiskClassifier,
-    RiskLevel,
 )
 
 
@@ -524,8 +521,8 @@ def run_artifact_export_demo() -> None:
     print()
     chain_len = len(receipt.get("provenance_chain", []))
     print(f"  This receipt contains {chain_len} provenance events covering")
-    print(f"  the full decision lifecycle from debate initiation through")
-    print(f"  human approval to receipt generation.")
+    print("  the full decision lifecycle from debate initiation through")
+    print("  human approval to receipt generation.")
 
 
 def run_artifact_generation_demo() -> None:
@@ -566,7 +563,7 @@ def run_artifact_generation_demo() -> None:
 
     tech = art12.technical_documentation
     sec1 = tech.get("annex_iv_sec1_general", {})
-    print(f"  Annex IV Technical Documentation:")
+    print("  Annex IV Technical Documentation:")
     print(f"    System:  {sec1.get('system_name', 'N/A')} v{sec1.get('version', 'N/A')}")
     print(f"    Provider: {sec1.get('provider', 'N/A')}")
 
@@ -581,7 +578,7 @@ def run_artifact_generation_demo() -> None:
     print()
 
     interp = art13.output_interpretation
-    print(f"  Output Interpretation:")
+    print("  Output Interpretation:")
     print(f"    Confidence: {interp['confidence']:.0%} — {interp['confidence_interpretation']}")
     print(f"    Dissent: {interp['dissent_significance']}")
     print()

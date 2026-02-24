@@ -45,7 +45,7 @@ async def generate_receipt(dry_run: bool = False) -> dict:
     # Fetch the full receipt
     receipt = await client.receipts.get(receipt_id)
 
-    print(f"\nDecision Receipt")
+    print("\nDecision Receipt")
     print(f"  ID: {receipt['id']}")
     print(f"  Topic: {receipt['topic']}")
     print(f"  Consensus: {receipt.get('consensus', 'none')}")

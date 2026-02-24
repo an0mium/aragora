@@ -26,7 +26,7 @@ from aragora_debate import (
     ReceiptBuilder,
     Vote,
 )
-from aragora_debate.types import ConsensusMethod, Evidence, Claim
+from aragora_debate.types import ConsensusMethod
 
 
 # ---------------------------------------------------------------------------

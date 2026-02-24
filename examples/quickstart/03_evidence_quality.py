@@ -84,7 +84,7 @@ def main():
     print(f"  Reason:      {alert.reason}")
     print(f"  Avg quality: {alert.avg_quality:.2f}")
     if alert.recommended_challenges:
-        print(f"  Challenges:")
+        print("  Challenges:")
         for challenge in alert.recommended_challenges:
             print(f"    - {challenge[:100]}...")
     print()

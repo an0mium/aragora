@@ -37,9 +37,7 @@ from aragora_debate.types import (
     DissentRecord,
     Evidence,
     Message,
-    Phase,
     Proposal,
-    Verdict,
     Vote,
 )
 

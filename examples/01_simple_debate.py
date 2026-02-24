@@ -59,7 +59,7 @@ def run_demo():
         ("gemini-synthesizer", "synthesizer"),
     ]
     print(f"Agents: {[name for name, _ in agents]}")
-    print(f"Rounds: 2\n")
+    print("Rounds: 2\n")
 
     # Round 1: Proposals
     proposals = {
@@ -119,7 +119,7 @@ def run_demo():
 
     print("\n--- Round 2: Synthesis ---")
     time.sleep(0.3)
-    print(f"\n[gemini-synthesizer]:")
+    print("\n[gemini-synthesizer]:")
     for line in synthesis.split("\n"):
         print(f"  {line}")
 

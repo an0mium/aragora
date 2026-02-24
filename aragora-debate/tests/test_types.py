@@ -7,7 +7,6 @@ import os
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "src"))
 
 from aragora_debate.types import (
-    Agent,
     Claim,
     Consensus,
     ConsensusMethod,
@@ -19,9 +18,7 @@ from aragora_debate.types import (
     Evidence,
     Message,
     Phase,
-    Proposal,
     Verdict,
-    Vote,
 )
 
 

@@ -10,7 +10,6 @@ from aragora_debate.types import (
     Consensus,
     ConsensusMethod,
     DebateResult,
-    DecisionReceipt,
     DissentRecord,
     Verdict,
 )

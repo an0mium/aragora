@@ -15,7 +15,6 @@ Usage:
 
 import argparse
 import asyncio
-import time
 from aragora_sdk import AragoraClient
 
 
@@ -63,7 +62,7 @@ async def run_self_improvement(goal: str, dry_run: bool = False) -> dict:
 
     # Review results
     result = await client.self_improve.status(cycle_id)
-    print(f"\nCycle complete!")
+    print("\nCycle complete!")
     print(f"  Files changed: {result.get('files_changed', 0)}")
     print(f"  Tests passed: {result.get('tests_passed', 0)}")
     print(f"  Improvement score: {result.get('score', 0):.2f}")

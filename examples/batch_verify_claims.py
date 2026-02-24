@@ -16,7 +16,7 @@ import argparse
 import asyncio
 import json
 import sys
-from dataclasses import asdict, dataclass, field
+from dataclasses import asdict, dataclass
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).parent.parent))

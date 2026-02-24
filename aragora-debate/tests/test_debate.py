@@ -12,9 +12,7 @@ from aragora_debate.debate import _AGENT_COUNTER
 from aragora_debate.types import (
     Agent,
     ConsensusMethod,
-    DebateConfig,
     DebateResult,
-    Verdict,
 )
 
 

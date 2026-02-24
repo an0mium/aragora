@@ -17,7 +17,6 @@ No API keys required -- this demo uses synthetic data to show the artifact forma
 from __future__ import annotations
 
 import argparse
-import json
 import sys
 from datetime import datetime, timezone
 
@@ -132,20 +131,20 @@ Examples:
 
     # Article 12: Record-Keeping
     art12 = bundle.article_12
-    print(f"\n   Article 12 (Record-Keeping):")
+    print("\n   Article 12 (Record-Keeping):")
     print(f"     Event Log Entries: {len(art12.event_log)}")
     print(f"     Retention Policy: {art12.retention_policy}")
 
     # Article 13: Transparency
     art13 = bundle.article_13
-    print(f"\n   Article 13 (Transparency):")
+    print("\n   Article 13 (Transparency):")
     print(f"     Provider: {art13.provider_identity}")
     print(f"     Known Risks: {len(art13.known_risks)}")
     print(f"     Output Interpretation: {'Provided' if art13.output_interpretation else 'N/A'}")
 
     # Article 14: Human Oversight
     art14 = bundle.article_14
-    print(f"\n   Article 14 (Human Oversight):")
+    print("\n   Article 14 (Human Oversight):")
     print(f"     Oversight Model: {art14.oversight_model}")
     print(f"     Override Capability: {'Yes' if art14.override_capability else 'No'}")
     print(f"     Bias Safeguards: {len(art14.automation_bias_safeguards)}")
@@ -175,7 +174,7 @@ Examples:
         print("  RESULT: MINIMAL-RISK AI SYSTEM")
         print("  No specific obligations under the EU AI Act.")
 
-    print(f"\n  EU AI Act effective date: August 2, 2026")
+    print("\n  EU AI Act effective date: August 2, 2026")
     print(f"  Artifacts generated: {datetime.now(timezone.utc).strftime('%Y-%m-%d %H:%M UTC')}")
     print("=" * 60)
 

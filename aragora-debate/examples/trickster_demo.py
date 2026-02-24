@@ -46,7 +46,7 @@ def on_event(event: DebateEvent) -> None:
         print(f"  Consensus: {status} ({conf:.0%} confidence)")
 
     elif event.event_type == EventType.DEBATE_END:
-        print(f"\n=== Debate complete ===")
+        print("\n=== Debate complete ===")
 
 
 async def main() -> None:

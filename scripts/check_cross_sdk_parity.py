@@ -158,7 +158,7 @@ def main() -> int:
 
     if args.strict:
         if new_py_only or new_ts_only:
-            print(f"\nFAILED: Cross-SDK parity regression (--strict mode)")
+            print("\nFAILED: Cross-SDK parity regression (--strict mode)")
             return 1
         if not args.json:
             print("\nPASS: No new cross-SDK parity regressions")

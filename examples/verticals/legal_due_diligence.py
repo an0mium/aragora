@@ -16,7 +16,7 @@ from __future__ import annotations
 import asyncio
 import textwrap
 
-from aragora_debate import Debate, DebateConfig, create_agent
+from aragora_debate import Debate, create_agent
 
 
 def main() -> None:
@@ -204,7 +204,7 @@ def main() -> None:
     print("=" * 72)
     print()
     print(f"  Decision ID:    {receipt.receipt_id}")
-    print(f"  Transaction:    DataVault SaaS Inc. acquisition")
+    print("  Transaction:    DataVault SaaS Inc. acquisition")
     print(f"  Verdict:        {receipt.verdict.value if receipt.verdict else 'N/A'}")
     print(f"  Confidence:     {receipt.confidence:.0%}")
     print(
@@ -261,8 +261,8 @@ def main() -> None:
     print(f"\n  Receipt exported: {len(md)} chars Markdown")
     json_str = ReceiptBuilder.to_json(receipt)
     print(f"  Receipt exported: {len(json_str)} chars JSON")
-    print(f"\n  Run with real LLMs:")
-    print(f'  Replace create_agent("mock", ...) with create_agent("anthropic", ...)')
+    print("\n  Run with real LLMs:")
+    print('  Replace create_agent("mock", ...) with create_agent("anthropic", ...)')
 
 
 if __name__ == "__main__":

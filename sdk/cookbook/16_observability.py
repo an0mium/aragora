@@ -48,7 +48,7 @@ async def show_system_health(dry_run: bool = False) -> dict:
 
     # Self-improvement metrics
     si_metrics = await client.observability.self_improve_metrics()
-    print(f"\nSelf-Improvement Metrics:")
+    print("\nSelf-Improvement Metrics:")
     print(f"  Total cycles: {si_metrics.get('total_cycles', 0)}")
     print(f"  Success rate: {si_metrics.get('success_rate', 0):.1%}")
     print(f"  Avg files changed: {si_metrics.get('avg_files_changed', 0):.1f}")

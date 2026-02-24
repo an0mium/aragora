@@ -44,7 +44,7 @@ async def show_analytics(dry_run: bool = False) -> dict:
 
     # Usage metrics
     usage = await client.analytics.usage(period="7d")
-    print(f"\nUsage (last 7 days):")
+    print("\nUsage (last 7 days):")
     print(f"  API calls: {usage.get('api_calls', 0)}")
     print(f"  Tokens used: {usage.get('tokens', 0):,}")
     print(f"  Cost: ${usage.get('cost_usd', 0):.2f}")

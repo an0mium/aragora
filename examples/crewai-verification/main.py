@@ -61,7 +61,7 @@ def verify_crew_output(
         sarif = client.gauntlet.export_receipt(result["gauntlet_id"], format="sarif")
         with open("crew-verification.sarif", "w") as f:
             f.write(sarif)
-        print(f"SARIF exported to crew-verification.sarif")
+        print("SARIF exported to crew-verification.sarif")
 
     return {
         "verdict": result["verdict"],

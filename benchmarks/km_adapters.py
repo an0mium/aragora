@@ -33,7 +33,6 @@ import tempfile
 import time
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Optional
 from unittest.mock import AsyncMock, MagicMock
 import uuid
 

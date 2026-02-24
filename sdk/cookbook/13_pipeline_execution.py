@@ -78,7 +78,7 @@ async def run_pipeline(dry_run: bool = False) -> dict:
     # Get the receipt
     receipt = await client.pipeline.receipt(pipeline_id)
     print(f"\nReceipt: {receipt.get('receipt_id', '?')}")
-    print(f"  Ideas → Goals → Actions → Results")
+    print("  Ideas → Goals → Actions → Results")
     print(f"  Files changed: {receipt.get('files_changed', 0)}")
     print(f"  Content hash: {receipt.get('content_hash', '?')[:16]}")
 

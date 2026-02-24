@@ -15,7 +15,6 @@ This module wraps the full :class:`Arena` orchestrator with a minimal API.
 
 from __future__ import annotations
 
-import asyncio
 from typing import Any
 
 from aragora_debate.arena import Arena

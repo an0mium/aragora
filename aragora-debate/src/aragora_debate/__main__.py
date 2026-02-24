@@ -12,7 +12,6 @@ from __future__ import annotations
 
 import argparse
 import asyncio
-import sys
 
 from aragora_debate.styled_mock import StyledMockAgent
 from aragora_debate.arena import Arena
@@ -72,7 +71,7 @@ async def _run_demo(
     print(f"  Topic:   {_BOLD}{topic}{_RESET}")
     print(f"  Agents:  {', '.join(_c(a.name, color_map[a.name]) for a in agents)}")
     print(f"  Rounds:  {rounds}")
-    print(f"  Method:  majority consensus")
+    print("  Method:  majority consensus")
     if enable_trickster:
         print(f"  Trickster: {_c('enabled', 'yellow')}")
     if enable_convergence:

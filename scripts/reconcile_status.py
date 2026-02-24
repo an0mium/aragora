@@ -53,12 +53,12 @@ class Discrepancy:
 
 @dataclass
 class ReconciliationReport:
-    features_by_source: Dict[str, List[FeatureEntry]] = field(default_factory=dict)
-    discrepancies: List[Discrepancy] = field(default_factory=list)
-    missing_from: Dict[str, Set[str]] = field(
+    features_by_source: dict[str, list[FeatureEntry]] = field(default_factory=dict)
+    discrepancies: list[Discrepancy] = field(default_factory=list)
+    missing_from: dict[str, set[str]] = field(
         default_factory=dict
     )  # doc -> set of feature names missing
-    summary: Dict[str, int] = field(default_factory=dict)
+    summary: dict[str, int] = field(default_factory=dict)
 
 
 # ---------------------------------------------------------------------------
@@ -140,7 +140,7 @@ def normalise_status(raw: str) -> str:
 # ---------------------------------------------------------------------------
 
 
-def parse_capability_matrix(text: str) -> List[FeatureEntry]:
+def parse_capability_matrix(text: str) -> list[FeatureEntry]:
     """Extract features from CAPABILITY_MATRIX.md.
 
     Handles multiple formats:
@@ -148,9 +148,9 @@ def parse_capability_matrix(text: str) -> List[FeatureEntry]:
     - Tables under "Additional Mapped Capabilities" or "UI Coverage"
     - Capability names in backtick-quoted table cells
     """
-    entries: List[FeatureEntry] = []
+    entries: list[FeatureEntry] = []
     source = "CAPABILITY_MATRIX"
-    seen_keys: Set[str] = set()
+    seen_keys: set[str] = set()
 
     section = ""
     in_table = False
@@ -257,9 +257,9 @@ def parse_capability_matrix(text: str) -> List[FeatureEntry]:
     return entries
 
 
-def parse_ga_checklist(text: str) -> List[FeatureEntry]:
+def parse_ga_checklist(text: str) -> list[FeatureEntry]:
     """Extract items from GA_CHECKLIST.md checkbox lists."""
-    entries: List[FeatureEntry] = []
+    entries: list[FeatureEntry] = []
     source = "GA_CHECKLIST"
     current_section = ""
 
@@ -323,9 +323,9 @@ def parse_ga_checklist(text: str) -> List[FeatureEntry]:
     return entries
 
 
-def parse_status_md(text: str) -> List[FeatureEntry]:
+def parse_status_md(text: str) -> list[FeatureEntry]:
     """Extract features from STATUS.md Feature Integration Status tables."""
-    entries: List[FeatureEntry] = []
+    entries: list[FeatureEntry] = []
     source = "STATUS"
 
     # Parse the Feature Integration Status tables
@@ -444,9 +444,9 @@ def parse_status_md(text: str) -> List[FeatureEntry]:
     return entries
 
 
-def parse_roadmap(text: str) -> List[FeatureEntry]:
+def parse_roadmap(text: str) -> list[FeatureEntry]:
     """Extract features from ROADMAP.md checkbox lists and tables."""
-    entries: List[FeatureEntry] = []
+    entries: list[FeatureEntry] = []
     source = "ROADMAP"
     current_section = ""
 
@@ -525,7 +525,7 @@ def parse_roadmap(text: str) -> List[FeatureEntry]:
 # ---------------------------------------------------------------------------
 
 # Feature aliases: map alternative names that refer to the same thing
-FEATURE_ALIASES: Dict[str, str] = {
+FEATURE_ALIASES: dict[str, str] = {
     # GA Checklist <-> Roadmap: Penetration testing
     "external_penetration_test": "external_pen_test",
     "third_party_penetration_testing": "external_pen_test",
@@ -619,10 +619,10 @@ def resolve_alias(name: str) -> str:
 
 
 def build_feature_index(
-    all_entries: List[FeatureEntry],
-) -> Dict[str, Dict[str, FeatureEntry]]:
+    all_entries: list[FeatureEntry],
+) -> dict[str, dict[str, FeatureEntry]]:
     """Build {canonical_name: {source: entry}} index."""
-    index: Dict[str, Dict[str, FeatureEntry]] = {}
+    index: dict[str, dict[str, FeatureEntry]] = {}
     for entry in all_entries:
         canonical = resolve_alias(entry.name)
         if canonical not in index:
@@ -649,8 +649,8 @@ def is_ga_blocking(entry: FeatureEntry) -> bool:
 
 
 def detect_discrepancies(
-    index: Dict[str, Dict[str, FeatureEntry]],
-) -> List[Discrepancy]:
+    index: dict[str, dict[str, FeatureEntry]],
+) -> list[Discrepancy]:
     """Find status contradictions across documents."""
     discrepancies = []
 
@@ -722,14 +722,14 @@ def detect_discrepancies(
 
 
 def detect_cross_doc_gaps(
-    index: Dict[str, Dict[str, FeatureEntry]],
-    all_sources: List[str],
-) -> Dict[str, List[Tuple[str, str]]]:
+    index: dict[str, dict[str, FeatureEntry]],
+    all_sources: list[str],
+) -> dict[str, list[tuple[str, str]]]:
     """Find features that appear in one doc but are absent from others.
 
     Returns {source: [(canonical_name, raw_name)]} of features unique to that source.
     """
-    unique: Dict[str, List[Tuple[str, str]]] = {s: [] for s in all_sources}
+    unique: dict[str, list[tuple[str, str]]] = {s: [] for s in all_sources}
 
     for canonical, sources in index.items():
         if len(sources) == 1:
@@ -745,13 +745,13 @@ def detect_cross_doc_gaps(
 
 
 def format_report(
-    all_entries: List[FeatureEntry],
-    discrepancies: List[Discrepancy],
-    unique_features: Dict[str, List[Tuple[str, str]]],
-    index: Dict[str, Dict[str, FeatureEntry]],
+    all_entries: list[FeatureEntry],
+    discrepancies: list[Discrepancy],
+    unique_features: dict[str, list[tuple[str, str]]],
+    index: dict[str, dict[str, FeatureEntry]],
 ) -> str:
     """Produce a plain-text report."""
-    lines: List[str] = []
+    lines: list[str] = []
     lines.append("=" * 72)
     lines.append("  ARAGORA STATUS RECONCILIATION REPORT")
     lines.append("=" * 72)
@@ -903,7 +903,7 @@ def main() -> int:
     }
 
     # Read all documents
-    texts: Dict[str, str] = {}
+    texts: dict[str, str] = {}
     missing_docs = []
     for name, path in doc_paths.items():
         if path.exists():
@@ -912,11 +912,11 @@ def main() -> int:
             missing_docs.append(str(path))
 
     if missing_docs:
-        print(f"ERROR: Missing documents:\n  " + "\n  ".join(missing_docs), file=sys.stderr)
+        print("ERROR: Missing documents:\n  " + "\n  ".join(missing_docs), file=sys.stderr)
         return 1
 
     # Parse each document
-    all_entries: List[FeatureEntry] = []
+    all_entries: list[FeatureEntry] = []
     all_entries.extend(parse_capability_matrix(texts["CAPABILITY_MATRIX"]))
     all_entries.extend(parse_ga_checklist(texts["GA_CHECKLIST"]))
     all_entries.extend(parse_status_md(texts["STATUS"]))

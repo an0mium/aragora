@@ -58,7 +58,7 @@ async def main():
         # --- Sign the receipt for audit compliance ---
         signing_key = "my-organization-signing-key"
         ReceiptBuilder.sign_hmac(receipt, key=signing_key)
-        print(f"\nSigned with HMAC-SHA256")
+        print("\nSigned with HMAC-SHA256")
         print(f"Signature: {receipt.signature[:48]}...")
 
         # --- Verify the signature ---
@@ -71,7 +71,7 @@ async def main():
         print(f"After tampering: {is_still_valid}")
 
         # --- Export as JSON ---
-        print(f"\nJSON export (first 300 chars):")
+        print("\nJSON export (first 300 chars):")
         json_str = ReceiptBuilder.to_json(receipt)
         print(json_str[:300] + "...")
 

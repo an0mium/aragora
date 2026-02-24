@@ -16,7 +16,7 @@ Usage:
 from __future__ import annotations
 
 import os
-from typing import Any, TypedDict
+from typing import TypedDict
 
 from aragora_sdk import AragoraClient
 

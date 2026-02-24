@@ -19,9 +19,8 @@ import argparse
 import hashlib
 import hmac
 import json
-import sys
 import time
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from datetime import datetime, timezone
 from typing import Any
 
@@ -399,7 +398,7 @@ def run_demo() -> None:
     print(f"\n  Debate:       {debate.rounds_completed} rounds, {len(debate.agents)} agents")
     print(f"  Receipt:      {receipt['receipt_id']}")
     print(f"  Attestation:  {attestation['transaction_hash'][:24]}...")
-    print(f"  Integrity:    SHA-256 + HMAC-SHA256")
+    print("  Integrity:    SHA-256 + HMAC-SHA256")
     print(f"  Dissent:      {len(debate.dissent)} dissenting opinion(s)")
 
     print("\nTo run with live agents:")
