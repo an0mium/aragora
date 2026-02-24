@@ -48,9 +48,19 @@ def test_strict_fails_when_missing_routes_without_override(monkeypatch):
     assert check_sdk_parity.main() == 1
 
 
-def test_strict_allows_missing_routes_with_explicit_override(monkeypatch):
+def test_strict_allows_missing_routes_with_explicit_override(monkeypatch, tmp_path):
     _patch_report(monkeypatch, missing=3)
-    monkeypatch.setattr(sys, "argv", ["check_sdk_parity.py", "--strict", "--allow-missing"])
+    monkeypatch.setattr(
+        sys,
+        "argv",
+        [
+            "check_sdk_parity.py",
+            "--strict",
+            "--allow-missing",
+            "--budget",
+            str(tmp_path / "no-budget.json"),
+        ],
+    )
     assert check_sdk_parity.main() == 0
 
 
@@ -70,7 +80,14 @@ def test_strict_passes_when_missing_routes_are_in_baseline(monkeypatch, tmp_path
     monkeypatch.setattr(
         sys,
         "argv",
-        ["check_sdk_parity.py", "--strict", "--baseline", str(baseline)],
+        [
+            "check_sdk_parity.py",
+            "--strict",
+            "--baseline",
+            str(baseline),
+            "--budget",
+            str(tmp_path / "no-budget.json"),
+        ],
     )
     assert check_sdk_parity.main() == 0
 
@@ -196,3 +213,54 @@ def test_extract_openapi_routes_normalizes_versioned_paths(tmp_path):
     routes = check_sdk_parity.extract_openapi_routes(spec)
     assert "/api/alpha/{param}" in routes
     assert "/api/beta" in routes
+
+
+def test_stale_detection_uses_documented_routes_for_dispatch_handlers():
+    handler_routes = {"SomeHandler": ["/api/v1/debates"]}
+    python_sdk = {"moderation": {"/api/v1/moderation/config"}}
+    typescript_sdk: dict[str, set[str]] = {}
+    documented_routes = {check_sdk_parity.normalize_route("/api/v1/moderation/config")}
+
+    report_without_docs = check_sdk_parity.build_parity_report(
+        handler_routes, python_sdk, typescript_sdk, documented_routes=None
+    )
+    report_with_docs = check_sdk_parity.build_parity_report(
+        handler_routes, python_sdk, typescript_sdk, documented_routes=documented_routes
+    )
+
+    assert "/api/moderation/config" in report_without_docs["gaps"]["stale_python_sdk_paths"]
+    assert "/api/moderation/config" not in report_with_docs["gaps"]["stale_python_sdk_paths"]
+
+
+def test_collect_routes_includes_dynamic_and_route_map_entries():
+    class DummyHandler:
+        ROUTES = ["/api/v1/static", "GET /api/v1/method-route"]
+        DYNAMIC_ROUTES = {
+            "GET /api/v1/resources/{id}": object(),
+            "POST /api/v1/resources/{id}/action": object(),
+        }
+        _ROUTE_MAP = {
+            "DELETE /api/v1/resources/{id}": object(),
+            "PATCH /api/v1/resources/{id}": object(),
+        }
+
+    routes = check_sdk_parity._collect_routes_from_handler_class(DummyHandler)
+
+    assert "/api/v1/static" in routes
+    assert "/api/v1/method-route" in routes
+    assert "/api/v1/resources/{id}" in routes
+    assert "/api/v1/resources/{id}/action" in routes
+    assert "/api/v1/resources/{id}" in routes
+
+
+def test_collect_routes_includes_can_handle_prefixes():
+    class PrefixHandler:
+        def can_handle(self, path: str) -> bool:
+            return path.startswith(("/api/v1/actions", "/api/v1/orchestration/canvas"))
+
+    routes = check_sdk_parity._collect_routes_from_handler_class(PrefixHandler)
+
+    assert "/api/v1/actions" in routes
+    assert "/api/v1/actions/{param}" in routes
+    assert "/api/v1/orchestration/canvas" in routes
+    assert "/api/v1/orchestration/canvas/{param}" in routes

@@ -419,8 +419,9 @@ class CalibrationTracker(SQLiteStore):
         confidence: float,
         correct: bool,
         domain: str = "general",
-        debate_id: str = "",
-        position_id: str = "",
+        debate_id: str | None = None,
+        position_id: str | None = None,
+        prediction_type: str | None = None,
     ) -> int:
         """
         Record a prediction and its outcome.
@@ -432,6 +433,9 @@ class CalibrationTracker(SQLiteStore):
             domain: Problem domain (e.g., "security", "performance")
             debate_id: Optional debate reference
             position_id: Optional position reference
+            prediction_type: Optional prediction category metadata. Accepted
+                for protocol compatibility with callers that tag prediction
+                source, but currently not persisted.
 
         Returns:
             ID of the recorded prediction
@@ -449,8 +453,8 @@ class CalibrationTracker(SQLiteStore):
                     confidence,
                     1 if correct else 0,
                     domain,
-                    debate_id,
-                    position_id,
+                    debate_id or "",
+                    position_id or "",
                     datetime.now().isoformat(),
                 ),
             )

@@ -573,6 +573,20 @@ class TestCalibrationDataPersistence:
         assert summary.total_predictions == 1
         assert summary.total_correct == 1
 
+    def test_record_prediction_accepts_prediction_type(self, tracker):
+        """record_prediction accepts optional prediction_type metadata."""
+        pred_id = tracker.record_prediction(
+            agent="agent1",
+            confidence=0.7,
+            correct=True,
+            domain="general",
+            prediction_type="consensus_feedback",
+        )
+
+        assert pred_id > 0
+        summary = tracker.get_calibration_summary("agent1", domain="general")
+        assert summary.total_predictions == 1
+
     def test_temperature_params_persistence(self, tracker):
         """Temperature parameters should persist across sessions."""
         from datetime import datetime

@@ -18,6 +18,7 @@ from __future__ import annotations
 import argparse
 import datetime as dt
 import importlib
+import inspect
 import json
 import os
 import re
@@ -56,6 +57,81 @@ INTERNAL_ROUTES = {
     "/api/gateway/openclaw/audit",
 }
 
+HTTP_METHODS = {"GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS", "HEAD"}
+CAN_HANDLE_PREFIX_ALLOWLIST = {
+    "/api/v1/actions",
+    "/api/v1/orchestration/canvas",
+}
+
+
+def _normalize_route_candidate(candidate: str) -> str | None:
+    """Normalize a handler route candidate string.
+
+    Supports plain paths (`/api/v1/foo`) and method-prefixed entries
+    (`GET /api/v1/foo`) used by some handler route maps.
+    """
+    route = candidate.strip()
+    if not route:
+        return None
+
+    if " " in route:
+        method, remainder = route.split(" ", 1)
+        if method.upper() in HTTP_METHODS:
+            route = remainder.strip()
+
+    if not route.startswith("/"):
+        return None
+
+    return route
+
+
+def _collect_routes_from_handler_class(handler_cls: type[Any]) -> list[str]:
+    """Collect route strings from common handler class route attributes."""
+    collected: set[str] = set()
+
+    def add_candidate(value: str) -> None:
+        normalized = _normalize_route_candidate(value)
+        if normalized:
+            collected.add(normalized)
+
+    for attr in ("ROUTES", "DYNAMIC_ROUTES", "_DYNAMIC_ROUTES", "ROUTE_MAP", "_ROUTE_MAP"):
+        value = getattr(handler_cls, attr, None)
+        if value is None:
+            continue
+
+        if isinstance(value, dict):
+            for key in value.keys():
+                if isinstance(key, str):
+                    add_candidate(key)
+            continue
+
+        if isinstance(value, (list, tuple, set)):
+            for item in value:
+                if isinstance(item, str):
+                    add_candidate(item)
+
+    # Some handlers are prefix-dispatched and only expose can_handle(path)
+    # with startswith() checks rather than explicit ROUTES declarations.
+    can_handle = getattr(handler_cls, "can_handle", None)
+    if callable(can_handle):
+        try:
+            source = inspect.getsource(can_handle)
+        except (OSError, TypeError):
+            source = ""
+        if source:
+            # Extract literal API path prefixes from startswith("...") or
+            # startswith(("...", "...")) expressions.
+            for expr in re.findall(r"startswith\(([^)]*)\)", source):
+                for prefix in re.findall(r'["\'](/api[^"\']*)["\']', expr):
+                    normalized_prefix = prefix.rstrip("/")
+                    if normalized_prefix not in CAN_HANDLE_PREFIX_ALLOWLIST:
+                        continue
+                    add_candidate(prefix)
+                    if normalized_prefix:
+                        add_candidate(f"{normalized_prefix}/{{param}}")
+
+    return sorted(collected)
+
 
 def extract_handler_routes() -> dict[str, list[str]]:
     """Extract ROUTES from all handler classes.
@@ -78,9 +154,9 @@ def extract_handler_routes() -> dict[str, list[str]]:
             if handler_cls is None:
                 continue
 
-            routes = getattr(handler_cls, "ROUTES", None)
-            if routes and isinstance(routes, (list, tuple)):
-                handler_routes[name] = list(routes)
+            routes = _collect_routes_from_handler_class(handler_cls)
+            if routes:
+                handler_routes[name] = routes
         except (ImportError, AttributeError, ModuleNotFoundError):
             continue
 
@@ -288,16 +364,22 @@ def build_parity_report(
     missing_from_ts_sdk = {r for r in public_handler_paths if not _is_covered(r, all_ts_paths)}
     missing_from_both = missing_from_py_sdk & missing_from_ts_sdk
 
-    # SDK paths not in handlers (potential stale SDK methods)
-    # Build wildcard prefixes from handler routes ending with {param}
+    # SDK paths not in route sources (potential stale SDK methods)
+    # Prefer handler ROUTES, but also include documented routes when available
+    # because some handlers are dispatch-based and do not expose ROUTES.
+    stale_reference_paths = set(all_handler_paths)
+    if documented_routes is not None:
+        stale_reference_paths.update(documented_routes)
+
+    # Build wildcard prefixes from route templates ending with {param}
     # to match SDK sub-paths like /api/integrations/stats against /api/integrations/{param}
     wildcard_prefixes = set()
-    for p in all_handler_paths:
+    for p in stale_reference_paths:
         if p.endswith("/{param}"):
             wildcard_prefixes.add(p[: -len("/{param}")])
 
     def _covered_by_handler(sdk_path: str) -> bool:
-        if sdk_path in all_handler_paths:
+        if sdk_path in stale_reference_paths:
             return True
         # Check if any wildcard handler covers this path
         for prefix in wildcard_prefixes:

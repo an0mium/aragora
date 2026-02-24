@@ -25,6 +25,6 @@ echo "[offline-golden-path] Running offline behavior tests"
 "$PYTHON" -m pytest tests/cli/test_offline_golden_path.py -v --timeout=120 --tb=short
 
 echo "[offline-golden-path] Running offline demo CLI smoke"
-ARAGORA_OFFLINE=1 aragora ask "Offline mode smoke" --demo --rounds 1
+ARAGORA_OFFLINE=1 "$PYTHON" -m aragora ask "Offline mode smoke" --demo --rounds 1
 
 echo "[offline-golden-path] PASS"

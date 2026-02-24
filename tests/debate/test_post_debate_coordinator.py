@@ -10,6 +10,7 @@ Verifies that:
 
 from __future__ import annotations
 
+import asyncio
 from unittest.mock import MagicMock, patch
 
 from aragora.debate.post_debate_coordinator import (
@@ -251,6 +252,40 @@ class TestStepImplementations:
         with patch.dict("sys.modules", {"aragora.explainability.builder": None}):
             result = coordinator._step_explain("d1", _make_debate_result(), "task")
             assert result is None
+
+    def test_step_explain_uses_async_builder_signature(self):
+        coordinator = PostDebateCoordinator()
+
+        class _Decision:
+            def to_dict(self):
+                return {"decision_id": "dec-1"}
+
+        class _Builder:
+            async def build(self, result, context=None, include_counterfactuals=True):
+                assert result is not None
+                return _Decision()
+
+            def generate_summary(self, decision):
+                assert isinstance(decision, _Decision)
+                return "summary"
+
+        with patch("aragora.explainability.builder.ExplanationBuilder", _Builder):
+            result = coordinator._step_explain("d1", _make_debate_result(), "task")
+
+        assert result is not None
+        assert result["explanation"] == "summary"
+        assert result["decision"] == {"decision_id": "dec-1"}
+
+    def test_run_async_callable_when_loop_already_running(self):
+        coordinator = PostDebateCoordinator()
+
+        async def _returns_value(value):
+            return value
+
+        async def _inside_loop():
+            return coordinator._run_async_callable(_returns_value, 7)
+
+        assert asyncio.run(_inside_loop()) == 7
 
     def test_step_notify_import_error(self):
         coordinator = PostDebateCoordinator()

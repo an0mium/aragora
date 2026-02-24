@@ -21,7 +21,9 @@ Usage:
 
 from __future__ import annotations
 
+import asyncio
 import logging
+import threading
 from dataclasses import dataclass, field
 from typing import Any
 
@@ -111,6 +113,31 @@ class PostDebateCoordinator:
 
     def __init__(self, config: PostDebateConfig | None = None):
         self.config = config or PostDebateConfig()
+
+    @staticmethod
+    def _run_async_callable(async_fn: Any, /, *args: Any, **kwargs: Any) -> Any:
+        """Run an async callable from sync code, including loop-owning contexts."""
+        try:
+            asyncio.get_running_loop()
+        except RuntimeError:
+            return asyncio.run(async_fn(*args, **kwargs))
+
+        result: dict[str, Any] = {}
+        error: dict[str, Exception] = {}
+
+        def _runner() -> None:
+            try:
+                result["value"] = asyncio.run(async_fn(*args, **kwargs))
+            except Exception as exc:  # noqa: BLE001 - shuttle exact exception to caller
+                error["error"] = exc
+
+        thread = threading.Thread(target=_runner, daemon=True)
+        thread.start()
+        thread.join()
+
+        if "error" in error:
+            raise error["error"]
+        return result.get("value")
 
     def run(
         self,
@@ -241,21 +268,14 @@ class PostDebateCoordinator:
             from aragora.explainability.builder import ExplanationBuilder
 
             builder = ExplanationBuilder()
-
-            # Extract key data from debate result
-            consensus = getattr(debate_result, "consensus", None)
-            messages = getattr(debate_result, "messages", [])
-
-            explanation = builder.build(
-                query=task,
-                answer=str(consensus) if consensus else "",
-                messages=messages if isinstance(messages, list) else [],
-            )
+            decision = self._run_async_callable(builder.build, result=debate_result)
+            explanation = builder.generate_summary(decision)
 
             logger.info("Post-debate explanation generated for %s", debate_id)
             return {
                 "debate_id": debate_id,
                 "explanation": explanation,
+                "decision": decision.to_dict() if hasattr(decision, "to_dict") else {},
                 "task": task,
             }
         except ImportError:
@@ -551,8 +571,6 @@ class PostDebateCoordinator:
             return None
 
         try:
-            import asyncio
-
             # Build argument graph from debate messages
             graph = ArgumentCartographer()
             graph.set_debate_context(debate_id, task)
@@ -577,7 +595,7 @@ class PostDebateCoordinator:
                 return None
 
             verifier = ArgumentStructureVerifier()
-            verification_result = asyncio.run(verifier.verify(graph))
+            verification_result = self._run_async_callable(verifier.verify, graph)
 
             logger.info(
                 "Argument verification completed for %s: soundness=%s",
@@ -900,22 +918,11 @@ class PostDebateCoordinator:
                 return None
 
             scores: dict[str, Any] = {}
-            _eval_fn = getattr(judge, "evaluate_sync", None)
-            if _eval_fn is None:
-                # LLMJudge only has async evaluate(); wrap it for sync context
-                import asyncio as _aio
-
-                async def _eval_async(q: str, r: str, rid: str) -> Any:
-                    return await judge.evaluate(query=q, response=r, response_id=rid)
-
-                def _eval_sync(*, query: str, response: str, response_id: str) -> Any:
-                    return _aio.run(_eval_async(query, response, response_id))
-
-                _eval_fn = _eval_sync
 
             for agent_name, response in agent_responses.items():
                 try:
-                    evaluation = _eval_fn(
+                    evaluation = self._run_async_callable(
+                        judge.evaluate,
                         query=task,
                         response=response,
                         response_id=f"{debate_id}:{agent_name}",

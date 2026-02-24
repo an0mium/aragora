@@ -19,6 +19,7 @@ Usage:
 
 from __future__ import annotations
 
+import atexit
 import contextvars
 import json
 import logging
@@ -1326,14 +1327,29 @@ def set_webhook_config_store(store: WebhookConfigStoreBackend) -> None:
     Useful for testing or custom deployments.
     """
     global _webhook_config_store
+    previous = _webhook_config_store
     _webhook_config_store = store
+    if previous is not None and previous is not store:
+        try:
+            previous.close()
+        except Exception as exc:  # noqa: BLE001
+            logger.debug("Failed to close previous webhook config store: %s", exc)
     logger.debug("Webhook config store backend set: %s", type(store).__name__)
 
 
 def reset_webhook_config_store() -> None:
     """Reset the global webhook config store (for testing)."""
     global _webhook_config_store
+    previous = _webhook_config_store
     _webhook_config_store = None
+    if previous is not None:
+        try:
+            previous.close()
+        except Exception as exc:  # noqa: BLE001
+            logger.debug("Failed to close webhook config store during reset: %s", exc)
+
+
+atexit.register(reset_webhook_config_store)
 
 
 __all__ = [

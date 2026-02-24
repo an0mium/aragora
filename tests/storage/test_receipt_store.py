@@ -24,6 +24,7 @@ from aragora.storage.receipt_store import (
     ReceiptStore,
     SignatureVerificationResult,
     StoredReceipt,
+    close_receipt_store,
     get_receipt_store,
     set_receipt_store,
 )
@@ -46,6 +47,7 @@ def receipt_store(temp_db_path):
     """Create a receipt store for testing."""
     store = ReceiptStore(db_path=temp_db_path, backend="sqlite")
     yield store
+    store.close()
 
 
 @pytest.fixture
@@ -265,6 +267,16 @@ class TestReceiptStoreCRUD:
         receipt = receipt_store.get("receipt-001")
         assert receipt is not None
         assert receipt.created_at > 0
+
+    def test_save_with_datetime_in_payload(self, receipt_store, sample_receipt_dict):
+        """Test save serializes datetime objects embedded in receipt payload."""
+        sample_receipt_dict["generated_at"] = datetime(2026, 2, 24, 12, 0, tzinfo=timezone.utc)
+        receipt_store.save(sample_receipt_dict)
+
+        receipt = receipt_store.get("receipt-001")
+        assert receipt is not None
+        assert isinstance(receipt.data.get("generated_at"), str)
+        assert receipt.data["generated_at"].startswith("2026-02-24T12:00:00")
 
 
 class TestReceiptStoreList:
@@ -686,6 +698,36 @@ class TestReceiptStoreSingleton:
         assert retrieved is custom_store
 
         set_receipt_store(None)  # Cleanup
+
+    def test_set_receipt_store_closes_previous(self, temp_db_path):
+        """Replacing singleton closes previously registered store."""
+        first = ReceiptStore(db_path=temp_db_path)
+        second = ReceiptStore(db_path=temp_db_path.parent / "other.db")
+        first.close = MagicMock()  # type: ignore[method-assign]
+        second.close = MagicMock()  # type: ignore[method-assign]
+
+        set_receipt_store(first)
+        set_receipt_store(second)
+
+        first.close.assert_called_once()
+        second.close.assert_not_called()
+        set_receipt_store(None)
+        second.close.assert_called_once()
+
+    def test_close_receipt_store_resets_singleton(self, temp_db_path):
+        """close_receipt_store() closes and clears global singleton."""
+        store = ReceiptStore(db_path=temp_db_path)
+        store.close = MagicMock()  # type: ignore[method-assign]
+
+        set_receipt_store(store)
+        close_receipt_store()
+
+        store.close.assert_called_once()
+
+        with patch.dict("os.environ", {"ARAGORA_DATA_DIR": str(temp_db_path.parent)}):
+            replacement = get_receipt_store()
+        assert replacement is not store
+        set_receipt_store(None)
 
 
 # ===========================================================================

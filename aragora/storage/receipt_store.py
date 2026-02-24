@@ -21,13 +21,14 @@ Usage:
 
 from __future__ import annotations
 
+import atexit
 import json
 import logging
 import os
 import threading
 import time
 from dataclasses import dataclass, field
-from datetime import datetime, timezone
+from datetime import date, datetime, timezone
 from pathlib import Path
 import builtins
 from typing import Any
@@ -50,6 +51,15 @@ DEFAULT_DB_PATH = Path(resolve_db_path("receipts.db"))
 # Global singleton
 _receipt_store: ReceiptStore | None = None
 _store_lock = threading.RLock()
+
+
+def _receipt_json_default(value: Any) -> Any:
+    """Serialize non-JSON-native types in receipt payloads."""
+    if isinstance(value, (datetime, date)):
+        return value.isoformat()
+    if isinstance(value, (set, frozenset)):
+        return list(value)
+    return str(value)
 
 
 @dataclass
@@ -347,6 +357,17 @@ class ReceiptStore:
             except (OSError, RuntimeError, ValueError, sqlite3.Error) as e:
                 logger.debug("Schema statement skipped: %s", e)
 
+    def close(self) -> None:
+        """Close any open backend resources."""
+        backend = self._backend
+        self._backend = None
+        if backend is None:
+            return
+        try:
+            backend.close()
+        except builtins.Exception as exc:
+            logger.debug("ReceiptStore backend close failed: %s", exc)
+
     # =========================================================================
     # Core CRUD Operations
     # =========================================================================
@@ -420,7 +441,7 @@ class ReceiptStore:
             signature_key_id,
             signed_at,
             receipt_dict.get("audit_trail_id"),
-            json.dumps(receipt_dict),
+            json.dumps(receipt_dict, default=_receipt_json_default),
         )
 
         # Use backend-specific upsert syntax
@@ -1494,4 +1515,29 @@ def set_receipt_store(store: ReceiptStore | None) -> None:
     global _receipt_store
 
     with _store_lock:
+        previous = _receipt_store
         _receipt_store = store
+
+    if previous is not None and previous is not store:
+        try:
+            previous.close()
+        except builtins.Exception as exc:
+            logger.debug("Failed to close previous receipt store: %s", exc)
+
+
+def close_receipt_store() -> None:
+    """Close and clear the global receipt store singleton."""
+    global _receipt_store
+
+    with _store_lock:
+        store = _receipt_store
+        _receipt_store = None
+
+    if store is not None:
+        try:
+            store.close()
+        except builtins.Exception as exc:
+            logger.debug("Failed to close receipt store during shutdown: %s", exc)
+
+
+atexit.register(close_receipt_store)

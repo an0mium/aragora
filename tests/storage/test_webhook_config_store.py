@@ -1468,6 +1468,21 @@ class TestGetWebhookConfigStore:
             assert get_webhook_config_store() is custom_store
             assert not isinstance(get_webhook_config_store(), SQLiteWebhookConfigStore)
 
+    def test_set_webhook_config_store_closes_previous_store(self):
+        """Replacing global store closes previous instance."""
+        first = InMemoryWebhookConfigStore()
+        second = InMemoryWebhookConfigStore()
+        first.close = MagicMock()  # type: ignore[method-assign]
+        second.close = MagicMock()  # type: ignore[method-assign]
+
+        set_webhook_config_store(first)
+        set_webhook_config_store(second)
+
+        first.close.assert_called_once()
+        second.close.assert_not_called()
+        reset_webhook_config_store()
+        second.close.assert_called_once()
+
 
 # =============================================================================
 # WEBHOOK_EVENTS Tests
