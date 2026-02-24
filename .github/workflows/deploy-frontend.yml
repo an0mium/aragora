@@ -204,13 +204,8 @@ jobs:
           echo "Waiting 30s for deployment to propagate..."
           sleep 30
 
-          # Verify site is reachable
-          response=$(curl -sf -o /dev/null -w "%{http_code}" "https://aragora.pages.dev" || echo "000")
-          if [ "$response" != "200" ]; then
-            echo "::error::Deployment verification failed: https://aragora.pages.dev returned $response"
-            exit 1
-          fi
-          echo "Deployment verified: https://aragora.pages.dev returned $response"
+          # Verify critical routes, including Oracle, render correctly
+          bash scripts/verify_frontend_routes.sh "https://aragora.pages.dev"
 
           # Verify content hash is retrievable
           DEPLOYED_HASH=$(curl -sf "https://aragora.pages.dev/.content-hash" 2>/dev/null | tr -d '[:space:]' || echo "")

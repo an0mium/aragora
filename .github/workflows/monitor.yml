@@ -12,21 +12,36 @@ jobs:
     timeout-minutes: 5
 
     steps:
-      - name: Check Cloudflare Pages (Frontend)
+      - name: Check Cloudflare Pages (Frontend Critical Routes)
         run: |
-          # Follow redirects (-L) and retry once on transient failure
+          # Retry once on transient failure
           for attempt in 1 2; do
-            response=$(curl -sL -o /dev/null -w "%{http_code}" --connect-timeout 10 --max-time 30 "https://aragora.pages.dev" || echo "000")
-            if [ "$response" = "200" ]; then
-              echo "Frontend: OK ($response)"
+            if bash scripts/verify_frontend_routes.sh "https://aragora.pages.dev"; then
+              echo "Frontend routes: OK (https://aragora.pages.dev)"
               exit 0
             fi
             if [ "$attempt" -eq 1 ]; then
-              echo "Frontend returned $response on attempt 1, retrying in 10s..."
+              echo "Frontend route check failed on attempt 1, retrying in 10s..."
               sleep 10
             fi
           done
-          echo "::error::Frontend returned $response after 2 attempts"
+          echo "::error::Frontend route check failed after 2 attempts"
+          exit 1
+
+      - name: Check Custom Domain (Frontend Critical Routes)
+        run: |
+          # Retry once on transient failure
+          for attempt in 1 2; do
+            if bash scripts/verify_frontend_routes.sh "https://aragora.ai"; then
+              echo "Frontend routes: OK (https://aragora.ai)"
+              exit 0
+            fi
+            if [ "$attempt" -eq 1 ]; then
+              echo "Custom domain route check failed on attempt 1, retrying in 10s..."
+              sleep 10
+            fi
+          done
+          echo "::error::Custom domain route check failed after 2 attempts"
           exit 1
 
       - name: Check Production API (Lightsail)

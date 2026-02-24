@@ -52,9 +52,12 @@ def _make_km(items: list[FakeKMItem] | None = None) -> MagicMock:
 
 
 def _make_continuum(entries: list[FakeContinuumEntry] | None = None) -> MagicMock:
-    """Create a mock ContinuumMemory with search + update_importance."""
+    """Create a mock ContinuumMemory with retrieve + update_importance."""
     cm = MagicMock()
-    cm.search = MagicMock(return_value=entries or [])
+    rows = entries or []
+    cm.retrieve = MagicMock(return_value=rows)
+    # Backward-compatible alias for older code paths.
+    cm.search = MagicMock(return_value=rows)
     cm.update_importance = MagicMock()
     return cm
 

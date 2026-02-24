@@ -41,6 +41,16 @@ export default function NotFound() {
                 /settings - User Settings
               </Link>
             </li>
+            <li>
+              <Link href="/oracle" className="text-accent hover:underline">
+                /oracle - Shoggoth Oracle
+              </Link>
+            </li>
+            <li>
+              <Link href="/debates" className="text-accent hover:underline">
+                /debates - Live Debates
+              </Link>
+            </li>
           </ul>
         </div>
 
