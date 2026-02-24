@@ -8,6 +8,20 @@ import { Scanlines, CRTVignette } from '@/components/MatrixRain';
 import { useAuth } from '@/context/AuthContext';
 import { SocialLoginButtons } from '@/components/auth/SocialLoginButtons';
 
+export default function LoginPage() {
+  return (
+    <Suspense
+      fallback={
+        <main className="min-h-screen bg-bg text-text flex items-center justify-center">
+          <div className="font-mono text-acid-green animate-pulse text-lg">AUTHENTICATING...</div>
+        </main>
+      }
+    >
+      <LoginPageContent />
+    </Suspense>
+  );
+}
+
 function LoginPageContent() {
   const router = useRouter();
   const searchParams = useSearchParams();

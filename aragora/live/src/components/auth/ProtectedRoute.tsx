@@ -27,7 +27,8 @@ export function ProtectedRoute({
 
   useEffect(() => {
     if (!isLoading && !isAuthenticated) {
-      const returnUrl = redirectTo || window.location.pathname;
+      const returnUrl = redirectTo || (window.location.pathname + window.location.search);
+      sessionStorage.setItem('aragora_return_url', returnUrl);
       router.push(`/auth/login?returnUrl=${encodeURIComponent(returnUrl)}`);
     }
   }, [isLoading, isAuthenticated, router, redirectTo]);

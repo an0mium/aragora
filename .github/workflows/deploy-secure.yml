@@ -111,6 +111,22 @@ jobs:
           fi
           echo "Static export contains $(find out -name '*.html' | wc -l) HTML files"
 
+      - name: Compute build content hash
+        id: content-hash
+        working-directory: aragora/live
+        run: |
+          CONTENT_HASH=$(find out -type f | sort | xargs sha256sum | sha256sum | awk '{print $1}')
+          echo "content_hash=$CONTENT_HASH" >> $GITHUB_OUTPUT
+          echo "Build content SHA-256: $CONTENT_HASH"
+          echo "$CONTENT_HASH" > out/.content-hash
+
+      - name: Upload content hash artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: frontend-content-hash-secure
+          path: aragora/live/out/.content-hash
+          retention-days: 30
+
       - name: Deploy to Cloudflare Pages
         working-directory: aragora/live
         run: |
@@ -128,6 +144,29 @@ jobs:
             -H "Content-Type: application/json" \
             --data '{"purge_everything":true}' \
             | jq '.success' || echo "::warning::Cloudflare cache purge failed (zone ID may not be configured)"
+
+      - name: Verify deployment content
+        run: |
+          echo "Waiting 30s for deployment to propagate..."
+          sleep 30
+
+          response=$(curl -sf -o /dev/null -w "%{http_code}" "https://aragora.pages.dev" || echo "000")
+          if [ "$response" != "200" ]; then
+            echo "::error::Deployment verification failed: https://aragora.pages.dev returned $response"
+            exit 1
+          fi
+          echo "Site reachable: $response"
+
+          DEPLOYED_HASH=$(curl -sf "https://aragora.pages.dev/.content-hash" 2>/dev/null | tr -d '[:space:]' || echo "")
+          EXPECTED_HASH="${{ steps.content-hash.outputs.content_hash }}"
+          if [ -n "$DEPLOYED_HASH" ] && [ "$DEPLOYED_HASH" != "$EXPECTED_HASH" ]; then
+            echo "::error::Content hash mismatch! Expected $EXPECTED_HASH, got $DEPLOYED_HASH"
+            exit 1
+          elif [ -n "$DEPLOYED_HASH" ]; then
+            echo "Content hash verified: $DEPLOYED_HASH"
+          else
+            echo "::warning::Could not retrieve content hash from deployed site"
+          fi
 
   deploy-ec2-staging:
     needs: test

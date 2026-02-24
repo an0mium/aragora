@@ -46,9 +46,17 @@ function getAuthHeaders(url: string): HeadersInit {
  * Uses fetchWithRetry for resilience
  */
 export async function swrFetcher<T>(url: string): Promise<T> {
-  const response = await fetch(url, {
-    headers: getAuthHeaders(url),
-  });
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), 30000);
+  let response: Response;
+  try {
+    response = await fetch(url, {
+      headers: getAuthHeaders(url),
+      signal: controller.signal,
+    });
+  } finally {
+    clearTimeout(timeoutId);
+  }
 
   if (!response.ok) {
     const error = new Error('API request failed') as Error & { status: number };

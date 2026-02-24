@@ -278,6 +278,11 @@ class ZendeskConnector:
             )
         return self._client
 
+    # Retry configuration
+    _MAX_RETRIES = 3
+    _BASE_DELAY = 1.0
+    _MAX_DELAY = 30.0
+
     async def _request(
         self,
         method: str,
@@ -285,34 +290,74 @@ class ZendeskConnector:
         params: dict | None = None,
         json_data: dict | None = None,
     ) -> dict[str, Any]:
-        """Make API request."""
-        client = await self._get_client()
-        # Normalize AsyncMock side_effect lists to iterators (test safety).
-        try:
-            side_effect = getattr(client.request, "side_effect", None)
-            if isinstance(side_effect, list):
-                client.request.side_effect = iter(side_effect)  # type: ignore[attr-defined]
-        except (AttributeError, TypeError) as e:
-            logger.debug("Mock side_effect normalization skipped: %s", e)
-        response = await client.request(method, path, params=params, json=json_data)
-
-        if response.status_code >= 400:
+        """Make API request with retry and exponential backoff."""
+        last_exc: Exception | None = None
+        for attempt in range(self._MAX_RETRIES + 1):
             try:
-                error_data = response.json()
-                raise ZendeskError(
-                    message=error_data.get("error", response.text),
-                    status_code=response.status_code,
-                    details=error_data,
+                client = await self._get_client()
+                # Normalize AsyncMock side_effect lists (test safety).
+                try:
+                    se = getattr(client.request, "side_effect", None)
+                    if isinstance(se, list):
+                        client.request.side_effect = iter(se)  # type: ignore[attr-defined]
+                except (AttributeError, TypeError) as exc:
+                    logger.debug("Mock side_effect normalization skipped: %s", exc)
+                response = await client.request(
+                    method, path, params=params, json=json_data,
                 )
-            except ValueError:
+                if response.status_code == 429 or response.status_code >= 500:
+                    if attempt < self._MAX_RETRIES:
+                        delay = min(self._BASE_DELAY * (2 ** attempt), self._MAX_DELAY)
+                        jitter = delay * 0.3 * random.random()
+                        ra = response.headers.get("Retry-After")
+                        if ra:
+                            try:
+                                delay = float(ra)
+                            except (ValueError, TypeError):
+                                pass
+                        logger.warning(
+                            "Zendesk %s %s returned %d, retrying in %.1fs (attempt %d/%d)",
+                            method, path, response.status_code, delay + jitter,
+                            attempt + 1, self._MAX_RETRIES,
+                        )
+                        await asyncio.sleep(delay + jitter)
+                        continue
+                if response.status_code >= 400:
+                    try:
+                        error_data = response.json()
+                        raise ZendeskError(
+                            message=error_data.get("error", response.text),
+                            status_code=response.status_code,
+                            details=error_data,
+                        )
+                    except ValueError:
+                        raise ZendeskError(
+                            f"HTTP {response.status_code}: {response.text}",
+                            status_code=response.status_code,
+                        )
+                if response.status_code == 204:
+                    return {}
+                return response.json()
+            except ZendeskError:
+                raise
+            except (httpx.TimeoutException, httpx.ConnectError, OSError) as exc:
+                last_exc = exc
+                if attempt < self._MAX_RETRIES:
+                    delay = min(self._BASE_DELAY * (2 ** attempt), self._MAX_DELAY)
+                    jitter = delay * 0.3 * random.random()
+                    logger.warning(
+                        "Zendesk %s %s network error: %s, retrying in %.1fs (attempt %d/%d)",
+                        method, path, type(exc).__name__, delay + jitter,
+                        attempt + 1, self._MAX_RETRIES,
+                    )
+                    await asyncio.sleep(delay + jitter)
+                    continue
                 raise ZendeskError(
-                    f"HTTP {response.status_code}: {response.text}",
-                    status_code=response.status_code,
-                )
-
-        if response.status_code == 204:
-            return {}
-        return response.json()
+                    f"Network error after {self._MAX_RETRIES} retries: {type(exc).__name__}",
+                ) from exc
+        raise ZendeskError(
+            f"Request failed after {self._MAX_RETRIES} retries",
+        ) from last_exc
 
     # =========================================================================
     # Tickets

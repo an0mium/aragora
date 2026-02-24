@@ -377,7 +377,7 @@ class TestTranslationSubConfig:
 class TestSupermemorySubConfig:
     def test_defaults(self):
         cfg = SupermemorySubConfig()
-        assert cfg.enable_supermemory is False
+        assert cfg.enable_supermemory is True
         assert cfg.supermemory_enable_km_adapter is False
         assert cfg.supermemory_adapter is None
         assert cfg.supermemory_inject_on_start is True

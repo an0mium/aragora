@@ -1,11 +1,12 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, Suspense } from 'react';
 import { usePathname } from 'next/navigation';
 import { AppShell } from '@/components/layout';
 import { TopBar } from '@/components/layout/TopBar';
 import { useAuth } from '@/context/AuthContext';
 import { useBackend } from '@/components/BackendSelector';
+import { ErrorBoundary } from '@/components/ErrorBoundary';
 
 const NO_SHELL_PREFIXES = ['/auth'];
 
@@ -65,14 +66,30 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
     );
   }
 
+  const loadingFallback = (
+    <div className="min-h-screen bg-[var(--bg)] flex items-center justify-center">
+      <span className="font-mono text-sm text-[var(--text-muted)] animate-pulse">Loading...</span>
+    </div>
+  );
+
   if (hideShell) {
     return (
       <div className="min-h-screen bg-[var(--bg)] text-[var(--text)]">
         <TopBar />
-        <main className="pt-12">{children}</main>
+        <main className="pt-12">
+          <ErrorBoundary>
+            <Suspense fallback={loadingFallback}>{children}</Suspense>
+          </ErrorBoundary>
+        </main>
       </div>
     );
   }
 
-  return <AppShell>{children}</AppShell>;
+  return (
+    <AppShell>
+      <ErrorBoundary>
+        <Suspense fallback={loadingFallback}>{children}</Suspense>
+      </ErrorBoundary>
+    </AppShell>
+  );
 }

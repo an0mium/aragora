@@ -96,8 +96,14 @@ export function useAuthenticatedFetch<T>(
         headers['Authorization'] = `Bearer ${token}`;
       }
 
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 30000);
       const url = endpoint.startsWith('http') ? endpoint : `${API_BASE_URL}${endpoint}`;
-      return fetch(url, { headers });
+      try {
+        return await fetch(url, { headers, signal: controller.signal });
+      } finally {
+        clearTimeout(timeoutId);
+      }
     };
 
     try {
@@ -243,8 +249,14 @@ export function useAuthFetch() {
           ...init.headers,
         };
 
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 30000);
         const url = endpoint.startsWith('http') ? endpoint : `${API_BASE_URL}${endpoint}`;
-        return fetch(url, { ...init, headers });
+        try {
+          return await fetch(url, { ...init, headers, signal: controller.signal });
+        } finally {
+          clearTimeout(timeoutId);
+        }
       };
 
       let response = await makeRequest(tokens.access_token);
