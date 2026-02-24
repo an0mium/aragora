@@ -29,7 +29,7 @@ logger = logging.getLogger(__name__)
 def _get_feedback_loop() -> Any:
     """Get the global SelectionFeedbackLoop if available."""
     try:
-        from aragora.debate.team_selector import SelectionFeedbackLoop
+        from aragora.debate.selection_feedback import SelectionFeedbackLoop
 
         return SelectionFeedbackLoop()
     except (ImportError, AttributeError):
