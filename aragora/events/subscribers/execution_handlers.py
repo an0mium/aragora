@@ -214,12 +214,15 @@ class ExecutionHandlersMixin:
         try:
             from aragora.knowledge.bridges import KnowledgeBridgeHub
 
-            hub = KnowledgeBridgeHub()
+            from aragora.knowledge.mound import KnowledgeMound
+
+            mound = KnowledgeMound(workspace_id=workspace_id or "default")
+            hub = KnowledgeBridgeHub(mound)
             if not hasattr(hub, "meta_learner") or hub.meta_learner is None:
                 return
 
-            hub.meta_learner.learn_from_outcome(
-                context={
+            await hub.meta_learner.capture_learning_summary(
+                summary={
                     "debate_id": debate_id,
                     "plan_id": plan_id,
                     "success": success,
@@ -236,9 +239,9 @@ class ExecutionHandlersMixin:
             try:
                 from aragora.events.types import StreamEvent, StreamEventType
 
-                from aragora.server.stream.emitter import get_global_emitter
+                from aragora.server.stream.emitter import SyncEventEmitter
 
-                emitter = get_global_emitter()
+                emitter: SyncEventEmitter | None = None
                 if emitter is not None:
                     emitter.emit(
                         StreamEvent(

@@ -131,6 +131,7 @@ const analyticsItems: NavItem[] = [
   { label: 'Costs', href: '/costs', icon: '\u00A2', minMode: 'standard' },
   { label: 'Tournaments', href: '/tournaments', icon: '\u2295', minMode: 'standard' },
   { label: 'Argument Analysis', href: '/argument-analysis', icon: '\u2726', minMode: 'standard' },
+  { label: 'Consensus', href: '/consensus', icon: '\u2299', minMode: 'standard' },
 ];
 
 // ---------------------------------------------------------------------------

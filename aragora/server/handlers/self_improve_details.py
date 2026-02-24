@@ -255,7 +255,7 @@ class SelfImproveDetailsHandler(SecureEndpointMixin, SecureHandler):  # type: ig
             from aragora.nomic.cycle_store import get_cycle_store
 
             store = get_cycle_store()
-            recent_cycles = store.get_recent(limit=20)
+            recent_cycles = store.get_recent_cycles(n=20)
 
             for cycle in recent_cycles:
                 cycle_data = cycle if isinstance(cycle, dict) else getattr(cycle, "__dict__", {})
@@ -450,7 +450,7 @@ class SelfImproveDetailsHandler(SecureEndpointMixin, SecureHandler):  # type: ig
             from aragora.nomic.cycle_store import get_cycle_store
 
             store = get_cycle_store()
-            recent = store.get_recent(limit=10)
+            recent = store.get_recent_cycles(n=10)
 
             for cycle in recent:
                 cycle_data = cycle if isinstance(cycle, dict) else getattr(cycle, "__dict__", {})
@@ -495,7 +495,7 @@ class SelfImproveDetailsHandler(SecureEndpointMixin, SecureHandler):  # type: ig
                         "metrics": {
                             "files_count": snapshot.files_count,
                             "total_lines": snapshot.total_lines,
-                            "test_files": snapshot.test_files,
+                            "tests_passed": snapshot.tests_passed,
                             "lint_errors": snapshot.lint_errors,
                         },
                         "success": True,

@@ -204,7 +204,7 @@ class ERC8004Handler:
         if owner:
             results = connector.search_by_owner(owner)
         else:
-            results = connector.search()
+            results = connector.search(query="*")
 
         agents = []
         for r in results:
