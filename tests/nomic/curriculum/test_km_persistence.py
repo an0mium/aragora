@@ -321,12 +321,15 @@ class TestFindSimilarCurricula:
     @pytest.mark.asyncio
     async def test_find_similar_curricula_handles_no_mound(self):
         """Returns empty list when mound is unavailable."""
+        from unittest.mock import patch, PropertyMock
+
         adapter = NomicCycleAdapter(mound=None)
 
-        results = await adapter.find_similar_curricula(
-            task_description="Any task",
-            limit=5,
-        )
+        with patch.object(type(adapter), "mound", new_callable=PropertyMock, return_value=None):
+            results = await adapter.find_similar_curricula(
+                task_description="Any task",
+                limit=5,
+            )
 
         assert results == []
 
