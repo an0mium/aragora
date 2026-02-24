@@ -106,8 +106,15 @@ class NotificationHandlersMixin:
                 resource_type="plan",
                 resource_id=plan_id,
             )
-            # send() is synchronous in the current implementation
-            service.send(notification, workspace_id=workspace_id)
+            # notify() is async - schedule it
+            import asyncio
+
+            coro = service.notify(notification)
+            try:
+                loop = asyncio.get_running_loop()
+                loop.create_task(coro)
+            except RuntimeError:
+                asyncio.run(coro)
             logger.debug("Sent plan notification: %s", title)
 
         except ImportError:

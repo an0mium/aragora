@@ -221,7 +221,9 @@ class ExecutionHandlersMixin:
             if not hasattr(hub, "meta_learner") or hub.meta_learner is None:
                 return
 
-            await hub.meta_learner.capture_learning_summary(
+            import asyncio
+
+            coro = hub.meta_learner.capture_learning_summary(
                 summary={
                     "debate_id": debate_id,
                     "plan_id": plan_id,
@@ -233,6 +235,11 @@ class ExecutionHandlersMixin:
                     "lessons": lessons or [],
                 }
             )
+            try:
+                loop = asyncio.get_running_loop()
+                loop.create_task(coro)
+            except RuntimeError:
+                asyncio.run(coro)
             logger.debug("MetaLearner fed outcome for plan %s", plan_id)
 
             # Emit META_LEARNING_EVALUATED event
