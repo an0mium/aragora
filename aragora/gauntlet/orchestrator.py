@@ -1580,6 +1580,11 @@ CODE_REVIEW_GAUNTLET = GauntletConfig(
         AttackType.RACE_CONDITION,
         AttackType.RESOURCE_EXHAUSTION,
     ],
+    probe_types=[
+        ProbeType.HALLUCINATION,
+        ProbeType.REASONING_DEPTH,
+        ProbeType.EDGE_CASE,
+    ],
     deep_audit_rounds=4,
     enable_verification=True,
 )

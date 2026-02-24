@@ -846,6 +846,7 @@ class TestWorkflowTemplates:
 # ===========================================================================
 
 
+@pytest.mark.no_auto_auth
 class TestRBACPermissions:
     """Tests for RBAC permission checks."""
 
