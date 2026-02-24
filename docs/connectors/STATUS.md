@@ -171,8 +171,8 @@ Top-level evidence connectors extend `BaseConnector` and provide `search()`/`fet
 
 | Connector | Status | Features | Tests |
 |-----------|--------|----------|-------|
-| Shopify (`ecommerce/shopify/`) | Beta | Orders, products, inventory, customers, webhooks | Yes |
-| WooCommerce (`ecommerce/woocommerce/`) | Beta | Orders, products, webhooks, sync | Yes |
+| Shopify (`ecommerce/shopify/`) | Production | Orders, products, inventory, customers, webhooks, retry with backoff | Yes |
+| WooCommerce (`ecommerce/woocommerce/`) | Production | Orders, products, webhooks, sync, circuit breaker | Yes |
 | Amazon (`ecommerce/amazon/`) | Beta | SP-API, orders, inventory, reports | Yes |
 | ShipStation (`ecommerce/shipstation.py`) | Beta | Shipments, orders, label generation | Yes |
 
@@ -270,7 +270,7 @@ Top-level evidence connectors extend `BaseConnector` and provide `search()`/`fet
 
 | Connector | Status | Features | Tests |
 |-----------|--------|----------|-------|
-| DocuSign (`legal/docusign.py`) | Beta | OAuth 2.0/JWT, envelopes, templates, status tracking | Yes |
+| DocuSign (`legal/docusign.py`) | Production | OAuth 2.0/JWT, envelopes, templates, status tracking, retry with backoff | Yes |
 | LexisNexis (`legal/lexis.py`) | Beta | Placeholder for licensed content, configurable proxy | Yes |
 | Westlaw (`legal/westlaw.py`) | Beta | Placeholder for licensed content, configurable proxy | Yes |
 
@@ -278,7 +278,7 @@ Top-level evidence connectors extend `BaseConnector` and provide `search()`/`fet
 
 | Connector | Status | Features | Tests |
 |-----------|--------|----------|-------|
-| Airtable (`lowcode/airtable.py`) | Beta | Records CRUD, views, filtering, attachments | Yes |
+| Airtable (`lowcode/airtable.py`) | Production | Records CRUD, views, filtering, attachments, retry with backoff | Yes |
 | Knack (`lowcode/knack.py`) | Beta | Objects, records CRUD, views, fields | Yes |
 
 ### Marketing
