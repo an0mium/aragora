@@ -493,3 +493,85 @@ class TestPrivacySubsystem:
 
         assert AnonymizationMethod is not None
         assert HIPAAAnonymizer is not None
+
+
+class TestAutonomousGoalSelection:
+    """Validate MetaPlanner ↔ GoalProposer autonomous goal wiring."""
+
+    def test_meta_planner_has_goal_proposer(self):
+        from aragora.nomic.meta_planner import MetaPlanner, MetaPlannerConfig
+
+        config = MetaPlannerConfig(scan_mode=True)
+        planner = MetaPlanner(config=config)
+        assert planner._goal_proposer is not None
+
+    def test_goal_proposer_has_all_signals(self):
+        from aragora.nomic.goal_proposer import GoalProposer
+
+        proposer = GoalProposer()
+        signal_methods = [
+            proposer._signal_test_failures,
+            proposer._signal_slow_cycles,
+            proposer._signal_knowledge_staleness,
+            proposer._signal_calibration_drift,
+            proposer._signal_coverage_gaps,
+            proposer._signal_lint_regressions,
+        ]
+        assert len(signal_methods) == 6
+        # Each signal should return a list (even if empty)
+        for sig in signal_methods:
+            result = sig()
+            assert isinstance(result, list)
+
+    def test_goal_proposer_score_ranking(self):
+        from aragora.nomic.goal_proposer import GoalCandidate
+
+        high = GoalCandidate(
+            goal_text="High priority",
+            confidence=0.95,
+            signal_source="test",
+            estimated_impact=2.0,
+            estimated_effort=0.5,
+        )
+        low = GoalCandidate(
+            goal_text="Low priority",
+            confidence=0.5,
+            signal_source="test",
+            estimated_impact=0.5,
+            estimated_effort=2.0,
+        )
+        assert high.score > low.score
+
+    @pytest.mark.asyncio
+    async def test_propose_goals_returns_prioritized_goals(self):
+        from unittest.mock import patch, AsyncMock
+
+        from aragora.nomic.meta_planner import MetaPlanner, MetaPlannerConfig, PrioritizedGoal
+        from aragora.nomic.types import Track
+
+        config = MetaPlannerConfig(
+            scan_mode=True,
+            enable_cross_cycle_learning=False,
+            enable_metrics_collection=False,
+            use_business_context=False,
+            max_goals=3,
+        )
+        planner = MetaPlanner(config=config)
+
+        mock_goals = [
+            PrioritizedGoal(
+                id="scan_0",
+                track=Track.QA,
+                description="Fix test failures",
+                rationale="Scan mode",
+                estimated_impact="high",
+                priority=1,
+            ),
+        ]
+
+        with patch.object(planner, "_scan_prioritize", new_callable=AsyncMock, return_value=mock_goals):
+            with patch.object(planner, "generate_goals_from_debate_outcomes", new_callable=AsyncMock, return_value=[]):
+                goals = await planner.propose_goals()
+
+        assert len(goals) >= 1
+        assert all(isinstance(g, PrioritizedGoal) for g in goals)

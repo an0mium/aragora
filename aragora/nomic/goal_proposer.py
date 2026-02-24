@@ -414,16 +414,20 @@ class GoalProposer:
                 src_dir = _P("aragora")
                 test_dir = _P("tests")
                 if src_dir.is_dir() and test_dir.is_dir():
+                    # Build set of all test filenames once (O(n) instead of O(n*m) rglob)
+                    test_filenames: set[str] = set()
+                    for test_file in test_dir.rglob("test_*.py"):
+                        test_filenames.add(test_file.name)
+
                     untested = []
                     for py_file in sorted(src_dir.rglob("*.py")):
                         if py_file.name.startswith("_"):
                             continue
-                        # Check if a corresponding test file exists
-                        relative = py_file.relative_to(src_dir)
-                        test_name = f"test_{relative.name}"
-                        test_candidates = list(test_dir.rglob(test_name))
-                        if not test_candidates:
+                        test_name = f"test_{py_file.name}"
+                        if test_name not in test_filenames:
                             untested.append(str(py_file))
+                            if len(untested) >= 100:
+                                break  # Cap for performance
 
                     if len(untested) > 10:
                         candidates.append(
