@@ -478,7 +478,10 @@ class TestPostConsensus:
 
     @pytest.mark.asyncio
     async def test_cleans_up_active_debates(self, lifecycle):
-        _active_debates["teams-abc"] = {"topic": "test"}
+        _active_debates["teams-abc"] = TeamsActiveDebateState(
+            debate_id="teams-abc", channel_id="ch-1", message_id="msg-1",
+            topic="test", user_id="u-1",
+        )
         with patch.object(
             lifecycle, "_send_card_to_thread", new_callable=AsyncMock, return_value=True
         ):
@@ -543,10 +546,10 @@ class TestHandleBotCommand:
 
     @pytest.mark.asyncio
     async def test_status_command_active_debate(self, lifecycle):
-        _active_debates["teams-xyz"] = {
-            "topic": "Test topic",
-            "channel_id": "ch-1",
-        }
+        _active_debates["teams-xyz"] = TeamsActiveDebateState(
+            debate_id="teams-xyz", channel_id="ch-1", message_id="msg-1",
+            topic="Test topic", user_id="u-1",
+        )
         activity = {
             "text": "/aragora status teams-xyz",
             "conversation": {"id": "ch-1"},
@@ -675,10 +678,10 @@ class TestBuildHelpResponse:
 
 class TestGetDebateStatus:
     def test_active_debate(self, lifecycle):
-        _active_debates["d-1"] = {
-            "topic": "Test",
-            "channel_id": "ch-1",
-        }
+        _active_debates["d-1"] = TeamsActiveDebateState(
+            debate_id="d-1", channel_id="ch-1", message_id="msg-1",
+            topic="Test", user_id="u-1",
+        )
         result = lifecycle._get_debate_status("d-1")
         assert "active" in result["text"]
 
