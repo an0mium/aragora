@@ -6,6 +6,17 @@ Context for Claude Code when working with the Aragora codebase.
 > check `docs/COORDINATION.md` before starting. See `docs/AGENT_ASSIGNMENTS.md`
 > for recommended focus areas by track.
 
+## Default Worktree Recovery Policy
+
+For high-churn parallel sessions, use managed disposable worktrees and auto-recovery.
+
+- Before starting a Codex session, run `./scripts/codex_session.sh` (or `make codex-session`).
+- If branch/worktree state changes unexpectedly, do **not** pause for manual routing by default:
+  run `python3 scripts/codex_worktree_autopilot.py ensure --agent codex --base main --reconcile --print-path`
+  and continue work in the returned path.
+- Reconcile frequently via `python3 scripts/codex_worktree_autopilot.py reconcile --all --base main`.
+- Cleanup stale session worktrees via `python3 scripts/codex_worktree_autopilot.py cleanup --base main --ttl-hours 24`.
+
 ## Quick Reference
 
 | What | Where | Key Files |

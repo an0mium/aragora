@@ -1,7 +1,7 @@
 # Aragora Makefile
 # Common development tasks for the Aragora multi-agent debate platform
 
-.PHONY: help install dev test test-e2e lint format typecheck check check-all ci guard guard-strict clean clean-all clean-runtime clean-runtime-dry docs serve docker demo demo-docker demo-stop
+.PHONY: help install dev test test-e2e lint format typecheck check check-all ci guard guard-strict clean clean-all clean-runtime clean-runtime-dry docs serve docker demo demo-docker demo-stop worktree-ensure worktree-reconcile worktree-cleanup codex-session
 
 # Default target
 help:
@@ -43,6 +43,10 @@ help:
 	@echo "  make serve        Start development server"
 	@echo "  make repl         Start interactive debate REPL"
 	@echo "  make doctor       Run system health checks"
+	@echo "  make codex-session Start Codex in an auto-managed worktree"
+	@echo "  make worktree-ensure Ensure/reuse a managed Codex worktree"
+	@echo "  make worktree-reconcile Rebase managed Codex worktrees onto main"
+	@echo "  make worktree-cleanup Cleanup stale managed Codex worktrees"
 	@echo ""
 	@echo "Documentation:"
 	@echo "  make docs         Generate documentation"
@@ -148,6 +152,18 @@ repl:
 
 doctor:
 	python -m aragora.cli.doctor
+
+codex-session:
+	./scripts/codex_session.sh
+
+worktree-ensure:
+	python3 scripts/codex_worktree_autopilot.py ensure --agent codex --base main
+
+worktree-reconcile:
+	python3 scripts/codex_worktree_autopilot.py reconcile --all --base main
+
+worktree-cleanup:
+	python3 scripts/codex_worktree_autopilot.py cleanup --base main --ttl-hours 24
 
 # Documentation
 docs:
