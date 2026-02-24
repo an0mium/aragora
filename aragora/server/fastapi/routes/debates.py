@@ -420,3 +420,152 @@ async def get_debate_convergence(
     except (RuntimeError, ValueError, TypeError, OSError, KeyError, AttributeError) as e:
         logger.exception("Error getting convergence for debate %s: %s", debate_id, e)
         raise HTTPException(status_code=500, detail="Failed to get convergence")
+
+
+# Valid status values (internal + SDK)
+_VALID_STATUSES = {
+    "active", "paused", "concluded", "archived",  # internal
+    "pending", "running", "completed", "failed", "cancelled",  # SDK
+}
+
+
+@router.patch("/debates/{debate_id}", response_model=UpdateDebateResponse)
+async def update_debate(
+    debate_id: str,
+    body: UpdateDebateRequest,
+    auth: AuthorizationContext = Depends(require_permission("debates:write")),
+    storage=Depends(get_storage),
+) -> UpdateDebateResponse:
+    """
+    Update debate metadata.
+
+    Allows updating title, tags, status, and custom metadata.
+    Requires `debates:write` permission.
+    """
+    try:
+        # Get debate from storage
+        if hasattr(storage, "get_debate"):
+            debate = storage.get_debate(debate_id)
+        elif hasattr(storage, "debates"):
+            debate = storage.debates.get(debate_id)
+        else:
+            debate = None
+
+        if not debate:
+            raise NotFoundError(f"Debate {debate_id} not found")
+
+        # Build updates from non-None fields
+        updates: dict[str, Any] = {}
+        if body.title is not None:
+            updates["title"] = body.title
+        if body.tags is not None:
+            updates["tags"] = body.tags
+        if body.status is not None:
+            if body.status not in _VALID_STATUSES:
+                raise HTTPException(
+                    status_code=400,
+                    detail=f"Invalid status. Must be one of: {', '.join(sorted(_VALID_STATUSES))}",
+                )
+            updates["status"] = body.status
+        if body.metadata is not None:
+            updates["metadata"] = body.metadata
+
+        if not updates:
+            raise HTTPException(status_code=400, detail="No fields to update")
+
+        # Apply updates
+        if isinstance(debate, dict):
+            for key, value in updates.items():
+                debate[key] = value
+        else:
+            for key, value in updates.items():
+                setattr(debate, key, value)
+
+        # Save updated debate
+        if hasattr(storage, "save_debate"):
+            storage.save_debate(debate_id, debate)
+
+        logger.info("Debate %s updated: %s", debate_id, list(updates.keys()))
+
+        # Build response
+        if isinstance(debate, dict):
+            summary = DebateSummary(
+                id=debate.get("id", debate_id),
+                task=debate.get("task", debate.get("title", "")),
+                status=debate.get("status", "unknown"),
+                created_at=debate.get("created_at"),
+                updated_at=debate.get("updated_at"),
+                round_count=len(debate.get("rounds", [])),
+                agent_count=len(debate.get("agents", [])),
+                has_consensus=debate.get("consensus") is not None,
+            )
+        else:
+            summary = DebateSummary(
+                id=getattr(debate, "id", debate_id),
+                task=getattr(debate, "task", ""),
+                status=getattr(debate, "status", "unknown"),
+                round_count=len(getattr(debate, "rounds", [])),
+                agent_count=len(getattr(debate, "agents", [])),
+                has_consensus=getattr(debate, "consensus", None) is not None,
+            )
+
+        return UpdateDebateResponse(
+            success=True,
+            debate_id=debate_id,
+            updated_fields=list(updates.keys()),
+            debate=summary,
+        )
+
+    except NotFoundError:
+        raise
+    except HTTPException:
+        raise
+    except (RuntimeError, ValueError, TypeError, OSError, KeyError, AttributeError) as e:
+        logger.exception("Error updating debate %s: %s", debate_id, e)
+        raise HTTPException(status_code=500, detail="Failed to update debate")
+
+
+@router.delete("/debates/{debate_id}", response_model=DeleteDebateResponse)
+async def delete_debate(
+    debate_id: str,
+    auth: AuthorizationContext = Depends(require_permission("debates:delete")),
+    storage=Depends(get_storage),
+) -> DeleteDebateResponse:
+    """
+    Delete a debate.
+
+    Permanently deletes a debate and cascades to associated data.
+    For soft-delete, use PATCH with status='archived' instead.
+    Requires `debates:delete` permission.
+    """
+    try:
+        # Check debate exists
+        if hasattr(storage, "get_debate"):
+            debate = storage.get_debate(debate_id)
+        elif hasattr(storage, "debates"):
+            debate = storage.debates.get(debate_id)
+        else:
+            debate = None
+
+        if not debate:
+            raise NotFoundError(f"Debate {debate_id} not found")
+
+        # Perform deletion
+        deleted = False
+        if hasattr(storage, "delete_debate"):
+            deleted = storage.delete_debate(debate_id, cascade_critiques=True)
+        elif hasattr(storage, "debates") and debate_id in storage.debates:
+            del storage.debates[debate_id]
+            deleted = True
+
+        if not deleted:
+            raise NotFoundError(f"Debate {debate_id} not found")
+
+        logger.info("Debate %s permanently deleted", debate_id)
+        return DeleteDebateResponse(deleted=True, id=debate_id)
+
+    except NotFoundError:
+        raise
+    except (RuntimeError, ValueError, TypeError, OSError, KeyError, AttributeError) as e:
+        logger.exception("Error deleting debate %s: %s", debate_id, e)
+        raise HTTPException(status_code=500, detail="Failed to delete debate")
