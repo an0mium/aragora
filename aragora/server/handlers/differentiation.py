@@ -19,6 +19,14 @@ from typing import Any
 
 from aragora.server.versioning.compat import strip_version_prefix
 
+try:
+    from aragora.rbac.decorators import require_permission
+except ImportError:  # pragma: no cover
+    def require_permission(*_a, **_kw):  # type: ignore[misc]
+        def _noop(fn):  # type: ignore[no-untyped-def]
+            return fn
+        return _noop
+
 from .base import (
     BaseHandler,
     HandlerResult,
@@ -47,6 +55,7 @@ class DifferentiationHandler(BaseHandler):
         normalized = strip_version_prefix(path)
         return normalized in self.ROUTES
 
+    @require_permission("analytics:read")
     def handle(self, path: str, query_params: dict[str, Any], handler: Any) -> HandlerResult | None:
         """Route GET requests."""
         normalized = strip_version_prefix(path)

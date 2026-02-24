@@ -87,6 +87,15 @@ class MockSSOUser:
 
 
 @dataclass
+class MockTokenPair:
+    """Mock token pair returned by create_token_pair."""
+
+    access_token: str = "jwt-token-123"
+    refresh_token: str = "jwt-refresh-456"
+    expires_in: int = 86400
+
+
+@dataclass
 class MockUser:
     """Mock user from the user store."""
 
@@ -94,6 +103,7 @@ class MockUser:
     email: str = "sso-user@example.com"
     name: str = "SSO User"
     role: str = "member"
+    org_id: str | None = None
 
 
 @dataclass
