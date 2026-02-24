@@ -250,6 +250,50 @@ class AnalyticsAPI:
             params["time_range"] = time_range
         return self._client.request("GET", "/api/analytics/debates/outcomes", params=params)
 
+    def outcomes_summary(self, period: str = "30d") -> dict[str, Any]:
+        """Get outcome analytics summary."""
+        return self._client.request("GET", "/api/analytics/outcomes", params={"period": period})
+
+    def outcomes_average_rounds(self, period: str = "30d") -> dict[str, Any]:
+        """Get average rounds from outcome analytics."""
+        return self._client.request(
+            "GET",
+            "/api/analytics/outcomes/average-rounds",
+            params={"period": period},
+        )
+
+    def outcomes_consensus_rate(self, period: str = "30d") -> dict[str, Any]:
+        """Get consensus rate from outcome analytics."""
+        return self._client.request(
+            "GET",
+            "/api/analytics/outcomes/consensus-rate",
+            params={"period": period},
+        )
+
+    def outcomes_contributions(self, period: str = "30d") -> dict[str, Any]:
+        """Get contributions from outcome analytics."""
+        return self._client.request(
+            "GET",
+            "/api/analytics/outcomes/contributions",
+            params={"period": period},
+        )
+
+    def outcomes_quality_trend(self, period: str = "30d") -> dict[str, Any]:
+        """Get quality trend from outcome analytics."""
+        return self._client.request(
+            "GET",
+            "/api/analytics/outcomes/quality-trend",
+            params={"period": period},
+        )
+
+    def outcomes_topics(self, period: str = "30d") -> dict[str, Any]:
+        """Get topics from outcome analytics."""
+        return self._client.request(
+            "GET",
+            "/api/analytics/outcomes/topics",
+            params={"period": period},
+        )
+
     # ===========================================================================
     # Agent Analytics
     # ===========================================================================
@@ -686,6 +730,52 @@ class AsyncAnalyticsAPI:
         if time_range:
             params["time_range"] = time_range
         return await self._client.request("GET", "/api/analytics/debates/topics", params=params)
+
+    async def outcomes_summary(self, period: str = "30d") -> dict[str, Any]:
+        """Get outcome analytics summary."""
+        return await self._client.request(
+            "GET", "/api/analytics/outcomes", params={"period": period}
+        )
+
+    async def outcomes_average_rounds(self, period: str = "30d") -> dict[str, Any]:
+        """Get average rounds from outcome analytics."""
+        return await self._client.request(
+            "GET",
+            "/api/analytics/outcomes/average-rounds",
+            params={"period": period},
+        )
+
+    async def outcomes_consensus_rate(self, period: str = "30d") -> dict[str, Any]:
+        """Get consensus rate from outcome analytics."""
+        return await self._client.request(
+            "GET",
+            "/api/analytics/outcomes/consensus-rate",
+            params={"period": period},
+        )
+
+    async def outcomes_contributions(self, period: str = "30d") -> dict[str, Any]:
+        """Get contributions from outcome analytics."""
+        return await self._client.request(
+            "GET",
+            "/api/analytics/outcomes/contributions",
+            params={"period": period},
+        )
+
+    async def outcomes_quality_trend(self, period: str = "30d") -> dict[str, Any]:
+        """Get quality trend from outcome analytics."""
+        return await self._client.request(
+            "GET",
+            "/api/analytics/outcomes/quality-trend",
+            params={"period": period},
+        )
+
+    async def outcomes_topics(self, period: str = "30d") -> dict[str, Any]:
+        """Get topics from outcome analytics."""
+        return await self._client.request(
+            "GET",
+            "/api/analytics/outcomes/topics",
+            params={"period": period},
+        )
 
     # ===========================================================================
     # Agent Analytics

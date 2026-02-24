@@ -291,6 +291,57 @@ describe('AnalyticsAPI', () => {
   });
 
   // ===========================================================================
+  // Outcome Analytics
+  // ===========================================================================
+
+  describe('Outcome Analytics', () => {
+    it('should get outcome analytics endpoints', async () => {
+      mockClient.request.mockResolvedValue({ data: {} });
+
+      await api.getOutcomesSummary({ period: '7d' });
+      await api.getOutcomesAverageRounds({ period: '7d' });
+      await api.getOutcomesConsensusRate({ period: '7d' });
+      await api.getOutcomesContributions({ period: '7d' });
+      await api.getOutcomesQualityTrend({ period: '7d' });
+      await api.getOutcomesTopics({ period: '7d' });
+
+      expect(mockClient.request).toHaveBeenNthCalledWith(1, 'GET', '/api/analytics/outcomes', {
+        params: { period: '7d' },
+      });
+      expect(mockClient.request).toHaveBeenNthCalledWith(
+        2,
+        'GET',
+        '/api/analytics/outcomes/average-rounds',
+        { params: { period: '7d' } }
+      );
+      expect(mockClient.request).toHaveBeenNthCalledWith(
+        3,
+        'GET',
+        '/api/analytics/outcomes/consensus-rate',
+        { params: { period: '7d' } }
+      );
+      expect(mockClient.request).toHaveBeenNthCalledWith(
+        4,
+        'GET',
+        '/api/analytics/outcomes/contributions',
+        { params: { period: '7d' } }
+      );
+      expect(mockClient.request).toHaveBeenNthCalledWith(
+        5,
+        'GET',
+        '/api/analytics/outcomes/quality-trend',
+        { params: { period: '7d' } }
+      );
+      expect(mockClient.request).toHaveBeenNthCalledWith(
+        6,
+        'GET',
+        '/api/analytics/outcomes/topics',
+        { params: { period: '7d' } }
+      );
+    });
+  });
+
+  // ===========================================================================
   // Agent Analytics
   // ===========================================================================
 

@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from unittest.mock import patch
+from unittest.mock import call, patch
 
 import pytest
 
@@ -181,6 +181,34 @@ class TestAnalyticsReportsAndCosts:
             client.close()
 
 
+class TestOutcomeAnalytics:
+    """Tests for /api/analytics/outcomes endpoints."""
+
+    def test_outcomes_endpoints(self) -> None:
+        with patch.object(AragoraClient, "request") as mock_request:
+            mock_request.return_value = {"data": {}}
+            client = AragoraClient(base_url="https://api.aragora.ai", api_key="test-key")
+
+            client.analytics.outcomes_summary(period="7d")
+            client.analytics.outcomes_average_rounds(period="7d")
+            client.analytics.outcomes_consensus_rate(period="7d")
+            client.analytics.outcomes_contributions(period="7d")
+            client.analytics.outcomes_quality_trend(period="7d")
+            client.analytics.outcomes_topics(period="7d")
+
+            expected_calls = [
+                call("GET", "/api/analytics/outcomes", params={"period": "7d"}),
+                call("GET", "/api/analytics/outcomes/average-rounds", params={"period": "7d"}),
+                call("GET", "/api/analytics/outcomes/consensus-rate", params={"period": "7d"}),
+                call("GET", "/api/analytics/outcomes/contributions", params={"period": "7d"}),
+                call("GET", "/api/analytics/outcomes/quality-trend", params={"period": "7d"}),
+                call("GET", "/api/analytics/outcomes/topics", params={"period": "7d"}),
+            ]
+            mock_request.assert_has_calls(expected_calls)
+            assert mock_request.call_count == 6
+            client.close()
+
+
 class TestAsyncAnalytics:
     """Tests for async analytics methods."""
 
@@ -232,4 +260,29 @@ class TestAsyncAnalytics:
                 params={"org_id": "org_1", "time_range": "7d"},
             )
             assert result["by_provider"]["anthropic"] == 25.00
+            await client.close()
+
+    @pytest.mark.asyncio
+    async def test_async_outcomes_endpoints(self) -> None:
+        with patch.object(AragoraAsyncClient, "request") as mock_request:
+            mock_request.return_value = {"data": {}}
+            client = AragoraAsyncClient(base_url="https://api.aragora.ai", api_key="test-key")
+
+            await client.analytics.outcomes_summary(period="30d")
+            await client.analytics.outcomes_average_rounds(period="30d")
+            await client.analytics.outcomes_consensus_rate(period="30d")
+            await client.analytics.outcomes_contributions(period="30d")
+            await client.analytics.outcomes_quality_trend(period="30d")
+            await client.analytics.outcomes_topics(period="30d")
+
+            expected_calls = [
+                call("GET", "/api/analytics/outcomes", params={"period": "30d"}),
+                call("GET", "/api/analytics/outcomes/average-rounds", params={"period": "30d"}),
+                call("GET", "/api/analytics/outcomes/consensus-rate", params={"period": "30d"}),
+                call("GET", "/api/analytics/outcomes/contributions", params={"period": "30d"}),
+                call("GET", "/api/analytics/outcomes/quality-trend", params={"period": "30d"}),
+                call("GET", "/api/analytics/outcomes/topics", params={"period": "30d"}),
+            ]
+            mock_request.assert_has_calls(expected_calls)
+            assert mock_request.call_count == 6
             await client.close()

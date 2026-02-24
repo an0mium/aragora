@@ -178,6 +178,56 @@ export class AnalyticsAPI {
     return this.client.request('GET', '/api/analytics/debates/outcomes', { params: options });
   }
 
+  /**
+   * Get outcome analytics summary.
+   */
+  async getOutcomesSummary(options?: { period?: string }): Promise<unknown> {
+    return this.client.request('GET', '/api/analytics/outcomes', { params: options });
+  }
+
+  /**
+   * Get outcome analytics average rounds.
+   */
+  async getOutcomesAverageRounds(options?: { period?: string }): Promise<unknown> {
+    return this.client.request('GET', '/api/analytics/outcomes/average-rounds', {
+      params: options,
+    });
+  }
+
+  /**
+   * Get outcome analytics consensus rate.
+   */
+  async getOutcomesConsensusRate(options?: { period?: string }): Promise<unknown> {
+    return this.client.request('GET', '/api/analytics/outcomes/consensus-rate', {
+      params: options,
+    });
+  }
+
+  /**
+   * Get outcome analytics contributions.
+   */
+  async getOutcomesContributions(options?: { period?: string }): Promise<unknown> {
+    return this.client.request('GET', '/api/analytics/outcomes/contributions', {
+      params: options,
+    });
+  }
+
+  /**
+   * Get outcome analytics quality trend.
+   */
+  async getOutcomesQualityTrend(options?: { period?: string }): Promise<unknown> {
+    return this.client.request('GET', '/api/analytics/outcomes/quality-trend', {
+      params: options,
+    });
+  }
+
+  /**
+   * Get outcome analytics topic distribution.
+   */
+  async getOutcomesTopics(options?: { period?: string }): Promise<unknown> {
+    return this.client.request('GET', '/api/analytics/outcomes/topics', { params: options });
+  }
+
   // =========================================================================
   // Agent Analytics
   // =========================================================================
