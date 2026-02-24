@@ -566,7 +566,7 @@ class TestConcurrencySettings:
         with patch.dict(os.environ, _clean_env(), clear=True):
             s = ConcurrencySettings()
         assert s.max_concurrent_proposals == 5
-        assert s.max_concurrent_critiques == 10
+        assert s.max_concurrent_critiques == 15
         assert s.max_concurrent_revisions == 5
         assert s.max_concurrent_streaming == 3
         assert s.agent_timeout_seconds == 240

@@ -66,6 +66,8 @@ def _make_mixin(enable_privacy: bool = False, method: str = "redact") -> PromptA
         "_get_active_introspection_context",
         "get_outcome_context",
         "get_vertical_context",
+        "get_pulse_enrichment_context",
+        "inject_pulse_enrichment",
     ]:
         setattr(mixin, method_name, MagicMock(return_value=""))
 

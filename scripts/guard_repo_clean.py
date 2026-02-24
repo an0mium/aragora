@@ -123,6 +123,10 @@ _HARDCODED_PATH_ALLOWLIST = {
     "scripts/gastown_migrate_state.py",
     "scripts/nomic_eval.py",
     "scripts/nomic/safety/constitution.py",
+    # Environment variable defaults (not runtime path construction)
+    "aragora/mcp/impl_config.py",
+    "scripts/nomic/config.py",
+    "scripts/nomic_loop.py",
     # Docstrings/string literals (not path construction)
     "aragora/broadcast/pipeline.py",
     "aragora/policy/engine.py",
