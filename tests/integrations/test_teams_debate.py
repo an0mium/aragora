@@ -173,7 +173,9 @@ class TestBuildConsensusCard:
         }
         card = _build_consensus_card("Topic", result, "d-123")
         card_text = str(card)
-        assert "..." in card_text
+        # The answer should be truncated to at most 500 characters
+        assert "a" * 600 not in card_text
+        assert "a" * 500 in card_text
 
     def test_view_full_report_action(self):
         result = {
@@ -446,7 +448,7 @@ class TestPostConsensus:
             lifecycle, "_send_card_to_thread", new_callable=AsyncMock, return_value=True
         ):
             with patch(
-                "aragora.integrations.teams_debate.mark_result_sent"
+                "aragora.server.debate_origin.mark_result_sent"
             ) as mock_mark:
                 await lifecycle.post_consensus(
                     channel_id="ch-1",

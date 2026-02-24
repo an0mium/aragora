@@ -248,3 +248,112 @@ class TestAgentLeaderboardRouteOrder:
         # Should be a leaderboard response, not an agent detail response
         assert "leaderboard" in data
         assert "name" not in data
+
+
+class TestRankings:
+    """Tests for GET /api/v2/agents/rankings (alias for leaderboard)."""
+
+    def test_rankings_returns_200(self, client):
+        """Rankings returns ranked agents (alias for leaderboard)."""
+        response = client.get("/api/v2/agents/rankings")
+        assert response.status_code == 200
+        data = response.json()
+        assert "leaderboard" in data
+        assert "total" in data
+        assert data["total"] == 3
+
+    def test_rankings_has_same_data_as_leaderboard(self, client):
+        """Rankings returns the same data as leaderboard."""
+        rankings_resp = client.get("/api/v2/agents/rankings")
+        leaderboard_resp = client.get("/api/v2/agents/leaderboard")
+        assert rankings_resp.json() == leaderboard_resp.json()
+
+    def test_rankings_with_domain(self, client):
+        """Rankings supports domain filter."""
+        response = client.get("/api/v2/agents/rankings?domain=security")
+        assert response.status_code == 200
+        data = response.json()
+        assert data["domain"] == "security"
+
+    def test_rankings_not_treated_as_agent_id(self, client):
+        """Ensure /agents/rankings is not matched as /agents/{agent_id}='rankings'."""
+        response = client.get("/api/v2/agents/rankings")
+        assert response.status_code == 200
+        data = response.json()
+        assert "leaderboard" in data
+        assert "name" not in data
+
+
+class TestRegisterAgent:
+    """Tests for POST /api/v2/agents."""
+
+    def _override_auth(self, client):
+        """Override auth for write operations."""
+        from aragora.server.fastapi.dependencies.auth import require_authenticated
+        from aragora.rbac.models import AuthorizationContext
+
+        auth_ctx = AuthorizationContext(
+            user_id="user-1",
+            org_id="org-1",
+            workspace_id="ws-1",
+            roles={"admin"},
+            permissions={"agents:write"},
+        )
+        client.app.dependency_overrides[require_authenticated] = lambda: auth_ctx
+
+    def test_register_returns_201(self, client):
+        """Register creates a new agent."""
+        self._override_auth(client)
+
+        with patch(
+            "aragora.server.fastapi.routes.agents._get_known_agents",
+            return_value=["claude", "codex"],
+        ):
+            response = client.post(
+                "/api/v2/agents",
+                json={"name": "custom-agent", "type": "custom"},
+            )
+        client.app.dependency_overrides.clear()
+
+        assert response.status_code == 201
+        data = response.json()
+        assert data["success"] is True
+        assert data["agent"]["name"] == "custom-agent"
+        assert data["agent"]["type"] == "custom"
+        assert data["agent"]["elo"] == 1500.0
+
+    def test_register_duplicate_returns_409(self, client):
+        """Register existing agent returns 409."""
+        self._override_auth(client)
+
+        with patch(
+            "aragora.server.fastapi.routes.agents._get_known_agents",
+            return_value=["claude", "codex", "gemini"],
+        ):
+            response = client.post(
+                "/api/v2/agents",
+                json={"name": "claude", "type": "api"},
+            )
+        client.app.dependency_overrides.clear()
+
+        assert response.status_code == 409
+
+    def test_register_requires_name(self, client):
+        """Register without name returns 422."""
+        self._override_auth(client)
+
+        response = client.post(
+            "/api/v2/agents",
+            json={"type": "custom"},
+        )
+        client.app.dependency_overrides.clear()
+
+        assert response.status_code == 422
+
+    def test_register_requires_auth(self, client):
+        """Register without auth returns 401."""
+        response = client.post(
+            "/api/v2/agents",
+            json={"name": "unauthorized-agent"},
+        )
+        assert response.status_code == 401

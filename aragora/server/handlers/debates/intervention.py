@@ -45,9 +45,9 @@ def _emit_intervention_event(
         )
         # Try to get the global emitter for broadcast
         try:
-            from aragora.server.stream.emitter import get_emitter
+            from aragora.server.stream.emitter import get_global_emitter
 
-            emitter = get_emitter()
+            emitter = get_global_emitter()
             if emitter is not None:
                 emitter.emit(event)
         except (ImportError, AttributeError):
@@ -295,6 +295,10 @@ async def handle_update_weights(
         },
         user_id or context.user_id,
     )
+    _emit_intervention_event(debate_id, "INTERVENTION_WEIGHT", {
+        "agent": agent, "old_weight": old_weight, "new_weight": weight,
+        "user_id": user_id or context.user_id,
+    })
 
     return json_response(
         {
@@ -348,6 +352,10 @@ async def handle_update_threshold(
         },
         user_id or context.user_id,
     )
+    _emit_intervention_event(debate_id, "INTERVENTION_THRESHOLD", {
+        "old_threshold": old_threshold, "new_threshold": threshold,
+        "user_id": user_id or context.user_id,
+    })
 
     return json_response(
         {

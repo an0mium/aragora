@@ -362,7 +362,7 @@ class TestStartDebateFromThread:
             lifecycle, "_post_to_thread", new_callable=AsyncMock, return_value=True
         ):
             with patch(
-                "aragora.integrations.slack_debate.register_debate_origin"
+                "aragora.server.debate_origin.register_debate_origin"
             ) as mock_register:
                 await lifecycle.start_debate_from_thread(
                     channel_id="C01ABC",
@@ -383,7 +383,7 @@ class TestStartDebateFromThread:
             lifecycle, "_post_to_thread", new_callable=AsyncMock, return_value=True
         ):
             with patch(
-                "aragora.integrations.slack_debate.register_debate_origin",
+                "aragora.server.debate_origin.register_debate_origin",
                 side_effect=RuntimeError("DB error"),
             ):
                 # Should not raise

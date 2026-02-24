@@ -291,7 +291,7 @@ class TestCreatePipelineRun:
     def test_creates_run_successfully(self, authed_client, pipeline_store):
         """POST creates a new pipeline run with 201 status."""
         with patch(
-            "aragora.server.fastapi.routes.pipeline.IdeaToExecutionPipeline",
+            "aragora.server.fastapi.routes.pipeline._execute_pipeline",
             side_effect=ImportError("mocked"),
         ):
             response = authed_client.post(
@@ -313,7 +313,7 @@ class TestCreatePipelineRun:
     def test_creates_run_with_config(self, authed_client, pipeline_store):
         """POST accepts optional config overrides."""
         with patch(
-            "aragora.server.fastapi.routes.pipeline.IdeaToExecutionPipeline",
+            "aragora.server.fastapi.routes.pipeline._execute_pipeline",
             side_effect=ImportError("mocked"),
         ):
             response = authed_client.post(
@@ -331,7 +331,7 @@ class TestCreatePipelineRun:
     def test_creates_run_with_custom_stages(self, authed_client, pipeline_store):
         """POST respects stages_to_run in config."""
         with patch(
-            "aragora.server.fastapi.routes.pipeline.IdeaToExecutionPipeline",
+            "aragora.server.fastapi.routes.pipeline._execute_pipeline",
             side_effect=ImportError("mocked"),
         ):
             response = authed_client.post(
@@ -378,12 +378,9 @@ class TestCreatePipelineRun:
         mock_result.stage_results = []
         mock_result.stage_status = {"ideation": "complete"}
 
-        mock_pipeline = MagicMock()
-        mock_pipeline.from_ideas.return_value = mock_result
-
         with patch(
-            "aragora.server.fastapi.routes.pipeline.IdeaToExecutionPipeline",
-            return_value=mock_pipeline,
+            "aragora.server.fastapi.routes.pipeline._execute_pipeline",
+            return_value=mock_result,
         ):
             response = authed_client.post(
                 "/api/v2/pipeline/runs",
@@ -398,7 +395,7 @@ class TestCreatePipelineRun:
     def test_falls_back_to_pending_on_pipeline_error(self, authed_client, pipeline_store):
         """POST falls back to pending status when pipeline fails."""
         with patch(
-            "aragora.server.fastapi.routes.pipeline.IdeaToExecutionPipeline",
+            "aragora.server.fastapi.routes.pipeline._execute_pipeline",
             side_effect=RuntimeError("Pipeline unavailable"),
         ):
             response = authed_client.post(
@@ -676,7 +673,7 @@ class TestPipelineEdgeCases:
     def test_multiple_runs_isolation(self, authed_client, pipeline_store):
         """Multiple pipeline runs are isolated from each other."""
         with patch(
-            "aragora.server.fastapi.routes.pipeline.IdeaToExecutionPipeline",
+            "aragora.server.fastapi.routes.pipeline._execute_pipeline",
             side_effect=ImportError("mocked"),
         ):
             resp1 = authed_client.post(
@@ -696,7 +693,7 @@ class TestPipelineEdgeCases:
     def test_list_after_create(self, authed_client, pipeline_store):
         """Listing runs reflects newly created runs."""
         with patch(
-            "aragora.server.fastapi.routes.pipeline.IdeaToExecutionPipeline",
+            "aragora.server.fastapi.routes.pipeline._execute_pipeline",
             side_effect=ImportError("mocked"),
         ):
             authed_client.post(

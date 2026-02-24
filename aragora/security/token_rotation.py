@@ -24,6 +24,14 @@ Usage:
     )
 
     result = manager.rotate(TokenType.PYPI, "pypi-NEW_TOKEN_VALUE")
+
+    # Scheduled rotation with health checks
+    pipeline = RotationPipeline(
+        manager=manager,
+        schedule="0 3 * * 0",  # 3AM every Sunday
+        health_checker=lambda tt: manager.verify_token(tt),
+    )
+    pipeline.execute(TokenType.PYPI, "pypi-NEW_TOKEN_VALUE")
 """
 
 from __future__ import annotations
@@ -31,11 +39,14 @@ from __future__ import annotations
 import json
 import logging
 import os
+import re
 import subprocess
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from enum import Enum
+from pathlib import Path
 from typing import Any
+from collections.abc import Callable
 
 logger = logging.getLogger(__name__)
 

@@ -569,6 +569,7 @@ __all__ = [
     "AnalyticsHandler",
     "AnalyticsDashboardHandler",
     "AnalyticsMetricsHandler",
+    "OutcomeAnalyticsHandler",
     "EndpointAnalyticsHandler",
     "CrossPlatformAnalyticsHandler",
     "MetricsHandler",

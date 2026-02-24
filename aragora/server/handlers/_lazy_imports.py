@@ -366,6 +366,7 @@ ALL_HANDLER_NAMES: list[str] = [
     "AnalyticsDashboardHandler",
     "AnalyticsMetricsHandler",
     "AnalyticsPerformanceHandler",
+    "OutcomeAnalyticsHandler",
     "EndpointAnalyticsHandler",
     "CrossPlatformAnalyticsHandler",
     "MetricsHandler",

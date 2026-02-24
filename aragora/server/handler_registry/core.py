@@ -105,6 +105,7 @@ HANDLER_TIERS: dict[str, str] = {
     "_knowledge_flow_handler": "extended",
     "_system_health_dashboard_handler": "extended",
     "_memory_unified_handler": "extended",
+    "_km_gap_handler": "extended",
     # ── Enterprise (loaded only with ARAGORA_ENTERPRISE=1) ────────────
     "_admin_handler": "enterprise",
     "_control_plane_handler": "enterprise",

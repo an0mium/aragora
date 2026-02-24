@@ -127,6 +127,15 @@ from aragora.billing.discounts import (
     get_discount_manager,
 )
 from aragora.billing.cost_tracker import DebateBudgetExceededError
+from aragora.billing.debate_costs import (  # noqa: F401
+    AgentCallRecord,
+    AgentCostBreakdown,
+    DebateCostSummary,
+    DebateCostTracker,
+    ModelUsage,
+    RoundCostBreakdown,
+    get_debate_cost_tracker,
+)
 from aragora.billing.tier_gating import (
     FEATURE_TIER_MAP,
     TIER_DISPLAY_NAMES,
@@ -239,6 +248,14 @@ __all__ = [
     "ApplyCodeResult",
     "DiscountManager",
     "get_discount_manager",
+    # Per-Debate Cost Accounting
+    "AgentCallRecord",
+    "AgentCostBreakdown",
+    "DebateCostSummary",
+    "DebateCostTracker",
+    "ModelUsage",
+    "RoundCostBreakdown",
+    "get_debate_cost_tracker",
     # Budget Errors
     "DebateBudgetExceededError",
     # Tier Gating

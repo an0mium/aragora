@@ -146,6 +146,41 @@ async def get_pipeline_store(request: Request) -> dict[str, dict[str, Any]]:
 
 
 # =============================================================================
+# Pipeline Execution Helper
+# =============================================================================
+
+
+def _execute_pipeline(
+    idea: str,
+    run_id: str,
+    stages_to_run: list[str],
+    config: dict[str, Any],
+) -> Any:
+    """Execute the pipeline and return the result.
+
+    Extracted as a module-level function so tests can patch it cleanly.
+    Raises ImportError/RuntimeError/etc. if the pipeline backend is unavailable.
+    """
+    from aragora.pipeline.idea_to_execution import (
+        IdeaToExecutionPipeline,
+        PipelineConfig,
+    )
+
+    pipeline_config = PipelineConfig(
+        stages_to_run=stages_to_run,
+        dry_run=config.get("dry_run", False),
+        human_approval_required=config.get("human_approval_required", False),
+    )
+
+    pipeline = IdeaToExecutionPipeline()
+    return pipeline.from_ideas(
+        [idea],
+        auto_advance=not pipeline_config.human_approval_required,
+        pipeline_id=run_id,
+    )
+
+
+# =============================================================================
 # Endpoints
 # =============================================================================
 
