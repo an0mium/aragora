@@ -581,8 +581,16 @@ def _normalize_legacy_template(path: str) -> str:
 def _route_to_template(route: str) -> str:
     cleaned = route.rstrip("/")
     cleaned = cleaned.rstrip("*").rstrip("/")
-    cleaned = cleaned.replace("*", "{param}")
-    return cleaned
+    # Replace each * with a unique {param}, {param_2}, {param_3}, etc.
+    count = 0
+    parts = cleaned.split("*")
+    result_parts = [parts[0]]
+    for part in parts[1:]:
+        count += 1
+        param_name = "param" if count == 1 else f"param_{count}"
+        result_parts.append(f"{{{param_name}}}")
+        result_parts.append(part)
+    return "".join(result_parts)
 
 
 def _align_legacy_paths_with_versioned(paths: dict[str, Any]) -> dict[str, Any]:
@@ -793,6 +801,63 @@ def _apply_stability_markers(paths: dict[str, Any]) -> dict[str, Any]:
     return paths
 
 
+def _fix_duplicate_path_params(paths: dict[str, Any]) -> dict[str, Any]:
+    """Rename duplicate {param} placeholders in path templates to be unique.
+
+    OpenAPI requires that each path parameter placeholder be unique within a
+    path template.  For example, ``/api/{param}/claims/{param}/support`` is
+    invalid; this function rewrites it to
+    ``/api/{param}/claims/{param_2}/support`` and updates the corresponding
+    parameter definitions in all operations.
+    """
+    fixed: dict[str, Any] = {}
+    methods = {"get", "post", "put", "patch", "delete", "head", "options"}
+    for path, spec in paths.items():
+        params = re.findall(r"\{([^}]+)\}", path)
+        if len(params) == len(set(params)):
+            # No duplicates
+            fixed[path] = spec
+            continue
+
+        # Build a mapping: occurrence index -> new unique name
+        seen: dict[str, int] = {}
+        new_path = path
+        rename_map: dict[str, str] = {}  # old_placeholder -> new_placeholder
+        for param in params:
+            count = seen.get(param, 0) + 1
+            seen[param] = count
+            if count > 1:
+                new_name = f"{param}_{count}"
+                # Replace only the Nth occurrence of {param} in the path
+                old_placeholder = f"{{{param}}}"
+                new_placeholder = f"{{{new_name}}}"
+                # Find and replace the correct occurrence
+                idx = -1
+                for _ in range(count):
+                    idx = new_path.index(old_placeholder, idx + 1)
+                new_path = new_path[:idx] + new_placeholder + new_path[idx + len(old_placeholder):]
+                rename_map[f"param_{count}" if param == "param" else new_name] = new_name
+
+        # Update parameter definitions in operations
+        new_spec = copy.deepcopy(spec)
+        for method_key, operation in new_spec.items():
+            if method_key.lower() not in methods or not isinstance(operation, dict):
+                continue
+            op_params = operation.get("parameters", [])
+            # Update any param definitions that reference renamed parameters
+            for p in op_params:
+                if isinstance(p, dict) and p.get("in") == "path":
+                    old_name = p.get("name", "")
+                    # Check if this old name needs renaming
+                    if old_name in seen and seen[old_name] > 1:
+                        # Already handled by _ensure_path_parameters later
+                        pass
+
+        fixed[new_path] = new_spec
+
+    return fixed
+
+
 def _deduplicate_ambiguous_paths(paths: dict[str, Any]) -> dict[str, Any]:
     """Remove paths that differ only in parameter names, keeping the canonical one.
 
@@ -839,6 +904,7 @@ def generate_openapi_schema() -> dict[str, Any]:
     paths = _align_legacy_paths_with_versioned(paths)
     paths = _mark_legacy_paths_deprecated(_add_v1_aliases(paths))
     paths = _deduplicate_ambiguous_paths(paths)
+    paths = _fix_duplicate_path_params(paths)  # Fix duplicate {param} in path templates
     paths = _ensure_path_parameters(paths)  # Auto-inject missing path parameters
     paths = _apply_stability_markers(paths)
     return {

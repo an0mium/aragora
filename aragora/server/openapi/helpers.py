@@ -196,6 +196,30 @@ ERROR_EXAMPLES: dict[str, dict[str, Any]] = {
 # =============================================================================
 
 
+_VALID_JSON_SCHEMA_TYPES = {"object", "array", "string", "number", "integer", "boolean", "null"}
+
+
+def _is_complete_schema(schema: dict[str, Any]) -> bool:
+    """Check if a dict is a complete JSON Schema (not a properties map).
+
+    A properties map looks like ``{"name": {"type": "string"}, ...}`` where the
+    keys are property names and values are sub-schemas.  A complete schema has a
+    ``"type"`` key whose value is a valid JSON Schema type string (or list of
+    type strings for nullable types in OpenAPI 3.1), or uses composition
+    keywords like ``$ref``, ``oneOf``, ``anyOf``, ``allOf``.
+    """
+    # Composition keywords indicate a complete schema
+    if any(k in schema for k in ("$ref", "oneOf", "anyOf", "allOf")):
+        return True
+    type_val = schema.get("type")
+    if type_val is None:
+        return False
+    # OpenAPI 3.1 allows type to be a list, e.g. ["string", "null"]
+    if isinstance(type_val, list):
+        return all(isinstance(t, str) and t in _VALID_JSON_SCHEMA_TYPES for t in type_val)
+    return isinstance(type_val, str) and type_val in _VALID_JSON_SCHEMA_TYPES
+
+
 def _ok_response(
     description: str,
     schema: str | dict[str, Any] | None = None,
@@ -222,8 +246,9 @@ def _ok_response(
             resp["content"] = {
                 "application/json": {"schema": {"$ref": f"#/components/schemas/{schema}"}}
             }
-        elif "type" in schema:
-            # Complete schema dict (has "type" key, e.g. {"type": "object"})
+        elif _is_complete_schema(schema):
+            # Complete schema dict (has "type" key with valid JSON Schema type value,
+            # or uses $ref / oneOf / anyOf / allOf)
             resp["content"] = {"application/json": {"schema": schema}}
         else:
             # Properties map (e.g. {"success": {"type": "boolean"}})
