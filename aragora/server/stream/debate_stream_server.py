@@ -194,6 +194,10 @@ class DebateStreamServer(ServerBase):
         # SECURITY: Prevents data leakage between concurrent debates
         self._client_subscriptions: dict[int, str] = {}
 
+        # Event replay buffer for reconnection support
+        self._replay_buffer = EventReplayBuffer()
+        set_global_replay_buffer(self._replay_buffer)
+
         # Stop event for graceful shutdown
         self._stop_event: asyncio.Event | None = None
 
