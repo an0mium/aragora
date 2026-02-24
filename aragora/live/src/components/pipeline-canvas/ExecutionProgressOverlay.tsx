@@ -10,14 +10,22 @@
 import { memo, useState, useEffect, useRef, useCallback } from 'react';
 import type { PipelineStageType } from './types';
 
-const STAGES: PipelineStageType[] = ['ideas', 'goals', 'actions', 'orchestration'];
+const STAGES: PipelineStageType[] = ['ideas', 'principles', 'goals', 'actions', 'orchestration'];
 
 const STAGE_LABELS: Record<PipelineStageType, string> = {
   ideas: 'Ideas',
+  principles: 'Principles',
   goals: 'Goals',
   actions: 'Actions',
   orchestration: 'Orchestration',
 };
+
+export interface ExecutionEvent {
+  nodeId: string;
+  label?: string;
+  status: string;
+  timestamp: number;
+}
 
 export interface ExecutionProgressOverlayProps {
   /** Whether the pipeline is currently executing */
@@ -34,6 +42,8 @@ export interface ExecutionProgressOverlayProps {
   totalSubtasks: number;
   /** Final execution status */
   executeStatus: 'idle' | 'success' | 'failed';
+  /** Recent execution events for the mini-log */
+  recentEvents?: ExecutionEvent[];
 }
 
 function useElapsedTimer(running: boolean): number {
@@ -69,6 +79,7 @@ export const ExecutionProgressOverlay = memo(function ExecutionProgressOverlay({
   completedSubtasks,
   totalSubtasks,
   executeStatus,
+  recentEvents = [],
 }: ExecutionProgressOverlayProps) {
   const elapsed = useElapsedTimer(executing);
   const [visible, setVisible] = useState(false);
@@ -195,6 +206,31 @@ export const ExecutionProgressOverlay = memo(function ExecutionProgressOverlay({
           </div>
           <span data-testid="elapsed-timer">{formatElapsed(elapsed)}</span>
         </div>
+
+        {/* Mini event log */}
+        {recentEvents.length > 0 && (
+          <div className="mt-3 space-y-1 max-h-[100px] overflow-y-auto">
+            {recentEvents.slice(-5).map((evt, i) => (
+              <div
+                key={`${evt.nodeId}-${i}`}
+                className={`flex items-center gap-1.5 text-[10px] font-mono ${
+                  evt.status === 'succeeded' ? 'text-emerald-400' :
+                  evt.status === 'failed' ? 'text-red-400' :
+                  evt.status === 'in_progress' ? 'text-amber-300' : 'text-text-muted'
+                }`}
+              >
+                {evt.status === 'in_progress' && (
+                  <span className="inline-block w-1.5 h-1.5 border border-current border-t-transparent rounded-full animate-spin" />
+                )}
+                {evt.status === 'succeeded' && <span>✓</span>}
+                {evt.status === 'failed' && <span>✗</span>}
+                {evt.status === 'pending' && <span>·</span>}
+                <span className="truncate">{evt.label || evt.nodeId}</span>
+                <span className="text-text-muted/50 ml-auto">{evt.status.replace('_', ' ')}</span>
+              </div>
+            ))}
+          </div>
+        )}
 
         {/* Result badge */}
         {isDone && (

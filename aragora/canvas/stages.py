@@ -64,6 +64,7 @@ class GoalNodeType(str, Enum):
     MILESTONE = "milestone"
     METRIC = "metric"
     RISK = "risk"
+    VALUE = "value"
 
 
 class ActionNodeType(str, Enum):
@@ -85,6 +86,7 @@ class OrchestrationNodeType(str, Enum):
     PARALLEL_FAN = "parallel_fan"
     MERGE = "merge"
     VERIFICATION = "verification"
+    AGENT_ASSIGNMENT = "agent_assignment"
 
 
 class StageEdgeType(str, Enum):
@@ -112,6 +114,10 @@ class StageEdgeType(str, Enum):
     DERIVED_FROM = "derived_from"  # Goal derived from idea cluster
     IMPLEMENTS = "implements"  # Action implements a goal
     EXECUTES = "executes"  # Orchestration step executes an action
+    # DAG operations
+    ASSIGNED_TO = "assigned_to"  # Node assigned to agent
+    INFORMS = "informs"  # Node informs another
+    CONTRADICTS = "contradicts"  # Node contradicts another
 
 
 @dataclass

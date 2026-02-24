@@ -5,8 +5,11 @@ import { Handle, Position } from '@xyflow/react';
 import {
   PIPELINE_NODE_TYPE_CONFIGS,
   ORCH_STATUS_COLORS,
+  EXECUTION_STATUS_COLORS,
   type OrchType,
   type OrchStatus,
+  type ExecutionStatus,
+  type AlternativeAgent,
 } from '../types';
 
 interface OrchestrationNodeProps {
@@ -26,9 +29,14 @@ export const OrchestrationNode = memo(function OrchestrationNode({
   const capabilities = data.capabilities as string[] | undefined;
   const status = (data.status || 'pending') as OrchStatus;
   const lockedBy = data.lockedBy as string | undefined;
-  const executionStatus = data.executionStatus as string | undefined;
+  const executionStatus = data.executionStatus as ExecutionStatus | undefined;
   const executionDuration = data.executionDuration as string | undefined;
   const executionAgent = data.executionAgent as string | undefined;
+  const eloScore = (data.eloScore || data.elo_score) as number | undefined;
+  const selectionRationale = (data.selectionRationale || data.selection_rationale) as string | undefined;
+  const alternativeAgents = (data.alternativeAgents || data.alternative_agents) as AlternativeAgent[] | undefined;
+  const elapsedMs = (data.elapsedMs || data.elapsed_ms) as number | undefined;
+  const outputPreview = (data.outputPreview || data.output_preview) as string | undefined;
 
   const isAgent = orchType === 'agent_task' || orchType === 'debate';
   const isHumanGate = orchType === 'human_gate';
@@ -110,25 +118,61 @@ export const OrchestrationNode = memo(function OrchestrationNode({
         </div>
       )}
 
+      {/* ELO score badge */}
+      {eloScore != null && (
+        <div className="mt-2 flex items-center gap-1.5">
+          <span className="px-1.5 py-0.5 text-xs font-mono bg-acid-green/20 text-acid-green rounded border border-acid-green/30">
+            ELO {eloScore}
+          </span>
+          {selectionRationale && (
+            <span className="text-xs text-text-muted truncate max-w-[120px]" title={selectionRationale}>
+              {selectionRationale}
+            </span>
+          )}
+        </div>
+      )}
+
+      {/* Alternative agents */}
+      {alternativeAgents && alternativeAgents.length > 0 && (
+        <div className="mt-1 flex flex-wrap gap-1">
+          {alternativeAgents.slice(0, 2).map((alt) => (
+            <span
+              key={alt.name}
+              className="px-1 py-0.5 text-xs bg-pink-500/10 text-pink-300/60 rounded font-mono"
+              title={`Alternative: ${alt.name} (${alt.score ?? '?'})`}
+            >
+              {alt.name}{alt.score != null ? ` ${alt.score}` : ''}
+            </span>
+          ))}
+          {alternativeAgents.length > 2 && (
+            <span className="text-xs text-pink-300/40 font-mono">+{alternativeAgents.length - 2}</span>
+          )}
+        </div>
+      )}
+
       {/* Execution status */}
       {executionStatus && (
-        <div className={`mt-2 flex items-center gap-1.5 text-xs font-mono ${
-          executionStatus === 'running' ? 'text-amber-400' :
-          executionStatus === 'completed' ? 'text-emerald-400' :
-          executionStatus === 'failed' ? 'text-red-400' : 'text-text-muted'
-        }`}>
-          {executionStatus === 'running' && (
+        <div className={`mt-2 flex items-center gap-1.5 text-xs font-mono ${EXECUTION_STATUS_COLORS[executionStatus]?.text || 'text-text-muted'}`}>
+          {executionStatus === 'in_progress' && (
             <span className="inline-block w-2 h-2 border border-current border-t-transparent rounded-full animate-spin" />
           )}
-          {executionStatus === 'completed' && <span>✓</span>}
+          {executionStatus === 'succeeded' && <span>✓</span>}
           {executionStatus === 'failed' && <span>✗</span>}
-          <span>{executionStatus}</span>
-          {executionDuration && <span className="text-text-muted">({executionDuration})</span>}
+          <span>{executionStatus.replace('_', ' ')}</span>
+          {elapsedMs != null && <span className="text-text-muted">({(elapsedMs / 1000).toFixed(1)}s)</span>}
+          {!elapsedMs && executionDuration && <span className="text-text-muted">({executionDuration})</span>}
         </div>
       )}
       {executionAgent && executionStatus && (
         <div className="text-xs text-text-muted mt-0.5">
           via {executionAgent}
+        </div>
+      )}
+
+      {/* Output preview */}
+      {outputPreview && executionStatus && (
+        <div className="mt-1 text-xs text-text-muted font-mono bg-bg/50 rounded px-1.5 py-1 line-clamp-2">
+          {outputPreview}
         </div>
       )}
 

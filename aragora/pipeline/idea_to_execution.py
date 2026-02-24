@@ -345,6 +345,130 @@ class IdeaToExecutionPipeline:
         result = pipeline.from_ideas(ideas, auto_advance=True)
         return result, config
 
+    @classmethod
+    async def from_brain_dump(
+        cls,
+        text: str,
+        automation_level: str = "guided",
+        pipeline_id: str | None = None,
+        event_callback: Any | None = None,
+    ) -> PipelineResult:
+        """Create and run a pipeline from unstructured brain dump text.
+
+        Chains: BrainDumpParser.parse_enriched() → cluster ideas → extract
+        principles → debate-prioritize goals → decompose tasks → assign agents.
+
+        Args:
+            text: Raw unstructured text (brain dump).
+            automation_level: One of "full", "guided", "manual".
+                - "full": Runs entire pipeline with AI transitions.
+                - "guided": Pauses at each stage for approval.
+                - "manual": Generates ideas only.
+            pipeline_id: Optional pipeline ID (generated if not provided).
+            event_callback: Optional callback for real-time progress events.
+
+        Returns:
+            PipelineResult with stages populated based on automation_level.
+        """
+        from aragora.pipeline.brain_dump_parser import BrainDumpParser
+
+        pid = pipeline_id or f"braindump-{uuid.uuid4().hex[:12]}"
+
+        parser = BrainDumpParser()
+        enriched = parser.parse_enriched(text)
+        logger.info(
+            "Brain dump parsed: %d ideas, themes=%s, urgency=%s",
+            len(enriched.ideas),
+            enriched.detected_themes,
+            enriched.urgency_signals,
+        )
+
+        if not enriched.ideas:
+            return PipelineResult(
+                pipeline_id=pid,
+                stage_status=_initial_stage_status(),
+            )
+
+        pipeline = cls()
+        auto_advance = automation_level == "full"
+
+        if automation_level == "manual":
+            return pipeline.from_ideas(
+                enriched.ideas,
+                auto_advance=False,
+                pipeline_id=pid,
+            )
+
+        # For "full" and "guided", run the full pipeline
+        cfg = PipelineConfig(
+            stages_to_run=["ideation", "principles", "goals", "workflow", "orchestration"],
+            enable_principles=True,
+        )
+
+        if automation_level == "guided":
+            # In guided mode we still run all stages but flag for approval
+            cfg.stages_to_run = ["ideation"]  # Start with just ideation
+
+        result = await pipeline.run(
+            input_text=text,
+            config=cfg,
+            pipeline_id=pid,
+        )
+
+        return result
+
+    @classmethod
+    async def from_system_metrics(
+        cls,
+        pipeline_id: str | None = None,
+    ) -> PipelineResult:
+        """Create a pipeline from system health metrics.
+
+        Queries system health (test pass rate, ELO drift, budget burn,
+        KM contradictions) and auto-generates improvement ideas.
+
+        Returns:
+            PipelineResult with system-generated improvement ideas.
+        """
+        pid = pipeline_id or f"sysmetrics-{uuid.uuid4().hex[:12]}"
+        ideas: list[str] = []
+
+        try:
+            from aragora.nomic.meta_planner import MetaPlanner
+
+            planner = MetaPlanner()
+            context = await planner.get_system_health_context()
+
+            if context.test_failures:
+                for tf in context.test_failures[:5]:
+                    ideas.append(f"[high] Fix test failure: {tf}")
+            if context.recent_issues:
+                for issue in context.recent_issues[:5]:
+                    ideas.append(f"[medium] Address issue: {issue}")
+            if context.ci_failures:
+                for ci in context.ci_failures[:3]:
+                    ideas.append(f"[high] Fix CI failure: {ci}")
+            if context.ci_flaky_tests:
+                for flaky in context.ci_flaky_tests[:3]:
+                    ideas.append(f"[medium] Stabilize flaky test: {flaky}")
+        except (ImportError, AttributeError):
+            logger.debug("MetaPlanner unavailable for system metrics")
+
+        if not ideas:
+            ideas = [
+                "[low] Review and update test coverage",
+                "[low] Check for dependency updates",
+                "[low] Review error logs for recurring issues",
+            ]
+
+        pipeline = cls()
+        result = pipeline.from_ideas(
+            ideas,
+            auto_advance=True,
+            pipeline_id=pid,
+        )
+        return result
+
     def from_debate(
         self,
         cartographer_data: dict[str, Any],
@@ -2428,98 +2552,154 @@ class IdeaToExecutionPipeline:
             "entry_step": steps[0]["id"] if steps else None,
         }
 
+    # Domain mapping for TeamSelector scoring: maps step types/phases to
+    # domains understood by TeamSelector's DOMAIN_CAPABILITY_MAP.
+    _STEP_TYPE_TO_DOMAIN: dict[str, str] = {
+        "task": "implementation",
+        "research": "research",
+        "verification": "testing",
+        "human_checkpoint": "review",
+        "review": "review",
+        "design": "architecture",
+        "implement": "implementation",
+        "test": "testing",
+        "assess": "analysis",
+        "mitigate": "implementation",
+        "instrument": "infrastructure",
+        "baseline": "testing",
+        "monitor": "infrastructure",
+        "define": "architecture",
+        "validate": "testing",
+        "execute": "implementation",
+        "checkpoint": "review",
+    }
+
     def _actions_to_execution_plan(self, actions_canvas: Canvas) -> dict[str, Any]:
         """Convert action canvas nodes into a multi-agent execution plan.
 
         Assigns tasks to specialized agents based on step phase and type,
         using Aragora's agent archetypes for heterogeneous model consensus.
-        When available, uses ELO-aware TeamSelector for data-driven assignment.
+        When available, uses ELO-ranked, calibration-aware TeamSelector for
+        data-driven assignment instead of basic keyword matching.
         """
-        # Try ELO-aware agent ranking
-        elo_scores: dict[str, float] = {}
-        _PHASE_TO_DOMAIN = {
-            "research": "research",
-            "design": "creative",
-            "implement": "code",
-            "test": "technical",
-            "verify": "technical",
-            "review": "reasoning",
-            "define": "research",
-            "validate": "technical",
-            "assess": "research",
-            "mitigate": "code",
-            "instrument": "code",
-            "baseline": "technical",
-            "monitor": "technical",
-            "execute": "code",
-        }
-        _elo_domain_agents: dict[str, str] = {}
+        # ------------------------------------------------------------------
+        # Try to instantiate TeamSelector for calibration-aware scoring
+        # ------------------------------------------------------------------
+        team_selector = None
         try:
             from aragora.debate.team_selector import TeamSelector
 
-            selector = TeamSelector()
-            # Query ELO rankings for each domain
-            for domain in set(_PHASE_TO_DOMAIN.values()):
-                try:
-                    rankings = (
-                        selector.get_rankings(domain=domain)
-                        if hasattr(selector, "get_rankings")
-                        else []
-                    )
-                    if rankings:
-                        best = rankings[0]
-                        agent_id = getattr(best, "agent_id", None) or str(best)
-                        score = getattr(best, "elo", 1000.0)
-                        elo_scores[f"{domain}:{agent_id}"] = score
-                        _elo_domain_agents[domain] = agent_id
-                except (RuntimeError, ValueError, KeyError) as exc:
-                    logger.debug("ELO ranking unavailable for domain %s: %s", domain, exc)
-        except ImportError:
+            team_selector = TeamSelector()
+        except (ImportError, RuntimeError, TypeError, ValueError):
             logger.debug("TeamSelector not available, using static agent map")
-        except (RuntimeError, ValueError) as exc:
-            logger.debug("ELO ranking system unavailable: %s", exc)
 
+        # ------------------------------------------------------------------
         # Agent pool with diverse model providers for adversarial vetting
+        # ------------------------------------------------------------------
         agents = [
             {
                 "id": "agent-researcher",
                 "name": "Researcher",
                 "type": "anthropic-api",
+                "model": "claude-3-opus",
                 "capabilities": ["research", "analysis", "synthesis"],
             },
             {
                 "id": "agent-designer",
                 "name": "Designer",
                 "type": "openai-api",
+                "model": "gpt-4o",
                 "capabilities": ["design", "architecture", "planning"],
             },
             {
                 "id": "agent-implementer",
                 "name": "Implementer",
                 "type": "codex",
+                "model": "codex",
                 "capabilities": ["code", "implementation", "debugging"],
             },
             {
                 "id": "agent-tester",
                 "name": "Tester",
                 "type": "anthropic-api",
+                "model": "claude-3-opus",
                 "capabilities": ["testing", "verification", "validation"],
             },
             {
                 "id": "agent-reviewer",
                 "name": "Reviewer",
                 "type": "gemini",
+                "model": "gemini",
                 "capabilities": ["review", "critique", "quality"],
             },
             {
                 "id": "agent-monitor",
                 "name": "Monitor",
                 "type": "mistral",
+                "model": "mistral",
                 "capabilities": ["monitoring", "metrics", "observability"],
             },
         ]
 
-        # Map step phases to best-fit agent
+        # ------------------------------------------------------------------
+        # Build lightweight agent proxies for TeamSelector scoring.
+        # TeamSelector.select() requires Agent-like objects with at least
+        # ``name``, ``model``, and ``agent_type`` attributes.
+        # ------------------------------------------------------------------
+        _agent_proxies: list[Any] = []
+        _proxy_to_pool_id: dict[str, str] = {}  # proxy.name -> pool agent id
+        if team_selector:
+            try:
+                from aragora.pipeline._agent_proxy import _AgentProxy  # noqa: F811
+
+                for a in agents:
+                    proxy = _AgentProxy(
+                        name=a["name"],
+                        model=a.get("model", "unknown"),
+                        agent_type=a.get("type", "unknown"),
+                    )
+                    _agent_proxies.append(proxy)
+                    _proxy_to_pool_id[a["name"]] = a["id"]
+            except (ImportError, TypeError):
+                # If proxy class isn't available, fall back to static map
+                team_selector = None
+                logger.debug("Agent proxy not available, falling back to static map")
+
+        # ------------------------------------------------------------------
+        # Pre-compute domain-sorted agent rankings via TeamSelector.
+        # For each unique domain we call ``selector.select(...)`` once and
+        # cache the ranked list.  This gives us ELO + calibration-aware
+        # ordering per domain.
+        # ------------------------------------------------------------------
+        _domain_rankings: dict[str, list[Any]] = {}  # domain -> sorted proxy list
+        _domain_reasoning: dict[str, dict[str, dict[str, float]]] = {}
+        elo_used = False
+        if team_selector and _agent_proxies:
+            unique_domains = set(self._STEP_TYPE_TO_DOMAIN.values())
+            for domain in unique_domains:
+                try:
+                    ranked = team_selector.select(
+                        _agent_proxies,
+                        domain=domain,
+                        task=f"Pipeline stage: {domain}",
+                    )
+                    if ranked:
+                        _domain_rankings[domain] = ranked
+                        elo_used = True
+                        # Capture per-agent scoring breakdown for transparency
+                        reasoning = getattr(
+                            team_selector, "_last_selection_reasoning", {}
+                        )
+                        if reasoning:
+                            _domain_reasoning[domain] = dict(reasoning)
+                except (TypeError, AttributeError, ValueError, RuntimeError) as exc:
+                    logger.debug(
+                        "TeamSelector scoring failed for domain %s: %s", domain, exc
+                    )
+
+        # ------------------------------------------------------------------
+        # Static fallback: map step phases to best-fit agent id
+        # ------------------------------------------------------------------
         phase_agent_map = {
             "research": "agent-researcher",
             "design": "agent-designer",
@@ -2545,36 +2725,76 @@ class IdeaToExecutionPipeline:
             step_type = node.data.get("step_type", "task")
             phase = node.data.get("phase", "")
 
-            # Determine assignment: prefer ELO-ranked agent, fall back to static map
-            elo_agent = None
-            elo_score = None
-            if _elo_domain_agents and phase:
-                domain = _PHASE_TO_DOMAIN.get(phase)
-                if domain and domain in _elo_domain_agents:
-                    elo_agent = _elo_domain_agents[domain]
-                    elo_score = elo_scores.get(f"{domain}:{elo_agent}")
-
-            if elo_agent:
-                assigned = elo_agent
-            elif phase and phase in phase_agent_map:
-                assigned = phase_agent_map[phase]
-            elif step_type == "human_checkpoint":
-                assigned = ""
-            elif step_type == "verification":
-                assigned = "agent-tester"
-            elif step_type == "task":
-                assigned = "agent-implementer"
-            else:
-                assigned = "agent-researcher"
-
-            # Determine task type
+            # Determine task type first (human gates skip agent assignment)
             if step_type == "human_checkpoint":
                 task_type = "human_gate"
-                assigned = ""
             elif step_type == "verification":
                 task_type = "verification"
             else:
                 task_type = "agent_task"
+
+            # ----------------------------------------------------------
+            # Agent assignment: prefer TeamSelector-ranked agents, then
+            # fall back to the static phase_agent_map.
+            # ----------------------------------------------------------
+            assigned = ""
+            elo_score: float | None = None
+            selection_rationale: str | None = None
+            alternative_agents: list[dict[str, Any]] | None = None
+
+            # Resolve the domain for this step/phase
+            lookup_key = phase if phase else step_type
+            domain = self._STEP_TYPE_TO_DOMAIN.get(lookup_key, "general")
+
+            if task_type == "human_gate":
+                assigned = ""
+            elif _domain_rankings and domain in _domain_rankings:
+                # --- TeamSelector path: use calibration-aware ranking ---
+                ranked = _domain_rankings[domain]
+                best = ranked[0]
+                best_name = getattr(best, "name", str(best))
+                assigned = _proxy_to_pool_id.get(best_name, best_name)
+
+                # Extract score from reasoning breakdown if available
+                reasoning_for_domain = _domain_reasoning.get(domain, {})
+                best_breakdown = reasoning_for_domain.get(best_name, {})
+                elo_score = best_breakdown.get("total") if best_breakdown else None
+                if elo_score is None:
+                    # Try elo component specifically
+                    elo_score = best_breakdown.get("elo")
+
+                if elo_score is not None:
+                    selection_rationale = (
+                        f"TeamSelector top-ranked for {domain}"
+                        f" (score={elo_score:.4f})"
+                    )
+                else:
+                    selection_rationale = f"TeamSelector top-ranked for {domain}"
+
+                # Collect alternative agents (next 2 in ranking)
+                if len(ranked) > 1:
+                    alternative_agents = []
+                    for alt in ranked[1:3]:
+                        alt_name = getattr(alt, "name", str(alt))
+                        alt_breakdown = reasoning_for_domain.get(alt_name, {})
+                        alt_score = alt_breakdown.get("total")
+                        alternative_agents.append(
+                            {
+                                "name": alt_name,
+                                "score": alt_score,
+                                "agentId": _proxy_to_pool_id.get(alt_name, alt_name),
+                            }
+                        )
+            else:
+                # --- Static fallback path ---
+                if phase and phase in phase_agent_map:
+                    assigned = phase_agent_map[phase]
+                elif step_type == "verification":
+                    assigned = "agent-tester"
+                elif step_type == "task":
+                    assigned = "agent-implementer"
+                else:
+                    assigned = "agent-researcher"
 
             if assigned:
                 used_agents.add(assigned)
@@ -2596,6 +2816,10 @@ class IdeaToExecutionPipeline:
             }
             if elo_score is not None:
                 task_dict["elo_score"] = elo_score
+            if selection_rationale is not None:
+                task_dict["selection_rationale"] = selection_rationale
+            if alternative_agents:
+                task_dict["alternative_agents"] = alternative_agents
 
             # Surface precedent context from KM so agents get historical hints
             precs = node.data.get("precedents", [])
@@ -2617,5 +2841,5 @@ class IdeaToExecutionPipeline:
         return {
             "agents": active_agents,
             "tasks": tasks,
-            "elo_used": bool(elo_scores),
+            "elo_used": elo_used,
         }

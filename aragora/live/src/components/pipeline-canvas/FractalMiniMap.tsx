@@ -8,10 +8,11 @@
 import { memo } from 'react';
 import type { PipelineStageType } from './types';
 
-const STAGES: PipelineStageType[] = ['ideas', 'goals', 'actions', 'orchestration'];
+const STAGES: PipelineStageType[] = ['ideas', 'principles', 'goals', 'actions', 'orchestration'];
 
 const STAGE_COLORS: Record<PipelineStageType, string> = {
   ideas: '#3B82F6',
+  principles: '#8B5CF6',
   goals: '#10B981',
   actions: '#F59E0B',
   orchestration: '#8B5CF6',

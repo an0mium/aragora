@@ -88,13 +88,11 @@ def get_existing_milestones(repo: str) -> dict[str, Any]:
             [
                 "gh",
                 "api",
+                "--method", "GET",
                 f"repos/{repo}/milestones",
-                "-f",
-                "state=all",
-                "-f",
-                f"page={page}",
-                "-f",
-                "per_page=100",
+                "-f", "state=open",
+                "-F", f"page={page}",
+                "-F", "per_page=100",
             ],
             check=False,
         )

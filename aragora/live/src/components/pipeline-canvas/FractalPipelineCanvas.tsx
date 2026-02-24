@@ -34,6 +34,7 @@ interface FractalPipelineCanvasProps {
 
 const STAGE_DATA_KEYS: Record<PipelineStageType, keyof PipelineResultResponse> = {
   ideas: 'ideas',
+  principles: 'principles',
   goals: 'goals',
   actions: 'actions',
   orchestration: 'orchestration',

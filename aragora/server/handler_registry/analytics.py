@@ -104,6 +104,11 @@ ProvenanceExplorerHandler = _safe_import(
     "aragora.server.handlers.pipeline.provenance_explorer", "ProvenanceExplorerHandler"
 )
 
+# DAG Operations
+DAGOperationsHandler = _safe_import(
+    "aragora.server.handlers.dag_operations", "DAGOperationsHandler"
+)
+
 # Outcome Tracking
 OutcomeHandler = _safe_import("aragora.server.handlers.governance.outcomes", "OutcomeHandler")
 
@@ -153,6 +158,8 @@ ANALYTICS_HANDLER_REGISTRY: list[tuple[str, object]] = [
     ("_pipeline_transitions_handler", PipelineTransitionsHandler),
     # Provenance explorer
     ("_provenance_explorer_handler", ProvenanceExplorerHandler),
+    # DAG operations
+    ("_dag_operations_handler", DAGOperationsHandler),
     # Outcome tracking
     ("_outcome_handler", OutcomeHandler),
     # Decision benchmarking
@@ -191,6 +198,7 @@ __all__ = [
     "UniversalGraphHandler",
     "PipelineTransitionsHandler",
     "ProvenanceExplorerHandler",
+    "DAGOperationsHandler",
     # Outcome tracking
     "OutcomeHandler",
     # Decision benchmarking

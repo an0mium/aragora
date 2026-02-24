@@ -104,6 +104,8 @@ export { useWorkflowWebSocket } from './useWorkflowWebSocket';
 export { usePipeline } from './usePipeline';
 export { usePipelineCanvas } from './usePipelineCanvas';
 export { usePipelineWebSocket } from './usePipelineWebSocket';
+export { useUnifiedDAG } from './useUnifiedDAG';
+export type { DAGNodeData, DAGOperationResult, DAGStage } from './useUnifiedDAG';
 export { useFractalNavigation } from './useFractalNavigation';
 export type { NavigationLevel, FractalNavigationResult } from './useFractalNavigation';
 export { usePlaybooks } from './usePlaybooks';
@@ -115,6 +117,20 @@ export { usePlaybooks } from './usePlaybooks';
 export { useCosts } from './useCosts';
 export { useUsageDashboard, useUsageTrend, useCostBreakdown } from './useUsageDashboard';
 export { useQueueMonitoring } from './useQueueMonitoring';
+
+// =============================================================================
+// ELO Analytics
+// =============================================================================
+
+export { useEloTrends, useAgentEloDetail, useRankingStats, useDomainLeaderboard } from './useEloAnalytics';
+export type { EloHistoryPoint, AgentEloDetail, AgentTrendData, DomainLeaderboardEntry } from './useEloAnalytics';
+
+// =============================================================================
+// System Health & Resilience
+// =============================================================================
+
+export { useSystemHealth, useCircuitBreakers, useSLOStatus, useAgentPoolHealth, useBudgetStatus } from './useSystemHealth';
+export type { CircuitBreakerInfo, SLOInfo, SystemHealthOverview } from './useSystemHealth';
 
 // =============================================================================
 // Integrations & Connectors
@@ -201,3 +217,41 @@ export { useInboxSync } from './useInboxSync';
 // =============================================================================
 
 export { useWebSocketBase } from './useWebSocketBase';
+
+// =============================================================================
+// Self-Improve & Knowledge Flow
+// =============================================================================
+
+export { useMetaPlannerGoals, useExecutionTimeline, useLearningInsights, useMetricsComparison } from './useSelfImproveDetails';
+export { useKnowledgeFlow } from './useKnowledgeFlow';
+export { useUnifiedMemoryQuery } from './useUnifiedMemory';
+
+// =============================================================================
+// System Intelligence
+// =============================================================================
+
+export { useSystemIntelligence, useAgentPerformance, useInstitutionalMemory, useImprovementQueue } from './useSystemIntelligence';
+export type {
+  SystemOverview,
+  AgentPerformanceEntry,
+  InstitutionalMemory,
+  ImprovementQueueItem,
+  ImprovementQueueData,
+} from './useSystemIntelligence';
+
+// =============================================================================
+// Mission Control & Agent Execution
+// =============================================================================
+
+export { useIsAdmin } from './usePermission';
+export { useMissionControl } from './useMissionControl';
+export { useBrainDumpPreview } from './useBrainDumpPreview';
+export { useAgentExecution } from './useAgentExecution';
+export { useIntelligence } from './useIntelligence';
+
+// =============================================================================
+// Streaming & Dashboard Events
+// =============================================================================
+
+export { useStreamingAudio } from './useStreamingAudio';
+export { useDashboardEvents } from './useDashboardEvents';

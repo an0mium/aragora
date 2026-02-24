@@ -332,6 +332,11 @@ AutonomousImproveHandler = _safe_import(
     "aragora.server.handlers.autonomous.improve", "AutonomousImproveHandler"
 )
 
+# System intelligence dashboard
+SystemIntelligenceHandler = _safe_import(
+    "aragora.server.handlers.system_intelligence", "SystemIntelligenceHandler"
+)
+
 # Observability dashboard
 ObservabilityDashboardHandler = _safe_import(
     "aragora.server.handlers.observability.dashboard", "ObservabilityDashboardHandler"
@@ -544,6 +549,8 @@ ADMIN_HANDLER_REGISTRY: list[tuple[str, object]] = [
     ("_self_improve_handler", SelfImproveHandler),
     ("_self_improve_details_handler", SelfImproveDetailsHandler),
     ("_autonomous_improve_handler", AutonomousImproveHandler),
+    # System intelligence
+    ("_system_intelligence_handler", SystemIntelligenceHandler),
     # Observability
     ("_observability_dashboard_handler", ObservabilityDashboardHandler),
     # System health dashboard
@@ -705,6 +712,8 @@ __all__ = [
     "SelfImproveHandler",
     "SelfImproveDetailsHandler",
     "AutonomousImproveHandler",
+    # System intelligence
+    "SystemIntelligenceHandler",
     # Observability
     "ObservabilityDashboardHandler",
     # System health dashboard

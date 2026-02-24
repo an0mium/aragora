@@ -102,6 +102,43 @@ class ConsensusAPI:
         """
         return self._client.request("GET", "/api/v1/consensus")
 
+    def detect(
+        self,
+        task: str,
+        proposals: list[dict[str, Any]],
+        threshold: float = 0.7,
+    ) -> dict[str, Any]:
+        """Detect consensus from a set of proposals.
+
+        Analyzes proposals for agreement and returns a consensus proof.
+
+        Args:
+            task: The debate task/question being analyzed.
+            proposals: List of proposal dicts with 'agent', 'content', and optional 'round'.
+            threshold: Confidence threshold for consensus (0.0 to 1.0, default 0.7).
+
+        Returns:
+            Dict with consensus analysis including proof, claims, votes.
+        """
+        return self._client.request(
+            "POST",
+            "/api/v1/consensus/detect",
+            json={"task": task, "proposals": proposals, "threshold": threshold},
+        )
+
+    def get_detection_status(self, debate_id: str) -> dict[str, Any]:
+        """Get consensus detection status for an existing debate.
+
+        Args:
+            debate_id: The debate ID to check consensus for.
+
+        Returns:
+            Dict with consensus status including proof, partial consensus, and claims.
+        """
+        return self._client.request(
+            "GET", f"/api/v1/consensus/status/{debate_id}"
+        )
+
 
 class AsyncConsensusAPI:
     """Asynchronous Consensus API."""
@@ -182,3 +219,38 @@ class AsyncConsensusAPI:
     async def get_overview(self) -> dict[str, Any]:
         """Get consensus overview."""
         return await self._client.request("GET", "/api/v1/consensus")
+
+    async def detect(
+        self,
+        task: str,
+        proposals: list[dict[str, Any]],
+        threshold: float = 0.7,
+    ) -> dict[str, Any]:
+        """Detect consensus from a set of proposals.
+
+        Args:
+            task: The debate task/question being analyzed.
+            proposals: List of proposal dicts with 'agent', 'content', and optional 'round'.
+            threshold: Confidence threshold for consensus (0.0 to 1.0, default 0.7).
+
+        Returns:
+            Dict with consensus analysis including proof, claims, votes.
+        """
+        return await self._client.request(
+            "POST",
+            "/api/v1/consensus/detect",
+            json={"task": task, "proposals": proposals, "threshold": threshold},
+        )
+
+    async def get_detection_status(self, debate_id: str) -> dict[str, Any]:
+        """Get consensus detection status for an existing debate.
+
+        Args:
+            debate_id: The debate ID to check consensus for.
+
+        Returns:
+            Dict with consensus status including proof, partial consensus, and claims.
+        """
+        return await self._client.request(
+            "GET", f"/api/v1/consensus/status/{debate_id}"
+        )

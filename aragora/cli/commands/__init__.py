@@ -88,6 +88,11 @@ _LAZY_IMPORTS: dict[str, tuple[str, str]] = {
     # pipeline (idea-to-execution pipeline)
     "cmd_pipeline": ("aragora.cli.commands.pipeline", "cmd_pipeline"),
     "add_pipeline_parser": ("aragora.cli.commands.pipeline", "add_pipeline_parser"),
+    # consensus detection
+    "cmd_consensus": ("aragora.cli.commands.consensus", "cmd_consensus"),
+    "cmd_consensus_detect": ("aragora.cli.commands.consensus", "cmd_consensus_detect"),
+    "cmd_consensus_status": ("aragora.cli.commands.consensus", "cmd_consensus_status"),
+    "add_consensus_parser": ("aragora.cli.commands.consensus", "add_consensus_parser"),
 }
 
 __all__ = list(_LAZY_IMPORTS.keys())

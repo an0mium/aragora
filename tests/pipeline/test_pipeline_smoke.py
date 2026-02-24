@@ -139,6 +139,8 @@ class TestSyncPipelineSmoke:
         assert result.orchestration_canvas is not None
 
         for stage in PipelineStage:
+            if stage.value not in result.stage_status:
+                continue  # PRINCIPLES stage is opt-in
             assert result.stage_status[stage.value] == "complete", (
                 f"Stage {stage.value} should be 'complete', "
                 f"got '{result.stage_status.get(stage.value)}'"

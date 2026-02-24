@@ -1,6 +1,5 @@
 """Tests for Debate Performance Monitoring System."""
 
-import time
 from datetime import datetime, timezone
 from unittest.mock import MagicMock, patch
 
@@ -16,6 +15,22 @@ from aragora.debate.performance_monitor import (
     DEFAULT_SLOW_ROUND_THRESHOLD,
     MAX_SLOW_DEBATES_HISTORY,
 )
+
+
+def _make_time(start=1000.0, step=0.1):
+    """Create an auto-incrementing time.time() replacement.
+
+    Each call returns start + N*step where N is the call count (0-indexed).
+    This lets tests simulate time passage without sleeping.
+    """
+    state = {"calls": 0}
+
+    def _time():
+        val = start + state["calls"] * step
+        state["calls"] += 1
+        return val
+
+    return _time
 
 
 # =============================================================================
@@ -529,11 +544,13 @@ class TestTrackDebate:
         """Test debate duration calculation."""
         monitor = DebatePerformanceMonitor(emit_prometheus=False)
 
-        with monitor.track_debate("debate-123", task="Test") as metric:
-            time.sleep(0.05)  # 50ms
+        # time.time() called: start(1000.0), then end(1000.1) => duration=0.1
+        with patch("aragora.debate.performance_monitor.time.time", side_effect=_make_time(1000.0, 0.1)):
+            with monitor.track_debate("debate-123", task="Test") as metric:
+                pass  # No sleep needed; mocked time advances automatically
 
-        assert metric.duration_seconds >= 0.05
-        assert metric.duration_seconds < 1.0  # Should be much less than 1s
+        assert metric.duration_seconds == pytest.approx(0.1, abs=1e-9)
+        assert metric.duration_seconds < 1.0
 
     def test_track_debate_empty_task(self):
         """Test debate tracking with empty task."""
@@ -579,11 +596,13 @@ class TestTrackRound:
         """Test round duration calculation."""
         monitor = DebatePerformanceMonitor(emit_prometheus=False)
 
-        with monitor.track_debate("debate-123", task="Test"):
-            with monitor.track_round("debate-123", round_num=1) as round_metric:
-                time.sleep(0.05)
+        # Calls: debate_start(0), round_start(1), round_end(2), debate_end(3)
+        with patch("aragora.debate.performance_monitor.time.time", side_effect=_make_time(1000.0, 0.1)):
+            with monitor.track_debate("debate-123", task="Test"):
+                with monitor.track_round("debate-123", round_num=1) as round_metric:
+                    pass
 
-        assert round_metric.duration_seconds >= 0.05
+        assert round_metric.duration_seconds == pytest.approx(0.1, abs=1e-9)
         assert round_metric.duration_seconds < 1.0
 
     def test_track_round_slow_detection(self):
@@ -594,9 +613,11 @@ class TestTrackRound:
             emit_prometheus=False,
         )
 
-        with monitor.track_debate("debate-123", task="Test"):
-            with monitor.track_round("debate-123", round_num=1) as round_metric:
-                time.sleep(0.02)  # Exceed 10ms threshold
+        # step=0.05 => round duration=0.05s > 0.01 threshold
+        with patch("aragora.debate.performance_monitor.time.time", side_effect=_make_time(1000.0, 0.05)):
+            with monitor.track_debate("debate-123", task="Test"):
+                with monitor.track_round("debate-123", round_num=1) as round_metric:
+                    pass
 
         assert round_metric.is_slow is True
 
@@ -679,12 +700,14 @@ class TestTrackPhase:
         """Test phase duration calculation."""
         monitor = DebatePerformanceMonitor(emit_prometheus=False)
 
-        with monitor.track_debate("debate-123", task="Test"):
-            with monitor.track_round("debate-123", round_num=1):
-                with monitor.track_phase("debate-123", "propose") as phase_metric:
-                    time.sleep(0.05)
+        # Calls: debate_start, round_start, phase_start, phase_end, round_end, debate_end
+        with patch("aragora.debate.performance_monitor.time.time", side_effect=_make_time(1000.0, 0.1)):
+            with monitor.track_debate("debate-123", task="Test"):
+                with monitor.track_round("debate-123", round_num=1):
+                    with monitor.track_phase("debate-123", "propose") as phase_metric:
+                        pass
 
-        assert phase_metric.duration_seconds >= 0.05
+        assert phase_metric.duration_seconds == pytest.approx(0.1, abs=1e-9)
 
     def test_track_phase_on_exception(self):
         """Test phase tracking handles exceptions."""
@@ -801,50 +824,66 @@ class TestGetPerformanceInsights:
         """Test insights with rounds."""
         monitor = DebatePerformanceMonitor(emit_prometheus=False)
 
-        with monitor.track_debate("debate-123", task="Test"):
-            with monitor.track_round("debate-123", round_num=1):
-                time.sleep(0.01)
-            with monitor.track_round("debate-123", round_num=2):
-                time.sleep(0.01)
+        with patch("aragora.debate.performance_monitor.time.time", side_effect=_make_time(1000.0, 0.1)):
+            with monitor.track_debate("debate-123", task="Test"):
+                with monitor.track_round("debate-123", round_num=1):
+                    pass
+                with monitor.track_round("debate-123", round_num=2):
+                    pass
 
-            insights = monitor.get_performance_insights("debate-123")
+                insights = monitor.get_performance_insights("debate-123")
 
-            assert insights["round_count"] == 2
-            assert 1 in insights["rounds"]
-            assert 2 in insights["rounds"]
+                assert insights["round_count"] == 2
+                assert 1 in insights["rounds"]
+                assert 2 in insights["rounds"]
 
     def test_insights_with_phases(self):
         """Test insights includes phase breakdown."""
         monitor = DebatePerformanceMonitor(emit_prometheus=False)
 
-        with monitor.track_debate("debate-123", task="Test"):
-            with monitor.track_round("debate-123", round_num=1):
-                with monitor.track_phase("debate-123", "propose"):
-                    time.sleep(0.01)
-                with monitor.track_phase("debate-123", "critique"):
-                    time.sleep(0.01)
+        with patch("aragora.debate.performance_monitor.time.time", side_effect=_make_time(1000.0, 0.1)):
+            with monitor.track_debate("debate-123", task="Test"):
+                with monitor.track_round("debate-123", round_num=1):
+                    with monitor.track_phase("debate-123", "propose"):
+                        pass
+                    with monitor.track_phase("debate-123", "critique"):
+                        pass
 
-            insights = monitor.get_performance_insights("debate-123")
+                insights = monitor.get_performance_insights("debate-123")
 
-            round_info = insights["rounds"][1]
-            assert "phases" in round_info
-            assert "propose" in round_info["phases"]
-            assert "critique" in round_info["phases"]
+                round_info = insights["rounds"][1]
+                assert "phases" in round_info
+                assert "propose" in round_info["phases"]
+                assert "critique" in round_info["phases"]
 
     def test_insights_slowest_round(self):
         """Test insights includes slowest round."""
         monitor = DebatePerformanceMonitor(emit_prometheus=False)
 
-        with monitor.track_debate("debate-123", task="Test"):
-            with monitor.track_round("debate-123", round_num=1):
-                time.sleep(0.01)
-            with monitor.track_round("debate-123", round_num=2):
-                time.sleep(0.05)  # Slower
+        # We need round 2 to be slower than round 1.
+        # Calls: debate_start, r1_start, r1_end, r2_start, <extra>, r2_end, debate_end
+        # r1 duration = 1 step, r2 duration needs to be larger.
+        # Use variable step: provide explicit values so r2 takes longer.
+        times = iter([
+            1000.0,   # debate start
+            1000.1,   # round 1 start
+            1000.2,   # round 1 end  (duration=0.1)
+            1000.3,   # round 2 start
+            1000.8,   # round 2 end  (duration=0.5, slower)
+            1001.0,   # get_current_slow_debates time.time() in insights
+            1001.0,   # debate end
+        ])
+        with patch("aragora.debate.performance_monitor.time.time", side_effect=times):
+            with monitor.track_debate("debate-123", task="Test"):
+                with monitor.track_round("debate-123", round_num=1):
+                    pass
+                with monitor.track_round("debate-123", round_num=2):
+                    pass
 
-            insights = monitor.get_performance_insights("debate-123")
+                insights = monitor.get_performance_insights("debate-123")
 
-            assert "slowest_round" in insights
-            assert insights["slowest_round"]["round_num"] == 2
+                assert "slowest_round" in insights
+                assert insights["slowest_round"]["round_num"] == 2
 
 
 # =============================================================================
@@ -862,9 +901,11 @@ class TestSlowDebates:
             emit_prometheus=False,
         )
 
-        with monitor.track_debate("debate-123", task="Test task"):
-            with monitor.track_round("debate-123", round_num=1):
-                time.sleep(0.02)  # Exceed threshold
+        # step=0.05 => round duration=0.05 > 0.01 threshold
+        with patch("aragora.debate.performance_monitor.time.time", side_effect=_make_time(1000.0, 0.05)):
+            with monitor.track_debate("debate-123", task="Test task"):
+                with monitor.track_round("debate-123", round_num=1):
+                    pass
 
         slow_debates = monitor.get_slow_debates()
         assert len(slow_debates) == 1
@@ -877,11 +918,12 @@ class TestSlowDebates:
             emit_prometheus=False,
         )
 
-        # Create multiple slow debates
-        for i in range(5):
-            with monitor.track_debate(f"debate-{i}", task="Test"):
-                with monitor.track_round(f"debate-{i}", round_num=1):
-                    time.sleep(0.002)
+        # step=0.01 => round duration > 0.001 threshold
+        with patch("aragora.debate.performance_monitor.time.time", side_effect=_make_time(1000.0, 0.01)):
+            for i in range(5):
+                with monitor.track_debate(f"debate-{i}", task="Test"):
+                    with monitor.track_round(f"debate-{i}", round_num=1):
+                        pass
 
         slow_debates = monitor.get_slow_debates(limit=3)
         assert len(slow_debates) == 3
@@ -893,16 +935,19 @@ class TestSlowDebates:
             emit_prometheus=False,
         )
 
-        # Create slow debate with 2 rounds total duration ~40ms
-        with monitor.track_debate("debate-1", task="Test"):
-            with monitor.track_round("debate-1", round_num=1):
-                time.sleep(0.02)
-            with monitor.track_round("debate-1", round_num=2):
-                time.sleep(0.02)
+        # Create slow debate with 2 rounds, each ~0.02s duration
+        # Calls: debate_start, r1_start, r1_end, r2_start, r2_end, debate_end
+        # step=0.02 => each round duration = 0.02s, total = 0.04s
+        with patch("aragora.debate.performance_monitor.time.time", side_effect=_make_time(1000.0, 0.02)):
+            with monitor.track_debate("debate-1", task="Test"):
+                with monitor.track_round("debate-1", round_num=1):
+                    pass
+                with monitor.track_round("debate-1", round_num=2):
+                    pass
 
         # Get only very slow debates (> 50ms per round)
         slow_debates = monitor.get_slow_debates(threshold_seconds=0.05)
-        # 40ms / 2 rounds = 20ms per round, below 50ms threshold
+        # total_duration / round_count = 0.1 / 2 = 0.05, need > 0.05 so filtered out
         assert len(slow_debates) == 0
 
     def test_get_slow_debates_returns_most_recent(self):
@@ -912,10 +957,11 @@ class TestSlowDebates:
             emit_prometheus=False,
         )
 
-        for i in range(3):
-            with monitor.track_debate(f"debate-{i}", task=f"Task {i}"):
-                with monitor.track_round(f"debate-{i}", round_num=1):
-                    time.sleep(0.002)
+        with patch("aragora.debate.performance_monitor.time.time", side_effect=_make_time(1000.0, 0.01)):
+            for i in range(3):
+                with monitor.track_debate(f"debate-{i}", task=f"Task {i}"):
+                    with monitor.track_round(f"debate-{i}", round_num=1):
+                        pass
 
         slow_debates = monitor.get_slow_debates()
         # Most recent should be first (reversed order)
@@ -935,24 +981,27 @@ class TestSlowDebates:
             emit_prometheus=False,
         )
 
-        with monitor.track_debate(
-            "debate-123",
-            task="A" * 150,  # Long task to test truncation
-            agent_names=["claude"],
-        ) as debate:
-            with monitor.track_round("debate-123", round_num=1):
-                time.sleep(0.002)  # Creates slow round
+        # step=0.01 => round duration > 0.001 threshold
+        # get_current_slow_debates also calls time.time() for elapsed_seconds
+        with patch("aragora.debate.performance_monitor.time.time", side_effect=_make_time(1000.0, 0.01)):
+            with monitor.track_debate(
+                "debate-123",
+                task="A" * 150,  # Long task to test truncation
+                agent_names=["claude"],
+            ) as debate:
+                with monitor.track_round("debate-123", round_num=1):
+                    pass
 
-            # After round completes, manually update slow_round_count
-            # (normally done in track_debate's finally block)
-            debate.slow_round_count = sum(1 for r in debate.rounds.values() if r.is_slow)
+                # After round completes, manually update slow_round_count
+                # (normally done in track_debate's finally block)
+                debate.slow_round_count = sum(1 for r in debate.rounds.values() if r.is_slow)
 
-            # Check while still active
-            current = monitor.get_current_slow_debates()
-            assert len(current) == 1
-            assert current[0]["debate_id"] == "debate-123"
-            assert len(current[0]["task"]) == 100  # Truncated
-            assert current[0]["slow_rounds"] == 1
+                # Check while still active
+                current = monitor.get_current_slow_debates()
+                assert len(current) == 1
+                assert current[0]["debate_id"] == "debate-123"
+                assert len(current[0]["task"]) == 100  # Truncated
+                assert current[0]["slow_rounds"] == 1
 
 
 # =============================================================================

@@ -43,6 +43,11 @@ const STAGE_PANEL_CONFIG: Record<PipelineStageType, {
     subtitle: 'Browse past debates and knowledge to seed ideas',
     color: 'text-indigo-400',
   },
+  principles: {
+    title: 'Principles Distillery',
+    subtitle: 'Extract values, priorities, and constraints from ideas',
+    color: 'text-violet-400',
+  },
   goals: {
     title: 'Agent Evaluation',
     subtitle: 'View agent trust scores and goal confidence',

@@ -3,6 +3,7 @@
 import { Scanlines, CRTVignette } from '@/components/MatrixRain';
 import { SystemHealthSummary } from '@/components/system-health/SystemHealthSummary';
 import { CircuitBreakerGrid } from '@/components/system-health/CircuitBreakerGrid';
+import { ResilienceDashboard } from '@/components/system-health/ResilienceDashboard';
 import { SLOStatusCards } from '@/components/system-health/SLOStatusCards';
 import { AgentPoolHealth } from '@/components/system-health/AgentPoolHealth';
 import { BudgetGauge } from '@/components/system-health/BudgetGauge';
@@ -21,7 +22,12 @@ export default function SystemHealthPage() {
         {/* Overall status banner + subsystem cards */}
         <SystemHealthSummary />
 
-        {/* Circuit breakers + SLO compliance */}
+        {/* Resilience Dashboard — expanded circuit breaker + health overview */}
+        <div className="mt-6">
+          <ResilienceDashboard />
+        </div>
+
+        {/* Circuit breakers (compact) + SLO compliance */}
         <div className="mt-6 grid grid-cols-1 lg:grid-cols-2 gap-6">
           <CircuitBreakerGrid />
           <SLOStatusCards />

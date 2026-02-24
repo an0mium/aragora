@@ -110,8 +110,108 @@ jobs:
         env:
           PYTHONPATH: .
 
+  # ---------------------------------------------------------------------------
+  # Security gate: inline critical security checks so releases cannot ship
+  # with known high/critical vulnerabilities.  The standalone security.yml
+  # workflow does not support workflow_call, so we duplicate the blocking
+  # subset here.
+  # ---------------------------------------------------------------------------
+  security-gate:
+    needs: validate
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install security tools
+        run: |
+          python -m pip install --upgrade pip
+          pip install bandit[toml] pip-audit safety
+          pip install -e .
+
+      # Bandit: fail on HIGH severity findings (-lll = high only)
+      - name: Bandit security scan (HIGH severity blocking)
+        run: bandit -r aragora/ -c pyproject.toml -lll
+
+      # pip-audit: fail on any known vulnerability in installed packages
+      - name: Python dependency audit (pip-audit)
+        run: |
+          pip-audit --strict --vulnerability-service osv \
+            --ignore-vuln CVE-2025-14009
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      # npm audit: fail on high/critical vulnerabilities in frontend deps
+      - name: npm audit (live frontend)
+        working-directory: aragora/live
+        run: |
+          npm ci --ignore-scripts
+          npm audit --omit=dev --audit-level=high
+
+      # npm audit: fail on high/critical vulnerabilities in TypeScript SDK deps
+      - name: npm audit (TypeScript SDK)
+        working-directory: sdk/typescript
+        run: |
+          npm ci --ignore-scripts 2>/dev/null || npm install --ignore-scripts 2>/dev/null || true
+          npm audit --omit=dev --audit-level=high
+
+  # ---------------------------------------------------------------------------
+  # Integration smoke test: run a targeted subset of integration tests to
+  # catch wiring / import / startup regressions before release.
+  # ---------------------------------------------------------------------------
+  integration-smoke:
+    needs: [validate, test]
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -e ".[dev,research,code-intel,test,monitoring]"
+          pip install pytest-timeout
+
+      - name: Run integration smoke tests
+        run: |
+          pytest tests/integration/ \
+            -v \
+            --timeout=120 \
+            --tb=short \
+            --maxfail=3
+        env:
+          PYTHONPATH: .
+
+      - name: Verify core imports
+        run: |
+          python -c "
+          from aragora import Arena, Environment, DebateProtocol
+          from aragora.server.handler_registry import HANDLER_REGISTRY
+          from aragora.rbac.models import Permission, Role
+          from aragora.knowledge.bridges import KnowledgeBridgeHub
+          from aragora.memory.continuum import ContinuumMemory
+          print('All core imports OK')
+          "
+
   build:
-    needs: [validate, test, docs-sync]
+    needs: [validate, test, docs-sync, security-gate, integration-smoke]
     runs-on: ubuntu-latest
     timeout-minutes: 15
 

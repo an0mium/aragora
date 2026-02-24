@@ -7,28 +7,26 @@
 
 | Surface | Inventory | Capability Coverage |
 |---------|-----------|---------------------|
-| **HTTP API** | 1772 paths / 2100 operations | 92.9% |
-| **CLI** | 74 commands | 78.6% |
-| **SDK (Python)** | 184 namespaces | 92.9% |
-| **SDK (TypeScript)** | 183 namespaces | 92.9% |
+| **HTTP API** | 1774 paths / 2102 operations | 100% |
+| **CLI** | 77 commands | 100% |
+| **SDK (Python)** | 184 namespaces | 100% |
+| **SDK (TypeScript)** | 183 namespaces | 100% |
 | **UI** | tracked in capability surfaces | 14.3% |
 | **Capability Catalog** | 14/37 mapped | 37.8% |
 
 ## Surface Gaps
 
-### Missing API (1)
+### Missing API (0)
 
-- `consensus_detection`
+_None -- all capabilities have API endpoints._
 
-### Missing CLI (3)
+### Missing CLI (0)
 
-- `compliance_framework`
-- `consensus_detection`
-- `rbac_v2`
+_None -- all capabilities have CLI commands._
 
-### Missing SDK (1)
+### Missing SDK (0)
 
-- `consensus_detection`
+_None -- all capabilities have SDK methods._
 
 ### Missing UI (12)
 
@@ -45,11 +43,10 @@
 - `rbac_v2`
 - `workflow_engine`
 
-### Missing CHANNELS (12)
+### Missing CHANNELS (11)
 
 - `agent_team_selection`
 - `compliance_framework`
-- `consensus_detection`
 - `continuum_memory`
 - `graph_debates`
 - `knowledge_mound`

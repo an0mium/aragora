@@ -129,6 +129,7 @@ Examples:
     _add_explain_parser(subparsers)
     _add_playbook_parser(subparsers)
     _add_pipeline_parser(subparsers)
+    _add_consensus_parser(subparsers)
 
     return parser
 
@@ -1854,3 +1855,10 @@ def _add_pipeline_parser(subparsers) -> None:
     from aragora.cli.commands.pipeline import add_pipeline_parser
 
     add_pipeline_parser(subparsers)
+
+
+def _add_consensus_parser(subparsers) -> None:
+    """Add the 'consensus' subcommand for consensus detection and analysis."""
+    from aragora.cli.commands.consensus import add_consensus_parser
+
+    add_consensus_parser(subparsers)

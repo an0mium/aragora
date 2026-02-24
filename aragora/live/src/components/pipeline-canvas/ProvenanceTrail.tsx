@@ -21,9 +21,10 @@ import {
 // Order of stages for sorting breadcrumbs
 const STAGE_ORDER: Record<PipelineStageType, number> = {
   ideas: 0,
-  goals: 1,
-  actions: 2,
-  orchestration: 3,
+  principles: 1,
+  goals: 2,
+  actions: 3,
+  orchestration: 4,
 };
 
 // ---------------------------------------------------------------------------

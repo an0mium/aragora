@@ -155,12 +155,17 @@ class TestELOLogging:
             data={"step_type": "task", "phase": "implement"},
         )
 
-        plan = pipeline._actions_to_execution_plan(canvas)
-        assert plan["elo_used"] is False
-        assert len(plan["tasks"]) == 1
+        # Patch TeamSelector to simulate it being unavailable
+        with patch(
+            "aragora.debate.team_selector.TeamSelector",
+            side_effect=ImportError("mocked"),
+        ):
+            plan = pipeline._actions_to_execution_plan(canvas)
+            assert plan["elo_used"] is False
+            assert len(plan["tasks"]) == 1
 
     def test_elo_used_flag_with_team_selector(self, pipeline):
-        """When TeamSelector returns rankings, elo_used should be True."""
+        """When TeamSelector.select() returns ranked agents, elo_used should be True."""
         from aragora.canvas.models import Canvas, CanvasNode, CanvasNodeType, Position
 
         canvas = Canvas(id="test", name="test")
@@ -172,9 +177,14 @@ class TestELOLogging:
             data={"step_type": "task", "phase": "research"},
         )
 
-        mock_ranking = MagicMock(agent_id="claude-3", elo=1500.0)
+        # Build mock proxies that mimic what TeamSelector.select returns
+        mock_agent = MagicMock(name="Researcher")
+        mock_agent.name = "Researcher"
         mock_selector = MagicMock()
-        mock_selector.get_rankings.return_value = [mock_ranking]
+        mock_selector.select.return_value = [mock_agent]
+        mock_selector._last_selection_reasoning = {
+            "Researcher": {"total": 1.35, "elo": 0.15},
+        }
 
         with patch(
             "aragora.debate.team_selector.TeamSelector",

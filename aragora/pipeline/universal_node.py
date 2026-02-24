@@ -25,6 +25,7 @@ from aragora.canvas.stages import (
     NODE_TYPE_COLORS,
     OrchestrationNodeType,
     PipelineStage,
+    PrincipleNodeType,
     ProvenanceLink,
     STAGE_COLORS,
     StageEdgeType,
@@ -35,6 +36,7 @@ from aragora.canvas.stages import (
 # Valid subtypes per stage
 _VALID_SUBTYPES: dict[PipelineStage, set[str]] = {
     PipelineStage.IDEAS: {e.value for e in IdeaNodeType},
+    PipelineStage.PRINCIPLES: {e.value for e in PrincipleNodeType},
     PipelineStage.GOALS: {e.value for e in GoalNodeType},
     PipelineStage.ACTIONS: {e.value for e in ActionNodeType},
     PipelineStage.ORCHESTRATION: {e.value for e in OrchestrationNodeType},

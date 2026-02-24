@@ -193,20 +193,38 @@ jobs:
         id: npm-audit-live
         working-directory: aragora/live
         run: npm audit --omit=dev --audit-level=high
+        # Non-blocking here so npm-audit-js also runs; aggregated in report step below.
+        continue-on-error: true
 
       - name: Install npm dependencies (typescript-sdk)
+        if: always()
         working-directory: sdk/typescript
         run: npm ci --ignore-scripts 2>/dev/null || npm install --ignore-scripts 2>/dev/null || true
 
       - name: Audit npm dependencies (typescript-sdk)
         id: npm-audit-js
+        if: always()
         working-directory: sdk/typescript
         run: npm audit --omit=dev --audit-level=high
+        # Non-blocking here so report step runs; aggregated below.
+        continue-on-error: true
 
+      # Blocking: fail the job if either npm audit found high/critical vulnerabilities.
       - name: Report npm dependency status
-        if: steps.npm-audit-live.outcome == 'failure' || steps.npm-audit-js.outcome == 'failure'
+        if: always() && (steps.npm-audit-live.outcome == 'failure' || steps.npm-audit-js.outcome == 'failure')
         run: |
-          echo "::warning::NPM dependency vulnerabilities detected. Review npm audit results."
+          FAILED=0
+          if [ "${{ steps.npm-audit-live.outcome }}" == "failure" ]; then
+            echo "::error::High/critical npm vulnerabilities in aragora/live. Run 'npm audit' locally."
+            FAILED=1
+          fi
+          if [ "${{ steps.npm-audit-js.outcome }}" == "failure" ]; then
+            echo "::error::High/critical npm vulnerabilities in sdk/typescript. Run 'npm audit' locally."
+            FAILED=1
+          fi
+          if [ "$FAILED" -eq 1 ]; then
+            exit 1
+          fi
 
   pentest-findings:
     name: "Security: Pentest Findings Gate"

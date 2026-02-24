@@ -1434,4 +1434,4 @@ class TestHandlerConstruction:
 
     def test_routes_list(self):
         """Handler has expected number of routes."""
-        assert len(ConsensusHandler.ROUTES) == 10
+        assert len(ConsensusHandler.ROUTES) == 11

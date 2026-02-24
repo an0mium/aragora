@@ -80,17 +80,21 @@ class ConsensusHandler(BaseHandler):
         "/api/consensus/contrarian-views",
         "/api/consensus/risk-warnings",
         "/api/consensus/seed-demo",
+        "/api/consensus/detect",
         "/api/consensus/domain/*",
         "/api/v1/consensus/domain",
     ]
 
-    def can_handle(self, path: str) -> bool:
+    def can_handle(self, path: str, method: str = "GET") -> bool:
         """Check if this handler can process the given path."""
         path = strip_version_prefix(path)
         if path in self.ROUTES:
             return True
         # Handle /api/consensus/domain/:domain pattern
         if path.startswith("/api/consensus/domain/"):
+            return True
+        # Handle /api/consensus/status/:debate_id pattern
+        if path.startswith("/api/consensus/status/"):
             return True
         return False
 
@@ -233,6 +237,13 @@ class ConsensusHandler(BaseHandler):
                 return error_response("Authentication required", 401)
             return self._seed_demo_data()
 
+        if path.startswith("/api/consensus/status/"):
+            # Path stripped: /api/consensus/status/{debate_id} -> index 4
+            debate_id, err = self.extract_path_param(path, 4, "debate_id")
+            if err:
+                return err
+            return self._get_consensus_status(debate_id)
+
         if path.startswith("/api/consensus/domain/"):
             # Path stripped: api/consensus/domain/{domain} -> index 4
             domain, err = self.extract_path_param(path, 4, "domain")
@@ -242,6 +253,234 @@ class ConsensusHandler(BaseHandler):
             return self._get_domain_history(domain, limit)
 
         return None
+
+    @handle_errors("consensus detection")
+    def handle_post(self, path: str, query_params: dict, handler: Any) -> HandlerResult | None:
+        """Handle POST requests for consensus detection."""
+        path = strip_version_prefix(path)
+
+        # Rate limit check
+        client_ip = get_client_ip(handler)
+        if not _consensus_limiter.is_allowed(client_ip):
+            logger.warning("Rate limit exceeded for consensus endpoint: %s", client_ip)
+            return error_response("Rate limit exceeded. Please try again later.", 429)
+
+        # Auth required for POST
+        user, err = self.require_auth_or_error(handler)
+        if err:
+            return err
+        _, perm_err = self.require_permission_or_error(handler, "consensus:write")
+        if perm_err:
+            return perm_err
+
+        if path == "/api/consensus/detect":
+            body, body_err = self.read_json_body_validated(handler)
+            if body_err:
+                return body_err
+            return self._detect_consensus(body)
+
+        return None
+
+    @handle_errors("consensus detection")
+    def _detect_consensus(self, body: dict[str, Any]) -> HandlerResult:
+        """Detect consensus from provided proposals/text.
+
+        Accepts a list of proposals and analyzes them for consensus using
+        the ConsensusBuilder from the debate engine.
+
+        Request body:
+            task: str - The debate task/question
+            proposals: list[dict] - List of proposals with 'agent', 'content', and optional 'round'
+            threshold: float (optional) - Confidence threshold for consensus (default: 0.7)
+
+        Returns:
+            Consensus analysis including proof, claims, votes, and partial consensus.
+        """
+        task = body.get("task", "")
+        if not task:
+            return error_response("'task' field is required", 400)
+
+        proposals = body.get("proposals", [])
+        if not proposals or not isinstance(proposals, list):
+            return error_response("'proposals' must be a non-empty list", 400)
+
+        threshold = body.get("threshold", 0.7)
+        if not isinstance(threshold, (int, float)) or not 0.0 <= threshold <= 1.0:
+            return error_response("'threshold' must be a number between 0.0 and 1.0", 400)
+
+        try:
+            from aragora.debate.consensus import ConsensusBuilder, VoteType, build_partial_consensus
+
+            # Generate a debate ID for this analysis
+            import hashlib
+            debate_id = "detect-" + hashlib.sha256(task.encode()).hexdigest()[:12]
+
+            builder = ConsensusBuilder(debate_id=debate_id, task=task)
+
+            # Process proposals into claims and evidence
+            for proposal in proposals:
+                agent = proposal.get("agent", "unknown")
+                content = proposal.get("content", "")
+                round_num = proposal.get("round", 0)
+
+                if not content:
+                    continue
+
+                claim = builder.add_claim(
+                    statement=content[:500],
+                    author=agent,
+                    confidence=0.6,
+                    round_num=round_num,
+                )
+                builder.add_evidence(
+                    claim_id=claim.claim_id,
+                    source=agent,
+                    content=content,
+                    evidence_type="argument",
+                    supports=True,
+                    strength=0.6,
+                )
+
+            # Analyze cross-proposal agreement to detect consensus
+            agents = list({p.get("agent", "unknown") for p in proposals if p.get("content")})
+            total_agents = len(agents) if agents else 1
+
+            # Simple consensus detection: check keyword overlap between proposals
+            contents = [p.get("content", "") for p in proposals if p.get("content")]
+            if len(contents) >= 2:
+                # Calculate pairwise agreement using keyword overlap
+                agreement_scores = []
+                for i in range(len(contents)):
+                    for j in range(i + 1, len(contents)):
+                        words_a = set(w.lower() for w in contents[i].split() if len(w) > 4)
+                        words_b = set(w.lower() for w in contents[j].split() if len(w) > 4)
+                        if words_a and words_b:
+                            overlap = len(words_a & words_b)
+                            union = len(words_a | words_b)
+                            agreement_scores.append(overlap / union if union else 0.0)
+                avg_agreement = sum(agreement_scores) / len(agreement_scores) if agreement_scores else 0.0
+            else:
+                avg_agreement = 1.0  # Single proposal trivially agrees with itself
+
+            confidence = min(avg_agreement * 1.2, 1.0)  # Scale up slightly
+            consensus_reached = confidence >= threshold
+
+            # Record votes
+            for agent in agents:
+                vote_type = VoteType.AGREE if consensus_reached else VoteType.CONDITIONAL
+                builder.record_vote(
+                    agent=agent,
+                    vote=vote_type,
+                    confidence=confidence,
+                    reasoning="Agreed with consensus" if consensus_reached else "Partial agreement",
+                )
+
+            # Determine final claim
+            final_claim = contents[0][:500] if contents else task
+            reasoning_summary = (
+                f"Analyzed {len(proposals)} proposals from {total_agents} agents. "
+                f"Average keyword agreement: {avg_agreement:.0%}. "
+                f"{'Consensus reached' if consensus_reached else 'Consensus not reached'} "
+                f"(threshold: {threshold:.0%})."
+            )
+
+            # Build the proof
+            proof = builder.build(
+                final_claim=final_claim,
+                confidence=confidence,
+                consensus_reached=consensus_reached,
+                reasoning_summary=reasoning_summary,
+                rounds=max((p.get("round", 0) for p in proposals), default=0),
+            )
+
+            return json_response({
+                "data": {
+                    "debate_id": debate_id,
+                    "consensus_reached": consensus_reached,
+                    "confidence": round(confidence, 4),
+                    "threshold": threshold,
+                    "agreement_ratio": round(proof.agreement_ratio, 4),
+                    "has_strong_consensus": proof.has_strong_consensus,
+                    "final_claim": proof.final_claim,
+                    "reasoning_summary": proof.reasoning_summary,
+                    "supporting_agents": proof.supporting_agents,
+                    "dissenting_agents": proof.dissenting_agents,
+                    "claims_count": len(proof.claims),
+                    "evidence_count": len(proof.evidence_chain),
+                    "unresolved_tensions_count": len(proof.unresolved_tensions),
+                    "proof": proof.to_dict(),
+                    "checksum": proof.checksum,
+                }
+            })
+
+        except ImportError:
+            return error_response("Consensus detection module not available", 503)
+
+    @handle_errors("consensus status retrieval")
+    def _get_consensus_status(self, debate_id: str) -> HandlerResult:
+        """Get consensus status for an existing debate.
+
+        Looks up the debate in storage, builds a ConsensusProof from the result,
+        and returns the consensus analysis.
+        """
+        storage = self.get_storage()
+        if storage is None:
+            return error_response("Storage not available", 503)
+
+        try:
+            debate_result = storage.get_debate(debate_id)
+        except (KeyError, ValueError, OSError) as e:
+            logger.debug("Failed to retrieve debate %s: %s", debate_id, e)
+            debate_result = None
+
+        if debate_result is None:
+            return error_response(f"Debate not found: {debate_id}", 404)
+
+        try:
+            from aragora.debate.consensus import ConsensusBuilder, build_partial_consensus
+
+            builder = ConsensusBuilder.from_debate_result(debate_result)
+
+            # Build proof from the debate result
+            final_answer = getattr(debate_result, "final_answer", "")
+            confidence = getattr(debate_result, "confidence", 0.0)
+            consensus_reached = getattr(debate_result, "consensus_reached", False)
+
+            proof = builder.build(
+                final_claim=final_answer[:500] if final_answer else "",
+                confidence=confidence,
+                consensus_reached=consensus_reached,
+                reasoning_summary=(
+                    f"Debate {'reached' if consensus_reached else 'did not reach'} consensus "
+                    f"with {confidence:.0%} confidence."
+                ),
+                rounds=getattr(debate_result, "rounds_completed", 0),
+            )
+
+            # Build partial consensus
+            partial = build_partial_consensus(debate_result)
+
+            return json_response({
+                "data": {
+                    "debate_id": debate_id,
+                    "consensus_reached": consensus_reached,
+                    "confidence": round(confidence, 4),
+                    "agreement_ratio": round(proof.agreement_ratio, 4),
+                    "has_strong_consensus": proof.has_strong_consensus,
+                    "final_claim": proof.final_claim,
+                    "supporting_agents": proof.supporting_agents,
+                    "dissenting_agents": proof.dissenting_agents,
+                    "claims_count": len(proof.claims),
+                    "dissents_count": len(proof.dissents),
+                    "unresolved_tensions_count": len(proof.unresolved_tensions),
+                    "partial_consensus": partial.to_dict(),
+                    "proof": proof.to_dict(),
+                    "checksum": proof.checksum,
+                }
+            })
+
+        except ImportError:
+            return error_response("Consensus detection module not available", 503)
 
     @ttl_cache(
         ttl_seconds=CACHE_TTL_CONSENSUS_SIMILAR, key_prefix="consensus_similar", skip_first=True

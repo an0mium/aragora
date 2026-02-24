@@ -22,6 +22,7 @@ interface PipelineAdvanceResponse {
 function getDemoPipeline(): PipelineResultResponse {
   return {
     pipeline_id: 'demo-pipeline-001',
+    principles: null,
     ideas: {
       nodes: [
         { id: 'idea-1', type: 'ideaNode', position: { x: 100, y: 100 }, data: { label: 'Build a rate limiter', idea_type: 'concept', stage: 'ideas', full_content: 'Implement a token bucket rate limiter for API endpoints', content_hash: 'abc12345' }, style: {} },
@@ -96,7 +97,7 @@ function getDemoPipeline(): PipelineResultResponse {
       { source_node_id: 'idea-4', source_stage: 'ideas', target_node_id: 'goal-3', target_stage: 'goals', content_hash: 'jkl01234', timestamp: Date.now(), method: 'structural_extraction' },
     ],
     provenance_count: 4,
-    stage_status: { ideas: 'complete', goals: 'pending', actions: 'pending', orchestration: 'pending' },
+    stage_status: { ideas: 'complete', principles: 'pending', goals: 'pending', actions: 'pending', orchestration: 'pending' },
     integrity_hash: 'demo0123456789ab',
   };
 }

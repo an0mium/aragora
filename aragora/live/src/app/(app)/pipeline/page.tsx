@@ -8,6 +8,7 @@ import { usePipelineWebSocket } from '@/hooks/usePipelineWebSocket';
 import { useSWRFetch } from '@/hooks/useSWRFetch';
 import { StatusBadge } from '@/components/pipeline-canvas/StatusBadge';
 import { ExecutionProgressOverlay } from '@/components/pipeline-canvas/ExecutionProgressOverlay';
+import { FeedbackLoopPanel } from '@/components/pipeline-canvas/FeedbackLoopPanel';
 import { AutoTransitionSuggestion } from '@/components/pipeline-canvas/AutoTransitionSuggestion';
 import type { TransitionSuggestion } from '@/components/pipeline-canvas/AutoTransitionSuggestion';
 import type { PipelineStageType, PipelineResultResponse, ExecutionStatus } from '@/components/pipeline-canvas/types';
@@ -27,8 +28,18 @@ const FractalPipelineCanvas = dynamic(
   { ssr: false, loading: () => <CanvasLoadingState /> },
 );
 
+const UnifiedDAGCanvas = dynamic(
+  () => import('@/components/unified-dag/UnifiedDAGCanvas').then((m) => m.UnifiedDAGCanvas),
+  { ssr: false, loading: () => <CanvasLoadingState /> },
+);
+
 const ProvenanceExplorer = dynamic(
   () => import('@/components/ProvenanceExplorer').then((m) => m.ProvenanceExplorer),
+  { ssr: false, loading: () => <CanvasLoadingState /> },
+);
+
+const ScenarioMatrix = dynamic(
+  () => import('@/components/scenario-matrix').then((m) => m.ScenarioMatrixView),
   { ssr: false, loading: () => <CanvasLoadingState /> },
 );
 
@@ -91,7 +102,8 @@ function PipelinePageContent() {
   const [debateError, setDebateError] = useState('');
   const [key, setKey] = useState(0);
   const [debateImportStatus, setDebateImportStatus] = useState<string | null>(null);
-  const [viewMode, setViewMode] = useState<'stages' | 'unified' | 'fractal' | 'provenance'>('stages');
+  const [viewMode, setViewMode] = useState<'stages' | 'unified' | 'fractal' | 'provenance' | 'scenario' | 'dag'>('stages');
+  const [showLearningPanel, setShowLearningPanel] = useState(false);
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const [dismissedSuggestions, setDismissedSuggestions] = useState<Set<string>>(new Set());
 
@@ -453,7 +465,7 @@ function PipelinePageContent() {
           )}
 
           <div className="flex items-center bg-surface border border-border rounded overflow-hidden">
-            {(['stages', 'unified', 'fractal', 'provenance'] as const).map((mode) => (
+            {(['stages', 'unified', 'fractal', 'provenance', 'scenario', 'dag'] as const).map((mode) => (
               <button
                 key={mode}
                 onClick={() => setViewMode(mode)}
@@ -659,7 +671,18 @@ function PipelinePageContent() {
         )}
 
         {pipelineData ? (
-          viewMode === 'provenance' ? (
+          viewMode === 'dag' ? (
+            <UnifiedDAGCanvas
+              key={`dag-${key}`}
+              graphId={pipelineData.pipeline_id}
+            />
+          ) : viewMode === 'scenario' ? (
+            <div className="h-full p-4 overflow-auto">
+              <ScenarioMatrix
+                key={`scenario-${key}`}
+              />
+            </div>
+          ) : viewMode === 'provenance' ? (
             <div className="h-full p-4">
               <ProvenanceExplorer
                 key={`provenance-${key}`}
@@ -860,6 +883,27 @@ function PipelinePageContent() {
           </div>
         )}
       </div>
+
+      {/* Post-execution learning panel */}
+      {pipelineData && (executeStatus === 'success' || showLearningPanel) && (
+        <div className="border-t border-border bg-surface/50 px-6 py-2">
+          <button
+            onClick={() => setShowLearningPanel(!showLearningPanel)}
+            className="flex items-center gap-2 text-xs font-mono text-acid-cyan hover:text-acid-green transition-colors py-1"
+          >
+            <span>{showLearningPanel ? '[-]' : '[+]'}</span>
+            <span className="uppercase tracking-wider">Learning & Feedback</span>
+          </button>
+          {showLearningPanel && (
+            <div className="pb-4">
+              <FeedbackLoopPanel
+                pipelineId={pipelineData.pipeline_id}
+                isVisible={showLearningPanel}
+              />
+            </div>
+          )}
+        </div>
+      )}
     </div>
   );
 }

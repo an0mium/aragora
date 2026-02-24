@@ -14,8 +14,10 @@ Endpoints:
 - GET    /api/v1/pipeline/graph/{id}/nodes   - Query nodes (stage/subtype filters)
 - POST   /api/v1/pipeline/graph/{id}/promote - Promote nodes to next stage
 - GET    /api/v1/pipeline/graph/{id}/provenance/{nid} - Provenance chain
+- GET    /api/v1/pipeline/graph/{id}/suggestions - Transition suggestions
 - GET    /api/v1/pipeline/graph/{id}/react-flow - React Flow JSON export
 - GET    /api/v1/pipeline/graph/{id}/integrity  - Integrity hash
+- POST   /api/v1/pipeline/graph/{id}/node/{nid}/reassign - Reassign agent on node
 """
 
 from __future__ import annotations
@@ -34,6 +36,7 @@ logger = logging.getLogger(__name__)
 _GRAPH_ID = re.compile(r"^/api/(?:v1/)?pipeline/graph/([a-zA-Z0-9_-]+)$")
 _GRAPH_NODE = re.compile(r"^/api/(?:v1/)?pipeline/graph/([a-zA-Z0-9_-]+)/node$")
 _GRAPH_NODE_ID = re.compile(r"^/api/(?:v1/)?pipeline/graph/([a-zA-Z0-9_-]+)/node/([a-zA-Z0-9_-]+)$")
+_GRAPH_NODE_REASSIGN = re.compile(r"^/api/(?:v1/)?pipeline/graph/([a-zA-Z0-9_-]+)/node/([a-zA-Z0-9_-]+)/reassign$")
 _GRAPH_NODES = re.compile(r"^/api/(?:v1/)?pipeline/graph/([a-zA-Z0-9_-]+)/nodes$")
 _GRAPH_PROMOTE = re.compile(r"^/api/(?:v1/)?pipeline/graph/([a-zA-Z0-9_-]+)/promote$")
 _GRAPH_PROVENANCE = re.compile(
@@ -41,6 +44,7 @@ _GRAPH_PROVENANCE = re.compile(
 )
 _GRAPH_REACT_FLOW = re.compile(r"^/api/(?:v1/)?pipeline/graph/([a-zA-Z0-9_-]+)/react-flow$")
 _GRAPH_INTEGRITY = re.compile(r"^/api/(?:v1/)?pipeline/graph/([a-zA-Z0-9_-]+)/integrity$")
+_GRAPH_SUGGESTIONS = re.compile(r"^/api/(?:v1/)?pipeline/graph/([a-zA-Z0-9_-]+)/suggestions$")
 _GRAPH_LIST = re.compile(r"^/api/(?:v1/)?pipeline/graph/?$")
 
 
@@ -66,6 +70,8 @@ class PipelineGraphHandler:
         "GET /api/v1/pipeline/graph/{id}/provenance/{node_id}",
         "GET /api/v1/pipeline/graph/{id}/react-flow",
         "GET /api/v1/pipeline/graph/{id}/integrity",
+        "GET /api/v1/pipeline/graph/{id}/suggestions",
+        "POST /api/v1/pipeline/graph/{id}/node/{nodeId}/reassign",
     ]
 
     def __init__(self, ctx: dict[str, Any] | None = None) -> None:
@@ -90,6 +96,11 @@ class PipelineGraphHandler:
         m = _GRAPH_PROVENANCE.match(path)
         if m:
             return self.handle_provenance(m.group(1), m.group(2))
+
+        # GET /api/v1/pipeline/graph/{id}/suggestions
+        m = _GRAPH_SUGGESTIONS.match(path)
+        if m:
+            return self.handle_suggestions(m.group(1), query_params)
 
         # GET /api/v1/pipeline/graph/{id}/nodes
         m = _GRAPH_NODES.match(path)
@@ -161,6 +172,14 @@ class PipelineGraphHandler:
     def handle_post(self, path: str, query_params: dict[str, Any], handler: Any) -> Any:
         """Dispatch POST requests."""
         # Match route first so unknown paths return None (letting other handlers try)
+        m = _GRAPH_NODE_REASSIGN.match(path)
+        if m:
+            auth_error = self._check_permission(handler, "pipeline:write")
+            if auth_error:
+                return auth_error
+            body = self._get_request_body(handler)
+            return self.handle_node_reassign(m.group(1), m.group(2), body)
+
         m = _GRAPH_PROMOTE.match(path)
         if m:
             auth_error = self._check_permission(handler, "pipeline:write")
@@ -331,6 +350,41 @@ class PipelineGraphHandler:
             logger.warning("Remove node failed: %s", e)
             return error_response("Failed to remove node", 500)
 
+    async def handle_node_reassign(
+        self, graph_id: str, node_id: str, body: dict[str, Any]
+    ) -> HandlerResult:
+        """POST /api/v1/pipeline/graph/{id}/node/{node_id}/reassign
+
+        Reassign the agent responsible for a pipeline graph node.
+
+        Body:
+            agent: str - Name of the new agent to assign
+        """
+        try:
+            store = _get_store()
+            graph = store.get(graph_id)
+            if not graph:
+                return error_response(f"Graph {graph_id} not found", 404)
+
+            if node_id not in graph.nodes:
+                return error_response(f"Node {node_id} not found in graph {graph_id}", 404)
+
+            node = graph.nodes[node_id]
+            new_agent = body.get("agent")
+            if not new_agent:
+                return error_response("Missing required field: agent", 400)
+
+            old_agent = node.data.get("assigned_agent")
+            node.data["reassigned_from"] = old_agent
+            node.data["assigned_agent"] = new_agent
+
+            store.update(graph)
+
+            return json_response({"ok": True, "node_id": node_id, "agent": new_agent})
+        except (ImportError, OSError, TypeError) as e:
+            logger.warning("Node reassign failed: %s", e)
+            return error_response("Failed to reassign node agent", 500)
+
     async def handle_query_nodes(
         self, graph_id: str, query_params: dict[str, Any]
     ) -> HandlerResult:
@@ -420,6 +474,48 @@ class PipelineGraphHandler:
         except (ImportError, ValueError, TypeError) as e:
             logger.warning("Promote failed: %s", e)
             return error_response("Stage promotion failed", 500)
+
+    # -- Transition suggestions --
+
+    async def handle_suggestions(self, graph_id: str, query_params: dict[str, Any]) -> HandlerResult:
+        """GET /api/v1/pipeline/graph/{id}/suggestions?stage={stage}
+
+        Get AI-suggested transitions for the given pipeline stage.
+        """
+        try:
+            from aragora.canvas.stages import PipelineStage
+            from aragora.pipeline.stage_transitions import suggest_transitions
+
+            store = _get_store()
+            graph = store.get(graph_id)
+            if not graph:
+                return error_response(f"Graph {graph_id} not found", 404)
+
+            stage_str = query_params.get("stage", "ideas")
+            try:
+                stage = PipelineStage(stage_str)
+            except ValueError:
+                return error_response(f"Invalid stage: {stage_str}", 400)
+
+            suggestions = suggest_transitions(graph, stage)
+
+            return json_response({
+                "graph_id": graph_id,
+                "stage": stage_str,
+                "suggestions": [
+                    {
+                        "target_stage": s.get("to_stage", ""),
+                        "confidence": s.get("confidence", 0.5),
+                        "rationale": s.get("reason", ""),
+                        "node_ids": [s["node_id"]] if "node_id" in s else [],
+                        "auto_promotable": s.get("confidence", 0) >= 0.8,
+                    }
+                    for s in (suggestions if isinstance(suggestions, list) else [])
+                ],
+            })
+        except (ImportError, ValueError, TypeError, AttributeError) as e:
+            logger.warning("Transition suggestions failed: %s", e)
+            return error_response("Failed to generate suggestions", 500)
 
     # -- Provenance / analytics --
 

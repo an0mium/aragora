@@ -181,6 +181,9 @@ class NomicCycleOutcome:
     improvement_score: float = 0.0  # 0.0-1.0 overall improvement score
     success_criteria_met: bool | None = None
 
+    # Domain tags inferred from files changed (e.g. "debate", "server", "nomic")
+    domain_tags: list[str] = field(default_factory=list)
+
     # Curriculum learning data (optional)
     curriculum_outcome: CurriculumOutcome | None = None
 
@@ -208,6 +211,7 @@ class NomicCycleOutcome:
             "metrics_delta": self.metrics_delta,
             "improvement_score": self.improvement_score,
             "success_criteria_met": self.success_criteria_met,
+            "domain_tags": self.domain_tags,
         }
         if self.curriculum_outcome:
             result["curriculum_outcome"] = self.curriculum_outcome.to_dict()
@@ -242,6 +246,7 @@ class NomicCycleOutcome:
             metrics_delta=data.get("metrics_delta", {}),
             improvement_score=data.get("improvement_score", 0.0),
             success_criteria_met=data.get("success_criteria_met"),
+            domain_tags=data.get("domain_tags", []),
             curriculum_outcome=curriculum_outcome,
         )
 
@@ -296,6 +301,7 @@ class SimilarCycle:
     recommendations: list[str]
     tracks_affected: list[str]
     completed_at: datetime
+    domain_tags: list[str] = field(default_factory=list)
 
     def to_dict(self) -> dict[str, Any]:
         """Serialize to dictionary."""
@@ -310,6 +316,7 @@ class SimilarCycle:
             "recommendations": self.recommendations,
             "tracks_affected": self.tracks_affected,
             "completed_at": self.completed_at.isoformat(),
+            "domain_tags": self.domain_tags,
         }
 
 
@@ -1064,6 +1071,14 @@ class NomicCycleAdapter(KnowledgeMoundAdapter):
 
                 # Calculate similarity (use the search score if available)
                 similarity = getattr(result, "score", 0.5)
+
+                # Boost similarity for domain tag overlap
+                cycle_domain_tags = metadata.get("domain_tags", [])
+                if cycle_domain_tags and tracks:
+                    tag_overlap = len(set(cycle_domain_tags) & set(tracks))
+                    if tag_overlap > 0:
+                        similarity = min(1.0, similarity + 0.15)
+
                 if similarity < min_similarity:
                     continue
 
@@ -1092,6 +1107,7 @@ class NomicCycleAdapter(KnowledgeMoundAdapter):
                         completed_at=datetime.fromisoformat(
                             metadata.get("completed_at", datetime.now(timezone.utc).isoformat())
                         ),
+                        domain_tags=cycle_domain_tags,
                     )
                 )
 

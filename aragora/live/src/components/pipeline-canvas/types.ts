@@ -90,6 +90,11 @@ export interface ActionNodeData {
   lockedBy?: string;
 }
 
+export interface AlternativeAgent {
+  name: string;
+  score: number | null;
+}
+
 export interface OrchestrationNodeData {
   label: string;
   orchType: OrchType;
@@ -99,6 +104,12 @@ export interface OrchestrationNodeData {
   status?: OrchStatus;
   description?: string;
   lockedBy?: string;
+  eloScore?: number;
+  selectionRationale?: string;
+  alternativeAgents?: AlternativeAgent[];
+  executionStatus?: ExecutionStatus;
+  elapsedMs?: number;
+  outputPreview?: string;
 }
 
 export type PipelineNodeData =
@@ -307,6 +318,7 @@ export interface ReactFlowData {
 export interface PipelineResultResponse {
   pipeline_id: string;
   ideas: ReactFlowData | null;
+  principles: ReactFlowData | null;
   goals: Record<string, unknown> | null;
   actions: ReactFlowData | null;
   orchestration: ReactFlowData | null;

@@ -78,6 +78,8 @@ class SelfImproveHandler(SecureEndpointMixin, SecureHandler):  # type: ignore[mi
         "/api/self-improve/worktrees",
         "/api/self-improve/worktrees/cleanup",
         "/api/self-improve/feedback",
+        "/api/self-improve/feedback-summary",
+        "/api/self-improve/regression-history",
         "/api/self-improve/goals",
         "/api/self-improve/metrics/summary",
     ]
@@ -124,6 +126,12 @@ class SelfImproveHandler(SecureEndpointMixin, SecureHandler):  # type: ignore[mi
 
         if path == "/api/self-improve/feedback":
             return self._get_feedback_state()
+
+        if path == "/api/self-improve/feedback-summary":
+            return self._get_feedback_summary(query_params)
+
+        if path == "/api/self-improve/regression-history":
+            return self._get_regression_history(query_params)
 
         if path == "/api/self-improve/status":
             return self._get_status()
@@ -299,6 +307,99 @@ class SelfImproveHandler(SecureEndpointMixin, SecureHandler):  # type: ignore[mi
                 "regression_history": regression_history,
                 "selection_adjustments": selection_adjustments,
                 "feedback_metrics": feedback_metrics,
+            }
+        })
+
+    # ------------------------------------------------------------------
+    # GET /api/self-improve/regression-history
+    # ------------------------------------------------------------------
+
+    def _get_regression_history(self, query_params: dict[str, Any]) -> HandlerResult:
+        """Get regression history from NomicOutcomeTracker.
+
+        Query params:
+            limit: int (default 20) — Max entries to return
+        """
+        limit = get_int_param(query_params, "limit", 20)
+        regressions: list[dict[str, Any]] = []
+
+        try:
+            from aragora.nomic.outcome_tracker import NomicOutcomeTracker
+
+            regressions = NomicOutcomeTracker.get_regression_history(limit=limit)
+        except (ImportError, RuntimeError, TypeError, AttributeError) as e:
+            logger.debug("Regression history unavailable: %s", type(e).__name__)
+
+        return json_response({
+            "data": {
+                "regressions": regressions,
+                "total": len(regressions),
+            }
+        })
+
+    # ------------------------------------------------------------------
+    # GET /api/self-improve/feedback-summary
+    # ------------------------------------------------------------------
+
+    def _get_feedback_summary(self, query_params: dict[str, Any]) -> HandlerResult:
+        """Get post-execution feedback summary for a pipeline.
+
+        Query params:
+            pipeline_id: str — Pipeline to get feedback for
+        """
+        pipeline_id = query_params.get("pipeline_id", "")
+        elo_changes: list[dict[str, Any]] = []
+        km_entries: list[dict[str, Any]] = []
+        regressions: list[dict[str, Any]] = []
+
+        # Get ELO changes from recent debates/executions
+        try:
+            from aragora.ranking.elo import EloTracker
+
+            tracker = EloTracker()
+            history = getattr(tracker, "get_recent_changes", lambda n: [])(10)
+            for change in history:
+                elo_changes.append({
+                    "agent": getattr(change, "agent_name", str(change)),
+                    "delta": getattr(change, "delta", 0),
+                    "new_rating": getattr(change, "new_rating", 0),
+                    "reason": getattr(change, "reason", ""),
+                })
+        except (ImportError, RuntimeError, TypeError, AttributeError):
+            pass
+
+        # Get KM entries stored from this pipeline
+        try:
+            from aragora.pipeline.km_bridge import PipelineKMBridge
+
+            bridge = PipelineKMBridge()
+            if bridge.available and pipeline_id:
+                entries = bridge.get_entries_for_pipeline(pipeline_id)
+                for entry in (entries if isinstance(entries, list) else []):
+                    km_entries.append({
+                        "id": getattr(entry, "id", str(entry)),
+                        "type": getattr(entry, "entry_type", "unknown"),
+                        "confidence": getattr(entry, "confidence", 0.5),
+                    })
+        except (ImportError, RuntimeError, TypeError, AttributeError):
+            pass
+
+        # Get regressions
+        try:
+            from aragora.nomic.outcome_tracker import NomicOutcomeTracker
+
+            regressions = NomicOutcomeTracker.get_regression_history(limit=5)
+        except (ImportError, RuntimeError, TypeError, AttributeError):
+            pass
+
+        return json_response({
+            "data": {
+                "pipeline_id": pipeline_id,
+                "elo_changes": elo_changes,
+                "km_entries_stored": len(km_entries),
+                "km_entries": km_entries,
+                "regressions": regressions,
+                "regression_count": len(regressions),
             }
         })
 

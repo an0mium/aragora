@@ -1,10 +1,13 @@
 """
 Compliance CLI commands.
 
-Provides CLI access to EU AI Act compliance tooling:
+Provides CLI access to EU AI Act compliance tooling and the compliance framework:
 - aragora compliance audit <receipt_file>  -- Generate conformity report
 - aragora compliance classify <description> -- Classify use case by risk level
 - aragora compliance eu-ai-act generate    -- Generate full artifact bundle
+- aragora compliance status                -- Show compliance framework status
+- aragora compliance report                -- Generate a compliance framework report
+- aragora compliance check <content>       -- Run compliance checks against content
 """
 
 from __future__ import annotations
@@ -22,15 +25,99 @@ def add_compliance_parser(subparsers: argparse._SubParsersAction) -> None:
     """Register the compliance subcommand and its sub-subcommands."""
     parser = subparsers.add_parser(
         "compliance",
-        help="EU AI Act compliance tools",
+        help="Compliance framework and EU AI Act tools",
         description=(
-            "Generate conformity reports, classify AI use cases, and produce "
-            "audit-ready compliance artifact bundles per the EU AI Act "
-            "(Regulation 2024/1689). Enforcement deadline: August 2, 2026."
+            "Compliance framework management and EU AI Act tooling.\n\n"
+            "Framework commands (offline, no server required):\n"
+            "  status     Show compliance framework status\n"
+            "  report     Generate a compliance framework report\n"
+            "  check      Run compliance checks against content\n\n"
+            "EU AI Act commands:\n"
+            "  audit      Generate conformity report from a receipt\n"
+            "  classify   Classify a use case by risk level\n"
+            "  eu-ai-act  Generate artifact bundles (Articles 12/13/14)"
         ),
+        formatter_class=argparse.RawDescriptionHelpFormatter,
     )
     parser.set_defaults(func=cmd_compliance)
     sub = parser.add_subparsers(dest="compliance_command")
+
+    # -- aragora compliance status --
+    status_p = sub.add_parser(
+        "status",
+        help="Show compliance framework status (available frameworks, rule counts)",
+    )
+    status_p.add_argument(
+        "--json",
+        "-j",
+        action="store_true",
+        help="Output as JSON",
+    )
+    status_p.add_argument(
+        "--vertical",
+        help="Filter frameworks applicable to a vertical (e.g., healthcare, software)",
+    )
+
+    # -- aragora compliance report --
+    report_p = sub.add_parser(
+        "report",
+        help="Generate a compliance framework report from content",
+    )
+    report_p.add_argument(
+        "content_file",
+        nargs="?",
+        help="Path to a file to check (reads stdin if omitted)",
+    )
+    report_p.add_argument(
+        "--frameworks",
+        "-f",
+        help="Comma-separated framework IDs to check (default: all)",
+    )
+    report_p.add_argument(
+        "--format",
+        choices=["text", "json"],
+        default="text",
+        dest="output_format",
+        help="Output format (default: text)",
+    )
+    report_p.add_argument(
+        "--output",
+        "-o",
+        help="Write report to file instead of stdout",
+    )
+
+    # -- aragora compliance check <content> --
+    check_p = sub.add_parser(
+        "check",
+        help="Run compliance checks against inline content or a file",
+    )
+    check_p.add_argument(
+        "content",
+        nargs="*",
+        help="Content to check (inline text; reads from --file if omitted)",
+    )
+    check_p.add_argument(
+        "--file",
+        dest="content_file",
+        help="Path to a file to check",
+    )
+    check_p.add_argument(
+        "--frameworks",
+        "-f",
+        help="Comma-separated framework IDs (default: all)",
+    )
+    check_p.add_argument(
+        "--min-severity",
+        choices=["critical", "high", "medium", "low", "info"],
+        default="low",
+        help="Minimum severity to report (default: low)",
+    )
+    check_p.add_argument(
+        "--json",
+        "-j",
+        action="store_true",
+        help="Output as JSON",
+    )
 
     # -- aragora compliance audit <receipt_file> --
     audit_p = sub.add_parser(
@@ -132,7 +219,13 @@ def add_compliance_parser(subparsers: argparse._SubParsersAction) -> None:
 def cmd_compliance(args: argparse.Namespace) -> None:
     """Dispatch compliance sub-commands."""
     command = getattr(args, "compliance_command", None)
-    if command == "audit":
+    if command == "status":
+        _cmd_status(args)
+    elif command == "report":
+        _cmd_report(args)
+    elif command == "check":
+        _cmd_check(args)
+    elif command == "audit":
         _cmd_audit(args)
     elif command == "classify":
         _cmd_classify(args)
@@ -149,12 +242,200 @@ def cmd_compliance(args: argparse.Namespace) -> None:
             print("Omit receipt_file to generate a demonstration bundle with synthetic data.")
             sys.exit(1)
     else:
-        print("Usage: aragora compliance {audit,classify,eu-ai-act}")
+        print("Usage: aragora compliance {status,report,check,audit,classify,eu-ai-act}")
         print()
-        print("  audit        Generate EU AI Act conformity report from a receipt")
-        print("  classify     Classify a use case by EU AI Act risk level")
-        print("  eu-ai-act    Generate compliance artifact bundles (Articles 12/13/14)")
+        print("  Framework commands (offline):")
+        print("    status     Show compliance framework status")
+        print("    report     Generate compliance report from content")
+        print("    check      Run compliance checks against content")
+        print()
+        print("  EU AI Act commands:")
+        print("    audit      Generate EU AI Act conformity report from a receipt")
+        print("    classify   Classify a use case by EU AI Act risk level")
+        print("    eu-ai-act  Generate compliance artifact bundles (Articles 12/13/14)")
         sys.exit(1)
+
+
+def _cmd_status(args: argparse.Namespace) -> None:
+    """Show compliance framework status."""
+    from aragora.compliance.framework import COMPLIANCE_FRAMEWORKS, ComplianceFrameworkManager
+
+    manager = ComplianceFrameworkManager()
+    vertical = getattr(args, "vertical", None)
+    as_json = getattr(args, "json", False)
+
+    if vertical:
+        frameworks = manager.get_frameworks_for_vertical(vertical)
+    else:
+        frameworks = list(COMPLIANCE_FRAMEWORKS.values())
+
+    if as_json:
+        data = {
+            "frameworks": [f.to_dict() for f in frameworks],
+            "total": len(frameworks),
+        }
+        if vertical:
+            data["vertical_filter"] = vertical
+        print(json.dumps(data, indent=2))
+        return
+
+    if vertical:
+        print(f"\nCompliance Frameworks for vertical '{vertical}':")
+    else:
+        print("\nCompliance Frameworks:")
+    print(f"{'=' * 60}")
+
+    if not frameworks:
+        print("  No frameworks found.")
+        if vertical:
+            print(f"  No frameworks applicable to vertical '{vertical}'.")
+        return
+
+    for fw in frameworks:
+        rule_count = len(fw.rules)
+        verticals = ", ".join(fw.applicable_verticals) if fw.applicable_verticals else "general"
+        print(f"\n  {fw.name} ({fw.id})")
+        print(f"    {fw.description}")
+        print(f"    Version: {fw.version}  |  Category: {fw.category}")
+        print(f"    Rules: {rule_count}  |  Verticals: {verticals}")
+
+    print(f"\nTotal: {len(frameworks)} framework(s)\n")
+
+
+def _cmd_report(args: argparse.Namespace) -> None:
+    """Generate compliance framework report from content."""
+    from aragora.compliance.framework import ComplianceFrameworkManager
+
+    # Read content from file or stdin
+    content_file = getattr(args, "content_file", None)
+    if content_file:
+        try:
+            with open(content_file) as f:
+                content = f.read()
+        except FileNotFoundError:
+            print(f"Error: File not found: {content_file}", file=sys.stderr)
+            sys.exit(1)
+    else:
+        if sys.stdin.isatty():
+            print("Reading from stdin (Ctrl+D to finish):", file=sys.stderr)
+        content = sys.stdin.read()
+
+    if not content.strip():
+        print("Error: No content provided.", file=sys.stderr)
+        sys.exit(1)
+
+    # Parse frameworks
+    frameworks_str = getattr(args, "frameworks", None)
+    framework_ids = [f.strip() for f in frameworks_str.split(",")] if frameworks_str else None
+
+    manager = ComplianceFrameworkManager()
+    result = manager.check(content, frameworks=framework_ids)
+
+    output_format = getattr(args, "output_format", "text")
+
+    if output_format == "json":
+        output = json.dumps(result.to_dict(), indent=2, default=str)
+    else:
+        output = _format_check_result_text(result)
+
+    output_path = getattr(args, "output", None)
+    if output_path:
+        with open(output_path, "w") as f:
+            f.write(output)
+        print(f"Report written to {output_path}")
+    else:
+        print(output)
+
+
+def _cmd_check(args: argparse.Namespace) -> None:
+    """Run compliance checks against content."""
+    from aragora.compliance.framework import ComplianceFrameworkManager, ComplianceSeverity
+
+    # Determine content
+    content_parts = getattr(args, "content", []) or []
+    content_file = getattr(args, "content_file", None)
+
+    if content_file:
+        try:
+            with open(content_file) as f:
+                content = f.read()
+        except FileNotFoundError:
+            print(f"Error: File not found: {content_file}", file=sys.stderr)
+            sys.exit(1)
+    elif content_parts:
+        content = " ".join(content_parts)
+    else:
+        if sys.stdin.isatty():
+            print("Reading from stdin (Ctrl+D to finish):", file=sys.stderr)
+        content = sys.stdin.read()
+
+    if not content.strip():
+        print("Error: No content provided.", file=sys.stderr)
+        print("Usage: aragora compliance check 'your content here'", file=sys.stderr)
+        print("       aragora compliance check --file path/to/file.py", file=sys.stderr)
+        sys.exit(1)
+
+    # Parse options
+    frameworks_str = getattr(args, "frameworks", None)
+    framework_ids = [f.strip() for f in frameworks_str.split(",")] if frameworks_str else None
+    min_severity_str = getattr(args, "min_severity", "low")
+    as_json = getattr(args, "json", False)
+
+    severity_map = {
+        "critical": ComplianceSeverity.CRITICAL,
+        "high": ComplianceSeverity.HIGH,
+        "medium": ComplianceSeverity.MEDIUM,
+        "low": ComplianceSeverity.LOW,
+        "info": ComplianceSeverity.INFO,
+    }
+    min_severity = severity_map.get(min_severity_str, ComplianceSeverity.LOW)
+
+    manager = ComplianceFrameworkManager()
+    result = manager.check(content, frameworks=framework_ids, min_severity=min_severity)
+
+    if as_json:
+        print(json.dumps(result.to_dict(), indent=2, default=str))
+    else:
+        print(_format_check_result_text(result))
+
+
+def _format_check_result_text(result) -> str:
+    """Format a ComplianceCheckResult as human-readable text."""
+    lines = []
+    lines.append("")
+    lines.append("=" * 60)
+    lines.append("COMPLIANCE CHECK RESULT")
+    lines.append("=" * 60)
+    status = "COMPLIANT" if result.compliant else "NON-COMPLIANT"
+    lines.append(f"  Status: {status}")
+    lines.append(f"  Score:  {result.score:.0%}")
+    lines.append(f"  Frameworks checked: {', '.join(result.frameworks_checked)}")
+    lines.append(f"  Issues found: {len(result.issues)}")
+
+    if result.critical_issues:
+        lines.append(f"  Critical issues: {len(result.critical_issues)}")
+    if result.high_issues:
+        lines.append(f"  High issues: {len(result.high_issues)}")
+
+    if result.issues:
+        lines.append("")
+        lines.append("-" * 60)
+        lines.append("ISSUES:")
+        for issue in result.issues:
+            severity = issue.severity.value.upper()
+            lines.append(f"\n  [{severity}] {issue.framework}/{issue.rule_id}")
+            lines.append(f"    {issue.description}")
+            if issue.matched_text:
+                lines.append(f"    Matched: {issue.matched_text[:80]}")
+            if issue.line_number is not None:
+                lines.append(f"    Line: {issue.line_number}")
+            if issue.recommendation:
+                lines.append(f"    Recommendation: {issue.recommendation}")
+    else:
+        lines.append("\n  No issues found.")
+
+    lines.append("")
+    return "\n".join(lines)
 
 
 def _cmd_audit(args: argparse.Namespace) -> None:

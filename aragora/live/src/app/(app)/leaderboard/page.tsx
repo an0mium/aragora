@@ -17,6 +17,30 @@ const LeaderboardPanel = dynamic(
   }
 );
 
+const EloTrendChart = dynamic(
+  () => import('@/components/leaderboard/EloTrendChart').then(m => ({ default: m.EloTrendChart })),
+  {
+    ssr: false,
+    loading: () => (
+      <div className="card p-4 animate-pulse">
+        <div className="h-[280px] bg-surface rounded" />
+      </div>
+    ),
+  }
+);
+
+const DomainLeaderboard = dynamic(
+  () => import('@/components/leaderboard/DomainLeaderboard').then(m => ({ default: m.DomainLeaderboard })),
+  {
+    ssr: false,
+    loading: () => (
+      <div className="card p-4 animate-pulse">
+        <div className="h-[300px] bg-surface rounded" />
+      </div>
+    ),
+  }
+);
+
 export default function LeaderboardPage() {
   const { config: backendConfig } = useBackend();
 
@@ -38,6 +62,21 @@ export default function LeaderboardPage() {
             </p>
           </div>
 
+          {/* ELO Trend Chart — top 5 agents over time */}
+          <div className="mb-6">
+            <PanelErrorBoundary panelName="ELO Trends">
+              <EloTrendChart maxPoints={30} height={240} />
+            </PanelErrorBoundary>
+          </div>
+
+          {/* Domain Leaderboards — filterable by debate domain */}
+          <div className="mb-6">
+            <PanelErrorBoundary panelName="Domain Leaderboard">
+              <DomainLeaderboard />
+            </PanelErrorBoundary>
+          </div>
+
+          {/* Full Leaderboard Panel — existing component with all tabs */}
           <PanelErrorBoundary panelName="Leaderboard">
             <LeaderboardPanel wsMessages={[]} apiBase={backendConfig.api} />
           </PanelErrorBoundary>

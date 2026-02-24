@@ -273,8 +273,9 @@ jobs:
       - name: Check dependencies for vulnerabilities
         run: |
           pip install -e .
-          # Fail on HIGH/CRITICAL vulnerabilities only
-          safety check --full-report --ignore 70612 || echo "::warning::Dependency vulnerabilities found"
+          # Blocking: fail on HIGH/CRITICAL vulnerabilities.
+          # --ignore 70612: Known false positive / accepted risk.
+          safety check --full-report --ignore 70612
 
   secrets:
     runs-on: ubuntu-latest

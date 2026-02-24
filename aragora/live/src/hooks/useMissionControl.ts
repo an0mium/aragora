@@ -210,7 +210,7 @@ export function useMissionControl(
       }
 
       for (const stage of ALL_STAGES) {
-        const stageData = (result as Record<string, unknown>)[stage] as ReactFlowData | Record<string, unknown> | null;
+        const stageData = (result as unknown as Record<string, unknown>)[stage] as ReactFlowData | Record<string, unknown> | null;
         stageNodesRef.current[stage] = parseStageNodes(stage, stageData);
         stageEdgesRef.current[stage] = parseStageEdges(stage, stageData);
       }

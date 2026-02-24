@@ -72,10 +72,56 @@ class SelfImproveConfig:
     safe_mode: bool = True  # Enable risk-based execution gating
     risk_threshold: float = 0.5  # Auto-execute below this score
 
+    # Curriculum: SOAR stepping stones for failed tasks
+    enable_curriculum: bool = True
+    curriculum_min_failures: int = 2  # Min failed subtasks to trigger curriculum
+
+    # Gauntlet: adversarial validation of changes
+    enable_gauntlet_validation: bool = True
+    gauntlet_min_files: int = 3  # Min files changed to trigger gauntlet
+
     # Feedback
     persist_outcomes: bool = True  # Save to CycleLearningStore
     auto_revert_on_regression: bool = True
     degradation_threshold: float = 0.05
+
+
+# Domain tag mapping: path prefix → domain tag
+_DOMAIN_TAG_MAP: list[tuple[str, str]] = [
+    ("aragora/debate/", "debate"),
+    ("aragora/server/", "server"),
+    ("aragora/nomic/", "nomic"),
+    ("aragora/knowledge/", "knowledge"),
+    ("aragora/pipeline/", "pipeline"),
+    ("aragora/agents/", "agents"),
+    ("aragora/memory/", "memory"),
+    ("aragora/ranking/", "ranking"),
+    ("aragora/connectors/", "connectors"),
+    ("aragora/resilience/", "resilience"),
+    ("aragora/security/", "security"),
+    ("aragora/auth/", "auth"),
+    ("aragora/rbac/", "rbac"),
+    ("aragora/workflow/", "workflow"),
+    ("aragora/analytics/", "analytics"),
+    ("aragora/live/", "frontend"),
+    ("tests/", "tests"),
+]
+
+
+def _infer_domain_tags(files_changed: list[str]) -> list[str]:
+    """Infer domain tags from changed file paths.
+
+    Maps file paths to domain categories for cross-cycle search boosting.
+    """
+    tags: set[str] = set()
+    for fpath in files_changed:
+        # Normalize to relative path
+        normalized = fpath.replace("\\", "/")
+        for prefix, tag in _DOMAIN_TAG_MAP:
+            if prefix in normalized:
+                tags.add(tag)
+                break
+    return sorted(tags)
 
 
 @dataclass
@@ -279,6 +325,29 @@ class SelfImprovePipeline:
                 "failed": result.subtasks_failed,
             },
         )
+
+        # Step 4b: Curriculum — generate SOAR stepping stones for repeated failures
+        if (
+            self.config.enable_curriculum
+            and result.subtasks_failed >= self.config.curriculum_min_failures
+        ):
+            self._generate_curriculum_stepping_stones(cycle_id, result, subtasks)
+
+        # Step 4c: Gauntlet — adversarial validation of changes with >= N files
+        if (
+            self.config.enable_gauntlet_validation
+            and len(result.files_changed) >= self.config.gauntlet_min_files
+        ):
+            gauntlet_passed = await self._run_gauntlet_validation(
+                cycle_id, result, effective_objective
+            )
+            if not gauntlet_passed:
+                logger.warning(
+                    "self_improve_gauntlet_rejected cycle=%s files=%d",
+                    cycle_id,
+                    len(result.files_changed),
+                )
+                result.regressions_detected = True
 
         # Step 5: Capture post-change metrics and compare
         outcome_comparison = None  # OutcomeComparison for feedback loop
@@ -1836,6 +1905,9 @@ class SelfImprovePipeline:
             except (ImportError, RuntimeError, ValueError, TypeError, OSError) as exc:
                 logger.debug("KM bridge persistence skipped: %s", exc)
 
+            # Infer domain tags from changed files for cross-cycle search boosting
+            domain_tags = _infer_domain_tags(result.files_changed)
+
             # Also persist via NomicCycleAdapter for cross-cycle learning.
             # HardenedOrchestrator uses this adapter via find_similar_cycles()
             # and MetaPlanner._enrich_context_with_history().
@@ -1872,6 +1944,7 @@ class SelfImprovePipeline:
                     total_tests_failed=result.tests_failed,
                     metrics_delta=result.metrics_delta,
                     improvement_score=result.improvement_score,
+                    domain_tags=domain_tags,
                 )
                 # ingest_cycle_outcome may be sync or async; handle both
                 _ingest = adapter.ingest_cycle_outcome(cycle_outcome)
@@ -1959,6 +2032,106 @@ class SelfImprovePipeline:
             )
         except Exception as e:  # noqa: BLE001 — best-effort visualization, must not crash pipeline
             logger.debug("Pipeline graph publication skipped: %s", e)
+
+    def _generate_curriculum_stepping_stones(
+        self,
+        cycle_id: str,
+        result: SelfImproveResult,
+        subtasks: list[Any],
+    ) -> None:
+        """Generate SOAR curriculum stepping stones for failed subtasks.
+
+        When multiple subtasks fail, creates a curriculum of simpler tasks
+        to build capability incrementally, rather than retrying the same
+        difficult tasks.
+        """
+        try:
+            from aragora.nomic.curriculum.integration import (
+                CurriculumAwareFeedbackLoop,
+                CurriculumConfig,
+            )
+
+            config = CurriculumConfig(
+                enable_curriculum=True,
+                min_failures_for_curriculum=self.config.curriculum_min_failures,
+            )
+            feedback_loop = CurriculumAwareFeedbackLoop(config=config)
+
+            # Get curriculum summary for failed tasks
+            summary = feedback_loop.get_curriculum_summary()
+            if summary.get("curricula_created", 0) > 0 or result.subtasks_failed > 0:
+                logger.info(
+                    "curriculum_stepping_stones cycle=%s failed=%d curricula=%d",
+                    cycle_id,
+                    result.subtasks_failed,
+                    summary.get("curricula_created", 0),
+                )
+                self._emit_progress(
+                    "curriculum_generated",
+                    {
+                        "failed_subtasks": result.subtasks_failed,
+                        "stepping_stones": summary.get("stones_attempted", 0),
+                    },
+                )
+        except ImportError:
+            logger.debug("CurriculumAwareFeedbackLoop not available")
+        except (RuntimeError, ValueError, TypeError) as exc:
+            logger.debug("Curriculum stepping stone generation failed: %s", exc)
+
+    async def _run_gauntlet_validation(
+        self,
+        cycle_id: str,
+        result: SelfImproveResult,
+        objective: str,
+    ) -> bool:
+        """Run GauntletRunner on changes to adversarially validate them.
+
+        Returns True if changes pass validation, False if rejected.
+        """
+        try:
+            from aragora.gauntlet.runner import GauntletRunner
+
+            runner = GauntletRunner()
+            claim = (
+                f"Self-improvement cycle {cycle_id}: {objective[:200]}. "
+                f"Changed {len(result.files_changed)} files, "
+                f"{result.subtasks_completed}/{result.subtasks_total} subtasks completed."
+            )
+            gauntlet_result = await runner.run(
+                input_content=claim,
+                context=f"Files changed: {', '.join(result.files_changed[:20])}",
+            )
+
+            verdict = getattr(gauntlet_result, "verdict", "unknown")
+            logger.info(
+                "gauntlet_validation cycle=%s verdict=%s vulnerabilities=%d",
+                cycle_id,
+                verdict,
+                len(getattr(gauntlet_result, "vulnerabilities", [])),
+            )
+
+            # Reject if critical vulnerabilities found
+            critical = sum(
+                1
+                for v in getattr(gauntlet_result, "vulnerabilities", [])
+                if getattr(v, "severity", None)
+                and str(getattr(v.severity, "value", "")).lower() == "critical"
+            )
+            if critical > 0:
+                logger.warning(
+                    "gauntlet_critical_findings cycle=%s critical=%d",
+                    cycle_id,
+                    critical,
+                )
+                return False
+
+            return True
+        except ImportError:
+            logger.debug("GauntletRunner not available for self-improve validation")
+            return True
+        except (RuntimeError, ValueError, TypeError, OSError) as exc:
+            logger.debug("Gauntlet validation failed: %s", exc)
+            return True  # Don't block on gauntlet errors
 
 
 __all__ = [

@@ -53,15 +53,15 @@ class PostDebateConfig:
     # Outcome feedback: feed systematic errors back to Nomic Loop
     auto_outcome_feedback: bool = True
     # Canvas pipeline: auto-trigger idea-to-execution visualization
-    auto_trigger_canvas: bool = False
+    auto_trigger_canvas: bool = True
     canvas_min_confidence: float = 0.7
     # Execution bridge: auto-trigger downstream actions
     auto_execution_bridge: bool = True
     execution_bridge_min_confidence: float = 0.0  # Bridge has per-rule thresholds
     # LLM-as-Judge: quality evaluation of agent contributions
-    auto_llm_judge: bool = False
+    auto_llm_judge: bool = True
     llm_judge_use_case: str = "debate"
-    llm_judge_threshold: float = 3.5
+    llm_judge_threshold: float = 4.0
 
 
 @dataclass
@@ -931,6 +931,28 @@ class PostDebateCoordinator:
                         )
                 except (ImportError, RuntimeError, ValueError) as exc:
                     logger.debug("ELO quality score recording skipped: %s", exc)
+
+            # Feed judge scores into SelectionFeedbackLoop for agent weight adjustment
+            if scores:
+                try:
+                    from aragora.debate.selection_feedback import SelectionFeedbackLoop
+
+                    feedback_loop = SelectionFeedbackLoop()
+                    # Determine winner as highest-scoring agent
+                    best_agent = max(scores, key=lambda a: scores[a]["overall"])
+                    feedback_loop.process_debate_outcome(
+                        debate_id=f"{debate_id}_llm_judge",
+                        participants=list(scores.keys()),
+                        winner=best_agent,
+                        domain=self.config.llm_judge_use_case,
+                    )
+                    logger.debug(
+                        "llm_judge_selection_feedback debate=%s best_agent=%s",
+                        debate_id,
+                        best_agent,
+                    )
+                except (ImportError, RuntimeError, ValueError, TypeError) as exc:
+                    logger.debug("Selection feedback from LLM judge skipped: %s", exc)
 
             logger.info(
                 "llm_judge_evaluated debate=%s agents=%d",

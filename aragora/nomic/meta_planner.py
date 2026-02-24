@@ -96,8 +96,8 @@ class MetaPlannerConfig:
     consensus_threshold: float = 0.6
     # Cross-cycle learning
     enable_cross_cycle_learning: bool = True
-    max_similar_cycles: int = 3
-    min_cycle_similarity: float = 0.3
+    max_similar_cycles: int = 5
+    min_cycle_similarity: float = 0.5
     # Quick mode: skip debate, use heuristic for concrete goals
     quick_mode: bool = False
     # Use introspection data to select agents for planning debates
@@ -1226,6 +1226,33 @@ class MetaPlanner:
         except (RuntimeError, ValueError, OSError, TypeError) as exc:
             logger.warning("feedback_queue_unavailable: %s", exc)
 
+        # Signal 12: NextStepsRunner for TODOs, test failures, dep issues
+        try:
+            from aragora.compat.openclaw.next_steps_runner import NextStepsRunner
+
+            runner = NextStepsRunner(repo_path=".")
+            scan_result = runner.scan() if hasattr(runner, "scan") else None
+            if scan_result and hasattr(scan_result, "steps"):
+                for step in scan_result.steps[:10]:
+                    track = self._infer_track(
+                        getattr(step, "title", str(step)), available_tracks
+                    )
+                    if track and track.value in track_signals:
+                        priority = getattr(step, "priority", "medium")
+                        category = getattr(step, "category", "misc")
+                        track_signals[track.value].append(
+                            f"next_step[{category}/{priority}]: "
+                            f"{getattr(step, 'title', str(step))[:100]}"
+                        )
+                logger.info(
+                    "scan_next_steps",
+                    extra={"count": len(scan_result.steps)},
+                )
+        except ImportError:
+            pass
+        except (RuntimeError, ValueError, OSError, TypeError) as exc:
+            logger.warning("next_steps_runner_unavailable: %s", exc)
+
         # Build goals from signals, ranked by signal count
         ranked = sorted(
             track_signals.items(),
@@ -1676,6 +1703,126 @@ class MetaPlanner:
             logger.debug("NomicCycleAdapter not available, skipping KM persistence")
         except (ValueError, TypeError, OSError, AttributeError, KeyError) as e:
             logger.warning("Failed to persist outcome to KM: %s", e)
+
+    async def quick_prioritize(
+        self,
+        goals: list[Any],
+    ) -> list["PrioritizedGoal"]:
+        """Lightweight goal prioritization without full debate.
+
+        Takes GoalNode objects directly and returns PrioritizedGoal list
+        using heuristic scoring. Faster than full prioritize_work().
+
+        Args:
+            goals: List of GoalNode objects from GoalExtractor.
+
+        Returns:
+            Sorted list of PrioritizedGoal objects.
+        """
+        prioritized: list[PrioritizedGoal] = []
+        for i, goal in enumerate(goals):
+            title = getattr(goal, "title", str(goal))
+            description = getattr(goal, "description", title)
+            priority_attr = getattr(goal, "priority", None)
+            goal_type = getattr(goal, "goal_type", "goal")
+
+            # Score by priority and goal type
+            if priority_attr == "high" or priority_attr == "critical":
+                impact = "high"
+                score = 1
+            elif priority_attr == "medium":
+                impact = "medium"
+                score = 2
+            else:
+                impact = "low"
+                score = 3
+
+            # Boost strategies and milestones
+            if goal_type in ("strategy", "milestone"):
+                score = max(1, score - 1)
+
+            track = self._infer_track(description, list(Track))
+
+            prioritized.append(
+                PrioritizedGoal(
+                    id=getattr(goal, "id", f"goal_{i}"),
+                    track=track,
+                    description=description,
+                    rationale=f"Derived from {goal_type}: {title}",
+                    estimated_impact=impact,
+                    priority=score,
+                )
+            )
+
+        prioritized.sort(key=lambda g: g.priority)
+        return prioritized
+
+    async def generate_pipeline_goals(
+        self,
+        objective: str | None = None,
+        available_tracks: list[Track] | None = None,
+    ) -> list[Any]:
+        """Generate pipeline-compatible GoalNode objects from planning.
+
+        Wraps prioritize_work() and converts results into a format
+        compatible with IdeaToExecutionPipeline.
+
+        Returns:
+            List of GoalNode-compatible dicts.
+        """
+        goals = await self.prioritize_work(
+            objective=objective,
+            available_tracks=available_tracks,
+        )
+        return [
+            {
+                "id": g.id,
+                "title": g.description,
+                "description": g.rationale or g.description,
+                "goal_type": "goal",
+                "priority": "high" if g.priority <= 1 else "medium" if g.priority <= 3 else "low",
+                "track": g.track.value if hasattr(g.track, "value") else str(g.track),
+                "estimated_impact": g.estimated_impact,
+            }
+            for g in goals
+        ]
+
+    async def get_system_health_context(self) -> PlanningContext:
+        """Query system health metrics and build a PlanningContext.
+
+        Collects test results, CI status, ELO drift, budget burn,
+        and KM contradictions for pipeline goal generation.
+        """
+        context = PlanningContext()
+
+        # Collect test/lint/size metrics if available
+        try:
+            self._enrich_context_with_metrics(context)
+        except (ImportError, OSError, RuntimeError):
+            logger.debug("Metrics collection unavailable")
+
+        # Query KM for recent issues
+        try:
+            from aragora.knowledge.mound import get_knowledge_mound
+
+            km = get_knowledge_mound()
+            if km:
+                recent = km.search(query="recent issues bugs failures", limit=5)
+                if recent:
+                    context.recent_issues = [
+                        getattr(r, "title", str(r)) for r in recent
+                    ]
+        except (ImportError, AttributeError, TypeError):
+            logger.debug("KM unavailable for system health context")
+
+        # Query CI status from metric snapshot
+        if context.metric_snapshot:
+            if context.metric_snapshot.get("test_failures"):
+                context.test_failures = context.metric_snapshot["test_failures"]
+            if context.metric_snapshot.get("ci_failures"):
+                context.ci_failures = context.metric_snapshot["ci_failures"]
+
+        return context
 
 
 __all__ = [

@@ -5,6 +5,9 @@ Endpoints:
 - GET /api/self-improve/execution/timeline       - Branch execution timeline
 - GET /api/self-improve/learning/insights        - Cross-cycle learning data
 - GET /api/self-improve/metrics/comparison       - Before/after codebase metrics
+- POST /api/self-improve/improvement-queue       - User-submitted improvement goals
+- PUT /api/self-improve/improvement-queue/{id}/priority - Reorder queue items
+- DELETE /api/self-improve/improvement-queue/{id} - Remove queue items
 
 These endpoints expose the internal state of the Nomic Loop self-improvement
 system so the frontend dashboard can visualize what the system is doing,
@@ -13,7 +16,10 @@ why it chose specific goals, and how it learns over time.
 
 from __future__ import annotations
 
+import json
 import logging
+import time
+import uuid
 from dataclasses import asdict
 from typing import Any
 
@@ -50,12 +56,20 @@ class SelfImproveDetailsHandler(SecureEndpointMixin, SecureHandler):  # type: ig
         "/api/self-improve/learning/insights",
         "/api/self-improve/metrics/comparison",
         "/api/self-improve/trends/cycles",
+        "/api/self-improve/improvement-queue",
     ]
+
+    # Prefix for PUT/DELETE on individual queue items
+    _QUEUE_ITEM_PREFIX = "/api/self-improve/improvement-queue/"
 
     def can_handle(self, path: str, method: str = "GET") -> bool:
         """Check if this handler can handle the given path."""
         path = strip_version_prefix(path)
-        return path in self.ROUTES
+        if path in self.ROUTES:
+            return True
+        if path.startswith(self._QUEUE_ITEM_PREFIX):
+            return True
+        return False
 
     @rate_limit(requests_per_minute=30)
     async def handle(
@@ -501,6 +515,171 @@ class SelfImproveDetailsHandler(SecureEndpointMixin, SecureHandler):  # type: ig
                 }
             }
         )
+
+    # ------------------------------------------------------------------
+    # Improvement Queue write endpoints
+    # ------------------------------------------------------------------
+
+    @staticmethod
+    def _get_request_body(handler: Any) -> dict[str, Any]:
+        """Extract JSON body from the request handler."""
+        try:
+            if hasattr(handler, "request") and hasattr(handler.request, "body"):
+                raw = handler.request.body
+                if raw:
+                    return json.loads(raw.decode("utf-8") if isinstance(raw, bytes) else raw)
+        except (json.JSONDecodeError, UnicodeDecodeError, AttributeError):
+            pass
+        return {}
+
+    @handle_errors("improvement queue add")
+    async def handle_post(
+        self, path: str, query_params: dict[str, Any], handler: Any
+    ) -> HandlerResult | None:
+        """POST /api/v1/self-improve/improvement-queue
+
+        Add a user-submitted goal to the improvement queue.
+
+        Body: {"goal": str, "priority": int, "source": "user"}
+        """
+        path = strip_version_prefix(path)
+        if path != "/api/self-improve/improvement-queue":
+            return None
+
+        body = self._get_request_body(handler)
+        goal = body.get("goal", "")
+        if not goal:
+            return error_response("Missing required field: goal", 400)
+
+        priority = body.get("priority", 50)
+        source = body.get("source", "user")
+
+        try:
+            from aragora.nomic.improvement_queue import (
+                ImprovementSuggestion,
+                get_improvement_queue,
+            )
+
+            suggestion = ImprovementSuggestion(
+                debate_id=f"user-{uuid.uuid4().hex[:8]}",
+                task=goal,
+                suggestion=goal,
+                category=source,
+                confidence=min(max(priority / 100.0, 0.0), 1.0),
+                created_at=time.time(),
+            )
+            queue = get_improvement_queue()
+            queue.enqueue(suggestion)
+
+            return json_response({
+                "data": {
+                    "id": suggestion.debate_id,
+                    "goal": goal,
+                    "priority": priority,
+                    "source": source,
+                    "status": "pending",
+                    "createdAt": str(suggestion.created_at),
+                }
+            }, 201)
+        except (ImportError, RuntimeError) as exc:
+            logger.warning("Failed to add to improvement queue: %s", exc)
+            return error_response("Improvement queue unavailable", 503)
+
+    @handle_errors("improvement queue reorder")
+    async def handle_put(
+        self, path: str, query_params: dict[str, Any], handler: Any
+    ) -> HandlerResult | None:
+        """PUT /api/v1/self-improve/improvement-queue/{id}/priority
+
+        Update the priority of a queue item.
+
+        Body: {"priority": int}
+        """
+        path = strip_version_prefix(path)
+        if not path.startswith(self._QUEUE_ITEM_PREFIX):
+            return None
+
+        # Parse: /api/self-improve/improvement-queue/{id}/priority
+        remainder = path[len(self._QUEUE_ITEM_PREFIX):]
+        if not remainder.endswith("/priority"):
+            return None
+        item_id = remainder[: -len("/priority")]
+        if not item_id:
+            return error_response("Missing queue item ID", 400)
+
+        body = self._get_request_body(handler)
+        new_priority = body.get("priority")
+        if new_priority is None:
+            return error_response("Missing required field: priority", 400)
+
+        try:
+            from aragora.nomic.improvement_queue import get_improvement_queue
+
+            queue = get_improvement_queue()
+            # Update confidence (used as priority proxy) on matching item
+            found = False
+            for s in queue.peek(queue.max_size):
+                if s.debate_id == item_id:
+                    s.confidence = min(max(new_priority / 100.0, 0.0), 1.0)
+                    found = True
+                    break
+
+            if not found:
+                return error_response(f"Queue item {item_id} not found", 404)
+
+            return json_response({
+                "data": {
+                    "id": item_id,
+                    "priority": new_priority,
+                    "status": "updated",
+                }
+            })
+        except (ImportError, RuntimeError) as exc:
+            logger.warning("Failed to update queue priority: %s", exc)
+            return error_response("Improvement queue unavailable", 503)
+
+    @handle_errors("improvement queue remove")
+    async def handle_delete(
+        self, path: str, query_params: dict[str, Any], handler: Any
+    ) -> HandlerResult | None:
+        """DELETE /api/v1/self-improve/improvement-queue/{id}
+
+        Remove an item from the improvement queue.
+        """
+        path = strip_version_prefix(path)
+        if not path.startswith(self._QUEUE_ITEM_PREFIX):
+            return None
+
+        item_id = path[len(self._QUEUE_ITEM_PREFIX):]
+        # Reject if there's a further sub-path (e.g. .../priority)
+        if "/" in item_id or not item_id:
+            return None
+
+        try:
+            from aragora.nomic.improvement_queue import get_improvement_queue
+
+            queue = get_improvement_queue()
+            # Remove matching item by rebuilding the queue
+            with queue._lock:
+                original_len = len(queue._queue)
+                queue._queue = type(queue._queue)(
+                    (s for s in queue._queue if s.debate_id != item_id),
+                    maxlen=queue.max_size,
+                )
+                removed = len(queue._queue) < original_len
+
+            if not removed:
+                return error_response(f"Queue item {item_id} not found", 404)
+
+            return json_response({
+                "data": {
+                    "id": item_id,
+                    "status": "deleted",
+                }
+            })
+        except (ImportError, RuntimeError) as exc:
+            logger.warning("Failed to remove from improvement queue: %s", exc)
+            return error_response("Improvement queue unavailable", 503)
 
     async def _get_cycle_trends(self) -> HandlerResult:
         """Get self-improvement cycle trends over time.

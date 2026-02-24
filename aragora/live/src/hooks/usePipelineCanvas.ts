@@ -34,6 +34,16 @@ import {
 // ---------------------------------------------------------------------------
 
 const API_PREFIX = '/api/v1/canvas/pipeline';
+const GRAPH_API_PREFIX = '/api/v1/pipeline/graph';
+
+/** A single transition suggestion returned from the suggestions endpoint. */
+export interface TransitionSuggestion {
+  target_stage: string;
+  confidence: number;
+  rationale: string;
+  node_ids: string[];
+  auto_promotable: boolean;
+}
 
 const EMPTY_STAGES: Record<PipelineStageType, Node[]> = {
   ideas: [],
@@ -137,6 +147,10 @@ export function usePipelineCanvas(
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  // -- Suggestions state --------------------------------------------------
+  const [suggestions, setSuggestions] = useState<TransitionSuggestion[]>([]);
+  const [suggestionsLoading, setSuggestionsLoading] = useState(false);
+
   // -- WebSocket ref ------------------------------------------------------
   const wsRef = useRef<WebSocket | null>(null);
 
@@ -169,7 +183,7 @@ export function usePipelineCanvas(
 
       const stages: PipelineStageType[] = ['ideas', 'principles', 'goals', 'actions', 'orchestration'];
       for (const stage of stages) {
-        const stageData = (result as Record<string, unknown>)[stage] as ReactFlowData | Record<string, unknown> | null;
+        const stageData = (result as unknown as Record<string, unknown>)[stage] as ReactFlowData | Record<string, unknown> | null;
         stageNodesRef.current[stage] = parseStageNodes(stage, stageData);
         stageEdgesRef.current[stage] = parseStageEdges(stage, stageData);
       }
@@ -670,6 +684,62 @@ export function usePipelineCanvas(
     [pipelineId],
   );
 
+  // ---- API: fetch transition suggestions ---------------------------------
+  const fetchSuggestions = useCallback(
+    async (stage: PipelineStageType) => {
+      if (!pipelineId) return;
+
+      setSuggestionsLoading(true);
+      try {
+        const res = await fetch(
+          `${GRAPH_API_PREFIX}/${encodeURIComponent(pipelineId)}/suggestions?stage=${encodeURIComponent(stage)}`,
+        );
+        if (!res.ok) {
+          setSuggestions([]);
+          return;
+        }
+        const data = await res.json();
+        const items: TransitionSuggestion[] = Array.isArray(data.suggestions)
+          ? data.suggestions
+          : [];
+        setSuggestions(items);
+      } catch {
+        setSuggestions([]);
+      } finally {
+        setSuggestionsLoading(false);
+      }
+    },
+    [pipelineId],
+  );
+
+  // ---- Node status updates (from WebSocket) ------------------------------
+  const updateNodeStatus = useCallback(
+    (nodeId: string, status: string, elapsedMs?: number, outputPreview?: string) => {
+      setNodes((nds) =>
+        nds.map((n) =>
+          n.id === nodeId
+            ? {
+                ...n,
+                data: {
+                  ...n.data,
+                  executionStatus: status,
+                  ...(elapsedMs != null ? { elapsedMs } : {}),
+                  ...(outputPreview ? { outputPreview } : {}),
+                },
+              }
+            : n,
+        ),
+      );
+      // Also update the stage cache for orchestration nodes
+      stageNodesRef.current.orchestration = stageNodesRef.current.orchestration.map((n) =>
+        n.id === nodeId
+          ? { ...n, data: { ...n.data, executionStatus: status, ...(elapsedMs != null ? { elapsedMs } : {}), ...(outputPreview ? { outputPreview } : {}) } }
+          : n,
+      );
+    },
+    [setNodes],
+  );
+
   // ---- Return -----------------------------------------------------------
   return {
     // React Flow state
@@ -705,6 +775,14 @@ export function usePipelineCanvas(
     runPipeline,
     approveTransition,
     rejectTransition,
+    fetchSuggestions,
+
+    // Suggestions
+    suggestions,
+    suggestionsLoading,
+
+    // Node status (for WebSocket-driven updates)
+    updateNodeStatus,
 
     // Stage mutations
     clearStage,

@@ -89,6 +89,8 @@ class HardenedConfig:
     enable_auto_commit: bool = True
     enable_meta_planning: bool = True
     use_hierarchical: bool = False
+    # HierarchicalCoordinator: plan→execute→judge loop delegation
+    enable_hierarchical_coordination: bool = False
     # ExecutionBridge: structured instruction generation + KM result ingestion
     enable_execution_bridge: bool = True
     # DebugLoop: test-failure-retry cycle for agent execution
@@ -148,6 +150,7 @@ class HardenedOrchestrator(BudgetMixin, GauntletMixin, AuditMixin, AutonomousOrc
         enable_auto_commit: bool = True,
         enable_meta_planning: bool = True,
         use_hierarchical: bool = False,
+        enable_hierarchical_coordination: bool = False,
         enable_execution_bridge: bool = True,
         enable_debug_loop: bool = True,
         debug_loop_max_retries: int = 3,
@@ -180,6 +183,7 @@ class HardenedOrchestrator(BudgetMixin, GauntletMixin, AuditMixin, AutonomousOrc
             enable_auto_commit=enable_auto_commit,
             enable_meta_planning=enable_meta_planning,
             use_hierarchical=use_hierarchical,
+            enable_hierarchical_coordination=enable_hierarchical_coordination,
             enable_execution_bridge=enable_execution_bridge,
             enable_debug_loop=enable_debug_loop,
             debug_loop_max_retries=debug_loop_max_retries,
@@ -381,6 +385,14 @@ class HardenedOrchestrator(BudgetMixin, GauntletMixin, AuditMixin, AutonomousOrc
         self._receipts.clear()
 
         self._emit_event("coordinated_started", goal=goal[:200])
+
+        # Optional: delegate to HierarchicalCoordinator (plan→execute→judge loop)
+        if self.hardened_config.enable_hierarchical_coordination:
+            hc_result = await self._delegate_to_hierarchical_coordinator(
+                goal, tracks, context
+            )
+            if hc_result is not None:
+                return hc_result
 
         # Step 1: MetaPlanner -> prioritize goals
         prioritized_goals = await self._run_meta_planner_for_coordination(goal, tracks, quick_plan)
@@ -1142,6 +1154,66 @@ class HardenedOrchestrator(BudgetMixin, GauntletMixin, AuditMixin, AutonomousOrc
 
         except ImportError:
             logger.debug("SkillScanner unavailable, skipping prompt defense")
+
+    async def _delegate_to_hierarchical_coordinator(
+        self,
+        goal: str,
+        tracks: list[str] | None,
+        context: dict[str, Any] | None,
+    ) -> OrchestrationResult | None:
+        """Delegate goal execution to HierarchicalCoordinator.
+
+        Uses a plan->execute->judge loop instead of the default
+        MetaPlanner->BranchCoordinator pipeline. Returns None if
+        the coordinator is unavailable, allowing fallback to the
+        standard pipeline.
+        """
+        try:
+            from aragora.nomic.hierarchical_coordinator import (
+                CoordinatorConfig,
+                HierarchicalCoordinator,
+            )
+
+            config = CoordinatorConfig(
+                max_parallel_workers=4,
+                max_cycles=3,
+            )
+            coordinator = HierarchicalCoordinator(config=config)
+            hc_result = await coordinator.coordinate(
+                goal=goal,
+                tracks=tracks,
+                context=context,
+            )
+
+            logger.info(
+                "hierarchical_coordination_completed goal=%s success=%s cycles=%d",
+                goal[:80],
+                hc_result.success,
+                hc_result.cycles_used,
+            )
+
+            # Convert HierarchicalResult to OrchestrationResult
+            return OrchestrationResult(
+                goal=goal,
+                summary=(
+                    f"Hierarchical coordination: {hc_result.cycles_used} cycles, "
+                    f"{len(hc_result.worker_reports)} workers"
+                ),
+                assignments=[],
+                success=hc_result.success,
+                duration_seconds=hc_result.duration_seconds,
+            )
+        except ImportError:
+            logger.debug(
+                "HierarchicalCoordinator not available, falling back to standard pipeline"
+            )
+            return None
+        except (RuntimeError, ValueError, TypeError, OSError) as exc:
+            logger.warning(
+                "HierarchicalCoordinator failed, falling back to standard pipeline: %s",
+                exc,
+            )
+            return None
 
     def get_canary_directive(self) -> str:
         """Return a system prompt directive containing the canary token.

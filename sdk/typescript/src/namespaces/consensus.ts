@@ -166,10 +166,69 @@ export interface FilterOptions {
 }
 
 /**
+ * Proposal for consensus detection.
+ */
+export interface ConsensusProposal {
+  agent: string;
+  content: string;
+  round?: number;
+}
+
+/**
+ * Request for consensus detection.
+ */
+export interface DetectConsensusRequest {
+  task: string;
+  proposals: ConsensusProposal[];
+  threshold?: number;
+}
+
+/**
+ * Consensus detection result.
+ */
+export interface ConsensusDetectionResult {
+  debate_id: string;
+  consensus_reached: boolean;
+  confidence: number;
+  threshold: number;
+  agreement_ratio: number;
+  has_strong_consensus: boolean;
+  final_claim: string;
+  reasoning_summary: string;
+  supporting_agents: string[];
+  dissenting_agents: string[];
+  claims_count: number;
+  evidence_count: number;
+  unresolved_tensions_count: number;
+  proof: Record<string, unknown>;
+  checksum: string;
+}
+
+/**
+ * Consensus status for an existing debate.
+ */
+export interface ConsensusStatusResult {
+  debate_id: string;
+  consensus_reached: boolean;
+  confidence: number;
+  agreement_ratio: number;
+  has_strong_consensus: boolean;
+  final_claim: string;
+  supporting_agents: string[];
+  dissenting_agents: string[];
+  claims_count: number;
+  dissents_count: number;
+  unresolved_tensions_count: number;
+  partial_consensus: Record<string, unknown>;
+  proof: Record<string, unknown>;
+  checksum: string;
+}
+
+/**
  * Interface for the internal client methods used by ConsensusAPI.
  */
 interface ConsensusClientInterface {
-  request<T>(method: string, path: string, options?: { params?: Record<string, unknown> }): Promise<T>;
+  request<T>(method: string, path: string, options?: { params?: Record<string, unknown>; json?: Record<string, unknown> }): Promise<T>;
 }
 
 /**
@@ -300,5 +359,52 @@ export class ConsensusAPI {
   /** Get consensus overview. */
   async getOverview(): Promise<Record<string, unknown>> {
     return this.client.request('GET', '/api/v1/consensus');
+  }
+
+  /**
+   * Detect consensus from a set of proposals.
+   *
+   * Analyzes proposals for agreement and returns a consensus proof.
+   *
+   * @param request - The detection request with task, proposals, and optional threshold.
+   * @returns Consensus detection result with proof, claims, and votes.
+   *
+   * @example
+   * ```typescript
+   * const result = await client.consensus.detect({
+   *   task: 'Should we adopt microservices?',
+   *   proposals: [
+   *     { agent: 'claude', content: 'Yes, microservices improve scalability.' },
+   *     { agent: 'gpt-4', content: 'Yes, but with careful service boundaries.' },
+   *   ],
+   *   threshold: 0.7,
+   * });
+   * console.log(`Consensus reached: ${result.data.consensus_reached}`);
+   * ```
+   */
+  async detect(request: DetectConsensusRequest): Promise<{ data: ConsensusDetectionResult }> {
+    return this.client.request<{ data: ConsensusDetectionResult }>('POST', '/api/v1/consensus/detect', {
+      json: {
+        task: request.task,
+        proposals: request.proposals,
+        threshold: request.threshold ?? 0.7,
+      },
+    });
+  }
+
+  /**
+   * Get consensus detection status for an existing debate.
+   *
+   * @param debateId - The debate ID to check consensus for.
+   * @returns Consensus status with proof, partial consensus, and claims.
+   *
+   * @example
+   * ```typescript
+   * const status = await client.consensus.getDetectionStatus('debate-abc123');
+   * console.log(`Consensus: ${status.data.consensus_reached}, confidence: ${status.data.confidence}`);
+   * ```
+   */
+  async getDetectionStatus(debateId: string): Promise<{ data: ConsensusStatusResult }> {
+    return this.client.request<{ data: ConsensusStatusResult }>('GET', `/api/v1/consensus/status/${encodeURIComponent(debateId)}`);
   }
 }

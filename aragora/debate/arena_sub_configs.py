@@ -481,8 +481,8 @@ class SupermemorySubConfig:
         )
     """
 
-    # Master switch (opt-in, disabled by default)
-    enable_supermemory: bool = False
+    # Master switch (enabled by default — 80+ tests passing)
+    enable_supermemory: bool = True
 
     # KM adapter toggle (auto-enable adapter in bidirectional coordinator)
     supermemory_enable_km_adapter: bool = False

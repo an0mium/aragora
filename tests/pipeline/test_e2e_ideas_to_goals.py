@@ -437,8 +437,8 @@ class TestPipelineStageTypes:
         assert len(link.content_hash) > 0  # SHA-256 derived hex
 
     def test_goal_node_types_complete(self):
-        """All 6 GoalNodeType values should be defined."""
-        expected = {"goal", "principle", "strategy", "milestone", "metric", "risk"}
+        """All 7 GoalNodeType values should be defined."""
+        expected = {"goal", "principle", "strategy", "milestone", "metric", "risk", "value"}
         actual = {t.value for t in GoalNodeType}
         assert expected == actual
 

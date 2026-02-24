@@ -10,6 +10,7 @@ import { useDebateWebSocket } from '@/hooks/useDebateWebSocket';
 import { LiveDebateView } from './LiveDebateView';
 import { ArchivedDebateView } from './ArchivedDebateView';
 import type { DebateViewerProps, DebateArtifact, StreamingMessage, CruxClaim } from './types';
+import { NextStepsPanel } from './NextStepsPanel';
 import { logger } from '@/utils/logger';
 import { API_BASE_URL } from '@/config';
 import { useAuth } from '@/context/AuthContext';
@@ -217,6 +218,10 @@ export function DebateViewer({ debateId, wsUrl = DEFAULT_WS_URL }: DebateViewerP
 
           {debate && <ArchivedDebateView debate={debate} onShare={handleShare} copied={copied} />}
         </div>
+
+        {(liveStatus === 'complete' || (!isLiveDebate && debate)) && (
+          <NextStepsPanel debateId={debateId} />
+        )}
 
         {/* Hide footer during active streaming to maximize content area */}
         {(!isLiveDebate || liveStatus === 'complete' || liveStatus === 'error') && <Footer />}

@@ -65,8 +65,8 @@ function EloTrendChartComponent({ maxPoints = 30, height = 240 }: EloTrendChartP
       let lastElo: number | null = null;
 
       for (const period of periods) {
-        const elo = lookup.get(period) ?? lastElo;
-        if (elo !== null) {
+        const elo: number | null = lookup.get(period) ?? lastElo;
+        if (elo !== null && elo !== undefined) {
           points.push({ period, elo });
           lastElo = elo;
           if (elo < globalMin) globalMin = elo;

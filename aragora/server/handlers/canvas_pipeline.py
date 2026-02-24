@@ -31,6 +31,7 @@ import json
 import logging
 import re
 import time
+import uuid
 from typing import Any
 
 from aragora.server.handlers.base import HandlerResult, error_response, handle_errors, json_response
@@ -51,6 +52,20 @@ _DEBATE_TO_PIPELINE = re.compile(r"^/api/v1/debates/([a-zA-Z0-9_-]+)/to-pipeline
 _pipeline_objects: dict[str, Any] = {}
 # Async pipeline tasks (cannot be persisted)
 _pipeline_tasks: dict[str, asyncio.Task[Any]] = {}
+
+
+def _spectate_pipeline(event_type: str, pipeline_id: str, data: dict[str, Any]) -> None:
+    """Emit a spectate event for pipeline operations."""
+    try:
+        from aragora.spectate.stream import SpectatorStream
+
+        stream = SpectatorStream(enabled=True)
+        stream.emit(event_type=event_type, details=json.dumps({
+            "pipeline_id": pipeline_id,
+            **data,
+        }))
+    except (ImportError, TypeError):
+        pass
 
 
 def _get_store() -> Any:
@@ -132,9 +147,18 @@ class CanvasPipelineHandler:
         "PUT /api/v1/canvas/pipeline/{id}",
         "POST /api/v1/canvas/pipeline/extract-goals",
         "POST /api/v1/canvas/pipeline/extract-principles",
+        "POST /api/v1/canvas/pipeline/auto-run",
+        "POST /api/v1/canvas/pipeline/from-system-metrics",
         "POST /api/v1/canvas/convert/debate",
         "POST /api/v1/canvas/convert/workflow",
         "POST /api/v1/debates/{id}/to-pipeline",
+        "GET /api/v1/canvas/pipeline/{id}/intelligence",
+        "GET /api/v1/canvas/pipeline/{id}/beliefs",
+        "GET /api/v1/canvas/pipeline/{id}/explanations",
+        "GET /api/v1/canvas/pipeline/{id}/precedents",
+        "GET /api/v1/pipeline/{id}/agents",
+        "POST /api/v1/pipeline/{id}/agents/{agent_id}/approve",
+        "POST /api/v1/pipeline/{id}/agents/{agent_id}/reject",
     ]
 
     def __init__(self, ctx: dict[str, Any] | None = None) -> None:
@@ -143,6 +167,8 @@ class CanvasPipelineHandler:
     def can_handle(self, path: str) -> bool:
         """Check if this handler can handle the given path."""
         if path.startswith("/api/v1/canvas/") or path.startswith("/api/canvas/"):
+            return True
+        if path.startswith("/api/v1/pipeline/"):
             return True
         if _DEBATE_TO_PIPELINE.match(path):
             return True
@@ -175,6 +201,31 @@ class CanvasPipelineHandler:
         m = _PIPELINE_STAGE.match(path)
         if m:
             return self.handle_get_stage(m.group(1), m.group(2))
+
+        # GET /api/v1/canvas/pipeline/{id}/intelligence
+        m = re.match(r".*/pipeline/([a-zA-Z0-9_-]+)/intelligence$", path)
+        if m:
+            return self.handle_intelligence(m.group(1))
+
+        # GET /api/v1/canvas/pipeline/{id}/beliefs
+        m = re.match(r".*/pipeline/([a-zA-Z0-9_-]+)/beliefs$", path)
+        if m:
+            return self.handle_beliefs(m.group(1))
+
+        # GET /api/v1/canvas/pipeline/{id}/explanations
+        m = re.match(r".*/pipeline/([a-zA-Z0-9_-]+)/explanations$", path)
+        if m:
+            return self.handle_explanations(m.group(1))
+
+        # GET /api/v1/canvas/pipeline/{id}/precedents
+        m = re.match(r".*/pipeline/([a-zA-Z0-9_-]+)/precedents$", path)
+        if m:
+            return self.handle_precedents(m.group(1))
+
+        # GET /api/v1/pipeline/{id}/agents
+        m = re.match(r".*/pipeline/([a-zA-Z0-9_-]+)/agents$", path)
+        if m:
+            return self.handle_get_agents(m.group(1))
 
         # GET /api/v1/canvas/pipeline/{id}
         m = _PIPELINE_ID.match(path)
@@ -226,6 +277,8 @@ class CanvasPipelineHandler:
             "/pipeline/run": self.handle_run,
             "/pipeline/extract-goals": self.handle_extract_goals,
             "/pipeline/extract-principles": self.handle_extract_principles,
+            "/pipeline/auto-run": self.handle_auto_run,
+            "/pipeline/from-system-metrics": self.handle_from_system_metrics,
             "/convert/debate": self.handle_convert_debate,
             "/convert/workflow": self.handle_convert_workflow,
         }
@@ -247,6 +300,18 @@ class CanvasPipelineHandler:
                 return auth_error
             body = self._get_request_body(handler)
             return self.handle_self_improve(m.group(1), body)
+
+        # Check for agent approve: /api/v1/pipeline/{id}/agents/{agent_id}/approve
+        m = re.match(r".*/pipeline/([a-zA-Z0-9_-]+)/agents/([a-zA-Z0-9_-]+)/approve$", path)
+        if m:
+            body = self._get_request_body(handler)
+            return self.handle_approve_agent(m.group(1), m.group(2), body)
+
+        # Check for agent reject: /api/v1/pipeline/{id}/agents/{agent_id}/reject
+        m = re.match(r".*/pipeline/([a-zA-Z0-9_-]+)/agents/([a-zA-Z0-9_-]+)/reject$", path)
+        if m:
+            body = self._get_request_body(handler)
+            return self.handle_reject_agent(m.group(1), m.group(2), body)
 
         # Check for execute: /api/v1/canvas/pipeline/{id}/execute
         m = _PIPELINE_EXECUTE.match(path)
@@ -1118,6 +1183,268 @@ class CanvasPipelineHandler:
             return error_response("Principles extraction failed", 500)
 
     # =========================================================================
+    # Phase 2A: Auto-run pipeline from brain dump
+    # =========================================================================
+
+    async def handle_auto_run(self, request_data: dict[str, Any]) -> HandlerResult:
+        """POST /api/v1/canvas/pipeline/auto-run
+
+        Accept unstructured text and automation level, return pipeline_id
+        immediately while processing streams via WebSocket.
+
+        Body:
+            text: str -- Raw brain dump text
+            automation_level: "full" | "guided" | "manual" (default: "guided")
+        """
+        text = request_data.get("text", "")
+        if not text or not text.strip():
+            return error_response("Missing required field: text", 400)
+
+        automation_level = request_data.get("automation_level", "guided")
+        if automation_level not in ("full", "guided", "manual"):
+            return error_response("automation_level must be 'full', 'guided', or 'manual'", 400)
+
+        pipeline_id = f"auto-{uuid.uuid4().hex[:12]}"
+
+        try:
+            import asyncio
+
+            from aragora.pipeline.idea_to_execution import IdeaToExecutionPipeline
+
+            # Fire off the pipeline asynchronously
+            task = asyncio.ensure_future(
+                IdeaToExecutionPipeline.from_brain_dump(
+                    text=text,
+                    automation_level=automation_level,
+                    pipeline_id=pipeline_id,
+                )
+            )
+            _pipeline_tasks[pipeline_id] = task
+
+            return json_response({
+                "pipeline_id": pipeline_id,
+                "automation_level": automation_level,
+                "status": "started",
+            })
+        except (ImportError, ValueError, TypeError) as e:
+            logger.warning("Auto-run pipeline failed: %s", e)
+            return error_response("Auto-run pipeline failed", 500)
+
+    # =========================================================================
+    # Phase 3A: Agent execution endpoints
+    # =========================================================================
+
+    async def handle_get_agents(self, pipeline_id: str) -> HandlerResult:
+        """GET /api/v1/pipeline/{id}/agents
+
+        Return active agents with status, worktree, progress.
+        """
+        result = _pipeline_objects.get(pipeline_id)
+        agents: list[dict[str, Any]] = []
+
+        if result:
+            # Extract agent assignment data from orchestration result
+            orch = getattr(result, "orchestration_result", None)
+            if orch and hasattr(orch, "assignments"):
+                for assignment in orch.assignments:
+                    agent_data = {
+                        "id": getattr(assignment, "id", str(uuid.uuid4().hex[:8])),
+                        "name": getattr(assignment, "agent_name", "unknown"),
+                        "agent_type": getattr(assignment, "agent_type", "default"),
+                        "current_task": getattr(assignment, "description", None),
+                        "status": getattr(assignment, "status", "pending"),
+                        "progress": getattr(assignment, "progress", 0),
+                        "worktree_path": getattr(assignment, "worktree_path", None),
+                        "phase": getattr(assignment, "phase", None),
+                        "diff_preview": getattr(assignment, "diff_preview", None),
+                        "duration": getattr(assignment, "duration_ms", None),
+                        "error": getattr(assignment, "error", None),
+                    }
+                    agents.append(agent_data)
+
+        return json_response({"agents": agents, "pipeline_id": pipeline_id})
+
+    async def handle_approve_agent(
+        self, pipeline_id: str, agent_id: str, request_data: dict[str, Any]
+    ) -> HandlerResult:
+        """POST /api/v1/pipeline/{id}/agents/{agent_id}/approve"""
+        notes = request_data.get("notes", "")
+        logger.info("Agent %s approved for pipeline %s: %s", agent_id, pipeline_id, notes)
+        # Signal approval to orchestrator
+        try:
+            from aragora.spectate.events import SpectatorEvents
+
+            _spectate_pipeline(SpectatorEvents.APPROVAL_GRANTED, pipeline_id, {
+                "agent_id": agent_id,
+                "notes": notes,
+            })
+        except ImportError:
+            pass
+        return json_response({"status": "approved", "agent_id": agent_id})
+
+    async def handle_reject_agent(
+        self, pipeline_id: str, agent_id: str, request_data: dict[str, Any]
+    ) -> HandlerResult:
+        """POST /api/v1/pipeline/{id}/agents/{agent_id}/reject"""
+        feedback = request_data.get("feedback", "")
+        if not feedback:
+            return error_response("Missing required field: feedback", 400)
+        logger.info("Agent %s rejected for pipeline %s: %s", agent_id, pipeline_id, feedback)
+        try:
+            from aragora.spectate.events import SpectatorEvents
+
+            _spectate_pipeline(SpectatorEvents.APPROVAL_REJECTED, pipeline_id, {
+                "agent_id": agent_id,
+                "feedback": feedback,
+            })
+        except ImportError:
+            pass
+        return json_response({"status": "rejected", "agent_id": agent_id})
+
+    # =========================================================================
+    # Phase 4A: Intelligence aggregation endpoints
+    # =========================================================================
+
+    async def handle_intelligence(self, pipeline_id: str) -> HandlerResult:
+        """GET /api/v1/canvas/pipeline/{id}/intelligence
+
+        Return per-node intelligence: beliefs, crux status, evidence count,
+        KM precedents, explainability factors.
+        """
+        result = _pipeline_objects.get(pipeline_id)
+        beliefs: list[dict[str, Any]] = []
+        explanations: list[dict[str, Any]] = []
+        precedents: list[dict[str, Any]] = []
+
+        if result and result.goal_graph:
+            goals = getattr(result.goal_graph, "goals", [])
+            for goal in goals:
+                gid = getattr(goal, "id", "")
+                confidence = getattr(goal, "confidence", 0.5)
+                beliefs.append({
+                    "node_id": gid,
+                    "confidence": confidence,
+                    "is_crux": confidence < 0.4,
+                })
+
+            # Query KM for precedents
+            try:
+                from aragora.pipeline.km_bridge import PipelineKMBridge
+
+                bridge = PipelineKMBridge()
+                if bridge.available and result.goal_graph:
+                    prec = bridge.query_similar_goals(result.goal_graph)
+                    for goal_id, matches in prec.items():
+                        precedents.append({
+                            "node_id": goal_id,
+                            "matches": matches,
+                        })
+            except (ImportError, AttributeError):
+                logger.debug("KM bridge unavailable for intelligence")
+
+            # Build explainability factors
+            try:
+                from aragora.explainability.builder import ExplanationBuilder
+
+                builder = ExplanationBuilder()
+                for goal in goals:
+                    gid = getattr(goal, "id", "")
+                    factors = builder.build(
+                        decision=getattr(goal, "title", ""),
+                        context=getattr(goal, "description", ""),
+                    )
+                    if factors:
+                        explanations.append({
+                            "node_id": gid,
+                            "factors": [f.to_dict() if hasattr(f, "to_dict") else f for f in factors],
+                        })
+            except (ImportError, AttributeError, TypeError):
+                logger.debug("ExplanationBuilder unavailable for intelligence")
+
+        return json_response({
+            "pipeline_id": pipeline_id,
+            "beliefs": beliefs,
+            "explanations": explanations,
+            "precedents": precedents,
+        })
+
+    async def handle_beliefs(self, pipeline_id: str) -> HandlerResult:
+        """GET /api/v1/canvas/pipeline/{id}/beliefs"""
+        result = _pipeline_objects.get(pipeline_id)
+        beliefs: list[dict[str, Any]] = []
+
+        if result and result.goal_graph:
+            try:
+                from aragora.reasoning.belief import BeliefNetwork
+
+                network = BeliefNetwork()
+                goals = getattr(result.goal_graph, "goals", [])
+                for goal in goals:
+                    gid = getattr(goal, "id", "")
+                    confidence = getattr(goal, "confidence", 0.5)
+                    beliefs.append({
+                        "node_id": gid,
+                        "confidence": confidence,
+                        "is_crux": confidence < 0.4,
+                    })
+            except (ImportError, AttributeError):
+                pass
+
+        return json_response({"pipeline_id": pipeline_id, "beliefs": beliefs})
+
+    async def handle_explanations(self, pipeline_id: str) -> HandlerResult:
+        """GET /api/v1/canvas/pipeline/{id}/explanations"""
+        return json_response({"pipeline_id": pipeline_id, "explanations": []})
+
+    async def handle_precedents(self, pipeline_id: str) -> HandlerResult:
+        """GET /api/v1/canvas/pipeline/{id}/precedents"""
+        result = _pipeline_objects.get(pipeline_id)
+        precedents: list[dict[str, Any]] = []
+
+        if result and result.goal_graph:
+            try:
+                from aragora.pipeline.km_bridge import PipelineKMBridge
+
+                bridge = PipelineKMBridge()
+                if bridge.available:
+                    prec = bridge.query_similar_goals(result.goal_graph)
+                    for goal_id, matches in prec.items():
+                        precedents.append({"node_id": goal_id, "matches": matches})
+            except (ImportError, AttributeError):
+                pass
+
+        return json_response({"pipeline_id": pipeline_id, "precedents": precedents})
+
+    # =========================================================================
+    # Phase 5A: System metrics pipeline source
+    # =========================================================================
+
+    async def handle_from_system_metrics(self, request_data: dict[str, Any]) -> HandlerResult:
+        """POST /api/v1/canvas/pipeline/from-system-metrics
+
+        Auto-generate pipeline from system health analysis.
+        """
+        pipeline_id = f"sysmetrics-{uuid.uuid4().hex[:12]}"
+        try:
+            import asyncio
+
+            from aragora.pipeline.idea_to_execution import IdeaToExecutionPipeline
+
+            result = await IdeaToExecutionPipeline.from_system_metrics(
+                pipeline_id=pipeline_id,
+            )
+            _pipeline_objects[pipeline_id] = result
+
+            return json_response({
+                "pipeline_id": pipeline_id,
+                "ideas_count": len(result.ideas_canvas.nodes) if result.ideas_canvas else 0,
+                "status": "created",
+            })
+        except (ImportError, ValueError, TypeError) as e:
+            logger.warning("System metrics pipeline failed: %s", e)
+            return error_response("System metrics pipeline failed", 500)
+
+    # =========================================================================
     # PUT: Save canvas state
     # =========================================================================
 
@@ -1421,6 +1748,30 @@ class CanvasPipelineHandler:
             emitter = get_pipeline_emitter()
         except ImportError:
             pass
+
+        # Sync canvas state to workflow definition
+        try:
+            from aragora.pipeline.canvas_workflow_sync import sync_canvas_to_workflow
+            from aragora.pipeline.graph_store import get_graph_store
+
+            graph_store = get_graph_store()
+            # Try to find the universal graph for this pipeline
+            graphs = graph_store.list(limit=100)
+            pipeline_graph = None
+            for g_summary in graphs:
+                g_id = g_summary.get("id", g_summary) if isinstance(g_summary, dict) else g_summary
+                g = graph_store.get(str(g_id))
+                if g and getattr(g, "metadata", {}).get("pipeline_id") == pipeline_id:
+                    pipeline_graph = g
+                    break
+
+            if pipeline_graph:
+                synced_workflow = sync_canvas_to_workflow(pipeline_graph)
+                existing["synced_workflow"] = synced_workflow
+                store.save(pipeline_id, existing)
+                logger.info("Synced canvas to workflow for pipeline %s: %d steps", pipeline_id, len(synced_workflow.get("steps", [])))
+        except (ImportError, RuntimeError, TypeError, ValueError) as exc:
+            logger.debug("Canvas-to-workflow sync skipped: %s", exc)
 
         # Start async execution
         async def _execute() -> None:

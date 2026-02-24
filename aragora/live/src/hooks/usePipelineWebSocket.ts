@@ -23,6 +23,7 @@ export type PipelineEventType =
   | 'pipeline_workflow_generated'
   | 'pipeline_step_progress'
   | 'pipeline_node_added'
+  | 'pipeline_node_status'
   | 'pipeline_transition_pending'
   | 'pipeline_completed'
   | 'pipeline_failed';
@@ -54,6 +55,14 @@ export interface PipelineGraphEvent {
     nodes: Array<Record<string, unknown>>;
     edges: Array<Record<string, unknown>>;
   };
+}
+
+export interface PipelineNodeStatusEvent {
+  node_id: string;
+  status: string;
+  elapsed_ms?: number;
+  output_preview?: string;
+  agent?: string;
 }
 
 export interface PipelineStepProgressEvent {
@@ -90,6 +99,8 @@ export interface UsePipelineWebSocketOptions {
   onNodeAdded?: (event: PipelineNodeEvent) => void;
   /** Callback when a transition approval is pending */
   onTransitionPending?: (event: PipelineTransitionEvent) => void;
+  /** Callback when a node's execution status changes */
+  onNodeStatus?: (event: PipelineNodeStatusEvent) => void;
   /** Callback when step progress is reported */
   onStepProgress?: (event: PipelineStepProgressEvent) => void;
   /** Callback when the full graph is updated */
@@ -108,6 +119,8 @@ export interface UsePipelineWebSocketReturn {
   completedStages: string[];
   /** Nodes added during streaming */
   streamedNodes: PipelineNodeEvent[];
+  /** Latest node status updates keyed by node_id */
+  nodeStatuses: Record<string, PipelineNodeStatusEvent>;
   /** Pending transition gates */
   pendingTransitions: PipelineTransitionEvent[];
   /** Whether the pipeline run is finished */
@@ -126,6 +139,7 @@ export function usePipelineWebSocket({
   onStageStarted,
   onStageCompleted,
   onNodeAdded,
+  onNodeStatus,
   onTransitionPending,
   onStepProgress,
   onGraphUpdated,
@@ -136,6 +150,7 @@ export function usePipelineWebSocket({
 
   const [completedStages, setCompletedStages] = useState<string[]>([]);
   const [streamedNodes, setStreamedNodes] = useState<PipelineNodeEvent[]>([]);
+  const [nodeStatuses, setNodeStatuses] = useState<Record<string, PipelineNodeStatusEvent>>({});
   const [pendingTransitions, setPendingTransitions] = useState<PipelineTransitionEvent[]>([]);
   const [isComplete, setIsComplete] = useState(false);
 
@@ -193,6 +208,19 @@ export function usePipelineWebSocket({
           break;
         }
 
+        case 'pipeline_node_status': {
+          const nodeStatusEvent: PipelineNodeStatusEvent = {
+            node_id: data.node_id as string,
+            status: data.status as string,
+            elapsed_ms: data.elapsed_ms as number | undefined,
+            output_preview: data.output_preview as string | undefined,
+            agent: data.agent as string | undefined,
+          };
+          setNodeStatuses((prev) => ({ ...prev, [nodeStatusEvent.node_id]: nodeStatusEvent }));
+          onNodeStatus?.(nodeStatusEvent);
+          break;
+        }
+
         case 'pipeline_step_progress':
           onStepProgress?.({
             step: data.step as string,
@@ -223,7 +251,7 @@ export function usePipelineWebSocket({
           break;
       }
     },
-    [onStageStarted, onStageCompleted, onNodeAdded, onTransitionPending, onStepProgress, onGraphUpdated, onCompleted, onFailed],
+    [onStageStarted, onStageCompleted, onNodeAdded, onNodeStatus, onTransitionPending, onStepProgress, onGraphUpdated, onCompleted, onFailed],
   );
 
   const { status, error, isConnected, reconnect, disconnect, send } =
@@ -248,6 +276,7 @@ export function usePipelineWebSocket({
     error,
     completedStages,
     streamedNodes,
+    nodeStatuses,
     pendingTransitions,
     isComplete,
     reconnect,

@@ -89,6 +89,7 @@ class TestStageTypes:
 
         assert set(PipelineStage) == {
             PipelineStage.IDEAS,
+            PipelineStage.PRINCIPLES,
             PipelineStage.GOALS,
             PipelineStage.ACTIONS,
             PipelineStage.ORCHESTRATION,

@@ -24,6 +24,16 @@ from aragora.integrations.webhooks import (
 from aragora.server.handlers.base import clear_cache
 
 
+def _wait_for(predicate, timeout=5.0, interval=0.01):
+    """Poll until predicate() is truthy or timeout expires."""
+    deadline = time.monotonic() + timeout
+    while time.monotonic() < deadline:
+        if predicate():
+            return True
+        time.sleep(interval)
+    return predicate()
+
+
 class TestAragoraJSONEncoder(unittest.TestCase):
     """Tests for custom JSON encoder."""
 
@@ -383,7 +393,7 @@ class TestWebhookDelivery(unittest.TestCase):
 
         self.server = ReusableHTTPServer(("127.0.0.1", self.port), Handler)
         threading.Thread(target=self.server.serve_forever, daemon=True).start()
-        time.sleep(0.1)
+        time.sleep(0.01)
 
     def test_delivers_event_with_correct_headers(self):
         self._start_server(200)
@@ -404,7 +414,7 @@ class TestWebhookDelivery(unittest.TestCase):
             }
         )
 
-        time.sleep(0.5)
+        _wait_for(lambda: len(self.received) >= 1)
         dispatcher.stop()
 
         self.assertEqual(len(self.received), 1)
@@ -430,7 +440,7 @@ class TestWebhookDelivery(unittest.TestCase):
             }
         )
 
-        time.sleep(0.5)
+        _wait_for(lambda: len(self.received) >= 1)
         dispatcher.stop()
 
         self.assertEqual(len(self.received), 1)
@@ -448,7 +458,7 @@ class TestWebhookDelivery(unittest.TestCase):
 
         dispatcher.enqueue({"type": "debate_start"})
         dispatcher.enqueue({"type": "consensus"})
-        time.sleep(0.5)
+        _wait_for(lambda: dispatcher.stats["delivered"] >= 2)
 
         stats = dispatcher.stats
         self.assertEqual(stats["delivered"], 2)
@@ -515,7 +525,7 @@ class TestRetryLogic(unittest.TestCase):
 
         self.server = ReusableHTTPServer(("127.0.0.1", self.port), Handler)
         threading.Thread(target=self.server.serve_forever, daemon=True).start()
-        time.sleep(0.1)
+        time.sleep(0.01)
 
     def test_retries_on_5xx(self):
         """Should retry with exponential backoff on 5xx responses."""
@@ -531,7 +541,7 @@ class TestRetryLogic(unittest.TestCase):
         dispatcher.start()
 
         dispatcher.enqueue({"type": "debate_start"})
-        time.sleep(1.0)  # Wait for retries
+        _wait_for(lambda: len(self.received) >= 3)
         dispatcher.stop()
 
         # Should have tried 3 times total
@@ -553,7 +563,7 @@ class TestRetryLogic(unittest.TestCase):
         dispatcher.start()
 
         dispatcher.enqueue({"type": "debate_start"})
-        time.sleep(0.5)
+        _wait_for(lambda: len(self.received) >= 2)
         dispatcher.stop()
 
         self.assertEqual(len(self.received), 2)
@@ -574,7 +584,7 @@ class TestRetryLogic(unittest.TestCase):
         dispatcher.start()
 
         dispatcher.enqueue({"type": "debate_start"})
-        time.sleep(1.5)  # Wait for Retry-After delay
+        _wait_for(lambda: len(self.received) >= 2, timeout=5.0)
         dispatcher.stop()
 
         self.assertEqual(len(self.received), 2)
@@ -597,7 +607,7 @@ class TestRetryLogic(unittest.TestCase):
         dispatcher.start()
 
         dispatcher.enqueue({"type": "debate_start"})
-        time.sleep(0.3)
+        _wait_for(lambda: dispatcher.stats["failed"] >= 1)
         dispatcher.stop()
 
         # Should only try once - 4xx is permanent failure
@@ -619,7 +629,7 @@ class TestRetryLogic(unittest.TestCase):
         dispatcher.start()
 
         dispatcher.enqueue({"type": "debate_start"})
-        time.sleep(0.5)
+        _wait_for(lambda: dispatcher.stats["failed"] >= 1)
         dispatcher.stop()
 
         # Should have tried exactly max_retries times
@@ -641,7 +651,7 @@ class TestRetryLogic(unittest.TestCase):
         dispatcher.start()
 
         dispatcher.enqueue({"type": "debate_start"})
-        time.sleep(0.5)
+        _wait_for(lambda: dispatcher.stats["failed"] >= 1)
         dispatcher.stop()
 
         # Should have tried max_retries times and then failed
@@ -686,7 +696,7 @@ class TestTimeoutBehavior(unittest.TestCase):
 
         self.server = ReusableHTTPServer(("127.0.0.1", self.port), SlowHandler)
         threading.Thread(target=self.server.serve_forever, daemon=True).start()
-        time.sleep(0.1)
+        time.sleep(0.01)
 
     def test_timeout_is_respected(self):
         """Should timeout if server takes too long."""
@@ -702,7 +712,7 @@ class TestTimeoutBehavior(unittest.TestCase):
         dispatcher.start()
 
         dispatcher.enqueue({"type": "debate_start"})
-        time.sleep(0.5)  # Should timeout before 2 seconds
+        _wait_for(lambda: dispatcher.stats["failed"] >= 1)
         dispatcher.stop()
 
         # Should have failed due to timeout
@@ -759,7 +769,7 @@ class TestConcurrency(unittest.TestCase):
 
         self.server = ReusableHTTPServer(("127.0.0.1", self.port), Handler)
         threading.Thread(target=self.server.serve_forever, daemon=True).start()
-        time.sleep(0.1)
+        time.sleep(0.01)
 
     def test_concurrent_enqueue(self):
         """Multiple threads can enqueue simultaneously."""
@@ -793,9 +803,7 @@ class TestConcurrency(unittest.TestCase):
 
         # Wait for processing (poll with timeout for CI environments)
         total_expected = num_threads * events_per_thread
-        deadline = time.time() + 5.0  # 5 second timeout
-        while len(self.received) < total_expected and time.time() < deadline:
-            time.sleep(0.1)
+        _wait_for(lambda: len(self.received) >= total_expected)
 
         dispatcher.stop()
 
@@ -820,9 +828,7 @@ class TestConcurrency(unittest.TestCase):
             dispatcher.enqueue({"type": "debate_start", "i": i})
 
         # Wait for processing
-        deadline = time.time() + 5.0
-        while len(self.received) < num_events and time.time() < deadline:
-            time.sleep(0.1)
+        _wait_for(lambda: len(self.received) >= num_events)
 
         dispatcher.stop()
 
@@ -1132,7 +1138,7 @@ class TestLifecycle(unittest.TestCase):
 
         self.server = ReusableHTTPServer(("127.0.0.1", self.port), Handler)
         threading.Thread(target=self.server.serve_forever, daemon=True).start()
-        time.sleep(0.1)
+        time.sleep(0.01)
 
     def test_stop_sets_running_false(self):
         """Stop should prevent further enqueueing."""

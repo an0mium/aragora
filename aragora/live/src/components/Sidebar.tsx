@@ -56,7 +56,7 @@ const startItems: NavItem[] = [
 
 const pipelineItems: NavItem[] = [
   { label: 'Mission Control', href: '/mission-control', icon: '\u25A3', minMode: 'standard' },
-  { label: 'Pipeline', href: '/pipeline', icon: '|', minMode: 'standard' },
+  { label: 'Pipeline', href: '/pipeline', icon: '|' },
   { label: 'Ideas', href: '/ideas', icon: '~', minMode: 'standard' },
   { label: 'Goals', href: '/goals', icon: 'G', minMode: 'standard' },
   { label: 'Actions', href: '/actions', icon: 'A', minMode: 'standard' },
@@ -84,7 +84,7 @@ const decisionsItems: NavItem[] = [
 
 const browseItems: NavItem[] = [
   { label: 'Debates', href: '/debates', icon: '#' },
-  { label: 'Knowledge', href: '/knowledge', icon: '?', minMode: 'standard' },
+  { label: 'Knowledge', href: '/knowledge', icon: '?' },
   { label: 'Leaderboard', href: '/leaderboard', icon: '^', minMode: 'standard' },
   { label: 'Agents', href: '/agents', icon: '&', minMode: 'standard' },
   { label: 'Marketplace', href: '/marketplace', icon: '$', minMode: 'standard' },
@@ -435,8 +435,8 @@ export function Sidebar() {
             : startItems
           )}
 
-          {/* Pipeline - Idea-to-Execution stages */}
-          {renderNavSection('Pipeline', pipelineItems, 'standard')}
+          {/* Pipeline - Idea-to-Execution stages (always visible) */}
+          {renderNavSection('Pipeline', pipelineItems)}
 
           {/* Decisions */}
           {renderNavSection('Decisions', decisionsItems, 'standard')}
