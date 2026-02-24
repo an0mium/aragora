@@ -167,6 +167,8 @@ class TestParallelOrchestratorInit:
             workflow_engine=engine,
             task_decomposer=decomposer,
         )
+        delegated_result = MagicMock(success=True, total_subtasks=2)
+        po._orchestrator.execute_goal = AsyncMock(return_value=delegated_result)
 
         result = await po.execute_goal(
             goal="Test",
@@ -174,8 +176,12 @@ class TestParallelOrchestratorInit:
             max_cycles=3,
         )
 
-        assert result.success is True
-        assert result.total_subtasks == 2
+        po._orchestrator.execute_goal.assert_awaited_once_with(
+            goal="Test",
+            tracks=["sme", "qa"],
+            max_cycles=3,
+        )
+        assert result is delegated_result
 
     @pytest.mark.asyncio
     async def test_cleanup_calls_branch_coordinator(self):

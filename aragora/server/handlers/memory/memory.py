@@ -30,6 +30,7 @@ from ..base import (
     error_response,
     get_bounded_string_param,
     handle_errors,
+    json_response,
 )
 from ..secure import SecureHandler
 from ..utils.rate_limit import RateLimiter, get_client_ip
