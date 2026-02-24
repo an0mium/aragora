@@ -349,6 +349,13 @@ async def route_capability_event(
         format_knowledge_event,
         format_graph_debate_event,
         format_workflow_event,
+        format_agent_team_event,
+        format_continuum_memory_event,
+        format_marketplace_event,
+        format_matrix_debate_event,
+        format_nomic_loop_event,
+        format_rbac_event,
+        format_vertical_specialist_event,
     )
 
     origin = get_debate_origin(debate_id)
@@ -366,6 +373,20 @@ async def route_capability_event(
         "graph_debate": format_graph_debate_event,
         "workflow_event": format_workflow_event,
         "workflow_engine": format_workflow_event,
+        "agent_team_selection": format_agent_team_event,
+        "agent_team_rebalance": format_agent_team_event,
+        "continuum_memory": format_continuum_memory_event,
+        "memory_consolidation": format_continuum_memory_event,
+        "marketplace": format_marketplace_event,
+        "marketplace_event": format_marketplace_event,
+        "matrix_debate": format_matrix_debate_event,
+        "matrix_debates": format_matrix_debate_event,
+        "nomic_loop": format_nomic_loop_event,
+        "nomic_cycle": format_nomic_loop_event,
+        "rbac_event": format_rbac_event,
+        "rbac_v2": format_rbac_event,
+        "vertical_specialist": format_vertical_specialist_event,
+        "vertical_specialists": format_vertical_specialist_event,
     }
 
     formatter = _FORMATTERS.get(event_type)

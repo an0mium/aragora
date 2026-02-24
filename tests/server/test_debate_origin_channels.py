@@ -11,6 +11,13 @@ from aragora.server.debate_origin.formatting import (
     format_knowledge_event,
     format_graph_debate_event,
     format_workflow_event,
+    format_agent_team_event,
+    format_continuum_memory_event,
+    format_marketplace_event,
+    format_matrix_debate_event,
+    format_nomic_loop_event,
+    format_rbac_event,
+    format_vertical_specialist_event,
     _format_result_message,
 )
 from aragora.server.debate_origin.models import DebateOrigin

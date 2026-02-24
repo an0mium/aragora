@@ -49,6 +49,13 @@ from .formatting import (
     format_knowledge_event,
     format_graph_debate_event,
     format_workflow_event,
+    format_agent_team_event,
+    format_continuum_memory_event,
+    format_marketplace_event,
+    format_matrix_debate_event,
+    format_nomic_loop_event,
+    format_rbac_event,
+    format_vertical_specialist_event,
 )
 
 # Re-export voice synthesis
@@ -143,6 +150,13 @@ __all__ = [
     "format_knowledge_event",
     "format_graph_debate_event",
     "format_workflow_event",
+    "format_agent_team_event",
+    "format_continuum_memory_event",
+    "format_marketplace_event",
+    "format_matrix_debate_event",
+    "format_nomic_loop_event",
+    "format_rbac_event",
+    "format_vertical_specialist_event",
     # Voice
     "_synthesize_voice",
     # Sessions
