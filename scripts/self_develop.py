@@ -487,6 +487,7 @@ async def run_orchestration(
     enable_preflight: bool = False,
     enable_stuck_detection: bool = False,
     enable_watchdog: bool = False,
+    auto_execute_low_risk: bool = False,
 ) -> OrchestrationResult:
     """Run the autonomous orchestration.
 
@@ -554,6 +555,8 @@ async def run_orchestration(
     print(f"Max cycles per subtask: {max_cycles}")
     print(f"Max parallel tasks: {max_parallel}")
     print(f"Require approval: {require_approval}")
+    if auto_execute_low_risk:
+        print("Auto-execute low-risk: enabled (test fixes, doc updates, lint)")
     if use_parallel:
         print(f"Worktree isolation: {use_worktree}")
         print(f"Gauntlet gate: {enable_gauntlet}")
@@ -745,7 +748,9 @@ Examples:
     parser.add_argument(
         "--auto",
         action="store_true",
-        help="Auto-execute low-risk changes in worktrees, defer high-risk for review. "
+        help="Autonomous mode: sets require-approval=False and defaults budget-limit to 10 "
+        "(max files changed per cycle). Low-risk goals (test fixes, doc updates, lint) "
+        "auto-execute without approval; medium/high-risk goals still require review. "
         "Safer than --autonomous (which executes everything).",
     )
     parser.add_argument(
@@ -813,6 +818,12 @@ Examples:
     )
 
     args = parser.parse_args()
+
+    # --auto implies require_approval=False and a conservative budget-limit default
+    if args.auto:
+        args.require_approval = False
+        if args.budget_limit is None:
+            args.budget_limit = 10.0
 
     # Configure logging — only enable DEBUG for aragora loggers, NOT third-party
     # libraries like botocore which dump secrets in HTTP response bodies at DEBUG level
@@ -1179,6 +1190,7 @@ Examples:
                 enable_preflight=args.preflight,
                 enable_stuck_detection=args.stuck_detection,
                 enable_watchdog=getattr(args, "watchdog", False),
+                auto_execute_low_risk=args.auto,
             )
         )
         print_result(result)
