@@ -22,35 +22,27 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
-# Patch the service import before importing the handler module
+# Patch the service import before importing the handler module.
+# Use direct sys.modules assignment (not patch.dict) so the handler module
+# stays registered — string-based patch() calls need it in sys.modules.
+import sys as _sys
+
 _mock_service_cls = MagicMock()
 _mock_threat_type = MagicMock()
 _mock_threat_type.SUSPICIOUS = "suspicious"
 
-with patch.dict(
-    "sys.modules",
-    {
-        "aragora.services.threat_intelligence": MagicMock(
-            ThreatIntelligenceService=_mock_service_cls,
-            ThreatType=_mock_threat_type,
-        ),
-    },
-):
-    from aragora.server.handlers.threat_intel import (
-        ThreatIntelHandler,
-        get_threat_service,
-        register_threat_intel_routes,
-    )
-
-# Re-register the handler module in sys.modules so that string-based
-# patch() calls can resolve "aragora.server.handlers.threat_intel.X"
-# after the patch.dict context manager restores sys.modules.
-import sys as _sys
-
-import aragora.server.handlers.threat_intel as _threat_mod  # noqa: E402
-
 _sys.modules.setdefault(
-    "aragora.server.handlers.threat_intel", _threat_mod
+    "aragora.services.threat_intelligence",
+    MagicMock(
+        ThreatIntelligenceService=_mock_service_cls,
+        ThreatType=_mock_threat_type,
+    ),
+)
+
+from aragora.server.handlers.threat_intel import (  # noqa: E402
+    ThreatIntelHandler,
+    get_threat_service,
+    register_threat_intel_routes,
 )
 
 
