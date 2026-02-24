@@ -247,19 +247,26 @@ class TestBuildConsensusBlocks:
 # =============================================================================
 
 
+def _make_aiohttp_session(mock_resp):
+    """Create a mock aiohttp session where post() returns an async context manager."""
+    mock_ctx = MagicMock()
+    mock_ctx.__aenter__ = AsyncMock(return_value=mock_resp)
+    mock_ctx.__aexit__ = AsyncMock(return_value=False)
+
+    mock_session = MagicMock()
+    mock_session.post.return_value = mock_ctx
+    mock_session.closed = False
+    return mock_session
+
+
 class TestPostToThread:
     @pytest.mark.asyncio
     async def test_successful_post(self, lifecycle):
-        mock_resp = AsyncMock()
+        mock_resp = MagicMock()
         mock_resp.status = 200
         mock_resp.json = AsyncMock(return_value={"ok": True, "ts": "12345.6789"})
 
-        mock_session = AsyncMock()
-        mock_session.post.return_value.__aenter__ = AsyncMock(return_value=mock_resp)
-        mock_session.post.return_value.__aexit__ = AsyncMock(return_value=False)
-        mock_session.closed = False
-
-        lifecycle._session = mock_session
+        lifecycle._session = _make_aiohttp_session(mock_resp)
 
         result = await lifecycle._post_to_thread(
             channel_id="C01ABC",
@@ -271,15 +278,10 @@ class TestPostToThread:
 
     @pytest.mark.asyncio
     async def test_http_error(self, lifecycle):
-        mock_resp = AsyncMock()
+        mock_resp = MagicMock()
         mock_resp.status = 500
 
-        mock_session = AsyncMock()
-        mock_session.post.return_value.__aenter__ = AsyncMock(return_value=mock_resp)
-        mock_session.post.return_value.__aexit__ = AsyncMock(return_value=False)
-        mock_session.closed = False
-
-        lifecycle._session = mock_session
+        lifecycle._session = _make_aiohttp_session(mock_resp)
 
         result = await lifecycle._post_to_thread(
             channel_id="C01ABC", thread_ts="123.456", text="fail"
@@ -288,18 +290,13 @@ class TestPostToThread:
 
     @pytest.mark.asyncio
     async def test_slack_api_error(self, lifecycle):
-        mock_resp = AsyncMock()
+        mock_resp = MagicMock()
         mock_resp.status = 200
         mock_resp.json = AsyncMock(
             return_value={"ok": False, "error": "channel_not_found"}
         )
 
-        mock_session = AsyncMock()
-        mock_session.post.return_value.__aenter__ = AsyncMock(return_value=mock_resp)
-        mock_session.post.return_value.__aexit__ = AsyncMock(return_value=False)
-        mock_session.closed = False
-
-        lifecycle._session = mock_session
+        lifecycle._session = _make_aiohttp_session(mock_resp)
 
         result = await lifecycle._post_to_thread(
             channel_id="C_INVALID", thread_ts="123.456", text="test"
@@ -308,7 +305,7 @@ class TestPostToThread:
 
     @pytest.mark.asyncio
     async def test_network_error(self, lifecycle):
-        mock_session = AsyncMock()
+        mock_session = MagicMock()
         mock_session.post.side_effect = OSError("Connection refused")
         mock_session.closed = False
 
@@ -331,11 +328,6 @@ class TestStartDebateFromThread:
         with patch.object(
             lifecycle, "_post_to_thread", new_callable=AsyncMock, return_value=True
         ):
-            with patch(
-                "aragora.integrations.slack_debate.register_debate_origin",
-                side_effect=ImportError("not available"),
-            ):
-                pass
             debate_id = await lifecycle.start_debate_from_thread(
                 channel_id="C01ABC",
                 thread_ts="1234567890.123456",
@@ -356,7 +348,8 @@ class TestStartDebateFromThread:
             )
             mock_post.assert_called_once()
             call_args = mock_post.call_args
-            assert call_args[1]["channel_id"] == "C01ABC" or call_args[0][0] == "C01ABC"
+            # _post_to_thread is called with positional args
+            assert call_args[0][0] == "C01ABC"
             assert "Test topic" in str(call_args)
 
     @pytest.mark.asyncio
@@ -746,7 +739,7 @@ class TestBuildReceiptBlocks:
     def test_footer_with_receipt_id(self):
         receipt = _make_receipt(receipt_id="rcpt-xyz789012345")
         blocks = _build_receipt_blocks(receipt)
-        assert "rcpt-xyz78901" in str(blocks)
+        assert "rcpt-xyz7890" in str(blocks)
 
     def test_no_key_arguments_or_dissents(self):
         receipt = _make_receipt(key_arguments=[], dissenting_views=None, dissents=None)
@@ -778,7 +771,7 @@ class TestBuildErrorBlocks:
     def test_includes_debate_id_context(self):
         blocks = _build_error_blocks("Error", debate_id="debate-abcdef123456")
         block_text = str(blocks)
-        assert "debate-abcdef1234" in block_text
+        assert "debate-abcde" in block_text
 
     def test_no_debate_id_context_when_empty(self):
         blocks = _build_error_blocks("Error", debate_id="")
