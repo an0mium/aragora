@@ -32,13 +32,13 @@ export function useBrainDumpPreview(text: string): BrainDumpPreview {
 
     setPreview((prev) => ({ ...prev, isLoading: true }));
     try {
-      const res = await apiFetch('/api/v1/canvas/pipeline/from-braindump', {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const data: any = await apiFetch('/api/v1/canvas/pipeline/from-braindump', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ text: input, preview_only: true }),
         signal: controller.signal,
       });
-      const data = await res.json();
       if (!controller.signal.aborted) {
         setPreview({
           themes: data.themes || [],

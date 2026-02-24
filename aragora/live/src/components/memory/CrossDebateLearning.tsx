@@ -196,11 +196,11 @@ export function CrossDebateLearning() {
                 </span>
               </div>
               <p className="text-sm text-text line-clamp-3">{result.content}</p>
-              {result.metadata?.debate_id && (
+              {result.metadata?.debate_id != null ? (
                 <div className="mt-2 text-xs font-mono text-text-muted">
                   debate: {String(result.metadata.debate_id).slice(0, 12)}
                 </div>
-              )}
+              ) : null}
             </div>
           ))}
         </div>

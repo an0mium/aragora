@@ -69,8 +69,8 @@ export function useIntelligence(pipelineId: string | null): UseIntelligenceRetur
     if (!pipelineId) return;
     setIsLoading(true);
     try {
-      const res = await apiFetch(`/api/v1/canvas/pipeline/${pipelineId}/intelligence`);
-      const data = await res.json();
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const data: any = await apiFetch(`/api/v1/canvas/pipeline/${pipelineId}/intelligence`);
 
       // Parse beliefs
       if (data.beliefs) {

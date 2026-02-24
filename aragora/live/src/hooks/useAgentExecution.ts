@@ -35,8 +35,7 @@ export function useAgentExecution(pipelineId: string | null): UseAgentExecutionR
     if (!pipelineId) return;
     setIsLoading(true);
     try {
-      const res = await apiFetch(`/api/v1/pipeline/${pipelineId}/agents`);
-      const data = await res.json();
+      const data = await apiFetch<{ agents?: Record<string, unknown>[] }>(`/api/v1/pipeline/${pipelineId}/agents`);
       const agentList: AgentStatus[] = (data.agents || []).map(
         (a: Record<string, unknown>) => ({
           id: a.id as string,
