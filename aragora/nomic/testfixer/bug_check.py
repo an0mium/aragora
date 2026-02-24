@@ -99,8 +99,12 @@ class PostFixBugChecker:
             all_new.extend(new_bugs)
             all_resolved.extend(resolved)
 
-        # Check severity of new bugs
-        high_severity_new = [b for b in all_new if getattr(b, "severity", None) in _HIGH_SEVERITIES]
+        # Normalize mixed enum/string severities before checking threshold.
+        high_severity_new = [
+            b
+            for b in all_new
+            if _severity_name(getattr(b, "severity", None)) in _HIGH_SEVERITIES
+        ]
 
         passes = len(high_severity_new) == 0
         summary_parts = [
@@ -159,10 +163,18 @@ class PostFixBugChecker:
         )
 
 
-# Severity values that cause a check to fail
-try:
-    from aragora.audit.bug_detector import BugSeverity
+# Severity values that cause a check to fail.
+_HIGH_SEVERITIES: set[str] = {"critical", "high"}
 
-    _HIGH_SEVERITIES = {BugSeverity.CRITICAL, BugSeverity.HIGH}
-except ImportError:
-    _HIGH_SEVERITIES = {"critical", "high"}
+
+def _severity_name(value: Any) -> str:
+    """Convert severity enum/string values into a canonical lowercase string."""
+    if isinstance(value, str):
+        return value.lower()
+    enum_value = getattr(value, "value", None)
+    if isinstance(enum_value, str):
+        return enum_value.lower()
+    enum_name = getattr(value, "name", None)
+    if isinstance(enum_name, str):
+        return enum_name.lower()
+    return str(value).lower()

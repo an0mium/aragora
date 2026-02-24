@@ -49,21 +49,6 @@ def mock_registry():
     return registry
 
 
-def _make_handler_with_body(body: dict) -> MagicMock:
-    handler = MagicMock()
-    handler.headers = {"Content-Length": str(len(json.dumps(body)))}
-    handler.rfile.read.return_value = json.dumps(body).encode()
-    return handler
-
-
-def _make_handler_with_query(query: str = "") -> MagicMock:
-    handler = MagicMock()
-    parsed_url = MagicMock()
-    parsed_url.query = query
-    handler.parsed_url = parsed_url
-    return handler
-
-
 class TestCanHandle:
     def test_get_list(self, handler):
         assert handler.can_handle("/api/v1/playbooks") is True
@@ -82,18 +67,16 @@ class TestListPlaybooks:
     @patch("aragora.playbooks.registry.get_playbook_registry")
     def test_list_all(self, mock_get_registry, handler, mock_registry):
         mock_get_registry.return_value = mock_registry
-        mock_handler = _make_handler_with_query("")
 
-        result = handler._handle_list_playbooks(mock_handler)
+        result = handler._list_playbooks({})
         body = json.loads(result["body"])
         assert body["count"] == 2
 
     @patch("aragora.playbooks.registry.get_playbook_registry")
     def test_list_by_category(self, mock_get_registry, handler, mock_registry):
         mock_get_registry.return_value = mock_registry
-        mock_handler = _make_handler_with_query("category=finance")
 
-        result = handler._handle_list_playbooks(mock_handler)
+        result = handler._list_playbooks({"category": "finance"})
         body = json.loads(result["body"])
         assert body["count"] == 1
         assert body["playbooks"][0]["id"] == "finance_pb"
@@ -103,9 +86,8 @@ class TestGetPlaybook:
     @patch("aragora.playbooks.registry.get_playbook_registry")
     def test_get_existing(self, mock_get_registry, handler, mock_registry):
         mock_get_registry.return_value = mock_registry
-        mock_handler = MagicMock()
 
-        result = handler._handle_get_playbook("/api/v1/playbooks/test_pb", mock_handler)
+        result = handler._get_playbook("/api/playbooks/test_pb")
         body = json.loads(result["body"])
         assert body["id"] == "test_pb"
         assert body["name"] == "Test Playbook"
@@ -113,9 +95,8 @@ class TestGetPlaybook:
     @patch("aragora.playbooks.registry.get_playbook_registry")
     def test_get_not_found(self, mock_get_registry, handler, mock_registry):
         mock_get_registry.return_value = mock_registry
-        mock_handler = MagicMock()
 
-        result = handler._handle_get_playbook("/api/v1/playbooks/nonexistent", mock_handler)
+        result = handler._get_playbook("/api/playbooks/nonexistent")
         assert result["status"] == 404
 
 
@@ -123,9 +104,10 @@ class TestRunPlaybook:
     @patch("aragora.playbooks.registry.get_playbook_registry")
     def test_run_success(self, mock_get_registry, handler, mock_registry):
         mock_get_registry.return_value = mock_registry
-        mock_handler = _make_handler_with_body({"input": "Evaluate vendor X"})
 
-        result = handler._handle_run_playbook("/api/v1/playbooks/test_pb/run", mock_handler)
+        result = handler._run_playbook(
+            "/api/playbooks/test_pb/run", {"input": "Evaluate vendor X"}
+        )
         assert result["status"] == 202
         body = json.loads(result["body"])
         assert body["playbook_id"] == "test_pb"
@@ -135,15 +117,15 @@ class TestRunPlaybook:
     @patch("aragora.playbooks.registry.get_playbook_registry")
     def test_run_not_found(self, mock_get_registry, handler, mock_registry):
         mock_get_registry.return_value = mock_registry
-        mock_handler = _make_handler_with_body({"input": "test"})
 
-        result = handler._handle_run_playbook("/api/v1/playbooks/nonexistent/run", mock_handler)
+        result = handler._run_playbook(
+            "/api/playbooks/nonexistent/run", {"input": "test"}
+        )
         assert result["status"] == 404
 
     @patch("aragora.playbooks.registry.get_playbook_registry")
     def test_run_missing_input(self, mock_get_registry, handler, mock_registry):
         mock_get_registry.return_value = mock_registry
-        mock_handler = _make_handler_with_body({})
 
-        result = handler._handle_run_playbook("/api/v1/playbooks/test_pb/run", mock_handler)
+        result = handler._run_playbook("/api/playbooks/test_pb/run", {})
         assert result["status"] == 400

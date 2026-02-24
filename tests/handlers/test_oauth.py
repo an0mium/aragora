@@ -473,7 +473,11 @@ class TestRedirectUrlSecurity:
 
     def test_accepts_https(self):
         """Accepts https scheme for localhost."""
-        assert _validate_redirect_url("https://localhost:3000/callback")
+        with patch(
+            "aragora.server.handlers._oauth_impl._get_allowed_redirect_hosts",
+            return_value=frozenset({"localhost", "127.0.0.1"}),
+        ):
+            assert _validate_redirect_url("https://localhost:3000/callback")
 
 
 # ============================================================================

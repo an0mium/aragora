@@ -353,14 +353,13 @@ class TestGoogleRedirectURI:
             result = cfg._get_google_redirect_uri()
         assert result == "http://localhost:8080/api/auth/oauth/google/callback"
 
-    def test_production_no_env_returns_empty(self, monkeypatch):
-        """In production with no env var, returns empty string."""
+    def test_production_no_env_uses_default(self, monkeypatch):
+        """In production with no env var, returns production default."""
         monkeypatch.setenv("ARAGORA_ENV", "production")
         with patch.dict(sys.modules, {"aragora.config.secrets": None}):
-            # Must also patch _is_production since the function calls it at runtime
             with patch.object(cfg, "_is_production", return_value=True):
                 result = cfg._get_google_redirect_uri()
-        assert result == ""
+        assert result == "https://api.aragora.ai/api/auth/oauth/google/callback"
 
     def test_explicit_uri_overrides_production(self, monkeypatch):
         """Explicit URI takes priority even in production."""
@@ -383,12 +382,12 @@ class TestGitHubRedirectURI:
             result = cfg._get_github_redirect_uri()
         assert result == "http://localhost:8080/api/auth/oauth/github/callback"
 
-    def test_production_no_env_returns_empty(self, monkeypatch):
+    def test_production_no_env_uses_default(self, monkeypatch):
         monkeypatch.setenv("ARAGORA_ENV", "production")
         with patch.dict(sys.modules, {"aragora.config.secrets": None}):
             with patch.object(cfg, "_is_production", return_value=True):
                 result = cfg._get_github_redirect_uri()
-        assert result == ""
+        assert result == "https://api.aragora.ai/api/auth/oauth/github/callback"
 
 
 class TestMicrosoftRedirectURI:
@@ -404,12 +403,12 @@ class TestMicrosoftRedirectURI:
             result = cfg._get_microsoft_redirect_uri()
         assert result == "http://localhost:8080/api/auth/oauth/microsoft/callback"
 
-    def test_production_no_env_returns_empty(self, monkeypatch):
+    def test_production_no_env_uses_default(self, monkeypatch):
         monkeypatch.setenv("ARAGORA_ENV", "production")
         with patch.dict(sys.modules, {"aragora.config.secrets": None}):
             with patch.object(cfg, "_is_production", return_value=True):
                 result = cfg._get_microsoft_redirect_uri()
-        assert result == ""
+        assert result == "https://api.aragora.ai/api/auth/oauth/microsoft/callback"
 
 
 class TestAppleRedirectURI:
@@ -425,12 +424,12 @@ class TestAppleRedirectURI:
             result = cfg._get_apple_redirect_uri()
         assert result == "http://localhost:8080/api/auth/oauth/apple/callback"
 
-    def test_production_no_env_returns_empty(self, monkeypatch):
+    def test_production_no_env_uses_default(self, monkeypatch):
         monkeypatch.setenv("ARAGORA_ENV", "production")
         with patch.dict(sys.modules, {"aragora.config.secrets": None}):
             with patch.object(cfg, "_is_production", return_value=True):
                 result = cfg._get_apple_redirect_uri()
-        assert result == ""
+        assert result == "https://api.aragora.ai/api/auth/oauth/apple/callback"
 
 
 class TestOIDCRedirectURI:
@@ -446,12 +445,12 @@ class TestOIDCRedirectURI:
             result = cfg._get_oidc_redirect_uri()
         assert result == "http://localhost:8080/api/auth/oauth/oidc/callback"
 
-    def test_production_no_env_returns_empty(self, monkeypatch):
+    def test_production_no_env_uses_default(self, monkeypatch):
         monkeypatch.setenv("ARAGORA_ENV", "production")
         with patch.dict(sys.modules, {"aragora.config.secrets": None}):
             with patch.object(cfg, "_is_production", return_value=True):
                 result = cfg._get_oidc_redirect_uri()
-        assert result == ""
+        assert result == "https://api.aragora.ai/api/auth/oauth/oidc/callback"
 
 
 # ===========================================================================
@@ -472,12 +471,12 @@ class TestOAuthSuccessURL:
             result = cfg._get_oauth_success_url()
         assert result == "http://localhost:3000/auth/callback"
 
-    def test_production_no_env_returns_empty(self, monkeypatch):
+    def test_production_no_env_uses_default(self, monkeypatch):
         monkeypatch.setenv("ARAGORA_ENV", "production")
         with patch.dict(sys.modules, {"aragora.config.secrets": None}):
             with patch.object(cfg, "_is_production", return_value=True):
                 result = cfg._get_oauth_success_url()
-        assert result == ""
+        assert result == "https://aragora.ai/auth/callback"
 
 
 class TestOAuthErrorURL:
@@ -493,12 +492,12 @@ class TestOAuthErrorURL:
             result = cfg._get_oauth_error_url()
         assert result == "http://localhost:3000/auth/error"
 
-    def test_production_no_env_returns_empty(self, monkeypatch):
+    def test_production_no_env_uses_default(self, monkeypatch):
         monkeypatch.setenv("ARAGORA_ENV", "production")
         with patch.dict(sys.modules, {"aragora.config.secrets": None}):
             with patch.object(cfg, "_is_production", return_value=True):
                 result = cfg._get_oauth_error_url()
-        assert result == ""
+        assert result == "https://aragora.ai/auth/error"
 
 
 # ===========================================================================
@@ -547,13 +546,13 @@ class TestGetAllowedRedirectHosts:
             result = cfg._get_allowed_redirect_hosts()
         assert result == frozenset({"single.example.com"})
 
-    def test_production_no_env_returns_empty(self, monkeypatch):
-        """In production with no env var, returns empty frozenset."""
+    def test_production_no_env_uses_defaults(self, monkeypatch):
+        """In production with no env var, returns production defaults."""
         monkeypatch.setenv("ARAGORA_ENV", "production")
         with patch.dict(sys.modules, {"aragora.config.secrets": None}):
             with patch.object(cfg, "_is_production", return_value=True):
                 result = cfg._get_allowed_redirect_hosts()
-        assert result == frozenset()
+        assert result == frozenset({"aragora.ai", "www.aragora.ai", "api.aragora.ai"})
 
     def test_returns_frozenset(self, monkeypatch):
         monkeypatch.setenv("OAUTH_ALLOWED_REDIRECT_HOSTS", "a.com,b.com")

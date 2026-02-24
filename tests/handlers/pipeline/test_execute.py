@@ -195,28 +195,27 @@ class TestPipelineIdExtraction:
         pid = h._extract_pipeline_id("/api/v1/pipeline/my_pipeline_01/execute")
         assert pid == "my_pipeline_01"
 
-    def test_extract_id_special_chars_still_returned(self):
-        """validate_path_segment returns a tuple which is always truthy,
-        so special chars are not blocked at the extraction level."""
+    def test_extract_id_special_chars_returns_none(self):
+        """Special chars like '%' fail SAFE_ID_PATTERN validation, returning None."""
         h = _make_handler()
         pid = h._extract_pipeline_id("/api/v1/pipeline/pipe%20id/execute")
-        # The tuple (False, "error msg") is truthy, so pid is returned
-        assert pid == "pipe%20id"
+        # '%' is not in [a-zA-Z0-9_-], so validate_path_segment returns (False, ...)
+        assert pid is None
 
-    def test_extract_id_long_still_returned(self):
-        """Long IDs pass extraction because validate_path_segment tuple is truthy."""
+    def test_extract_id_long_returns_none(self):
+        """Long IDs (>64 chars) fail SAFE_ID_PATTERN validation, returning None."""
         h = _make_handler()
         long_id = "a" * 100
         pid = h._extract_pipeline_id(f"/api/v1/pipeline/{long_id}/execute")
-        assert pid == long_id
+        # SAFE_ID_PATTERN allows max 64 chars: ^[a-zA-Z0-9_-]{1,64}$
+        assert pid is None
 
-    def test_extract_empty_id_returns_empty_string(self):
-        """Empty segment yields empty string which is falsy (handled as invalid)."""
+    def test_extract_empty_id_returns_none(self):
+        """Empty segment fails validate_path_segment, returning None."""
         h = _make_handler()
         pid = h._extract_pipeline_id("/api/v1/pipeline//execute")
-        # Returns empty string (falsy), which the handler treats as invalid
-        assert pid == ""
-        assert not pid  # Falsy, so handler returns error_response
+        # Empty string fails validate_path_segment (returns (False, "Missing pipeline_id"))
+        assert pid is None
 
     def test_extract_id_short_path(self):
         h = _make_handler()
@@ -228,13 +227,12 @@ class TestPipelineIdExtraction:
         pid = h._extract_pipeline_id("/api/v1/pipeline/abc/status")
         assert pid is None
 
-    def test_extract_id_path_traversal_not_blocked_at_extraction(self):
-        """Path traversal passes extraction since validate_path_segment tuple is truthy."""
+    def test_extract_id_path_traversal_blocked_at_extraction(self):
+        """Path traversal chars like '%' and '.' fail SAFE_ID_PATTERN validation."""
         h = _make_handler()
-        # ".." is in parts[2], but the path splits differently
         pid = h._extract_pipeline_id("/api/v1/pipeline/..%2F..%2Fetc/execute")
-        # Whatever is in parts[2] gets returned
-        assert pid is not None
+        # '%' and '.' are not in [a-zA-Z0-9_-], so validation fails
+        assert pid is None
 
     def test_extract_id_with_dots_and_slashes(self):
         """Path with dots in the ID segment."""
