@@ -516,9 +516,8 @@ class DAGOperationsCoordinator:
             from aragora.nomic.hardened_orchestrator import HardenedOrchestrator
 
             orchestrator = HardenedOrchestrator()
-            result = await orchestrator.execute(
-                task=node.label,
-                description=node.description,
+            result = await orchestrator.execute_goal(
+                goal=f"{node.label}: {getattr(node, 'description', '')}",
             )
 
             status = "succeeded" if getattr(result, "success", False) else "failed"
