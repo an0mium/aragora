@@ -581,8 +581,6 @@ class AsyncRepositoryAPI:
         Raises:
             TimeoutError: If index does not complete within the timeout
         """
-        import asyncio
-
         poll_interval_s = poll_interval_ms / 1000.0
         timeout_s = timeout_ms / 1000.0
         start_time = time.monotonic()
