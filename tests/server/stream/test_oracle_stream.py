@@ -280,6 +280,15 @@ class TestStreamPhase:
                 "aragora.server.stream.oracle_stream._stream_tts",
                 new_callable=AsyncMock,
             ),
+            patch(
+                "aragora.server.stream.oracle_stream.record_oracle_time_to_first_token",
+            ) as mock_ttft,
+            patch(
+                "aragora.server.stream.oracle_stream.record_oracle_stream_phase_duration",
+            ) as mock_phase_duration,
+            patch(
+                "aragora.server.stream.oracle_stream.record_oracle_stream_stall",
+            ) as mock_stall,
         ):
             result = await _stream_phase(
                 ws,
@@ -301,6 +310,47 @@ class TestStreamPhase:
         ]
         assert len(phase_done_calls) == 1
         assert phase_done_calls[0].args[0]["phase"] == "deep"
+        mock_ttft.assert_called_once()
+        mock_phase_duration.assert_called_once()
+        mock_stall.assert_not_called()
+
+    @pytest.mark.asyncio
+    async def test_records_waiting_first_token_stall_when_no_tokens(self):
+        from aragora.server.stream.oracle_stream import _stream_phase
+
+        ws = AsyncMock()
+        ws.closed = False
+        session = OracleSession()
+
+        async def fake_stream(*a, **kw):
+            if False:  # pragma: no cover
+                yield "never"
+
+        with (
+            patch(
+                "aragora.server.stream.oracle_stream._call_provider_llm_stream",
+                side_effect=fake_stream,
+            ),
+            patch(
+                "aragora.server.stream.oracle_stream._stream_tts",
+                new_callable=AsyncMock,
+            ),
+            patch(
+                "aragora.server.stream.oracle_stream.record_oracle_stream_stall",
+            ) as mock_stall,
+        ):
+            result = await _stream_phase(
+                ws,
+                "prompt",
+                "deep",
+                _PHASE_TAG_DEEP,
+                session,
+                provider="openrouter",
+                model="test-model",
+            )
+
+        assert result == ""
+        mock_stall.assert_called_with("waiting_first_token", phase="deep")
 
     @pytest.mark.asyncio
     async def test_respects_cancellation(self):
@@ -729,6 +779,9 @@ class TestHandleAsk:
                 "aragora.server.stream.oracle_stream._get_tentacle_models",
                 return_value=[],
             ),
+            patch(
+                "aragora.server.stream.oracle_stream.record_oracle_session_outcome",
+            ) as mock_outcome,
         ):
             await _handle_ask(ws, "What is life?", "consult", session)
 
@@ -739,6 +792,7 @@ class TestHandleAsk:
             c for c in ws.send_json.call_args_list if c.args[0].get("type") == "synthesis"
         ]
         assert len(synthesis_calls) == 1
+        mock_outcome.assert_called_once_with("completed")
 
     @pytest.mark.asyncio
     async def test_uses_prebuilt_prompt(self):
@@ -801,11 +855,15 @@ class TestHandleAsk:
                 "aragora.server.stream.oracle_stream._build_oracle_prompt",
                 return_value="prompt",
             ),
+            patch(
+                "aragora.server.stream.oracle_stream.record_oracle_session_outcome",
+            ) as mock_outcome,
         ):
             await _handle_ask(ws, "question", "consult", session)
 
         # Deep phase should NOT be called since cancelled
         mock_deep.assert_not_called()
+        mock_outcome.assert_called_once_with("cancelled")
 
 
 # =========================================================================
@@ -925,6 +983,35 @@ class TestOracleWebSocketHandler:
 
         mock_interim.assert_called_once()
         assert mock_interim.call_args.args[1] == "partial speech"
+
+    @pytest.mark.asyncio
+    async def test_ask_records_session_started_metric(self):
+        from aragora.server.stream.oracle_stream import oracle_websocket_handler
+
+        ws = _make_ws_mock([{"type": "ask", "question": "Where are we headed?", "mode": "consult"}])
+
+        request = MagicMock()
+        with (
+            patch(
+                "aragora.server.stream.oracle_stream.web.WebSocketResponse",
+                return_value=ws,
+            ),
+            patch(
+                "aragora.server.stream.oracle_stream._check_ws_rate_limit",
+                return_value=(True, 0),
+            ),
+            patch(
+                "aragora.server.stream.oracle_stream.record_oracle_session_started",
+            ) as mock_started,
+            patch(
+                "aragora.server.stream.oracle_stream._handle_ask",
+                new_callable=AsyncMock,
+                return_value=None,
+            ),
+        ):
+            await oracle_websocket_handler(request)
+
+        mock_started.assert_called_once()
 
 
 # =========================================================================

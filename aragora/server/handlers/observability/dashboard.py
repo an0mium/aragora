@@ -69,6 +69,7 @@ class ObservabilityDashboardHandler(SecureEndpointMixin, SecureHandler):  # type
             "agent_rankings": self._collect_agent_rankings(),
             "circuit_breakers": self._collect_circuit_breakers(),
             "self_improve": self._collect_self_improve(),
+            "oracle_stream": self._collect_oracle_stream(),
             "system_health": self._collect_system_health(),
             "error_rates": self._collect_error_rates(),
         }
@@ -266,6 +267,35 @@ class ObservabilityDashboardHandler(SecureEndpointMixin, SecureHandler):  # type
             }
         except (ImportError, OSError):
             logger.debug("Self-improve store unavailable", exc_info=True)
+            return fallback
+
+    # ------------------------------------------------------------------
+    # Oracle streaming metrics
+    # ------------------------------------------------------------------
+
+    def _collect_oracle_stream(self) -> dict[str, Any]:
+        """Collect Oracle stream TTFT/stall/session metrics."""
+        fallback: dict[str, Any] = {
+            "sessions_started": 0,
+            "sessions_completed": 0,
+            "sessions_cancelled": 0,
+            "sessions_errors": 0,
+            "active_sessions": 0,
+            "stalls_waiting_first_token": 0,
+            "stalls_stream_inactive": 0,
+            "stalls_total": 0,
+            "ttft_samples": 0,
+            "ttft_avg_ms": None,
+            "ttft_last_ms": None,
+            "available": False,
+        }
+        try:
+            from aragora.observability.metrics.oracle import (
+                get_oracle_stream_metrics_summary,
+            )
+
+            return get_oracle_stream_metrics_summary()
+        except (ImportError, AttributeError, RuntimeError, TypeError, ValueError):
             return fallback
 
     # ------------------------------------------------------------------
