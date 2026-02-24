@@ -420,8 +420,9 @@ def enforce_admin_mfa_policy(
     if grace_period_days is None:
         grace_period_days = settings.security.admin_mfa_grace_period_days
 
-    admin_roles = {"admin", "owner", "superadmin"}
-    if user.role not in admin_roles:
+    from aragora.auth.mfa_enforcement import DEFAULT_MFA_REQUIRED_ROLES
+
+    if user.role not in DEFAULT_MFA_REQUIRED_ROLES:
         return None  # Non-admins are always compliant
 
     status = check_mfa_status(user.id, user_store)

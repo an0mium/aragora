@@ -98,6 +98,7 @@ class MFAEnforcementPolicy:
     exempt_paths: frozenset[str] = DEFAULT_EXEMPT_PATHS
     exempt_prefixes: frozenset[str] = DEFAULT_EXEMPT_PREFIXES
     enabled: bool = True
+    auto_disable_on_grace_expiry: bool = False
 
 
 @dataclass

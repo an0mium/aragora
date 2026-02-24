@@ -102,15 +102,12 @@ PREFIX_TO_TAG = {
 }
 
 
+from sdk_path_normalize import normalize_sdk_path
+
+
 def _normalize(path: str) -> str:
-    """Normalize a path for comparison (mirrors verify_sdk_contracts.py)."""
-    path = path.split("?", 1)[0]
-    path = re.sub(r"\$\{[^}]+\}", "{param}", path)
-    path = re.sub(r"\{[^}]+\}", "{param}", path)
-    path = re.sub(r"^/api/v\d+/", "/api/", path)
-    if path != "/" and path.endswith("/"):
-        path = path[:-1]
-    return path
+    """Normalize a path for comparison — delegates to shared module."""
+    return normalize_sdk_path(path)
 
 
 def load_openapi_endpoints(spec_paths: list[Path]) -> tuple[set[tuple[str, str]], dict[str, str]]:

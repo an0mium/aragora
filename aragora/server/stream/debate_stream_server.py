@@ -1586,6 +1586,21 @@ class DebateStreamServer(ServerBase):
                 self._tts_bridge = None
             logger.info("[ws] TTS event bridge stopped")
 
+    async def _buffer_cleanup_loop(self) -> None:
+        """Periodically remove replay buffers for debates that are no longer active."""
+        while self._running:
+            await asyncio.sleep(60)
+            if not self._running:
+                break
+            try:
+                with self._active_loops_lock:
+                    active_ids = set(self.active_loops.keys())
+                removed = self._replay_buffer.cleanup_stale(active_ids)
+                if removed:
+                    logger.debug("[ws] Cleaned up %d stale replay buffers", removed)
+            except (RuntimeError, AttributeError) as e:
+                logger.debug("[ws] Buffer cleanup error: %s", e)
+
     async def start(self) -> None:
         """Start the WebSocket server."""
         try:
@@ -1601,6 +1616,8 @@ class DebateStreamServer(ServerBase):
         self._drain_task.add_done_callback(self._handle_drain_task_error)
         # Start application-level heartbeat
         self._heartbeat_task = asyncio.create_task(self._heartbeat_loop())
+        # Start replay buffer cleanup loop
+        self._cleanup_task = asyncio.create_task(self._buffer_cleanup_loop())
 
         async with websockets.serve(
             self.handler,

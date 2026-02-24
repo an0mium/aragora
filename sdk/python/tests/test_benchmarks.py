@@ -2,11 +2,12 @@
 
 from __future__ import annotations
 
-from unittest.mock import patch
+from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
-from aragora_sdk.client import AragoraAsyncClient, AragoraClient
+from aragora_sdk.client import AragoraClient
+from aragora_sdk.namespaces.benchmarks import AsyncBenchmarksAPI
 
 
 class TestBenchmarks:
@@ -25,12 +26,11 @@ class TestBenchmarks:
 
     @pytest.mark.asyncio
     async def test_async_list_categories(self) -> None:
-        with patch.object(AragoraAsyncClient, "request") as mock_request:
-            mock_request.return_value = {"categories": ["finance"], "count": 1}
+        mock_client = MagicMock()
+        mock_client.request = AsyncMock(return_value={"categories": ["finance"], "count": 1})
 
-            client = AragoraAsyncClient(base_url="https://api.aragora.ai")
-            result = await client.benchmarks.categories()
+        api = AsyncBenchmarksAPI(mock_client)
+        result = await api.categories()
 
-            mock_request.assert_called_once_with("GET", "/api/v1/benchmarks/categories")
-            assert result["count"] == 1
-            await client.close()
+        mock_client.request.assert_awaited_once_with("GET", "/api/v1/benchmarks/categories")
+        assert result["count"] == 1

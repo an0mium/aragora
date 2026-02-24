@@ -1171,6 +1171,10 @@ export class AragoraClient {
     this.tasks = new TasksAPI(this);
     this.templates = new TemplatesAPI(this);
     this.users = new UsersAPI(this);
+    this.actions = new ActionsNamespace(this);
+    this.graphDebates = new GraphDebatesAPI(this);
+    this.matrixDebates = new MatrixDebatesAPI(this);
+    this.orchestrationCanvas = new OrchestrationCanvasNamespace(this);
   }
 
   // ===========================================================================
