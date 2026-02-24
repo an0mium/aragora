@@ -414,6 +414,53 @@ PlansHandler = _safe_import("aragora.server.handlers.plans", "PlansHandler")
 # Base handler result (for backward compatibility)
 HandlerResult = _safe_import("aragora.server.handlers", "HandlerResult")
 
+# Health and readiness handlers
+LivenessHandler = _safe_import(
+    "aragora.server.handlers.admin.health.liveness", "LivenessHandler"
+)
+ReadinessHandler = _safe_import(
+    "aragora.server.handlers.admin.health.readiness", "ReadinessHandler"
+)
+StorageHealthHandler = _safe_import(
+    "aragora.server.handlers.admin.health.storage_health", "StorageHealthHandler"
+)
+ReadinessCheckHandler = _safe_import(
+    "aragora.server.handlers.readiness_check", "ReadinessCheckHandler"
+)
+
+# Compliance handlers
+ComplianceReportHandler = _safe_import(
+    "aragora.server.handlers.compliance_reports", "ComplianceReportHandler"
+)
+EUAIActComplianceHandler = _safe_import(
+    "aragora.server.handlers.compliance_eu_ai_act", "EUAIActComplianceHandler"
+)
+GDPRDeletionHandler = _safe_import(
+    "aragora.server.handlers.gdpr_deletion", "GDPRDeletionHandler"
+)
+MFAComplianceHandler = _safe_import(
+    "aragora.server.handlers.admin.mfa_compliance", "MFAComplianceHandler"
+)
+
+# Backup offsite, feature flags, marketplace pilot
+BackupOffsiteHandler = _safe_import(
+    "aragora.server.handlers.backup_offsite_handler", "BackupOffsiteHandler"
+)
+FeatureFlagsHandler = _safe_import(
+    "aragora.server.handlers.feature_flags", "FeatureFlagsHandler"
+)
+MarketplacePilotHandler = _safe_import(
+    "aragora.server.handlers.marketplace_pilot", "MarketplacePilotHandler"
+)
+
+# Workflow builder and template registry
+WorkflowBuilderHandler = _safe_import(
+    "aragora.server.handlers.workflows.builder", "WorkflowBuilderHandler"
+)
+TemplateRegistryHandler = _safe_import(
+    "aragora.server.handlers.workflows.registry", "TemplateRegistryHandler"
+)
+
 # =============================================================================
 # Admin Handler Registry Entries
 # =============================================================================
@@ -590,6 +637,25 @@ ADMIN_HANDLER_REGISTRY: list[tuple[str, object]] = [
     ("_system_health_dashboard_handler", SystemHealthDashboardHandler),
     # Platform config (runtime config for frontend)
     ("_platform_config_handler", PlatformConfigHandler),
+    # Spend analytics (imported but was missing from registry)
+    ("_spend_analytics_handler", SpendAnalyticsHandler),
+    # Health and readiness
+    ("_liveness_handler", LivenessHandler),
+    ("_readiness_handler", ReadinessHandler),
+    ("_storage_health_handler", StorageHealthHandler),
+    ("_readiness_check_handler", ReadinessCheckHandler),
+    # Compliance
+    ("_compliance_report_handler", ComplianceReportHandler),
+    ("_eu_ai_act_compliance_handler", EUAIActComplianceHandler),
+    ("_gdpr_deletion_handler", GDPRDeletionHandler),
+    ("_mfa_compliance_handler", MFAComplianceHandler),
+    # Backup offsite, feature flags, marketplace pilot
+    ("_backup_offsite_handler", BackupOffsiteHandler),
+    ("_feature_flags_handler", FeatureFlagsHandler),
+    ("_marketplace_pilot_handler", MarketplacePilotHandler),
+    # Workflow builder and template registry
+    ("_workflow_builder_handler", WorkflowBuilderHandler),
+    ("_template_registry_handler", TemplateRegistryHandler),
 ]
 
 __all__ = [

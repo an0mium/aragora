@@ -314,7 +314,7 @@ class TestConsensusPenalty:
         Alternative approach: X. Rejected because of Y.
         Falsified if: Z happens.
         Confidence: 0.8
-        Uncertain about W.
+        Uncertainty: W remains unclear.
         """
         score = score_response(text)
         penalty = compute_epistemic_penalty(score, protocol)
