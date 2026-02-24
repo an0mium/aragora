@@ -981,7 +981,7 @@ class ConcurrencySettings(BaseSettings):
         description="Maximum parallel proposal generations",
     )
     max_concurrent_critiques: int = Field(
-        default=10,
+        default=15,
         ge=1,
         le=100,
         alias="ARAGORA_MAX_CONCURRENT_CRITIQUES",
