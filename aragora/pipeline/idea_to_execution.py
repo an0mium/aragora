@@ -1829,6 +1829,20 @@ class IdeaToExecutionPipeline:
         """
         instruction = f"Implement: {task['name']}\n\n{task.get('description', '')}"
 
+        # Mode enforcement: resolve operational mode for orchestration stage
+        mode_name = cfg.mode_map.get("orchestration")
+        if mode_name:
+            try:
+                from aragora.modes.base import ModeRegistry
+
+                mode = ModeRegistry.get(mode_name)
+                if mode is not None:
+                    mode_prompt = mode.get_system_prompt()
+                    if mode_prompt:
+                        instruction = f"{mode_prompt}\n\n{instruction}"
+            except (ImportError, AttributeError, TypeError, RuntimeError) as exc:
+                logger.debug("Mode enforcement skipped for orchestration: %s", exc)
+
         # Append preferred agents from introspection data
         preferred = getattr(cfg, "_introspection_data", None)
         if preferred:

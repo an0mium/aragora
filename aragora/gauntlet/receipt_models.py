@@ -115,6 +115,9 @@ class DecisionReceipt:
     # Explainability (why the decision was made)
     explainability: dict[str, Any] | None = None  # Decision explanation from ExplanationBuilder
 
+    # Cost summary (per-debate cost breakdown when available)
+    cost_summary: dict[str, Any] | None = None
+
     # Schema version for forward compatibility
     schema_version: str = "1.1"
 
@@ -567,6 +570,7 @@ class DecisionReceipt:
         cls,
         result: Any,
         input_hash: str | None = None,
+        cost_summary: dict[str, Any] | None = None,
     ) -> DecisionReceipt:
         """Create receipt from aragora.core_types.DebateResult.
 
@@ -576,6 +580,8 @@ class DecisionReceipt:
         Args:
             result: A DebateResult from the debate system
             input_hash: Optional pre-computed hash of input content
+            cost_summary: Optional per-debate cost breakdown dict from
+                DebateCostSummary.to_dict()
 
         Returns:
             DecisionReceipt for audit trail
@@ -716,6 +722,7 @@ class DecisionReceipt:
             dissenting_views=dissenting_views,
             consensus_proof=consensus,
             provenance_chain=provenance,
+            cost_summary=cost_summary,
             config_used={
                 "rounds": result.rounds_used,
                 "participants": participants,
@@ -1230,6 +1237,7 @@ class DecisionReceipt:
             "dissenting_views": self.dissenting_views,
             "consensus_proof": self.consensus_proof.to_dict() if self.consensus_proof else None,
             "provenance_chain": [p.to_dict() for p in self.provenance_chain],
+            "cost_summary": self.cost_summary,
             "explainability": self.explainability,
             "schema_version": self.schema_version,
             "artifact_hash": self.artifact_hash,
@@ -1275,6 +1283,7 @@ class DecisionReceipt:
             provenance_chain=provenance,
             schema_version=data.get("schema_version", "1.0"),
             artifact_hash=data.get("artifact_hash", ""),
+            cost_summary=data.get("cost_summary"),
             config_used=data.get("config_used", {}) or {},
             # Signature fields
             signature=data.get("signature"),

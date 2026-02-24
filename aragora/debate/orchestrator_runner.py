@@ -584,6 +584,34 @@ async def execute_debate_phases(
 
     ctx = state.ctx
 
+    # Initialize LatencyProfiler for per-phase timing (non-invasive)
+    latency_profiler = None
+    try:
+        from aragora.debate.optimizations import LatencyProfiler
+
+        latency_profiler = LatencyProfiler()
+        # Store on context for downstream access (e.g., result metadata)
+        ctx.latency_profiler = latency_profiler  # type: ignore[attr-defined]
+
+        # Wire profiler into PhaseExecutor via metrics callback
+        original_callback = arena.phase_executor._config.metrics_callback
+
+        def _profiling_metrics_callback(metric_name: str, value: float) -> None:
+            # Extract phase name from metric (e.g., "phase_proposal_duration_ms")
+            if metric_name.startswith("phase_") and metric_name.endswith("_duration_ms"):
+                phase_name = metric_name[6:-12]  # strip prefix/suffix
+                record = latency_profiler.phase(phase_name)
+                # Record already has timing from PhaseExecutor; store duration directly
+                record._record.duration_ms = value
+                record._record.start_time = time.perf_counter() - value / 1000
+                record._record.end_time = time.perf_counter()
+            if original_callback:
+                original_callback(metric_name, value)
+
+        arena.phase_executor._config.metrics_callback = _profiling_metrics_callback
+    except (ImportError, AttributeError, TypeError) as e:
+        logger.debug("LatencyProfiler not available: %s", e)
+
     try:
         # Execute all phases via PhaseExecutor with OpenTelemetry tracing
         execution_result = await arena.phase_executor.execute(
@@ -591,6 +619,12 @@ async def execute_debate_phases(
             debate_id=state.debate_id,
         )
         arena._log_phase_failures(execution_result)
+
+        # Emit latency profile after successful execution
+        if latency_profiler and latency_profiler.records:
+            profile_summary = latency_profiler.report()
+            if hasattr(ctx, "result") and ctx.result and isinstance(ctx.result.metadata, dict):
+                ctx.result.metadata["latency_profile"] = profile_summary
 
     except asyncio.TimeoutError:
         # Timeout recovery - use partial results from context

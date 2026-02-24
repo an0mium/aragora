@@ -105,6 +105,15 @@ _EXPORTS = {
         "aragora.server.stream.voice_stream",
         "VoiceSession",
     ),
+    # TTS event bridge
+    "TTSEventBridge": (
+        "aragora.server.stream.tts_event_bridge",
+        "TTSEventBridge",
+    ),
+    "AudioPlaybackState": (
+        "aragora.server.stream.tts_event_bridge",
+        "AudioPlaybackState",
+    ),
     # Autonomous operations stream (Phase 5)
     "AutonomousStreamEmitter": (
         "aragora.server.stream.autonomous_stream",
@@ -330,6 +339,9 @@ __all__ = [
     # Voice stream
     "VoiceStreamHandler",
     "VoiceSession",
+    # TTS event bridge
+    "TTSEventBridge",
+    "AudioPlaybackState",
     # Autonomous operations stream (Phase 5)
     "AutonomousStreamEmitter",
     "AutonomousStreamClient",

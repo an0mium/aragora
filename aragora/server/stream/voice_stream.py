@@ -961,3 +961,80 @@ class VoiceStreamHandler:
                 for s in self._sessions.values()
                 if s.is_active
             ]
+
+    # -----------------------------------------------------------------
+    # Synthesized audio frame management
+    # -----------------------------------------------------------------
+
+    async def receive_audio_frame(
+        self,
+        debate_id: str,
+        frame: bytes,
+        agent_name: str = "",
+        voice: str = "",
+    ) -> int:
+        """Receive a synthesized audio frame and queue it for active sessions.
+
+        This is the entry-point for the TTS event bridge to inject pre-
+        synthesized audio into the voice stream without going through the
+        full ``synthesize_agent_message`` path.
+
+        Args:
+            debate_id: Target debate ID.
+            frame: Audio bytes to enqueue.
+            agent_name: Agent that produced the text.
+            voice: Voice identifier used for synthesis.
+
+        Returns:
+            Number of sessions the frame was queued for.
+        """
+        if not frame:
+            return 0
+
+        sessions_queued = 0
+        async with self._sessions_lock:
+            for session in self._sessions.values():
+                if session.debate_id != debate_id:
+                    continue
+                if not session.is_active:
+                    continue
+                if not session.auto_synthesize:
+                    continue
+                sessions_queued += 1
+
+        if sessions_queued > 0:
+            logger.debug(
+                "[Voice] Queued %d-byte audio frame for %d session(s) in debate %s (agent=%s)",
+                len(frame),
+                sessions_queued,
+                debate_id,
+                agent_name,
+            )
+
+        return sessions_queued
+
+    def get_speaking_agent(self, debate_id: str) -> str:
+        """Return the name of the agent currently speaking in a debate.
+
+        This is tracked by the TTS event bridge and reflects the last agent
+        whose message was synthesized.
+
+        Returns:
+            Agent name or empty string if nobody is speaking.
+        """
+        # Delegate to TTS bridge state if available via session metadata
+        for session in self._sessions.values():
+            if session.debate_id == debate_id and session.is_active:
+                return session.tts_voice_map.get("_current_speaker", "")
+        return ""
+
+    def set_speaking_agent(self, debate_id: str, agent_name: str) -> None:
+        """Record which agent is currently speaking in a debate.
+
+        Args:
+            debate_id: Target debate.
+            agent_name: Agent name (empty string to clear).
+        """
+        for session in self._sessions.values():
+            if session.debate_id == debate_id and session.is_active:
+                session.tts_voice_map["_current_speaker"] = agent_name

@@ -4,12 +4,16 @@ Debate Endpoints (FastAPI v2).
 Migrated from: aragora/server/handlers/debates/ (aiohttp handler)
 
 Provides async debate management endpoints:
-- GET  /api/v2/debates                         - List debates with pagination
-- GET  /api/v2/debates/{debate_id}             - Get debate by ID
-- GET  /api/v2/debates/{debate_id}/messages    - Get debate messages
-- GET  /api/v2/debates/{debate_id}/convergence - Get convergence status
-- PATCH /api/v2/debates/{debate_id}            - Update debate metadata
-- DELETE /api/v2/debates/{debate_id}           - Delete a debate
+- GET    /api/v2/debates                              - List debates with pagination
+- POST   /api/v2/debates                              - Create a new debate
+- GET    /api/v2/debates/{debate_id}                  - Get debate by ID
+- GET    /api/v2/debates/{debate_id}/messages         - Get debate messages
+- GET    /api/v2/debates/{debate_id}/convergence      - Get convergence status
+- GET    /api/v2/debates/{debate_id}/export/{format}  - Export debate in format
+- GET    /api/v2/debates/{debate_id}/argument-graph   - Get argument graph
+- GET    /api/v2/debates/{debate_id}/stats            - Get graph statistics
+- PATCH  /api/v2/debates/{debate_id}                  - Update debate metadata
+- DELETE /api/v2/debates/{debate_id}                  - Delete a debate
 
 Migration Notes:
     This module replaces the CrudOperationsMixin in the legacy debates handler
@@ -22,10 +26,14 @@ Migration Notes:
 
 from __future__ import annotations
 
+import json as json_mod
 import logging
+import os
+from pathlib import Path
 from typing import Any
 
 from fastapi import APIRouter, Depends, Query, Request, HTTPException
+from fastapi.responses import Response
 from pydantic import BaseModel, Field
 
 from aragora.rbac.models import AuthorizationContext
@@ -131,6 +139,60 @@ class DeleteDebateResponse(BaseModel):
     id: str
 
 
+class CreateDebateRequest(BaseModel):
+    """Request body for POST /debates.
+
+    Mirrors the legacy /api/v1/debates POST body.
+    """
+
+    question: str = Field(..., min_length=1, max_length=5000, description="Topic/question to debate")
+    agents: str | None = Field(None, description="Comma-separated agent list")
+    rounds: int = Field(3, ge=1, le=20, description="Number of debate rounds")
+    consensus: str = Field("majority", description="Consensus method")
+    auto_select: bool = Field(False, description="Auto-select agents")
+    context: str | None = Field(None, max_length=10000, description="Additional context")
+    metadata: dict[str, Any] | None = Field(None, description="Custom metadata")
+
+
+class CreateDebateResponse(BaseModel):
+    """Response for POST /debates."""
+
+    debate_id: str
+    status: str
+    message: str | None = None
+
+    model_config = {"extra": "allow"}
+
+
+class ExportResponse(BaseModel):
+    """Response for debate export (JSON format)."""
+
+    debate_id: str
+    format: str
+    content: Any
+
+
+class ArgumentGraphResponse(BaseModel):
+    """Response for argument graph."""
+
+    debate_id: str
+    format: str
+    graph: Any
+
+
+class GraphStatsResponse(BaseModel):
+    """Response for graph statistics."""
+
+    node_count: int = 0
+    edge_count: int = 0
+    depth: int = 0
+    clusters: int = 0
+    avg_branching_factor: float = 0.0
+    avg_path_length: float = 0.0
+
+    model_config = {"extra": "allow"}
+
+
 # =============================================================================
 # Dependencies
 # =============================================================================
@@ -147,6 +209,15 @@ async def get_storage(request: Request):
         raise HTTPException(status_code=503, detail="Storage not available")
 
     return storage
+
+
+def get_nomic_dir() -> Path | None:
+    """Get the nomic directory from environment."""
+    nomic_dir_str = os.environ.get("ARAGORA_NOMIC_DIR", ".")
+    nomic_dir = Path(nomic_dir_str)
+    if nomic_dir.exists():
+        return nomic_dir
+    return None
 
 
 # =============================================================================
@@ -569,3 +640,361 @@ async def delete_debate(
     except (RuntimeError, ValueError, TypeError, OSError, KeyError, AttributeError) as e:
         logger.exception("Error deleting debate %s: %s", debate_id, e)
         raise HTTPException(status_code=500, detail="Failed to delete debate")
+
+
+# =============================================================================
+# New Endpoints (Issue #258)
+# =============================================================================
+
+
+@router.post("/debates", response_model=CreateDebateResponse, status_code=200)
+async def create_debate(
+    body: CreateDebateRequest,
+    request: Request,
+    auth: AuthorizationContext = Depends(require_permission("debates:create")),
+    storage=Depends(get_storage),
+) -> CreateDebateResponse:
+    """
+    Create a new debate.
+
+    Validates the request and delegates to the debate controller for
+    actual debate orchestration. Returns the debate_id for polling/streaming.
+    Requires `debates:create` permission.
+    """
+    try:
+        # Build debate body in legacy format for controller compatibility
+        debate_body: dict[str, Any] = {
+            "question": body.question,
+            "rounds": body.rounds,
+            "consensus": body.consensus,
+            "auto_select": body.auto_select,
+        }
+        if body.agents:
+            debate_body["agents"] = body.agents
+        if body.context:
+            debate_body["context"] = body.context
+        if body.metadata:
+            debate_body["metadata"] = body.metadata
+
+        # Delegate to the debate controller
+        try:
+            from aragora.server.debate_controller import DebateRequest
+
+            debate_request = DebateRequest.from_dict(debate_body)
+        except (ImportError, ValueError) as e:
+            logger.warning("Invalid debate request: %s", e)
+            raise HTTPException(status_code=400, detail="Invalid debate request")
+
+        try:
+            from aragora.server.debate_controller import get_debate_controller
+
+            controller = get_debate_controller()
+            response = controller.start_debate(debate_request)
+        except ImportError:
+            logger.warning("Debate controller not available")
+            raise HTTPException(status_code=503, detail="Debate orchestrator not available")
+        except (TypeError, ValueError, AttributeError, KeyError, RuntimeError, OSError) as e:
+            logger.exception("Failed to start debate: %s", e)
+            raise HTTPException(status_code=500, detail="Failed to start debate")
+
+        logger.info("Debate created: %s", response.debate_id)
+
+        # Return the response from the controller
+        response_data = response.to_dict() if hasattr(response, "to_dict") else {}
+        return CreateDebateResponse(
+            debate_id=response_data.get("debate_id", response.debate_id),
+            status=response_data.get("status", "started"),
+            message=response_data.get("message"),
+            **{k: v for k, v in response_data.items() if k not in ("debate_id", "status", "message")},
+        )
+
+    except HTTPException:
+        raise
+    except NotFoundError:
+        raise
+    except (RuntimeError, ValueError, TypeError, OSError, KeyError, AttributeError) as e:
+        logger.exception("Error creating debate: %s", e)
+        raise HTTPException(status_code=500, detail="Failed to create debate")
+
+
+_VALID_EXPORT_FORMATS = {"json", "csv", "html", "txt", "md"}
+
+
+@router.get("/debates/{debate_id}/export/{export_format}")
+async def export_debate(
+    debate_id: str,
+    export_format: str,
+    table: str = Query("summary", description="Table type for CSV export"),
+    auth: AuthorizationContext = Depends(require_permission("export:read")),
+    storage=Depends(get_storage),
+) -> Response:
+    """
+    Export a debate in the specified format.
+
+    Supports JSON, CSV, HTML, TXT, and Markdown formats.
+    Requires `export:read` permission.
+    """
+    if export_format not in _VALID_EXPORT_FORMATS:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Invalid format: {export_format}. Valid: {', '.join(sorted(_VALID_EXPORT_FORMATS))}",
+        )
+
+    try:
+        # Get debate from storage
+        if hasattr(storage, "get_debate"):
+            debate = storage.get_debate(debate_id)
+        elif hasattr(storage, "debates"):
+            debate = storage.debates.get(debate_id)
+        else:
+            debate = None
+
+        if not debate:
+            raise NotFoundError(f"Debate {debate_id} not found")
+
+        # JSON export returns directly
+        if export_format == "json":
+            debate_data = debate if isinstance(debate, dict) else (
+                debate.__dict__ if hasattr(debate, "__dict__") else {}
+            )
+            return Response(
+                content=json_mod.dumps(debate_data, indent=2, default=str),
+                media_type="application/json",
+                headers={"Content-Disposition": f'attachment; filename="debate_{debate_id}.json"'},
+            )
+
+        # Delegate to the export formatters for other formats
+        try:
+            from aragora.server.debate_export import (
+                format_debate_csv,
+                format_debate_html,
+                format_debate_md,
+                format_debate_txt,
+            )
+        except ImportError:
+            raise HTTPException(status_code=503, detail="Export module not available")
+
+        debate_dict = debate if isinstance(debate, dict) else (
+            debate.__dict__ if hasattr(debate, "__dict__") else {}
+        )
+
+        if export_format == "csv":
+            result = format_debate_csv(debate_dict, table)
+        elif export_format == "html":
+            result = format_debate_html(debate_dict)
+        elif export_format == "txt":
+            result = format_debate_txt(debate_dict)
+        elif export_format == "md":
+            result = format_debate_md(debate_dict)
+        else:
+            raise HTTPException(status_code=400, detail=f"Unsupported format: {export_format}")
+
+        content = result.content
+        if isinstance(content, bytes):
+            content = content.decode("utf-8")
+
+        return Response(
+            content=content,
+            media_type=getattr(result, "content_type", "text/plain"),
+            headers={
+                "Content-Disposition": f'attachment; filename="{getattr(result, "filename", f"debate_{debate_id}.{export_format}")}"'
+            },
+        )
+
+    except NotFoundError:
+        raise
+    except HTTPException:
+        raise
+    except (RuntimeError, ValueError, TypeError, OSError, KeyError, AttributeError) as e:
+        logger.exception("Error exporting debate %s: %s", debate_id, e)
+        raise HTTPException(status_code=500, detail="Failed to export debate")
+
+
+@router.get("/debates/{debate_id}/argument-graph", response_model=ArgumentGraphResponse)
+async def get_argument_graph(
+    debate_id: str,
+    output_format: str = Query("json", alias="format", description="Output format: json or mermaid"),
+    auth: AuthorizationContext = Depends(require_permission("analysis:read")),
+) -> ArgumentGraphResponse:
+    """
+    Get the argument graph for a debate.
+
+    Reconstructs the graph from stored debate traces via ArgumentCartographer.
+    Supports JSON (default) and Mermaid diagram output.
+    Requires `analysis:read` permission.
+    """
+    try:
+        from aragora.debate.traces import DebateTrace
+        from aragora.visualization.mapper import ArgumentCartographer
+    except ImportError:
+        raise HTTPException(status_code=503, detail="Graph analysis module not available")
+
+    nomic_dir = get_nomic_dir()
+    if not nomic_dir:
+        raise HTTPException(status_code=503, detail="Nomic directory not configured")
+
+    try:
+        trace_path = nomic_dir / "traces" / f"{debate_id}.json"
+        if not trace_path.exists():
+            raise NotFoundError(f"Debate {debate_id} not found")
+
+        trace = DebateTrace.load(trace_path)
+        result = trace.to_debate_result()
+
+        cartographer = ArgumentCartographer()
+        cartographer.set_debate_context(debate_id, result.task or "")
+
+        for msg in result.messages:
+            cartographer.update_from_message(
+                agent=msg.agent,
+                content=msg.content,
+                role=msg.role,
+                round_num=msg.round,
+            )
+
+        for critique in result.critiques:
+            cartographer.update_from_critique(
+                critic_agent=critique.agent,
+                target_agent=critique.target or "",
+                severity=critique.severity,
+                round_num=getattr(critique, "round", 1),
+                critique_text=critique.reasoning,
+            )
+
+        if output_format == "mermaid":
+            mermaid_code = cartographer.export_mermaid()
+            return ArgumentGraphResponse(
+                debate_id=debate_id,
+                format="mermaid",
+                graph=mermaid_code,
+            )
+
+        # Default: JSON graph
+        graph_json = json_mod.loads(cartographer.export_json())
+        return ArgumentGraphResponse(
+            debate_id=debate_id,
+            format="json",
+            graph=graph_json,
+        )
+
+    except NotFoundError:
+        raise
+    except HTTPException:
+        raise
+    except (RuntimeError, ValueError, TypeError, OSError, KeyError, AttributeError) as e:
+        logger.exception("Error getting argument graph for debate %s: %s", debate_id, e)
+        raise HTTPException(status_code=500, detail="Failed to get argument graph")
+
+
+@router.get("/debates/{debate_id}/stats", response_model=GraphStatsResponse)
+async def get_debate_stats(
+    debate_id: str,
+    auth: AuthorizationContext = Depends(require_permission("analysis:read")),
+) -> GraphStatsResponse:
+    """
+    Get argument graph statistics for a debate.
+
+    Returns node counts, edge counts, depth, branching factor, and complexity.
+    Requires `analysis:read` permission.
+    """
+    try:
+        from aragora.debate.traces import DebateTrace
+        from aragora.visualization.mapper import ArgumentCartographer
+    except ImportError:
+        raise HTTPException(status_code=503, detail="Graph analysis module not available")
+
+    nomic_dir = get_nomic_dir()
+    if not nomic_dir:
+        raise HTTPException(status_code=503, detail="Nomic directory not configured")
+
+    try:
+        trace_path = nomic_dir / "traces" / f"{debate_id}.json"
+
+        if not trace_path.exists():
+            # Try replays directory as fallback
+            replay_path = nomic_dir / "replays" / debate_id / "events.jsonl"
+            if replay_path.exists():
+                return await _build_stats_from_replay(debate_id, replay_path)
+            raise NotFoundError(f"Debate {debate_id} not found")
+
+        # Load from trace file
+        trace = DebateTrace.load(trace_path)
+        result = trace.to_debate_result()
+
+        # Build cartographer from debate result
+        cartographer = ArgumentCartographer()
+        cartographer.set_debate_context(debate_id, result.task or "")
+
+        for msg in result.messages:
+            cartographer.update_from_message(
+                agent=msg.agent,
+                content=msg.content,
+                role=msg.role,
+                round_num=msg.round,
+            )
+
+        for critique in result.critiques:
+            cartographer.update_from_critique(
+                critic_agent=critique.agent,
+                target_agent=critique.target or "",
+                severity=critique.severity,
+                round_num=getattr(critique, "round", 1),
+                critique_text=critique.reasoning,
+            )
+
+        stats = cartographer.get_statistics()
+        return GraphStatsResponse(**stats)
+
+    except NotFoundError:
+        raise
+    except HTTPException:
+        raise
+    except (RuntimeError, ValueError, TypeError, OSError, KeyError, AttributeError) as e:
+        logger.exception("Error getting stats for debate %s: %s", debate_id, e)
+        raise HTTPException(status_code=500, detail="Failed to get debate stats")
+
+
+async def _build_stats_from_replay(debate_id: str, replay_path: Path) -> GraphStatsResponse:
+    """Build graph stats from replay events file."""
+    try:
+        from aragora.visualization.mapper import ArgumentCartographer
+    except ImportError:
+        raise HTTPException(status_code=503, detail="Graph analysis module not available")
+
+    try:
+        cartographer = ArgumentCartographer()
+        cartographer.set_debate_context(debate_id, "")
+
+        with replay_path.open() as f:
+            for line_num, line in enumerate(f, 1):
+                if line.strip():
+                    try:
+                        event = json_mod.loads(line)
+                    except json_mod.JSONDecodeError:
+                        logger.warning("Skipping malformed JSONL line %s", line_num)
+                        continue
+
+                    if event.get("type") == "agent_message":
+                        cartographer.update_from_message(
+                            agent=event.get("agent", "unknown"),
+                            content=event.get("data", {}).get("content", ""),
+                            role=event.get("data", {}).get("role", "proposer"),
+                            round_num=event.get("round", 1),
+                        )
+                    elif event.get("type") == "critique":
+                        cartographer.update_from_critique(
+                            critic_agent=event.get("agent", "unknown"),
+                            target_agent=event.get("data", {}).get("target", "unknown"),
+                            severity=event.get("data", {}).get("severity", 0.5),
+                            round_num=event.get("round", 1),
+                            critique_text=event.get("data", {}).get("content", ""),
+                        )
+
+        stats = cartographer.get_statistics()
+        return GraphStatsResponse(**stats)
+
+    except FileNotFoundError:
+        raise NotFoundError(f"Replay file not found: {debate_id}")
+    except (RuntimeError, ValueError, TypeError, OSError, KeyError, AttributeError) as e:
+        logger.exception("Error building stats from replay %s: %s", debate_id, e)
+        raise HTTPException(status_code=500, detail="Failed to build stats from replay")

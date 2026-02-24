@@ -23,7 +23,10 @@ from .middleware.security_headers import SecurityHeadersMiddleware
 from .middleware.tracing import TracingMiddleware
 from .middleware.validation import RequestValidationMiddleware, ValidationLimits
 from .middleware.error_handling import setup_exception_handlers
-from .routes import health, debates, decisions, receipts, gauntlet, agents, consensus
+from .routes import (
+    health, debates, decisions, receipts, gauntlet, agents, consensus, pipeline,
+    knowledge, workflows, compliance,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -280,6 +283,10 @@ def create_app(
     app.include_router(gauntlet.router)
     app.include_router(agents.router)
     app.include_router(consensus.router)
+    app.include_router(pipeline.router)
+    app.include_router(knowledge.router)
+    app.include_router(workflows.router)
+    app.include_router(compliance.router)
 
     # Setup exception handlers
     setup_exception_handlers(app)
