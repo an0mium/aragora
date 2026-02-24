@@ -436,9 +436,15 @@ def tmp_db_path(tmp_path):
 
 
 class TestDebateAnalyticsInit:
-    def test_creates_in_memory_db(self):
+    def test_creates_default_persistent_db(self, tmp_path, monkeypatch):
+        monkeypatch.setattr(
+            "aragora.persistence.db_config.get_default_data_dir",
+            lambda: tmp_path,
+        )
+
         analytics = DebateAnalytics()
-        assert analytics.db_path == ":memory:"
+        assert analytics.db_path == str(tmp_path / "debate_analytics.db")
+        assert os.path.exists(analytics.db_path)
 
     def test_creates_tables(self, tmp_db_path):
         import sqlite3
