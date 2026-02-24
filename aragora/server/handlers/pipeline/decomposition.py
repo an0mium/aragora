@@ -200,7 +200,7 @@ class DecompositionHandler(BaseHandler):
 
             decomposer = TaskDecomposer()
             task_desc = f"{node.label}: {getattr(node, 'description', '')}"
-            result = decomposer.analyze(task_desc)
+            decomposition = decomposer.analyze(task_desc)
 
             subtasks = [
                 {
@@ -212,7 +212,7 @@ class DecompositionHandler(BaseHandler):
                     "parent_id": s.parent_id,
                     "depth": s.depth,
                 }
-                for s in result.subtasks
+                for s in decomposition.subtasks
             ]
 
             return json_response(
@@ -220,11 +220,11 @@ class DecompositionHandler(BaseHandler):
                     "pipeline_id": pipeline_id,
                     "node_id": node_id,
                     "success": True,
-                    "complexity_score": result.complexity_score,
-                    "complexity_level": result.complexity_level,
-                    "should_decompose": result.should_decompose,
+                    "complexity_score": decomposition.complexity_score,
+                    "complexity_level": decomposition.complexity_level,
+                    "should_decompose": decomposition.should_decompose,
                     "subtasks": subtasks,
-                    "rationale": result.rationale,
+                    "rationale": decomposition.rationale,
                 }
             )
         except (ImportError, RuntimeError, ValueError, OSError) as e:
@@ -247,8 +247,8 @@ class DecompositionHandler(BaseHandler):
         tree = self._build_subtree(graph, node_id)
 
         # Convert to React Flow format
-        rf_nodes = []
-        rf_edges = []
+        rf_nodes: list[dict[str, Any]] = []
+        rf_edges: list[dict[str, Any]] = []
         self._tree_to_react_flow(tree, rf_nodes, rf_edges, x=0, y=0)
 
         return json_response(

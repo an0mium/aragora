@@ -127,7 +127,7 @@ class HardenedConfig:
     gauntlet_max_retries: int = 1
 
 
-class HardenedOrchestrator(BudgetMixin, GauntletMixin, AuditMixin, AutonomousOrchestrator):
+class HardenedOrchestrator(BudgetMixin, GauntletMixin, AuditMixin, AutonomousOrchestrator):  # type: ignore[misc]  # MRO method conflict between BudgetMixin and base
     """Orchestrator with worktree isolation and hardened validation.
 
     Extends AutonomousOrchestrator with opt-in production features.
@@ -400,7 +400,7 @@ class HardenedOrchestrator(BudgetMixin, GauntletMixin, AuditMixin, AutonomousOrc
         self._emit_event("planning_completed", goal_count=len(prioritized_goals))
 
         if prioritized_goals:
-            tracks_summary = {}
+            tracks_summary: dict[str, int] = {}
             for pg in prioritized_goals:
                 track_val = pg.track.value if hasattr(pg.track, "value") else str(pg.track)
                 tracks_summary[track_val] = tracks_summary.get(track_val, 0) + 1
@@ -947,7 +947,7 @@ class HardenedOrchestrator(BudgetMixin, GauntletMixin, AuditMixin, AutonomousOrc
             mound = get_knowledge_mound(workspace_id="nomic")
             detector = ContradictionDetector()
             report = await detector.detect_contradictions(
-                mound,
+                mound,  # type: ignore[arg-type]  # KnowledgeMound query signature broader than protocol
                 workspace_id="nomic",
             )
 
@@ -1195,6 +1195,10 @@ class HardenedOrchestrator(BudgetMixin, GauntletMixin, AuditMixin, AutonomousOrc
             # Convert HierarchicalResult to OrchestrationResult
             return OrchestrationResult(
                 goal=goal,
+                total_subtasks=len(hc_result.worker_reports),
+                completed_subtasks=len(hc_result.worker_reports) if hc_result.success else 0,
+                failed_subtasks=0 if hc_result.success else len(hc_result.worker_reports),
+                skipped_subtasks=0,
                 summary=(
                     f"Hierarchical coordination: {hc_result.cycles_used} cycles, "
                     f"{len(hc_result.worker_reports)} workers"
@@ -1566,21 +1570,25 @@ class HardenedOrchestrator(BudgetMixin, GauntletMixin, AuditMixin, AutonomousOrc
                 fixer = ForwardFixer()
                 diagnosis = fixer.diagnose_failure(
                     "\n".join(issues),
-                    context=diff_text[:2000] if diff_text else "",
+                    diff=diff_text[:2000] if diff_text else None,
+                )
+                suggested_fix = fixer.suggest_fix(diagnosis)
+                fix_list: list[dict[str, str]] = (
+                    [{"description": suggested_fix.description,
+                      "file": suggested_fix.file_path,
+                      "fix": suggested_fix.new_content}]
+                    if suggested_fix else []
                 )
                 forward_diagnosis = {
                     "failure_type": diagnosis.failure_type.value,
                     "confidence": diagnosis.confidence,
-                    "suggested_fixes": [
-                        {"description": f.description, "file": f.file_path, "fix": f.fix_code}
-                        for f in diagnosis.fixes
-                    ],
+                    "suggested_fixes": fix_list,
                 }
                 logger.info(
                     "review_gate_forward_fix subtask=%s type=%s fixes=%d",
                     assignment.subtask.id,
                     diagnosis.failure_type.value,
-                    len(diagnosis.fixes),
+                    len(fix_list),
                 )
             except (
                 ImportError,
@@ -2067,11 +2075,21 @@ class HardenedOrchestrator(BudgetMixin, GauntletMixin, AuditMixin, AutonomousOrc
             )
 
             # Build action sequence from subtask description
-            actions = bridge.plan_actions(assignment.subtask.description)
+            # ComputerUseBridge provides action conversion, not execution.
+            # Use from_openclaw to create actions from descriptions.
+            plan_fn = getattr(bridge, "plan_actions", None)
+            exec_fn = getattr(bridge, "execute_action", None)
+            if not plan_fn or not exec_fn:
+                logger.warning(
+                    "computer_use_bridge lacks plan_actions/execute_action, skipping"
+                )
+                return None
+
+            actions = plan_fn(assignment.subtask.description)
 
             results = []
             for action in actions[:20]:  # Cap actions for safety
-                result = await bridge.execute_action(
+                result = await exec_fn(
                     action,
                     timeout=self.hardened_config.sandbox_timeout,
                 )
@@ -2533,12 +2551,12 @@ class HardenedOrchestrator(BudgetMixin, GauntletMixin, AuditMixin, AutonomousOrc
 
             # Build commit message
             subtask_title = assignment.subtask.title
-            track = assignment.subtask.track or "general"
+            track = assignment.track.value if hasattr(assignment.track, "value") else str(assignment.track)
             msg = (
                 f"feat({track}): {subtask_title}\n\n"
                 f"Auto-committed by HardenedOrchestrator after verification.\n"
                 f"Subtask: {assignment.subtask.id}\n"
-                f"Agent: {assignment.agent_id}"
+                f"Agent: {assignment.agent_type}"
             )
 
             commit_result = await asyncio.to_thread(

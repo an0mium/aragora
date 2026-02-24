@@ -1278,13 +1278,13 @@ class SelfImprovePipeline:
             async def execute_fn(assignment: TrackAssignment) -> dict[str, Any]:
                 return await self._execute_single(assignment, cycle_id)
 
-            coordination_result = await coordinator.coordinate_parallel_work(
+            branch_result = await coordinator.coordinate_parallel_work(
                 assignments=assignments,
                 run_nomic_fn=execute_fn,
             )
 
             results: list[dict[str, Any]] = []
-            for a in coordination_result.assignments:
+            for a in branch_result.assignments:
                 success = a.status in ("completed", "merged")
                 result_data = a.result if isinstance(a.result, dict) else {}
                 results.append(
@@ -1303,7 +1303,7 @@ class SelfImprovePipeline:
             logger.warning("Worktree execution failed, falling back to sequential: %s", exc)
 
         # Fallback: wave-based parallel execution
-        results: list[dict[str, Any]] = []
+        fallback_results: list[dict[str, Any]] = []
         waves = self._dependency_waves(subtasks)
         for wave in waves:
             wave_results = await asyncio.gather(
@@ -1313,7 +1313,7 @@ class SelfImprovePipeline:
             for r in wave_results:
                 if isinstance(r, BaseException):
                     logger.warning("Subtask in wave failed: %s", r)
-                    results.append(
+                    fallback_results.append(
                         {
                             "success": False,
                             "files_changed": [],
@@ -1322,10 +1322,10 @@ class SelfImprovePipeline:
                         }
                     )
                 else:
-                    results.append(r)
+                    fallback_results.append(r)
 
             # Check budget after each wave
-            wave_cost = sum(r.get("cost_usd", 0.0) for r in results if isinstance(r, dict))
+            wave_cost = sum(r.get("cost_usd", 0.0) for r in fallback_results if isinstance(r, dict))
             self._total_spend_usd += wave_cost
             if self._total_spend_usd > self.config.budget_limit_usd:
                 logger.warning(
@@ -1334,7 +1334,7 @@ class SelfImprovePipeline:
                     self.config.budget_limit_usd,
                 )
                 break
-        return results
+        return fallback_results
 
     def _dependency_waves(self, subtasks: list[Any]) -> list[list[Any]]:
         """Group subtasks into dependency waves for parallel execution.
@@ -1962,14 +1962,9 @@ class SelfImprovePipeline:
 
                 receipt = DecisionReceipt(
                     receipt_id=f"si_{subtask_id}_{receipt_hash}",
-                    verdict="approved" if success else "rejected",
-                    summary=desc[:200],
-                    evidence=[f"files: {', '.join(files_changed[:5])}"],
-                    metadata={
-                        "cycle_id": cycle_id,
-                        "subtask_id": subtask_id,
-                        "type": "self_improve_subtask",
-                    },
+                    gauntlet_id=f"si_{cycle_id}",
+                    verdict="APPROVED" if success else "REJECTED",
+                    input_summary=desc[:200],
                 )
 
                 # Persist receipt to KM
@@ -2231,7 +2226,7 @@ class SelfImprovePipeline:
             cycle_data = _SelfImproveOrchestrationAdapter(cycle_id, result)
 
             bridge = NomicPipelineBridge()
-            graph = bridge.create_pipeline_from_cycle(cycle_data)
+            graph = bridge.create_pipeline_from_cycle(cycle_data)  # type: ignore[arg-type]  # duck-type adapter
 
             store = get_graph_store()
             store.create(graph)

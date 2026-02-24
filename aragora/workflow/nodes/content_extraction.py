@@ -182,7 +182,10 @@ class ContentExtractionStep(BaseStep):
             raise ImportError("LangExtractAdapter required for structured extraction")
 
         adapter = LangExtractAdapter()
-        facts = await adapter.extract(text, schema=schema)
+        from aragora.knowledge.mound.adapters.langextract_adapter import ExtractionSchema
+        extraction_schema = ExtractionSchema(name="structured", fields=schema or {})
+        result = await adapter.extract_from_document(text, schema=extraction_schema)
+        facts = result.facts if hasattr(result, "facts") else []
         return {
             "success": True,
             "facts": facts if isinstance(facts, list) else [facts],
@@ -203,20 +206,24 @@ class ContentExtractionStep(BaseStep):
             raise ImportError("ExtractionAdapter required for entity extraction")
 
         adapter = ExtractionAdapter()
-        entities = await adapter.extract_entities(text)
+        # Use extract_from_debate with synthetic message to extract entities
+        result = await adapter.extract_from_debate(
+            debate_id="content_extraction",
+            messages=[{"role": "user", "content": text}],
+        )
+        entities: list[Any] = []
+        if hasattr(result, "claims"):
+            entities = [c.to_dict() if hasattr(c, "to_dict") else c for c in result.claims]
         # Filter by confidence and limit
-        if isinstance(entities, list):
-            filtered = [
-                e
-                for e in entities
-                if not isinstance(e, dict) or e.get("confidence", 1.0) >= confidence_threshold
-            ][:max_entities]
-        else:
-            filtered = entities
+        filtered = [
+            e
+            for e in entities
+            if not isinstance(e, dict) or e.get("confidence", 1.0) >= confidence_threshold
+        ][:max_entities]
         return {
             "success": True,
             "entities": filtered,
-            "entity_count": len(filtered) if isinstance(filtered, list) else 1,
+            "entity_count": len(filtered),
         }
 
     async def _extract_relationships(
@@ -229,13 +236,21 @@ class ContentExtractionStep(BaseStep):
             raise ImportError("ExtractionAdapter required for relationship extraction")
 
         adapter = ExtractionAdapter()
-        relationships = await adapter.extract_relationships(text)
-        if isinstance(relationships, list):
-            relationships = relationships[:max_entities]
+        # Use extract_from_debate with synthetic message to extract relationships
+        result = await adapter.extract_from_debate(
+            debate_id="content_extraction_rels",
+            messages=[{"role": "user", "content": text}],
+        )
+        relationships: list[Any] = []
+        if hasattr(result, "relationships"):
+            relationships = [
+                r.to_dict() if hasattr(r, "to_dict") else r
+                for r in result.relationships
+            ][:max_entities]
         return {
             "success": True,
             "relationships": relationships,
-            "relationship_count": len(relationships) if isinstance(relationships, list) else 1,
+            "relationship_count": len(relationships),
         }
 
     async def _store_in_knowledge_mound(
@@ -258,7 +273,7 @@ class ContentExtractionStep(BaseStep):
         for item in items:
             try:
                 content = item if isinstance(item, str) else str(item)
-                await km.store(
+                await km.add(
                     content=content,
                     workspace_id=workspace_id,
                     metadata={"source": "content_extraction", "format": output_format},
@@ -272,10 +287,13 @@ class ContentExtractionStep(BaseStep):
     def _fetch_url_content(self, url: str) -> str | None:
         """Fetch content from URL (sync wrapper)."""
         try:
+            import asyncio
+
             from aragora.connectors.web import WebConnector
 
             connector = WebConnector()
-            results = connector.search(url, max_results=1)
+            # WebConnector.search is async; run in a new event loop
+            results = asyncio.run(connector.search(url, limit=1))
             if results:
                 return results[0].content
         except (ImportError, RuntimeError, OSError) as e:
