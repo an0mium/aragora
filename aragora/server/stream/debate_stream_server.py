@@ -1486,4 +1486,31 @@ class DebateStreamServer(ServerBase):
                 self.clients.clear()
 
 
-__all__ = ["DebateStreamServer"]
+# ---------------------------------------------------------------------------
+# Module-level replay buffer accessor (for HTTP polling endpoint)
+# ---------------------------------------------------------------------------
+
+_global_replay_buffer: EventReplayBuffer | None = None
+
+
+def get_global_replay_buffer() -> EventReplayBuffer | None:
+    """Return the module-level replay buffer singleton, if set.
+
+    This is set automatically when a DebateStreamServer is created,
+    allowing the HTTP polling endpoint to access the same replay data.
+    """
+    return _global_replay_buffer
+
+
+def set_global_replay_buffer(buffer: EventReplayBuffer | None) -> None:
+    """Set the module-level replay buffer singleton."""
+    global _global_replay_buffer
+    _global_replay_buffer = buffer
+
+
+__all__ = [
+    "DebateStreamServer",
+    "EventReplayBuffer",
+    "get_global_replay_buffer",
+    "set_global_replay_buffer",
+]
