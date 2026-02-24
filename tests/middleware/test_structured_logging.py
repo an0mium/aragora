@@ -1298,7 +1298,8 @@ class TestRequestLoggingMiddleware:
             mock_error.assert_called_once()
             call_args = mock_error.call_args
             assert "ERROR" in call_args[0][0]
-            assert "ValueError" in call_args[0][0]
+            # Logger uses %s format args; "ValueError" is in positional args
+            assert "ValueError" in call_args[0]
             call_kwargs = call_args[1]
             assert call_kwargs["extra"]["event"] == "request_error"
             assert call_kwargs["extra"]["status"] == 500

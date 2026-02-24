@@ -41,7 +41,7 @@ class IdeaCanvasAdapter(KnowledgeMoundAdapter):
 
     adapter_name = "idea_canvas"
 
-    # Mapping from IdeaNodeType value → KM NodeType
+    # Mapping from IdeaNodeType value -> KM NodeType
     _IDEA_TO_KM_TYPE: dict[str, NodeType] = {
         "concept": "idea_concept",
         "cluster": "idea_cluster",
@@ -63,7 +63,7 @@ class IdeaCanvasAdapter(KnowledgeMoundAdapter):
             event_callback=event_callback,
             enable_resilience=enable_resilience,
         )
-        # Local caches: canvas_node_id → km_node_id
+        # Local caches: canvas_node_id -> km_node_id
         self._node_map: dict[str, str] = {}
         self._edge_map: dict[str, str] = {}
 
@@ -194,7 +194,7 @@ class IdeaCanvasAdapter(KnowledgeMoundAdapter):
             user_id: User performing the sync.
 
         Returns:
-            Mapping of canvas_node_id → km_node_id.
+            Mapping of canvas_node_id -> km_node_id.
         """
         canvas_id = canvas_dict.get("id", "")
 
