@@ -440,7 +440,8 @@ class ArgumentStructureVerifier:
         for target_id in set(target_supporters) & set(target_refuters):
             for supporter_id in target_supporters[target_id]:
                 for refuter_id in target_refuters[target_id]:
-                    pair_key = tuple(sorted([supporter_id, refuter_id]))
+                    a2, b2 = sorted([supporter_id, refuter_id])
+                    pair_key = (a2, b2)
                     if pair_key in seen_pairs:
                         continue
                     seen_pairs.add(pair_key)
