@@ -388,7 +388,7 @@ class TestUpdateGraph:
             {"metadata": {"new_key": "val"}},
             http,
         )
-        graph.metadata.update.assert_called_once_with({"new_key": "val"})
+        assert graph.metadata == {"existing": True, "new_key": "val"}
 
     def test_update_not_found(self, patched_store):
         patched_store.get.return_value = None

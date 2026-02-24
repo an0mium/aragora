@@ -436,9 +436,9 @@ class TestErrorHandling:
     ):
         """Optional step failure should not stop the workflow."""
         result = await engine.execute(optional_fail_def)
-        # s1 fails (optional), s2 should still execute
+        # Optional failures are marked skipped and should not block s2.
         assert len(result.steps) == 2
-        assert result.steps[0].status == StepStatus.FAILED
+        assert result.steps[0].status == StepStatus.SKIPPED
         assert result.steps[1].status == StepStatus.COMPLETED
 
     @pytest.mark.asyncio

@@ -10,7 +10,8 @@ test.describe('Auth Callback Reliability', () => {
   test('restores return URL after successful OAuth callback token exchange', async ({ page }) => {
     const returnUrl = '/debates?source=e2e-callback';
 
-    await page.addInitScript(({ storageKey, value }) => {
+    await page.goto('/', { waitUntil: 'domcontentloaded' });
+    await page.evaluate(({ storageKey, value }) => {
       sessionStorage.setItem(storageKey, value);
     }, { storageKey: RETURN_URL_STORAGE_KEY, value: returnUrl });
 
@@ -37,7 +38,7 @@ test.describe('Auth Callback Reliability', () => {
     const callbackUrl = `/auth/callback/#access_token=${makeToken('access')}&refresh_token=${makeToken('refresh')}&expires_in=3600`;
     await page.goto(callbackUrl, { waitUntil: 'domcontentloaded' });
 
-    await expect(page).toHaveURL(/\/debates\?source=e2e-callback$/, { timeout: 10_000 });
+    await expect(page).toHaveURL(/\/debates\/?\?source=e2e-callback$/, { timeout: 10_000 });
 
     const storedTokens = await page.evaluate(() => localStorage.getItem('aragora_tokens'));
     const storedUser = await page.evaluate(() => localStorage.getItem('aragora_user'));
@@ -58,6 +59,6 @@ test.describe('Auth Callback Reliability', () => {
     await page.goto(callbackUrl, { waitUntil: 'domcontentloaded' });
 
     await expect(page.getByText('AUTHENTICATION FAILED')).toBeVisible({ timeout: 8_000 });
-    await expect(page.getByText(/OAuth tokens were rejected|Authentication failed/i)).toBeVisible({ timeout: 8_000 });
+    await expect(page.getByText('OAuth tokens were rejected by the server. Please try logging in again.')).toBeVisible({ timeout: 8_000 });
   });
 });
