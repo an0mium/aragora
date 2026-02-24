@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/context/AuthContext';
 import { SocialLoginButtons } from '@/components/auth/SocialLoginButtons';
+import { normalizeReturnUrl, RETURN_URL_STORAGE_KEY } from '@/utils/returnUrl';
 
 export default function SignupPage() {
   const router = useRouter();
@@ -16,21 +17,36 @@ export default function SignupPage() {
   const [error, setError] = useState('');
   const [isLoading, setIsLoading] = useState(false);
 
-  // Determine post-signup destination: onboarding wizard if there's a pending
-  // question, otherwise the dashboard
+  // Determine post-signup destination:
+  // 1. Stored return URL from a pre-login redirect (e.g. user was on a protected page)
+  // 2. Onboarding wizard if there's a pending question
+  // 3. Default: onboarding for new users
   const getPostSignupRoute = () => {
-    if (typeof window !== 'undefined' && sessionStorage.getItem('aragora_onboarding_question')) {
-      return '/onboarding';
+    if (typeof window !== 'undefined') {
+      // Check for a stored redirect URL (from ProtectedRoute or login flow)
+      const storedReturnUrl = sessionStorage.getItem(RETURN_URL_STORAGE_KEY);
+      if (storedReturnUrl) {
+        const normalized = normalizeReturnUrl(storedReturnUrl);
+        // If there is a meaningful stored redirect, use it and clear it
+        if (normalized !== '/') {
+          sessionStorage.removeItem(RETURN_URL_STORAGE_KEY);
+          return normalized;
+        }
+      }
+      // If there is a pending onboarding question, go to onboarding
+      if (sessionStorage.getItem('aragora_onboarding_question')) {
+        return '/onboarding';
+      }
     }
     return '/onboarding';
   };
 
-  // If already authenticated, go straight to onboarding
+  // If already authenticated, redirect to stored destination or onboarding
   useEffect(() => {
     if (!authLoading && isAuthenticated) {
       router.replace(getPostSignupRoute());
     }
-  }, [authLoading, isAuthenticated, router]);
+  }, [authLoading, isAuthenticated, router]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();

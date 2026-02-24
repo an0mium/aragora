@@ -6,6 +6,7 @@ import { useRouter } from 'next/navigation';
 import { Scanlines, CRTVignette } from '@/components/MatrixRain';
 import { useAuth } from '@/context/AuthContext';
 import { SocialLoginButtons } from '@/components/auth/SocialLoginButtons';
+import { normalizeReturnUrl, RETURN_URL_STORAGE_KEY } from '@/utils/returnUrl';
 
 export default function RegisterPage() {
   const router = useRouter();
@@ -39,7 +40,15 @@ export default function RegisterPage() {
     const result = await register(email, password, name || undefined, organization || undefined);
 
     if (result.success) {
-      router.push('/');
+      // Check for a stored redirect URL, fall back to dashboard
+      const storedReturnUrl = typeof window !== 'undefined'
+        ? sessionStorage.getItem(RETURN_URL_STORAGE_KEY)
+        : null;
+      const destination = normalizeReturnUrl(storedReturnUrl);
+      if (storedReturnUrl) {
+        sessionStorage.removeItem(RETURN_URL_STORAGE_KEY);
+      }
+      router.push(destination);
     } else {
       setError(result.error || 'Registration failed');
     }
