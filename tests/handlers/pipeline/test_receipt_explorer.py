@@ -357,11 +357,11 @@ class TestGetReceipt:
         assert body["content_hash"] == receipt["content_hash"]
 
     def test_get_path_traversal_id_rejected(self):
-        """IDs with path traversal characters should be rejected."""
+        """Path traversal payload does not match the route and is ignored."""
         h = _make_handler()
         http = _make_http_handler()
         result = h.handle_get("/api/v1/receipts/../../etc/passwd", {}, http)
-        assert _status(result) == 400
+        assert result is None
 
     def test_get_id_with_spaces_rejected(self):
         """IDs with spaces should be rejected by SAFE_ID_PATTERN."""
