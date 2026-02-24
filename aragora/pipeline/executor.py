@@ -136,6 +136,7 @@ class PlanExecutor:
         max_parallel: int | None = None,
         execution_mode: ExecutionMode | None = None,
         repo_path: Path | None = None,
+        sandbox_config: Any | None = None,
     ) -> None:
         if continuum_memory is None:
             try:
@@ -153,6 +154,18 @@ class PlanExecutor:
             except (ImportError, RuntimeError, OSError) as e:
                 logger.debug("Could not initialize knowledge_mound: %s", e)
                 knowledge_mound = None
+
+        if sandbox_config is not None:
+            try:
+                from aragora.sandbox.executor import SandboxExecutor
+
+                self._sandbox_executor = SandboxExecutor(sandbox_config)
+            except (ImportError, RuntimeError, OSError) as e:
+                logger.debug("Could not initialize SandboxExecutor: %s", e)
+                self._sandbox_executor = None
+        else:
+            self._sandbox_executor = None
+        self._sandbox_config = sandbox_config
 
         self._continuum_memory = continuum_memory
         self._knowledge_mound = knowledge_mound
@@ -503,6 +516,8 @@ class PlanExecutor:
         execution_metadata.setdefault("debate_id", plan.debate_id)
         execution_metadata.setdefault("execution_mode", "workflow")
         execution_metadata.setdefault("workflow_name", definition.name)
+        if self._sandbox_config:
+            execution_metadata["sandbox_config"] = self._sandbox_config
 
         result = await engine.execute(
             definition,

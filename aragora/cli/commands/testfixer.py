@@ -216,6 +216,7 @@ async def _run(args: argparse.Namespace) -> int:
         test_timeout=args.timeout_seconds,
     )
 
+    result: Any  # FixLoopResult | BatchFixResult
     if args.batch:
         result = await fixer.run_batch_fix_loop(max_iterations=args.max_iterations)
     else:

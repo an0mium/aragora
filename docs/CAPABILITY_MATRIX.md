@@ -11,8 +11,29 @@
 | **CLI** | 75 commands | 85.7% |
 | **SDK (Python)** | 184 namespaces | 100.0% |
 | **SDK (TypeScript)** | 183 namespaces | 100.0% |
-| **UI** | tracked in capability surfaces | 100.0% |
+| **UI** | 14/14 capabilities | 100.0% |
 | **Capability Catalog** | 14/37 mapped | 37.8% |
+
+## Capability Surface Matrix
+
+| Capability | API | CLI | SDK | UI | Channels |
+|------------|-----|-----|-----|----|----------|
+| `agent_team_selection` | ✅ | ✅ | ✅ | ✅ | ❌ |
+| `compliance_framework` | ✅ | ❌ | ✅ | ✅ | ❌ |
+| `consensus_detection` | ✅ | ✅ | ✅ | ✅ | ❌ |
+| `continuum_memory` | ✅ | ✅ | ✅ | ✅ | ❌ |
+| `debate_orchestration` | ✅ | ✅ | ✅ | ✅ | ✅ |
+| `decision_integrity` | ✅ | ✅ | ✅ | ✅ | ✅ |
+| `graph_debates` | ✅ | ✅ | ✅ | ✅ | ❌ |
+| `knowledge_mound` | ✅ | ✅ | ✅ | ✅ | ❌ |
+| `marketplace` | ✅ | ✅ | ✅ | ✅ | ❌ |
+| `matrix_debates` | ✅ | ✅ | ✅ | ✅ | ❌ |
+| `nomic_loop` | ✅ | ✅ | ✅ | ✅ | ❌ |
+| `rbac_v2` | ✅ | ❌ | ✅ | ✅ | ❌ |
+| `vertical_specialists` | ✅ | ✅ | ✅ | ✅ | ❌ |
+| `workflow_engine` | ✅ | ✅ | ✅ | ✅ | ❌ |
+
+**Coverage:** API 14/14 (100%) | CLI 12/14 (85.7%) | SDK 14/14 (100%) | UI 14/14 (100%) | Channels 2/14 (14.3%)
 
 ## Surface Gaps
 

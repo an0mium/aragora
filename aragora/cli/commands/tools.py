@@ -293,6 +293,7 @@ def _run_orchestration(
     print("-" * 60)
 
     # Use HardenedOrchestrator when hardened flags are set
+    orchestrator: Any  # HardenedOrchestrator | AutonomousOrchestrator
     if use_hardened or use_worktree or coordinated:
         from aragora.nomic.hardened_orchestrator import HardenedOrchestrator
 
