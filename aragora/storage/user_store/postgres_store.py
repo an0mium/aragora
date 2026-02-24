@@ -221,7 +221,7 @@ class PostgresUserStore(
         try:
             async with self._pool.acquire() as conn:
                 await conn.execute(self.INITIAL_SCHEMA)
-        except Exception as e:
+        except Exception as e:  # noqa: BLE001 - filter for read-only replicas, re-raises otherwise
             # Handle read-only replicas gracefully — schema already exists there
             err_msg = str(e).lower()
             if "read-only" in err_msg or "read only" in err_msg:

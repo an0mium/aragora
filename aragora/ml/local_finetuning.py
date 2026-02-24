@@ -468,7 +468,7 @@ class LocalFineTuner:
                 training_time_seconds=training_time,
             )
 
-        except Exception as e:
+        except Exception as e:  # noqa: BLE001 - torch/transformers raise library-specific exceptions
             logger.error("Training failed: %s", e)
             return FineTuneResult(
                 success=False,
@@ -712,7 +712,7 @@ class DPOFineTuner(LocalFineTuner):
         except ImportError:
             logger.warning("TRL not installed, falling back to SFT")
             return super().train(data)
-        except Exception as e:
+        except Exception as e:  # noqa: BLE001 - torch/transformers raise library-specific exceptions
             logger.error("DPO training failed: %s", e)
             return FineTuneResult(
                 success=False,

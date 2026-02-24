@@ -1023,7 +1023,7 @@ class Z3Backend:
         except (RuntimeError, ValueError, TypeError) as e:
             logger.debug("SMT-LIB2 validation failed: %s: %s", type(e).__name__, e)
             return False
-        except Exception as e:
+        except Exception as e:  # noqa: BLE001 - Z3Exception doesn't inherit builtins
             # Z3Exception and other Z3-specific errors
             logger.debug("SMT-LIB2 validation failed (Z3 error): %s: %s", type(e).__name__, e)
             return False

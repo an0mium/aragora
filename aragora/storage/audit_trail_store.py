@@ -205,7 +205,7 @@ class AuditTrailStore:
                 self._backend.execute_write(statement)
             except (OSError, RuntimeError, ValueError) as e:
                 logger.debug("Schema statement skipped: %s", e)
-            except Exception as e:
+            except Exception as e:  # noqa: BLE001 - filter for read-only DB, re-raises otherwise
                 err_msg = str(e).lower()
                 if "read-only" in err_msg or "read only" in err_msg:
                     logger.info("AuditTrailStore: read-only database, skipping schema init")
