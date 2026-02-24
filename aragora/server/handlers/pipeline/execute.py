@@ -68,7 +68,7 @@ class PipelineExecuteHandler(BaseHandler):
         parts = cleaned.strip("/").split("/")
         if len(parts) >= 4 and parts[1] == "pipeline" and parts[3] == "execute":
             pid = parts[2]
-            if validate_path_segment(pid, SAFE_ID_PATTERN):
+            if validate_path_segment(pid, "pipeline_id", SAFE_ID_PATTERN)[0]:
                 return pid
         return None
 

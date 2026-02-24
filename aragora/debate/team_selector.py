@@ -158,6 +158,9 @@ class TeamSelectionConfig:
     # Introspection scoring (reputation + calibration from introspection snapshots)
     enable_introspection_scoring: bool = True
     introspection_weight: float = 0.2
+    # Control Plane health filtering (agent availability from AgentRegistry)
+    enable_health_filtering: bool = True
+    health_weight: float = 0.3
 
 
 class TeamSelector:
@@ -194,6 +197,7 @@ class TeamSelector:
         performance_adapter: Any | None = None,
         feedback_loop: Any | None = None,
         continuum_memory: ContinuumMemory | None = None,
+        control_plane_registry: Any | None = None,
     ):
         self.elo_system = elo_system
         # Auto-detect default CalibrationTracker if none provided.
@@ -231,6 +235,19 @@ class TeamSelector:
         self.performance_adapter = performance_adapter
         self.feedback_loop = feedback_loop
         self.continuum_memory = continuum_memory
+        # Control Plane AgentRegistry for health/availability checks
+        if control_plane_registry is None:
+            try:
+                from aragora.control_plane.registry import AgentRegistry
+
+                control_plane_registry = AgentRegistry()
+                logger.debug("Auto-detected AgentRegistry as default control plane registry")
+            except (ImportError, RuntimeError, TypeError, OSError, ValueError):
+                logger.debug(
+                    "AgentRegistry not available for auto-detection, "
+                    "proceeding without health filtering"
+                )
+        self.control_plane_registry = control_plane_registry
         self.pulse_manager: Any = None  # Set externally or via Arena
         self.specialist_registry: Any = None  # Set externally or via Arena
         self._culture_recommendations_cache: dict[str, list[str]] = {}

@@ -204,28 +204,54 @@ class AgentStep(BaseStep):
         # Heterogeneous agent pool orchestration
         pool = self._normalize_agent_pool(step_config.get("agent_pool")) or self.agent_pool
         if pool:
-            return await self._execute_agent_pool(prompt, context, pool, step_config)
-
-        # Check if we should use a coding harness (e.g., KiloCode for Gemini)
-        harness_config = step_config.get("coding_harness") or self.coding_harness
-        if isinstance(harness_config, dict) and harness_config.get("harness") == "kilocode":
-            return await self._execute_with_kilocode(prompt, context, harness_config)
-
-        # Single-agent power sampling
-        power_sampling = step_config.get("power_sampling")
-        if power_sampling:
-            return await self._execute_with_power_sampling(
+            result = await self._execute_agent_pool(prompt, context, pool, step_config)
+        elif isinstance(
+            step_config.get("coding_harness") or self.coding_harness, dict
+        ) and (step_config.get("coding_harness") or self.coding_harness or {}).get(
+            "harness"
+        ) == "kilocode":
+            # Check if we should use a coding harness (e.g., KiloCode for Gemini)
+            harness_config = step_config.get("coding_harness") or self.coding_harness
+            result = await self._execute_with_kilocode(prompt, context, harness_config)
+        elif step_config.get("power_sampling"):
+            # Single-agent power sampling
+            result = await self._execute_with_power_sampling(
                 prompt,
                 step_config,
-                power_sampling,
+                step_config["power_sampling"],
             )
+        else:
+            # Create and run agent normally
+            agent_type = str(step_config.get("agent_type", self.agent_type))
+            agent = create_agent(cast(AgentType, agent_type))
+            response = await agent.generate(prompt)
+            result = {"response": response, "agent_type": agent_type}
 
-        # Create and run agent normally
-        agent_type = str(step_config.get("agent_type", self.agent_type))
-        agent = create_agent(cast(AgentType, agent_type))
-        response = await agent.generate(prompt)
+        # Sandbox execution for code output
+        sandbox_enabled = step_config.get("sandbox", False)
+        sandbox_config = context.metadata.get("sandbox_config")
+        if sandbox_enabled and sandbox_config:
+            try:
+                from aragora.sandbox.executor import SandboxExecutor
 
-        return {"response": response, "agent_type": agent_type}
+                code_output = self._extract_code(result.get("response", ""))
+                if code_output:
+                    sandbox = SandboxExecutor(sandbox_config)
+                    sandbox_result = await sandbox.execute(
+                        code_output,
+                        language=step_config.get("sandbox_language", "python"),
+                        timeout=step_config.get("sandbox_timeout", 60.0),
+                    )
+                    result["sandbox_result"] = {
+                        "status": sandbox_result.status.value,
+                        "stdout": sandbox_result.stdout,
+                        "stderr": sandbox_result.stderr,
+                        "exit_code": sandbox_result.exit_code,
+                    }
+            except (ImportError, RuntimeError, OSError, ValueError, TypeError) as e:
+                logger.debug("Sandbox execution failed (non-critical): %s", e)
+
+        return result
 
     def _normalize_agent_pool(self, value: Any | None) -> list[str]:
         """Normalize agent pool input into a list of agent type strings."""
