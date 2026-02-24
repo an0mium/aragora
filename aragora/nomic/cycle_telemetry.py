@@ -122,7 +122,7 @@ class CycleTelemetryCollector:
     def _close_conn(self, conn: sqlite3.Connection) -> None:
         """Close a connection unless it is the persistent one."""
         if conn is not self._persistent_conn:
-            self._close_conn(conn)
+            conn.close()
 
     def _init_schema(self) -> None:
         """Create the telemetry table if it does not exist."""

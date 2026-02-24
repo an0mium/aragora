@@ -59,7 +59,7 @@ def _normalize(path: str) -> str:
     path = re.sub(r"^/api/v\d+/", "/api/", path)
     if path != "/" and path.endswith("/"):
         path = path[:-1]
-    return path
+    return path.lower()
 
 
 def _extract_ts_endpoints(content: str) -> set[tuple[str, str]]:

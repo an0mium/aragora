@@ -272,14 +272,14 @@ Top-level evidence connectors extend `BaseConnector` and provide `search()`/`fet
 |-----------|--------|----------|-------|
 | DocuSign (`legal/docusign.py`) | Production | OAuth 2.0/JWT, envelopes, templates, status tracking, retry with backoff | Yes |
 | LexisNexis (`legal/lexis.py`) | Production | Licensed content proxy, query sanitization, retry with backoff, circuit breaker | Yes |
-| Westlaw (`legal/westlaw.py`) | Beta | Placeholder for licensed content, configurable proxy | Yes |
+| Westlaw (`legal/westlaw.py`) | Production | Licensed content proxy, query sanitization, retry with backoff, circuit breaker | Yes |
 
 ### Low-Code
 
 | Connector | Status | Features | Tests |
 |-----------|--------|----------|-------|
 | Airtable (`lowcode/airtable.py`) | Production | Records CRUD, views, filtering, attachments, retry with backoff | Yes |
-| Knack (`lowcode/knack.py`) | Beta | Objects, records CRUD, views, fields | Yes |
+| Knack (`lowcode/knack.py`) | Production | Objects, records CRUD, views, fields, retry with backoff, circuit breaker | Yes |
 
 ### Marketing
 
@@ -292,7 +292,7 @@ Top-level evidence connectors extend `BaseConnector` and provide `search()`/`fet
 
 | Connector | Status | Features | Tests |
 |-----------|--------|----------|-------|
-| Walmart (`marketplace/walmart.py`) | Beta | Orders, inventory, catalog, pricing, reports | Yes |
+| Walmart (`marketplace/walmart.py`) | Production | Orders, inventory, catalog, pricing, reports, retry with backoff, circuit breaker | Yes |
 
 ### Memory
 
@@ -340,7 +340,7 @@ Top-level evidence connectors extend `BaseConnector` and provide `search()`/`fet
 
 | Connector | Status | Features | Tests |
 |-----------|--------|----------|-------|
-| Generic Tax (`tax/generic.py`) | Beta | Multi-jurisdiction proxy, configurable per-jurisdiction | Yes |
+| Generic Tax (`tax/generic.py`) | Production | Multi-jurisdiction proxy, query sanitization, retry with backoff, circuit breaker | Yes |
 
 ---
 
@@ -385,7 +385,7 @@ Integration connectors post debate results to external platforms and handle bidi
 ## Notes
 
 - **Stub connectors**: None remain. All former stubs (SendGrid, Twilio, Instagram, Trello) have been promoted to Production with real API calls, search, fetch, health checks, rate limiting, and circuit breaker integration.
-- **Beta connectors** have real API call implementations with data models and basic error handling, but typically lack circuit breaker patterns and advanced retry logic.
+- **Beta connectors**: None remain. All 18 former Beta connectors have been promoted to Production with circuit breaker patterns, retry with exponential backoff, and query sanitization where applicable. Promotion was achieved via two patterns: (1) BaseConnector subclasses use inherited `_request_with_retry`, (2) standalone connectors use `ProductionConnectorMixin` (`aragora/connectors/production_mixin.py`). Device connectors (Alexa, Google Home) already had circuit breaker and retry via `DeviceConnector` base class. EHR adapters (Epic, Cerner) gained retry/circuit breaker through the updated `EHRAdapter._request` method. Amazon gained production status through its `EnterpriseConnector` base class.
 - **Production connectors** include robust error handling, circuit breakers, rate limiting, caching, and/or retry with exponential backoff.
 - The **enterprise connectors** (`enterprise/`) all extend `EnterpriseConnector` with incremental sync, pagination safety caps (`_MAX_PAGES`), and standardized `SyncItem` output.
-- The **LexisNexis** and **Westlaw** connectors are documented as "placeholders for licensed content" but implement configurable proxy endpoints, placing them in Beta rather than Stub.
+- The **LexisNexis** and **Westlaw** connectors implement configurable proxy endpoints with query sanitization, retry with backoff, and circuit breaker patterns.
