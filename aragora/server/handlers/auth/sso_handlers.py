@@ -128,7 +128,7 @@ async def _authenticate_with_retry(
                     provider_type,
                     e,
                 )
-        except (ValueError, KeyError) as e:
+        except (ValueError, KeyError):
             # Non-retryable authentication errors
             if cb is not None:
                 cb.record_failure()

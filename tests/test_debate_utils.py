@@ -219,6 +219,23 @@ class TestUpdateDebateStatus:
         state = manager.get_debate("d1")
         assert state.metadata.get("custom_field") == "custom_value"
 
+    def test_merges_result_metadata_dict(self):
+        """result metadata updates should merge rather than overwrite."""
+        manager = get_state_manager()
+        manager.register_debate("d1", "T1", ["a"])
+
+        update_debate_status(
+            "d1",
+            "completed",
+            result={"final_answer": "Initial answer", "confidence": 0.72},
+        )
+        update_debate_status("d1", "completed", result={"receipt_id": "receipt-123"})
+
+        state = manager.get_debate("d1")
+        assert state.metadata["result"]["final_answer"] == "Initial answer"
+        assert state.metadata["result"]["confidence"] == 0.72
+        assert state.metadata["result"]["receipt_id"] == "receipt-123"
+
     def test_records_completion_time(self):
         """Test completion time recorded for completed/error status."""
         manager = get_state_manager()

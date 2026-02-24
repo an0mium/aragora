@@ -151,7 +151,17 @@ def update_debate_status(debate_id: str, status: str, **kwargs) -> None:
         )
         # Store additional kwargs in metadata
         if kwargs:
-            state.metadata.update(kwargs)
+            for key, value in kwargs.items():
+                if (
+                    key == "result"
+                    and isinstance(value, dict)
+                    and isinstance(state.metadata.get("result"), dict)
+                ):
+                    merged_result = dict(state.metadata["result"])
+                    merged_result.update(value)
+                    state.metadata["result"] = merged_result
+                else:
+                    state.metadata[key] = value
         # Record completion time for TTL cleanup
         if status in ("completed", "error"):
             state.metadata["completed_at"] = time.time()

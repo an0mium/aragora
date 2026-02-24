@@ -62,6 +62,35 @@ class TestDebateRequest:
         assert request.use_trending is True
         assert request.trending_category == "tech"
 
+    def test_from_dict_epistemic_hygiene_mode_enriches_context_and_metadata(self):
+        """Epistemic hygiene mode should append protocol guidance and settlement scaffolding."""
+        data = {
+            "question": "Should we launch feature X?",
+            "mode": "epistemic-hygiene",
+            "context": "User requested risk-aware analysis.",
+            "metadata": {"source": "ui"},
+        }
+        request = DebateRequest.from_dict(data)
+
+        assert request.mode == "epistemic_hygiene"
+        assert request.metadata["mode"] == "epistemic_hygiene"
+        assert request.metadata["epistemic_hygiene"] is True
+        assert request.metadata["settlement"]["status"] == "needs_definition"
+        assert "Epistemic hygiene protocol" in (request.context or "")
+        assert "User requested risk-aware analysis." in (request.context or "")
+
+    def test_from_dict_epistemic_hygiene_boolean_alias(self):
+        """Legacy boolean toggle should map to epistemic_hygiene mode."""
+        data = {
+            "question": "Is this claim robust?",
+            "epistemic_hygiene": True,
+        }
+        request = DebateRequest.from_dict(data)
+
+        assert request.mode == "epistemic_hygiene"
+        assert request.metadata["mode"] == "epistemic_hygiene"
+        assert "Epistemic hygiene protocol" in (request.context or "")
+
     def test_from_dict_missing_question_raises(self):
         """Should raise ValueError if question is missing."""
         with pytest.raises(ValueError, match="question or task field is required"):

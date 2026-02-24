@@ -116,10 +116,11 @@ class DebateConfig:
     documents: list[str] = field(default_factory=list)
     enable_verticals: bool = field(
         default_factory=lambda: DEFAULT_ENABLE_VERTICALS and VERTICALS_AVAILABLE
-    )  # Enable vertical specialist injection (auto-injects domain expert, set ARAGORA_ENABLE_VERTICALS=false to disable)
+    )  # Enable vertical specialist injection (auto-injects domain expert)
     vertical_id: str | None = None  # Explicit vertical ID (optional, auto-detected if None)
     auto_trim_unavailable: bool = True  # Auto-remove agents without credentials
     context: str | None = None  # Optional context for the debate
+    mode: str | None = None  # Optional request mode (metadata-level semantics)
     budget_limit_usd: float | None = None  # Per-debate budget cap (USD)
     enable_cartographer: bool | None = None  # Enable argument cartography
     enable_introspection: bool | None = None  # Enable agent introspection
@@ -354,7 +355,8 @@ class DebateFactory:
         import warnings
 
         warnings.warn(
-            "_get_persona_prompt is deprecated. Use aragora.agents.personas.get_persona_prompt() instead.",
+            "_get_persona_prompt is deprecated. "
+            "Use aragora.agents.personas.get_persona_prompt() instead.",
             DeprecationWarning,
             stacklevel=2,
         )
@@ -405,7 +407,8 @@ class DebateFactory:
         import warnings
 
         warnings.warn(
-            "_apply_persona_params is deprecated. Use aragora.agents.personas.apply_persona_to_agent() instead.",
+            "_apply_persona_params is deprecated. "
+            "Use aragora.agents.personas.apply_persona_to_agent() instead.",
             DeprecationWarning,
             stacklevel=2,
         )
@@ -580,7 +583,7 @@ class DebateFactory:
         # Create environment with appropriate round count
         env = Environment(
             task=config.question,
-            context="",
+            context=config.context or "",
             max_rounds=rounds,
             documents=list(config.documents or []),
         )

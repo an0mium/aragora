@@ -165,8 +165,7 @@ ALLOWED_WITHOUT_RBAC = frozenset(
         "spectate_ws",
         # Marketplace browse (public catalog browsing, read-only)
         "marketplace_browse",
-        # Platform config (public runtime config for frontend: agents, features, version)
-        "platform_config",
+        # Platform config now uses SecureHandler (RBAC-protected)
         # Health probes and dashboard monitoring (public liveness/readiness endpoints)
         "admin/dashboard_health",
         "admin/dashboard_metrics",

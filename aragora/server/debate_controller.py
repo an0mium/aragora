@@ -54,6 +54,15 @@ _DEFAULT_CLASSIFICATION = {
     "approach": "Agents will analyze this topic from multiple perspectives.",
 }
 
+_EPISTEMIC_HYGIENE_MODE = "epistemic_hygiene"
+_EPISTEMIC_HYGIENE_PROMPT = (
+    "Epistemic hygiene protocol:\n"
+    "1) Separate observations from assumptions and inferences.\n"
+    "2) Include at least one strong alternative explanation and disconfirming evidence.\n"
+    "3) State confidence bounds and key uncertainty drivers.\n"
+    "4) End with a concrete falsifier and measurable settlement metric."
+)
+
 if TYPE_CHECKING:
     from aragora.server.stream import SyncEventEmitter
 
@@ -141,6 +150,54 @@ def _normalize_agent_names(agents_value: Any) -> list[str]:
     return []
 
 
+def _is_truthy_flag(value: Any) -> bool:
+    """Interpret flexible boolean request flags."""
+    if isinstance(value, bool):
+        return value
+    if isinstance(value, str):
+        return value.strip().lower() in {"1", "true", "yes", "on"}
+    if isinstance(value, (int, float)):
+        return bool(value)
+    return False
+
+
+def _normalize_mode(raw_mode: Any) -> str | None:
+    """Normalize optional debate mode into a stable token."""
+    if raw_mode is None:
+        return None
+    mode = str(raw_mode).strip().lower().replace("-", "_").replace(" ", "_")
+    if not mode or mode in {"default", "standard"}:
+        return None
+    if mode in {"epistemic", "hygiene", "epistemic_hygiene"}:
+        return _EPISTEMIC_HYGIENE_MODE
+    return mode
+
+
+def _append_epistemic_hygiene_prompt(context: Any) -> str:
+    """Append epistemic hygiene guidance to user context once."""
+    base_context = str(context).strip() if isinstance(context, str) else ""
+    if _EPISTEMIC_HYGIENE_PROMPT in base_context:
+        return base_context or _EPISTEMIC_HYGIENE_PROMPT
+    if not base_context:
+        return _EPISTEMIC_HYGIENE_PROMPT
+    return f"{base_context}\n\n{_EPISTEMIC_HYGIENE_PROMPT}"
+
+
+def _ensure_epistemic_hygiene_metadata(metadata: dict[str, Any]) -> None:
+    """Attach default settlement scaffolding for hygiene-mode debates."""
+    metadata["mode"] = _EPISTEMIC_HYGIENE_MODE
+    metadata["epistemic_hygiene"] = True
+
+    settlement = metadata.get("settlement")
+    if not isinstance(settlement, dict):
+        settlement = {}
+    settlement.setdefault("status", "needs_definition")
+    settlement.setdefault("falsifier", "Define an objective falsifier for the primary claim.")
+    settlement.setdefault("metric", "Define a measurable metric for decision settlement.")
+    settlement.setdefault("review_horizon_days", 30)
+    metadata["settlement"] = settlement
+
+
 @dataclass
 class DebateRequest:
     """Parsed debate request from HTTP body."""
@@ -159,6 +216,7 @@ class DebateRequest:
     enable_verticals: bool = DEFAULT_ENABLE_VERTICALS
     vertical_id: str | None = None
     context: str | None = None  # Optional context for the debate
+    mode: str | None = None  # Optional request mode (e.g., epistemic_hygiene)
     template_name: str | None = None  # Optional deliberation template name
     budget_limit_usd: float | None = None  # Per-debate budget cap
     enable_cartographer: bool | None = None  # Enable argument cartography
@@ -201,11 +259,19 @@ class DebateRequest:
         except (ValueError, TypeError):
             rounds = DEFAULT_ROUNDS
 
-        metadata = data.get("metadata") or {}
+        metadata_raw = data.get("metadata")
+        metadata = dict(metadata_raw) if isinstance(metadata_raw, dict) else {}
         auto_select = bool(data.get("auto_select", False))
         auto_select_config = data.get("auto_select_config") or {}
         if not isinstance(auto_select_config, dict):
             auto_select_config = {}
+
+        mode_raw = data.get("mode", metadata.get("mode"))
+        if _is_truthy_flag(data.get("epistemic_hygiene")) or _is_truthy_flag(
+            metadata.get("epistemic_hygiene")
+        ):
+            mode_raw = _EPISTEMIC_HYGIENE_MODE
+        mode = _normalize_mode(mode_raw)
 
         raw_agents = data.get("agents", None)
         if raw_agents is None:
@@ -240,6 +306,13 @@ class DebateRequest:
         else:
             consensus_val = data.get("consensus", DEFAULT_CONSENSUS)
 
+        context = data.get("context")
+        if mode == _EPISTEMIC_HYGIENE_MODE:
+            _ensure_epistemic_hygiene_metadata(metadata)
+            context = _append_epistemic_hygiene_prompt(context)
+        elif mode is not None:
+            metadata["mode"] = mode
+
         return cls(
             question=question,
             agents_str=agents_value,
@@ -254,7 +327,8 @@ class DebateRequest:
             documents=_normalize_documents(data.get("documents") or data.get("document_ids") or []),
             enable_verticals=enable_verticals,
             vertical_id=vertical_id,
-            context=data.get("context"),
+            context=context,
+            mode=mode,
             template_name=template_name,
             budget_limit_usd=_parse_budget_limit(data.get("budget_limit_usd")),
             enable_cartographer=data.get("enable_cartographer"),
@@ -382,12 +456,14 @@ class DebateController:
                 return (
                     f"No AI model API keys are configured on this server. "
                     f"None of the {filtered_count} requested agents have valid credentials. "
-                    "Please configure at least one API key (ANTHROPIC_API_KEY, OPENAI_API_KEY, etc.) "
-                    "or use the playground mode for demo debates."
+                    "Please configure at least one API key "
+                    "(ANTHROPIC_API_KEY, OPENAI_API_KEY, etc.) "
+                    "or use playground mode for demo debates."
                 )
             return (
                 "Some AI model API keys are missing. "
-                "Please check your API key configuration or use the playground mode for demo debates."
+                "Please check your API key configuration "
+                "or use playground mode for demo debates."
             )
 
         if filtered:
@@ -447,16 +523,18 @@ class DebateController:
                     messages=[
                         {
                             "role": "user",
-                            "content": f"""Classify this debate question. Return ONLY valid JSON, no other text.
-
-Question: {question[:500]}
-
-Return JSON with these exact fields:
-- type: one of [factual, ethical, technical, creative, policy, comparative]
-- domain: one of [science, technology, philosophy, politics, society, economics, other]
-- complexity: one of [simple, moderate, complex]
-- aspects: array of 3-4 key focus areas as short phrases
-- approach: one sentence on how AI agents will analyze this""",
+                            "content": (
+                                "Classify this debate question."
+                                " Return ONLY valid JSON, no"
+                                " other text.\n\n"
+                                f"Question: {question[:500]}\n\n"
+                                "Return JSON with these exact fields:\n"
+                                "- type: one of [factual, ethical, technical, creative, policy, comparative]\n"
+                                "- domain: one of [science, technology, philosophy, politics, society, economics, other]\n"
+                                "- complexity: one of [simple, moderate, complex]\n"
+                                "- aspects: array of 3-4 key focus areas as short phrases\n"
+                                "- approach: one sentence on how AI agents will analyze this"
+                            ),
                         }
                     ],
                 ),
@@ -472,7 +550,9 @@ Return JSON with these exact fields:
                     content = content[4:]
             result = json.loads(content)
             logger.info(
-                f"[quick_classify] Success: type={result.get('type')}, domain={result.get('domain')}"
+                "[quick_classify] Success: type=%s, domain=%s",
+                result.get("type"),
+                result.get("domain"),
             )
             return result
         except asyncio.TimeoutError:
@@ -650,6 +730,7 @@ Return JSON with these exact fields:
         config = DebateConfig(
             question=request.question,
             context=request.context,
+            mode=request.mode,
             agents_str=agents_str,
             rounds=request.rounds,
             consensus=request.consensus,

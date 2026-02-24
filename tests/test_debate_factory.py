@@ -344,6 +344,48 @@ class TestDebateFactoryCreateArena:
             # Verify the arena has the expected agents
             assert len(arena.agents) == 2
 
+    def test_create_arena_passes_context_to_environment(self):
+        """Environment should receive DebateConfig.context."""
+        import aragora.server.debate_factory as factory_module
+
+        mock_agent1 = Mock()
+        mock_agent2 = Mock()
+        mock_builder = Mock()
+        mock_arena = Mock()
+        mock_arena.agents = [mock_agent1, mock_agent2]
+        mock_arena.extensions = None
+        mock_builder.build.return_value = mock_arena
+
+        chain_methods = [
+            "with_protocol",
+            "with_event_hooks",
+            "with_event_emitter",
+            "with_loop_id",
+            "with_strict_loop_scoping",
+            "with_enable_position_ledger",
+        ]
+        for method in chain_methods:
+            getattr(mock_builder, method).return_value = mock_builder
+
+        with (
+            patch.object(factory_module, "create_agent", side_effect=[mock_agent1, mock_agent2]),
+            patch("aragora.core_types.Environment") as environment_cls,
+            patch("aragora.debate.arena_builder.ArenaBuilder", return_value=mock_builder),
+        ):
+            factory = DebateFactory()
+            config = DebateConfig(
+                question="Test question",
+                context="Decision-specific context",
+                agents_str="anthropic-api,openai-api",
+                rounds=3,
+                auto_trim_unavailable=False,
+            )
+
+            factory.create_arena(config)
+
+            assert environment_cls.called
+            assert environment_cls.call_args.kwargs["context"] == "Decision-specific context"
+
     def test_create_arena_insufficient_agents_raises(self):
         """Raises ValueError when not enough agents created."""
         import aragora.server.debate_factory as factory_module

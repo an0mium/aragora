@@ -204,8 +204,17 @@ def _impl() -> ModuleType:
     All mixin modules call ``_impl().<name>`` instead of importing config
     functions directly so that ``unittest.mock.patch`` applied to
     ``_oauth_impl.<name>`` is visible to the running code.
+
+    Uses ``sys.modules`` first (so patches are visible), falling back to
+    ``importlib.import_module`` when the shim has not been imported yet or
+    was evicted from the module cache by another test.
     """
-    return sys.modules[_IMPL_MODULE]
+    try:
+        return sys.modules[_IMPL_MODULE]
+    except KeyError:
+        import importlib
+
+        return importlib.import_module(_IMPL_MODULE)
 
 
 # =============================================================================

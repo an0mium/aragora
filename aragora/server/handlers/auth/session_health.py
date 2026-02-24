@@ -12,7 +12,6 @@ from __future__ import annotations
 import logging
 from typing import Any
 
-from aragora.billing.jwt_auth import extract_user_from_request
 from aragora.rbac.decorators import require_permission
 from aragora.server.handlers.base import (
     HandlerResult,

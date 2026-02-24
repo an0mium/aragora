@@ -14,10 +14,10 @@ import logging
 from typing import Any
 
 from aragora.server.handlers.base import (
-    BaseHandler,
     HandlerResult,
     json_response,
 )
+from aragora.server.handlers.secure import SecureHandler
 
 logger = logging.getLogger(__name__)
 
@@ -71,13 +71,15 @@ STREAMING_CAPABLE_AGENTS = [
 ]
 
 
-class PlatformConfigHandler(BaseHandler):
+class PlatformConfigHandler(SecureHandler):
     """Serves runtime platform configuration for the frontend.
 
     Returns agent lists, display names, default debate settings,
     feature flags, and version information so the frontend does not
     need to be rebuilt when these values change.
     """
+
+    RESOURCE_TYPE = "platform_config"
 
     ROUTES = [
         "/api/v1/platform/config",
