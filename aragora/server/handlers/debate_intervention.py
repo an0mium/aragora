@@ -41,10 +41,9 @@ from .utils.rate_limit import RateLimiter, get_client_ip
 _intervention_limiter = RateLimiter(requests_per_minute=30)
 
 # Lazy module references
-InterventionQueue: Any = None
 get_intervention_queue: Any = None
 try:
-    from aragora.debate.intervention import InterventionQueue, get_intervention_queue
+    from aragora.debate.intervention import get_intervention_queue
 except ImportError:
     pass
 

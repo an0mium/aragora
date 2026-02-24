@@ -25,7 +25,6 @@ Usage:
 
 from __future__ import annotations
 
-import hashlib
 import logging
 import re
 import statistics
@@ -34,22 +33,8 @@ from datetime import datetime
 from enum import Enum
 from typing import Any
 
-from aragora.core_types import Critique, DebateResult, Message, Vote
-from aragora.debate.consensus import (
-    ConsensusBuilder,
-    ConsensusProof,
-    VoteType,
-)
-from aragora.debate.evidence_quality import (
-    EvidenceQualityAnalyzer,
-    HollowConsensusDetector,
-)
-from aragora.debate.voting_engine import (
-    ConsensusStrength,
-    VoteResult,
-    VotingEngine,
-    WeightConfig,
-)
+from aragora.core_types import DebateResult, Vote
+from aragora.debate.evidence_quality import EvidenceQualityAnalyzer
 
 logger = logging.getLogger(__name__)
 

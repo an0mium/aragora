@@ -953,7 +953,6 @@ async def _handle_ask(
 try:
     from aragora.server.stream.debate_executor import execute_debate_thread, DEBATE_AVAILABLE
     from aragora.server.stream.emitter import SyncEventEmitter
-    from aragora.server.stream.events import StreamEvent, StreamEventType
     from aragora.server.stream.tts_integration import get_tts_integration
 
     _DEBATE_STREAMING_AVAILABLE = DEBATE_AVAILABLE

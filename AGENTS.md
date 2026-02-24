@@ -20,7 +20,7 @@ When many agents are committing concurrently, use disposable worktrees with freq
 
 ## Agent Types
 
-Aragora currently registers 42 agent types across CLI, direct API, OpenRouter, local inference, and external framework proxies. Use `list_available_agents()` to see the full registry at runtime. Server-side validation uses the allowlist in `aragora/config/settings.py` (`ALLOWED_AGENT_TYPES`, 34 types as of 2026-02-12). Entries marked **opt-in** are registered but not allowlisted by default.
+Aragora currently registers 43 agent types across CLI, direct API, OpenRouter, local inference, and external framework proxies. Use `list_available_agents()` to see the full registry at runtime. Server-side validation uses the allowlist in `aragora/config/settings.py` (`ALLOWED_AGENT_TYPES`, 34 types as of 2026-02-12). Entries marked **opt-in** are registered but not allowlisted by default.
 
 ### CLI-Based Agents (allowlisted)
 
@@ -68,6 +68,7 @@ All OpenRouter agents require `OPENROUTER_API_KEY`.
 | `mistral` | mistralai/mistral-large-2411 | Mistral Large |
 | `qwen` | qwen/qwen3-max | Qwen3 Max |
 | `qwen-max` | qwen/qwen3-max | Qwen3 Max |
+| `qwen-3.5` | qwen/qwen3.5-plus-02-15 | Qwen 3.5 Plus |
 | `yi` | 01-ai/yi-large | Yi Large |
 | `kimi` | moonshotai/kimi-k2-0905 | Kimi K2 |
 | `kimi-thinking` | moonshotai/kimi-k2-thinking | Kimi K2 Thinking |
