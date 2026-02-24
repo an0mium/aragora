@@ -773,7 +773,7 @@ class TestHealthCheck:
         assert "total_connectors" in result
 
     @pytest.mark.asyncio
-    @patch("aragora.server.handlers.connectors.RBAC_AVAILABLE", False)
+    @patch("aragora.server.handlers.connectors.legacy.RBAC_AVAILABLE", False)
     async def test_health_check_rbac_disabled(self, reset_scheduler, mock_auth_context):
         """Returns basic health when RBAC disabled."""
         from aragora.server.handlers.connectors import handle_connector_health
@@ -783,8 +783,8 @@ class TestHealthCheck:
         assert result["status"] == "healthy"
 
     @pytest.mark.asyncio
-    @patch("aragora.server.handlers.connectors.RBAC_AVAILABLE", True)
-    @patch("aragora.server.handlers.connectors.check_permission")
+    @patch("aragora.server.handlers.connectors.legacy.RBAC_AVAILABLE", True)
+    @patch("aragora.server.handlers.connectors.legacy.check_permission")
     async def test_health_check_with_auth_allowed(
         self, mock_check, reset_scheduler, mock_auth_context
     ):
@@ -851,8 +851,8 @@ class TestRBACPermissions:
     """Tests for RBAC permission checks."""
 
     @pytest.mark.asyncio
-    @patch("aragora.server.handlers.connectors.RBAC_AVAILABLE", True)
-    @patch("aragora.server.handlers.connectors.check_permission")
+    @patch("aragora.server.handlers.connectors.legacy.RBAC_AVAILABLE", True)
+    @patch("aragora.server.handlers.connectors.legacy.check_permission")
     async def test_list_connectors_permission_denied(self, mock_check, reset_scheduler):
         """Returns 403 when permission denied."""
         from aragora.server.handlers.connectors import handle_list_connectors
@@ -869,8 +869,8 @@ class TestRBACPermissions:
         assert result.get("status") == 403
 
     @pytest.mark.asyncio
-    @patch("aragora.server.handlers.connectors.RBAC_AVAILABLE", True)
-    @patch("aragora.server.handlers.connectors.check_permission")
+    @patch("aragora.server.handlers.connectors.legacy.RBAC_AVAILABLE", True)
+    @patch("aragora.server.handlers.connectors.legacy.check_permission")
     async def test_create_connector_permission_denied(self, mock_check, reset_scheduler):
         """Returns 403 when create permission denied."""
         from aragora.server.handlers.connectors import handle_create_connector
@@ -890,8 +890,8 @@ class TestRBACPermissions:
         assert result.get("status") == 403
 
     @pytest.mark.asyncio
-    @patch("aragora.server.handlers.connectors.RBAC_AVAILABLE", True)
-    @patch("aragora.server.handlers.connectors.check_permission")
+    @patch("aragora.server.handlers.connectors.legacy.RBAC_AVAILABLE", True)
+    @patch("aragora.server.handlers.connectors.legacy.check_permission")
     async def test_trigger_sync_permission_denied(self, mock_check, reset_scheduler):
         """Returns 403 when execute permission denied."""
         from aragora.server.handlers.connectors import handle_trigger_sync
@@ -919,7 +919,7 @@ class TestRBACPermissions:
         assert result is None
 
     @pytest.mark.asyncio
-    @patch("aragora.server.handlers.connectors.RBAC_AVAILABLE", False)
+    @patch("aragora.server.handlers.connectors.legacy.RBAC_AVAILABLE", False)
     async def test_check_permission_graceful_degradation(self, reset_scheduler):
         """_check_permission allows when RBAC not available."""
         from aragora.server.handlers.connectors import _check_permission
@@ -937,7 +937,7 @@ class TestRBACPermissions:
 class TestTenantIsolation:
     """Tests for tenant isolation."""
 
-    @patch("aragora.server.handlers.connectors.RBAC_AVAILABLE", True)
+    @patch("aragora.server.handlers.connectors.legacy.RBAC_AVAILABLE", True)
     def test_resolve_tenant_id_uses_auth_org_id(self, reset_scheduler):
         """_resolve_tenant_id uses org_id from auth context."""
         from aragora.server.handlers.connectors import _resolve_tenant_id
@@ -947,7 +947,7 @@ class TestTenantIsolation:
 
         assert result == "secure-org"
 
-    @patch("aragora.server.handlers.connectors.RBAC_AVAILABLE", True)
+    @patch("aragora.server.handlers.connectors.legacy.RBAC_AVAILABLE", True)
     def test_resolve_tenant_id_fallback_when_no_auth(self, reset_scheduler):
         """_resolve_tenant_id uses fallback when no auth."""
         from aragora.server.handlers.connectors import _resolve_tenant_id
@@ -956,7 +956,7 @@ class TestTenantIsolation:
 
         assert result == "default-tenant"
 
-    @patch("aragora.server.handlers.connectors.RBAC_AVAILABLE", True)
+    @patch("aragora.server.handlers.connectors.legacy.RBAC_AVAILABLE", True)
     def test_resolve_tenant_id_handles_unauthenticated_sentinel(self, reset_scheduler):
         """_resolve_tenant_id handles 'unauthenticated' sentinel."""
         from aragora.server.handlers.connectors import _resolve_tenant_id
@@ -965,7 +965,7 @@ class TestTenantIsolation:
 
         assert result == "default"
 
-    @patch("aragora.server.handlers.connectors.RBAC_AVAILABLE", True)
+    @patch("aragora.server.handlers.connectors.legacy.RBAC_AVAILABLE", True)
     def test_resolve_tenant_id_uses_fallback_when_no_org_id(self, reset_scheduler):
         """_resolve_tenant_id uses fallback when auth has no org_id."""
         from aragora.server.handlers.connectors import _resolve_tenant_id
@@ -1241,8 +1241,8 @@ class TestErrorHandling:
     """Tests for error handling in handlers."""
 
     @pytest.mark.asyncio
-    @patch("aragora.server.handlers.connectors.RBAC_AVAILABLE", True)
-    @patch("aragora.server.handlers.connectors.check_permission")
+    @patch("aragora.server.handlers.connectors.legacy.RBAC_AVAILABLE", True)
+    @patch("aragora.server.handlers.connectors.legacy.check_permission")
     async def test_permission_denied_error_handling(self, mock_check, reset_scheduler):
         """Handles PermissionDeniedError gracefully."""
         from aragora.server.handlers.connectors import handle_list_connectors
@@ -1260,7 +1260,7 @@ class TestErrorHandling:
             mock_check.side_effect = MockPermissionDeniedError("Access denied")
             # Patch the module to use our mock
             with patch(
-                "aragora.server.handlers.connectors.PermissionDeniedError",
+                "aragora.server.handlers.connectors.legacy.PermissionDeniedError",
                 MockPermissionDeniedError,
             ):
                 result = await handle_list_connectors(auth_context=MockAuthContext())
