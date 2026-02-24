@@ -750,6 +750,7 @@ class TestKnowledgeGapHandler:
         handler = KnowledgeGapHandler()
         assert handler.can_handle("/api/v1/knowledge/gaps") is True
         assert handler.can_handle("/api/v1/knowledge/gaps/recommendations") is True
+        assert handler.can_handle("/api/v1/knowledge/gaps/coverage") is True
         assert handler.can_handle("/api/v1/knowledge/gaps/score") is True
         assert handler.can_handle("/api/v1/other/path") is False
 
@@ -758,3 +759,688 @@ class TestKnowledgeGapHandler:
         from aragora.server.handlers.knowledge import KnowledgeGapHandler
 
         assert KnowledgeGapHandler is not None
+
+
+# =============================================================================
+# New Dataclass Tests
+# =============================================================================
+
+
+class TestNewDataclasses:
+    """Tests for newly added dataclasses."""
+
+    def test_debate_insight_to_dict(self):
+        """Should serialize DebateInsight to dictionary."""
+        insight = DebateInsight(
+            debate_id="debate-123",
+            topic="contract termination",
+            domain="legal/contracts",
+            confidence=0.35,
+            disagreement_score=0.7,
+            question="What is the standard notice period?",
+        )
+        d = insight.to_dict()
+        assert d["debate_id"] == "debate-123"
+        assert d["topic"] == "contract termination"
+        assert d["domain"] == "legal/contracts"
+        assert d["confidence"] == 0.35
+        assert d["disagreement_score"] == 0.7
+        assert d["question"] == "What is the standard notice period?"
+        assert "detected_at" in d
+
+    def test_debate_insight_truncates_question(self):
+        """Should truncate question to 300 chars in serialization."""
+        insight = DebateInsight(
+            debate_id="d-1",
+            topic="test",
+            domain="general",
+            confidence=0.5,
+            disagreement_score=0.5,
+            question="x" * 500,
+        )
+        d = insight.to_dict()
+        assert len(d["question"]) == 300
+
+    def test_frequently_asked_gap_to_dict(self):
+        """Should serialize FrequentlyAskedGap to dictionary."""
+        gap = FrequentlyAskedGap(
+            topic="contract notice",
+            query_count=12,
+            coverage_score=0.2,
+            gap_severity=0.85,
+            sample_queries=["contract notice period", "notice requirements"],
+        )
+        d = gap.to_dict()
+        assert d["topic"] == "contract notice"
+        assert d["query_count"] == 12
+        assert d["coverage_score"] == 0.2
+        assert d["gap_severity"] == 0.85
+        assert len(d["sample_queries"]) == 2
+
+    def test_frequently_asked_gap_limits_samples(self):
+        """Should limit sample queries to 5 in serialization."""
+        gap = FrequentlyAskedGap(
+            topic="test",
+            query_count=10,
+            coverage_score=0.1,
+            gap_severity=0.9,
+            sample_queries=[f"query-{i}" for i in range(10)],
+        )
+        d = gap.to_dict()
+        assert len(d["sample_queries"]) == 5
+
+    def test_domain_coverage_entry_to_dict(self):
+        """Should serialize DomainCoverageEntry to dictionary."""
+        entry = DomainCoverageEntry(
+            domain="legal",
+            coverage_score=0.65,
+            total_items=15,
+            expected_items=20,
+            average_confidence=0.75,
+            gap_count=3,
+            stale_count=2,
+            contradiction_count=1,
+        )
+        d = entry.to_dict()
+        assert d["domain"] == "legal"
+        assert d["coverage_score"] == 0.65
+        assert d["total_items"] == 15
+        assert d["expected_items"] == 20
+        assert d["average_confidence"] == 0.75
+        assert d["gap_count"] == 3
+        assert d["stale_count"] == 2
+        assert d["contradiction_count"] == 1
+
+
+# =============================================================================
+# Debate Receipt Analysis Tests
+# =============================================================================
+
+
+class TestAnalyzeDebateReceipt:
+    """Tests for analyze_debate_receipt method."""
+
+    @pytest.mark.asyncio
+    async def test_detects_low_confidence_debate(self, detector):
+        """Should flag debates with low confidence as gap signals."""
+        receipt = {
+            "debate_id": "d-1",
+            "topic": "contract law",
+            "confidence": 0.3,
+            "consensus_score": 0.4,
+            "domain": "legal",
+            "question": "What is the notice period?",
+        }
+
+        insight = await detector.analyze_debate_receipt(receipt)
+
+        assert insight is not None
+        assert insight.debate_id == "d-1"
+        assert insight.confidence == 0.3
+        assert insight.disagreement_score == 0.6
+        assert insight.domain == "legal"
+
+    @pytest.mark.asyncio
+    async def test_ignores_high_confidence_debate(self, detector):
+        """Should return None for debates with high confidence and agreement."""
+        receipt = {
+            "debate_id": "d-2",
+            "topic": "simple question",
+            "confidence": 0.95,
+            "consensus_score": 0.9,
+            "domain": "legal",
+        }
+
+        insight = await detector.analyze_debate_receipt(receipt)
+
+        assert insight is None
+
+    @pytest.mark.asyncio
+    async def test_handles_high_disagreement(self, detector):
+        """Should flag debates with high disagreement."""
+        receipt = {
+            "debate_id": "d-3",
+            "topic": "controversial topic",
+            "confidence": 0.6,
+            "consensus_score": 0.2,
+            "domain": "technical",
+        }
+
+        insight = await detector.analyze_debate_receipt(receipt)
+
+        assert insight is not None
+        assert insight.disagreement_score == 0.8
+
+    @pytest.mark.asyncio
+    async def test_accepts_object_receipt(self, detector):
+        """Should work with object-style receipts."""
+        receipt = MagicMock()
+        receipt.debate_id = "d-obj"
+        receipt.topic = "security review"
+        receipt.confidence = 0.4
+        receipt.consensus_score = 0.5
+        receipt.domain = "technical/security"
+        receipt.question = "Is the auth system secure?"
+        # Clear attrs that fall through to getattr
+        receipt.id = "d-obj"
+        receipt.task = "security review"
+        receipt.consensus_confidence = 0.4
+        receipt.agreement = 0.5
+
+        insight = await detector.analyze_debate_receipt(receipt)
+
+        assert insight is not None
+        assert insight.debate_id == "d-obj"
+
+    @pytest.mark.asyncio
+    async def test_classifies_domain_from_topic(self, detector):
+        """Should auto-classify domain when not provided."""
+        receipt = {
+            "debate_id": "d-auto",
+            "topic": "contract termination clause obligations",
+            "confidence": 0.3,
+            "consensus_score": 0.4,
+        }
+
+        insight = await detector.analyze_debate_receipt(receipt)
+
+        assert insight is not None
+        # Should classify as legal domain based on contract keywords
+        assert insight.domain != "general"
+
+    @pytest.mark.asyncio
+    async def test_records_insight_for_later(self, detector):
+        """Should accumulate insights for recommendation generation."""
+        receipt1 = {
+            "debate_id": "d-r1",
+            "topic": "topic 1",
+            "confidence": 0.3,
+            "consensus_score": 0.5,
+            "domain": "legal",
+        }
+        receipt2 = {
+            "debate_id": "d-r2",
+            "topic": "topic 2",
+            "confidence": 0.2,
+            "consensus_score": 0.3,
+            "domain": "legal",
+        }
+
+        await detector.analyze_debate_receipt(receipt1)
+        await detector.analyze_debate_receipt(receipt2)
+
+        insights = detector.get_debate_insights()
+        assert len(insights) == 2
+
+    @pytest.mark.asyncio
+    async def test_debate_with_alternative_field_names(self, detector):
+        """Should handle alternative field names (task, agreement)."""
+        receipt = {
+            "id": "d-alt",
+            "task": "evaluate risk",
+            "consensus_confidence": 0.3,
+            "agreement": 0.4,
+            "domain": "financial",
+        }
+
+        insight = await detector.analyze_debate_receipt(receipt)
+
+        assert insight is not None
+        assert insight.debate_id == "d-alt"
+        assert insight.topic == "evaluate risk"
+
+
+# =============================================================================
+# Get Debate Insights Tests
+# =============================================================================
+
+
+class TestGetDebateInsights:
+    """Tests for get_debate_insights method."""
+
+    @pytest.mark.asyncio
+    async def test_returns_all_insights(self, detector):
+        """Should return all recorded debate insights."""
+        for i in range(3):
+            await detector.analyze_debate_receipt({
+                "debate_id": f"d-{i}",
+                "topic": f"topic {i}",
+                "confidence": 0.3,
+                "consensus_score": 0.4,
+                "domain": "legal",
+            })
+
+        insights = detector.get_debate_insights()
+        assert len(insights) == 3
+
+    @pytest.mark.asyncio
+    async def test_filters_by_domain(self, detector):
+        """Should filter insights by domain."""
+        await detector.analyze_debate_receipt({
+            "debate_id": "d-legal",
+            "topic": "legal topic",
+            "confidence": 0.3,
+            "consensus_score": 0.4,
+            "domain": "legal",
+        })
+        await detector.analyze_debate_receipt({
+            "debate_id": "d-tech",
+            "topic": "tech topic",
+            "confidence": 0.3,
+            "consensus_score": 0.4,
+            "domain": "technical",
+        })
+
+        legal_only = detector.get_debate_insights(domain="legal")
+        assert len(legal_only) == 1
+        assert legal_only[0].debate_id == "d-legal"
+
+    @pytest.mark.asyncio
+    async def test_filters_by_min_disagreement(self, detector):
+        """Should filter by minimum disagreement score."""
+        await detector.analyze_debate_receipt({
+            "debate_id": "d-low",
+            "topic": "low disagreement",
+            "confidence": 0.5,
+            "consensus_score": 0.6,
+            "domain": "legal",
+        })
+        await detector.analyze_debate_receipt({
+            "debate_id": "d-high",
+            "topic": "high disagreement",
+            "confidence": 0.3,
+            "consensus_score": 0.1,
+            "domain": "legal",
+        })
+
+        high_disagree = detector.get_debate_insights(min_disagreement=0.8)
+        assert len(high_disagree) == 1
+        assert high_disagree[0].debate_id == "d-high"
+
+    @pytest.mark.asyncio
+    async def test_sorted_by_confidence_ascending(self, detector):
+        """Should return insights sorted by confidence (lowest first)."""
+        for conf in [0.5, 0.2, 0.4]:
+            await detector.analyze_debate_receipt({
+                "debate_id": f"d-{conf}",
+                "topic": "topic",
+                "confidence": conf,
+                "consensus_score": 0.3,
+                "domain": "legal",
+            })
+
+        insights = detector.get_debate_insights()
+        assert insights[0].confidence == 0.2
+        assert insights[1].confidence == 0.4
+        assert insights[2].confidence == 0.5
+
+    def test_empty_when_no_receipts(self, detector):
+        """Should return empty list when no receipts have been analyzed."""
+        insights = detector.get_debate_insights()
+        assert insights == []
+
+
+# =============================================================================
+# Query Recording Tests
+# =============================================================================
+
+
+class TestRecordQuery:
+    """Tests for record_query method."""
+
+    def test_records_query(self, detector):
+        """Should record a query for tracking."""
+        detector.record_query("contract notice period")
+
+        # Should have recorded one topic
+        assert len(detector._query_topics) == 1
+
+    def test_ignores_empty_queries(self, detector):
+        """Should ignore empty or whitespace-only queries."""
+        detector.record_query("")
+        detector.record_query("   ")
+
+        assert len(detector._query_topics) == 0
+
+    def test_normalizes_queries(self, detector):
+        """Should normalize queries to lowercase topic keys."""
+        detector.record_query("Contract Notice Period")
+        detector.record_query("contract notice period")
+
+        # Both should map to the same topic key
+        assert len(detector._query_topics) == 1
+
+    def test_accumulates_multiple_queries(self, detector):
+        """Should accumulate queries under the same topic."""
+        detector.record_query("contract notice period")
+        detector.record_query("contract notice requirements")
+        detector.record_query("contract notice clause")
+
+        # All start with "contract notice" - same 3-word key
+        assert len(detector._query_topics) == 1
+        topic_key = list(detector._query_topics.keys())[0]
+        assert len(detector._query_topics[topic_key]) == 3
+
+    def test_different_topics_tracked_separately(self, detector):
+        """Should track different topics separately."""
+        detector.record_query("contract notice period")
+        detector.record_query("security vulnerability assessment")
+
+        assert len(detector._query_topics) == 2
+
+
+# =============================================================================
+# Frequently Asked Gaps Tests
+# =============================================================================
+
+
+class TestGetFrequentlyAskedGaps:
+    """Tests for get_frequently_asked_gaps method."""
+
+    def test_detects_frequent_topic(self, detector):
+        """Should detect topics queried more than min_queries times."""
+        for _ in range(5):
+            detector.record_query("contract notice period")
+
+        gaps = detector.get_frequently_asked_gaps(min_queries=3)
+
+        assert len(gaps) == 1
+        assert gaps[0].query_count == 5
+
+    def test_ignores_infrequent_topics(self, detector):
+        """Should not include topics below min_queries threshold."""
+        detector.record_query("rare topic question")
+        detector.record_query("rare topic question")
+
+        gaps = detector.get_frequently_asked_gaps(min_queries=3)
+
+        assert len(gaps) == 0
+
+    def test_sorted_by_gap_severity(self, detector):
+        """Should sort by gap severity descending."""
+        for _ in range(10):
+            detector.record_query("very common topic query")
+        for _ in range(4):
+            detector.record_query("less common topic query")
+
+        gaps = detector.get_frequently_asked_gaps(min_queries=3)
+
+        if len(gaps) > 1:
+            assert gaps[0].gap_severity >= gaps[1].gap_severity
+
+    def test_empty_when_no_queries(self, detector):
+        """Should return empty list when no queries recorded."""
+        gaps = detector.get_frequently_asked_gaps()
+
+        assert gaps == []
+
+    def test_sample_queries_deduplicated(self, detector):
+        """Should deduplicate sample queries."""
+        for _ in range(5):
+            detector.record_query("contract notice period")
+
+        gaps = detector.get_frequently_asked_gaps(min_queries=3)
+
+        assert len(gaps) == 1
+        # Deduplicated, so only one unique query
+        assert len(gaps[0].sample_queries) == 1
+
+
+# =============================================================================
+# Async Frequently Asked Gaps Tests
+# =============================================================================
+
+
+class TestGetFrequentlyAskedGapsAsync:
+    """Tests for get_frequently_asked_gaps_async method."""
+
+    @pytest.mark.asyncio
+    async def test_queries_mound_for_coverage(self, detector, mock_mound):
+        """Should query the Knowledge Mound for topic coverage."""
+        for _ in range(5):
+            detector.record_query("contract notice period")
+
+        mock_mound.query.return_value = _make_query_result([])
+
+        gaps = await detector.get_frequently_asked_gaps_async(min_queries=3)
+
+        assert len(gaps) == 1
+        assert gaps[0].coverage_score == 0.0
+        mock_mound.query.assert_called()
+
+    @pytest.mark.asyncio
+    async def test_excludes_well_covered_topics(self, detector, mock_mound):
+        """Should exclude topics with high coverage."""
+        for _ in range(5):
+            detector.record_query("well covered topic here")
+
+        # Return many high-confidence items
+        items = [_make_item(item_id=f"i-{i}", confidence=0.9) for i in range(15)]
+        mock_mound.query.return_value = _make_query_result(items)
+
+        gaps = await detector.get_frequently_asked_gaps_async(
+            min_queries=3, max_coverage=0.5
+        )
+
+        # Coverage should be high enough to exclude
+        assert len(gaps) == 0
+
+    @pytest.mark.asyncio
+    async def test_handles_mound_error(self, detector, mock_mound):
+        """Should handle mound query errors gracefully."""
+        for _ in range(5):
+            detector.record_query("error topic query test")
+
+        mock_mound.query = AsyncMock(side_effect=RuntimeError("DB error"))
+
+        gaps = await detector.get_frequently_asked_gaps_async(min_queries=3)
+
+        # Should still return gaps with 0 coverage
+        assert len(gaps) == 1
+        assert gaps[0].coverage_score == 0.0
+
+
+# =============================================================================
+# Coverage Map Tests
+# =============================================================================
+
+
+class TestGetCoverageMap:
+    """Tests for get_coverage_map method."""
+
+    @pytest.mark.asyncio
+    async def test_returns_all_domains(self, detector, mock_mound):
+        """Should return entries for all known domains."""
+        mock_mound.query.return_value = _make_query_result([])
+        mock_mound.get_stale_knowledge.return_value = []
+
+        coverage_map = await detector.get_coverage_map()
+
+        domains = {e.domain for e in coverage_map}
+        assert "legal" in domains
+        assert "financial" in domains
+        assert "technical" in domains
+        assert "healthcare" in domains
+        assert "operational" in domains
+
+    @pytest.mark.asyncio
+    async def test_sorted_by_coverage_ascending(self, detector, mock_mound):
+        """Should sort entries by coverage score ascending (weakest first)."""
+        mock_mound.query.return_value = _make_query_result([])
+        mock_mound.get_stale_knowledge.return_value = []
+
+        coverage_map = await detector.get_coverage_map()
+
+        if len(coverage_map) > 1:
+            for i in range(len(coverage_map) - 1):
+                assert coverage_map[i].coverage_score <= coverage_map[i + 1].coverage_score
+
+    @pytest.mark.asyncio
+    async def test_includes_gap_counts(self, detector, mock_mound):
+        """Should include gap count for each domain."""
+        mock_mound.query.return_value = _make_query_result([])
+        mock_mound.get_stale_knowledge.return_value = []
+
+        coverage_map = await detector.get_coverage_map()
+
+        for entry in coverage_map:
+            assert isinstance(entry.gap_count, int)
+            assert entry.gap_count >= 0
+
+    @pytest.mark.asyncio
+    async def test_calculates_average_confidence(self, detector, mock_mound):
+        """Should calculate average confidence for domains with items."""
+        items = [_make_item(item_id=f"i-{i}", confidence=0.8) for i in range(10)]
+        mock_mound.query.return_value = _make_query_result(items)
+        mock_mound.get_stale_knowledge.return_value = []
+
+        coverage_map = await detector.get_coverage_map()
+
+        # All domains get the same items, so all should have ~0.8 confidence
+        for entry in coverage_map:
+            assert entry.average_confidence > 0.0
+
+    @pytest.mark.asyncio
+    async def test_counts_stale_items(self, detector, mock_mound):
+        """Should count stale items in each domain."""
+        old_items = [
+            _make_item(item_id=f"old-{i}", updated_at=datetime.now() - timedelta(days=120))
+            for i in range(5)
+        ]
+        mock_mound.query.return_value = _make_query_result(old_items)
+        mock_mound.get_stale_knowledge.return_value = []
+
+        coverage_map = await detector.get_coverage_map()
+
+        for entry in coverage_map:
+            assert entry.stale_count == 5
+
+    @pytest.mark.asyncio
+    async def test_handles_query_errors_gracefully(self, detector, mock_mound):
+        """Should handle query errors and still return coverage map."""
+        mock_mound.query = AsyncMock(side_effect=RuntimeError("DB error"))
+        mock_mound.get_stale_knowledge.return_value = []
+
+        coverage_map = await detector.get_coverage_map()
+
+        # Should still return entries, just with zero coverage
+        assert len(coverage_map) > 0
+        for entry in coverage_map:
+            assert entry.coverage_score == 0.0
+
+    @pytest.mark.asyncio
+    async def test_to_dict_serialization(self, detector, mock_mound):
+        """Should serialize coverage map entries to dicts."""
+        mock_mound.query.return_value = _make_query_result([])
+        mock_mound.get_stale_knowledge.return_value = []
+
+        coverage_map = await detector.get_coverage_map()
+
+        for entry in coverage_map:
+            d = entry.to_dict()
+            assert "domain" in d
+            assert "coverage_score" in d
+            assert "total_items" in d
+            assert "expected_items" in d
+            assert "average_confidence" in d
+            assert "gap_count" in d
+            assert "stale_count" in d
+            assert "contradiction_count" in d
+
+
+# =============================================================================
+# Debate + FAQ Recommendation Integration Tests
+# =============================================================================
+
+
+class TestRecommendationsWithDebateAndFAQ:
+    """Tests for recommendations incorporating debate insights and FAQ gaps."""
+
+    @pytest.mark.asyncio
+    async def test_includes_debate_signal_recommendations(self, detector, mock_mound):
+        """Should include ACQUIRE recommendations from debate insights."""
+        mock_mound.query.return_value = _make_query_result([_make_item()] * 25)
+        mock_mound.get_stale_knowledge.return_value = []
+        mock_mound.detect_contradictions.return_value = []
+
+        # Record a low-confidence debate
+        await detector.analyze_debate_receipt({
+            "debate_id": "d-1",
+            "topic": "contract termination",
+            "confidence": 0.2,
+            "consensus_score": 0.3,
+            "domain": "legal",
+        })
+
+        recs = await detector.get_recommendations(domain="legal")
+
+        acquire_recs = [r for r in recs if r.action == RecommendedAction.ACQUIRE]
+        assert len(acquire_recs) >= 1
+        assert any("debate_signal" in r.metadata.get("gap_type", "") for r in acquire_recs)
+
+    @pytest.mark.asyncio
+    async def test_includes_faq_recommendations(self, detector, mock_mound):
+        """Should include ACQUIRE recommendations from frequently asked gaps."""
+        mock_mound.query.return_value = _make_query_result([_make_item()] * 25)
+        mock_mound.get_stale_knowledge.return_value = []
+        mock_mound.detect_contradictions.return_value = []
+
+        # Record many queries for a topic
+        for _ in range(10):
+            detector.record_query("contract termination clause")
+
+        recs = await detector.get_recommendations(domain="legal")
+
+        faq_recs = [
+            r for r in recs
+            if r.metadata.get("gap_type") == "frequently_asked"
+        ]
+        assert len(faq_recs) >= 1
+
+    @pytest.mark.asyncio
+    async def test_debate_insights_filtered_by_domain(self, detector, mock_mound):
+        """Should only include debate insights from the requested domain."""
+        mock_mound.query.return_value = _make_query_result([_make_item()] * 25)
+        mock_mound.get_stale_knowledge.return_value = []
+        mock_mound.detect_contradictions.return_value = []
+
+        await detector.analyze_debate_receipt({
+            "debate_id": "d-legal",
+            "topic": "legal topic",
+            "confidence": 0.2,
+            "consensus_score": 0.3,
+            "domain": "legal",
+        })
+        await detector.analyze_debate_receipt({
+            "debate_id": "d-tech",
+            "topic": "tech topic",
+            "confidence": 0.2,
+            "consensus_score": 0.3,
+            "domain": "technical",
+        })
+
+        recs = await detector.get_recommendations(domain="legal")
+
+        debate_recs = [
+            r for r in recs
+            if r.metadata.get("gap_type") == "debate_signal"
+        ]
+        # Should only include the legal domain debate insight
+        for r in debate_recs:
+            assert r.metadata.get("debate_id") == "d-legal"
+
+
+# =============================================================================
+# Handler Coverage Endpoint Tests
+# =============================================================================
+
+
+class TestKnowledgeGapHandlerCoverage:
+    """Tests for the coverage map handler endpoint."""
+
+    def test_can_handle_coverage_path(self):
+        """Should handle /api/v1/knowledge/gaps/coverage path."""
+        from aragora.server.handlers.knowledge.gaps import KnowledgeGapHandler
+
+        handler = KnowledgeGapHandler()
+        assert handler.can_handle("/api/v1/knowledge/gaps/coverage") is True

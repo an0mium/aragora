@@ -16,6 +16,11 @@ export class BenchmarksAPI {
     return this.client.request('GET', '/api/v1/benchmarks', { params });
   }
 
+  /** List available benchmark categories. */
+  async categories(): Promise<Record<string, unknown>> {
+    return this.client.request('GET', '/api/v1/benchmarks/categories');
+  }
+
   /** Compare benchmark results. */
   async compare(params?: Record<string, unknown>): Promise<Record<string, unknown>> {
     return this.client.request('GET', '/api/v1/benchmarks/compare', { params });

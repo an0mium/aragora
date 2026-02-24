@@ -3,6 +3,8 @@ FASB GAAP Connector - Licensed GAAP standards search.
 
 This connector is designed for licensed GAAP content. It expects a
 configured API endpoint (FASB or an enterprise KB proxy) and an API key.
+
+Production quality: circuit breaker, retry with backoff, query sanitization.
 """
 
 from __future__ import annotations
@@ -11,9 +13,11 @@ import asyncio
 import hashlib
 import logging
 import os
+import re
 from typing import Any
 
 from aragora.connectors.base import BaseConnector, Evidence
+from aragora.connectors.exceptions import ConnectorError
 from aragora.reasoning.provenance import ProvenanceManager, SourceType
 
 logger = logging.getLogger(__name__)
@@ -27,6 +31,15 @@ except ImportError:
 
 CONFIG_ENV_VARS = ("FASB_API_BASE", "FASB_SEARCH_URL")
 OPTIONAL_ENV_VARS = ("FASB_API_KEY",)
+
+_SAFE_QUERY_RE = re.compile(r"[^\w\s@.\-+/:]")
+MAX_QUERY_LENGTH = 500
+
+
+def _sanitize_query(query: str) -> str:
+    """Sanitize query to prevent injection."""
+    query = query[:MAX_QUERY_LENGTH]
+    return _SAFE_QUERY_RE.sub("", query).strip()
 
 
 def get_config_status() -> dict[str, Any]:
@@ -132,7 +145,7 @@ class FASBConnector(BaseConnector):
             logger.warning("httpx not available, cannot search FASB")
             return []
 
-        query = (query or "").strip()
+        query = _sanitize_query((query or "").strip())
         if not query:
             return []
 
@@ -148,7 +161,7 @@ class FASBConnector(BaseConnector):
 
         await self._rate_limit()
 
-        try:
+        async def _do_request() -> Any:
             async with httpx.AsyncClient(timeout=self.timeout) as client:
                 if method == "POST":
                     response = await client.post(
@@ -163,8 +176,11 @@ class FASBConnector(BaseConnector):
                         headers=self._headers(),
                     )
                 response.raise_for_status()
-                data = response.json()
-        except (httpx.HTTPStatusError, httpx.RequestError, OSError, ValueError) as e:
+                return response.json()
+
+        try:
+            data = await self._request_with_retry(_do_request, "search")
+        except (ConnectorError, httpx.HTTPError, OSError, ValueError) as e:
             logger.warning("FASB search failed: %s", e)
             return []
 

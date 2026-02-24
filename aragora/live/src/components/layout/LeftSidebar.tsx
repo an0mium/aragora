@@ -128,6 +128,7 @@ const navSections: NavSection[] = [
       { label: 'Quality', href: '/quality', icon: '\u2605', minMode: 'advanced' },
       { label: 'Costs', href: '/costs', icon: '\u00A2', minMode: 'standard' },
       { label: 'Spend Analytics', href: '/analytics/spend', icon: '\u00A4', minMode: 'standard' },
+      { label: 'Decision Outcomes', href: '/analytics/decisions', icon: '\u2713', minMode: 'standard' },
       { label: 'Usage', href: '/usage', icon: '%', minMode: 'standard' },
       { label: 'Argument Analysis', href: '/argument-analysis', icon: '\u2726', minMode: 'standard' },
     ],
