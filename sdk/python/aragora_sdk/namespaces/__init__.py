@@ -6,10 +6,10 @@ Provides namespaced access to Aragora API endpoints.
 
 from .a2a import A2AAPI, AsyncA2AAPI
 from .accounting import AccountingAPI, AsyncAccountingAPI
-from .agent_dashboard import AgentDashboardAPI, AsyncAgentDashboardAPI
 from .actions import ActionsAPI, AsyncActionsAPI
 from .admin import AdminAPI, AsyncAdminAPI
 from .advertising import AdvertisingAPI, AsyncAdvertisingAPI
+from .agent_dashboard import AgentDashboardAPI, AsyncAgentDashboardAPI
 from .agent_selection import AgentSelectionAPI, AsyncAgentSelectionAPI
 from .agents import AgentsAPI, AsyncAgentsAPI
 from .analytics import AnalyticsAPI, AsyncAnalyticsAPI
@@ -22,13 +22,13 @@ from .auditing import AsyncAuditingAPI, AuditingAPI
 from .auth import AsyncAuthAPI, AuthAPI
 from .backups import AsyncBackupsAPI, BackupsAPI
 from .batch import AsyncBatchAPI, BatchAPI
-from .benchmarks import AsyncBenchmarksAPI, BenchmarksAPI
 from .belief import AsyncBeliefAPI, BeliefAPI
 from .belief_network import AsyncBeliefNetworkAPI, BeliefNetworkAPI
+from .benchmarks import AsyncBenchmarksAPI, BenchmarksAPI
 from .billing import AsyncBillingAPI, BillingAPI
 from .blockchain import AsyncBlockchainAPI, BlockchainAPI
-from .breakpoints import AsyncBreakpointsAPI, BreakpointsAPI
 from .bots import AsyncBotsAPI, BotsAPI
+from .breakpoints import AsyncBreakpointsAPI, BreakpointsAPI
 from .budgets import AsyncBudgetsAPI, BudgetsAPI
 from .calibration import AsyncCalibrationAPI, CalibrationAPI
 from .canvas import AsyncCanvasAPI, CanvasAPI
@@ -40,8 +40,8 @@ from .code_review import AsyncCodeReviewAPI, CodeReviewAPI
 from .codebase import AsyncCodebaseAPI, CodebaseAPI
 from .compliance import AsyncComplianceAPI, ComplianceAPI
 from .connectors import AsyncConnectorsAPI, ConnectorsAPI
-from .context import AsyncContextAPI, ContextAPI
 from .consensus import AsyncConsensusAPI, ConsensusAPI
+from .context import AsyncContextAPI, ContextAPI
 from .control_plane import AsyncControlPlaneAPI, ControlPlaneAPI
 from .coordination import AsyncCoordinationAPI, CoordinationAPI
 from .cost_management import AsyncCostManagementAPI, CostManagementAPI

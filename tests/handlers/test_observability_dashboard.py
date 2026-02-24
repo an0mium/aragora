@@ -509,18 +509,15 @@ class TestCircuitBreakers:
         assert "available" in result
 
     def test_with_registry(self, handler):
-        """When registry is available via get_registry, collect breaker states."""
-        mock_registry = MagicMock()
+        """When registry is available via get_circuit_breakers, collect breaker states."""
         mock_cb = MagicMock()
         mock_cb.state = "closed"
         mock_cb.failure_count = 2
         mock_cb.success_count = 10
-        mock_registry.get_all.return_value = {"api_agent": mock_cb}
 
         with patch(
-            "aragora.resilience.registry.get_registry",
-            create=True,
-            return_value=mock_registry,
+            "aragora.resilience.registry.get_circuit_breakers",
+            return_value={"api_agent": mock_cb},
         ):
             result = handler._collect_circuit_breakers()
             assert result["available"] is True
@@ -533,15 +530,12 @@ class TestCircuitBreakers:
 
     def test_with_registry_multiple_breakers(self, handler):
         """Multiple circuit breakers are all collected."""
-        mock_registry = MagicMock()
         cb1 = MagicMock(state="closed", failure_count=0, success_count=50)
         cb2 = MagicMock(state="open", failure_count=5, success_count=3)
-        mock_registry.get_all.return_value = {"agent_a": cb1, "agent_b": cb2}
 
         with patch(
-            "aragora.resilience.registry.get_registry",
-            create=True,
-            return_value=mock_registry,
+            "aragora.resilience.registry.get_circuit_breakers",
+            return_value={"agent_a": cb1, "agent_b": cb2},
         ):
             result = handler._collect_circuit_breakers()
             assert result["available"] is True
@@ -551,13 +545,9 @@ class TestCircuitBreakers:
 
     def test_with_registry_empty(self, handler):
         """Empty registry returns empty breakers list."""
-        mock_registry = MagicMock()
-        mock_registry.get_all.return_value = {}
-
         with patch(
-            "aragora.resilience.registry.get_registry",
-            create=True,
-            return_value=mock_registry,
+            "aragora.resilience.registry.get_circuit_breakers",
+            return_value={},
         ):
             result = handler._collect_circuit_breakers()
             assert result["available"] is True
@@ -565,14 +555,11 @@ class TestCircuitBreakers:
 
     def test_breaker_without_state_attr(self, handler):
         """Breaker missing state attribute shows 'unknown'."""
-        mock_registry = MagicMock()
         mock_cb = MagicMock(spec=[])  # Empty spec = no attributes
-        mock_registry.get_all.return_value = {"test_cb": mock_cb}
 
         with patch(
-            "aragora.resilience.registry.get_registry",
-            create=True,
-            return_value=mock_registry,
+            "aragora.resilience.registry.get_circuit_breakers",
+            return_value={"test_cb": mock_cb},
         ):
             result = handler._collect_circuit_breakers()
             assert result["available"] is True
@@ -585,11 +572,10 @@ class TestCircuitBreakers:
         """When registry import fails, fall back to CircuitBreaker._instances."""
         mock_cb = MagicMock(state="half_open", failure_count=3)
 
-        # Ensure the first try block (registry) raises ImportError
+        # Ensure the first try block (registry function import) raises ImportError.
         with patch(
-            "aragora.resilience.registry.get_registry",
-            create=True,
-            side_effect=ImportError("no get_registry"),
+            "aragora.resilience.registry.get_circuit_breakers",
+            side_effect=ImportError("no get_circuit_breakers"),
         ):
             with patch(
                 "aragora.resilience.CircuitBreaker",
@@ -604,15 +590,12 @@ class TestCircuitBreakers:
 
     def test_all_imports_fail_returns_fallback(self, handler):
         """When all circuit breaker imports fail, returns fallback."""
-        import sys
-
-        # Make both imports fail by removing the modules temporarily
+        # Make first path fail: get_circuit_breakers raises ImportError
         with patch(
-            "aragora.resilience.registry.get_registry",
-            create=True,
-            side_effect=ImportError("no get_registry"),
+            "aragora.resilience.registry.get_circuit_breakers",
+            side_effect=ImportError("no get_circuit_breakers"),
         ):
-            # Patch CircuitBreaker as a mock without _instances attribute
+            # Make second path fail: CircuitBreaker without _instances attribute
             mock_cb_class = MagicMock(spec=[])  # spec=[] means no attributes at all
             with patch(
                 "aragora.resilience.CircuitBreaker",
@@ -841,21 +824,23 @@ class TestErrorRates:
     def test_with_metrics_available(self, handler):
         """When observability metrics are available, returns rates."""
         # Build a fake Prometheus metric family with samples
-        sample_200 = SimpleNamespace(value=975, labels={"method": "GET", "endpoint": "/api/test", "status": "200"})
-        sample_500 = SimpleNamespace(value=25, labels={"method": "GET", "endpoint": "/api/test", "status": "500"})
+        sample_200 = SimpleNamespace(
+            value=975, labels={"method": "GET", "endpoint": "/api/test", "status": "200"}
+        )
+        sample_500 = SimpleNamespace(
+            value=25, labels={"method": "GET", "endpoint": "/api/test", "status": "500"}
+        )
         metric_family = SimpleNamespace(samples=[sample_200, sample_500])
 
         mock_counter = MagicMock()
         mock_counter.collect.return_value = [metric_family]
 
         with patch(
-            "aragora.server.handlers.observability.dashboard.REQUEST_COUNT",
+            "aragora.observability.metrics.request.REQUEST_COUNT",
             new=mock_counter,
-            create=True,
         ):
             with patch(
-                "aragora.server.handlers.observability.dashboard._ensure_init",
-                create=True,
+                "aragora.observability.metrics.request._ensure_init",
             ):
                 result = handler._collect_error_rates()
                 assert result["available"] is True
@@ -881,22 +866,27 @@ class TestErrorRates:
 
     def test_error_rate_rounding(self, handler):
         """Error rate is rounded to 4 decimal places."""
+        # 1 error out of 3 total requests -> 0.3333
+        sample_200 = SimpleNamespace(value=2, labels={"status": "200"})
+        sample_500 = SimpleNamespace(value=1, labels={"status": "500"})
+        metric_family = SimpleNamespace(samples=[sample_200, sample_500])
+
+        mock_counter = MagicMock()
+        mock_counter.collect.return_value = [metric_family]
+
         with patch(
-            "aragora.observability.metrics.server.get_request_total_count",
-            create=True,
-            return_value=3,
+            "aragora.observability.metrics.request.REQUEST_COUNT",
+            new=mock_counter,
         ):
             with patch(
-                "aragora.observability.metrics.server.get_request_error_count",
-                create=True,
-                return_value=1,
+                "aragora.observability.metrics.request._ensure_init",
             ):
                 result = handler._collect_error_rates()
                 assert result["error_rate"] == round(1 / 3, 4)
 
     def test_fallback_when_import_fails(self, handler):
         """When observability metrics import fails, returns fallback."""
-        with patch.dict("sys.modules", {"aragora.observability.metrics.server": None}):
+        with patch.dict("sys.modules", {"aragora.observability.metrics.request": None}):
             result = handler._collect_error_rates()
             assert result["available"] is False
             assert result["total_requests"] == 0

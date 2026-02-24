@@ -787,7 +787,7 @@ class KnowledgeBridgeHub:
         try:
             from aragora.knowledge.mound.adapters.factory import get_adapter
 
-            return get_adapter(self.mound, adapter_name)
+            return get_adapter(adapter_name, self.mound)
         except (ImportError, KeyError, AttributeError, TypeError) as e:
             logger.debug("Could not get adapter %s: %s", adapter_name, e)
             return None
@@ -873,7 +873,7 @@ class PipelineBridge:
             List of precedent dicts with pipeline_id, topic, stages_completed, etc.
         """
         try:
-            results = await self.mound.search(
+            results = await self.mound.search(  # type: ignore[attr-defined]
                 query=topic,
                 node_type="fact",
                 limit=limit,

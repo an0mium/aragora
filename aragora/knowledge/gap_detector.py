@@ -491,7 +491,7 @@ class KnowledgeGapDetector:
                 )
                 raw_list = raw if isinstance(raw, list) else []
             elif hasattr(self._mound, "get_contradictions"):
-                raw_list = await self._mound.get_contradictions(
+                raw_list = await self._mound.get_contradictions(  # type: ignore[call-arg]
                     workspace_id=self._workspace_id,
                 )
             else:

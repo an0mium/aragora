@@ -176,8 +176,8 @@ class AragoraClient:
         from .namespaces.auth import AuthAPI
         from .namespaces.backups import BackupsAPI
         from .namespaces.batch import BatchAPI
-        from .namespaces.benchmarks import BenchmarksAPI
         from .namespaces.belief import BeliefAPI
+        from .namespaces.benchmarks import BenchmarksAPI
         from .namespaces.billing import BillingAPI
         from .namespaces.blockchain import BlockchainAPI
         from .namespaces.bots import BotsAPI
@@ -250,18 +250,18 @@ class AragoraClient:
         from .namespaces.oauth_wizard import OAuthWizardAPI
         from .namespaces.onboarding import OnboardingAPI
         from .namespaces.openapi import OpenApiAPI
-        from .namespaces.outcomes import OutcomesAPI
         from .namespaces.openclaw import OpenclawAPI
         from .namespaces.orchestration import OrchestrationAPI
         from .namespaces.orchestration_canvas import OrchestrationCanvasAPI
         from .namespaces.organizations import OrganizationsAPI
+        from .namespaces.outcomes import OutcomesAPI
         from .namespaces.outlook import OutlookAPI
         from .namespaces.partner import PartnerAPI
         from .namespaces.payments import PaymentsAPI
         from .namespaces.pipeline import PipelineAPI
+        from .namespaces.pipeline_transitions import PipelineTransitionsAPI
         from .namespaces.plans import PlansAPI
         from .namespaces.playbooks import PlaybooksAPI
-        from .namespaces.pipeline_transitions import PipelineTransitionsAPI
         from .namespaces.playground import PlaygroundAPI
         from .namespaces.plugins import PluginsAPI
         from .namespaces.podcast import PodcastAPI

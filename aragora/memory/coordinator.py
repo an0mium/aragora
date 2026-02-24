@@ -408,10 +408,11 @@ class MemoryCoordinator:
         self.rlm_backend = rlm_backend
         self.options = options or CoordinatorOptions()
         self.metrics = CoordinatorMetrics()
+        self.surprise_scorer: ContentSurpriseScorer
         if surprise_scorer is not None:
             self.surprise_scorer = surprise_scorer
         elif use_embedding_surprise:
-            self.surprise_scorer: ContentSurpriseScorer = EmbeddingSurpriseScorer()
+            self.surprise_scorer = EmbeddingSurpriseScorer()
         else:
             self.surprise_scorer = ContentSurpriseScorer()
         self.retention_gate = retention_gate

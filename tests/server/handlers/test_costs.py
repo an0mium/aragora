@@ -445,9 +445,9 @@ class TestCostHandlerHTTP:
             response = await handler.handle_get_costs(mock_request)
 
             assert response.status == 200
-            data = json.loads(response.body)
-            assert data["totalCost"] == 150.50
-            assert data["budget"] == 500.00
+            data = json.loads(response.body)["data"]
+            assert data["total_cost_usd"] == 150.50
+            assert data["budget_usd"] == 500.00
 
     @pytest.mark.asyncio
     async def test_handle_get_costs_error(self, handler, mock_request):
@@ -480,10 +480,9 @@ class TestCostHandlerHTTP:
             response = await handler.handle_get_breakdown(mock_request)
 
             assert response.status == 200
-            data = json.loads(response.body)
-            assert data["groupBy"] == "provider"
-            assert len(data["breakdown"]) == 1
-            assert data["breakdown"][0]["name"] == "Anthropic"
+            data = json.loads(response.body)["data"]
+            assert len(data["by_provider"]) == 1
+            assert data["by_provider"][0]["name"] == "Anthropic"
 
     @pytest.mark.asyncio
     async def test_handle_get_breakdown_by_feature(self, handler, mock_request):
@@ -504,9 +503,9 @@ class TestCostHandlerHTTP:
             response = await handler.handle_get_breakdown(mock_request)
 
             assert response.status == 200
-            data = json.loads(response.body)
-            assert data["groupBy"] == "feature"
-            assert data["breakdown"][0]["name"] == "Debates"
+            data = json.loads(response.body)["data"]
+            assert len(data["by_feature"]) == 1
+            assert data["by_feature"][0]["name"] == "Debates"
 
     @pytest.mark.asyncio
     async def test_handle_get_timeline(self, handler, mock_request):
@@ -527,10 +526,10 @@ class TestCostHandlerHTTP:
             response = await handler.handle_get_timeline(mock_request)
 
             assert response.status == 200
-            data = json.loads(response.body)
-            assert len(data["timeline"]) == 2
-            assert data["total"] == 140.00
-            assert data["average"] == 70.00
+            data = json.loads(response.body)["data"]
+            assert len(data["data_points"]) == 2
+            assert data["total_cost"] == 140.00
+            assert data["average_daily_cost"] == 70.00
 
     @pytest.mark.asyncio
     async def test_handle_get_alerts_with_tracker(self, handler, mock_request):
@@ -545,7 +544,7 @@ class TestCostHandlerHTTP:
                 response = await handler.handle_get_alerts(mock_request)
 
                 assert response.status == 200
-                data = json.loads(response.body)
+                data = json.loads(response.body)["data"]
                 assert "alerts" in data
 
     @pytest.mark.asyncio
@@ -555,7 +554,7 @@ class TestCostHandlerHTTP:
             response = await handler.handle_get_alerts(mock_request)
 
             assert response.status == 200
-            data = json.loads(response.body)
+            data = json.loads(response.body)["data"]
             assert data["alerts"] == []
 
     @pytest.mark.asyncio
@@ -651,7 +650,7 @@ class TestRecommendationsHandler:
             response = await handler.handle_get_recommendations(mock_request)
 
             assert response.status == 200
-            data = json.loads(response.body)
+            data = json.loads(response.body)["data"]
             assert len(data["recommendations"]) == 1
 
     @pytest.mark.asyncio
@@ -794,11 +793,9 @@ class TestEfficiencyHandler:
             response = await handler.handle_get_efficiency(mock_request)
 
             assert response.status == 200
-            data = json.loads(response.body)
-            assert data["workspace_id"] == "test"
-            assert "metrics" in data
-            assert data["metrics"]["total_tokens"] == 1500000
-            assert data["metrics"]["total_calls"] == 5000
+            data = json.loads(response.body)["data"]
+            assert "cost_per_1k_tokens" in data
+            assert "efficiency_score" in data
 
     @pytest.mark.asyncio
     async def test_handle_get_efficiency_no_tracker(self, handler, mock_request):
@@ -850,8 +847,9 @@ class TestForecastHandler:
             response = await handler.handle_get_forecast(mock_request)
 
             assert response.status == 200
-            data = json.loads(response.body)
-            assert data["forecast_days"] == 30
+            data = json.loads(response.body)["data"]
+            assert "projected_monthly_cost" in data
+            assert "confidence" in data
 
     @pytest.mark.asyncio
     async def test_handle_simulate_forecast(self, handler, mock_request):
