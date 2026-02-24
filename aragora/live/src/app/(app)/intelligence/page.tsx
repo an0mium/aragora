@@ -96,7 +96,7 @@ export default function IntelligencePage() {
     try {
       const [coverageRes, qualityRes, statsRes] = await Promise.all([
         fetch(`${backendConfig.api}/api/v1/knowledge/mound/analytics/coverage`),
-        fetch(`${backendConfig.api}/api/v1/knowledge/mound/analytics/quality`),
+        fetch(`${backendConfig.api}/api/v1/knowledge/mound/analytics/quality/trend`),
         fetch(`${backendConfig.api}/api/v1/knowledge/mound/analytics/stats`),
       ]);
 
@@ -120,7 +120,7 @@ export default function IntelligencePage() {
   const factsFetcher = useCallback(async (): Promise<FactsResponse | null> => {
     try {
       const res = await fetch(
-        `${backendConfig.api}/api/knowledge/facts?page=${factsPage}&per_page=20`
+        `${backendConfig.api}/api/v1/knowledge/facts?page=${factsPage}&per_page=20`
       );
       if (!res.ok) return null;
       const data = await res.json();

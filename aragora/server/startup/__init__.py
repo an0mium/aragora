@@ -558,6 +558,7 @@ async def _init_all_components(
 
     status["key_rotation_scheduler"] = await init_key_rotation_scheduler()
     status["secrets_rotation_scheduler"] = await init_secrets_rotation_scheduler()
+    status["aws_rotation_monitor"] = await init_aws_rotation_monitor()
     status["access_review_scheduler"] = await init_access_review_scheduler()
     status["rbac_distributed_cache"] = await init_rbac_distributed_cache()
     status["approval_gate_recovery"] = await init_approval_gate_recovery()

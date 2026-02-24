@@ -8,6 +8,7 @@ BASE_BRANCH="main"
 TTL_HOURS="${CODEX_WORKTREE_TTL_HOURS:-24}"
 STRATEGY="merge"
 KEEP_BRANCHES=true
+INCLUDE_ACTIVE=false
 declare -a MANAGED_DIRS=()
 
 usage() {
@@ -23,6 +24,7 @@ Options:
   --managed-dir <path>          Managed dir relative to repo root (repeatable)
   --delete-branches             Allow cleanup to delete local codex/* branches
   --no-delete-branches          Keep local codex/* branches during cleanup
+  --include-active              Also maintain worktrees with active processes
   --help                        Show this help
 
 If no --managed-dir values are provided, the script auto-discovers
@@ -58,6 +60,10 @@ while [[ $# -gt 0 ]]; do
             ;;
         --no-delete-branches)
             KEEP_BRANCHES=true
+            shift
+            ;;
+        --include-active)
+            INCLUDE_ACTIVE=true
             shift
             ;;
         --help|-h)
@@ -107,6 +113,13 @@ for managed_dir in "${MANAGED_DIRS[@]}"; do
     abs_dir="${REPO_ROOT}/${managed_dir}"
     if [[ ! -d "$abs_dir" ]]; then
         continue
+    fi
+
+    if [[ "${INCLUDE_ACTIVE}" == false ]] && command -v lsof >/dev/null 2>&1; then
+        if lsof -t +D "$abs_dir" >/dev/null 2>&1; then
+            echo "worktree-maintainer: skipping ${managed_dir} (active processes detected)"
+            continue
+        fi
     fi
 
     cmd=(

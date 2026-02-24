@@ -266,6 +266,107 @@ class DebateRoundsPhase:
         """Emit heartbeat to indicate debate is still running."""
         emit_heartbeat(self.hooks, phase, status)
 
+    def _process_intervention_window(
+        self,
+        ctx: DebateContext,
+        round_num: int,
+        total_rounds: int,
+    ) -> None:
+        """Signal intervention window and apply any queued interventions.
+
+        Called at the start of each round (round boundary) to:
+        1. Emit an intervention_window event so the UI knows the user can act
+        2. Check for queued interventions and inject them into context
+
+        This is fail-safe: any error is caught and logged without interrupting
+        the debate.
+
+        Args:
+            ctx: The DebateContext
+            round_num: Current round number
+            total_rounds: Total number of rounds
+        """
+        debate_id = getattr(ctx, "debate_id", "") or ""
+
+        # 1. Emit intervention window event
+        try:
+            if self.event_emitter:
+                self.event_emitter.emit_intervention_window(
+                    debate_id=debate_id,
+                    round_num=round_num,
+                    window_type="between_rounds",
+                    expires_in_seconds=30.0,
+                    context_summary=f"Round {round_num}/{total_rounds}",
+                )
+            if "on_intervention_window" in self.hooks:
+                self.hooks["on_intervention_window"](
+                    debate_id=debate_id,
+                    round_num=round_num,
+                    window_type="between_rounds",
+                    expires_in_seconds=30.0,
+                    context_summary=f"Round {round_num}/{total_rounds}",
+                )
+        except (RuntimeError, AttributeError, TypeError) as e:  # noqa: BLE001
+            logger.debug("intervention_window_emit_failed: %s", e)
+
+        # 2. Apply queued interventions
+        try:
+            from aragora.debate.intervention import get_intervention_queue
+
+            queue = get_intervention_queue()
+            pending = queue.get_pending_interventions(debate_id, current_round=round_num)
+
+            for intervention in pending:
+                # Build prompt injection and prepend to context
+                prompt_injection = queue.build_intervention_prompt(intervention)
+
+                # Add as a system-level context message
+                from aragora.core import Message
+
+                intervention_msg = Message(
+                    role="system",
+                    agent="intervention",
+                    content=prompt_injection,
+                    round=round_num,
+                )
+                ctx.add_message(intervention_msg)
+
+                # Mark as applied
+                queue.mark_applied(
+                    intervention.intervention_id,
+                    round_num=round_num,
+                    effect_summary=f"Injected at round {round_num}",
+                )
+
+                # Emit applied event
+                if self.event_emitter:
+                    self.event_emitter.emit_intervention_applied(
+                        intervention_id=intervention.intervention_id,
+                        intervention_type=intervention.intervention_type.value,
+                        content_summary=intervention.content[:200],
+                        applied_at_round=round_num,
+                    )
+                if "on_intervention_applied" in self.hooks:
+                    self.hooks["on_intervention_applied"](
+                        intervention_id=intervention.intervention_id,
+                        intervention_type=intervention.intervention_type.value,
+                        content_summary=intervention.content[:200],
+                        applied_at_round=round_num,
+                    )
+
+                logger.info(
+                    "intervention_injected id=%s debate=%s round=%s type=%s",
+                    intervention.intervention_id,
+                    debate_id,
+                    round_num,
+                    intervention.intervention_type.value,
+                )
+
+        except ImportError:
+            pass  # Intervention module not available
+        except (RuntimeError, AttributeError, TypeError, ValueError) as e:  # noqa: BLE001
+            logger.debug("intervention_processing_failed: %s", e)
+
     def _observe_rhetorical_patterns(
         self,
         agent: str,

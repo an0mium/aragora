@@ -91,7 +91,7 @@ class QueryConfig:
 
     # Model selection
     model: str = "claude-sonnet-4"  # Primary model for answer generation
-    fallback_model: str = "gemini-1.5-flash"  # Fallback if primary fails
+    fallback_model: str = "gemini-3-flash-preview"  # Fallback if primary fails
 
     # Query enhancement
     expand_query: bool = True  # Generate query variations

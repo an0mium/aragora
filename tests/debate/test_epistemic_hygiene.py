@@ -451,10 +451,10 @@ class TestPreset:
     """Tests for the 'epistemic' preset."""
 
     def test_epistemic_preset_exists(self):
-        from aragora.debate.presets import get_preset, list_presets
+        from aragora.debate.presets import list_presets
 
         presets = list_presets()
-        assert "epistemic" in [p["name"] for p in presets]
+        assert "epistemic" in presets
 
     def test_epistemic_preset_contents(self):
         from aragora.debate.presets import get_preset

@@ -92,7 +92,7 @@ class OpenAICompatibleMixin(QuotaFallbackMixin):
 
     # Subclasses should define these
     OPENROUTER_MODEL_MAP: dict[str, str] = {}
-    DEFAULT_FALLBACK_MODEL: str = "openai/gpt-4o"
+    DEFAULT_FALLBACK_MODEL: str = "openai/gpt-5.2"
 
     # Default max tokens (can be overridden)
     max_tokens: int = 4096
