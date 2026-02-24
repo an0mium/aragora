@@ -17,6 +17,7 @@ from __future__ import annotations
 import argparse
 import asyncio
 import subprocess
+import sys
 from pathlib import Path
 
 
@@ -82,6 +83,57 @@ Workflow:
     # cleanup
     wt_sub.add_parser("cleanup", help="Clean up merged worktrees")
 
+    # autopilot
+    auto_p = wt_sub.add_parser(
+        "autopilot",
+        help="Manage auto-worktree sessions (codex_worktree_autopilot.py)",
+    )
+    auto_p.add_argument(
+        "auto_action",
+        choices=["ensure", "reconcile", "cleanup", "maintain", "status"],
+        nargs="?",
+        default="status",
+        help="Autopilot action (default: status)",
+    )
+    auto_p.add_argument(
+        "--managed-dir",
+        default=".worktrees/codex-auto",
+        help="Managed worktree directory (relative to repo)",
+    )
+    auto_p.add_argument("--agent", default="codex", help="Agent name for ensure")
+    auto_p.add_argument("--session-id", default=None, help="Optional session id for ensure")
+    auto_p.add_argument("--force-new", action="store_true", help="Force new session on ensure")
+    auto_p.add_argument(
+        "--strategy",
+        choices=["merge", "rebase", "ff-only", "none"],
+        default="merge",
+        help="Integration strategy",
+    )
+    auto_p.add_argument(
+        "--reconcile",
+        action="store_true",
+        help="Run integration on reused ensure sessions",
+    )
+    auto_p.add_argument("--all", action="store_true", help="Apply reconcile to all sessions")
+    auto_p.add_argument("--path", default=None, help="Specific worktree path for reconcile")
+    auto_p.add_argument("--ttl-hours", type=int, default=24, help="Cleanup TTL in hours")
+    auto_p.add_argument("--force-unmerged", action="store_true", help="Cleanup unmerged sessions")
+    auto_p.add_argument(
+        "--delete-branches",
+        dest="delete_branches",
+        action="store_true",
+        help="Allow cleanup to delete local codex/* branches",
+    )
+    auto_p.add_argument(
+        "--no-delete-branches",
+        dest="delete_branches",
+        action="store_false",
+        help="Keep local codex/* branches during cleanup",
+    )
+    auto_p.set_defaults(delete_branches=None)
+    auto_p.add_argument("--json", action="store_true", help="Emit JSON output")
+    auto_p.add_argument("--print-path", action="store_true", help="Print ensured path only")
+
     wt_parser.set_defaults(func=cmd_worktree)
 
 
@@ -89,8 +141,17 @@ def cmd_worktree(args: argparse.Namespace) -> None:
     """Dispatch worktree subcommand."""
     action = getattr(args, "wt_action", None)
     if not action:
-        print("Usage: aragora worktree {create|list|merge|merge-all|conflicts|cleanup}")
+        print(
+            "Usage: aragora worktree {create|list|merge|merge-all|conflicts|cleanup|autopilot}"
+        )
         print("Run 'aragora worktree --help' for details.")
+        return
+
+    repo_path = Path(args.repo).resolve() if args.repo else Path.cwd()
+    base_branch = args.base
+
+    if action == "autopilot":
+        _cmd_worktree_autopilot(args, repo_path=repo_path, base_branch=base_branch)
         return
 
     from aragora.nomic.branch_coordinator import (
@@ -98,9 +159,6 @@ def cmd_worktree(args: argparse.Namespace) -> None:
         BranchCoordinatorConfig,
     )
     from aragora.nomic.meta_planner import Track
-
-    repo_path = Path(args.repo).resolve() if args.repo else Path.cwd()
-    base_branch = args.base
 
     config = BranchCoordinatorConfig(
         base_branch=base_branch,
@@ -239,3 +297,93 @@ def cmd_worktree(args: argparse.Namespace) -> None:
         deleted = coordinator.cleanup_branches()
         removed = coordinator.cleanup_worktrees()
         print(f"Deleted {deleted} merged branch(es), removed {removed} worktree(s).")
+
+
+def _cmd_worktree_autopilot(args: argparse.Namespace, *, repo_path: Path, base_branch: str) -> None:
+    """Run codex worktree autopilot through the main Aragora CLI."""
+    script_path = repo_path / "scripts" / "codex_worktree_autopilot.py"
+    if not script_path.exists():
+        print(f"Error: autopilot script not found at {script_path}")
+        return
+
+    cmd = [
+        sys.executable,
+        str(script_path),
+        "--repo",
+        str(repo_path),
+        "--managed-dir",
+        args.managed_dir,
+        args.auto_action,
+    ]
+
+    if args.auto_action == "ensure":
+        cmd.extend(["--agent", args.agent, "--base", base_branch, "--strategy", args.strategy])
+        if args.session_id:
+            cmd.extend(["--session-id", args.session_id])
+        if args.force_new:
+            cmd.append("--force-new")
+        if args.reconcile:
+            cmd.append("--reconcile")
+        if args.print_path:
+            cmd.append("--print-path")
+        if args.json:
+            cmd.append("--json")
+
+    elif args.auto_action == "reconcile":
+        cmd.extend(["--base", base_branch, "--strategy", args.strategy])
+        if args.all:
+            cmd.append("--all")
+        if args.path:
+            cmd.extend(["--path", args.path])
+        if args.json:
+            cmd.append("--json")
+
+    elif args.auto_action == "cleanup":
+        cmd.extend(["--base", base_branch, "--ttl-hours", str(args.ttl_hours)])
+        if args.force_unmerged:
+            cmd.append("--force-unmerged")
+        if args.delete_branches is True:
+            cmd.append("--delete-branches")
+        elif args.delete_branches is False:
+            cmd.append("--no-delete-branches")
+        if args.json:
+            cmd.append("--json")
+
+    elif args.auto_action == "maintain":
+        cmd.extend(
+            [
+                "--base",
+                base_branch,
+                "--strategy",
+                args.strategy,
+                "--ttl-hours",
+                str(args.ttl_hours),
+            ]
+        )
+        if args.force_unmerged:
+            cmd.append("--force-unmerged")
+        if args.delete_branches is True:
+            cmd.append("--delete-branches")
+        elif args.delete_branches is False:
+            cmd.append("--no-delete-branches")
+        if args.json:
+            cmd.append("--json")
+
+    elif args.auto_action == "status":
+        if args.json:
+            cmd.append("--json")
+
+    result = subprocess.run(
+        cmd,
+        cwd=repo_path,
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+
+    if result.stdout.strip():
+        print(result.stdout.rstrip())
+    if result.stderr.strip():
+        print(result.stderr.rstrip(), file=sys.stderr)
+    if result.returncode != 0:
+        print(f"Autopilot command failed with exit code {result.returncode}")
