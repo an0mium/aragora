@@ -307,7 +307,7 @@ def reset_metrics() -> None:
             for metric in _metrics.values():
                 try:
                     REGISTRY.unregister(metric)
-                except Exception:
+                except (ValueError, TypeError, KeyError):
                     pass
         except ImportError:
             pass
