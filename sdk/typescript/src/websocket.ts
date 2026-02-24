@@ -22,6 +22,9 @@ import type {
   WarningEvent,
 } from './types';
 
+// Keep Node fallback local to this file without requiring global @types/node.
+declare const require: (moduleName: string) => unknown;
+
 export type WebSocketState = 'connecting' | 'connected' | 'disconnected' | 'reconnecting';
 
 export interface WebSocketOptions {
@@ -127,7 +130,7 @@ export class AragoraWebSocket {
         } else {
           // Node.js environment - dynamically import ws
           // eslint-disable-next-line @typescript-eslint/no-require-imports
-          const WS = require('ws');
+          const WS = require('ws') as new (url: string) => WebSocket;
           this.ws = new WS(wsUrl);
         }
 
