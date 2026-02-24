@@ -139,7 +139,7 @@ class MemoryUnifiedHandler(BaseHandler):
             from aragora.memory.continuum import ContinuumMemory
 
             memory = ContinuumMemory()
-            entries = memory.search(query, limit=limit)
+            entries = memory.retrieve(query=query, limit=limit)
             return [
                 {
                     "content": getattr(e, "content", str(e)),
@@ -159,9 +159,10 @@ class MemoryUnifiedHandler(BaseHandler):
         """Query Knowledge Mound."""
         try:
             from aragora.knowledge.mound import KnowledgeMound
+            from aragora.knowledge.mound.core import MoundConfig
 
-            km = KnowledgeMound()
-            entries = km.search(query, limit=limit)
+            km: Any = KnowledgeMound(config=MoundConfig())
+            entries = km.query(query, limit=limit)
             return [
                 {
                     "content": getattr(e, "content", str(e)),
