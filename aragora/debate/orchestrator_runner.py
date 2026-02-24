@@ -230,6 +230,35 @@ async def _populate_result_cost(
         logger.debug("cost_population_failed (non-critical): %s", e)
 
 
+def _persist_debate_cost_to_km(debate_id: str, extensions: Any) -> None:
+    """Persist debate cost summary to Knowledge Mound via CostAdapter.
+
+    Stores the DebateCostSummary as a KM snapshot so that historical
+    per-debate costs are available for trend analysis and anomaly detection.
+    """
+    try:
+        get_summary = getattr(extensions, "get_debate_cost_summary", None)
+        if get_summary is None:
+            return
+        summary = get_summary(debate_id)
+        if summary is None:
+            return
+
+        from aragora.billing.cost_tracker import get_cost_tracker
+
+        tracker = get_cost_tracker()
+        km_adapter = getattr(tracker, "_km_adapter", None)
+        if km_adapter is None:
+            return
+
+        store_fn = getattr(km_adapter, "store_debate_cost_summary", None)
+        if store_fn is not None:
+            store_fn(summary.to_dict())
+            logger.debug("debate_cost_persisted_to_km debate=%s", debate_id)
+    except (ImportError, RuntimeError, ValueError, TypeError, AttributeError, OSError) as e:
+        logger.debug("debate_cost_km_persist_failed (non-critical): %s", e)
+
+
 async def initialize_debate_context(
     arena: Arena,
     correlation_id: str,
