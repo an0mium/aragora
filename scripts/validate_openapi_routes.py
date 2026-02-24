@@ -147,7 +147,7 @@ def normalize_route(route: str | tuple) -> str:
     _methods = ("GET ", "POST ", "PUT ", "PATCH ", "DELETE ", "HEAD ", "OPTIONS ")
     for m in _methods:
         if route.startswith(m):
-            route = route[len(m):]
+            route = route[len(m) :]
             break
 
     # Strip trailing slash
