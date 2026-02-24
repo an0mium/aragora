@@ -171,6 +171,10 @@ export interface AgentMessageData {
   cognitive_role?: string;
   confidence?: number;
   citations?: string[];
+  // Reasoning visibility fields
+  confidence_score?: number;
+  reasoning_phase?: string;
+  thinking?: string;
 }
 
 export interface DebateStartData {

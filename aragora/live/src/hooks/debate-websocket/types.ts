@@ -17,6 +17,10 @@ export interface TranscriptMessage {
     trust_tier: 'excellent' | 'good' | 'moderate' | 'poor' | 'unrated';
     prediction_count: number;
   } | null;
+  // Reasoning visibility fields (from agent_message events)
+  confidence_score?: number | null;
+  reasoning_phase?: string;
+  thinking?: string;
 }
 
 export interface ReasoningStep {

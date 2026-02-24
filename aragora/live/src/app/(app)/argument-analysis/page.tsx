@@ -124,6 +124,46 @@ export default function ArgumentAnalysisPage() {
     URL.revokeObjectURL(url);
   };
 
+  const exportHTML = () => {
+    if (!graphData) return;
+    const escHtml = (s: string) => s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+    const nodeRows = graphData.nodes
+      .map(
+        (n) =>
+          `<tr><td>${escHtml(n.agent)}</td><td>${escHtml(n.node_type)}</td><td>R${n.round_num}</td><td>${escHtml(n.summary)}</td></tr>`
+      )
+      .join('\n');
+    const edgeRows = graphData.edges
+      .map(
+        (e) =>
+          `<tr><td>${escHtml(e.source_id)}</td><td>${escHtml(e.relation)}</td><td>${escHtml(e.target_id)}</td><td>${e.weight}</td></tr>`
+      )
+      .join('\n');
+    const html = [
+      '<!DOCTYPE html>',
+      '<html lang="en"><head><meta charset="utf-8"/>',
+      `<title>Argument Graph - ${escHtml(debateId)}</title>`,
+      '<style>body{font-family:monospace;background:#0a0a0a;color:#e0e0e0;padding:2rem}',
+      'table{border-collapse:collapse;width:100%;margin:1rem 0}',
+      'th,td{border:1px solid #333;padding:0.5rem;text-align:left}',
+      'th{background:#1a1a1a;color:#39ff14}h1,h2{color:#39ff14}</style></head>',
+      `<body><h1>Argument Graph: ${escHtml(graphData.topic)}</h1>`,
+      `<p>Debate ID: ${escHtml(debateId)}</p>`,
+      `<h2>Nodes (${graphData.nodes.length})</h2>`,
+      `<table><tr><th>Agent</th><th>Type</th><th>Round</th><th>Summary</th></tr>${nodeRows}</table>`,
+      `<h2>Edges (${graphData.edges.length})</h2>`,
+      `<table><tr><th>Source</th><th>Relation</th><th>Target</th><th>Weight</th></tr>${edgeRows}</table>`,
+      '</body></html>',
+    ].join('\n');
+    const blob = new Blob([html], { type: 'text/html' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `argument-graph-${debateId}.html`;
+    a.click();
+    URL.revokeObjectURL(url);
+  };
+
   // ---- Render --------------------------------------------------------------
 
   const tabs: { key: DetailTab; label: string }[] = [
@@ -232,6 +272,12 @@ export default function ArgumentAnalysisPage() {
                         className="text-xs px-2 py-1 border border-acid-green/30 text-text-muted hover:text-acid-green hover:border-acid-green transition-colors"
                       >
                         [JSON]
+                      </button>
+                      <button
+                        onClick={exportHTML}
+                        className="text-xs px-2 py-1 border border-acid-green/30 text-text-muted hover:text-acid-green hover:border-acid-green transition-colors"
+                      >
+                        [HTML]
                       </button>
                     </div>
                   </div>
