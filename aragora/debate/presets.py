@@ -223,6 +223,35 @@ _PRESETS: dict[str, dict[str, Any]] = {
         # Budget
         "budget_downgrade_models": True,
     },
+    "epistemic": {
+        # Rigorous reasoning: enforce alternatives, falsifiers, confidence, unknowns
+        "enable_receipt_generation": True,
+        "enable_provenance": True,
+        "enable_position_ledger": True,
+        "enable_stability_detection": True,
+        "enable_knowledge_extraction": True,
+        "enable_auto_revalidation": True,
+        # Epistemic hygiene (protocol-level flag applied via protocol override)
+        "_protocol_overrides": {
+            "enable_epistemic_hygiene": True,
+            "epistemic_hygiene_penalty": 0.15,
+            "epistemic_min_alternatives": 1,
+            "epistemic_require_falsifiers": True,
+            "epistemic_require_confidence": True,
+            "epistemic_require_unknowns": True,
+        },
+        # Knowledge flywheel
+        "enable_knowledge_injection": True,
+        "enable_adaptive_consensus": True,
+        "enable_meta_learning": True,
+        # Post-debate pipeline
+        "_post_debate_preset": {
+            "auto_explain": True,
+            "auto_persist_receipt": True,
+            "auto_gauntlet_validate": True,
+            "auto_push_calibration": True,
+        },
+    },
 }
 
 _PRESET_DESCRIPTIONS: dict[str, str] = {
@@ -236,6 +265,7 @@ _PRESET_DESCRIPTIONS: dict[str, str] = {
     "research": "Deep analysis: knowledge flywheel, supermemory, power sampling, forking, cartography, gauntlet",
     "financial": "SOX-compliant: full audit trail, financial vertical weight profiles, budget controls",
     "diverse": "Multi-provider diversity: 3+ model providers for heterogeneous consensus, knowledge flywheel, gauntlet",
+    "epistemic": "Epistemic hygiene: enforces alternatives, falsifiers, confidence intervals, explicit unknowns on every claim",
 }
 
 

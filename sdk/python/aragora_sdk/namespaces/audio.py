@@ -60,7 +60,9 @@ class AudioAPI:
         Returns:
             Audio file metadata including format, duration, and size.
         """
-        return self._client.request("GET", f"/api/v1/audio/{audio_id}")
+        return self._client.request(
+            "GET", "/api/v1/media/audio", params={"audio_id": audio_id}
+        )
 
     def list_episodes(
         self,
@@ -171,7 +173,9 @@ class AsyncAudioAPI:
 
     async def get_audio_info(self, audio_id: str) -> dict[str, Any]:
         """Get metadata for an audio file."""
-        return await self._client.request("GET", f"/api/v1/audio/{audio_id}")
+        return await self._client.request(
+            "GET", "/api/v1/media/audio", params={"audio_id": audio_id}
+        )
 
     async def list_episodes(
         self,

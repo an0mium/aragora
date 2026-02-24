@@ -239,6 +239,12 @@ class PostDebateCoordinator:
         if self.config.auto_outcome_feedback:
             result.outcome_feedback = self._step_outcome_feedback(debate_id)
 
+        # Step 7.9: Settlement tracking — extract verifiable claims for future resolution
+        if self.config.auto_settlement_tracking:
+            result.settlement_batch = self._step_settlement_tracking(
+                debate_id, debate_result
+            )
+
         # Step 8.5: Canvas pipeline — auto-trigger idea-to-execution visualization
         if self.config.auto_trigger_canvas and confidence >= self.config.canvas_min_confidence:
             result.canvas_result = self._step_trigger_canvas(debate_id, debate_result, task)
@@ -897,6 +903,41 @@ class PostDebateCoordinator:
             return None
         except (ValueError, TypeError, AttributeError, RuntimeError, OSError) as e:
             logger.debug("Outcome feedback failed (non-critical): %s", e)
+            return None
+
+    def _step_settlement_tracking(
+        self,
+        debate_id: str,
+        debate_result: Any,
+    ) -> dict[str, Any] | None:
+        """Step 7.9: Extract verifiable claims for future settlement.
+
+        Scans the debate result for claims that contain measurable predictions,
+        registers them in the SettlementTracker for later resolution.
+        """
+        try:
+            from aragora.debate.settlement import SettlementTracker
+
+            tracker = SettlementTracker()
+            batch = tracker.extract_verifiable_claims(
+                debate_id=debate_id,
+                debate_result=debate_result,
+                min_confidence=self.config.settlement_min_confidence,
+                domain=self.config.settlement_domain,
+            )
+
+            if batch.settlements_created > 0:
+                logger.info(
+                    "Settlement tracking: %d claims registered from debate %s",
+                    batch.settlements_created,
+                    debate_id,
+                )
+            return batch.to_dict()
+        except ImportError:
+            logger.debug("SettlementTracker not available, skipping settlement tracking")
+            return None
+        except (ValueError, TypeError, AttributeError, RuntimeError) as e:
+            logger.debug("Settlement tracking failed (non-critical): %s", e)
             return None
 
     def _step_trigger_canvas(

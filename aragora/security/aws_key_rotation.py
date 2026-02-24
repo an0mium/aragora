@@ -935,6 +935,261 @@ def lambda_handler(event: dict[str, Any], context: Any) -> None:
 
 
 # ---------------------------------------------------------------------------
+# Background Rotation Monitor (for server integration)
+# ---------------------------------------------------------------------------
+
+
+class RotationMonitor:
+    """Background monitor that checks rotation status and hot-reloads secrets.
+
+    Runs as an asyncio background task within the Aragora server. On each
+    check interval it:
+    1. Queries tracked secrets to see if any are within the rotation window
+    2. Refreshes the SecretManager cache so new values are picked up
+    3. Emits metrics and audit events for rotation status changes
+
+    Usage:
+        monitor = RotationMonitor(
+            rotator=AWSSecretRotator(config),
+            check_interval_seconds=300,
+        )
+        await monitor.start()
+        # ... later ...
+        await monitor.stop()
+    """
+
+    def __init__(
+        self,
+        rotator: AWSSecretRotator | None = None,
+        check_interval_seconds: int = 300,
+    ) -> None:
+        self._rotator = rotator or AWSSecretRotator(config=RotationConfig.from_env())
+        self._check_interval = check_interval_seconds
+        self._task: Any = None  # asyncio.Task
+        self._running = False
+        self._last_check_at: datetime | None = None
+        self._reload_count = 0
+
+    @property
+    def rotator(self) -> AWSSecretRotator:
+        """Access the underlying rotator for status queries."""
+        return self._rotator
+
+    @property
+    def is_running(self) -> bool:
+        return self._running
+
+    @property
+    def last_check_at(self) -> datetime | None:
+        return self._last_check_at
+
+    @property
+    def reload_count(self) -> int:
+        return self._reload_count
+
+    async def start(self) -> None:
+        """Start the background rotation monitor."""
+        if self._running:
+            logger.warning("Rotation monitor already running")
+            return
+
+        import asyncio
+
+        self._running = True
+        self._task = asyncio.create_task(self._monitor_loop())
+        logger.info(
+            "Rotation monitor started (check every %ds)", self._check_interval
+        )
+
+    async def stop(self) -> None:
+        """Stop the background rotation monitor."""
+        self._running = False
+        if self._task is not None:
+            self._task.cancel()
+            try:
+                import asyncio
+
+                await self._task
+            except asyncio.CancelledError:
+                pass
+            self._task = None
+        logger.info("Rotation monitor stopped")
+
+    async def _monitor_loop(self) -> None:
+        """Main monitoring loop."""
+        import asyncio
+
+        while self._running:
+            try:
+                await self._check_and_reload()
+                self._last_check_at = datetime.now(timezone.utc)
+            except asyncio.CancelledError:
+                break
+            except (
+                RuntimeError,
+                ValueError,
+                TypeError,
+                OSError,
+                ConnectionError,
+                TimeoutError,
+            ) as e:
+                logger.error("Rotation monitor check failed: %s", e)
+
+            try:
+                await asyncio.sleep(self._check_interval)
+            except asyncio.CancelledError:
+                break
+
+    async def _check_and_reload(self) -> None:
+        """Check for completed rotations and hot-reload secrets."""
+        # Check which secrets are due
+        due = self._rotator.check_secrets_due()
+        if due:
+            logger.info(
+                "Secrets due for rotation: %s",
+                [s.secret_id for s in due],
+            )
+
+        # Refresh the global secret cache to pick up any rotated values
+        try:
+            from aragora.config.secrets import refresh_secrets
+
+            refresh_secrets()
+            self._reload_count += 1
+            logger.debug("Secret cache refreshed (reload #%d)", self._reload_count)
+        except (ImportError, RuntimeError, ValueError, OSError) as e:
+            logger.warning("Failed to refresh secret cache: %s", e)
+
+        # Hydrate environment with latest values for hot-reload
+        try:
+            from aragora.config.secrets import hydrate_env_from_secrets
+
+            hydrate_env_from_secrets(overwrite=True)
+        except (ImportError, RuntimeError, ValueError, OSError) as e:
+            logger.debug("Secret hydration skipped: %s", e)
+
+    def get_status(self) -> dict[str, Any]:
+        """Get monitor status for the admin endpoint."""
+        return {
+            "running": self._running,
+            "check_interval_seconds": self._check_interval,
+            "last_check_at": (
+                self._last_check_at.isoformat() if self._last_check_at else None
+            ),
+            "reload_count": self._reload_count,
+            "secrets_tracked": len(self._rotator.get_all_rotation_statuses()),
+            "secrets_due": len(self._rotator.check_secrets_due()),
+        }
+
+
+# Global rotation monitor
+_rotation_monitor: RotationMonitor | None = None
+
+
+def get_rotation_monitor() -> RotationMonitor | None:
+    """Get the global rotation monitor instance."""
+    return _rotation_monitor
+
+
+def set_rotation_monitor(monitor: RotationMonitor | None) -> None:
+    """Set the global rotation monitor (for testing)."""
+    global _rotation_monitor
+    _rotation_monitor = monitor
+
+
+async def start_rotation_monitor(
+    config: RotationConfig | None = None,
+    check_interval_seconds: int = 300,
+) -> RotationMonitor:
+    """Create and start the global rotation monitor.
+
+    This is the entry point called from server startup to begin
+    background rotation monitoring and secret hot-reload.
+
+    Args:
+        config: Rotation configuration (defaults from env)
+        check_interval_seconds: How often to check rotation status
+
+    Returns:
+        The started RotationMonitor instance
+    """
+    global _rotation_monitor
+
+    if _rotation_monitor is not None:
+        await _rotation_monitor.stop()
+
+    rotator = AWSSecretRotator(config=config or RotationConfig.from_env())
+    _rotation_monitor = RotationMonitor(
+        rotator=rotator,
+        check_interval_seconds=check_interval_seconds,
+    )
+    await _rotation_monitor.start()
+    return _rotation_monitor
+
+
+async def stop_rotation_monitor() -> None:
+    """Stop the global rotation monitor."""
+    global _rotation_monitor
+    if _rotation_monitor is not None:
+        await _rotation_monitor.stop()
+        _rotation_monitor = None
+
+
+# ---------------------------------------------------------------------------
+# Startup integration helper
+# ---------------------------------------------------------------------------
+
+
+async def init_rotation_on_startup() -> RotationMonitor | None:
+    """Initialize rotation monitoring during server startup.
+
+    Called from the server startup sequence to:
+    1. Check if any secrets are within the rotation window
+    2. Log warnings for secrets that need rotation
+    3. Start the background monitor for hot-reload
+
+    Returns:
+        The RotationMonitor if AWS Secrets Manager is configured, else None.
+    """
+    try:
+        from aragora.config.secrets import get_secret_manager
+
+        manager = get_secret_manager()
+        if not manager.config.use_aws:
+            logger.debug(
+                "AWS Secrets Manager not configured; rotation monitor disabled"
+            )
+            return None
+
+        config = RotationConfig.from_env()
+        monitor = await start_rotation_monitor(
+            config=config,
+            check_interval_seconds=int(
+                os.environ.get("ARAGORA_ROTATION_CHECK_INTERVAL", "300")
+            ),
+        )
+
+        # Log initial status
+        due = monitor.rotator.check_secrets_due()
+        if due:
+            logger.warning(
+                "Secrets due for rotation at startup: %s",
+                [s.secret_id for s in due],
+            )
+        else:
+            logger.info("All tracked secrets are within rotation policy")
+
+        return monitor
+
+    except ImportError:
+        logger.debug("Rotation monitor dependencies not available")
+        return None
+    except (RuntimeError, ValueError, OSError) as e:
+        logger.warning("Failed to start rotation monitor: %s", e)
+        return None
+
+
+# ---------------------------------------------------------------------------
 # Module exports
 # ---------------------------------------------------------------------------
 
@@ -943,9 +1198,15 @@ __all__ = [
     "RotationConfig",
     "RotationEvent",
     "RotationEventType",
+    "RotationMonitor",
     "RotationStatus",
     "RotationStep",
     "SecretType",
+    "get_rotation_monitor",
+    "init_rotation_on_startup",
     "lambda_handler",
+    "set_rotation_monitor",
+    "start_rotation_monitor",
+    "stop_rotation_monitor",
     "DEFAULT_ROTATION_DAYS",
 ]

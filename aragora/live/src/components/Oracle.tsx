@@ -3,7 +3,7 @@
 import { useState, useRef, useEffect, useCallback, useMemo, FormEvent } from 'react';
 import { API_BASE_URL } from '@/config';
 import { useOracleWebSocket } from '@/hooks';
-import type { OraclePhase } from '@/hooks/useOracleWebSocket';
+import type { OraclePhase, DebateEvent, DebateAgentState } from '@/hooks/useOracleWebSocket';
 import { OraclePhaseProgress } from './OraclePhaseProgress';
 
 // ---------------------------------------------------------------------------

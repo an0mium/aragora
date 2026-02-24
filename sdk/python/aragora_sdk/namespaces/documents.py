@@ -109,6 +109,7 @@ class DocumentsAPI:
         """
         import base64
 
+        # TODO: server route not yet implemented
         response = self._client._request("GET", f"/api/v1/documents/{document_id}/download")
         return base64.b64decode(response.get("content", ""))
 
