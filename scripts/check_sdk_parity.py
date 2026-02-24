@@ -61,6 +61,8 @@ HTTP_METHODS = {"GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS", "HEAD"}
 CAN_HANDLE_PREFIX_ALLOWLIST = {
     "/api/v1/actions",
     "/api/v1/orchestration/canvas",
+    "/api/pipeline/transitions",
+    "/api/plans",
 }
 
 

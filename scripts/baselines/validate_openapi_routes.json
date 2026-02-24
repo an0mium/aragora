@@ -1,5 +1,5 @@
 {
-  "handler_routes_count": 1925,
+  "handler_routes_count": 1932,
   "openapi_routes_count": 2504,
   "missing_in_spec": [
     "/api/v1/admin/feature-flags/{param}",
@@ -12,6 +12,11 @@
     "/api/v1/analytics/outcomes/contributions",
     "/api/v1/analytics/outcomes/quality-trend",
     "/api/v1/analytics/outcomes/topics",
+    "/api/v1/analytics/spend/budget",
+    "/api/v1/analytics/spend/by-agent",
+    "/api/v1/analytics/spend/by-decision",
+    "/api/v1/analytics/spend/summary",
+    "/api/v1/analytics/spend/trends",
     "/api/v1/autonomous/improve",
     "/api/v1/autonomous/monitoring/baseline/{param}",
     "/api/v1/autonomous/monitoring/trends/{param}",
@@ -74,6 +79,8 @@
     "/api/v1/memory/unified/retention",
     "/api/v1/memory/unified/sources",
     "/api/v1/memory/{param}",
+    "/api/v1/observability/crashes",
+    "/api/v1/observability/crashes/stats",
     "/api/v1/observability/dashboard",
     "/api/v1/observability/metrics",
     "/api/v1/oncall/{param}",
@@ -162,7 +169,7 @@
     "POST /api/v1/pipeline/{param}/agents/{param}/reject",
     "PUT /api/v1/canvas/pipeline/{param}"
   ],
-  "missing_in_spec_count": 159,
+  "missing_in_spec_count": 166,
   "orphaned_in_spec": [
     "/api/v1/accounting/report",
     "/api/v1/canvas/convert/debate",
@@ -215,5 +222,5 @@
   ],
   "orphaned_in_spec_count": 48,
   "dynamic_routes_skipped": 235,
-  "coverage_percentage": 91.7
+  "coverage_percentage": 91.4
 }

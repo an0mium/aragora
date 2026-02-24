@@ -36,7 +36,12 @@ TS_DIRECT_RE = re.compile(
 )
 
 
-from sdk_path_normalize import normalize_sdk_path
+try:
+    # Direct script execution (python scripts/verify_sdk_contracts.py)
+    from sdk_path_normalize import normalize_sdk_path
+except ModuleNotFoundError:
+    # Module import context (pytest importing scripts.verify_sdk_contracts)
+    from scripts.sdk_path_normalize import normalize_sdk_path
 
 
 def _normalize(path: str) -> str:
