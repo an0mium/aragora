@@ -55,11 +55,10 @@ Usage:
 from __future__ import annotations
 
 import asyncio
-import json
 import logging
 from io import BytesIO
 from typing import Any
-from urllib.parse import parse_qs, urlparse
+from urllib.parse import parse_qs
 
 from fastapi import APIRouter, Request
 from fastapi.responses import JSONResponse, Response

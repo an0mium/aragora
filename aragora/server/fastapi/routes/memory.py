@@ -26,7 +26,6 @@ from pydantic import BaseModel, Field
 from aragora.rbac.models import AuthorizationContext
 
 from ..dependencies.auth import require_permission
-from ..middleware.error_handling import NotFoundError
 
 logger = logging.getLogger(__name__)
 

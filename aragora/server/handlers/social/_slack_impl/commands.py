@@ -1461,7 +1461,6 @@ Reply in thread to add suggestions to ongoing debates
         try:
             from aragora.integrations.slack_debate import (
                 stop_debate,
-                stop_debate_in_thread,
             )
 
             stopped_id: str | None = None

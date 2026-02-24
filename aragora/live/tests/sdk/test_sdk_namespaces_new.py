@@ -5,7 +5,6 @@ Covers all sync and async methods with mocked HTTP calls.
 
 from __future__ import annotations
 
-import asyncio
 from unittest.mock import AsyncMock, MagicMock
 
 import pytest

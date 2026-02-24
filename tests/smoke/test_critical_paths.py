@@ -197,9 +197,11 @@ class TestSSRFProtection:
     def test_blocks_private_ips(self):
         from aragora.security.ssrf_protection import is_url_safe
 
-        assert not is_url_safe("http://127.0.0.1/admin")
-        assert not is_url_safe("http://10.0.0.1/internal")
-        assert not is_url_safe("http://192.168.1.1/router")
+        # Ensure localhost override is disabled so SSRF protection kicks in
+        with patch.dict("os.environ", {"ARAGORA_SSRF_ALLOW_LOCALHOST": "false"}):
+            assert not is_url_safe("http://127.0.0.1/admin")
+            assert not is_url_safe("http://10.0.0.1/internal")
+            assert not is_url_safe("http://192.168.1.1/router")
 
     def test_blocks_cloud_metadata(self):
         from aragora.security.ssrf_protection import is_url_safe
@@ -222,9 +224,11 @@ class TestSSRFProtection:
     def test_validate_url_returns_details(self):
         from aragora.security.ssrf_protection import validate_url
 
-        result = validate_url("http://127.0.0.1/admin")
-        assert not result.is_safe
-        assert result.error  # Should have an error message
+        # Ensure localhost override is disabled so SSRF protection kicks in
+        with patch.dict("os.environ", {"ARAGORA_SSRF_ALLOW_LOCALHOST": "false"}):
+            result = validate_url("http://127.0.0.1/admin")
+            assert not result.is_safe
+            assert result.error  # Should have an error message
 
         result = validate_url("https://api.example.com")
         assert result.is_safe

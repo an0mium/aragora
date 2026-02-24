@@ -639,6 +639,14 @@ class FeatureFlagRegistry:
             "Enable real-time WebSocket streaming for the Shoggoth Oracle with live TTS",
             FlagCategory.CORE,
         )
+        self.register(
+            "enable_oracle_voice",
+            bool,
+            False,
+            "Enable TTS voice synthesis for Oracle debate events (agent_message, critique)",
+            FlagCategory.EXPERIMENTAL,
+            env_var="ENABLE_ORACLE_VOICE",
+        )
 
         # Debug flags
         self.register(

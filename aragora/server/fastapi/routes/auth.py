@@ -25,7 +25,7 @@ from pydantic import BaseModel, Field
 
 from aragora.rbac.models import AuthorizationContext
 
-from ..dependencies.auth import get_auth_context, require_authenticated
+from ..dependencies.auth import require_authenticated
 from ..middleware.error_handling import NotFoundError
 
 logger = logging.getLogger(__name__)
@@ -141,7 +141,6 @@ async def login(
     """
     try:
         from aragora.billing.jwt_auth import create_mfa_pending_token, create_token_pair
-        from aragora.billing.models import verify_password
         from aragora.auth.lockout import get_lockout_tracker
     except ImportError as e:
         logger.warning("Auth modules not available: %s", e)

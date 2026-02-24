@@ -35,6 +35,17 @@ if TYPE_CHECKING:
 
 logger = logging.getLogger(__name__)
 
+
+def _is_oracle_voice_enabled() -> bool:
+    """Check whether the ``enable_oracle_voice`` feature flag is active."""
+    try:
+        from aragora.config.feature_flags import is_enabled
+
+        return is_enabled("enable_oracle_voice")
+    except ImportError:
+        return False
+
+
 # Sentence-ending punctuation pattern.
 # Matches '.', '!', '?' optionally followed by a closing quote or paren,
 # then whitespace or end-of-string.  This avoids splitting on abbreviations
@@ -100,6 +111,11 @@ class TTSEventBridge:
     def connect(self, event_bus: EventBus) -> None:
         """Subscribe to the event bus and start processing.
 
+        Subscribes to ``agent_message`` events.  When the
+        ``enable_oracle_voice`` feature flag is active, also subscribes
+        to ``critique`` events so Oracle debates can synthesize critiques
+        as voice output.
+
         Args:
             event_bus: The debate EventBus to subscribe to.
         """
@@ -107,6 +123,11 @@ class TTSEventBridge:
             logger.warning("[TTS Bridge] Already connected to event bus")
             return
         event_bus.subscribe("agent_message", self._on_agent_message)
+
+        if _is_oracle_voice_enabled():
+            event_bus.subscribe("critique", self._on_agent_message)
+            logger.info("[TTS Bridge] Oracle voice enabled — subscribed to critique events")
+
         self._event_bus = event_bus
         self._connected = True
         logger.info("[TTS Bridge] Connected to event bus")
@@ -144,6 +165,7 @@ class TTSEventBridge:
         # Unsubscribe from event bus
         if self._event_bus is not None:
             self._event_bus.unsubscribe("agent_message", self._on_agent_message)
+            self._event_bus.unsubscribe("critique", self._on_agent_message)
             self._event_bus = None
 
         logger.info("[TTS Bridge] Shutdown complete")

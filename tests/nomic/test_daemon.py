@@ -573,12 +573,10 @@ class TestStartupIntegration:
                 "ARAGORA_SELF_IMPROVE_ENABLED": "true",
                 "ARAGORA_SELF_IMPROVE_DRY_RUN": "true",
             }, clear=False),
-            # Remove PYTEST_CURRENT_TEST to not trigger test guard
-            patch.dict("os.environ", {"PYTEST_CURRENT_TEST": ""}, clear=False),
             patch(
-                "aragora.server.startup.background.SelfImprovementDaemon",
+                "aragora.nomic.daemon.SelfImprovementDaemon",
                 return_value=mock_daemon,
-            ) as mock_cls,
+            ),
             patch(
                 "aragora.server.startup.background._store_daemon_singleton",
             ),

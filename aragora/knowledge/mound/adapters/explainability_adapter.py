@@ -20,7 +20,6 @@ The adapter provides:
 
 from __future__ import annotations
 
-import hashlib
 import logging
 from dataclasses import dataclass, field
 from datetime import datetime, timezone

@@ -36,7 +36,7 @@ from typing import Any
 from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from pydantic import BaseModel, Field, field_validator
 
-from ..dependencies.auth import get_auth_context, require_authenticated, require_permission
+from ..dependencies.auth import require_permission
 from ..middleware.error_handling import NotFoundError
 
 logger = logging.getLogger(__name__)

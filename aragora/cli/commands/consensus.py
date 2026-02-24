@@ -463,7 +463,7 @@ def _print_detect_result(result: dict[str, Any]) -> None:
     if result.get("has_strong_consensus"):
         print("Strength:   STRONG (>80% agreement, >70% confidence)")
 
-    print(f"\nFinal Claim:")
+    print("\nFinal Claim:")
     claim = result.get("final_claim", "")
     if len(claim) > 200:
         print(f"  {claim[:200]}...")
@@ -506,7 +506,7 @@ def _print_status_result(debate_id: str, result: dict[str, Any]) -> None:
 
     claim = result.get("final_claim", "")
     if claim:
-        print(f"\nFinal Claim:")
+        print("\nFinal Claim:")
         if len(claim) > 200:
             print(f"  {claim[:200]}...")
         else:

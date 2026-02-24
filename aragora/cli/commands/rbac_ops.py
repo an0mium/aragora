@@ -111,7 +111,6 @@ def cmd_rbac_ops(args: argparse.Namespace) -> None:
 
 def _cmd_list_roles_local(args: argparse.Namespace) -> None:
     """List all system roles (offline, no server required)."""
-    from aragora.rbac.defaults.helpers import get_role
     from aragora.rbac.defaults.roles import SYSTEM_ROLES
 
     as_json = getattr(args, "json", False)

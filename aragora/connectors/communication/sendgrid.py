@@ -31,7 +31,6 @@ import httpx
 from aragora.connectors.base import (
     BaseConnector,
     ConnectorCapabilities,
-    ConnectorHealth,
     Evidence,
 )
 from aragora.connectors.exceptions import (
@@ -39,7 +38,6 @@ from aragora.connectors.exceptions import (
     ConnectorAuthError,
     ConnectorConfigError,
     ConnectorError,
-    ConnectorRateLimitError,
     ConnectorValidationError,
 )
 from aragora.reasoning.provenance import SourceType

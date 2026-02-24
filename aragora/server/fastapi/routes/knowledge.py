@@ -588,9 +588,6 @@ async def get_staleness_analysis(
         return StalenessResponse(storage_backend="not_initialized")
 
     try:
-        from datetime import datetime, timezone
-
-        now = datetime.now(timezone.utc)
         stale_items: list[StalenessItem] = []
         total_items = 0
         stale_count = 0

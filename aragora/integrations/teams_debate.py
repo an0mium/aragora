@@ -861,8 +861,6 @@ class TeamsDebateLifecycle:
         # Strategy 1: Proactive messaging via Bot Framework
         if self._bot_token and self._service_url:
             try:
-                import httpx
-
                 client = await self._get_client()
                 url = f"{self._service_url}/v3/conversations/{channel_id}/activities"
                 payload = {

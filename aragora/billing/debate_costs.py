@@ -18,7 +18,7 @@ from datetime import datetime, timezone
 from decimal import Decimal
 from typing import Any
 
-from aragora.billing.usage import PROVIDER_PRICING, calculate_token_cost
+from aragora.billing.usage import calculate_token_cost
 
 logger = logging.getLogger(__name__)
 

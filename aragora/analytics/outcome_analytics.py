@@ -371,7 +371,6 @@ class OutcomeAnalytics:
         da = self._get_debate_analytics()
 
         import sqlite3
-        import json
 
         topics: dict[str, int] = {}
         period_start = datetime.now(timezone.utc) - delta

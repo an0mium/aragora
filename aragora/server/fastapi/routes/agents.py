@@ -117,6 +117,20 @@ class RegisterAgentResponse(BaseModel):
     agent: AgentDetail
 
 
+class AgentCapabilitiesResponse(BaseModel):
+    """Response for agent capabilities/metadata."""
+
+    name: str
+    provider: str = ""
+    model_id: str = ""
+    context_window: int = 0
+    specialties: list[str] = Field(default_factory=list)
+    strengths: list[str] = Field(default_factory=list)
+    release_date: str | None = None
+
+    model_config = {"extra": "allow"}
+
+
 class AgentStatsResponse(BaseModel):
     """Response for agent performance stats."""
 
