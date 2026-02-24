@@ -754,6 +754,27 @@ class DebateFactory:
                 arena.extensions.debate_budget_limit_usd = config.budget_limit_usd
                 arena.extensions.enforce_budget_limit = True
 
+        # Create InterventionManager for the debate when interventions are enabled
+        # (or auto-enabled by epistemic_hygiene mode)
+        wants_interventions = (
+            config.enable_interventions
+            or config.mode == "epistemic_hygiene"
+        )
+        if wants_interventions and config.debate_id:
+            try:
+                from aragora.debate.intervention import get_intervention_manager
+
+                get_intervention_manager(
+                    config.debate_id,
+                    emitter=self.stream_emitter,
+                    create=True,
+                )
+                logger.info("InterventionManager created for debate %s", config.debate_id)
+            except ImportError:
+                logger.debug("Intervention module not available")
+            except (RuntimeError, TypeError, ValueError) as e:
+                logger.warning("Failed to create InterventionManager: %s", e)
+
         return arena
 
     def reset_circuit_breakers(self, arena: Arena) -> None:

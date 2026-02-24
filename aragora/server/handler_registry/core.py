@@ -189,6 +189,7 @@ HANDLER_TIERS: dict[str, str] = {
     "_ml_handler": "experimental",
     "_verticals_handler": "experimental",
     "_canvas_handler": "experimental",
+    "_harnesses_handler": "experimental",
     "_sandbox_handler": "experimental",
     "_visualization_handler": "experimental",
     # ── Optional (feature-specific, loaded by default) ────────────────
@@ -511,6 +512,7 @@ class RouteIndex:
             "_moments_handler": ["/api/moments/"],
             "_persona_handler": ["/api/personas", "/api/agent/"],
             "_introspection_handler": ["/api/introspection/"],
+            "_harnesses_handler": ["/api/v1/harnesses"],
             "_sandbox_handler": ["/api/sandbox/"],
             "_visualization_handler": ["/api/v1/visualization/"],
             "_calibration_handler": ["/api/agent/"],

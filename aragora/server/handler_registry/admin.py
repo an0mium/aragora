@@ -203,6 +203,12 @@ DebateInterventionHandler = _safe_import("aragora.server.handlers", "DebateInter
 IntrospectionHandler = _safe_import("aragora.server.handlers", "IntrospectionHandler")
 
 # =============================================================================
+# Harnesses Handler Imports
+# =============================================================================
+
+HarnessesHandler = _safe_import("aragora.server.handlers.harnesses", "HarnessesHandler")
+
+# =============================================================================
 # Sandbox and Visualization Handler Imports
 # =============================================================================
 
@@ -547,6 +553,8 @@ ADMIN_HANDLER_REGISTRY: list[tuple[str, object]] = [
     ("_breakpoints_handler", BreakpointsHandler),
     ("_debate_intervention_handler", DebateInterventionHandler),
     ("_introspection_handler", IntrospectionHandler),
+    # Harnesses (external tool integration)
+    ("_harnesses_handler", HarnessesHandler),
     # Sandbox and visualization
     ("_sandbox_handler", SandboxHandler),
     ("_visualization_handler", VisualizationHandler),
@@ -739,6 +747,8 @@ __all__ = [
     "BreakpointsHandler",
     "DebateInterventionHandler",
     "IntrospectionHandler",
+    # Harnesses
+    "HarnessesHandler",
     # Sandbox and visualization
     "SandboxHandler",
     "VisualizationHandler",

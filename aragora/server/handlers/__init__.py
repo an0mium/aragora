@@ -298,6 +298,7 @@ if TYPE_CHECKING:
         GauntletValidateReceiptHandler,
     )
     from .genesis import GenesisHandler
+    from .harnesses import HarnessesHandler
     from .github.audit_bridge import AuditGitHubBridgeHandler
     from .github.pr_review import PRReviewHandler
     from .goal_canvas import GoalCanvasHandler
@@ -884,6 +885,8 @@ __all__ = [
     "WorkflowBuilderHandler",
     # Readiness check (SME onboarding)
     "ReadinessCheckHandler",
+    # Harnesses (external tool integration)
+    "HarnessesHandler",
     # Sandbox (code execution)
     "SandboxHandler",
     # Visualization (argument cartography)

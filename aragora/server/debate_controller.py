@@ -289,6 +289,8 @@ class DebateRequest:
     enable_cartographer: bool | None = None  # Enable argument cartography
     enable_introspection: bool | None = None  # Enable agent introspection
     enable_auto_execution: bool | None = None  # Enable post-debate auto-execution
+    enable_settlement_tracking: bool | None = None  # Enable settlement claim extraction
+    enable_interventions: bool | None = None  # Enable intervention queue
 
     def __post_init__(self):
         if self.auto_select_config is None:
@@ -403,6 +405,8 @@ class DebateRequest:
             enable_cartographer=data.get("enable_cartographer"),
             enable_introspection=data.get("enable_introspection"),
             enable_auto_execution=data.get("enable_auto_execution"),
+            enable_settlement_tracking=data.get("enable_settlement_tracking"),
+            enable_interventions=data.get("enable_interventions"),
         )
 
 
@@ -817,6 +821,8 @@ class DebateController:
             enable_cartographer=request.enable_cartographer,
             enable_introspection=request.enable_introspection,
             enable_auto_execution=request.enable_auto_execution,
+            enable_settlement_tracking=request.enable_settlement_tracking,
+            enable_interventions=request.enable_interventions,
         )
 
         # Submit to thread pool

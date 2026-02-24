@@ -136,7 +136,7 @@ class AnthropicAPIAgent(QuotaFallbackMixin, APIAgent):
         retry_backoff=2.0,
         retryable_exceptions=(AgentRateLimitError, AgentConnectionError, AgentTimeoutError),
     )
-    async def generate(self, prompt: str, context: list[Message] | None = None) -> str:
+    async def generate(self, prompt: str, context: list[Message] | None = None, **kwargs: Any) -> str:
         """Generate a response using Anthropic API.
 
         Falls back to OpenRouter if billing/quota errors are encountered
@@ -207,11 +207,13 @@ class AnthropicAPIAgent(QuotaFallbackMixin, APIAgent):
             logger.info("[%s] Enabling web search tool for web content", self.name)
             headers["anthropic-beta"] = "web-search-2025-03-05"
 
-        payload = {
+        payload: dict[str, Any] = {
             "model": self.model,
-            "max_tokens": 4096,
+            "max_tokens": kwargs.get("max_tokens", 4096),
             "messages": [{"role": "user", "content": full_prompt}],
         }
+        if "temperature" in kwargs:
+            payload["temperature"] = kwargs["temperature"]
 
         # Add web search tool if enabled
         if use_web_search:
