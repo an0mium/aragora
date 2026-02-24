@@ -300,6 +300,47 @@ async def capture_context_snapshot(
     return snapshot
 
 
+def _build_cost_summary_for_receipt(
+    debate_result: DebateResult,
+) -> dict[str, Any] | None:
+    """Build a cost_summary dict for DecisionReceipt from DebateResult fields.
+
+    Tries the DebateCostTracker singleton first for rich per-agent/per-round
+    breakdowns.  Falls back to the lightweight fields already on DebateResult
+    (total_cost_usd, per_agent_cost).
+
+    Returns None when no cost data is available.
+    """
+    debate_id = debate_result.debate_id or ""
+
+    # Try DebateCostTracker for rich summary
+    try:
+        from aragora.billing.debate_costs import get_debate_cost_tracker
+
+        dct = get_debate_cost_tracker()
+        summary = dct.get_debate_cost(debate_id)
+        if summary and summary.total_calls > 0:
+            return summary.to_dict()
+    except (ImportError, RuntimeError, ValueError, TypeError, AttributeError):
+        pass
+
+    # Fallback: build minimal summary from DebateResult fields
+    if debate_result.total_cost_usd > 0 or debate_result.per_agent_cost:
+        return {
+            "debate_id": debate_id,
+            "total_cost_usd": str(debate_result.total_cost_usd),
+            "per_agent": {
+                name: {"total_cost_usd": str(cost)}
+                for name, cost in debate_result.per_agent_cost.items()
+            },
+            "total_tokens_in": 0,
+            "total_tokens_out": 0,
+            "total_calls": 0,
+        }
+
+    return None
+
+
 def build_integrity_package_from_result(
     debate_result: DebateResult,
     *,
@@ -320,7 +361,12 @@ def build_integrity_package_from_result(
         plan_strategy: "single_task" (default).
         repo_path: Repository root (defaults to cwd).
     """
-    receipt = DecisionReceipt.from_debate_result(debate_result) if include_receipt else None
+    receipt = None
+    if include_receipt:
+        cost_summary = _build_cost_summary_for_receipt(debate_result)
+        receipt = DecisionReceipt.from_debate_result(
+            debate_result, cost_summary=cost_summary
+        )
 
     plan: ImplementPlan | None = None
     if include_plan:
@@ -367,7 +413,12 @@ async def build_decision_integrity_package(
         evidence_store: Optional EvidenceStore for context snapshot.
     """
     debate_result = _coerce_debate_result(debate)
-    receipt = DecisionReceipt.from_debate_result(debate_result) if include_receipt else None
+    receipt = None
+    if include_receipt:
+        cost_summary = _build_cost_summary_for_receipt(debate_result)
+        receipt = DecisionReceipt.from_debate_result(
+            debate_result, cost_summary=cost_summary
+        )
 
     plan: ImplementPlan | None = None
     if include_plan:

@@ -86,11 +86,47 @@ export function handleAuthRevokedEvent(data: ParsedEventData, ctx: EventHandlerC
  * Handle heartbeat event - server liveness signal
  *
  * Updates the last-seen timestamp so the frontend can detect stalls
- * without guessing.  No UI update needed — the timestamp is read by
- * stall-detection logic in useDebateWebSocket.
+ * without guessing.  Also checks last_seq from the server to detect
+ * missed events - if the server's latest seq is ahead of ours by
+ * more than a small tolerance, dropped events may have occurred.
  */
 export function handleHeartbeatEvent(data: ParsedEventData, ctx: EventHandlerContext): void {
   // Update last activity timestamp (used by stall detection)
+  ctx.lastActivityRef.current = Date.now();
+
+  // Check for sequence gaps via server-reported last_seq
+  const eventData = data.data;
+  const serverLastSeq = eventData?.last_seq as number | undefined;
+  if (serverLastSeq && typeof serverLastSeq === 'number' && serverLastSeq > 0) {
+    const clientLastSeq = ctx.lastSeqRef.current;
+    if (clientLastSeq > 0) {
+      const gap = serverLastSeq - clientLastSeq;
+      if (gap > 10) {
+        logger.warn(
+          `[WS] Heartbeat gap detected: server seq=${serverLastSeq}, client seq=${clientLastSeq} (${gap} events behind)`
+        );
+      }
+    }
+  }
+}
+
+/**
+ * Handle replay_start event - server is about to send missed events
+ */
+export function handleReplayStartEvent(data: ParsedEventData, ctx: EventHandlerContext): void {
+  const eventData = data.data;
+  const count = (eventData?.event_count as number) || 0;
+  logger.debug(`[WS] Replay starting: ${count} missed events`);
+  ctx.lastActivityRef.current = Date.now();
+}
+
+/**
+ * Handle replay_end event - all missed events have been replayed
+ */
+export function handleReplayEndEvent(data: ParsedEventData, ctx: EventHandlerContext): void {
+  const eventData = data.data;
+  const count = (eventData?.replayed_count as number) || 0;
+  logger.debug(`[WS] Replay complete: ${count} events replayed`);
   ctx.lastActivityRef.current = Date.now();
 }
 
@@ -102,4 +138,6 @@ export const systemHandlers = {
   error: handleErrorEvent,
   auth_revoked: handleAuthRevokedEvent,
   heartbeat: handleHeartbeatEvent,
+  replay_start: handleReplayStartEvent,
+  replay_end: handleReplayEndEvent,
 };

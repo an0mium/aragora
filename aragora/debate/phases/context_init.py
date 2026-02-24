@@ -200,6 +200,24 @@ class ContextInitializer:
         self._fetch_knowledge_context = fetch_knowledge_context
         self._inject_supermemory_context_cb = inject_supermemory_context
 
+    @staticmethod
+    async def _safe_async(coro: Any, label: str) -> None:
+        """Run an async coroutine with isolated error handling.
+
+        Used by ``initialize()`` to gather independent context enrichment
+        tasks concurrently without one failure aborting the others.
+
+        Args:
+            coro: The awaitable to run.
+            label: Human-readable label for logging on failure.
+        """
+        try:
+            await coro
+        except asyncio.CancelledError:
+            raise  # Never swallow cancellation
+        except Exception as exc:  # noqa: BLE001 - phase isolation
+            logger.debug("context_enrichment_failed label=%s error=%s", label, exc)
+
     async def initialize(self, ctx: DebateContext) -> None:
         """
         Initialize the debate context.
@@ -261,6 +279,12 @@ class ContextInitializer:
         # === BACKGROUND: Context enrichment (can run parallel with proposals) ===
         # These operations gather additional context but aren't blocking.
         # Results are injected before round 2 via await_background_context().
+        #
+        # Latency optimization (issue #268): independent async I/O operations
+        # are gathered concurrently instead of running sequentially.  Sync
+        # injections (memory patterns, dissents, belief cruxes, convergence
+        # history) run after the concurrent batch because they are CPU-only
+        # and depend on no I/O.
 
         # 6. Auto-fetch trending topics from Pulse if enabled
         if not self.trending_topic and self.auto_fetch_trending:
@@ -269,46 +293,46 @@ class ContextInitializer:
         # 7. Inject trending topic context (provided or auto-fetched)
         self._inject_trending_topic(ctx)
 
-        # 8. Fetch historical context (async, with timeout)
-        await self._fetch_historical(ctx)
+        # 8-9d. Gather independent async context enrichment tasks concurrently
+        # Each task is wrapped in _safe_async to isolate failures.
+        _concurrent_tasks: list[Any] = [
+            self._safe_async(self._fetch_historical(ctx), "historical"),
+            self._safe_async(self._inject_knowledge_context(ctx), "knowledge_mound"),
+            self._safe_async(self._inject_receipt_conclusions(ctx), "receipt_conclusions"),
+            self._safe_async(self._inject_supermemory_context(ctx), "supermemory"),
+            self._safe_async(self._inject_debate_knowledge(ctx), "debate_knowledge"),
+            self._safe_async(self._inject_cross_adapter_synthesis(ctx), "km_synthesis"),
+            self._safe_async(self._inject_insight_patterns(ctx), "insight_patterns"),
+        ]
+        if self.enable_cross_debate_memory:
+            _concurrent_tasks.append(
+                self._safe_async(self._inject_cross_debate_context(ctx), "cross_debate"),
+            )
+        if self.enable_outcome_context:
+            _concurrent_tasks.append(
+                self._safe_async(self._inject_outcome_context(ctx), "outcome_context"),
+            )
 
-        # 9. Fetch knowledge mound context (unified organizational knowledge)
-        await self._inject_knowledge_context(ctx)
+        _ctx_start = time.time()
+        await asyncio.gather(*_concurrent_tasks)
+        _ctx_elapsed_ms = (time.time() - _ctx_start) * 1000
+        logger.debug(
+            "context_enrichment_concurrent elapsed_ms=%.1f tasks=%d",
+            _ctx_elapsed_ms,
+            len(_concurrent_tasks),
+        )
 
-        # 9a. Inject past decision conclusions from receipt-derived KM items
-        await self._inject_receipt_conclusions(ctx)
-
-        # 9b. Inject Supermemory external context (cross-session learnings)
-        await self._inject_supermemory_context(ctx)
-
-        # 9c. Inject past debate knowledge from KM flywheel
-        await self._inject_debate_knowledge(ctx)
-
-        # 9d. Cross-adapter KM synthesis (unified query across multiple adapters)
-        await self._inject_cross_adapter_synthesis(ctx)
-
-        # 10. Inject learned patterns from InsightStore (async)
-        await self._inject_insight_patterns(ctx)
-
-        # 11. Inject memory patterns from CritiqueStore
+        # 11. Inject memory patterns from CritiqueStore (sync, no I/O)
         self._inject_memory_patterns(ctx)
 
-        # 12. Inject historical dissents from ConsensusMemory
+        # 12. Inject historical dissents from ConsensusMemory (sync, no I/O)
         self._inject_historical_dissents(ctx)
 
-        # 12b. Inject belief cruxes from similar past debates (belief guidance)
+        # 12b. Inject belief cruxes from similar past debates (sync, no I/O)
         if self.enable_belief_guidance:
             self._inject_belief_cruxes(ctx)
 
-        # 12c. Inject cross-debate institutional knowledge
-        if self.enable_cross_debate_memory:
-            await self._inject_cross_debate_context(ctx)
-
-        # 12d. Inject past decision outcome data (successes/failures)
-        if self.enable_outcome_context:
-            await self._inject_outcome_context(ctx)
-
-        # 12e. Inject convergence history to suggest optimal round counts
+        # 12e. Inject convergence history (sync, no I/O)
         self._inject_convergence_history(ctx)
 
         # 13. Start research in background (non-blocking for fast startup)
