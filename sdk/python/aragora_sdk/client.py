@@ -954,6 +954,7 @@ class AragoraAsyncClient:
         from .namespaces.self_improve import AsyncSelfImproveAPI
         from .namespaces.services import AsyncServicesAPI
         from .namespaces.shared_inbox import AsyncSharedInboxAPI
+        from .namespaces.skills import AsyncSkillsAPI
         from .namespaces.slo import AsyncSLOAPI
         from .namespaces.sme import AsyncSMEAPI
         from .namespaces.social import AsyncSocialAPI
@@ -967,9 +968,11 @@ class AragoraAsyncClient:
         from .namespaces.threat_intel import AsyncThreatIntelAPI
         from .namespaces.tournaments import AsyncTournamentsAPI
         from .namespaces.training import AsyncTrainingAPI
+        from .namespaces.transcription import AsyncTranscriptionAPI
         from .namespaces.uncertainty import AsyncUncertaintyAPI
         from .namespaces.unified_inbox import AsyncUnifiedInboxAPI
         from .namespaces.usage import AsyncUsageAPI
+        from .namespaces.usage_metering import AsyncUsageMeteringAPI
         from .namespaces.verification import AsyncVerificationAPI
         from .namespaces.verticals import AsyncVerticalsAPI
         from .namespaces.voice import AsyncVoiceAPI
