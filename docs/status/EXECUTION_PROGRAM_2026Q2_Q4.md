@@ -251,25 +251,27 @@ Primary evidence:
 
 ## Dependency-Driven Roadmap
 
-### Phase 0: Release Integrity and Truth Baseline (2026-02-24 to 2026-03-15)
+### Phase 0: Release Integrity and Truth Baseline (2026-02-24 to 2026-03-15) ✅ LARGELY COMPLETE
 
 Goal: make status and release confidence unambiguous.
 
 Deliverables:
-- Release workflow blocks on security + integration smoke + nightly evidence checks
-- Skip marker governance tightened
-- Capability/GA/roadmap status reconciliation automation
-- External pentest execution started with tracked remediation plan
+- ✅ Release workflow blocks on security + integration smoke + nightly evidence checks (npm audit blocking, skip baseline zero-tolerance)
+- ✅ Skip marker governance tightened (skip_governance.py plugin registered in conftest.py)
+- ✅ Capability/GA/roadmap status reconciliation automation (reconcile_status_docs.py + CI job)
+- ✅ Frontend TypeScript CI gate added (frontend-typecheck job in test.yml)
+- ⬜ External pentest execution started with tracked remediation plan (requires vendor engagement)
 
-### Phase 1: Surface Parity Closure (2026-03-16 to 2026-04-15)
+### Phase 1: Surface Parity Closure (2026-03-16 to 2026-04-15) 🔄 IN PROGRESS
 
 Goal: close matrix-gapped product surfaces.
 
 Deliverables:
-- `consensus_detection` available in API, SDK, CLI
-- `compliance_framework` and `rbac_v2` CLI surfaces
-- Decision-integrity UI workbench covering debate/workflow/memory/nomic visibility
-- FastAPI migration wave for critical routes
+- ✅ `consensus_detection` available in API, SDK, CLI (implemented pre-program)
+- ✅ `compliance_framework` and `rbac_v2` CLI surfaces (implemented pre-program)
+- 🔄 Decision-integrity UI workbench: knowledge search, agent leaderboard, pipeline canvas, compliance dashboard, RBAC settings pages
+- 🔄 FastAPI migration wave: agents, knowledge, receipts, workflows, compliance, pipeline routes
+- 🔄 TTS-to-debate streaming bridge for voice-first experience
 
 ### Phase 2: Channel Productization and FinOps (2026-04-16 to 2026-05-31)
 
