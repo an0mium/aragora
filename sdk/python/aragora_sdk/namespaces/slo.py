@@ -116,7 +116,7 @@ class SLOAPI:
             - consumed_percent: Percentage of error budget consumed
             - timeline: Error budget consumption over time
         """
-        return self._client.request("GET", "/api/v1/slos/error-budget")
+        return self._client.request("GET", "/api/slos/error-budget")
 
     # =========================================================================
     # Violations
@@ -130,7 +130,7 @@ class SLOAPI:
             Dict with recent violations including timestamps,
             affected SLOs, and severity.
         """
-        return self._client.request("GET", "/api/v1/slos/violations")
+        return self._client.request("GET", "/api/slos/violations")
 
     # =========================================================================
     # Targets
@@ -144,7 +144,7 @@ class SLOAPI:
             Dict with configured target values for each SLO including
             thresholds, time windows, and alerting rules.
         """
-        return self._client.request("GET", "/api/v1/slos/targets")
+        return self._client.request("GET", "/api/slos/targets")
 
 
 class AsyncSLOAPI:
@@ -174,19 +174,19 @@ class AsyncSLOAPI:
 
     async def get_availability(self) -> dict[str, Any]:
         """Get availability SLO status."""
-        return await self._client.request("GET", "/api/v1/slos/availability")
+        return await self._client.request("GET", "/api/slos/availability")
 
     async def get_latency(self) -> dict[str, Any]:
         """Get latency SLO status."""
-        return await self._client.request("GET", "/api/v1/slos/latency")
+        return await self._client.request("GET", "/api/slos/latency")
 
     async def get_debate_success(self) -> dict[str, Any]:
         """Get debate success rate SLO status."""
-        return await self._client.request("GET", "/api/v1/slos/debate-success")
+        return await self._client.request("GET", "/api/slos/debate-success")
 
     async def get_slo(self, slo_name: str) -> dict[str, Any]:
         """Get details for a specific named SLO."""
-        return await self._client.request("GET", f"/api/v1/slos/{slo_name}")
+        return await self._client.request("GET", f"/api/slos/{slo_name}")
 
     # =========================================================================
     # Error Budget
@@ -194,7 +194,7 @@ class AsyncSLOAPI:
 
     async def get_error_budget(self) -> dict[str, Any]:
         """Get error budget timeline across all SLOs."""
-        return await self._client.request("GET", "/api/v1/slos/error-budget")
+        return await self._client.request("GET", "/api/slos/error-budget")
 
     # =========================================================================
     # Violations
@@ -202,7 +202,7 @@ class AsyncSLOAPI:
 
     async def get_violations(self) -> dict[str, Any]:
         """Get recent SLO violations."""
-        return await self._client.request("GET", "/api/v1/slos/violations")
+        return await self._client.request("GET", "/api/slos/violations")
 
     # =========================================================================
     # Targets
@@ -210,4 +210,4 @@ class AsyncSLOAPI:
 
     async def get_targets(self) -> dict[str, Any]:
         """Get configured SLO targets."""
-        return await self._client.request("GET", "/api/v1/slos/targets")
+        return await self._client.request("GET", "/api/slos/targets")

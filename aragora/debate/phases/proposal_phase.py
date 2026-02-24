@@ -301,6 +301,19 @@ class ProposalPhase:
         prompt = self._build_proposal_prompt(agent)
         logger.debug("agent_generating agent=%s phase=proposal", agent.name)
 
+        # Emit agent_thinking event before generation starts
+        if self._notify_spectator:
+            try:
+                self._notify_spectator(
+                    "agent_thinking",
+                    agent=agent.name,
+                    step="Formulating initial proposal",
+                    phase="proposal",
+                    round_num=0,
+                )
+            except (RuntimeError, AttributeError, TypeError):  # noqa: BLE001
+                pass
+
         # Track timing for governor feedback
         start_time = time.perf_counter()
         governor = get_complexity_governor()

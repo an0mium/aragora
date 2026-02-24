@@ -1038,7 +1038,6 @@ class SelfImproveHandler(SecureEndpointMixin, SecureHandler):  # type: ignore[mi
                 max_cycles=max_cycles,
             )
 
-            _res: Any = result  # OrchestrationResult (different from SelfImproveResult)
             store.update_run(
                 run_id,
                 status="completed" if orchestration_result.success else "failed",

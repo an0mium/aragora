@@ -55,6 +55,7 @@ class TeamsAPI:
         Returns:
             Team details
         """
+        # TODO: server route not yet implemented
         return self._client.request("GET", f"/api/v1/teams/{team_id}")
 
     def create(

@@ -88,6 +88,9 @@ class CLIAgent(CritiqueMixin, Agent):
         "claude-3-opus-20240229": "anthropic/claude-3-opus",
         "claude-3-sonnet-20240229": "anthropic/claude-3-sonnet",
         # OpenAI/Codex models
+        "gpt-5.2": "openai/gpt-5.2",
+        "gpt-5.2-codex": "openai/gpt-5.2-codex",
+        "gpt-5.2-chat-latest": "openai/gpt-5.2-chat",
         "gpt-4.1-codex": "openai/gpt-4.1",
         "gpt-4.1": "openai/gpt-4.1",
         "gpt-4.1-mini": "openai/gpt-4.1-mini",
@@ -104,6 +107,7 @@ class CLIAgent(CritiqueMixin, Agent):
         "gemini-2.0-flash": "google/gemini-2.0-flash-001",
         "gemini-1.5-pro": "google/gemini-pro-1.5",
         # Grok models
+        "grok-4-1-fast": "x-ai/grok-4.1-fast",
         "grok-4-latest": "x-ai/grok-4",
         "grok-4": "x-ai/grok-4",
         "grok-3": "x-ai/grok-4",
@@ -503,14 +507,14 @@ Provide structured feedback:
 
 @AgentRegistry.register(
     "codex",
-    default_model="gpt-4.1-codex",
+    default_model="gpt-5.2-codex",
     agent_type="CLI",
     requires="codex CLI (npm install -g @openai/codex)",
 )
 class CodexAgent(CLIAgent):
     """Agent that uses OpenAI Codex CLI.
 
-    Falls back to OpenRouter (OpenAI GPT-4o) on CLI failures if enabled.
+    Falls back to OpenRouter (OpenAI GPT-5.2) on CLI failures if enabled.
     """
 
     _CODEX_WARNING_PREFIXES: tuple[str, ...] = (
