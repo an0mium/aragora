@@ -51,8 +51,8 @@ async def search_codebase_tool(
     try:
         from aragora.connectors.repository_crawler import RepositoryCrawler
 
-        crawler = RepositoryCrawler(codebase_path)
-        crawl_result = await crawler.crawl()
+        crawler = RepositoryCrawler()
+        crawl_result = await crawler.crawl(source=codebase_path)
 
         type_filter = set()
         if file_types:
@@ -133,8 +133,8 @@ async def get_symbol_tool(
     try:
         from aragora.connectors.repository_crawler import RepositoryCrawler
 
-        crawler = RepositoryCrawler(codebase_path)
-        crawl_result = await crawler.crawl()
+        crawler = RepositoryCrawler()
+        crawl_result = await crawler.crawl(source=codebase_path)
 
         name_lower = symbol_name.lower()
         for crawled_file in crawl_result.files:
@@ -190,8 +190,8 @@ async def get_dependencies_tool(
     try:
         from aragora.connectors.repository_crawler import RepositoryCrawler
 
-        crawler = RepositoryCrawler(codebase_path)
-        crawl_result = await crawler.crawl()
+        crawler = RepositoryCrawler()
+        crawl_result = await crawler.crawl(source=codebase_path)
 
         dep_graph = getattr(crawl_result, "dependency_graph", {})
 
@@ -243,8 +243,8 @@ async def get_codebase_structure_tool(
     try:
         from aragora.connectors.repository_crawler import RepositoryCrawler
 
-        crawler = RepositoryCrawler(codebase_path)
-        crawl_result = await crawler.crawl()
+        crawler = RepositoryCrawler()
+        crawl_result = await crawler.crawl(source=codebase_path)
 
         # Build directory tree
         tree: dict[str, Any] = {}

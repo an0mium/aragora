@@ -161,6 +161,63 @@ class WorkflowStatusResponse(BaseModel):
     error: str | None = None
 
 
+class TemplateSummary(BaseModel):
+    """Summary of a workflow template."""
+
+    name: str
+    description: str = ""
+    category: str = ""
+    node_count: int = 0
+    tags: list[str] = Field(default_factory=list)
+
+    model_config = {"extra": "allow"}
+
+
+class TemplateListResponse(BaseModel):
+    """Response for template listing."""
+
+    templates: list[TemplateSummary]
+    total: int
+
+
+class HistoryEntry(BaseModel):
+    """A single workflow execution history entry."""
+
+    execution_id: str
+    status: str = "completed"
+    started_at: str | None = None
+    completed_at: str | None = None
+    duration_seconds: float = 0.0
+    result: dict[str, Any] | None = None
+    error: str | None = None
+
+    model_config = {"extra": "allow"}
+
+
+class WorkflowHistoryResponse(BaseModel):
+    """Response for workflow execution history."""
+
+    workflow_id: str
+    executions: list[HistoryEntry]
+    total: int
+
+
+class ApproveStepRequest(BaseModel):
+    """Request body for POST /workflows/{workflow_id}/approve."""
+
+    step_id: str = Field(..., description="ID of the pending step to approve")
+    comment: str = Field("", description="Optional approval comment")
+
+
+class ApproveStepResponse(BaseModel):
+    """Response for step approval."""
+
+    success: bool
+    workflow_id: str
+    step_id: str
+    status: str = "approved"
+
+
 # =============================================================================
 # Dependencies
 # =============================================================================

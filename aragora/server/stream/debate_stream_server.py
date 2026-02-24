@@ -436,14 +436,17 @@ class DebateStreamServer(ServerBase):
             elif event.type == StreamEventType.AGENT_MESSAGE:
                 if loop_id in self.debate_states:
                     state = self.debate_states[loop_id]
-                    state["messages"].append(
-                        {
-                            "agent": event.agent,
-                            "role": event.data.get("role", "agent"),
-                            "round": event.round,
-                            "content": event.data.get("content", ""),
-                        }
-                    )
+                    msg_entry: dict = {
+                        "agent": event.agent,
+                        "role": event.data.get("role", "agent"),
+                        "round": event.round,
+                        "content": event.data.get("content", ""),
+                    }
+                    if event.data.get("confidence_score") is not None:
+                        msg_entry["confidence_score"] = event.data["confidence_score"]
+                    if event.data.get("reasoning_phase"):
+                        msg_entry["reasoning_phase"] = event.data["reasoning_phase"]
+                    state["messages"].append(msg_entry)
                     # Cap at last 1000 messages to allow full debate history without truncation
                     if len(state["messages"]) > 1000:
                         state["messages"] = state["messages"][-1000:]
