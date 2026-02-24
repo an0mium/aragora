@@ -492,7 +492,7 @@ export default function DifferentiationPage() {
           </div>
 
           {/* Tab Content */}
-          <PanelErrorBoundary>
+          <PanelErrorBoundary panelName="Differentiation">
             {activeTab === 'overview' && (
               <OverviewTab
                 summary={summary}

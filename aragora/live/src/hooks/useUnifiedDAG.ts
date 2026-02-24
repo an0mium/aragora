@@ -275,6 +275,160 @@ export function useUnifiedDAG(graphId: string | null) {
     }
   }, [graphId, pushUndo, mutateGraph]);
 
+  // -------------------------------------------------------------------------
+  // Validation
+  // -------------------------------------------------------------------------
+
+  const validateGraph = useCallback((): string[] => {
+    const errors: string[] = [];
+    if (nodes.length === 0) {
+      errors.push('Graph is empty — add at least one idea node');
+      return errors;
+    }
+
+    const stages: DAGStage[] = ['ideas', 'goals', 'actions', 'orchestration'];
+    const byStage: Record<DAGStage, Node<DAGNodeData>[]> = {
+      ideas: [], goals: [], actions: [], orchestration: [],
+    };
+    for (const n of nodes) {
+      const s = (n.data as unknown as DAGNodeData).stage;
+      if (byStage[s]) byStage[s].push(n);
+    }
+
+    if (byStage.ideas.length === 0) {
+      errors.push('No idea nodes — ideas are required to start the pipeline');
+    }
+
+    // Check that each non-first stage has at least one incoming edge from a previous stage
+    for (let i = 1; i < stages.length; i++) {
+      const stage = stages[i];
+      if (byStage[stage].length === 0) continue;
+      const prevStageNodeIds = new Set(byStage[stages[i - 1]].map((n) => n.id));
+      const hasIncoming = byStage[stage].some((n) =>
+        edges.some((e) => e.target === n.id && prevStageNodeIds.has(e.source))
+      );
+      if (!hasIncoming) {
+        errors.push(`${stage} nodes have no connections from ${stages[i - 1]} — add cross-stage edges`);
+      }
+    }
+
+    // Check for orphan nodes with no edges
+    const nodesWithEdges = new Set<string>();
+    for (const e of edges) {
+      nodesWithEdges.add(e.source);
+      nodesWithEdges.add(e.target);
+    }
+    const orphans = nodes.filter((n) => !nodesWithEdges.has(n.id));
+    if (orphans.length > 0 && nodes.length > 1) {
+      errors.push(`${orphans.length} orphan node(s) with no connections`);
+    }
+
+    return errors;
+  }, [nodes, edges]);
+
+  // -------------------------------------------------------------------------
+  // Batch Execution
+  // -------------------------------------------------------------------------
+
+  const [executionHistory, setExecutionHistory] = useState<ExecutionHistoryEntry[]>([]);
+  const [batchExecuting, setBatchExecuting] = useState(false);
+
+  const executeAllReady = useCallback(async (): Promise<void> => {
+    if (!graphId) return;
+    const readyNodes = nodes.filter(
+      (n) => (n.data as unknown as DAGNodeData).status === 'ready'
+    );
+    if (readyNodes.length === 0) return;
+
+    setBatchExecuting(true);
+    pushUndo();
+
+    // Mark all ready nodes as running
+    setNodes((prev) =>
+      prev.map((n) => {
+        if ((n.data as unknown as DAGNodeData).status === 'ready') {
+          return { ...n, data: { ...n.data, status: 'running' } as DAGNodeData };
+        }
+        return n;
+      })
+    );
+
+    try {
+      const result = await apiFetch<{ data: { results: Array<{ node_id: string; status: string; duration_ms: number }> } }>(
+        `${API_PREFIX}/${graphId}/execute-batch`,
+        { method: 'POST', body: JSON.stringify({ node_ids: readyNodes.map((n) => n.id) }) },
+      );
+
+      const batchResults = result?.data?.results || [];
+      const newHistory: ExecutionHistoryEntry[] = batchResults.map((r) => {
+        const node = readyNodes.find((n) => n.id === r.node_id);
+        return {
+          id: `${r.node_id}-${Date.now()}`,
+          nodeId: r.node_id,
+          nodeLabel: (node?.data as unknown as DAGNodeData)?.label || r.node_id,
+          status: r.status === 'succeeded' ? 'succeeded' : 'failed',
+          durationMs: r.duration_ms || 0,
+          timestamp: Date.now(),
+        };
+      });
+      setExecutionHistory((prev) => [...newHistory, ...prev]);
+
+      // Update node statuses from batch results
+      setNodes((prev) =>
+        prev.map((n) => {
+          const batchResult = batchResults.find((r) => r.node_id === n.id);
+          if (batchResult) {
+            return { ...n, data: { ...n.data, status: batchResult.status } as DAGNodeData };
+          }
+          return n;
+        })
+      );
+
+      await mutateGraph();
+    } catch (err) {
+      // On failure, revert running nodes back to ready
+      setNodes((prev) =>
+        prev.map((n) => {
+          if ((n.data as unknown as DAGNodeData).status === 'running') {
+            return { ...n, data: { ...n.data, status: 'ready' } as DAGNodeData };
+          }
+          return n;
+        })
+      );
+      setOperationError(err instanceof Error ? err.message : 'Batch execution failed');
+    } finally {
+      setBatchExecuting(false);
+    }
+  }, [graphId, nodes, pushUndo, mutateGraph]);
+
+  const autoAdvanceAll = useCallback(async (): Promise<void> => {
+    if (!graphId) return;
+    setBatchExecuting(true);
+    setOperationError(null);
+    try {
+      await apiFetch<{ data: DAGOperationResult }>(
+        `${API_PREFIX}/${graphId}/auto-advance`,
+        { method: 'POST', body: JSON.stringify({}) },
+      );
+      pushUndo();
+      await mutateGraph();
+    } catch (err) {
+      setOperationError(err instanceof Error ? err.message : 'Auto-advance failed');
+    } finally {
+      setBatchExecuting(false);
+    }
+  }, [graphId, pushUndo, mutateGraph]);
+
+  // Computed stats
+  const graphStats = useMemo(() => {
+    const total = nodes.length;
+    const succeeded = nodes.filter((n) => (n.data as unknown as DAGNodeData).status === 'succeeded').length;
+    const ready = nodes.filter((n) => (n.data as unknown as DAGNodeData).status === 'ready').length;
+    const running = nodes.filter((n) => (n.data as unknown as DAGNodeData).status === 'running').length;
+    const failed = nodes.filter((n) => (n.data as unknown as DAGNodeData).status === 'failed').length;
+    return { total, succeeded, ready, running, failed, completionPct: total > 0 ? Math.round((succeeded / total) * 100) : 0 };
+  }, [nodes]);
+
   return {
     // Graph state
     nodes,
@@ -300,6 +454,14 @@ export function useUnifiedDAG(graphId: string | null) {
     // Bulk operations
     clusterIdeas,
     autoFlow,
+
+    // Execution
+    executeAllReady,
+    autoAdvanceAll,
+    validateGraph,
+    executionHistory,
+    batchExecuting,
+    graphStats,
 
     // State
     operationLoading,

@@ -1142,8 +1142,8 @@ class TestCLIAgentGetFallbackAgent:
                 agent._get_fallback_agent()
 
                 call_kwargs = mock_or.call_args[1]
-                # gpt-4.1-codex should map to openai/gpt-4o
-                assert call_kwargs["model"] == "openai/gpt-4o"
+                # gpt-4.1-codex should map to openai/gpt-4.1
+                assert call_kwargs["model"] == "openai/gpt-4.1"
                 # Should not pass api_key (OpenRouterAgent reads from env)
                 assert "api_key" not in call_kwargs
 
