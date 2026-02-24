@@ -322,7 +322,10 @@ class TestCalibrationEndpoint:
         assert claude["games_played"] == 40
 
     def test_empty_elo(self):
-        h = _make_handler(elo_system=MockEloSystem(agents={}))
+        empty_elo = MockEloSystem(agents={})
+        # Ensure get_all_ratings returns empty dict
+        assert empty_elo.get_all_ratings() == {}
+        h = _make_handler(elo_system=empty_elo)
         result = h.handle("/api/v1/differentiation/calibration", {}, None)
         data = _parse_data(result)
 
