@@ -958,18 +958,14 @@ class AsyncCostsAPI:
         params: dict[str, Any] = {}
         if workspace_id:
             params["workspace_id"] = workspace_id
-        return await self._client.request(
-            "GET", "/api/v1/costs/analytics/by-agent", params=params
-        )
+        return await self._client.request("GET", "/api/v1/costs/analytics/by-agent", params=params)
 
     async def get_spend_by_model(self, workspace_id: str | None = None) -> dict[str, Any]:
         """Get per-model cost breakdown."""
         params: dict[str, Any] = {}
         if workspace_id:
             params["workspace_id"] = workspace_id
-        return await self._client.request(
-            "GET", "/api/v1/costs/analytics/by-model", params=params
-        )
+        return await self._client.request("GET", "/api/v1/costs/analytics/by-model", params=params)
 
     async def get_spend_by_debate(
         self,
@@ -980,9 +976,7 @@ class AsyncCostsAPI:
         params: dict[str, Any] = {"limit": limit}
         if workspace_id:
             params["workspace_id"] = workspace_id
-        return await self._client.request(
-            "GET", "/api/v1/costs/analytics/by-debate", params=params
-        )
+        return await self._client.request("GET", "/api/v1/costs/analytics/by-debate", params=params)
 
     async def get_budget_utilization(self, workspace_id: str | None = None) -> dict[str, Any]:
         """Get budget utilization percentage and remaining budget."""
