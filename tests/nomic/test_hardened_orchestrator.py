@@ -2423,6 +2423,8 @@ class TestCoordinatedGoldPath:
             patch(
                 "aragora.nomic.feedback_orchestrator.SelfImproveFeedbackOrchestrator",
             ) as MockFeedback,
+            patch.object(orch, "_record_orchestration_outcome", new_callable=AsyncMock),
+            patch.object(orch, "_detect_km_contradictions", new_callable=AsyncMock),
         ):
             MockFeedback.return_value.run.return_value = mock_feedback_report
             MockCoord.return_value.coordinate_parallel_work = AsyncMock(
@@ -2499,6 +2501,8 @@ class TestCoordinatedGoldPath:
             patch(
                 "aragora.nomic.feedback_orchestrator.SelfImproveFeedbackOrchestrator",
             ) as MockFeedback,
+            patch.object(orch, "_record_orchestration_outcome", new_callable=AsyncMock),
+            patch.object(orch, "_detect_km_contradictions", new_callable=AsyncMock),
         ):
             MockFeedback.return_value.run.return_value = mock_feedback_report
             MockCoord.return_value.coordinate_parallel_work = AsyncMock(
@@ -2638,6 +2642,8 @@ class TestCoordinatedGoldPath:
             patch(
                 "aragora.nomic.feedback_orchestrator.SelfImproveFeedbackOrchestrator",
             ) as MockFeedback,
+            patch.object(orch, "_record_orchestration_outcome", new_callable=AsyncMock),
+            patch.object(orch, "_detect_km_contradictions", new_callable=AsyncMock),
         ):
             MockFeedback.return_value.run.return_value = mock_feedback_report
             MockCoord.return_value.coordinate_parallel_work = AsyncMock(

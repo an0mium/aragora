@@ -306,9 +306,10 @@ describe('AuthContext', () => {
         expect(result.current.isLoading).toBe(false);
       });
 
-      // Mock refresh failure
+      // Mock refresh failure (401 triggers auth clearing)
       mockFetch.mockResolvedValueOnce({
         ok: false,
+        status: 401,
         json: () => Promise.resolve({ error: 'Invalid refresh token' }),
       });
 

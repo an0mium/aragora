@@ -18,7 +18,6 @@ from aragora.server.handlers.base import (
     HandlerResult,
     json_response,
 )
-from aragora.server.handlers.utils.decorators import handle_errors
 
 logger = logging.getLogger(__name__)
 
@@ -99,7 +98,6 @@ class PlatformConfigHandler(BaseHandler):
             return method == "GET"
         return False
 
-    @handle_errors
     def handle(
         self,
         path: str,
