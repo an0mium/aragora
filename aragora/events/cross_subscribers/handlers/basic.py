@@ -355,15 +355,22 @@ class BasicHandlersMixin:
         logger.debug("Gauntlet complete: %s verdict=%s", gauntlet_id, verdict)
 
         try:
+            import asyncio
+
             from aragora.notifications.service import notify_gauntlet_completed
 
-            notify_gauntlet_completed(
+            coro = notify_gauntlet_completed(
                 gauntlet_id=gauntlet_id,
                 verdict=verdict,
                 confidence=confidence,
                 total_findings=total_findings,
                 critical_count=critical_count,
             )
+            try:
+                loop = asyncio.get_running_loop()
+                loop.create_task(coro)
+            except RuntimeError:
+                asyncio.run(coro)
         except ImportError:
             pass  # Notification service not available
         except (RuntimeError, TypeError, ValueError, OSError) as e:
@@ -417,10 +424,10 @@ class BasicHandlersMixin:
         logger.debug(f"Learning from consensus: {debate_id} confidence={confidence:.2f}")
 
         try:
-            from aragora.debate.selection_feedback import get_selection_feedback_loop
+            from aragora.debate.selection_feedback import SelectionFeedbackLoop
 
-            loop = get_selection_feedback_loop()
-            if loop and hasattr(loop, "process_debate_outcome"):
+            loop = SelectionFeedbackLoop()
+            if hasattr(loop, "process_debate_outcome"):
                 loop.process_debate_outcome(
                     debate_id=debate_id,
                     confidence=confidence,
@@ -475,10 +482,10 @@ class BasicHandlersMixin:
             return
 
         try:
-            from aragora.reasoning.belief import get_belief_network
+            from aragora.reasoning.belief import BeliefNetwork
 
-            network = get_belief_network()
-            if network and hasattr(network, "update_belief"):
+            network = BeliefNetwork()
+            if hasattr(network, "update_belief"):
                 network.update_belief(
                     agent=agent_name,
                     position=position,
@@ -539,12 +546,19 @@ class BasicHandlersMixin:
                 "key_arguments": data.get("key_arguments", [])[:10],
             }
 
-            mound.ingest(
-                content=str(outcome_content),
-                source=f"debate:{debate_id}",
-                node_type="debate_outcome",
-                metadata=outcome_content,
-            )
+            import asyncio
+
+            item = {
+                "content": str(outcome_content),
+                "source": f"debate:{debate_id}",
+                "node_type": "debate_outcome",
+                "metadata": outcome_content,
+            }
+            try:
+                loop = asyncio.get_running_loop()
+                loop.create_task(mound.ingest(item))
+            except RuntimeError:
+                asyncio.run(mound.ingest(item))
             logger.debug("Persisted debate outcome to KM: %s", debate_id)
         except ImportError:
             pass  # Knowledge Mound not available
@@ -623,12 +637,19 @@ class BasicHandlersMixin:
             if not success and outcome["error"]:
                 content += f". Error: {outcome['error'][:200]}"
 
-            mound.ingest(
-                content=content,
-                source=f"workflow:{workflow_id}",
-                node_type="workflow_outcome",
-                metadata=outcome,
-            )
+            import asyncio
+
+            wf_item = {
+                "content": content,
+                "source": f"workflow:{workflow_id}",
+                "node_type": "workflow_outcome",
+                "metadata": outcome,
+            }
+            try:
+                loop = asyncio.get_running_loop()
+                loop.create_task(mound.ingest(wf_item))
+            except RuntimeError:
+                asyncio.run(mound.ingest(wf_item))
             logger.debug("Workflow outcome stored in KM: %s", workflow_id)
         except ImportError:
             pass  # Knowledge Mound not available

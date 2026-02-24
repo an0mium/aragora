@@ -932,11 +932,21 @@ class TestCheckStripeHealth:
 class TestCheckSlackHealth:
     """Tests for check_slack_health() - Slack API connectivity."""
 
+    SAFE_POST_PATH = "aragora.security.safe_http.safe_post"
+
     @pytest.fixture(autouse=True)
     def _clean_env(self, monkeypatch):
         """Remove Slack env vars."""
         monkeypatch.delenv("SLACK_BOT_TOKEN", raising=False)
         monkeypatch.delenv("SLACK_TOKEN", raising=False)
+
+    def _make_response(self, status_code: int = 200, json_data: dict | None = None) -> MagicMock:
+        """Create a mock response object."""
+        mock_response = MagicMock()
+        mock_response.status_code = status_code
+        if json_data is not None:
+            mock_response.json.return_value = json_data
+        return mock_response
 
     def test_not_configured(self):
         """No Slack token -> healthy, not configured."""
@@ -949,14 +959,9 @@ class TestCheckSlackHealth:
         """Reads SLACK_BOT_TOKEN from environment."""
         monkeypatch.setenv("SLACK_BOT_TOKEN", "xoxb-test-token")
 
-        mock_httpx = MagicMock()
-        mock_response = MagicMock()
-        mock_response.status_code = 200
-        mock_response.json.return_value = {"ok": True, "team": "TestTeam", "user": "bot"}
-        mock_httpx.post.return_value = mock_response
-        mock_httpx.TimeoutException = type("TimeoutException", (Exception,), {})
+        mock_response = self._make_response(200, {"ok": True, "team": "TestTeam", "user": "bot"})
 
-        with patch.dict("sys.modules", {"httpx": mock_httpx}):
+        with patch(self.SAFE_POST_PATH, return_value=mock_response):
             result = check_slack_health()
             assert result["configured"] is True
 
@@ -964,14 +969,9 @@ class TestCheckSlackHealth:
         """Falls back to SLACK_TOKEN."""
         monkeypatch.setenv("SLACK_TOKEN", "xoxb-test-token")
 
-        mock_httpx = MagicMock()
-        mock_response = MagicMock()
-        mock_response.status_code = 200
-        mock_response.json.return_value = {"ok": True, "team": "T", "user": "u"}
-        mock_httpx.post.return_value = mock_response
-        mock_httpx.TimeoutException = type("TimeoutException", (Exception,), {})
+        mock_response = self._make_response(200, {"ok": True, "team": "T", "user": "u"})
 
-        with patch.dict("sys.modules", {"httpx": mock_httpx}):
+        with patch(self.SAFE_POST_PATH, return_value=mock_response):
             result = check_slack_health()
             assert result["configured"] is True
 
@@ -979,18 +979,9 @@ class TestCheckSlackHealth:
         """Successful auth.test -> healthy with team and user."""
         monkeypatch.setenv("SLACK_BOT_TOKEN", "xoxb-test-token")
 
-        mock_httpx = MagicMock()
-        mock_response = MagicMock()
-        mock_response.status_code = 200
-        mock_response.json.return_value = {
-            "ok": True,
-            "team": "MyTeam",
-            "user": "mybot",
-        }
-        mock_httpx.post.return_value = mock_response
-        mock_httpx.TimeoutException = type("TimeoutException", (Exception,), {})
+        mock_response = self._make_response(200, {"ok": True, "team": "MyTeam", "user": "mybot"})
 
-        with patch.dict("sys.modules", {"httpx": mock_httpx}):
+        with patch(self.SAFE_POST_PATH, return_value=mock_response):
             result = check_slack_health()
             assert result["healthy"] is True
             assert result["team"] == "MyTeam"
@@ -1001,14 +992,9 @@ class TestCheckSlackHealth:
         """auth.test returns ok=false -> unhealthy."""
         monkeypatch.setenv("SLACK_BOT_TOKEN", "xoxb-bad-token")
 
-        mock_httpx = MagicMock()
-        mock_response = MagicMock()
-        mock_response.status_code = 200
-        mock_response.json.return_value = {"ok": False, "error": "invalid_auth"}
-        mock_httpx.post.return_value = mock_response
-        mock_httpx.TimeoutException = type("TimeoutException", (Exception,), {})
+        mock_response = self._make_response(200, {"ok": False, "error": "invalid_auth"})
 
-        with patch.dict("sys.modules", {"httpx": mock_httpx}):
+        with patch(self.SAFE_POST_PATH, return_value=mock_response):
             result = check_slack_health()
             assert result["healthy"] is False
             assert result["error"] == "invalid_auth"
@@ -1017,14 +1003,9 @@ class TestCheckSlackHealth:
         """auth.test ok=false without error key -> 'Unknown error'."""
         monkeypatch.setenv("SLACK_BOT_TOKEN", "xoxb-bad-token")
 
-        mock_httpx = MagicMock()
-        mock_response = MagicMock()
-        mock_response.status_code = 200
-        mock_response.json.return_value = {"ok": False}
-        mock_httpx.post.return_value = mock_response
-        mock_httpx.TimeoutException = type("TimeoutException", (Exception,), {})
+        mock_response = self._make_response(200, {"ok": False})
 
-        with patch.dict("sys.modules", {"httpx": mock_httpx}):
+        with patch(self.SAFE_POST_PATH, return_value=mock_response):
             result = check_slack_health()
             assert result["healthy"] is False
             assert result["error"] == "Unknown error"
@@ -1033,13 +1014,9 @@ class TestCheckSlackHealth:
         """Non-200 HTTP response -> unhealthy with HTTP status."""
         monkeypatch.setenv("SLACK_BOT_TOKEN", "xoxb-test-token")
 
-        mock_httpx = MagicMock()
-        mock_response = MagicMock()
-        mock_response.status_code = 500
-        mock_httpx.post.return_value = mock_response
-        mock_httpx.TimeoutException = type("TimeoutException", (Exception,), {})
+        mock_response = self._make_response(500)
 
-        with patch.dict("sys.modules", {"httpx": mock_httpx}):
+        with patch(self.SAFE_POST_PATH, return_value=mock_response):
             result = check_slack_health()
             assert result["healthy"] is False
             assert result["error"] == "HTTP 500"
@@ -1048,37 +1025,28 @@ class TestCheckSlackHealth:
         """403 response -> unhealthy with HTTP 403."""
         monkeypatch.setenv("SLACK_BOT_TOKEN", "xoxb-test-token")
 
-        mock_httpx = MagicMock()
-        mock_response = MagicMock()
-        mock_response.status_code = 403
-        mock_httpx.post.return_value = mock_response
-        mock_httpx.TimeoutException = type("TimeoutException", (Exception,), {})
+        mock_response = self._make_response(403)
 
-        with patch.dict("sys.modules", {"httpx": mock_httpx}):
+        with patch(self.SAFE_POST_PATH, return_value=mock_response):
             result = check_slack_health()
             assert result["healthy"] is False
             assert result["error"] == "HTTP 403"
 
     def test_import_error_returns_warning(self, monkeypatch):
-        """httpx not installed -> healthy with warning."""
+        """safe_http not available -> healthy with warning."""
         monkeypatch.setenv("SLACK_BOT_TOKEN", "xoxb-test-token")
 
-        with patch.dict("sys.modules", {"httpx": None}):
+        with patch.dict("sys.modules", {"aragora.security.safe_http": None}):
             result = check_slack_health()
             assert result["healthy"] is True
             assert result["configured"] is True
             assert "warning" in result
 
     def test_timeout_exception(self, monkeypatch):
-        """Timeout -> unhealthy with 'Health check failed'."""
+        """TimeoutError -> unhealthy with 'Health check failed'."""
         monkeypatch.setenv("SLACK_BOT_TOKEN", "xoxb-test-token")
 
-        mock_httpx = MagicMock()
-        timeout_exc = type("TimeoutException", (TimeoutError,), {})
-        mock_httpx.TimeoutException = timeout_exc
-        mock_httpx.post.side_effect = timeout_exc("timed out")
-
-        with patch.dict("sys.modules", {"httpx": mock_httpx}):
+        with patch(self.SAFE_POST_PATH, side_effect=TimeoutError("timed out")):
             result = check_slack_health()
             assert result["healthy"] is False
             assert result["error"] == "Health check failed"
@@ -1087,11 +1055,7 @@ class TestCheckSlackHealth:
         """ConnectionError -> unhealthy."""
         monkeypatch.setenv("SLACK_BOT_TOKEN", "xoxb-test-token")
 
-        mock_httpx = MagicMock()
-        mock_httpx.TimeoutException = type("TimeoutException", (Exception,), {})
-        mock_httpx.post.side_effect = ConnectionError("refused")
-
-        with patch.dict("sys.modules", {"httpx": mock_httpx}):
+        with patch(self.SAFE_POST_PATH, side_effect=ConnectionError("refused")):
             result = check_slack_health()
             assert result["healthy"] is False
             assert result["error"] == "Health check failed"
@@ -1100,11 +1064,7 @@ class TestCheckSlackHealth:
         """OSError -> unhealthy."""
         monkeypatch.setenv("SLACK_BOT_TOKEN", "xoxb-test-token")
 
-        mock_httpx = MagicMock()
-        mock_httpx.TimeoutException = type("TimeoutException", (Exception,), {})
-        mock_httpx.post.side_effect = OSError("network error")
-
-        with patch.dict("sys.modules", {"httpx": mock_httpx}):
+        with patch(self.SAFE_POST_PATH, side_effect=OSError("network error")):
             result = check_slack_health()
             assert result["healthy"] is False
             assert result["error"] == "Health check failed"
@@ -1113,11 +1073,7 @@ class TestCheckSlackHealth:
         """ValueError -> unhealthy."""
         monkeypatch.setenv("SLACK_BOT_TOKEN", "xoxb-test-token")
 
-        mock_httpx = MagicMock()
-        mock_httpx.TimeoutException = type("TimeoutException", (Exception,), {})
-        mock_httpx.post.side_effect = ValueError("bad url")
-
-        with patch.dict("sys.modules", {"httpx": mock_httpx}):
+        with patch(self.SAFE_POST_PATH, side_effect=ValueError("bad url")):
             result = check_slack_health()
             assert result["healthy"] is False
             assert result["error"] == "Health check failed"
@@ -1126,16 +1082,11 @@ class TestCheckSlackHealth:
         """Sends Authorization Bearer header with token."""
         monkeypatch.setenv("SLACK_BOT_TOKEN", "xoxb-test-token")
 
-        mock_httpx = MagicMock()
-        mock_response = MagicMock()
-        mock_response.status_code = 200
-        mock_response.json.return_value = {"ok": True, "team": "T", "user": "u"}
-        mock_httpx.post.return_value = mock_response
-        mock_httpx.TimeoutException = type("TimeoutException", (Exception,), {})
+        mock_response = self._make_response(200, {"ok": True, "team": "T", "user": "u"})
 
-        with patch.dict("sys.modules", {"httpx": mock_httpx}):
+        with patch(self.SAFE_POST_PATH, return_value=mock_response) as mock_safe_post:
             check_slack_health()
-            mock_httpx.post.assert_called_once_with(
+            mock_safe_post.assert_called_once_with(
                 "https://slack.com/api/auth.test",
                 headers={"Authorization": "Bearer xoxb-test-token"},
                 timeout=5.0,
@@ -1145,14 +1096,9 @@ class TestCheckSlackHealth:
         """Uses 5 second timeout for HTTP request."""
         monkeypatch.setenv("SLACK_BOT_TOKEN", "xoxb-test-token")
 
-        mock_httpx = MagicMock()
-        mock_response = MagicMock()
-        mock_response.status_code = 200
-        mock_response.json.return_value = {"ok": True, "team": "T", "user": "u"}
-        mock_httpx.post.return_value = mock_response
-        mock_httpx.TimeoutException = type("TimeoutException", (Exception,), {})
+        mock_response = self._make_response(200, {"ok": True, "team": "T", "user": "u"})
 
-        with patch.dict("sys.modules", {"httpx": mock_httpx}):
+        with patch(self.SAFE_POST_PATH, return_value=mock_response) as mock_safe_post:
             check_slack_health()
-            call_kwargs = mock_httpx.post.call_args
+            call_kwargs = mock_safe_post.call_args
             assert call_kwargs[1]["timeout"] == 5.0
