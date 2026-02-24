@@ -20,6 +20,7 @@ This package contains debate-related handlers split by domain:
 
 from .analysis import AnalysisOperationsMixin
 from .batch import BatchOperationsMixin
+from .costs import CostsMixin
 from .create import CreateOperationsMixin
 from .crud import CrudOperationsMixin
 from .diagnostics import DiagnosticsMixin
@@ -74,6 +75,7 @@ __all__ = [
     # Mixins
     "AnalysisOperationsMixin",
     "BatchOperationsMixin",
+    "CostsMixin",
     "CreateOperationsMixin",
     "CrudOperationsMixin",
     "DiagnosticsMixin",

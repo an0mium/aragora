@@ -255,23 +255,7 @@ async def create_pipeline_run(
 
         # Try to start the pipeline
         try:
-            from aragora.pipeline.idea_to_execution import (
-                IdeaToExecutionPipeline,
-                PipelineConfig,
-            )
-
-            pipeline_config = PipelineConfig(
-                stages_to_run=stages_to_run,
-                dry_run=config.get("dry_run", False),
-                human_approval_required=config.get("human_approval_required", False),
-            )
-
-            pipeline = IdeaToExecutionPipeline()
-            result = pipeline.from_ideas(
-                [body.idea],
-                auto_advance=not pipeline_config.human_approval_required,
-                pipeline_id=run_id,
-            )
+            result = _execute_pipeline(body.idea, run_id, stages_to_run, config)
 
             run_data["status"] = "completed"
             run_data["updated_at"] = time.strftime("%Y-%m-%dT%H:%M:%S")

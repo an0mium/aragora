@@ -41,6 +41,11 @@ KnowledgeVelocityHandler = _safe_import(
     "aragora.server.handlers.knowledge.velocity", "KnowledgeVelocityHandler"
 )
 
+# KM gap detection handler
+KnowledgeGapHandler = _safe_import(
+    "aragora.server.handlers.knowledge.gaps", "KnowledgeGapHandler"
+)
+
 # =============================================================================
 # Knowledge Handler Imports
 # =============================================================================
@@ -150,6 +155,7 @@ MEMORY_HANDLER_REGISTRY: list[tuple[str, object]] = [
     ("_km_checkpoint_handler", KMCheckpointHandler),
     ("_km_adapter_status_handler", KMAdapterStatusHandler),
     ("_km_velocity_handler", KnowledgeVelocityHandler),
+    ("_km_gap_handler", KnowledgeGapHandler),
     ("_knowledge_handler", KnowledgeHandler),
     ("_knowledge_mound_handler", KnowledgeMoundHandler),
     ("_knowledge_chat_handler", KnowledgeChatHandler),

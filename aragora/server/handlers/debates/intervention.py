@@ -29,6 +29,33 @@ _debate_state: dict[str, dict[str, Any]] = {}
 _intervention_log: list[dict[str, Any]] = []
 
 
+def _emit_intervention_event(
+    debate_id: str,
+    event_type: str,
+    data: dict[str, Any],
+) -> None:
+    """Broadcast an intervention event to connected WebSocket clients."""
+    try:
+        from aragora.events.types import StreamEvent, StreamEventType
+
+        event = StreamEvent(
+            type=getattr(StreamEventType, event_type, event_type),
+            data={"debate_id": debate_id, **data},
+            loop_id=debate_id,
+        )
+        # Try to get the global emitter for broadcast
+        try:
+            from aragora.server.stream.emitter import get_emitter
+
+            emitter = get_emitter()
+            if emitter is not None:
+                emitter.emit(event)
+        except (ImportError, AttributeError):
+            pass
+    except (ImportError, AttributeError, TypeError):
+        pass
+
+
 def get_debate_state(debate_id: str) -> dict[str, Any]:
     """Get or create debate state."""
     if debate_id not in _debate_state:
@@ -82,6 +109,9 @@ async def handle_pause_debate(debate_id: str, context: AuthorizationContext) -> 
     state["paused_at"] = datetime.now().isoformat()
 
     log_intervention(debate_id, "pause", {"paused_at": state["paused_at"]}, context.user_id)
+    _emit_intervention_event(debate_id, "INTERVENTION_PAUSE", {
+        "is_paused": True, "paused_at": state["paused_at"], "user_id": context.user_id,
+    })
 
     return json_response(
         {
@@ -131,6 +161,10 @@ async def handle_resume_debate(debate_id: str, context: AuthorizationContext) ->
         {"resumed_at": state["resumed_at"], "pause_duration_seconds": pause_duration},
         context.user_id,
     )
+    _emit_intervention_event(debate_id, "INTERVENTION_RESUME", {
+        "is_paused": False, "resumed_at": state["resumed_at"],
+        "pause_duration_seconds": pause_duration, "user_id": context.user_id,
+    })
 
     return json_response(
         {
@@ -201,6 +235,10 @@ async def handle_inject_argument(
         },
         user_id or context.user_id,
     )
+    _emit_intervention_event(debate_id, "INTERVENTION_INJECT", {
+        "injection_id": injection["id"], "type": injection_type,
+        "content_preview": content[:100], "user_id": user_id or context.user_id,
+    })
 
     return json_response(
         {

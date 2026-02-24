@@ -86,6 +86,13 @@ from .monitoring import (
     record_recovery_progress,
     record_recovery_completed,
 )
+from .offsite import (  # noqa: F401
+    OffsiteBackupConfig,
+    OffsiteBackupManager,
+    OffsiteBackupRecord,
+    RestoreDrillResult,
+    IntegrityResult as OffsiteIntegrityResult,
+)
 
 __all__ = [
     # Manager
@@ -132,4 +139,10 @@ __all__ = [
     "set_recovery_monitor",
     "record_recovery_progress",
     "record_recovery_completed",
+    # Offsite Backup
+    "OffsiteBackupConfig",
+    "OffsiteBackupManager",
+    "OffsiteBackupRecord",
+    "RestoreDrillResult",
+    "OffsiteIntegrityResult",
 ]

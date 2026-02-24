@@ -23,6 +23,7 @@ AnalyticsDashboardHandler = _safe_import("aragora.server.handlers", "AnalyticsDa
 EndpointAnalyticsHandler = _safe_import("aragora.server.handlers", "EndpointAnalyticsHandler")
 AnalyticsMetricsHandler = _safe_import("aragora.server.handlers", "AnalyticsMetricsHandler")
 AnalyticsPerformanceHandler = _safe_import("aragora.server.handlers", "AnalyticsPerformanceHandler")
+OutcomeAnalyticsHandler = _safe_import("aragora.server.handlers", "OutcomeAnalyticsHandler")
 
 # Memory analytics
 MemoryAnalyticsHandler = _safe_import("aragora.server.handlers", "MemoryAnalyticsHandler")
@@ -134,6 +135,7 @@ ANALYTICS_HANDLER_REGISTRY: list[tuple[str, object]] = [
     ("_endpoint_analytics_handler", EndpointAnalyticsHandler),
     ("_analytics_metrics_handler", AnalyticsMetricsHandler),
     ("_analytics_performance_handler", AnalyticsPerformanceHandler),
+    ("_outcome_analytics_handler", OutcomeAnalyticsHandler),
     ("_metrics_handler", MetricsHandler),
     ("_unified_metrics_handler", UnifiedMetricsHandler),
     ("_slo_handler", SLOHandler),
@@ -177,6 +179,7 @@ __all__ = [
     "EndpointAnalyticsHandler",
     "AnalyticsMetricsHandler",
     "AnalyticsPerformanceHandler",
+    "OutcomeAnalyticsHandler",
     "MemoryAnalyticsHandler",
     "CrossPlatformAnalyticsHandler",
     "AnalyticsPlatformsHandler",

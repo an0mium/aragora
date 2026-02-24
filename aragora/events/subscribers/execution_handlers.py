@@ -214,9 +214,9 @@ class ExecutionHandlersMixin:
         try:
             from aragora.knowledge.bridges import KnowledgeBridgeHub
 
-            from aragora.knowledge.mound import KnowledgeMound
+            from aragora.knowledge.mound import get_knowledge_mound
 
-            mound = KnowledgeMound(workspace_id=workspace_id or "default")
+            mound = get_knowledge_mound(workspace_id=workspace_id or "default")
             hub = KnowledgeBridgeHub(mound)
             if not hasattr(hub, "meta_learner") or hub.meta_learner is None:
                 return

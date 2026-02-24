@@ -480,7 +480,8 @@ class ReliableWebSocket(ReliableConnection):
         Returns True if sent immediately, False if buffered or dropped.
         """
         if self._state != ConnectionState.CONNECTED or self._ws is None:
-            return self.buffer_message(message)
+            self.buffer_message(message)
+            return False
 
         try:
             await self._ws.send(message)

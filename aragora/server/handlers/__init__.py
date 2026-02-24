@@ -153,6 +153,7 @@ if TYPE_CHECKING:
     from ._analytics_impl import AnalyticsHandler
     from .analytics_dashboard import AnalyticsDashboardHandler
     from ._analytics_metrics_impl import AnalyticsMetricsHandler
+    from .outcome_analytics import OutcomeAnalyticsHandler
     from .ap_automation import APAutomationHandler
     from .ar_automation import ARAutomationHandler
     from .audit_trail import AuditTrailHandler

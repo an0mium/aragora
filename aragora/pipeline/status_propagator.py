@@ -165,7 +165,37 @@ class StatusPropagator:
             logger.debug("Status event emission failed: %s", e)
 
 
+def create_stream_emit_callback(pipeline_id: str) -> Any:
+    """Create a status event callback wired to the PipelineStreamEmitter.
+
+    Returns a sync callback that schedules async emission on the running loop.
+    The callback is suitable for passing as ``emit_event`` to StatusPropagator.
+    """
+    import asyncio as _asyncio
+
+    def callback(event_type: str, data: dict[str, Any]) -> None:
+        try:
+            from aragora.server.stream.pipeline_stream import get_pipeline_emitter
+
+            emitter = get_pipeline_emitter()
+            node_id = data.get("node_id", "")
+            status = data.get("status", "")
+            loop = _asyncio.get_running_loop()
+            loop.create_task(
+                emitter.emit_node_status_changed(
+                    pipeline_id=pipeline_id,
+                    node_id=node_id,
+                    status=status,
+                )
+            )
+        except (ImportError, RuntimeError, AttributeError) as e:
+            logger.debug("Stream emission callback failed: %s", e)
+
+    return callback
+
+
 __all__ = [
     "StatusPropagator",
     "EXECUTION_STATUSES",
+    "create_stream_emit_callback",
 ]

@@ -46,6 +46,13 @@ from .debate_analytics import (
     DebateDashboardSummary,
     get_debate_analytics,
 )
+from .outcome_analytics import (
+    OutcomeAnalytics,
+    QualityDataPoint,
+    OutcomeSummary,
+    AgentContribution,
+    get_outcome_analytics,
+)
 
 __all__ = [
     "AnalyticsDashboard",
@@ -74,4 +81,10 @@ __all__ = [
     "CostBreakdown",
     "DebateDashboardSummary",
     "get_debate_analytics",
+    # Outcome Analytics
+    "OutcomeAnalytics",
+    "QualityDataPoint",
+    "OutcomeSummary",
+    "AgentContribution",
+    "get_outcome_analytics",
 ]

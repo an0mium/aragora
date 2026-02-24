@@ -36,6 +36,7 @@ HANDLER_MODULES: dict[str, str] = {
     "EndpointAnalyticsHandler": "aragora.server.handlers.endpoint_analytics",
     "AnalyticsMetricsHandler": "aragora.server.handlers._analytics_metrics_impl",
     "AnalyticsPerformanceHandler": "aragora.server.handlers.analytics_performance",
+    "OutcomeAnalyticsHandler": "aragora.server.handlers.outcome_analytics",
     # autonomous/ directory
     "ApprovalHandler": "aragora.server.handlers.autonomous",
     "AlertHandler": "aragora.server.handlers.autonomous",

@@ -59,6 +59,12 @@ export type StreamEventType =
   | 'rhetorical_observation'
   // Crux detection (key disagreements)
   | 'crux_detected'
+  // User intervention events (mid-debate controls)
+  | 'intervention_pause'
+  | 'intervention_resume'
+  | 'intervention_inject'
+  | 'intervention_weight'
+  | 'intervention_threshold'
   // Token streaming events
   | 'token_start'
   | 'token_delta'

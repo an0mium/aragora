@@ -213,7 +213,7 @@ class TestTeamsDebateLifecycleInit:
 
     def test_lazy_integration_property(self):
         lc = TeamsDebateLifecycle()
-        with patch("aragora.integrations.teams_debate.TeamsIntegration") as mock_cls:
+        with patch("aragora.integrations.teams.TeamsIntegration") as mock_cls:
             mock_cls.return_value = MagicMock()
             integration = lc.integration
             mock_cls.assert_called_once()
@@ -278,7 +278,7 @@ class TestStartDebateFromThread:
             lifecycle, "_send_card_to_thread", new_callable=AsyncMock, return_value=True
         ):
             with patch(
-                "aragora.integrations.teams_debate.register_debate_origin"
+                "aragora.server.debate_origin.register_debate_origin"
             ) as mock_register:
                 await lifecycle.start_debate_from_thread(
                     channel_id="19:abc@thread.tacv2",
@@ -301,7 +301,7 @@ class TestStartDebateFromThread:
             lifecycle, "_send_card_to_thread", new_callable=AsyncMock, return_value=True
         ):
             with patch(
-                "aragora.integrations.teams_debate.register_debate_origin",
+                "aragora.server.debate_origin.register_debate_origin",
                 side_effect=RuntimeError("DB error"),
             ):
                 debate_id = await lifecycle.start_debate_from_thread(

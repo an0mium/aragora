@@ -246,6 +246,86 @@ class PipelineStreamEmitter:
             },
         )
 
+    async def emit_node_status_changed(
+        self,
+        pipeline_id: str,
+        node_id: str,
+        status: str,
+        previous_status: str = "",
+        **extra: Any,
+    ) -> None:
+        """Emit a node execution status change for live DAG tracking."""
+        await self.emit(
+            pipeline_id,
+            StreamEventType.PIPELINE_STEP_PROGRESS,
+            {
+                "event": "node_status_changed",
+                "node_id": node_id,
+                "status": status,
+                "previous_status": previous_status,
+                "changed_at": time.time(),
+                **extra,
+            },
+        )
+
+    async def emit_agent_assigned(
+        self,
+        pipeline_id: str,
+        node_id: str,
+        agent: str,
+        agent_pool: list[str] | None = None,
+    ) -> None:
+        """Emit an agent assignment event for a DAG node."""
+        await self.emit(
+            pipeline_id,
+            StreamEventType.PIPELINE_STEP_PROGRESS,
+            {
+                "event": "agent_assigned",
+                "node_id": node_id,
+                "agent": agent,
+                "agent_pool": agent_pool or [],
+                "assigned_at": time.time(),
+            },
+        )
+
+    async def emit_execution_started_for_node(
+        self,
+        pipeline_id: str,
+        node_id: str,
+        agent: str = "",
+    ) -> None:
+        """Emit execution started event for a specific node."""
+        await self.emit(
+            pipeline_id,
+            StreamEventType.PIPELINE_STEP_PROGRESS,
+            {
+                "event": "node_execution_started",
+                "node_id": node_id,
+                "agent": agent,
+                "started_at": time.time(),
+            },
+        )
+
+    async def emit_execution_completed_for_node(
+        self,
+        pipeline_id: str,
+        node_id: str,
+        success: bool = True,
+        duration_seconds: float = 0.0,
+    ) -> None:
+        """Emit execution completed event for a specific node."""
+        await self.emit(
+            pipeline_id,
+            StreamEventType.PIPELINE_STEP_PROGRESS,
+            {
+                "event": "node_execution_completed",
+                "node_id": node_id,
+                "success": success,
+                "duration_seconds": duration_seconds,
+                "completed_at": time.time(),
+            },
+        )
+
     async def emit_transition_pending(
         self,
         pipeline_id: str,
