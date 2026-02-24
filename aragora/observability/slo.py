@@ -101,6 +101,12 @@ DEFAULT_AVAILABILITY_TARGET = 0.999  # 99.9%
 DEFAULT_LATENCY_P99_MS = 500  # 500ms
 DEFAULT_DEBATE_SUCCESS_TARGET = 0.95  # 95%
 
+# Streaming SLO targets
+DEFAULT_STREAM_ERROR_RATE_TARGET = 0.005  # <= 0.5% (5-minute window)
+DEFAULT_STREAM_RECONNECT_P95_TARGET_S = 5.0  # <= 5 seconds
+DEFAULT_STREAM_MESSAGE_DELIVERY_TARGET = 0.995  # >= 99.5%
+DEFAULT_TTS_SYNTHESIS_LATENCY_P95_TARGET_S = 3.0  # <= 3 seconds
+
 
 def get_slo_targets() -> dict[str, SLOTarget]:
     """Get configured SLO targets from environment.

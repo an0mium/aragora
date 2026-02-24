@@ -47,8 +47,8 @@ from .nomic_admin import NomicAdminMixin, PERM_ADMIN_NOMIC_WRITE, PERM_ADMIN_SYS
 
 logger = logging.getLogger(__name__)
 
-# Admin roles that can access admin endpoints
-ADMIN_ROLES = {"admin", "owner"}
+# Admin roles that can access admin endpoints (aligned with DEFAULT_MFA_REQUIRED_ROLES)
+ADMIN_ROLES = {"admin", "owner", "superadmin", "super_admin", "org_admin", "workspace_admin", "security_admin", "compliance_officer"}
 
 # Rate limiter for admin endpoints (10 requests per minute - sensitive operations)
 _admin_limiter = RateLimiter(requests_per_minute=10)

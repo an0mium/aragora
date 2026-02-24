@@ -8,6 +8,8 @@ Environment variable pattern:
   TAX_{JURISDICTION}_SEARCH_METHOD (GET/POST)
   TAX_{JURISDICTION}_SEARCH_QUERY_PARAM
   TAX_{JURISDICTION}_SEARCH_LIMIT_PARAM
+
+Production quality: circuit breaker, retry with backoff, query sanitization.
 """
 
 from __future__ import annotations
@@ -16,9 +18,11 @@ import asyncio
 import hashlib
 import logging
 import os
+import re
 from typing import Any
 
 from aragora.connectors.base import BaseConnector, Evidence
+from aragora.connectors.exceptions import ConnectorError
 from aragora.reasoning.provenance import ProvenanceManager, SourceType
 
 logger = logging.getLogger(__name__)
@@ -29,6 +33,15 @@ try:
     HTTPX_AVAILABLE = True
 except ImportError:
     HTTPX_AVAILABLE = False
+
+_SAFE_QUERY_RE = re.compile(r"[^\w\s@.\-+/:]")
+MAX_QUERY_LENGTH = 500
+
+
+def _sanitize_query(query: str) -> str:
+    """Sanitize query to prevent injection."""
+    query = query[:MAX_QUERY_LENGTH]
+    return _SAFE_QUERY_RE.sub("", query).strip()
 
 
 class GenericTaxConnector(BaseConnector):

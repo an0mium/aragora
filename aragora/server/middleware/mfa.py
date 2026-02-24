@@ -233,8 +233,9 @@ def require_admin_mfa(func: Callable) -> Callable:
             return error_response("Authentication required", 401)
 
         # Check if user is admin/owner
-        admin_roles = {"admin", "owner", "superadmin"}
-        if user.role in admin_roles:
+        from aragora.auth.mfa_enforcement import DEFAULT_MFA_REQUIRED_ROLES
+
+        if user.role in DEFAULT_MFA_REQUIRED_ROLES:
             # Admin users MUST have MFA enabled (unless service account with bypass)
             user_store = _get_user_store_from_handler(handler)
             mfa_enabled = False

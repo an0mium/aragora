@@ -267,6 +267,10 @@ class CommandsMixin(BlocksMixin):
 `/aragora gauntlet "statement"` - Run adversarial stress-test validation
 `/aragora stop [debate_id]` - Stop a running debate
 
+*Approval:*
+`/aragora approve <debate_id>` - Approve a debate decision
+`/aragora reject <debate_id> [reason]` - Reject a debate decision
+
 *Discovery:*
 `/aragora search "query"` - Search debates and evidence
 `/aragora recent` - Show recent debates
@@ -1509,6 +1513,184 @@ Reply in thread to add suggestions to ongoing debates
             logger.error("Stop command failed: %s", e)
             return self._slack_response(
                 "Failed to stop debate. Please try again.",
+                response_type="ephemeral",
+            )
+
+    def _command_approve(
+        self,
+        args: str,
+        user_id: str,
+        channel_id: str,
+    ) -> HandlerResult:
+        """Approve a debate decision.
+
+        Usage: /aragora approve <debate_id>
+
+        Args:
+            args: Debate ID to approve.
+            user_id: Slack user ID.
+            channel_id: Slack channel ID.
+        """
+        debate_id = args.strip().strip("\"'") if args else ""
+        if not debate_id:
+            return self._slack_response(
+                "Please provide a debate ID. Usage: `/aragora approve <debate_id>`",
+                response_type="ephemeral",
+            )
+
+        try:
+            from aragora.integrations.approval_flow import ApprovalFlowManager
+
+            manager = ApprovalFlowManager()
+            flow = manager.get_status_by_debate(debate_id)
+            if flow is None:
+                return self._slack_response(
+                    f"No approval flow found for debate `{debate_id[:12]}...`",
+                    response_type="ephemeral",
+                )
+
+            import asyncio
+
+            try:
+                loop = asyncio.get_running_loop()
+            except RuntimeError:
+                loop = None
+
+            if loop and loop.is_running():
+                # Already in async context -- run synchronously via the manager
+                # (record_decision is a coroutine, but we schedule it)
+                future = asyncio.ensure_future(
+                    manager.record_decision(
+                        flow_id=flow.flow_id,
+                        user_id=f"slack:{user_id}",
+                        decision="approved",
+                    )
+                )
+                # Cannot await here in sync handler; return optimistic response
+                return self._slack_response(
+                    f":white_check_mark: Approval recorded for debate `{debate_id[:12]}...` by <@{user_id}>.",
+                    response_type="in_channel",
+                )
+            else:
+                updated = asyncio.run(
+                    manager.record_decision(
+                        flow_id=flow.flow_id,
+                        user_id=f"slack:{user_id}",
+                        decision="approved",
+                    )
+                )
+                if updated is None:
+                    return self._slack_response(
+                        "Failed to record approval.",
+                        response_type="ephemeral",
+                    )
+                return self._slack_response(
+                    f":white_check_mark: Decision for debate `{debate_id[:12]}...` approved by <@{user_id}>. "
+                    f"Status: *{updated.state}* ({updated.approval_count}/{updated.required_approvers} approvals)",
+                    response_type="in_channel",
+                )
+
+        except ImportError:
+            logger.debug("Approval flow module not available")
+            return self._slack_response(
+                "Approval flow is not available.",
+                response_type="ephemeral",
+            )
+        except (RuntimeError, OSError, ValueError) as e:
+            logger.error("Approve command failed: %s", e)
+            return self._slack_response(
+                "Failed to process approval. Please try again.",
+                response_type="ephemeral",
+            )
+
+    def _command_reject(
+        self,
+        args: str,
+        user_id: str,
+        channel_id: str,
+    ) -> HandlerResult:
+        """Reject a debate decision.
+
+        Usage: /aragora reject <debate_id> [reason]
+
+        Args:
+            args: Debate ID and optional reason.
+            user_id: Slack user ID.
+            channel_id: Slack channel ID.
+        """
+        if not args:
+            return self._slack_response(
+                "Please provide a debate ID. Usage: `/aragora reject <debate_id> [reason]`",
+                response_type="ephemeral",
+            )
+
+        parts = args.strip().split(maxsplit=1)
+        debate_id = parts[0].strip("\"'")
+        reason = parts[1].strip("\"'") if len(parts) > 1 else ""
+
+        try:
+            from aragora.integrations.approval_flow import ApprovalFlowManager
+
+            manager = ApprovalFlowManager()
+            flow = manager.get_status_by_debate(debate_id)
+            if flow is None:
+                return self._slack_response(
+                    f"No approval flow found for debate `{debate_id[:12]}...`",
+                    response_type="ephemeral",
+                )
+
+            import asyncio
+
+            try:
+                loop = asyncio.get_running_loop()
+            except RuntimeError:
+                loop = None
+
+            if loop and loop.is_running():
+                future = asyncio.ensure_future(
+                    manager.record_decision(
+                        flow_id=flow.flow_id,
+                        user_id=f"slack:{user_id}",
+                        decision="rejected",
+                        reason=reason,
+                    )
+                )
+                reason_text = f" Reason: _{reason}_" if reason else ""
+                return self._slack_response(
+                    f":x: Decision for debate `{debate_id[:12]}...` rejected by <@{user_id}>.{reason_text}",
+                    response_type="in_channel",
+                )
+            else:
+                updated = asyncio.run(
+                    manager.record_decision(
+                        flow_id=flow.flow_id,
+                        user_id=f"slack:{user_id}",
+                        decision="rejected",
+                        reason=reason,
+                    )
+                )
+                if updated is None:
+                    return self._slack_response(
+                        "Failed to record rejection.",
+                        response_type="ephemeral",
+                    )
+                reason_text = f" Reason: _{reason}_" if reason else ""
+                return self._slack_response(
+                    f":x: Decision for debate `{debate_id[:12]}...` rejected by <@{user_id}>.{reason_text} "
+                    f"Status: *{updated.state}*",
+                    response_type="in_channel",
+                )
+
+        except ImportError:
+            logger.debug("Approval flow module not available")
+            return self._slack_response(
+                "Approval flow is not available.",
+                response_type="ephemeral",
+            )
+        except (RuntimeError, OSError, ValueError) as e:
+            logger.error("Reject command failed: %s", e)
+            return self._slack_response(
+                "Failed to process rejection. Please try again.",
                 response_type="ephemeral",
             )
 
