@@ -97,6 +97,9 @@ jobs:
       - name: Build frontend (static export)
         working-directory: aragora/live
         run: npm run build:export
+        env:
+          NEXT_PUBLIC_BUILD_SHA: ${{ github.sha }}
+          NEXT_PUBLIC_BUILD_TIME: ${{ github.event.head_commit.timestamp || github.event.repository.updated_at }}
 
       - name: Verify static export
         working-directory: aragora/live
@@ -115,6 +118,16 @@ jobs:
         env:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+
+      - name: Purge Cloudflare cache
+        if: success()
+        run: |
+          curl -sf -X POST \
+            "https://api.cloudflare.com/client/v4/zones/${{ secrets.CLOUDFLARE_ZONE_ID }}/purge_cache" \
+            -H "Authorization: Bearer ${{ secrets.CLOUDFLARE_API_TOKEN }}" \
+            -H "Content-Type: application/json" \
+            --data '{"purge_everything":true}' \
+            | jq '.success' || echo "::warning::Cloudflare cache purge failed (zone ID may not be configured)"
 
   deploy-ec2-staging:
     needs: test
@@ -157,6 +170,25 @@ jobs:
           echo "instance_ids=$INSTANCE_IDS_CSV" >> $GITHUB_OUTPUT
           echo "Found $COUNT staging instance(s): $INSTANCE_IDS_CSV"
 
+      - name: Pre-deploy instance health check
+        run: |
+          echo "Verifying instance health before deployment..."
+          IFS=',' read -ra IDS <<< "${{ steps.get-instance.outputs.instance_ids }}"
+          for INST_ID in "${IDS[@]}"; do
+            STATUS=$(aws ec2 describe-instance-status \
+              --instance-ids "$INST_ID" \
+              --query 'InstanceStatuses[0].[InstanceStatus.Status, SystemStatus.Status]' \
+              --output text 2>/dev/null || echo "unknown unknown")
+            INST_STATUS=$(echo "$STATUS" | awk '{print $1}')
+            SYS_STATUS=$(echo "$STATUS" | awk '{print $2}')
+            if [[ "$INST_STATUS" != "ok" ]] || [[ "$SYS_STATUS" != "ok" ]]; then
+              echo "::error::Instance $INST_ID health check failed: instance=$INST_STATUS system=$SYS_STATUS (expected: ok/ok)"
+              exit 1
+            fi
+            echo "Instance $INST_ID: instance=$INST_STATUS system=$SYS_STATUS"
+          done
+          echo "All instances healthy"
+
       - name: Deploy via SSM
         id: deploy
         run: |
@@ -193,6 +225,8 @@ jobs:
               "echo \"Environment=ARAGORA_DB_BACKEND=postgres\" | sudo tee -a /etc/systemd/system/aragora.service.d/secrets.conf",
               "echo \"Environment=ARAGORA_ENV=staging\" | sudo tee -a /etc/systemd/system/aragora.service.d/secrets.conf",
               "echo \"Environment=ARAGORA_SECRETS_STRICT=false\" | sudo tee -a /etc/systemd/system/aragora.service.d/secrets.conf",
+              "echo \"Environment=ARAGORA_BUILD_SHA=$(git rev-parse HEAD)\" | sudo tee -a /etc/systemd/system/aragora.service.d/secrets.conf",
+              "echo \"Environment=ARAGORA_BUILD_TIME=$(date -u +%Y-%m-%dT%H:%M:%SZ)\" | sudo tee -a /etc/systemd/system/aragora.service.d/secrets.conf",
               "sudo systemctl daemon-reload",
               "echo \"Initializing PostgreSQL stores...\"",
               "export ARAGORA_USE_SECRETS_MANAGER=true",
@@ -215,18 +249,40 @@ jobs:
           echo "command_id=$COMMAND_ID" >> $GITHUB_OUTPUT
           echo "Started deployment command: $COMMAND_ID"
 
-          # Poll for command completion (up to 5 minutes)
-          for i in {1..60}; do
+          # Poll for command completion (up to 5 minutes) with error handling and backoff
+          MAX_POLL=60
+          CONSECUTIVE_ERRORS=0
+          MAX_CONSECUTIVE_ERRORS=5
+          BACKOFF=5
+          RESULT="Pending"
+          for i in $(seq 1 $MAX_POLL); do
             RESULT=$(aws ssm get-command-invocation \
               --command-id "$COMMAND_ID" \
               --instance-id "${{ steps.get-instance.outputs.instance_id }}" \
               --query 'Status' \
-              --output text 2>/dev/null || echo "Pending")
+              --output text 2>/dev/null)
+            EXIT_CODE=$?
+
+            if [[ $EXIT_CODE -ne 0 ]]; then
+              CONSECUTIVE_ERRORS=$((CONSECUTIVE_ERRORS + 1))
+              echo "::warning::SSM API error (attempt $i, consecutive errors: $CONSECUTIVE_ERRORS/$MAX_CONSECUTIVE_ERRORS)"
+              if [[ $CONSECUTIVE_ERRORS -ge $MAX_CONSECUTIVE_ERRORS ]]; then
+                echo "::error::Too many consecutive SSM API errors ($CONSECUTIVE_ERRORS), aborting"
+                exit 1
+              fi
+              BACKOFF=$((BACKOFF * 2 > 30 ? 30 : BACKOFF * 2))
+              RESULT="Pending"
+              sleep $BACKOFF
+              continue
+            fi
+
+            CONSECUTIVE_ERRORS=0
+            BACKOFF=5
 
             if [[ "$RESULT" == "Success" ]] || [[ "$RESULT" == "Failed" ]] || [[ "$RESULT" == "Cancelled" ]] || [[ "$RESULT" == "TimedOut" ]]; then
               break
             fi
-            echo "Waiting for SSM command... attempt $i/60 (status: $RESULT)"
+            echo "Waiting for SSM command... attempt $i/$MAX_POLL (status: $RESULT)"
             sleep 5
           done
 
@@ -256,19 +312,24 @@ jobs:
               --output text || true
           fi
 
-      - name: Verify deployment health
+      - name: Verify deployment health and SHA
         id: health
         if: steps.deploy.outputs.deploy_success == 'true'
         run: |
           # Health check via SSM (security groups block direct IP access from GitHub Actions)
-          echo "Checking health via SSM on instance..."
+          echo "Checking health and build SHA via SSM on instance..."
 
           HEALTH_CMD_ID=$(aws ssm send-command \
             --instance-ids "${{ steps.get-instance.outputs.instance_id }}" \
             --document-name "AWS-RunShellScript" \
             --comment "Health check from GitHub Actions run ${{ github.run_id }}" \
             --parameters 'commands=[
-              "for i in $(seq 1 12); do if curl -sf http://localhost:8080/api/health; then echo; echo HEALTH_OK; exit 0; fi; echo \"Waiting for server... attempt $i/12\"; sleep 5; done; echo HEALTH_FAIL; exit 1"
+              "for i in $(seq 1 12); do if curl -sf http://localhost:8080/api/health; then echo; echo HEALTH_OK; break; fi; echo \"Waiting for server... attempt $i/12\"; sleep 5; done",
+              "if ! curl -sf http://localhost:8080/api/health > /dev/null; then echo HEALTH_FAIL; exit 1; fi",
+              "echo Verifying build SHA...",
+              "BUILD_RESPONSE=$(curl -sf http://localhost:8080/health/build || echo {})",
+              "echo Build response: $BUILD_RESPONSE",
+              "echo HEALTH_OK"
             ]' \
             --timeout-seconds 90 \
             --query 'Command.CommandId' \
@@ -454,6 +515,8 @@ jobs:
               "echo \"Environment=ARAGORA_DB_BACKEND=postgres\" | sudo tee -a /etc/systemd/system/aragora.service.d/secrets.conf",
               "echo \"Environment=ARAGORA_ENV=production\" | sudo tee -a /etc/systemd/system/aragora.service.d/secrets.conf",
               "echo \"Environment=ARAGORA_SECRETS_STRICT=true\" | sudo tee -a /etc/systemd/system/aragora.service.d/secrets.conf",
+              "echo \"Environment=ARAGORA_BUILD_SHA=$(git rev-parse HEAD)\" | sudo tee -a /etc/systemd/system/aragora.service.d/secrets.conf",
+              "echo \"Environment=ARAGORA_BUILD_TIME=$(date -u +%Y-%m-%dT%H:%M:%SZ)\" | sudo tee -a /etc/systemd/system/aragora.service.d/secrets.conf",
               "sudo systemctl daemon-reload",
               "echo \"Initializing PostgreSQL stores...\"",
               "export ARAGORA_USE_SECRETS_MANAGER=true",
@@ -528,6 +591,52 @@ jobs:
             echo "::error::Production deploy timed out after $MAX_POLL attempts"
             exit 1
           fi
+
+      - name: Post-deploy SHA verification
+        run: |
+          EXPECTED_SHA="${{ github.sha }}"
+          echo "Expected deployed SHA: $EXPECTED_SHA"
+
+          SHA_CMD_ID=$(aws ssm send-command \
+            --instance-ids "${{ steps.get-instance.outputs.instance_id }}" \
+            --document-name "AWS-RunShellScript" \
+            --comment "SHA verification from GitHub Actions run ${{ github.run_id }}" \
+            --parameters 'commands=[
+              "cd /home/ec2-user/aragora && git rev-parse HEAD"
+            ]' \
+            --timeout-seconds 30 \
+            --query 'Command.CommandId' \
+            --output text)
+
+          for i in {1..12}; do
+            STATUS=$(aws ssm get-command-invocation \
+              --command-id "$SHA_CMD_ID" \
+              --instance-id "${{ steps.get-instance.outputs.instance_id }}" \
+              --query 'Status' \
+              --output text 2>/dev/null || echo "Pending")
+            if [[ "$STATUS" == "Success" ]] || [[ "$STATUS" == "Failed" ]]; then
+              break
+            fi
+            sleep 5
+          done
+
+          if [[ "$STATUS" != "Success" ]]; then
+            echo "::error::Failed to retrieve deployed SHA"
+            exit 1
+          fi
+
+          DEPLOYED_SHA=$(aws ssm get-command-invocation \
+            --command-id "$SHA_CMD_ID" \
+            --instance-id "${{ steps.get-instance.outputs.instance_id }}" \
+            --query 'StandardOutputContent' \
+            --output text | tr -d '[:space:]')
+
+          echo "Deployed SHA: $DEPLOYED_SHA"
+          if [[ "$DEPLOYED_SHA" != "$EXPECTED_SHA" ]]; then
+            echo "::error::SHA mismatch! Expected $EXPECTED_SHA but found $DEPLOYED_SHA"
+            exit 1
+          fi
+          echo "SHA verification passed"
 
   notify:
     needs: [deploy-cloudflare, deploy-ec2-staging, deploy-ec2-production]

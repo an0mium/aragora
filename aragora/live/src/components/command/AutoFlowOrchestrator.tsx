@@ -17,18 +17,32 @@ const PHASES = [
   { key: 'validating', label: 'Validating', icon: '\u{1F52C}', color: 'violet' },
 ];
 
+const PHASE_COLOR_MAP: Record<string, { active: string; bg: string; border: string }> = {
+  indigo: { active: 'text-indigo-400', bg: 'bg-indigo-500/20', border: 'border-indigo-500/40' },
+  emerald: { active: 'text-emerald-400', bg: 'bg-emerald-500/20', border: 'border-emerald-500/40' },
+  amber: { active: 'text-amber-400', bg: 'bg-amber-500/20', border: 'border-amber-500/40' },
+  pink: { active: 'text-pink-400', bg: 'bg-pink-500/20', border: 'border-pink-500/40' },
+  violet: { active: 'text-violet-400', bg: 'bg-violet-500/20', border: 'border-violet-500/40' },
+};
+
 export function AutoFlowOrchestrator({ currentPhase, phaseProgress, nodesCreated, onPause, onSkipToEnd, onCancel }: AutoFlowOrchestratorProps) {
   const currentIndex = PHASES.findIndex(p => p.key === currentPhase);
+  const overallPct = Math.round(((currentIndex + phaseProgress) / PHASES.length) * 100);
 
   return (
     <div className="absolute inset-0 bg-bg/80 backdrop-blur-sm z-20 flex items-center justify-center">
       <div className="bg-surface border border-border rounded-xl p-6 w-[480px] shadow-2xl">
-        {/* Progress Bar */}
-        <div className="h-1.5 bg-bg rounded-full mb-6 overflow-hidden">
-          <div
-            className="h-full bg-acid-green rounded-full transition-all duration-500"
-            style={{ width: `${((currentIndex + phaseProgress) / PHASES.length) * 100}%` }}
-          />
+        {/* Progress Bar with percentage */}
+        <div className="flex items-center gap-3 mb-6">
+          <div className="flex-1 h-2 bg-bg rounded-full overflow-hidden">
+            <div
+              className="h-full bg-acid-green rounded-full transition-all duration-500"
+              style={{ width: `${overallPct}%` }}
+            />
+          </div>
+          <span className="text-xs font-mono text-acid-green font-bold w-10 text-right">
+            {overallPct}%
+          </span>
         </div>
 
         {/* Phase List */}
@@ -36,17 +50,15 @@ export function AutoFlowOrchestrator({ currentPhase, phaseProgress, nodesCreated
           {PHASES.map((phase, i) => {
             const isActive = i === currentIndex;
             const isDone = i < currentIndex;
-            const colorMap: Record<string, string> = {
-              indigo: 'text-indigo-400', emerald: 'text-emerald-400',
-              amber: 'text-amber-400', pink: 'text-pink-400', violet: 'text-violet-400',
-            };
+            const colors = PHASE_COLOR_MAP[phase.color] || PHASE_COLOR_MAP.indigo;
+            const phasePct = isDone ? 100 : isActive ? Math.round(phaseProgress * 100) : 0;
 
             return (
               <div
                 key={phase.key}
                 className={`flex items-center gap-3 px-3 py-2 rounded-lg transition-all ${
-                  isActive ? 'bg-acid-green/10 border border-acid-green/30' :
-                  isDone ? 'opacity-60' : 'opacity-30'
+                  isActive ? `${colors.bg} border ${colors.border}` :
+                  isDone ? 'opacity-70' : 'opacity-30'
                 }`}
               >
                 {/* Status indicator */}
@@ -62,20 +74,35 @@ export function AutoFlowOrchestrator({ currentPhase, phaseProgress, nodesCreated
 
                 {/* Phase info */}
                 <span className="text-lg">{phase.icon}</span>
-                <div className="flex-1">
-                  <span className={`text-sm font-mono ${isActive ? 'text-text font-bold' : 'text-text-muted'}`}>
-                    {phase.label}
-                  </span>
-                  {isActive && (
-                    <span className={`ml-2 text-xs font-mono ${colorMap[phase.color]}`}>
-                      ({nodesCreated} nodes created)
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center gap-2">
+                    <span className={`text-sm font-mono ${isActive ? 'text-text font-bold' : 'text-text-muted'}`}>
+                      {phase.label}
                     </span>
+                    {isActive && (
+                      <span className={`text-xs font-mono ${colors.active}`}>
+                        ({nodesCreated} nodes)
+                      </span>
+                    )}
+                  </div>
+                  {/* Per-phase progress bar */}
+                  {(isActive || isDone) && (
+                    <div className="h-1 bg-bg/50 rounded-full mt-1 overflow-hidden">
+                      <div
+                        className={`h-full rounded-full transition-all duration-300 ${
+                          isDone ? 'bg-emerald-500' : 'bg-acid-green'
+                        }`}
+                        style={{ width: `${phasePct}%` }}
+                      />
+                    </div>
                   )}
                 </div>
 
-                {/* Phase number */}
-                <span className="text-xs font-mono text-text-muted">
-                  {i + 1}/{PHASES.length}
+                {/* Phase percentage */}
+                <span className={`text-xs font-mono min-w-[3ch] text-right ${
+                  isDone ? 'text-emerald-400' : isActive ? colors.active : 'text-text-muted'
+                }`}>
+                  {phasePct}%
                 </span>
               </div>
             );

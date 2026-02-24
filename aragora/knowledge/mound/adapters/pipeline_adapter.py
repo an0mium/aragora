@@ -585,6 +585,99 @@ class PipelineAdapter(KnowledgeMoundAdapter):
             return {"total": 0, "completed": 0, "failed": 0, "planned": 0, "rate": 0.0}
 
 
+    async def query_precedents(
+        self,
+        task_type: str,
+        limit: int = 5,
+        workspace_id: str = "pipeline",
+    ) -> list[dict[str, Any]]:
+        """Find historical task outcomes similar to the given task type.
+
+        Returns precedent dicts with outcome, task_type, and status keys
+        that can inform new execution with historical lessons learned.
+        """
+        mound = self.mound
+        if mound is None:
+            return []
+
+        try:
+            results = await mound.search(
+                query=f"pipeline task {task_type} outcome lessons",
+                workspace_id=workspace_id,
+                limit=limit * 2,
+                filters={"type": "pipeline_task_outcome"},
+            )
+
+            precedents: list[dict[str, Any]] = []
+            for result in results:
+                metadata = getattr(result, "metadata", {})
+                if metadata.get("type") != "pipeline_task_outcome":
+                    continue
+                precedents.append({
+                    "task_type": metadata.get("task_type", task_type),
+                    "outcome": getattr(result, "content", "")[:200],
+                    "status": metadata.get("task_status", "unknown"),
+                    "agent_type": metadata.get("agent_type", ""),
+                })
+                if len(precedents) >= limit:
+                    break
+
+            return precedents
+        except (RuntimeError, ValueError, OSError, AttributeError) as e:
+            logger.warning("Failed to query precedents for task_type=%s: %s", task_type, e)
+            return []
+
+    async def get_agent_performance(
+        self,
+        agent_type: str,
+        domain: str = "general",
+        workspace_id: str = "pipeline",
+    ) -> dict[str, Any]:
+        """Get historical performance metrics for an agent type in a domain.
+
+        Returns dict with success_rate, total_tasks, and avg_duration.
+        """
+        if not agent_type:
+            return {}
+
+        mound = self.mound
+        if mound is None:
+            return {}
+
+        try:
+            results = await mound.search(
+                query=f"agent {agent_type} {domain} performance outcome",
+                workspace_id=workspace_id,
+                limit=50,
+                filters={"type": "pipeline_task_outcome"},
+            )
+
+            total = 0
+            completed = 0
+            for result in results:
+                metadata = getattr(result, "metadata", {})
+                if metadata.get("type") != "pipeline_task_outcome":
+                    continue
+                if metadata.get("agent_type", "") != agent_type:
+                    continue
+                total += 1
+                if metadata.get("task_status") == "completed":
+                    completed += 1
+
+            if total == 0:
+                return {}
+
+            return {
+                "agent_type": agent_type,
+                "domain": domain,
+                "total_tasks": total,
+                "success_rate": completed / total,
+            }
+        except (RuntimeError, ValueError, OSError, AttributeError) as e:
+            logger.warning("Failed to get agent performance for %s: %s", agent_type, e)
+            return {}
+
+
 def get_pipeline_adapter(workspace_id: str = "pipeline") -> PipelineAdapter:
     """Get or create a PipelineAdapter instance."""
     return PipelineAdapter()

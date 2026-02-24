@@ -360,8 +360,135 @@ class DAGOperationsCoordinator:
             metadata={"assignments": assignments},
         )
 
+    async def debate_assignment(
+        self,
+        node_ids: list[str] | None = None,
+        agents: list[str] | None = None,
+        rounds: int = 2,
+    ) -> DAGOperationResult:
+        """Use a mini-Arena debate to decide agent assignments for nodes.
+
+        Creates a structured prompt listing the tasks and candidate agents,
+        runs a short debate, and parses the consensus into assignments.
+
+        Args:
+            node_ids: Specific node IDs to assign. If None, walks all
+                orchestration nodes.
+            agents: Candidate agent names. If None, uses defaults.
+            rounds: Number of debate rounds (default 2 for speed).
+        """
+        # Collect target nodes
+        if node_ids is not None:
+            targets = [
+                self.graph.nodes[nid]
+                for nid in node_ids
+                if nid in self.graph.nodes
+            ]
+        else:
+            targets = [
+                n for n in self.graph.nodes.values()
+                if n.stage == PipelineStage.ORCHESTRATION
+                or n.data.get("orch_type") == "agent_task"
+                or n.data.get("orchType") == "agent_task"
+            ]
+
+        if not targets:
+            return DAGOperationResult(
+                success=False,
+                message="No target nodes found for debate-driven assignment",
+            )
+
+        agent_names = agents or ["claude", "gpt", "gemini", "mistral", "grok"]
+
+        # Build structured prompt for the debate
+        task_descriptions = "\n".join(
+            f"- T{i+1} ({n.id}): {n.label} — {n.description}"
+            for i, n in enumerate(targets)
+        )
+        prompt = (
+            f"Given the following tasks and available agents ({', '.join(agent_names)}), "
+            f"assign the best agent(s) to each task. Consider agent strengths, "
+            f"task complexity, and domain fit.\n\n"
+            f"Tasks:\n{task_descriptions}\n\n"
+            f"For each task, respond with: T<n>: <agent1>, <agent2>"
+        )
+
+        try:
+            from aragora.core import Environment
+            from aragora.debate.orchestrator import Arena
+            from aragora.debate.protocol import DebateProtocol
+
+            env = Environment(task=prompt)
+            protocol = DebateProtocol(rounds=rounds, consensus="majority")
+
+            debate_agents = []
+            from aragora.agents import create_agent
+
+            for agent_name in agent_names[:3]:  # Use up to 3 agents for the debate
+                try:
+                    debate_agents.append(create_agent(agent_name))
+                except (RuntimeError, ImportError, ValueError):
+                    pass
+
+            if not debate_agents:
+                return DAGOperationResult(
+                    success=False,
+                    message="No agents available for assignment debate",
+                )
+
+            arena = Arena(env, debate_agents, protocol)
+            result = await arena.run()
+
+            # Parse assignments from debate result
+            summary = getattr(result, "summary", str(result))
+            assignments: dict[str, list[str]] = {}
+
+            for i, node in enumerate(targets):
+                tag = f"T{i+1}"
+                assigned: list[str] = []
+                for line in summary.split("\n"):
+                    if tag in line and ":" in line:
+                        after_colon = line.split(":", 1)[1].strip()
+                        for candidate in agent_names:
+                            if candidate.lower() in after_colon.lower():
+                                assigned.append(candidate)
+                        break
+
+                if not assigned:
+                    # Fallback: assign first available agent
+                    assigned = [agent_names[0]]
+
+                node.data["agent_pool"] = assigned
+                node.data["assignment_method"] = "debate"
+                assignments[node.id] = assigned
+
+            self._save()
+            return DAGOperationResult(
+                success=True,
+                message=f"Debate-assigned agents to {len(assignments)} nodes",
+                metadata={
+                    "assignments": assignments,
+                    "debate_rounds": rounds,
+                },
+            )
+        except ImportError:
+            return DAGOperationResult(
+                success=False,
+                message="Arena not available for debate-driven assignment",
+            )
+        except (RuntimeError, ValueError, OSError) as e:
+            logger.warning("debate_assignment failed: %s", e)
+            return DAGOperationResult(
+                success=False,
+                message="Debate-driven assignment failed",
+            )
+
     async def execute_node(self, node_id: str) -> DAGOperationResult:
-        """Execute via HardenedOrchestrator with status propagation."""
+        """Execute via HardenedOrchestrator with status propagation.
+
+        If the node specifies ``data.workspace_id`` different from the current
+        workspace, delegates through ``CrossWorkspaceCoordinator`` (federation).
+        """
         node = self.graph.nodes.get(node_id)
         if node is None:
             return DAGOperationResult(success=False, message=f"Node {node_id} not found")
@@ -371,6 +498,11 @@ class DAGOperationsCoordinator:
                 success=False,
                 message=f"Only orchestration nodes can be executed, got {node.stage.value}",
             )
+
+        # Cross-workspace federation: delegate to remote workspace if needed
+        target_workspace = node.data.get("workspace_id")
+        if target_workspace and self._federation_coordinator is not None:
+            return await self._execute_federated(node, target_workspace)
 
         try:
             from aragora.pipeline.status_propagator import StatusPropagator
@@ -420,6 +552,63 @@ class DAGOperationsCoordinator:
             except ImportError:
                 pass
             return DAGOperationResult(success=False, message="Execution failed")
+
+    async def _execute_federated(
+        self,
+        node: UniversalNode,
+        target_workspace: str,
+    ) -> DAGOperationResult:
+        """Delegate execution to a remote workspace via CrossWorkspaceCoordinator.
+
+        Uses the three-tier policy hierarchy, consent management, and audit
+        trail built into CrossWorkspaceCoordinator.
+        """
+        try:
+            from aragora.coordination.cross_workspace import CrossWorkspaceCoordinator
+
+            coordinator = self._federation_coordinator
+            if not isinstance(coordinator, CrossWorkspaceCoordinator):
+                # Wrap raw reference if needed
+                coordinator = CrossWorkspaceCoordinator()
+
+            result = await coordinator.execute_remote(
+                workspace_id=target_workspace,
+                task={
+                    "node_id": node.id,
+                    "label": node.label,
+                    "description": node.description,
+                    "stage": node.stage.value if hasattr(node.stage, "value") else str(node.stage),
+                    "data": node.data,
+                },
+                graph_id=self.graph.id,
+            )
+
+            success = getattr(result, "success", bool(result))
+            node.metadata["execution_status"] = "completed" if success else "failed"
+            node.metadata["federated_workspace"] = target_workspace
+            self._save()
+
+            return DAGOperationResult(
+                success=success,
+                message=f"Federated execution to workspace '{target_workspace}'",
+                metadata={
+                    "workspace_id": target_workspace,
+                    "result": result.to_dict() if hasattr(result, "to_dict") else str(result),
+                },
+            )
+        except ImportError:
+            return DAGOperationResult(
+                success=False,
+                message="CrossWorkspaceCoordinator not available",
+            )
+        except (RuntimeError, OSError, ValueError) as e:
+            logger.warning("Federated execution failed for node %s: %s", node.id, e)
+            node.metadata["execution_status"] = "federation_error"
+            self._save()
+            return DAGOperationResult(
+                success=False,
+                message=f"Federation to workspace '{target_workspace}' failed",
+            )
 
     async def execute_node_via_scheduler(
         self,

@@ -474,6 +474,12 @@ class WebConnector(BaseConnector):
             return self._create_error_evidence("Access to local/private IPs blocked for security")
 
         # SSRF protection: Resolve and validate IP before fetching
+        from aragora.security.ssrf_protection import validate_url as _validate_url
+
+        _ssrf_result = _validate_url(url, resolve_dns=True)
+        if not _ssrf_result.is_safe:
+            return self._create_error_evidence(f"SSRF protection: {_ssrf_result.error}")
+
         is_safe, error_msg = self._resolve_and_validate_ip(url)
         if not is_safe:
             return self._create_error_evidence(f"SSRF protection: {error_msg}")

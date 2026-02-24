@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useEffect } from 'react';
 import { logger } from '@/utils/logger';
 import { API_BASE_URL } from '@/config';
 
@@ -23,6 +23,12 @@ interface InterventionPanelProps {
 interface AgentWeight {
   agent: string;
   weight: number;
+}
+
+interface InterventionRecord {
+  type: string;
+  content: string;
+  timestamp: number;
 }
 
 export function InterventionPanel({
@@ -52,6 +58,19 @@ export function InterventionPanel({
   const [nudgeDirection, setNudgeDirection] = useState('');
   const [challengeClaim, setChallengeClaim] = useState('');
   const [activeTab, setActiveTab] = useState<'inject' | 'nudge' | 'control' | 'weights'>('inject');
+  const [toast, setToast] = useState<string | null>(null);
+  const [history, setHistory] = useState<InterventionRecord[]>([]);
+
+  // Auto-dismiss toast after 3 seconds
+  useEffect(() => {
+    if (!toast) return;
+    const timer = setTimeout(() => setToast(null), 3000);
+    return () => clearTimeout(timer);
+  }, [toast]);
+
+  const addToHistory = useCallback((type: string, content: string) => {
+    setHistory((prev) => [...prev, { type, content, timestamp: Date.now() }]);
+  }, []);
 
   // Handle pause/resume
   const handlePauseToggle = useCallback(async () => {
@@ -98,14 +117,16 @@ export function InterventionPanel({
 
       if (response.ok) {
         onInject?.(injection);
+        addToHistory('argument', injection);
         setInjection('');
+        setToast('Evidence injected -- agents will incorporate in next round');
       }
     } catch (error) {
       logger.error('Failed to inject argument:', error);
     } finally {
       setInjecting(false);
     }
-  }, [apiBase, debateId, injection, onInject]);
+  }, [apiBase, debateId, injection, onInject, addToHistory]);
 
   // Handle follow-up question
   const handleFollowUp = useCallback(async () => {
@@ -128,14 +149,16 @@ export function InterventionPanel({
 
       if (response.ok) {
         onInject?.(followUpQuestion);
+        addToHistory('follow_up', followUpQuestion);
         setFollowUpQuestion('');
+        setToast('Follow-up question added -- agents will address in next round');
       }
     } catch (error) {
       logger.error('Failed to add follow-up:', error);
     } finally {
       setInjecting(false);
     }
-  }, [apiBase, debateId, followUpQuestion, onInject]);
+  }, [apiBase, debateId, followUpQuestion, onInject, addToHistory]);
 
   // Handle nudge direction
   const handleNudge = useCallback(async () => {
@@ -152,14 +175,16 @@ export function InterventionPanel({
       );
       if (response.ok) {
         onInject?.(nudgeDirection);
+        addToHistory('nudge', nudgeDirection);
         setNudgeDirection('');
+        setToast('Direction nudge applied -- debate focus will shift');
       }
     } catch (error) {
       logger.error('Failed to nudge direction:', error);
     } finally {
       setInjecting(false);
     }
-  }, [apiBase, debateId, nudgeDirection, onInject]);
+  }, [apiBase, debateId, nudgeDirection, onInject, addToHistory]);
 
   // Handle challenge claim
   const handleChallenge = useCallback(async () => {
@@ -176,14 +201,16 @@ export function InterventionPanel({
       );
       if (response.ok) {
         onInject?.(challengeClaim);
+        addToHistory('challenge', challengeClaim);
         setChallengeClaim('');
+        setToast('Challenge injected -- agents will defend or concede');
       }
     } catch (error) {
       logger.error('Failed to challenge claim:', error);
     } finally {
       setInjecting(false);
     }
-  }, [apiBase, debateId, challengeClaim, onInject]);
+  }, [apiBase, debateId, challengeClaim, onInject, addToHistory]);
 
   // Handle weight change
   const handleWeightChange = useCallback(
@@ -241,8 +268,17 @@ export function InterventionPanel({
     );
   }
 
+  const totalWeight = agentWeights.reduce((sum, w) => sum + w.weight, 0);
+
   return (
-    <div className="bg-[var(--surface)] border border-[var(--acid-green)]/30">
+    <div className="bg-[var(--surface)] border border-[var(--acid-green)]/30 relative">
+      {/* Toast notification */}
+      {toast && (
+        <div className="absolute top-0 left-0 right-0 z-10 bg-[var(--acid-green)]/15 border-b border-[var(--acid-green)]/40 px-3 py-2 text-xs font-mono text-[var(--acid-green)] animate-pulse">
+          {toast}
+        </div>
+      )}
+
       {/* Header */}
       <div className="flex items-center justify-between p-3 border-b border-[var(--border)]">
         <div className="flex items-center gap-2">
@@ -460,6 +496,28 @@ export function InterventionPanel({
             <div className="text-xs font-mono text-[var(--text-muted)] mb-3">
               Adjust agent influence on consensus:
             </div>
+            {/* Weight distribution bars */}
+            <div className="flex h-3 rounded-full overflow-hidden border border-[var(--border)]">
+              {agentWeights.map(({ agent, weight }) => {
+                const pct = totalWeight > 0 ? (weight / totalWeight) * 100 : 0;
+                return (
+                  <div
+                    key={agent}
+                    className="h-full transition-all duration-300 bg-[var(--acid-cyan)]"
+                    style={{ width: `${pct}%`, opacity: 0.4 + (weight / 2) * 0.6 }}
+                    title={`${agent}: ${pct.toFixed(0)}%`}
+                  />
+                );
+              })}
+            </div>
+            <div className="flex justify-between text-[10px] font-mono text-[var(--text-muted)]">
+              {agentWeights.map(({ agent, weight }) => {
+                const pct = totalWeight > 0 ? (weight / totalWeight) * 100 : 0;
+                return (
+                  <span key={agent}>{agent.slice(0, 6)}: {pct.toFixed(0)}%</span>
+                );
+              })}
+            </div>
             {agentWeights.map(({ agent, weight }) => (
               <div key={agent} className="space-y-1">
                 <div className="flex items-center justify-between text-xs font-mono">
@@ -483,6 +541,30 @@ export function InterventionPanel({
           </div>
         )}
       </div>
+
+      {/* Intervention History */}
+      {history.length > 0 && (
+        <div className="border-t border-[var(--border)]">
+          <div className="px-3 py-2 text-[10px] font-mono text-[var(--text-muted)] uppercase">
+            History ({history.length})
+          </div>
+          <div className="px-3 pb-2 space-y-1 max-h-[150px] overflow-y-auto">
+            {history.slice().reverse().map((record, i) => (
+              <div key={i} className="flex items-start gap-2 text-[10px] font-mono">
+                <span className="text-[var(--acid-cyan)] shrink-0">
+                  {new Date(record.timestamp).toLocaleTimeString()}
+                </span>
+                <span className="text-[var(--acid-yellow)] shrink-0 uppercase">
+                  [{record.type}]
+                </span>
+                <span className="text-[var(--text-muted)] truncate">
+                  {record.content.slice(0, 60)}{record.content.length > 60 ? '...' : ''}
+                </span>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
 
       {/* Footer */}
       <div className="px-3 py-2 border-t border-[var(--border)] text-[10px] font-mono text-[var(--text-muted)]">

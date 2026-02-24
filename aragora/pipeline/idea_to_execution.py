@@ -1827,6 +1827,40 @@ class IdeaToExecutionPipeline:
         """
         instruction = f"Implement: {task['name']}\n\n{task.get('description', '')}"
 
+        # Pipeline KM feedback: query historical performance to enrich instruction
+        try:
+            from aragora.knowledge.mound.adapters.pipeline_adapter import get_pipeline_adapter
+
+            pipeline_adapter = get_pipeline_adapter()
+            task_type = task.get("type", task.get("track", "general"))
+
+            # Get precedents for this task type
+            precedents = await pipeline_adapter.query_precedents(task_type, limit=3)
+            if precedents:
+                lessons = []
+                for p in precedents:
+                    outcome = p.get("outcome", "")
+                    if outcome:
+                        lessons.append(f"- {outcome}")
+                if lessons:
+                    instruction += (
+                        "\n\nHistorical insights from similar tasks:\n"
+                        + "\n".join(lessons)
+                    )
+
+            # Get agent performance data to suggest best agents
+            agent_perf = await pipeline_adapter.get_agent_performance(
+                agent_type=task.get("assigned_agent", ""),
+                domain=task_type,
+            )
+            if agent_perf and agent_perf.get("success_rate", 0) > 0:
+                rate = agent_perf["success_rate"]
+                instruction += (
+                    f"\n\nAgent historical success rate for this domain: {rate:.0%}"
+                )
+        except (ImportError, AttributeError, TypeError, RuntimeError, ValueError) as exc:
+            logger.debug("Pipeline KM feedback skipped: %s", exc)
+
         # Mode enforcement: resolve operational mode for orchestration stage
         mode_name = cfg.mode_map.get("orchestration")
         if mode_name:

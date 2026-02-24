@@ -212,14 +212,16 @@ class AragoraDebateTool(BaseTool):
         }
 
         try:
-            async with httpx.AsyncClient(timeout=self.timeout_seconds) as client:
-                response = await client.post(
-                    f"{self.aragora_url}/api/debate/start",
-                    json=payload,
-                    headers=headers,
-                )
-                response.raise_for_status()
-                result = response.json()
+            from aragora.security.safe_http import async_safe_post
+
+            response = await async_safe_post(
+                f"{self.aragora_url}/api/debate/start",
+                json=payload,
+                headers=headers,
+                timeout=self.timeout_seconds,
+            )
+            response.raise_for_status()
+            result = response.json()
 
             # Format result for LangChain
             if result.get("consensus_reached"):

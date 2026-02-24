@@ -163,6 +163,12 @@ class AragoraDebateChain(_ChainBase):
         knowledge_context = ""
         reasoning_steps = []
 
+        from aragora.security.ssrf_protection import validate_url as _validate_url
+
+        _ssrf = _validate_url(self.aragora_url)
+        if not _ssrf.is_safe:
+            return {"answer": f"SSRF protection blocked URL: {self.aragora_url}", "reasoning": []}
+
         async with httpx.AsyncClient(timeout=self.timeout_seconds) as client:
             # Phase 1: Pre-research (optional)
             if self.pre_research:

@@ -1160,6 +1160,8 @@ class SubstackIngestor(PulseIngestor):
 
     async def fetch_trending(self, limit: int = 10) -> list[TrendingTopic]:
         """Fetch recent articles from Substack RSS feeds."""
+        from aragora.security.safe_http import SSRFBlockedError, async_safe_get
+
         limit = max(1, min(limit, 20))
         per_feed = max(1, limit // len(self.feeds))
 
@@ -1169,7 +1171,7 @@ class SubstackIngestor(PulseIngestor):
 
                 for feed_url, category in self.feeds:
                     try:
-                        response = await client.get(feed_url)
+                        response = await async_safe_get(feed_url, client=client, timeout=10.0)
                         response.raise_for_status()
 
                         root = ET.fromstring(response.text)
@@ -1194,6 +1196,9 @@ class SubstackIngestor(PulseIngestor):
                                     },
                                 )
                                 all_topics.append(topic)
+                    except SSRFBlockedError:
+                        logger.warning("[substack] SSRF blocked feed URL: %s", feed_url)
+                        continue
                     except (OSError, ValueError, TypeError, RuntimeError) as e:
                         logger.warning("Error fetching Substack feed %s: %s", feed_url, e)
                         continue

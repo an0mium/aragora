@@ -11,6 +11,7 @@ export { TricksterAlert } from './TricksterAlert';
 export { EvidenceLinkGraph } from './EvidenceLinkGraph';
 export { AudioDownloadSection } from './AudioDownloadSection';
 export { InlineDownloadPanel } from './InlineDownloadPanel';
+export { DebateTimeline } from './DebateTimeline';
 
 export type {
   DebateViewerProps,

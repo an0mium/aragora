@@ -61,7 +61,31 @@ export function LiveDebateView({
   const statusConfig = STATUS_CONFIG[status];
   const [showExportModal, setShowExportModal] = useState(false);
   const [showIntervention, setShowIntervention] = useState(false);
+  const [showTimeline, setShowTimeline] = useState(false);
   const [isPaused, setIsPaused] = useState(false);
+  const [showReasoning, setShowReasoning] = useState(false);
+
+  const handleChallengeClaim = useCallback(async (content: string, agent: string) => {
+    try {
+      const response = await fetch(
+        `${API_BASE_URL}/api/debates/${debateId}/intervention/inject`,
+        {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            content: `[CHALLENGE to ${agent}] ${content}`,
+            type: 'challenge',
+            source: 'user',
+          }),
+        }
+      );
+      if (response.ok) {
+        setShowIntervention(true);
+      }
+    } catch (error) {
+      logger.error('Failed to challenge claim:', error);
+    }
+  }, [debateId]);
 
   const initErrors = useMemo(() => {
     const errors: Array<{ agent: string; message: string }> = [];
@@ -138,6 +162,54 @@ export function LiveDebateView({
     }
     return Array.from(agents);
   }, [consensusStatus, streamEvents]);
+
+  // Extract per-agent reasoning summaries from stream events and messages
+  const agentReasoningSummary = useMemo(() => {
+    const summary: Record<string, { confidence: number | null; lastRole: string; messageCount: number; lastSnippet: string }> = {};
+    for (const agent of agents) {
+      summary[agent] = { confidence: null, lastRole: '', messageCount: 0, lastSnippet: '' };
+    }
+    // Aggregate from completed messages
+    for (const msg of messages) {
+      if (!summary[msg.agent]) {
+        summary[msg.agent] = { confidence: null, lastRole: '', messageCount: 0, lastSnippet: '' };
+      }
+      summary[msg.agent].messageCount++;
+      summary[msg.agent].lastRole = msg.role ?? '';
+      summary[msg.agent].lastSnippet = msg.content?.slice(0, 80) ?? '';
+    }
+    // Overlay with confidence from stream events
+    for (const event of streamEvents) {
+      if (event.type === 'agent_message' && event.agent) {
+        const data = event.data as Record<string, unknown>;
+        if (data?.confidence_score !== undefined && data.confidence_score !== null) {
+          if (!summary[event.agent]) {
+            summary[event.agent] = { confidence: null, lastRole: '', messageCount: 0, lastSnippet: '' };
+          }
+          summary[event.agent].confidence = data.confidence_score as number;
+        }
+      }
+      if (event.type === 'vote' && event.agent) {
+        const data = event.data as Record<string, unknown>;
+        if (data?.confidence !== undefined) {
+          if (!summary[event.agent]) {
+            summary[event.agent] = { confidence: null, lastRole: '', messageCount: 0, lastSnippet: '' };
+          }
+          summary[event.agent].confidence = data.confidence as number;
+        }
+      }
+    }
+    // Overlay with streaming message confidence
+    for (const [, streamMsg] of streamingMessages) {
+      if (streamMsg.confidence !== null && streamMsg.confidence !== undefined) {
+        if (!summary[streamMsg.agent]) {
+          summary[streamMsg.agent] = { confidence: null, lastRole: '', messageCount: 0, lastSnippet: '' };
+        }
+        summary[streamMsg.agent].confidence = streamMsg.confidence;
+      }
+    }
+    return summary;
+  }, [agents, messages, streamEvents, streamingMessages]);
 
   // Calculate current phase/round from stream events or messages
   const currentPhase = useMemo(() => {
@@ -250,10 +322,10 @@ export function LiveDebateView({
       {/* Uncertainty Analysis - shows after voting completes */}
       <UncertaintyPanel events={streamEvents} />
 
-      {/* Live Transcript + User Participation Grid */}
-      <div className={`grid gap-4 ${showParticipation ? 'lg:grid-cols-3' : 'grid-cols-1'}`}>
+      {/* Live Transcript + Sidebars Grid */}
+      <div className={`grid gap-4 ${showParticipation || showReasoning ? 'lg:grid-cols-3' : 'grid-cols-1'}`}>
         {/* Live Transcript */}
-        <div className={`bg-surface border border-acid-green/30 ${showParticipation ? 'lg:col-span-2' : ''}`}>
+        <div className={`bg-surface border border-acid-green/30 ${showParticipation || showReasoning ? 'lg:col-span-2' : ''}`}>
           <div className="px-4 py-3 border-b border-acid-green/20 bg-bg/50 flex items-center justify-between">
             <span className="text-xs font-mono text-acid-green uppercase tracking-wider">
               {'>'} LIVE TRANSCRIPT
@@ -279,6 +351,16 @@ export function LiveDebateView({
                 </button>
               )}
               <button
+                onClick={() => setShowReasoning(!showReasoning)}
+                className={`px-2 py-1 text-xs font-mono border transition-colors ${
+                  showReasoning
+                    ? 'bg-acid-cyan/20 text-acid-cyan border-acid-cyan/40'
+                    : 'bg-surface text-text-muted border-border hover:border-acid-cyan/40'
+                }`}
+              >
+                {showReasoning ? '[HIDE REASONING]' : '[REASONING]'}
+              </button>
+              <button
                 onClick={() => setShowIntervention(!showIntervention)}
                 className={`px-2 py-1 text-xs font-mono border transition-colors ${
                   showIntervention
@@ -288,6 +370,18 @@ export function LiveDebateView({
               >
                 {showIntervention ? '[HIDE CONTROLS]' : '[INTERVENE]'}
               </button>
+              {status === 'complete' && (
+                <button
+                  onClick={() => setShowTimeline(!showTimeline)}
+                  className={`px-2 py-1 text-xs font-mono border transition-colors ${
+                    showTimeline
+                      ? 'bg-acid-cyan/20 text-acid-cyan border-acid-cyan/40'
+                      : 'bg-surface text-text-muted border-border hover:border-acid-cyan/40'
+                  }`}
+                >
+                  {showTimeline ? '[HIDE TIMELINE]' : '[TIMELINE]'}
+                </button>
+              )}
               <button
                 onClick={() => setShowParticipation(!showParticipation)}
                 className={`px-2 py-1 text-xs font-mono border transition-colors ${
@@ -318,6 +412,7 @@ export function LiveDebateView({
                 key={`${msg.agent}-${msg.timestamp}-${idx}`}
                 message={msg}
                 cruxes={showCruxHighlighting ? cruxes : undefined}
+                onChallenge={status === 'streaming' ? handleChallengeClaim : undefined}
               />
             ))}
             {Array.from(streamingMessages.values())
@@ -336,7 +431,7 @@ export function LiveDebateView({
         </div>
 
         {/* User Participation Panel */}
-        {showParticipation && status === 'streaming' && (
+        {showParticipation && status === 'streaming' && !showReasoning && (
           <div className="lg:col-span-1">
             <UserParticipation
               events={streamEvents}
@@ -345,6 +440,62 @@ export function LiveDebateView({
               onAck={onAck}
               onError={onError}
             />
+          </div>
+        )}
+
+        {/* Agent Reasoning Sidebar */}
+        {showReasoning && (
+          <div className="lg:col-span-1 bg-surface border border-acid-cyan/30">
+            <div className="px-4 py-3 border-b border-acid-cyan/20 bg-bg/50">
+              <span className="text-xs font-mono text-acid-cyan uppercase tracking-wider">
+                {'>'} AGENT REASONING
+              </span>
+            </div>
+            <div className="p-3 space-y-3 max-h-[600px] overflow-y-auto">
+              {Object.entries(agentReasoningSummary).map(([agent, info]) => {
+                const colors = getAgentColors(agent);
+                return (
+                  <div key={agent} className="border border-border p-2 space-y-1">
+                    <div className="flex items-center justify-between">
+                      <span className={`font-mono text-xs font-bold ${colors.text}`}>{agent.toUpperCase()}</span>
+                      {info.confidence !== null && (
+                        <span className="text-[10px] font-mono text-acid-yellow border border-acid-yellow/30 px-1">
+                          {Math.round(info.confidence * 100)}%
+                        </span>
+                      )}
+                    </div>
+                    {info.confidence !== null && (
+                      <div className="h-1 bg-bg border border-border rounded-full overflow-hidden">
+                        <div
+                          className="h-full bg-acid-cyan transition-all duration-500"
+                          style={{ width: `${Math.round(info.confidence * 100)}%` }}
+                        />
+                      </div>
+                    )}
+                    <div className="text-[10px] font-mono text-text-muted">
+                      {info.messageCount > 0 ? (
+                        <>
+                          <span className="text-acid-green">{info.messageCount}</span> msgs
+                          {info.lastRole && <> | {info.lastRole}</>}
+                        </>
+                      ) : (
+                        <span className="opacity-50">awaiting response...</span>
+                      )}
+                    </div>
+                    {info.lastSnippet && (
+                      <div className="text-[10px] font-mono text-text-muted/60 truncate">
+                        {info.lastSnippet}...
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
+              {Object.keys(agentReasoningSummary).length === 0 && (
+                <div className="text-xs font-mono text-text-muted text-center py-4">
+                  Waiting for agent data...
+                </div>
+              )}
+            </div>
           </div>
         )}
       </div>
@@ -361,6 +512,15 @@ export function LiveDebateView({
           consensusThreshold={0.75}
           onPause={() => setIsPaused(true)}
           onResume={() => setIsPaused(false)}
+        />
+      )}
+
+      {/* Debate Timeline - post-debate replay */}
+      {showTimeline && status === 'complete' && (
+        <DebateTimeline
+          messages={messages}
+          streamEvents={streamEvents}
+          agents={agents}
         />
       )}
 

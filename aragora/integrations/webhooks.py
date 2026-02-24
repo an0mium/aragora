@@ -589,11 +589,11 @@ class WebhookDispatcher:
         if signature:
             headers["X-Aragora-Signature"] = signature
 
-        import httpx
+        from aragora.security.safe_http import SSRFBlockedError, safe_post
 
         for attempt in range(cfg.max_retries):
             try:
-                resp = httpx.post(
+                resp = safe_post(
                     cfg.url,
                     content=body,
                     headers=headers,
@@ -635,7 +635,10 @@ class WebhookDispatcher:
                         "Webhook %s got unexpected status %s", cfg.name, resp.status_code
                     )
 
-            except (httpx.TimeoutException, httpx.NetworkError, OSError) as e:
+            except SSRFBlockedError:
+                logger.warning("Webhook %s blocked by SSRF protection: %s", cfg.name, cfg.url)
+                return False
+            except (TimeoutError, ConnectionError, OSError) as e:
                 # Network errors: retry
                 if attempt < cfg.max_retries - 1:
                     backoff = cfg.backoff_base_s * (2**attempt) + random.uniform(0, 0.5)

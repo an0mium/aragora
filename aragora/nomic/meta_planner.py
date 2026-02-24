@@ -1824,6 +1824,181 @@ class MetaPlanner:
 
         return context
 
+    async def generate_goals_from_debate_outcomes(
+        self,
+        *,
+        min_debates: int = 5,
+        low_consensus_threshold: float = 0.4,
+        time_window_days: int = 30,
+    ) -> list[PrioritizedGoal]:
+        """Extract improvement goals from debate outcome patterns.
+
+        Analyzes recent debate outcomes for recurring failure modes:
+        - Low consensus rate across debates
+        - Specific agents consistently underperforming
+        - Topics that repeatedly fail to reach consensus
+        - High error/timeout rates
+
+        These patterns are translated into actionable Nomic Loop goals.
+
+        Args:
+            min_debates: Minimum debate count before generating goals.
+            low_consensus_threshold: Consensus rate below which to flag.
+            time_window_days: How far back to analyze.
+
+        Returns:
+            List of PrioritizedGoal derived from debate outcome patterns.
+        """
+        goals: list[PrioritizedGoal] = []
+        priority = 1
+
+        # Query debate outcomes from KM
+        outcomes: list[dict[str, Any]] = []
+        try:
+            from aragora.knowledge.mound.adapters.nomic_cycle_adapter import (
+                get_nomic_cycle_adapter,
+            )
+
+            adapter = get_nomic_cycle_adapter()
+            cycles = await adapter.get_recent_cycles(limit=50)
+            for cycle in cycles:
+                outcomes.append({
+                    "objective": getattr(cycle, "objective", ""),
+                    "status": getattr(cycle, "status", "unknown"),
+                    "goals_attempted": getattr(cycle, "goals_attempted", 0),
+                    "goals_succeeded": getattr(cycle, "goals_succeeded", 0),
+                    "goals_failed": getattr(cycle, "goals_failed", 0),
+                    "tracks": getattr(cycle, "tracks_affected", []),
+                })
+        except (ImportError, RuntimeError, AttributeError, TypeError) as e:
+            logger.debug("KM cycle adapter unavailable for outcome analysis: %s", e)
+
+        # Also query PlanStore for pipeline execution outcomes
+        try:
+            from aragora.pipeline.plan_store import get_plan_store
+
+            store = get_plan_store()
+            recent = store.get_recent_outcomes(limit=50)
+            for entry in recent:
+                outcomes.append({
+                    "objective": entry.get("task", ""),
+                    "status": entry.get("status", "unknown"),
+                    "goals_attempted": 1,
+                    "goals_succeeded": 1 if entry.get("status") == "completed" else 0,
+                    "goals_failed": 1 if entry.get("status") in ("failed", "rejected") else 0,
+                    "tracks": [],
+                    "error": entry.get("execution_error"),
+                })
+        except (ImportError, RuntimeError, ValueError) as e:
+            logger.debug("PlanStore unavailable for outcome analysis: %s", e)
+
+        if len(outcomes) < min_debates:
+            logger.info(
+                "generate_goals_from_outcomes: insufficient data (%d < %d)",
+                len(outcomes),
+                min_debates,
+            )
+            return goals
+
+        # Analyze patterns
+        total = len(outcomes)
+        succeeded = sum(1 for o in outcomes if o.get("goals_succeeded", 0) > 0)
+        failed = sum(1 for o in outcomes if o.get("goals_failed", 0) > 0)
+        success_rate = succeeded / total if total > 0 else 0.0
+
+        # Pattern 1: Low overall success rate
+        if success_rate < low_consensus_threshold:
+            goals.append(PrioritizedGoal(
+                id=f"outcome_goal_{priority - 1}",
+                track=Track.CORE,
+                description=(
+                    f"Improve debate outcome success rate (currently {success_rate:.0%} "
+                    f"across {total} recent outcomes, threshold {low_consensus_threshold:.0%})"
+                ),
+                rationale=(
+                    f"Only {succeeded}/{total} recent debates/plans succeeded. "
+                    f"Investigate agent selection, consensus methods, or prompt quality."
+                ),
+                estimated_impact="high",
+                priority=priority,
+                focus_areas=["consensus", "agent_selection", "prompt_quality"],
+            ))
+            priority += 1
+
+        # Pattern 2: Track-specific failure clustering
+        track_failures: dict[str, int] = {}
+        track_totals: dict[str, int] = {}
+        for o in outcomes:
+            for track in o.get("tracks", []):
+                track_totals[track] = track_totals.get(track, 0) + 1
+                if o.get("goals_failed", 0) > 0:
+                    track_failures[track] = track_failures.get(track, 0) + 1
+
+        for track_name, fail_count in sorted(
+            track_failures.items(), key=lambda kv: kv[1], reverse=True
+        ):
+            total_for_track = track_totals.get(track_name, 0)
+            if total_for_track < 3:
+                continue
+            fail_rate = fail_count / total_for_track
+            if fail_rate > 0.5:
+                try:
+                    track = Track(track_name)
+                except ValueError:
+                    continue
+                goals.append(PrioritizedGoal(
+                    id=f"outcome_goal_{priority - 1}",
+                    track=track,
+                    description=(
+                        f"Address high failure rate in {track_name} track "
+                        f"({fail_count}/{total_for_track} = {fail_rate:.0%} failures)"
+                    ),
+                    rationale=(
+                        f"Track '{track_name}' has {fail_rate:.0%} failure rate "
+                        f"over {total_for_track} recent outcomes."
+                    ),
+                    estimated_impact="high" if fail_rate > 0.7 else "medium",
+                    priority=priority,
+                    focus_areas=[track_name],
+                ))
+                priority += 1
+
+        # Pattern 3: Recurring error messages
+        error_counts: dict[str, int] = {}
+        for o in outcomes:
+            err = o.get("error")
+            if err:
+                # Normalize error to first 80 chars for grouping
+                err_key = str(err)[:80] if isinstance(err, str) else str(err.get("message", ""))[:80]
+                if err_key:
+                    error_counts[err_key] = error_counts.get(err_key, 0) + 1
+
+        for err_msg, count in sorted(error_counts.items(), key=lambda kv: kv[1], reverse=True):
+            if count >= 2:
+                goals.append(PrioritizedGoal(
+                    id=f"outcome_goal_{priority - 1}",
+                    track=Track.QA,
+                    description=(
+                        f"Fix recurring error ({count}x): {err_msg}"
+                    ),
+                    rationale=f"Error appeared {count} times in recent outcomes.",
+                    estimated_impact="high" if count >= 3 else "medium",
+                    priority=priority,
+                    focus_areas=["error_handling", "reliability"],
+                ))
+                priority += 1
+                if priority > self.config.max_goals + 1:
+                    break
+
+        if goals:
+            logger.info(
+                "generate_goals_from_outcomes: generated %d goals from %d outcomes",
+                len(goals),
+                total,
+            )
+
+        return goals[:self.config.max_goals]
+
 
 __all__ = [
     "MetaPlanner",

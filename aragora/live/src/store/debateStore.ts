@@ -16,6 +16,18 @@ export interface TranscriptMessage {
   timestamp?: number;
 }
 
+export interface ReasoningStep {
+  thinking: string;
+  timestamp: number;
+  step?: number;
+}
+
+export interface EvidenceSource {
+  title: string;
+  url?: string;
+  relevance?: number;
+}
+
 export interface StreamingMessage {
   agent: string;
   taskId: string;  // Task ID for composite React key support
@@ -24,6 +36,9 @@ export interface StreamingMessage {
   startTime: number;
   expectedSeq: number;
   pendingTokens: Map<number, string>;
+  reasoning: ReasoningStep[];
+  evidence: EvidenceSource[];
+  confidence: number | null;
 }
 
 export type DebateConnectionStatus = 'idle' | 'connecting' | 'streaming' | 'complete' | 'error';
@@ -259,6 +274,9 @@ export const useDebateStore = create<DebateStore>()(
             startTime: Date.now(),
             expectedSeq: 1,
             pendingTokens: new Map(),
+            reasoning: [],
+            evidence: [],
+            confidence: null,
           });
           return { current: { ...state.current, streamingMessages: updated } };
         },

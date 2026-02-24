@@ -164,11 +164,23 @@ def _create_lifecycle_hooks(
             )
         )
 
-    def on_message(agent: str, content: str, role: str, round_num: int) -> None:
+    def on_message(
+        agent: str,
+        content: str,
+        role: str,
+        round_num: int,
+        confidence_score: float | None = None,
+        reasoning_phase: str | None = None,
+    ) -> None:
+        data: dict[str, Any] = {"content": content, "role": role}
+        if confidence_score is not None:
+            data["confidence_score"] = confidence_score
+        if reasoning_phase is not None:
+            data["reasoning_phase"] = reasoning_phase
         emitter.emit(
             StreamEvent(
                 type=StreamEventType.AGENT_MESSAGE,
-                data={"content": content, "role": role},
+                data=data,
                 round=round_num,
                 agent=agent,
                 loop_id=loop_id,

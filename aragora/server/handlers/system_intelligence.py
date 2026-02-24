@@ -20,12 +20,10 @@ from aragora.server.versioning.compat import strip_version_prefix
 
 from .base import (
     HandlerResult,
-    error_response,
     json_response,
-    handle_errors,
 )
 from .secure import SecureHandler
-from .utils.auth_mixins import SecureEndpointMixin, require_permission
+from .utils.auth_mixins import SecureEndpointMixin
 from .utils.rate_limit import rate_limit
 
 logger = logging.getLogger(__name__)

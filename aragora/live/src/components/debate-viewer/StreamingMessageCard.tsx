@@ -4,6 +4,16 @@ import { useState } from 'react';
 import { getAgentColors } from '@/utils/agentColors';
 import type { StreamingMessageCardProps } from './types';
 
+/** Derive a reasoning phase label from the message content length and available data. */
+function getReasoningPhase(message: { content: string; reasoning?: unknown[]; evidence?: unknown[]; reasoningPhase?: string }): string | null {
+  if (message.reasoningPhase) return message.reasoningPhase;
+  if (message.evidence && message.evidence.length > 0) return 'CITING EVIDENCE';
+  if (message.reasoning && message.reasoning.length > 0) return 'FORMING ARGUMENT';
+  if (message.content.length < 40) return 'ANALYZING';
+  if (message.content.length < 200) return 'FORMING ARGUMENT';
+  return 'CRITIQUING';
+}
+
 export function StreamingMessageCard({ message }: StreamingMessageCardProps) {
   const colors = getAgentColors(message.agent);
   const [showReasoning, setShowReasoning] = useState(false);
@@ -12,12 +22,19 @@ export function StreamingMessageCard({ message }: StreamingMessageCardProps) {
     (message.evidence && message.evidence.length > 0) ||
     (message.confidence !== null && message.confidence !== undefined);
 
+  const phase = getReasoningPhase(message);
+
   return (
     <div className={`${colors.bg} border-2 ${colors.border} p-4 animate-pulse min-h-[120px]`}>
       <div className="flex items-center justify-between mb-2">
         <div className="flex items-center gap-2">
           <span className={`font-mono font-bold text-sm ${colors.text}`}>{message.agent.toUpperCase()}</span>
           <span className="text-xs text-acid-cyan border border-acid-cyan/30 px-1 animate-pulse">STREAMING</span>
+          {phase && (
+            <span className="text-[10px] font-mono text-acid-green/80 border border-acid-green/20 px-1 uppercase tracking-wider">
+              {phase}
+            </span>
+          )}
           {message.confidence !== null && message.confidence !== undefined && (
             <span className="text-xs text-acid-yellow border border-acid-yellow/30 px-1">
               {Math.round(message.confidence * 100)}% conf

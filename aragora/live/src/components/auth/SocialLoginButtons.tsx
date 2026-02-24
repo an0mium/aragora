@@ -97,6 +97,13 @@ export function SocialLoginButtons({ mode }: SocialLoginButtonsProps) {
   }, []);
 
   const handleOAuthClick = (provider: Provider) => {
+    // Save return URL before leaving for OAuth so callback can redirect back
+    const params = new URLSearchParams(window.location.search);
+    const returnUrl = params.get('returnUrl');
+    if (returnUrl) {
+      sessionStorage.setItem('aragora_return_url', returnUrl);
+    }
+
     // Build callback URL for the current origin
     // IMPORTANT: Include trailing slash to prevent Next.js redirect which loses URL fragments
     const callbackUrl = `${window.location.origin}/auth/callback/`;

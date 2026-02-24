@@ -63,6 +63,7 @@ export interface StreamingMessage {
   reasoning?: ReasoningStep[];
   evidence?: EvidenceSource[];
   confidence?: number | null;
+  reasoningPhase?: string;
 }
 
 export interface CruxClaim {

@@ -58,7 +58,7 @@ interface AuthContextType extends AuthState {
   register: (email: string, password: string, name?: string, organization?: string) => Promise<{ success: boolean; error?: string }>;
   logout: () => Promise<void>;
   refreshToken: () => Promise<boolean>;
-  setTokens: (accessToken: string, refreshToken: string) => Promise<void>;
+  setTokens: (accessToken: string, refreshToken: string, signal?: AbortSignal) => Promise<void>;
   /** Switch to a different organization context */
   switchOrganization: (orgId: string, setAsDefault?: boolean) => Promise<{ success: boolean; error?: string }>;
   /** Refresh the list of user's organizations */
@@ -562,7 +562,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, []);
 
   // Set tokens from OAuth callback - fetches user profile from API
-  const setTokens = useCallback(async (accessToken: string, refreshTokenValue: string) => {
+  const setTokens = useCallback(async (accessToken: string, refreshTokenValue: string, signal?: AbortSignal) => {
     logger.debug('[AuthContext] setTokens called');
 
     // Calculate expiry (default 1 hour from now if not provided)
@@ -588,11 +588,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       let lastError: Error | null = null;
 
       for (let attempt = 1; attempt <= 3; attempt++) {
+        if (signal?.aborted) throw new DOMException('Aborted', 'AbortError');
         try {
           response = await fetch(`${API_BASE}/api/auth/me`, {
             headers: {
               'Authorization': `Bearer ${accessToken}`,
             },
+            signal,
           });
           // Retry on 500/502/503/504 (transient server errors)
           if (response.status >= 500 && attempt < 3) {
@@ -602,6 +604,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           }
           break; // Success or non-retryable status, exit loop
         } catch (fetchErr) {
+          // Re-throw abort errors immediately (no retry)
+          if (fetchErr instanceof DOMException && fetchErr.name === 'AbortError') throw fetchErr;
           lastError = fetchErr instanceof Error ? fetchErr : new Error(String(fetchErr));
           logger.warn(`[AuthContext] /me fetch attempt ${attempt} failed:`, lastError.message);
           if (attempt < 3) {
@@ -676,6 +680,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         throw new Error(`Server error (${response.status}): ${body || 'No details'}. Please try again.`);
       }
     } catch (err) {
+      // Re-throw abort errors without logging (clean unmount)
+      if (err instanceof DOMException && err.name === 'AbortError') throw err;
       logger.error('[AuthContext] setTokens error:', err);
       // Re-throw so callback page can handle it
       throw err;
@@ -740,7 +746,9 @@ export function useRequireAuth() {
 
   useEffect(() => {
     if (!auth.isLoading && !auth.isAuthenticated) {
-      window.location.href = '/auth/login';
+      const currentPath = window.location.pathname + window.location.search;
+      sessionStorage.setItem('aragora_return_url', currentPath);
+      window.location.href = `/auth/login?returnUrl=${encodeURIComponent(currentPath)}`;
     }
   }, [auth.isLoading, auth.isAuthenticated]);
 

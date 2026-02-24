@@ -366,7 +366,7 @@ class TestHandleSsoCallback:
             ) as mock_store_fn:
                 mock_store_fn.return_value = mock_store
                 with patch(
-                    "aragora.server.handlers.auth.sso_handlers.create_token_pair"
+                    "aragora.billing.jwt_auth.create_token_pair"
                 ) as mock_jwt:
                     mock_jwt.return_value = mock_tokens
                     with patch(
@@ -415,8 +415,20 @@ class TestHandleSsoCallback:
 
         mock_user_store = MagicMock()
         mock_user_store.get_user_by_email.return_value = None
-        mock_user = MagicMock(id="u1", email="user@example.com", name="SSO User", role="member")
+        mock_user = MagicMock()
+        mock_user.id = "u1"
+        mock_user.email = "user@example.com"
+        mock_user.name = "SSO User"
+        mock_user.role = "member"
+        mock_user.org_id = None
+        mock_user.created_at = None
         mock_user_store.create_user.return_value = mock_user
+        mock_user_store.get_user_by_id.return_value = mock_user
+
+        mock_tokens = MagicMock()
+        mock_tokens.access_token = "jwt"
+        mock_tokens.refresh_token = "refresh"
+        mock_tokens.expires_in = 3600
 
         with patch("aragora.server.handlers.auth.sso_handlers._get_sso_provider") as mock_get:
             mock_get.return_value = mock_oidc_provider
@@ -424,8 +436,10 @@ class TestHandleSsoCallback:
                 "aragora.server.handlers.auth.sso_handlers._sso_state_store.get"
             ) as mock_store_fn:
                 mock_store_fn.return_value = mock_store
-                with patch("aragora.billing.jwt_auth.create_access_token") as mock_jwt:
-                    mock_jwt.return_value = "jwt"
+                with patch(
+                    "aragora.billing.jwt_auth.create_token_pair"
+                ) as mock_jwt:
+                    mock_jwt.return_value = mock_tokens
                     with patch(
                         "aragora.storage.user_store.singleton.get_user_store"
                     ) as mock_get_store:
@@ -545,8 +559,20 @@ class TestHandleSsoCallback:
 
         mock_user_store = MagicMock()
         mock_user_store.get_user_by_email.return_value = None
-        mock_user = MagicMock(id="u1", email="user@example.com", name="SSO User", role="member")
+        mock_user = MagicMock()
+        mock_user.id = "u1"
+        mock_user.email = "user@example.com"
+        mock_user.name = "SSO User"
+        mock_user.role = "member"
+        mock_user.org_id = None
+        mock_user.created_at = None
         mock_user_store.create_user.return_value = mock_user
+        mock_user_store.get_user_by_id.return_value = mock_user
+
+        mock_tokens = MagicMock()
+        mock_tokens.access_token = "jwt"
+        mock_tokens.refresh_token = "refresh"
+        mock_tokens.expires_in = 3600
 
         with patch("aragora.server.handlers.auth.sso_handlers._get_sso_provider") as mock_get:
             mock_get.return_value = mock_oidc_provider
@@ -554,8 +580,10 @@ class TestHandleSsoCallback:
                 "aragora.server.handlers.auth.sso_handlers._sso_state_store.get"
             ) as mock_store_fn:
                 mock_store_fn.return_value = mock_store
-                with patch("aragora.billing.jwt_auth.create_access_token") as mock_jwt:
-                    mock_jwt.return_value = "jwt"
+                with patch(
+                    "aragora.billing.jwt_auth.create_token_pair"
+                ) as mock_jwt:
+                    mock_jwt.return_value = mock_tokens
                     with patch(
                         "aragora.storage.user_store.singleton.get_user_store"
                     ) as mock_get_store:
@@ -579,8 +607,20 @@ class TestHandleSsoCallback:
 
         mock_user_store = MagicMock()
         mock_user_store.get_user_by_email.return_value = None
-        mock_user = MagicMock(id="u1", email="user@example.com", name="SSO User", role="member")
+        mock_user = MagicMock()
+        mock_user.id = "u1"
+        mock_user.email = "user@example.com"
+        mock_user.name = "SSO User"
+        mock_user.role = "member"
+        mock_user.org_id = None
+        mock_user.created_at = None
         mock_user_store.create_user.return_value = mock_user
+        mock_user_store.get_user_by_id.return_value = mock_user
+
+        mock_tokens = MagicMock()
+        mock_tokens.access_token = "jwt"
+        mock_tokens.refresh_token = "refresh"
+        mock_tokens.expires_in = 3600
 
         with patch("aragora.server.handlers.auth.sso_handlers._get_sso_provider") as mock_get:
             mock_get.return_value = mock_oidc_provider
@@ -588,8 +628,10 @@ class TestHandleSsoCallback:
                 "aragora.server.handlers.auth.sso_handlers._sso_state_store.get"
             ) as mock_store_fn:
                 mock_store_fn.return_value = mock_store
-                with patch("aragora.billing.jwt_auth.create_access_token") as mock_jwt:
-                    mock_jwt.return_value = "jwt"
+                with patch(
+                    "aragora.billing.jwt_auth.create_token_pair"
+                ) as mock_jwt:
+                    mock_jwt.return_value = mock_tokens
                     with patch(
                         "aragora.storage.user_store.singleton.get_user_store"
                     ) as mock_get_store:

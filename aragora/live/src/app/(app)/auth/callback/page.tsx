@@ -1,6 +1,6 @@
 'use client';
 
-import { Suspense, useEffect, useState } from 'react';
+import { Suspense, useEffect, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { Scanlines, CRTVignette } from '@/components/MatrixRain';
@@ -14,8 +14,11 @@ function OAuthCallbackContent() {
   const { setTokens } = useAuth();
   const [status, setStatus] = useState<Status>('processing');
   const [message, setMessage] = useState('Processing authentication...');
+  const isMountedRef = useRef(true);
+  const redirectTimerRef = useRef<ReturnType<typeof setTimeout>>(undefined);
 
   useEffect(() => {
+    const controller = new AbortController();
     const processCallback = async () => {
       // Debug: Log the full URL to help diagnose OAuth callback issues
       logger.debug('[OAuth Callback] Full URL:', window.location.href);
@@ -28,9 +31,12 @@ function OAuthCallbackContent() {
       // Check for account linking success
       const linked = urlParams.get('linked');
       if (linked) {
+        if (!isMountedRef.current) return;
         setStatus('success');
         setMessage(`Successfully linked ${linked.charAt(0).toUpperCase() + linked.slice(1)} account`);
-        setTimeout(() => router.push('/settings'), 1500);
+        redirectTimerRef.current = setTimeout(() => {
+          if (isMountedRef.current) router.replace('/settings');
+        }, 1500);
         return;
       }
 
@@ -49,6 +55,7 @@ function OAuthCallbackContent() {
       }
 
       if (!tokenString) {
+        if (!isMountedRef.current) return;
         setStatus('error');
         setMessage('No authentication data received');
         logger.error('[OAuth Callback] No query params or hash fragment with tokens found');
@@ -62,10 +69,13 @@ function OAuthCallbackContent() {
       if (accessToken && refreshToken) {
         try {
           logger.debug('[OAuth Callback] Calling setTokens with access_token:', accessToken.substring(0, 20) + '...');
-          // Store tokens and wait for user profile to be fetched
-          // This is async - we must await it before redirecting
-          await setTokens(accessToken, refreshToken);
+          // Pass AbortSignal so in-flight retries cancel on unmount
+          await setTokens(accessToken, refreshToken, controller.signal);
           logger.debug('[OAuth Callback] setTokens completed successfully');
+
+          // Bail if unmounted during await
+          if (!isMountedRef.current || controller.signal.aborted) return;
+
           setStatus('success');
           setMessage('Authentication successful');
           // Clear the hash from URL for security
@@ -83,13 +93,19 @@ function OAuthCallbackContent() {
           }
           const destination = returnUrl || '/';
 
-          // Slightly longer delay to ensure state is settled before navigation
-          setTimeout(() => {
-            logger.debug('[OAuth Callback] Redirecting to:', destination);
-            router.push(destination);
+          // Use replace() to keep callback URL out of browser history
+          redirectTimerRef.current = setTimeout(() => {
+            if (isMountedRef.current) {
+              logger.debug('[OAuth Callback] Redirecting to:', destination);
+              router.replace(destination);
+            }
           }, 750);
         } catch (err) {
+          // Silently ignore aborts (component unmounted intentionally)
+          if (err instanceof DOMException && err.name === 'AbortError') return;
+
           logger.error('[OAuth Callback] Failed to set tokens:', err);
+          if (!isMountedRef.current) return;
           setStatus('error');
           // Provide more descriptive error messages
           if (err instanceof Error) {
@@ -107,6 +123,7 @@ function OAuthCallbackContent() {
           }
         }
       } else {
+        if (!isMountedRef.current) return;
         setStatus('error');
         setMessage('Missing authentication tokens');
         logger.error('[OAuth Callback] Tokens missing from URL params. access_token:', !!accessToken, 'refresh_token:', !!refreshToken);
@@ -114,6 +131,12 @@ function OAuthCallbackContent() {
     };
 
     processCallback();
+
+    return () => {
+      isMountedRef.current = false;
+      controller.abort();
+      if (redirectTimerRef.current) clearTimeout(redirectTimerRef.current);
+    };
   }, [router, setTokens]);
 
   return (

@@ -8,7 +8,6 @@ Endpoints:
 from __future__ import annotations
 
 import logging
-import uuid
 from typing import Any
 
 from aragora.server.versioning.compat import strip_version_prefix

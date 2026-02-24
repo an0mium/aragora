@@ -143,7 +143,7 @@ export const DEFAULT_CONSENSUS = process.env.NEXT_PUBLIC_DEFAULT_CONSENSUS || 'j
 // === Agent Display Names ===
 export const AGENT_DISPLAY_NAMES: Record<string, string> = {
   'grok': 'Grok 4',
-  'anthropic-api': 'Opus 4.5',
+  'anthropic-api': 'Opus 4.6',
   'openai-api': 'GPT 5.2',
   'deepseek': 'DeepSeek V3',
   'mistral': 'Mistral Large 3',
@@ -161,6 +161,7 @@ export const AGENT_DISPLAY_NAMES: Record<string, string> = {
   'yi': 'Yi Large',
   'openrouter': 'OpenRouter',
   'deepseek-r1': 'DeepSeek R1',
+  'ollama': 'Ollama (Local)',
 };
 
 // === Streaming Configuration ===
