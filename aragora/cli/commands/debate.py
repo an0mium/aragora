@@ -27,6 +27,9 @@ from aragora.core import Environment
 from aragora.debate.orchestrator import Arena, DebateProtocol
 from aragora.memory.store import CritiqueStore
 from aragora.modes import ModeRegistry
+from aragora.topic_spec import TopicSpec
+from aragora.topic_handler import handle_ambiguous_topic
+
 
 logger = logging.getLogger(__name__)
 
@@ -856,6 +859,23 @@ async def run_debate(
 
 def cmd_ask(args: argparse.Namespace) -> None:
     """Handle 'ask' command."""
+    task = args.task
+    context = args.context or ""
+
+    # Ambiguity handling
+    if len(task.split()) < 3:
+        topic_spec = handle_ambiguous_topic(task)
+        task = topic_spec.title
+        context += f"\n\n--- Structured Topic Brief ---\n"
+        context += f"Objective: {topic_spec.objective}\n"
+        if topic_spec.assumptions:
+            context += "Assumptions:\n" + "\n".join(f"- {a}" for a in topic_spec.assumptions)
+        if topic_spec.non_goals:
+            context += "\nNon-Goals:\n" + "\n".join(f"- ng" for ng in topic_spec.non_goals)
+        if topic_spec.evaluation_criteria:
+            context += "\nEvaluation Criteria:\n" + "\n".join(f"- ec" for ec in topic_spec.evaluation_criteria)
+        context += "\n--------------------------\n"
+
     agents = args.agents
     rounds = args.rounds
     learn = args.learn
@@ -1014,11 +1034,11 @@ def cmd_ask(args: argparse.Namespace) -> None:
             result = _run_debate_api(
                 server_url=server_url,
                 api_key=api_key,
-                task=args.task,
+                task=task,
                 agents=agents_payload,
                 rounds=rounds,
                 consensus=args.consensus,
-                context=args.context or None,
+                context=context or None,
                 metadata={},
                 auto_select=auto_select,
                 auto_select_config=auto_select_config,
@@ -1082,11 +1102,11 @@ def cmd_ask(args: argparse.Namespace) -> None:
     async def _run_with_timeout():
         return await asyncio.wait_for(
             run_debate(
-                task=args.task,
+                task=task,
                 agents_str=agents,
                 rounds=rounds,
                 consensus=args.consensus,
-                context=args.context or "",
+                context=context,
                 learn=learn,
                 db_path=args.db,
                 enable_audience=enable_audience,

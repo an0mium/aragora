@@ -112,10 +112,6 @@ class TestGetRLMFactory:
         rlm_comp = get_rlm(mode=RLMMode.COMPRESSION, force_new=True)
         assert rlm_comp is not None
 
-    @pytest.mark.skipif(
-        os.environ.get("HAS_OFFICIAL_RLM") == "true",
-        reason="Only run when official RLM is NOT installed",
-    )
     def test_get_rlm_true_rlm_mode_raises_without_library(self):
         """get_rlm with TRUE_RLM mode should raise if library not installed."""
         from aragora.rlm import RLMMode, get_rlm
@@ -127,10 +123,6 @@ class TestGetRLMFactory:
         with pytest.raises(RuntimeError, match="TRUE RLM required"):
             get_rlm(mode=RLMMode.TRUE_RLM, force_new=True)
 
-    @pytest.mark.skipif(
-        os.environ.get("HAS_OFFICIAL_RLM") == "true",
-        reason="Only run when official RLM is NOT installed",
-    )
     def test_get_rlm_require_true_rlm_raises(self):
         """get_rlm with require_true_rlm should raise if not available."""
         from aragora.rlm import get_rlm
