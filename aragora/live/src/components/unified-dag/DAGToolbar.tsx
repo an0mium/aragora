@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, type ReactNode } from 'react';
 
 interface DAGToolbarProps {
   onBrainDump: (text: string) => void;
@@ -12,6 +12,7 @@ interface DAGToolbarProps {
   loading: boolean;
   stageFilter: string | null;
   onStageFilterChange: (stage: string | null) => void;
+  children?: ReactNode;
 }
 
 const STAGES = ['ideas', 'goals', 'actions', 'orchestration'] as const;
@@ -26,6 +27,7 @@ export function DAGToolbar({
   loading,
   stageFilter,
   onStageFilterChange,
+  children,
 }: DAGToolbarProps) {
   const [showBrainDump, setShowBrainDump] = useState(false);
   const [brainDumpText, setBrainDumpText] = useState('');
@@ -106,6 +108,9 @@ export function DAGToolbar({
       >
         {'\u21B7'}
       </button>
+
+      {/* Additional toolbar items (e.g. execution toggle) */}
+      {children}
 
       {/* Brain Dump Input */}
       {showBrainDump && (

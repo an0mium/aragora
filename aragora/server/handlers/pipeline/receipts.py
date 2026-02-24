@@ -17,6 +17,14 @@ from typing import Any
 
 from aragora.server.versioning.compat import strip_version_prefix
 
+try:
+    from aragora.rbac.decorators import require_permission
+except ImportError:  # pragma: no cover
+    def require_permission(*_a, **_kw):  # type: ignore[misc]
+        def _noop(fn):  # type: ignore[no-untyped-def]
+            return fn
+        return _noop
+
 from ..base import (
     SAFE_ID_PATTERN,
     BaseHandler,
@@ -60,6 +68,7 @@ class ReceiptExplorerHandler(BaseHandler):
             return error_response("Rate limit exceeded", 429)
         return None
 
+    @require_permission("pipeline:read")
     def handle_get(
         self, path: str, query_params: dict[str, Any], handler: Any
     ) -> HandlerResult | None:

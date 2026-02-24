@@ -188,10 +188,26 @@ export function UnifiedDAGCanvas({ graphId }: UnifiedDAGCanvasProps) {
         onRedo={dag.redo}
         canUndo={dag.canUndo}
         canRedo={dag.canRedo}
-        loading={dag.operationLoading}
+        loading={dag.operationLoading || dag.batchExecuting}
         stageFilter={stageFilter}
         onStageFilterChange={setStageFilter}
-      />
+      >
+        {/* Execution toggle button */}
+        <div className="w-px h-6 bg-border" />
+        <button
+          onClick={() => setShowExecution(!showExecution)}
+          className={`px-3 py-1.5 text-sm font-mono rounded transition-colors ${
+            showExecution
+              ? 'bg-emerald-600 text-white'
+              : 'bg-surface border border-border text-text-muted hover:text-text'
+          }`}
+          data-testid="execution-toggle"
+        >
+          {dag.graphStats.completionPct > 0
+            ? `Execution (${dag.graphStats.completionPct}%)`
+            : 'Execution'}
+        </button>
+      </DAGToolbar>
 
       <div className="flex flex-1 overflow-hidden relative">
         <div className="flex-1 h-full relative">
@@ -261,6 +277,20 @@ export function UnifiedDAGCanvas({ graphId }: UnifiedDAGCanvasProps) {
               setShowPanel(false);
               setLastResult(null);
             }}
+          />
+        )}
+
+        {/* Execution Sidebar */}
+        {showExecution && (
+          <ExecutionSidebar
+            nodes={dag.nodes}
+            executing={dag.batchExecuting}
+            onExecuteAll={handleExecuteAll}
+            onAutoAdvance={handleAutoAdvance}
+            onValidate={handleValidate}
+            validationErrors={validationErrors}
+            executionHistory={dag.executionHistory}
+            onClose={() => setShowExecution(false)}
           />
         )}
       </div>

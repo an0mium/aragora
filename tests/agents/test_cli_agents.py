@@ -339,16 +339,16 @@ class TestCodexAgent:
         """Test CodexAgent initialization."""
         from aragora.agents.cli_agents import CodexAgent
 
-        agent = CodexAgent(name="codex-test", model="gpt-5.2-codex")
+        agent = CodexAgent(name="codex-test", model="gpt-4.1-codex")
 
         assert agent.name == "codex-test"
-        assert agent.model == "gpt-5.2-codex"
+        assert agent.model == "gpt-4.1-codex"
 
     def test_extract_codex_response_filters_header(self):
         """Test response extraction filters header."""
         from aragora.agents.cli_agents import CodexAgent
 
-        agent = CodexAgent(name="codex-test", model="gpt-5.2-codex")
+        agent = CodexAgent(name="codex-test", model="gpt-4.1-codex")
 
         output = "codex\nActual response text\ntokens used: 100"
         result = agent._extract_codex_response(output)
@@ -359,7 +359,7 @@ class TestCodexAgent:
         """Test response extraction handles plain output."""
         from aragora.agents.cli_agents import CodexAgent
 
-        agent = CodexAgent(name="codex-test", model="gpt-5.2-codex")
+        agent = CodexAgent(name="codex-test", model="gpt-4.1-codex")
 
         output = "Plain response text"
         result = agent._extract_codex_response(output)
