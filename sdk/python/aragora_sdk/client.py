@@ -252,16 +252,19 @@ class AragoraClient:
         from .namespaces.learning import LearningAPI
         from .namespaces.marketplace import MarketplaceAPI
         from .namespaces.matches import MatchesAPI
+        from .namespaces.matrix_debates import MatrixDebatesAPI
         from .namespaces.media import MediaAPI
         from .namespaces.memory import MemoryAPI
         from .namespaces.metrics import MetricsAPI
         from .namespaces.ml import MLAPI
         from .namespaces.moderation import ModerationAPI
         from .namespaces.modes import ModesAPI
+        from .namespaces.moments import MomentsAPI
         from .namespaces.monitoring import MonitoringAPI
         from .namespaces.n8n import N8nAPI
         from .namespaces.nomic import NomicAPI
         from .namespaces.notifications import NotificationsAPI
+        from .namespaces.oauth import OAuthAPI
         from .namespaces.oauth_wizard import OAuthWizardAPI
         from .namespaces.onboarding import OnboardingAPI
         from .namespaces.openapi import OpenApiAPI
@@ -273,6 +276,7 @@ class AragoraClient:
         from .namespaces.outlook import OutlookAPI
         from .namespaces.partner import PartnerAPI
         from .namespaces.payments import PaymentsAPI
+        from .namespaces.persona import PersonaAPI
         from .namespaces.pipeline import PipelineAPI
         from .namespaces.pipeline_transitions import PipelineTransitionsAPI
         from .namespaces.plans import PlansAPI
@@ -295,11 +299,14 @@ class AragoraClient:
         from .namespaces.replays import ReplaysAPI
         from .namespaces.repository import RepositoryAPI
         from .namespaces.reputation import ReputationAPI
+        from .namespaces.retention import RetentionAPI
         from .namespaces.reviews import ReviewsAPI
         from .namespaces.rlm import RLMAPI
         from .namespaces.routing import RoutingAPI
         from .namespaces.scim import SCIMAPI
+        from .namespaces.search import SearchAPI
         from .namespaces.security import SecurityAPI
+        from .namespaces.selection import SelectionAPI
         from .namespaces.self_improve import SelfImproveAPI
         from .namespaces.services import ServicesAPI
         from .namespaces.shared_inbox import SharedInboxAPI

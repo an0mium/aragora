@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
 import { getCrashReporter } from '@/lib/crash-reporter';
 
@@ -12,6 +12,10 @@ export default function Error({
   reset: () => void;
 }) {
   const [showDiagnostics, setShowDiagnostics] = useState(false);
+  const [showStack, setShowStack] = useState(false);
+
+  // Capture timestamp once on mount so it does not change on re-renders
+  const timestamp = useMemo(() => new Date().toISOString(), []);
 
   useEffect(() => {
     console.error('App error:', error);
@@ -42,17 +46,43 @@ export default function Error({
   };
 
   return (
-    <div className="min-h-screen bg-bg flex items-center justify-center p-4">
-      <div className="max-w-2xl w-full border border-crimson bg-surface p-6 font-mono">
+    <div className="min-h-screen bg-bg flex items-center justify-center p-4 relative">
+      {/* CRT scanline overlay */}
+      <div
+        className="fixed inset-0 pointer-events-none z-[9999]"
+        style={{
+          background: `repeating-linear-gradient(
+            0deg,
+            rgba(0, 0, 0, 0.03),
+            rgba(0, 0, 0, 0.03) 1px,
+            transparent 1px,
+            transparent 2px
+          )`,
+        }}
+      />
+      {/* CRT vignette */}
+      <div
+        className="fixed inset-0 pointer-events-none z-[9998]"
+        style={{
+          background: `radial-gradient(
+            ellipse at center,
+            transparent 0%,
+            transparent 60%,
+            rgba(0, 0, 0, 0.15) 100%
+          )`,
+        }}
+      />
+
+      <div className="max-w-2xl w-full border border-crimson bg-surface p-6 font-mono relative z-10 crt-flicker">
         <div className="flex items-start gap-3 mb-4">
           <div className="text-crimson text-2xl glow-text-subtle">{'>'}</div>
           <div>
-            <div className="text-crimson font-bold mb-2 text-xl">
+            <div className="text-crimson font-bold mb-2 text-xl glow-text-subtle">
               APPLICATION ERROR
             </div>
             <div className="text-warning text-sm mb-2">
               {isHydrationError
-                ? 'A rendering mismatch occurred. This is usually harmless — try refreshing.'
+                ? 'A rendering mismatch occurred. This is usually harmless -- try refreshing.'
                 : 'Something went wrong in the Aragora Live interface'}
             </div>
             {reactMinifiedCode && (
@@ -110,8 +140,16 @@ export default function Error({
         {showDiagnostics && (
           <div className="bg-bg border border-border p-3 text-xs space-y-2">
             <div>
+              <span className="text-text-muted">Timestamp: </span>
+              <span className="text-acid-cyan">{timestamp}</span>
+            </div>
+            <div>
               <span className="text-text-muted">Error Type: </span>
               <span className="text-text">{error.name || 'Unknown'}</span>
+            </div>
+            <div>
+              <span className="text-text-muted">Message: </span>
+              <span className="text-crimson">{error.message || 'N/A'}</span>
             </div>
             <div>
               <span className="text-text-muted">Digest: </span>
@@ -135,10 +173,17 @@ export default function Error({
             </div>
             {error.stack && (
               <div>
-                <span className="text-text-muted block mb-1">Stack Trace:</span>
-                <pre className="text-[10px] text-text-muted overflow-x-auto whitespace-pre-wrap max-h-40 overflow-y-auto">
-                  {error.stack}
-                </pre>
+                <button
+                  onClick={() => setShowStack(!showStack)}
+                  className="text-text-muted hover:text-acid-green transition-colors mb-1"
+                >
+                  {showStack ? '[-]' : '[+]'} Stack Trace
+                </button>
+                {showStack && (
+                  <pre className="text-[10px] text-text-muted overflow-x-auto whitespace-pre-wrap max-h-40 overflow-y-auto border border-border p-2 mt-1">
+                    {error.stack}
+                  </pre>
+                )}
               </div>
             )}
           </div>
