@@ -650,19 +650,31 @@ class OAuthHandler(
                     "TimeoutError",
                 )
                 if not is_retryable or attempt >= _DB_MAX_RETRIES - 1:
-                    logger.error("Failed to create OAuth user (non-retryable): %s: %s", error_name, e)
+                    logger.error(
+                        "Failed to create OAuth user (non-retryable): %s: %s", error_name, e
+                    )
                     return None
 
                 last_error = e
                 delay = _DB_RETRY_DELAY_BASE * (2**attempt)
                 logger.warning(
                     "OAuth user creation failed (attempt %d/%d): %s: %s. Retrying in %.1fs...",
-                    attempt + 1, _DB_MAX_RETRIES, error_name, e, delay,
+                    attempt + 1,
+                    _DB_MAX_RETRIES,
+                    error_name,
+                    e,
+                    delay,
                 )
 
                 try:
                     await self._try_refresh_user_store_pool(user_store)
-                except (ImportError, ConnectionError, OSError, RuntimeError, AttributeError) as refresh_err:
+                except (
+                    ImportError,
+                    ConnectionError,
+                    OSError,
+                    RuntimeError,
+                    AttributeError,
+                ) as refresh_err:
                     logger.warning("Pool refresh failed: %s", refresh_err)
 
                 await asyncio.sleep(delay)
