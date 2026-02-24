@@ -10,7 +10,7 @@
  * - Role and round badges
  */
 
-import { render, screen } from '@testing-library/react';
+import { render, screen, fireEvent } from '@testing-library/react';
 import { TranscriptMessageCard } from '../TranscriptMessageCard';
 import type { TranscriptMessage } from '@/hooks/useDebateWebSocket';
 import type { CruxClaim } from '../types';
@@ -252,6 +252,58 @@ describe('TranscriptMessageCard', () => {
       );
 
       expect(container.querySelector('.bg-acid-yellow\\/20')).not.toBeInTheDocument();
+    });
+  });
+
+  describe('challenge button', () => {
+    it('renders challenge button when onChallenge provided and agent present', () => {
+      const onChallenge = jest.fn();
+      render(
+        <TranscriptMessageCard
+          message={createMessage({ agent: 'claude', content: 'Claim to challenge' })}
+          onChallenge={onChallenge}
+        />
+      );
+
+      expect(screen.getByText('[CHALLENGE]')).toBeInTheDocument();
+    });
+
+    it('does not render challenge button when onChallenge not provided', () => {
+      render(
+        <TranscriptMessageCard message={createMessage()} />
+      );
+
+      expect(screen.queryByText('[CHALLENGE]')).not.toBeInTheDocument();
+    });
+
+    it('calls onChallenge with content and agent on click', () => {
+      const onChallenge = jest.fn();
+      render(
+        <TranscriptMessageCard
+          message={createMessage({ agent: 'gpt-4', content: 'This is a bold claim that needs challenging' })}
+          onChallenge={onChallenge}
+        />
+      );
+
+      fireEvent.click(screen.getByText('[CHALLENGE]'));
+
+      expect(onChallenge).toHaveBeenCalledTimes(1);
+      expect(onChallenge).toHaveBeenCalledWith(
+        expect.stringContaining('This is a bold claim'),
+        'gpt-4'
+      );
+    });
+
+    it('does not render challenge button for synthesis messages', () => {
+      const onChallenge = jest.fn();
+      render(
+        <TranscriptMessageCard
+          message={createMessage({ role: 'synthesis', content: 'Final conclusion' })}
+          onChallenge={onChallenge}
+        />
+      );
+
+      expect(screen.queryByText('[CHALLENGE]')).not.toBeInTheDocument();
     });
   });
 
