@@ -199,7 +199,7 @@ class TestRoutes:
 
     def test_routes_has_expected_count(self, handler):
         """Both versioned and legacy routes should exist."""
-        assert len(CostHandler.ROUTES) == 40  # 20 versioned + 20 legacy
+        assert len(CostHandler.ROUTES) == 50  # 25 versioned + 25 legacy
 
     def test_every_versioned_route_has_legacy_counterpart(self, handler):
         """Each /api/v1/costs/... route should have a /api/costs/... counterpart."""
