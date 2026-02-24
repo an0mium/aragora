@@ -62,9 +62,9 @@ class TestWorkflowOutcomeToSupermemory:
             )
             handler(event)
             mock_mound.ingest.assert_called_once()
-            call_args = mock_mound.ingest.call_args
-            content = call_args.kwargs.get("content", "")
-            assert "completed successfully" in content
+            # ingest receives a single dict positional arg
+            item = mock_mound.ingest.call_args[0][0]
+            assert "completed successfully" in item["content"]
 
     def test_stores_failed_outcome_with_error(self):
         handler = _get_handler()
@@ -88,10 +88,9 @@ class TestWorkflowOutcomeToSupermemory:
             )
             handler(event)
             mock_mound.ingest.assert_called_once()
-            call_args = mock_mound.ingest.call_args
-            content = call_args.kwargs.get("content", "")
-            assert "failed" in content
-            assert "API timeout" in content
+            item = mock_mound.ingest.call_args[0][0]
+            assert "failed" in item["content"]
+            assert "API timeout" in item["content"]
 
     def test_metadata_includes_workflow_details(self):
         handler = _get_handler()
@@ -113,8 +112,8 @@ class TestWorkflowOutcomeToSupermemory:
                 },
             )
             handler(event)
-            call_args = mock_mound.ingest.call_args
-            metadata = call_args.kwargs.get("metadata", {})
+            item = mock_mound.ingest.call_args[0][0]
+            metadata = item.get("metadata", {})
             assert metadata["workflow_id"] == "wf-789"
             assert metadata["definition_id"] == "security_scan"
             assert metadata["success"] is True
@@ -138,8 +137,8 @@ class TestWorkflowOutcomeToSupermemory:
                 },
             )
             handler(event)
-            call_args = mock_mound.ingest.call_args
-            assert call_args.kwargs.get("node_type") == "workflow_outcome"
+            item = mock_mound.ingest.call_args[0][0]
+            assert item.get("node_type") == "workflow_outcome"
 
     def test_source_tagged_with_workflow_id(self):
         handler = _get_handler()
@@ -159,8 +158,8 @@ class TestWorkflowOutcomeToSupermemory:
                 },
             )
             handler(event)
-            call_args = mock_mound.ingest.call_args
-            assert call_args.kwargs.get("source") == "workflow:wf-def"
+            item = mock_mound.ingest.call_args[0][0]
+            assert item.get("source") == "workflow:wf-def"
 
     def test_graceful_when_mound_unavailable(self):
         handler = _get_handler()
