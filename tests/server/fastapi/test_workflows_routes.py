@@ -222,6 +222,8 @@ class TestGetWorkflow:
 
     def test_get_unavailable_engine(self, app):
         """Get returns 503 when engine is unavailable."""
+        from aragora.server.fastapi.routes.workflows import get_workflow_engine as _dep
+
         app.state.context = {
             "storage": MagicMock(),
             "elo_system": MagicMock(),
@@ -230,9 +232,11 @@ class TestGetWorkflow:
             "decision_service": MagicMock(),
             "workflow_engine": None,
         }
+        app.dependency_overrides[_dep] = lambda: None
         client = TestClient(app, raise_server_exceptions=False)
 
         response = client.get("/api/v2/workflows/wf_test123")
+        app.dependency_overrides.clear()
         assert response.status_code == 503
 
 
@@ -301,6 +305,8 @@ class TestCreateWorkflow:
 
     def test_create_unavailable_engine(self, app):
         """Create returns 503 when engine is unavailable."""
+        from aragora.server.fastapi.routes.workflows import get_workflow_engine as _dep
+
         app.state.context = {
             "storage": MagicMock(),
             "elo_system": MagicMock(),
@@ -311,6 +317,7 @@ class TestCreateWorkflow:
         }
         client = TestClient(app, raise_server_exceptions=False)
         _override_auth(client)
+        client.app.dependency_overrides[_dep] = lambda: None
 
         response = client.post(
             "/api/v2/workflows",
@@ -473,6 +480,8 @@ class TestWorkflowStatus:
 
     def test_status_unavailable_engine(self, app):
         """Status returns 503 when engine is unavailable."""
+        from aragora.server.fastapi.routes.workflows import get_workflow_engine as _dep
+
         app.state.context = {
             "storage": MagicMock(),
             "elo_system": MagicMock(),
@@ -481,7 +490,9 @@ class TestWorkflowStatus:
             "decision_service": MagicMock(),
             "workflow_engine": None,
         }
+        app.dependency_overrides[_dep] = lambda: None
         client = TestClient(app, raise_server_exceptions=False)
 
         response = client.get("/api/v2/workflows/wf_test123/status")
+        app.dependency_overrides.clear()
         assert response.status_code == 503

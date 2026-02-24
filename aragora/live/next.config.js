@@ -6,12 +6,22 @@ const withBundleAnalyzer = require('@next/bundle-analyzer')({
 const requestedOutput = process.env.NEXT_OUTPUT || process.env.ARAGORA_NEXT_OUTPUT;
 const isExport = requestedOutput === 'export';
 
+// Embed build SHA at build time (set by CI/CD, falls back to git)
+const { execSync } = require('child_process');
+const buildSha = process.env.NEXT_PUBLIC_BUILD_SHA
+  || (() => { try { return execSync('git rev-parse HEAD', { encoding: 'utf-8' }).trim(); } catch { return 'unknown'; } })();
+const buildTime = process.env.NEXT_PUBLIC_BUILD_TIME || new Date().toISOString();
+
 const nextConfig = {
   // Use 'standalone' for Docker, 'export' for static hosting
   output: requestedOutput || 'standalone',
   trailingSlash: true,
   images: {
     unoptimized: true,
+  },
+  env: {
+    NEXT_PUBLIC_BUILD_SHA: buildSha,
+    NEXT_PUBLIC_BUILD_TIME: buildTime,
   },
   // redirects and rewrites are not supported with output: 'export'.
   // When exporting statically, these are handled by the hosting platform

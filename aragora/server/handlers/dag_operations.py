@@ -54,7 +54,6 @@ def _get_coordinator(graph_id: str) -> tuple[Any, Any] | None:
     Returns (coordinator, graph) or None if graph not found.
     """
     from aragora.pipeline.dag_operations import DAGOperationsCoordinator
-    from aragora.pipeline.universal_node import UniversalGraph
 
     store = _get_graph_store()
     graph = store.get(graph_id)

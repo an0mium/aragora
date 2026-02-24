@@ -309,7 +309,7 @@ class ConsensusHandler(BaseHandler):
             return error_response("'threshold' must be a number between 0.0 and 1.0", 400)
 
         try:
-            from aragora.debate.consensus import ConsensusBuilder, VoteType, build_partial_consensus
+            from aragora.debate.consensus import ConsensusBuilder, VoteType
 
             # Generate a debate ID for this analysis
             import hashlib

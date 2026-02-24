@@ -1461,7 +1461,7 @@ class TaskDecomposer:
             return [
                 OpenRouterAgent(
                     name="or-claude",
-                    model="anthropic/claude-3.5-sonnet",
+                    model="anthropic/claude-sonnet-4",
                 ),
                 OpenRouterAgent(
                     name="or-gpt",
@@ -1628,7 +1628,7 @@ Prioritize by impact: which improvements would provide the most value?"""
                     [
                         OpenRouterAgent(
                             name="or-claude",
-                            model="anthropic/claude-3.5-sonnet",
+                            model="anthropic/claude-sonnet-4",
                         ),
                         OpenRouterAgent(
                             name="or-gpt",

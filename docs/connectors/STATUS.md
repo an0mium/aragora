@@ -4,8 +4,8 @@ Last updated: 2026-02-23
 
 ## Summary
 
-- **Production**: 103 connectors
-- **Beta**: 48 connectors
+- **Production**: 118 connectors
+- **Beta**: 33 connectors
 - **Stub**: 0 connectors
 
 ## Status Criteria
@@ -39,13 +39,13 @@ Top-level evidence connectors extend `BaseConnector` and provide `search()`/`fet
 | Web | Local Docs (`local_docs.py`) | Production | File system search, multi-format, regex | Yes |
 | Code | GitHub (`github.py`) | Production | gh CLI + REST API, auth fallback, input validation | Yes |
 | Code | Repository Crawler (`repository_crawler.py`) | Production | Git repos, AST parsing, incremental indexing | Yes |
-| Database | SQL (`sql.py`) | Beta | PostgreSQL/MySQL/SQLite, parameterized queries | Yes |
+| Database | SQL (`sql.py`) | Production | PostgreSQL/MySQL/SQLite, parameterized queries, query validation, circuit breaker | Yes |
 | Media | Whisper (`whisper.py`) | Production | OpenAI Whisper API, streaming, retry, rate limiting | Yes |
 | Media | YouTube Uploader (`youtube_uploader.py`) | Production | YouTube Data API v3, OAuth 2.0, circuit breaker | Yes |
 | Legal | CourtListener (`courtlistener.py`) | Production | REST API v4, API key auth, retry, caching | Yes |
 | Legal | GovInfo (`govinfo.py`) | Production | GovInfo Search Service, API key auth, caching | Yes |
 | Healthcare | Clinical Tables (`clinical_tables.py`) | Production | NLM ClinicalTables API, ICD-10-CM, caching | Yes |
-| Healthcare | NICE Guidance (`nice_guidance.py`) | Beta | NICE API, API key auth, caching | Yes |
+| Healthcare | NICE Guidance (`nice_guidance.py`) | Production | NICE API, API key auth, rate limiting, caching, circuit breaker | Yes |
 | Healthcare | RxNav (`rxnav.py`) | Production | NIH RxNav REST API, drug interactions, caching | Yes |
 | Chat Export | Conversation Ingestor (`conversation_ingestor.py`) | Production | ChatGPT/Claude exports, claim extraction, topic clustering | Yes |
 | Session | Debate Session (`debate_session.py`) | Production | Cross-channel session tracking, handoff | Yes |
@@ -143,8 +143,8 @@ Top-level evidence connectors extend `BaseConnector` and provide `search()`/`fet
 
 | Connector | Status | Features | Tests |
 |-----------|--------|----------|-------|
-| HubSpot (`crm/hubspot.py`) | Beta | Contacts, companies, deals, engagements, marketing | Yes |
-| Pipedrive (`crm/pipedrive.py`) | Beta | Deals, persons, organizations, activities, webhooks | Yes |
+| HubSpot (`crm/hubspot.py`) | Production | Contacts, companies, deals, engagements, marketing, retry with backoff | Yes |
+| Pipedrive (`crm/pipedrive.py`) | Production | Deals, persons, organizations, activities, webhooks, retry with backoff | Yes |
 
 ### Devices
 
@@ -158,7 +158,7 @@ Top-level evidence connectors extend `BaseConnector` and provide `search()`/`fet
 
 | Connector | Status | Features | Tests |
 |-----------|--------|----------|-------|
-| PagerDuty (`devops/pagerduty.py`) | Beta | Incident creation, investigation notes, on-call lookup | Yes |
+| PagerDuty (`devops/pagerduty.py`) | Production | Incident creation, investigation notes, on-call lookup, HMAC webhooks, retry with backoff | Yes |
 
 ### Documents
 
@@ -180,8 +180,8 @@ Top-level evidence connectors extend `BaseConnector` and provide `search()`/`fet
 
 | Connector | Status | Features | Tests |
 |-----------|--------|----------|-------|
-| Gmail Sync (`email/gmail_sync.py`) | Beta | Gmail API, label sync, incremental | Yes |
-| Outlook Sync (`email/outlook_sync.py`) | Beta | Microsoft Graph, folder sync | Yes |
+| Gmail Sync (`email/gmail_sync.py`) | Production | Gmail API, label sync, incremental, Pub/Sub webhooks, retry, state persistence | Yes |
+| Outlook Sync (`email/outlook_sync.py`) | Production | Microsoft Graph, folder sync, subscriptions, retry, state persistence | Yes |
 | Resilience (`email/resilience.py`) | Production | Rate limiting, circuit breaker for email connectors | Yes |
 
 ### Enterprise Collaboration
@@ -193,9 +193,9 @@ Top-level evidence connectors extend `BaseConnector` and provide `search()`/`fet
 | Notion (`enterprise/collaboration/notion.py`) | Production | Pages, databases, block extraction, incremental sync | Yes |
 | Slack Enterprise (`enterprise/collaboration/slack.py`) | Production | Channel indexing, threads, files, incremental sync | Yes |
 | Teams Enterprise (`enterprise/collaboration/teams.py`) | Production | Graph API, channels, messages, delta sync | Yes |
-| Asana (`enterprise/collaboration/asana.py`) | Beta | Tasks, projects, subtasks, custom fields, webhooks | Yes |
-| Monday.com (`enterprise/collaboration/monday.py`) | Beta | GraphQL API v2, boards, items, updates | Yes |
-| Linear (`enterprise/collaboration/linear.py`) | Beta | GraphQL API, issues, projects, cycles | Yes |
+| Asana (`enterprise/collaboration/asana.py`) | Production | Tasks, projects, subtasks, custom fields, webhooks, retry with backoff, circuit breaker | Yes |
+| Monday.com (`enterprise/collaboration/monday.py`) | Production | GraphQL API v2, boards, items, updates, retry with backoff, circuit breaker | Yes |
+| Linear (`enterprise/collaboration/linear.py`) | Production | GraphQL API, issues, projects, cycles, retry with backoff, circuit breaker | Yes |
 
 ### Enterprise CRM
 
@@ -264,7 +264,7 @@ Top-level evidence connectors extend `BaseConnector` and provide `search()`/`fet
 
 | Connector | Status | Features | Tests |
 |-----------|--------|----------|-------|
-| Obsidian (`knowledge/obsidian.py`) | Beta | Vault access, frontmatter, wikilinks, tags, REST API | Yes |
+| Obsidian (`knowledge/obsidian.py`) | Production | Vault access, frontmatter, wikilinks, tags, health check, circuit breaker | Yes |
 
 ### Legal
 
@@ -331,10 +331,10 @@ Top-level evidence connectors extend `BaseConnector` and provide `search()`/`fet
 
 | Connector | Status | Features | Tests |
 |-----------|--------|----------|-------|
-| Zendesk (`support/zendesk.py`) | Beta | Tickets, users, organizations, SLA policies | Yes |
-| Freshdesk (`support/freshdesk.py`) | Beta | Tickets, contacts, canned responses, SLA | Yes |
-| Intercom (`support/intercom.py`) | Beta | Conversations, contacts, articles, teams | Yes |
-| Help Scout (`support/helpscout.py`) | Beta | Conversations, customers, mailboxes, OAuth 2.0 | Yes |
+| Zendesk (`support/zendesk.py`) | Production | Tickets, users, organizations, SLA policies, retry with backoff | Yes |
+| Freshdesk (`support/freshdesk.py`) | Production | Tickets, contacts, canned responses, SLA, retry with backoff | Yes |
+| Intercom (`support/intercom.py`) | Production | Conversations, contacts, articles, teams, retry with backoff | Yes |
+| Help Scout (`support/helpscout.py`) | Production | Conversations, customers, mailboxes, OAuth 2.0, retry with backoff | Yes |
 
 ### Tax
 

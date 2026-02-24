@@ -39,7 +39,6 @@ from aragora.canvas.converters import (
     debate_to_ideas_canvas,
     execution_to_orchestration_canvas,
     ideas_to_principles_canvas,
-    principles_to_goals_canvas,
     to_react_flow,
     workflow_to_actions_canvas,
 )
@@ -404,7 +403,6 @@ class IdeaToExecutionPipeline:
             )
 
         pipeline = cls()
-        auto_advance = automation_level == "full"
 
         if automation_level == "manual":
             return pipeline.from_ideas(

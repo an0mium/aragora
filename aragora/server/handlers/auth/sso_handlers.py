@@ -287,7 +287,7 @@ async def handle_sso_callback(
         sso_user = await provider.authenticate(code=code, state=state)
 
         # Create or update user in our system
-        from aragora.billing.jwt_auth import create_access_token, create_token_pair
+        from aragora.billing.jwt_auth import create_token_pair
         from aragora.storage.user_store.singleton import get_user_store
 
         user_store = get_user_store()

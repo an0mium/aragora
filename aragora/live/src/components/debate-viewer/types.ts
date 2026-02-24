@@ -43,11 +43,26 @@ export interface ArchivedDebateViewProps {
   copied: boolean;
 }
 
+export interface ReasoningStep {
+  thinking: string;
+  timestamp: number;
+  step?: number;
+}
+
+export interface EvidenceSource {
+  title: string;
+  url?: string;
+  relevance?: number;
+}
+
 export interface StreamingMessage {
   agent: string;
   taskId?: string;  // Task ID for composite React key support
   content: string;
   startTime: number;
+  reasoning?: ReasoningStep[];
+  evidence?: EvidenceSource[];
+  confidence?: number | null;
 }
 
 export interface CruxClaim {
@@ -60,6 +75,7 @@ export interface CruxClaim {
 export interface TranscriptMessageCardProps {
   message: TranscriptMessage;
   cruxes?: CruxClaim[];
+  onChallenge?: (content: string, agent: string) => void;
 }
 
 export interface StreamingMessageCardProps {

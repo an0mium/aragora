@@ -131,7 +131,7 @@ function HighlightedContent({
   );
 }
 
-export function TranscriptMessageCard({ message, cruxes }: TranscriptMessageCardProps) {
+export function TranscriptMessageCard({ message, cruxes, onChallenge }: TranscriptMessageCardProps) {
   const colors = getAgentColors(message.agent || 'system');
   // Detect synthesis messages by role or agent name
   const isSynthesis =
@@ -179,7 +179,7 @@ export function TranscriptMessageCard({ message, cruxes }: TranscriptMessageCard
 
   // Standard rendering for non-synthesis messages
   return (
-    <div className={`${colors.bg} border ${colors.border} p-4`}>
+    <div className={`${colors.bg} border ${colors.border} p-4 group/card`}>
       <div className="flex items-center justify-between mb-2">
         <div className="flex items-center gap-2">
           <span className={`font-mono font-bold text-sm ${colors.text}`}>
@@ -193,11 +193,22 @@ export function TranscriptMessageCard({ message, cruxes }: TranscriptMessageCard
             <span className="text-xs text-text-muted">R{message.round}</span>
           )}
         </div>
-        {message.timestamp && (
-          <span className="text-[10px] text-text-muted font-mono">
-            {new Date(message.timestamp * 1000).toLocaleTimeString()}
-          </span>
-        )}
+        <div className="flex items-center gap-2">
+          {onChallenge && message.agent && (
+            <button
+              onClick={() => onChallenge(message.content.slice(0, 200), message.agent)}
+              className="text-[10px] font-mono text-red-400/0 group-hover/card:text-red-400/70 hover:!text-red-400 border border-transparent group-hover/card:border-red-400/30 px-1 transition-all"
+              title="Challenge this claim"
+            >
+              [CHALLENGE]
+            </button>
+          )}
+          {message.timestamp && (
+            <span className="text-[10px] text-text-muted font-mono">
+              {new Date(message.timestamp * 1000).toLocaleTimeString()}
+            </span>
+          )}
+        </div>
       </div>
       <div className="text-sm text-text whitespace-pre-wrap">
         <HighlightedContent content={message.content} cruxes={cruxes} />

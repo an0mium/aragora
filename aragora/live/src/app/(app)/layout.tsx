@@ -15,6 +15,11 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
   const { config: backendConfig } = useBackend();
   const hideShell = NO_SHELL_PREFIXES.some((prefix) => pathname.startsWith(prefix));
 
+  // Prevent hydration mismatch: server renders loading spinner, client must
+  // render the same tree until mounted to avoid React Error #185.
+  const [mounted, setMounted] = useState(false);
+  useEffect(() => setMounted(true), []);
+
   // Demo mode detection from backend health endpoint
   const [isDemoMode, setIsDemoMode] = useState(false);
   useEffect(() => {
@@ -34,6 +39,16 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
   // Onboarding is accessible at /onboarding but we don't force-redirect to it.
   // Forced redirects were causing crash loops for OAuth users whose
   // Zustand store defaults needsOnboarding=true before they can interact.
+
+  // Until client has mounted, render the same loading spinner the server rendered
+  // to avoid hydration mismatch (React Error #185) from auth-dependent branching.
+  if (!mounted) {
+    return (
+      <div className="min-h-screen bg-[var(--bg)] flex items-center justify-center">
+        <span className="font-mono text-sm text-[var(--text-muted)] animate-pulse">Loading...</span>
+      </div>
+    );
+  }
 
   // Unauthenticated users at root see LandingPage (which has its own nav) — skip AppShell
   // In demo mode, show AppShell so sidebar navigation works

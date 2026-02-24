@@ -657,7 +657,7 @@ class DAGOperationsCoordinator:
             logger.warning("auto_flow ideas_to_goals failed: %s", e)
             return DAGOperationResult(
                 success=True,
-                message=f"Clustered ideas but goal promotion failed",
+                message="Clustered ideas but goal promotion failed",
                 created_nodes=cluster_result.created_nodes,
                 metadata=cluster_result.metadata,
             )

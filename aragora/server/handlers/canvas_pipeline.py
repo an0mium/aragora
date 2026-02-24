@@ -1377,7 +1377,7 @@ class CanvasPipelineHandler:
             try:
                 from aragora.reasoning.belief import BeliefNetwork
 
-                network = BeliefNetwork()
+                BeliefNetwork()  # import check
                 goals = getattr(result.goal_graph, "goals", [])
                 for goal in goals:
                     gid = getattr(goal, "id", "")
@@ -1426,8 +1426,6 @@ class CanvasPipelineHandler:
         """
         pipeline_id = f"sysmetrics-{uuid.uuid4().hex[:12]}"
         try:
-            import asyncio
-
             from aragora.pipeline.idea_to_execution import IdeaToExecutionPipeline
 
             result = await IdeaToExecutionPipeline.from_system_metrics(
@@ -1642,15 +1640,6 @@ class CanvasPipelineHandler:
 
         # Trigger self-improvement asynchronously
         try:
-            from aragora.nomic.self_improve import SelfImprovePipeline
-
-            pipeline_config = {
-                "goal": goal,
-                "budget_limit": budget_limit,
-                "require_approval": require_approval,
-                "source_pipeline_id": pipeline_id,
-            }
-
             # Store the run config for status polling
             store.save(f"self-improve-{run_id}", {
                 "run_id": run_id,

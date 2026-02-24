@@ -49,7 +49,9 @@ export function InterventionPanel({
   );
   const [consensusThreshold, setConsensusThreshold] = useState(initialThreshold);
   const [followUpQuestion, setFollowUpQuestion] = useState('');
-  const [activeTab, setActiveTab] = useState<'inject' | 'control' | 'weights'>('inject');
+  const [nudgeDirection, setNudgeDirection] = useState('');
+  const [challengeClaim, setChallengeClaim] = useState('');
+  const [activeTab, setActiveTab] = useState<'inject' | 'nudge' | 'control' | 'weights'>('inject');
 
   // Handle pause/resume
   const handlePauseToggle = useCallback(async () => {

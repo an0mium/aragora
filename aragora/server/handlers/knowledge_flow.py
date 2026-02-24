@@ -89,7 +89,6 @@ class KnowledgeFlowHandler(BaseHandler):
         enriches subsequent debates through the Knowledge Mound.
         """
         bridge = self._get_km_outcome_bridge()
-        injector = self._get_knowledge_injector()
 
         flows: list[dict[str, Any]] = []
         stats = {

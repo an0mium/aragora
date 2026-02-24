@@ -70,6 +70,9 @@ export default function RootLayout({
   return (
     <html lang="en" className={jetbrainsMono.variable} suppressHydrationWarning>
       <head>
+        {/* Build SHA for deploy verification */}
+        <meta name="aragora-build-sha" content={process.env.NEXT_PUBLIC_BUILD_SHA || 'unknown'} />
+        <meta name="aragora-build-time" content={process.env.NEXT_PUBLIC_BUILD_TIME || ''} />
         {/* SSR-safe theme initialization - prevents flash of wrong theme */}
         <script dangerouslySetInnerHTML={{ __html: themeInitScript }} />
       </head>

@@ -188,6 +188,11 @@ export const ENABLE_AUDIENCE = process.env.NEXT_PUBLIC_ENABLE_AUDIENCE !== 'fals
 export const MAX_QUESTION_LENGTH = 10000;
 export const MIN_QUESTION_LENGTH = 10;
 
+// === Build Info (embedded at build time) ===
+export const BUILD_SHA = process.env.NEXT_PUBLIC_BUILD_SHA || 'unknown';
+export const BUILD_SHA_SHORT = BUILD_SHA !== 'unknown' ? BUILD_SHA.slice(0, 8) : 'unknown';
+export const BUILD_TIME = process.env.NEXT_PUBLIC_BUILD_TIME || '';
+
 // === Environment Status ===
 export interface EnvWarning {
   key: string;
