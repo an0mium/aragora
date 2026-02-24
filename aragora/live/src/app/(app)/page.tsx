@@ -409,10 +409,18 @@ export default function Home() {
 
   // Show marketing landing page for unauthenticated visitors (skip in demo mode)
   if (!isAuthenticated && !isDemoMode) {
+    // Store the current path so the user is redirected back after login
+    const currentPath = typeof window !== 'undefined' ? window.location.pathname + window.location.search : '/';
+    const handleEnterDashboard = () => {
+      if (currentPath && currentPath !== '/' && currentPath !== '/auth/login') {
+        sessionStorage.setItem('aragora_return_url', currentPath);
+      }
+      router.push('/auth/login');
+    };
     return (
       <LandingPage
         apiBase={apiBase}
-        onEnterDashboard={() => router.push('/auth/login')}
+        onEnterDashboard={handleEnterDashboard}
       />
     );
   }

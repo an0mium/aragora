@@ -275,13 +275,155 @@ class WorkflowsAPI:
         """
         return self._client.request("GET", f"/api/v1/workflows/executions/{execution_id}")
 
-    def execute(self, workflow_id: str) -> dict[str, Any]:
-        """Execute a workflow."""
-        return self._client.request("POST", f"/api/v1/workflows/{workflow_id}/execute")
+    def execute(
+        self,
+        workflow_id: str,
+        inputs: dict[str, Any] | None = None,
+    ) -> dict[str, Any]:
+        """
+        Execute a workflow.
+
+        Args:
+            workflow_id: The workflow ID to execute.
+            inputs: Optional dict of input parameters for the workflow.
+
+        Returns:
+            Execution result including execution_id and status.
+        """
+        body: dict[str, Any] = {}
+        if inputs is not None:
+            body["inputs"] = inputs
+        return self._client.request(
+            "POST", f"/api/v1/workflows/{workflow_id}/execute", json=body or None
+        )
+
+    def simulate(
+        self,
+        workflow_id: str,
+        inputs: dict[str, Any] | None = None,
+    ) -> dict[str, Any]:
+        """
+        Simulate a workflow without executing (dry-run).
+
+        Returns an execution plan with validation results and estimated steps
+        without actually running the workflow.
+
+        Args:
+            workflow_id: The workflow ID to simulate.
+            inputs: Optional dict of input parameters for the simulation.
+
+        Returns:
+            Dict with validation results and execution plan including:
+            - is_valid: Whether the workflow definition is valid
+            - validation_errors: List of validation errors
+            - execution_plan: Ordered list of steps that would execute
+            - estimated_steps: Total number of steps
+        """
+        body: dict[str, Any] = {}
+        if inputs is not None:
+            body["inputs"] = inputs
+        return self._client.request(
+            "POST", f"/api/v1/workflows/{workflow_id}/simulate", json=body or None
+        )
+
+    def get_status(self, workflow_id: str) -> dict[str, Any]:
+        """
+        Get the execution status of a workflow.
+
+        Returns the most recent execution status for the given workflow.
+
+        Args:
+            workflow_id: The workflow ID.
+
+        Returns:
+            Dict with execution status or a no_executions indicator.
+        """
+        return self._client.request("GET", f"/api/v1/workflows/{workflow_id}/status")
 
     def get_versions(self, workflow_id: str) -> dict[str, Any]:
-        """Get workflow versions."""
+        """
+        Get workflow version history.
+
+        Args:
+            workflow_id: The workflow ID.
+
+        Returns:
+            Dict with version list and workflow_id.
+        """
         return self._client.request("GET", f"/api/v1/workflows/{workflow_id}/versions")
+
+    def restore_version(
+        self,
+        workflow_id: str,
+        version: str | int,
+    ) -> dict[str, Any]:
+        """
+        Restore a workflow to a specific previous version.
+
+        Args:
+            workflow_id: The workflow ID.
+            version: The version identifier to restore.
+
+        Returns:
+            Dict with restored workflow data.
+        """
+        return self._client.request(
+            "POST", f"/api/v1/workflows/{workflow_id}/versions/{version}/restore"
+        )
+
+    # =========================================================================
+    # Approvals
+    # =========================================================================
+
+    def list_approvals(
+        self,
+        workflow_id: str | None = None,
+        tenant_id: str | None = None,
+    ) -> dict[str, Any]:
+        """
+        List pending workflow approval requests.
+
+        Args:
+            workflow_id: Optional filter by workflow ID.
+            tenant_id: Optional tenant identifier.
+
+        Returns:
+            Dict with list of pending approvals and count.
+        """
+        params: dict[str, Any] = {}
+        if workflow_id:
+            params["workflow_id"] = workflow_id
+        if tenant_id:
+            params["tenant_id"] = tenant_id
+        return self._client.request(
+            "GET", "/api/v1/workflow-approvals", params=params or None
+        )
+
+    def resolve_approval(
+        self,
+        request_id: str,
+        status: str = "approved",
+        notes: str = "",
+        checklist: dict[str, Any] | None = None,
+    ) -> dict[str, Any]:
+        """
+        Resolve a pending workflow approval request.
+
+        Args:
+            request_id: The approval request ID.
+            status: Resolution status ('approved' or 'rejected').
+            notes: Optional notes from the approver.
+            checklist: Optional checklist updates.
+
+        Returns:
+            Dict with resolution result.
+        """
+        body: dict[str, Any] = {"status": status, "notes": notes}
+        if checklist is not None:
+            body["checklist"] = checklist
+        return self._client.request(
+            "POST", f"/api/v1/workflow-approvals/{request_id}/resolve", json=body
+        )
 
     def run_template(self, template_id: str) -> dict[str, Any]:
         """Run a workflow template."""
@@ -520,17 +662,152 @@ class AsyncWorkflowsAPI:
             "GET", f"/api/v1/workflows/executions/{execution_id}"
         )
 
-    async def execute(self, workflow_id: str) -> dict[str, Any]:
-        """Execute a workflow."""
-        return await self._client.request("POST", f"/api/v1/workflows/{workflow_id}/execute")
+    async def execute(
+        self,
+        workflow_id: str,
+        inputs: dict[str, Any] | None = None,
+    ) -> dict[str, Any]:
+        """Execute a workflow.
+
+        Args:
+            workflow_id: The workflow ID to execute.
+            inputs: Optional dict of input parameters for the workflow.
+
+        Returns:
+            Execution result including execution_id and status.
+        """
+        body: dict[str, Any] = {}
+        if inputs is not None:
+            body["inputs"] = inputs
+        return await self._client.request(
+            "POST", f"/api/v1/workflows/{workflow_id}/execute", json=body or None
+        )
+
+    async def simulate(
+        self,
+        workflow_id: str,
+        inputs: dict[str, Any] | None = None,
+    ) -> dict[str, Any]:
+        """Simulate a workflow without executing (dry-run).
+
+        Args:
+            workflow_id: The workflow ID to simulate.
+            inputs: Optional dict of input parameters for the simulation.
+
+        Returns:
+            Dict with validation results and execution plan.
+        """
+        body: dict[str, Any] = {}
+        if inputs is not None:
+            body["inputs"] = inputs
+        return await self._client.request(
+            "POST", f"/api/v1/workflows/{workflow_id}/simulate", json=body or None
+        )
+
+    async def get_status(self, workflow_id: str) -> dict[str, Any]:
+        """Get the execution status of a workflow.
+
+        Args:
+            workflow_id: The workflow ID.
+
+        Returns:
+            Dict with execution status or a no_executions indicator.
+        """
+        return await self._client.request(
+            "GET", f"/api/v1/workflows/{workflow_id}/status"
+        )
 
     async def get_versions(self, workflow_id: str) -> dict[str, Any]:
-        """Get workflow versions."""
-        return await self._client.request("GET", f"/api/v1/workflows/{workflow_id}/versions")
+        """Get workflow version history.
+
+        Args:
+            workflow_id: The workflow ID.
+
+        Returns:
+            Dict with version list and workflow_id.
+        """
+        return await self._client.request(
+            "GET", f"/api/v1/workflows/{workflow_id}/versions"
+        )
+
+    async def restore_version(
+        self,
+        workflow_id: str,
+        version: str | int,
+    ) -> dict[str, Any]:
+        """Restore a workflow to a specific previous version.
+
+        Args:
+            workflow_id: The workflow ID.
+            version: The version identifier to restore.
+
+        Returns:
+            Dict with restored workflow data.
+        """
+        return await self._client.request(
+            "POST",
+            f"/api/v1/workflows/{workflow_id}/versions/{version}/restore",
+        )
+
+    # =========================================================================
+    # Approvals
+    # =========================================================================
+
+    async def list_approvals(
+        self,
+        workflow_id: str | None = None,
+        tenant_id: str | None = None,
+    ) -> dict[str, Any]:
+        """List pending workflow approval requests.
+
+        Args:
+            workflow_id: Optional filter by workflow ID.
+            tenant_id: Optional tenant identifier.
+
+        Returns:
+            Dict with list of pending approvals and count.
+        """
+        params: dict[str, Any] = {}
+        if workflow_id:
+            params["workflow_id"] = workflow_id
+        if tenant_id:
+            params["tenant_id"] = tenant_id
+        return await self._client.request(
+            "GET", "/api/v1/workflow-approvals", params=params or None
+        )
+
+    async def resolve_approval(
+        self,
+        request_id: str,
+        status: str = "approved",
+        notes: str = "",
+        checklist: dict[str, Any] | None = None,
+    ) -> dict[str, Any]:
+        """Resolve a pending workflow approval request.
+
+        Args:
+            request_id: The approval request ID.
+            status: Resolution status ('approved' or 'rejected').
+            notes: Optional notes from the approver.
+            checklist: Optional checklist updates.
+
+        Returns:
+            Dict with resolution result.
+        """
+        body: dict[str, Any] = {"status": status, "notes": notes}
+        if checklist is not None:
+            body["checklist"] = checklist
+        return await self._client.request(
+            "POST",
+            f"/api/v1/workflow-approvals/{request_id}/resolve",
+            json=body,
+        )
 
     async def run_template(self, template_id: str) -> dict[str, Any]:
         """Run a workflow template."""
-        return await self._client.request("POST", f"/api/v1/workflow/templates/{template_id}/run")
+        return await self._client.request(
+            "POST", f"/api/v1/workflow/templates/{template_id}/run"
+        )
 
     # =========================================================================
     # Generation & Validation

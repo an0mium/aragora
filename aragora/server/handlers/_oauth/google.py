@@ -291,6 +291,20 @@ class GoogleOAuthMixin:
                 f"Failed to create authentication tokens: {type(e).__name__}"
             )
 
+        # Bind session for session management tracking
+        try:
+            from aragora.billing.auth.sessions import get_session_manager
+
+            session_manager = get_session_manager()
+            token_jti = hashlib.sha256(tokens.access_token.encode()).hexdigest()[:32]
+            session_manager.create_session(
+                user_id=user.id,
+                token_jti=token_jti,
+            )
+        except (ImportError, AttributeError, TypeError, ValueError) as session_err:
+            # Non-fatal: session tracking is optional
+            logger.debug("Session tracking unavailable: %s", session_err)
+
         logger.info("OAuth login successful: %s via Google", user.email)
 
         # Audit successful OAuth login

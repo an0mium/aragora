@@ -1281,6 +1281,7 @@ export {
 export {
   ComputerUseAPI,
   type TaskStatus as ComputerUseTaskStatus,
+  type ActionType as ComputerUseActionType,
   type ComputerUseTask,
   type ComputerUseStep,
   type ActionStats,
@@ -1288,6 +1289,8 @@ export {
   type CreateTaskOptions,
   type ListTasksOptions,
   type CreatePolicyOptions,
+  type UpdatePolicyOptions,
+  type ExecuteActionOptions,
 } from './computer-use';
 
 // Gateway (Device & Message Routing)

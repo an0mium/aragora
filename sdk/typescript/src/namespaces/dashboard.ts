@@ -301,6 +301,19 @@ export class DashboardAPI {
   // ---------------------------------------------------------------------------
 
   /**
+   * Get dashboard root data (inbox, today, team, AI stats, cards).
+   *
+   * @param refresh - Force refresh cache
+   * @returns Dashboard root overview
+   */
+  async getDashboardRoot(refresh: boolean = false): Promise<Record<string, unknown>> {
+    const params = refresh ? { refresh: true } : undefined;
+    return this.client.request('GET', '/api/v1/dashboard', {
+      params: params as Record<string, unknown>,
+    });
+  }
+
+  /**
    * Get dashboard overview with KPIs and summary stats.
    *
    * @returns Dashboard overview data
@@ -593,6 +606,204 @@ export class DashboardAPI {
   /** Get Gastown detailed metrics. */
   async getGastownMetrics(): Promise<Record<string, unknown>> {
     return this.client.request('GET', '/api/v1/dashboard/gastown/metrics');
+  }
+
+  // ---------------------------------------------------------------------------
+  // Outcome Dashboard
+  // ---------------------------------------------------------------------------
+
+  /**
+   * Get full outcome dashboard data combining quality, agents, history,
+   * and calibration curve.
+   *
+   * @param period - Time period (e.g. '7d', '30d', '90d')
+   * @returns Consolidated outcome dashboard payload
+   */
+  async getOutcomeDashboard(
+    period: string = '30d'
+  ): Promise<Record<string, unknown>> {
+    return this.client.request('GET', '/api/v1/outcome-dashboard', {
+      params: { period },
+    });
+  }
+
+  /**
+   * Get decision quality score and trend.
+   *
+   * @param period - Time period
+   * @returns Quality score, consensus rate, and trend data
+   */
+  async getOutcomeQuality(
+    period: string = '30d'
+  ): Promise<Record<string, unknown>> {
+    return this.client.request('GET', '/api/v1/outcome-dashboard/quality', {
+      params: { period },
+    });
+  }
+
+  /**
+   * Get agent leaderboard with ELO and calibration scores.
+   *
+   * @param period - Time period
+   * @returns Agent performance rankings
+   */
+  async getOutcomeAgents(
+    period: string = '30d'
+  ): Promise<Record<string, unknown>> {
+    return this.client.request('GET', '/api/v1/outcome-dashboard/agents', {
+      params: { period },
+    });
+  }
+
+  /**
+   * Get paginated decision history with quality scores.
+   *
+   * @param params - Period, limit, and offset options
+   * @returns Decision history with pagination
+   */
+  async getOutcomeHistory(
+    params?: { period?: string; limit?: number; offset?: number }
+  ): Promise<Record<string, unknown>> {
+    return this.client.request('GET', '/api/v1/outcome-dashboard/history', {
+      params: params as Record<string, unknown>,
+    });
+  }
+
+  /**
+   * Get calibration curve data (predicted vs actual confidence).
+   *
+   * @param period - Time period
+   * @returns Calibration points and total observations
+   */
+  async getOutcomeCalibration(
+    period: string = '30d'
+  ): Promise<Record<string, unknown>> {
+    return this.client.request('GET', '/api/v1/outcome-dashboard/calibration', {
+      params: { period },
+    });
+  }
+
+  // ---------------------------------------------------------------------------
+  // Usage Dashboard
+  // ---------------------------------------------------------------------------
+
+  /**
+   * Get unified usage metrics summary.
+   *
+   * @param period - Time period (e.g. '7d', '30d', '90d')
+   * @returns Usage metrics including debates, costs, and consensus rate
+   */
+  async getUsageSummary(
+    period: string = '30d'
+  ): Promise<Record<string, unknown>> {
+    return this.client.request('GET', '/api/v1/usage/summary', {
+      params: { period },
+    });
+  }
+
+  /**
+   * Get detailed usage breakdown by dimension.
+   *
+   * @param params - Dimension and period options
+   * @returns Breakdown data by dimension
+   */
+  async getUsageBreakdown(
+    params?: { dimension?: string; period?: string }
+  ): Promise<Record<string, unknown>> {
+    return this.client.request('GET', '/api/v1/usage/breakdown', {
+      params: params as Record<string, unknown>,
+    });
+  }
+
+  /**
+   * Get ROI analysis for usage.
+   *
+   * @param period - Time period
+   * @returns ROI metrics, time savings, and cost per decision
+   */
+  async getUsageRoi(
+    period: string = '30d'
+  ): Promise<Record<string, unknown>> {
+    return this.client.request('GET', '/api/v1/usage/roi', {
+      params: { period },
+    });
+  }
+
+  /**
+   * Export usage data.
+   *
+   * @param params - Format and period options
+   * @returns Exported data or download URL
+   */
+  async exportUsage(
+    params?: { format?: string; period?: string }
+  ): Promise<Record<string, unknown>> {
+    return this.client.request('GET', '/api/v1/usage/export', {
+      params: params as Record<string, unknown>,
+    });
+  }
+
+  /**
+   * Get budget utilization status.
+   *
+   * @returns Budget limits, spent amount, remaining, and forecast
+   */
+  async getBudgetStatus(): Promise<Record<string, unknown>> {
+    return this.client.request('GET', '/api/v1/usage/budget-status');
+  }
+
+  // ---------------------------------------------------------------------------
+  // Spend Analytics Dashboard
+  // ---------------------------------------------------------------------------
+
+  /**
+   * Get spend analytics summary.
+   *
+   * @returns Total spend, budget utilization, and trend direction
+   */
+  async getSpendSummary(): Promise<Record<string, unknown>> {
+    return this.client.request('GET', '/api/v1/analytics/spend/summary');
+  }
+
+  /**
+   * Get spend trends over time.
+   *
+   * @param params - Period and granularity options
+   * @returns Spend data points over time
+   */
+  async getSpendTrends(
+    params?: { period?: string; granularity?: string }
+  ): Promise<Record<string, unknown>> {
+    return this.client.request('GET', '/api/v1/analytics/spend/trends', {
+      params: params as Record<string, unknown>,
+    });
+  }
+
+  /**
+   * Get cost breakdown per agent type.
+   *
+   * @returns Per-agent cost data
+   */
+  async getSpendByAgent(): Promise<Record<string, unknown>> {
+    return this.client.request('GET', '/api/v1/analytics/spend/by-agent');
+  }
+
+  /**
+   * Get cost per debate/decision.
+   *
+   * @returns Per-decision cost data
+   */
+  async getSpendByDecision(): Promise<Record<string, unknown>> {
+    return this.client.request('GET', '/api/v1/analytics/spend/by-decision');
+  }
+
+  /**
+   * Get budget limits, remaining, and forecast to exhaustion.
+   *
+   * @returns Budget data and exhaustion forecast
+   */
+  async getSpendBudget(): Promise<Record<string, unknown>> {
+    return this.client.request('GET', '/api/v1/analytics/spend/budget');
   }
 }
 

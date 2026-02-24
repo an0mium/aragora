@@ -736,6 +736,75 @@ COMPUTER_USE_ENDPOINTS = {
             "security": [{"bearerAuth": []}],
         },
     },
+    "/api/v1/computer-use/tasks/{task_id}/cancel": {
+        "post": {
+            "tags": ["Computer Use"],
+            "summary": "Cancel a running task",
+            "description": "Cancel a computer use task that is currently pending or running. Tasks that are already completed, failed, or cancelled cannot be cancelled.",
+            "operationId": "cancelComputerUseTask",
+            "parameters": [
+                {
+                    "name": "task_id",
+                    "in": "path",
+                    "required": True,
+                    "description": "Task ID",
+                    "schema": {"type": "string"},
+                }
+            ],
+            "responses": {
+                "200": _response(
+                    "Task cancelled",
+                    {
+                        "type": "object",
+                        "properties": {
+                            "message": {"type": "string"},
+                        },
+                    },
+                ),
+                "400": STANDARD_ERRORS["400"],
+                "401": STANDARD_ERRORS["401"],
+                "403": STANDARD_ERRORS["403"],
+                "404": STANDARD_ERRORS["404"],
+                "500": STANDARD_ERRORS["500"],
+            },
+            "security": [{"bearerAuth": []}],
+        },
+    },
+    # =========================================================================
+    # Action Statistics
+    # =========================================================================
+    "/api/v1/computer-use/actions/stats": {
+        "get": {
+            "tags": ["Computer Use"],
+            "summary": "Get action statistics",
+            "description": "Get aggregated statistics for computer use actions across all tasks, broken down by action type (click, type, screenshot, scroll, key).",
+            "operationId": "getComputerUseActionStats",
+            "responses": {
+                "200": _response(
+                    "Action statistics",
+                    {
+                        "type": "object",
+                        "properties": {
+                            "stats": {
+                                "type": "object",
+                                "properties": {
+                                    "click": {"type": "integer"},
+                                    "type": {"type": "integer"},
+                                    "screenshot": {"type": "integer"},
+                                    "scroll": {"type": "integer"},
+                                    "key": {"type": "integer"},
+                                    "total": {"type": "integer"},
+                                },
+                            },
+                        },
+                    },
+                ),
+                "401": STANDARD_ERRORS["401"],
+                "500": STANDARD_ERRORS["500"],
+            },
+            "security": [{"bearerAuth": []}],
+        },
+    },
     "/api/v1/computer-use/approvals": {
         "get": {
             "tags": ["Computer Use"],

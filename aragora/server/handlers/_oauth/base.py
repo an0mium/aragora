@@ -416,6 +416,22 @@ class OAuthHandler(
             role=user.role,
         )
 
+        # Bind session for session management tracking
+        try:
+            import hashlib as _hashlib
+
+            from aragora.billing.auth.sessions import get_session_manager
+
+            session_manager = get_session_manager()
+            token_jti = _hashlib.sha256(tokens.access_token.encode()).hexdigest()[:32]
+            session_manager.create_session(
+                user_id=user.id,
+                token_jti=token_jti,
+            )
+        except (ImportError, AttributeError, TypeError, ValueError) as session_err:
+            # Non-fatal: session tracking is optional
+            logger.debug("Session tracking unavailable: %s", session_err)
+
         logger.info("OAuth login: %s via %s", user.email, user_info.provider)
 
         redirect_url = state_data.get("redirect_url", _impl()._get_oauth_success_url())

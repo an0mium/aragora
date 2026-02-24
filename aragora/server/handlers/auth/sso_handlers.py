@@ -297,6 +297,7 @@ async def handle_sso_callback(
 
         # Check if user already exists by email
         existing_user = user_store.get_user_by_email(sso_user.email)
+        is_new_user = False
 
         if existing_user:
             # Update name from SSO provider if available
@@ -304,7 +305,25 @@ async def handle_sso_callback(
             if hasattr(user_store, "update_user"):
                 user_store.update_user(existing_user.id, name=sso_name)
             user = user_store.get_user_by_id(existing_user.id) or existing_user
+
+            # Link SSO provider to existing account if not already linked
+            if hasattr(user_store, "link_oauth_provider"):
+                try:
+                    user_store.link_oauth_provider(
+                        user_id=user.id,
+                        provider=provider_type,
+                        provider_user_id=sso_user.id,
+                        email=sso_user.email,
+                    )
+                except (ValueError, AttributeError, TypeError) as link_err:
+                    # Non-fatal: provider may already be linked
+                    logger.debug(
+                        "SSO provider linking for user %s: %s",
+                        user.id,
+                        link_err,
+                    )
         else:
+            is_new_user = True
             # Create new user (SSO users have no local password)
             user = user_store.create_user(
                 email=sso_user.email,
@@ -312,6 +331,22 @@ async def handle_sso_callback(
                 password_salt="",
                 name=sso_user.name or sso_user.email.split("@")[0],
             )
+
+            # Link SSO provider to the new account
+            if user and hasattr(user_store, "link_oauth_provider"):
+                try:
+                    user_store.link_oauth_provider(
+                        user_id=user.id,
+                        provider=provider_type,
+                        provider_user_id=sso_user.id,
+                        email=sso_user.email,
+                    )
+                except (ValueError, AttributeError, TypeError) as link_err:
+                    logger.debug(
+                        "SSO provider linking for new user %s: %s",
+                        user.id,
+                        link_err,
+                    )
 
             # Auto-create a default organization for new OAuth users
             # so they have a complete profile on first login
@@ -334,6 +369,15 @@ async def handle_sso_callback(
                         org_err,
                     )
 
+        # Update last login timestamp
+        if hasattr(user_store, "update_user"):
+            try:
+                from datetime import datetime, timezone
+
+                user_store.update_user(user.id, last_login_at=datetime.now(timezone.utc))
+            except (ValueError, AttributeError, TypeError):
+                pass  # Non-fatal
+
         # Generate JWT token pair using Aragora user ID (not SSO provider ID)
         # Use create_token_pair to provide both access and refresh tokens
         tokens = create_token_pair(
@@ -342,6 +386,22 @@ async def handle_sso_callback(
             org_id=getattr(user, "org_id", None),
             role=getattr(user, "role", "member"),
         )
+
+        # Bind session for session management tracking
+        try:
+            import hashlib
+
+            from aragora.billing.auth.sessions import get_session_manager
+
+            session_manager = get_session_manager()
+            token_jti = hashlib.sha256(tokens.access_token.encode()).hexdigest()[:32]
+            session_manager.create_session(
+                user_id=user.id,
+                token_jti=token_jti,
+            )
+        except (ImportError, AttributeError, TypeError, ValueError) as session_err:
+            # Non-fatal: session tracking is optional
+            logger.debug("Session tracking unavailable: %s", session_err)
 
         # Build organization data for frontend
         org_data = None
@@ -368,6 +428,7 @@ async def handle_sso_callback(
                 "refresh_token": tokens.refresh_token,
                 "token_type": "bearer",
                 "expires_in": tokens.expires_in,
+                "is_new_user": is_new_user,
                 "user": {
                     "id": user.id,
                     "email": user.email,

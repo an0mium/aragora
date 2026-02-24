@@ -14,6 +14,7 @@ This package contains debate-related handlers split by domain:
 - graph_debates: Graph-based multi-party debates
 - matrix_debates: Matrix debate format
 - response_formatting: Status normalization and response formatting
+- interventions: Debate intervention controls (pause, nudge, challenge, evidence)
 - routing: Route dispatch and authentication helpers
 - search: Cross-debate search operations mixin
 """
@@ -54,6 +55,7 @@ from .routing import (
     build_suffix_routes,
 )
 from .search import SearchOperationsMixin
+from .interventions import DebateInterventionsHandler, INTERVENTION_ROUTES
 from .decision_package import DecisionPackageHandler
 from .share import (
     DebateShareHandler,
@@ -112,6 +114,9 @@ __all__ = [
     "public_spectate_sse_generator",
     "push_public_spectator_event",
     "set_public_spectate",
+    # Interventions
+    "DebateInterventionsHandler",
+    "INTERVENTION_ROUTES",
     # Utilities
     "_graph_limiter",
 ]

@@ -284,4 +284,90 @@ export class WorkflowsAPI {
   async deleteTemplates(): Promise<void> {
     return this.client.request('DELETE', '/api/v1/workflows/templates') as Promise<void>;
   }
+
+  // ===========================================================================
+  // Workflow Templates (top-level /workflow-templates path)
+  // ===========================================================================
+
+  /**
+   * List workflow templates.
+   * @route GET /api/v1/workflow-templates
+   */
+  async listWorkflowTemplates(params?: { category?: string }): Promise<Record<string, unknown>> {
+    return this.client.request('GET', '/api/v1/workflow-templates', {
+      params: params as Record<string, unknown>,
+    }) as Promise<Record<string, unknown>>;
+  }
+
+  // ===========================================================================
+  // Workflow Executions (top-level /workflow-executions path)
+  // ===========================================================================
+
+  /**
+   * List workflow executions.
+   * @route GET /api/v1/workflow-executions
+   */
+  async listWorkflowExecutions(params?: {
+    workflow_id?: string;
+    status?: string;
+    limit?: number;
+  }): Promise<Record<string, unknown>> {
+    return this.client.request('GET', '/api/v1/workflow-executions', {
+      params: params as Record<string, unknown>,
+    }) as Promise<Record<string, unknown>>;
+  }
+
+  /**
+   * Get a workflow execution by ID.
+   * @route GET /api/v1/workflow-executions/{execution_id}
+   */
+  async getWorkflowExecution(executionId: string): Promise<Record<string, unknown>> {
+    return this.client.request(
+      'GET',
+      `/api/v1/workflow-executions/${encodeURIComponent(executionId)}`
+    ) as Promise<Record<string, unknown>>;
+  }
+
+  /**
+   * Terminate a running workflow execution.
+   * @route DELETE /api/v1/workflow-executions/{execution_id}
+   */
+  async terminateExecution(executionId: string): Promise<Record<string, unknown>> {
+    return this.client.request(
+      'DELETE',
+      `/api/v1/workflow-executions/${encodeURIComponent(executionId)}`
+    ) as Promise<Record<string, unknown>>;
+  }
+
+  // ===========================================================================
+  // Approvals
+  // ===========================================================================
+
+  /**
+   * List pending workflow approvals.
+   * @route GET /api/v1/workflow-approvals
+   */
+  async listApprovals(params?: {
+    workflow_id?: string;
+    tenant_id?: string;
+  }): Promise<Record<string, unknown>> {
+    return this.client.request('GET', '/api/v1/workflow-approvals', {
+      params: params as Record<string, unknown>,
+    }) as Promise<Record<string, unknown>>;
+  }
+
+  /**
+   * Resolve a pending workflow approval request.
+   * @route POST /api/v1/workflow-approvals/{request_id}/resolve
+   */
+  async resolveApproval(
+    requestId: string,
+    body: { status?: string; notes?: string; checklist?: Record<string, unknown> }
+  ): Promise<Record<string, unknown>> {
+    return this.client.request(
+      'POST',
+      `/api/v1/workflow-approvals/${encodeURIComponent(requestId)}/resolve`,
+      { body }
+    ) as Promise<Record<string, unknown>>;
+  }
 }

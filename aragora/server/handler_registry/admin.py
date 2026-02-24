@@ -354,6 +354,11 @@ ObservabilityDashboardHandler = _safe_import(
     "aragora.server.handlers.observability.dashboard", "ObservabilityDashboardHandler"
 )
 
+# Crash telemetry collector
+CrashTelemetryHandler = _safe_import(
+    "aragora.server.handlers.observability.crashes", "CrashTelemetryHandler"
+)
+
 # System health dashboard
 SystemHealthDashboardHandler = _safe_import(
     "aragora.server.handlers.system_health", "SystemHealthDashboardHandler"
@@ -568,6 +573,8 @@ ADMIN_HANDLER_REGISTRY: list[tuple[str, object]] = [
     ("_system_intelligence_handler", SystemIntelligenceHandler),
     # Observability
     ("_observability_dashboard_handler", ObservabilityDashboardHandler),
+    # Crash telemetry
+    ("_crash_telemetry_handler", CrashTelemetryHandler),
     # System health dashboard
     ("_system_health_dashboard_handler", SystemHealthDashboardHandler),
 ]
@@ -732,6 +739,8 @@ __all__ = [
     "SystemIntelligenceHandler",
     # Observability
     "ObservabilityDashboardHandler",
+    # Crash telemetry
+    "CrashTelemetryHandler",
     # System health dashboard
     "SystemHealthDashboardHandler",
     # Handler result

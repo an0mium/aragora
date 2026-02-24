@@ -1,40 +1,62 @@
 'use client';
 
 import React, { Component, ErrorInfo, ReactNode } from 'react';
+import { getCrashReporter } from '@/lib/crash-reporter';
 
 interface Props {
   children: ReactNode;
   /** Custom fallback renderer */
   fallback?: (error: Error, resetError: () => void) => ReactNode;
+  /** Human-readable name of the wrapped component (shown in the fallback UI) */
+  componentName?: string;
 }
 
 interface State {
   hasError: boolean;
   error: Error | null;
+  reported: boolean;
 }
 
 /**
- * React Error Boundary component for catching render errors
+ * React Error Boundary component for catching render errors.
  *
  * Prevents the entire app from crashing when a component throws an error.
- * Displays a terminal-styled error UI with reset functionality.
+ * Displays a terminal-styled error UI with reset functionality and
+ * automatically reports the crash to the backend via CrashReporter.
  */
 export class ErrorBoundary extends Component<Props, State> {
   constructor(props: Props) {
     super(props);
-    this.state = { hasError: false, error: null };
+    this.state = { hasError: false, error: null, reported: false };
   }
 
-  static getDerivedStateFromError(error: Error): State {
+  static getDerivedStateFromError(error: Error): Partial<State> {
     return { hasError: true, error };
   }
 
   componentDidCatch(error: Error, errorInfo: ErrorInfo) {
     console.error('ErrorBoundary caught error:', error, errorInfo);
+
+    // Report to crash telemetry
+    const reporter = getCrashReporter();
+    const accepted = reporter.capture(error, {
+      componentStack: errorInfo.componentStack ?? null,
+      componentName: this.props.componentName ?? null,
+    });
+
+    this.setState({ reported: accepted });
   }
 
   resetError = () => {
-    this.setState({ hasError: false, error: null });
+    this.setState({ hasError: false, error: null, reported: false });
+  };
+
+  handleReport = () => {
+    if (!this.state.error) return;
+    const reporter = getCrashReporter();
+    // Force-flush any queued reports (including this one)
+    reporter.flush();
+    this.setState({ reported: true });
   };
 
   render() {
@@ -42,6 +64,8 @@ export class ErrorBoundary extends Component<Props, State> {
       if (this.props.fallback) {
         return this.props.fallback(this.state.error, this.resetError);
       }
+
+      const displayName = this.props.componentName || 'Component';
 
       // Terminal-styled default error UI
       return (
@@ -54,7 +78,7 @@ export class ErrorBoundary extends Component<Props, State> {
                   RUNTIME ERROR
                 </div>
                 <div className="text-warning text-sm mb-4">
-                  Component crashed during render
+                  {displayName} crashed during render
                 </div>
               </div>
             </div>
@@ -73,15 +97,31 @@ export class ErrorBoundary extends Component<Props, State> {
               )}
             </div>
 
-            <button
-              onClick={this.resetError}
-              className="w-full border border-accent text-accent py-2 px-4 hover:bg-accent hover:text-bg transition-colors font-bold"
-            >
-              {'>'} RESET_COMPONENT
-            </button>
+            <div className="flex gap-3">
+              <button
+                onClick={this.resetError}
+                className="flex-1 border border-accent text-accent py-2 px-4 hover:bg-accent hover:text-bg transition-colors font-bold"
+              >
+                {'>'} RESET_COMPONENT
+              </button>
+
+              <button
+                onClick={this.handleReport}
+                disabled={this.state.reported}
+                className={`flex-1 border py-2 px-4 transition-colors font-bold ${
+                  this.state.reported
+                    ? 'border-text-muted text-text-muted cursor-not-allowed opacity-50'
+                    : 'border-warning text-warning hover:bg-warning hover:text-bg'
+                }`}
+              >
+                {this.state.reported ? '> REPORTED' : '> REPORT_ERROR'}
+              </button>
+            </div>
 
             <div className="mt-4 text-text-muted text-xs text-center">
-              If error persists, check browser console for details
+              {this.state.reported
+                ? 'Error report sent. If the issue persists, try resetting.'
+                : 'Click REPORT_ERROR to send crash details to our team.'}
             </div>
           </div>
         </div>

@@ -2,19 +2,32 @@
  * Computer Use Namespace API
  *
  * Provides methods for computer use orchestration:
- * - Task creation and execution
- * - Task status monitoring
+ * - Task creation, execution, cancellation, and deletion
+ * - Action execution, listing, and deletion
  * - Action statistics
- * - Policy management
+ * - Policy CRUD (create, read, update, delete)
+ * - Approval workflow (list, get, approve, deny)
  *
  * Endpoints:
- *   POST   /api/v1/computer-use/tasks            - Create and run task
- *   GET    /api/v1/computer-use/tasks            - List tasks
- *   GET    /api/v1/computer-use/tasks/{id}       - Get task status
- *   POST   /api/v1/computer-use/tasks/{id}/cancel - Cancel task
- *   GET    /api/v1/computer-use/actions/stats    - Get action stats
- *   GET    /api/v1/computer-use/policies         - List policies
- *   POST   /api/v1/computer-use/policies         - Create policy
+ *   POST   /api/v1/computer-use/tasks                       - Create and run task
+ *   GET    /api/v1/computer-use/tasks                       - List tasks
+ *   GET    /api/v1/computer-use/tasks/{id}                  - Get task status
+ *   POST   /api/v1/computer-use/tasks/{id}/cancel           - Cancel task
+ *   DELETE /api/v1/computer-use/tasks/{id}                  - Delete task record
+ *   GET    /api/v1/computer-use/actions                     - List actions
+ *   POST   /api/v1/computer-use/actions                     - Execute an action
+ *   GET    /api/v1/computer-use/actions/{id}                - Get action details
+ *   DELETE /api/v1/computer-use/actions/{id}                - Delete action record
+ *   GET    /api/v1/computer-use/actions/stats               - Get action stats
+ *   GET    /api/v1/computer-use/policies                    - List policies
+ *   POST   /api/v1/computer-use/policies                    - Create policy
+ *   GET    /api/v1/computer-use/policies/{id}               - Get policy details
+ *   PUT    /api/v1/computer-use/policies/{id}               - Update policy
+ *   DELETE /api/v1/computer-use/policies/{id}               - Delete policy
+ *   GET    /api/v1/computer-use/approvals                   - List approvals
+ *   GET    /api/v1/computer-use/approvals/{id}              - Get approval details
+ *   POST   /api/v1/computer-use/approvals/{id}/approve      - Approve request
+ *   POST   /api/v1/computer-use/approvals/{id}/deny         - Deny request
  */
 
 /**
@@ -110,6 +123,41 @@ export interface CreatePolicyOptions {
   allowedActions?: string[];
   /** List of blocked domains */
   blockedDomains?: string[];
+}
+
+/**
+ * Options for updating a policy.
+ */
+export interface UpdatePolicyOptions {
+  /** Updated policy name */
+  name?: string;
+  /** Updated description */
+  description?: string;
+  /** Updated list of allowed action types */
+  allowedActions?: string[];
+  /** Updated list of blocked domains */
+  blockedDomains?: string[];
+  /** Maximum number of steps per task */
+  maxSteps?: number;
+  /** Timeout in seconds for task execution */
+  timeoutSeconds?: number;
+}
+
+/**
+ * Action type values.
+ */
+export type ActionType = 'click' | 'type' | 'screenshot' | 'scroll' | 'key';
+
+/**
+ * Options for executing a single computer use action.
+ */
+export interface ExecuteActionOptions {
+  /** Type of action to perform */
+  actionType: ActionType;
+  /** Action-specific parameters (e.g., coordinates for click, text for type) */
+  parameters?: Record<string, unknown>;
+  /** Optional associated task ID */
+  taskId?: string;
 }
 
 /**
@@ -222,6 +270,22 @@ export class ComputerUseAPI {
     return this.client.request('POST', `/api/v1/computer-use/tasks/${taskId}/cancel`);
   }
 
+  /**
+   * Delete a task record.
+   *
+   * Only completed, failed, or cancelled tasks can be deleted.
+   * Running tasks must be cancelled first.
+   *
+   * @param taskId - Task ID to delete
+   * @returns Deletion confirmation
+   */
+  async deleteTask(taskId: string): Promise<{
+    deleted: boolean;
+    task_id: string;
+  }> {
+    return this.client.request('DELETE', `/api/v1/computer-use/tasks/${taskId}`);
+  }
+
   // =========================================================================
   // Actions
   // =========================================================================
@@ -283,6 +347,45 @@ export class ComputerUseAPI {
     return this.client.request('GET', `/api/v1/computer-use/policies/${policyId}`);
   }
 
+  /**
+   * Update a computer use policy.
+   *
+   * @param policyId - Policy ID to update
+   * @param options - Updated policy fields
+   * @returns Updated policy confirmation
+   */
+  async updatePolicy(policyId: string, options: UpdatePolicyOptions): Promise<{
+    policy_id: string;
+    message: string;
+  }> {
+    const data: Record<string, unknown> = {};
+    if (options.name !== undefined) data.name = options.name;
+    if (options.description !== undefined) data.description = options.description;
+    if (options.allowedActions !== undefined) data.allowed_actions = options.allowedActions;
+    if (options.blockedDomains !== undefined) data.blocked_domains = options.blockedDomains;
+    if (options.maxSteps !== undefined) data.max_steps = options.maxSteps;
+    if (options.timeoutSeconds !== undefined) data.timeout_seconds = options.timeoutSeconds;
+
+    return this.client.request('PUT', `/api/v1/computer-use/policies/${policyId}`, {
+      json: data,
+    });
+  }
+
+  /**
+   * Delete a computer use policy.
+   *
+   * The default policy cannot be deleted.
+   *
+   * @param policyId - Policy ID to delete
+   * @returns Deletion confirmation
+   */
+  async deletePolicy(policyId: string): Promise<{
+    deleted: boolean;
+    policy_id: string;
+  }> {
+    return this.client.request('DELETE', `/api/v1/computer-use/policies/${policyId}`);
+  }
+
   // =========================================================================
   // Actions (additional)
   // =========================================================================
@@ -306,6 +409,44 @@ export class ComputerUseAPI {
    */
   async getAction(actionId: string): Promise<Record<string, unknown>> {
     return this.client.request('GET', `/api/v1/computer-use/actions/${actionId}`);
+  }
+
+  /**
+   * Execute a single computer use action.
+   *
+   * The action is validated against the active policy before execution.
+   *
+   * @param options - Action execution options
+   * @returns Execution result with action_id and success status
+   */
+  async executeAction(options: ExecuteActionOptions): Promise<{
+    action_id: string;
+    action_type: string;
+    success: boolean;
+    message: string;
+  }> {
+    const data: Record<string, unknown> = { action_type: options.actionType };
+    if (options.parameters !== undefined) data.parameters = options.parameters;
+    if (options.taskId !== undefined) data.task_id = options.taskId;
+
+    return this.client.request('POST', '/api/v1/computer-use/actions', {
+      json: data,
+    });
+  }
+
+  /**
+   * Delete a computer use action record.
+   *
+   * Only completed or failed actions can be deleted.
+   *
+   * @param actionId - Action ID to delete
+   * @returns Deletion confirmation
+   */
+  async deleteAction(actionId: string): Promise<{
+    deleted: boolean;
+    action_id: string;
+  }> {
+    return this.client.request('DELETE', `/api/v1/computer-use/actions/${actionId}`);
   }
 
   // =========================================================================

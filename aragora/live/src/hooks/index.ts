@@ -47,6 +47,12 @@ export { useDebateFork } from './useDebateFork';
 export { useBatchDebate } from './useBatchDebate';
 export { useGraphDebateWebSocket } from './useGraphDebateWebSocket';
 export { useDebateWebSocketStore } from './useDebateWebSocketStore';
+export { useDebateInterventions } from './useDebateInterventions';
+export type {
+  InterventionEntry,
+  InterventionLog,
+  InterventionResult,
+} from './useDebateInterventions';
 
 // Re-export debate WebSocket types
 export type {
@@ -98,6 +104,15 @@ export { usePolicies } from './usePolicies';
 // Workflow & Automation
 // =============================================================================
 
+export { useWorkflows } from './useWorkflows';
+export type {
+  Workflow,
+  WorkflowStep,
+  WorkflowVersion,
+  WorkflowTemplate,
+  SimulationResult,
+  ApprovalRequest as WorkflowApprovalRequest,
+} from './useWorkflows';
 export { useWorkflowBuilder } from './useWorkflowBuilder';
 export { useWorkflowExecution } from './useWorkflowExecution';
 export { useWorkflowWebSocket } from './useWorkflowWebSocket';
@@ -272,6 +287,43 @@ export { useMissionControl } from './useMissionControl';
 export { useBrainDumpPreview } from './useBrainDumpPreview';
 export { useAgentExecution } from './useAgentExecution';
 export { useIntelligence } from './useIntelligence';
+
+// =============================================================================
+// Dashboard
+// =============================================================================
+
+export {
+  useDashboardOverview,
+  useDashboardStats,
+  useDashboardActivity,
+  useDashboardInboxSummary,
+  useDashboardStatCards,
+  useDashboardQuickActions,
+  useDashboardTeamPerformance,
+  useDashboardUrgentItems,
+  useDashboardPendingActions,
+  useDashboardLabels,
+  useOutcomeDashboard,
+  useOutcomeQuality,
+  useOutcomeAgents,
+  useOutcomeHistory,
+  useOutcomeCalibration,
+  useUsageSummary,
+  useUsageBreakdown,
+  useBudgetStatusDashboard,
+  useSpendSummary,
+  useSpendByAgent,
+  useSpendByDecision,
+  useSpendBudgetForecast,
+} from './useDashboard';
+export type {
+  DashboardOverview,
+  DashboardStats,
+  OutcomeQuality,
+  OutcomeAgent,
+  UsageSummary,
+  SpendSummary,
+} from './useDashboard';
 
 // =============================================================================
 // Streaming & Dashboard Events
