@@ -369,6 +369,11 @@ SystemHealthDashboardHandler = _safe_import(
     "aragora.server.handlers.system_health", "SystemHealthDashboardHandler"
 )
 
+# Platform config (runtime config for frontend)
+PlatformConfigHandler = _safe_import(
+    "aragora.server.handlers.platform_config", "PlatformConfigHandler"
+)
+
 # Feature flag admin
 FeatureFlagAdminHandler = _safe_import(
     "aragora.server.handlers.admin.feature_flags", "FeatureFlagAdminHandler"
@@ -577,6 +582,8 @@ ADMIN_HANDLER_REGISTRY: list[tuple[str, object]] = [
     ("_crash_telemetry_handler", CrashTelemetryHandler),
     # System health dashboard
     ("_system_health_dashboard_handler", SystemHealthDashboardHandler),
+    # Platform config (runtime config for frontend)
+    ("_platform_config_handler", PlatformConfigHandler),
 ]
 
 __all__ = [
@@ -743,6 +750,8 @@ __all__ = [
     "CrashTelemetryHandler",
     # System health dashboard
     "SystemHealthDashboardHandler",
+    # Platform config
+    "PlatformConfigHandler",
     # Handler result
     "HandlerResult",
     # Registry
