@@ -79,7 +79,7 @@ class AutonomousImproveHandler(SecureEndpointMixin, SecureHandler):  # type: ign
 
     def __init__(self, server_context: dict[str, Any]) -> None:
         super().__init__(server_context)
-        self._store = None
+        self._store: Any = None
 
     def _get_store(self) -> Any:
         """Lazy-load the run store to avoid heavy imports at module level."""
@@ -355,20 +355,20 @@ class AutonomousImproveHandler(SecureEndpointMixin, SecureHandler):  # type: ign
                 use_worktree_isolation=True,
             )
 
-            result = await orchestrator.execute_goal_coordinated(
+            orch_result = await orchestrator.execute_goal_coordinated(
                 goal=goal,
                 tracks=tracks,
             )
 
             store.update_run(
                 run_id,
-                status="completed" if result.success else "failed",
+                status="completed" if orch_result.success else "failed",
                 completed_at=datetime.now(timezone.utc).isoformat(),
-                total_subtasks=result.total_subtasks,
-                completed_subtasks=result.completed_subtasks,
-                failed_subtasks=result.failed_subtasks,
-                summary=result.summary,
-                error=result.error,
+                total_subtasks=orch_result.total_subtasks,
+                completed_subtasks=orch_result.completed_subtasks,
+                failed_subtasks=orch_result.failed_subtasks,
+                summary=orch_result.summary,
+                error=orch_result.error,
             )
 
         except asyncio.CancelledError:
