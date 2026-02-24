@@ -1260,7 +1260,7 @@ export default function Oracle() {
             onClick={() => setMode('divine')}
             icon="&#x1F52E;"
             label="TELL MY FORTUNE"
-            desc="Three branching prophecies refracted through chaos"
+            desc="Give me your situation and I'll show you three versions of your future"
           />
           <ModeButton
             mode="commune"
@@ -1268,7 +1268,7 @@ export default function Oracle() {
             onClick={() => setMode('commune')}
             icon="&#x1F441;"
             label="ASK THE ORACLE"
-            desc="Direct communion. The Oracle answers, then tentacles dissent."
+            desc="Questions about what's coming, what to do, what to watch"
           />
         </div>
 

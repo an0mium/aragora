@@ -95,6 +95,14 @@ class SpectatorEvents:
     PIPELINE_AGENT_FAILED = "pipeline_agent_failed"
     DIFF_PREVIEW = "diff_preview"
 
+    # Live debate experience (real-time reasoning + intervention)
+    AGENT_THINKING = "agent_thinking"
+    AGENT_REASONING = "agent_reasoning"
+    ARGUMENT_STRENGTH = "argument_strength"
+    CRUX_IDENTIFIED = "crux_identified"
+    INTERVENTION_WINDOW = "intervention_window"
+    INTERVENTION_APPLIED = "intervention_applied"
+
     # System
     SYSTEM = "system"
     ERROR = "error"

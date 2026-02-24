@@ -564,6 +564,20 @@ class DebateProtocol:
     # This is a convenience alias that activates formal_verification_enabled
     enable_formal_verification: bool = False  # Opt-in: requires Z3 or Lean installation
 
+    # Epistemic hygiene: Enforce rigorous reasoning standards in debates
+    # When enabled, agents must:
+    # - Include at least one alternative considered and why it was rejected
+    # - State what evidence would falsify each claim
+    # - Express confidence levels (0-1) on their claims
+    # - Surface explicit unknowns each round
+    # Claims missing falsifiers or confidence are penalized in consensus scoring.
+    enable_epistemic_hygiene: bool = False  # Opt-in: enforces reasoning standards
+    epistemic_hygiene_penalty: float = 0.15  # Consensus penalty for missing epistemic elements
+    epistemic_min_alternatives: int = 1  # Min alternatives per proposal
+    epistemic_require_falsifiers: bool = True  # Require falsifiability statements
+    epistemic_require_confidence: bool = True  # Require confidence intervals on claims
+    epistemic_require_unknowns: bool = True  # Require explicit unknowns each round
+
     def get_round_phase(self, round_number: int) -> RoundPhase | None:
         """Get the phase configuration for a specific round.
 

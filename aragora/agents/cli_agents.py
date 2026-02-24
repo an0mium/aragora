@@ -505,12 +505,27 @@ class CodexAgent(CLIAgent):
     Falls back to OpenRouter (OpenAI GPT-4o) on CLI failures if enabled.
     """
 
+    _CODEX_WARNING_PREFIXES: tuple[str, ...] = (
+        "`collab` is deprecated.",
+        "Enable it with `--enable multi_agent`",
+        "See https://github.com/openai/codex/blob/main/docs/config.md#feature-flags",
+    )
+
+    def _is_codex_warning_noise(self, line: str) -> bool:
+        """Return True for known non-response warning lines from Codex CLI."""
+        text = line.strip()
+        if not text:
+            return False
+        return any(text.startswith(prefix) for prefix in self._CODEX_WARNING_PREFIXES)
+
     def _extract_codex_response(self, result: str) -> str:
         """Extract the actual response from codex output (skip header)."""
         lines = result.split("\n")
         response_lines = []
         in_response = False
         for line in lines:
+            if self._is_codex_warning_noise(line):
+                continue
             if line.strip() == "codex":
                 in_response = True
                 continue
@@ -518,7 +533,19 @@ class CodexAgent(CLIAgent):
                 if line.startswith("tokens used"):
                     continue
                 response_lines.append(line)
-        return "\n".join(response_lines).strip() if response_lines else result
+        if response_lines:
+            return "\n".join(response_lines).strip()
+
+        filtered = [
+            line
+            for line in lines
+            if not self._is_codex_warning_noise(line) and not line.startswith("tokens used")
+        ]
+        if filtered and filtered[0].strip() == "codex":
+            filtered = filtered[1:]
+
+        cleaned = "\n".join(filtered).strip()
+        return cleaned if cleaned else result
 
     async def generate(self, prompt: str, context: list[Message] | None = None) -> str:
         """Generate a response using codex exec.

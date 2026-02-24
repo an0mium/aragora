@@ -399,6 +399,40 @@ tokens used: 50"""
             assert "tokens used" not in result
 
     @pytest.mark.asyncio
+    async def test_generate_filters_collab_deprecation_noise(self):
+        """generate() should filter known Codex deprecation warning lines."""
+        agent = CodexAgent(name="test", model="test")
+        raw_response = """`collab` is deprecated. Use `[features].multi_agent` instead.
+Enable it with `--enable multi_agent` or `[features].multi_agent` in config.toml.
+See https://github.com/openai/codex/blob/main/docs/config.md#feature-flags for details.
+codex
+Actual model response.
+tokens used: 123"""
+
+        with patch.object(agent, "_run_cli", new_callable=AsyncMock) as mock_run:
+            mock_run.return_value = raw_response
+            result = await agent.generate("Test")
+
+            assert result == "Actual model response."
+            assert "`collab` is deprecated" not in result
+
+    @pytest.mark.asyncio
+    async def test_generate_filters_collab_deprecation_noise_without_header(self):
+        """generate() should still filter warning lines when codex header is absent."""
+        agent = CodexAgent(name="test", model="test")
+        raw_response = """`collab` is deprecated. Use `[features].multi_agent` instead.
+Enable it with `--enable multi_agent` or `[features].multi_agent` in config.toml.
+See https://github.com/openai/codex/blob/main/docs/config.md#feature-flags for details.
+Plain response body without codex header."""
+
+        with patch.object(agent, "_run_cli", new_callable=AsyncMock) as mock_run:
+            mock_run.return_value = raw_response
+            result = await agent.generate("Test")
+
+            assert result == "Plain response body without codex header."
+            assert "`collab` is deprecated" not in result
+
+    @pytest.mark.asyncio
     async def test_critique_returns_critique_object(self):
         """critique() should return Critique object."""
         agent = CodexAgent(name="test", model="test")

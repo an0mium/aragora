@@ -219,6 +219,7 @@ class OracleSession:
     completed: bool = False
     stream_error: bool = False
     created_at: float = field(default_factory=time.monotonic)
+    debate_mode: bool = False  # True = run full multi-agent debate
 
 
 # ---------------------------------------------------------------------------
