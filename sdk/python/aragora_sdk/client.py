@@ -174,6 +174,7 @@ class AragoraClient:
         from .namespaces.audit_trail import AuditTrailAPI
         from .namespaces.auditing import AuditingAPI
         from .namespaces.auth import AuthAPI
+        from .namespaces.autonomous import AutonomousAPI
         from .namespaces.backups import BackupsAPI
         from .namespaces.batch import BatchAPI
         from .namespaces.belief import BeliefAPI
@@ -199,7 +200,9 @@ class AragoraClient:
         from .namespaces.control_plane import ControlPlaneAPI
         from .namespaces.coordination import CoordinationAPI
         from .namespaces.cost_management import CostManagementAPI
+        from .namespaces.costs import CostsAPI
         from .namespaces.critiques import CritiquesAPI
+        from .namespaces.crm import CRMAPI
         from .namespaces.cross_pollination import CrossPollinationAPI
         from .namespaces.dag_operations import DAGOperationsAPI
         from .namespaces.dashboard import DashboardAPI
@@ -208,8 +211,10 @@ class AragoraClient:
         from .namespaces.deliberations import DeliberationsAPI
         from .namespaces.dependency_analysis import DependencyAnalysisAPI
         from .namespaces.devices import DevicesAPI
+        from .namespaces.devops import DevopsAPI
         from .namespaces.disaster_recovery import DisasterRecoveryAPI
         from .namespaces.documents import DocumentsAPI
+        from .namespaces.ecommerce import EcommerceAPI
         from .namespaces.email_debate import EmailDebateAPI
         from .namespaces.email_services import EmailServicesAPI
         from .namespaces.evaluation import EvaluationAPI
@@ -223,6 +228,7 @@ class AragoraClient:
         from .namespaces.gateway import GatewayAPI
         from .namespaces.gauntlet import GauntletAPI
         from .namespaces.genesis import GenesisAPI
+        from .namespaces.github import GithubAPI
         from .namespaces.gmail import GmailAPI
         from .namespaces.graph_debates import GraphDebatesAPI
         from .namespaces.health import HealthAPI
@@ -270,6 +276,7 @@ class AragoraClient:
         from .namespaces.probes import ProbesAPI
         from .namespaces.pulse import PulseAPI
         from .namespaces.queue import QueueAPI
+        from .namespaces.quotas import QuotasAPI
         from .namespaces.ranking import RankingAPI
         from .namespaces.rbac import RBACAPI
         from .namespaces.readiness import ReadinessAPI
@@ -284,6 +291,8 @@ class AragoraClient:
         from .namespaces.routing import RoutingAPI
         from .namespaces.scim import SCIMAPI
         from .namespaces.security import SecurityAPI
+        from .namespaces.services import ServicesAPI
+        from .namespaces.shared_inbox import SharedInboxAPI
         from .namespaces.slo import SLOAPI
         from .namespaces.sme import SMEAPI
         from .namespaces.social import SocialAPI
@@ -308,6 +317,7 @@ class AragoraClient:
         from .namespaces.webhooks import WebhooksAPI
         from .namespaces.workflow_templates import WorkflowTemplatesAPI
         from .namespaces.workflows import WorkflowsAPI
+        from .namespaces.workspace_settings import WorkspaceSettingsAPI
         from .namespaces.workspaces import WorkspacesAPI
         from .namespaces.youtube import YouTubeAPI
 
@@ -329,6 +339,7 @@ class AragoraClient:
         self.audit_trail = AuditTrailAPI(self)
         self.auditing = AuditingAPI(self)
         self.auth = AuthAPI(self)
+        self.autonomous = AutonomousAPI(self)
         self.backups = BackupsAPI(self)
         self.batch = BatchAPI(self)
         self.belief = BeliefAPI(self)
@@ -358,16 +369,20 @@ class AragoraClient:
         self.control_plane = ControlPlaneAPI(self)
         self.coordination = CoordinationAPI(self)
         self.cost_management = CostManagementAPI(self)
+        self.costs = CostsAPI(self)
         self.critiques = CritiquesAPI(self)
+        self.crm = CRMAPI(self)
         self.cross_pollination = CrossPollinationAPI(self)
         self.dashboard = DashboardAPI(self)
         self.debates = DebatesAPI(self)
         self.decisions = DecisionsAPI(self)
         self.deliberations = DeliberationsAPI(self)
         self.dependency_analysis = DependencyAnalysisAPI(self)
+        self.devops = DevopsAPI(self)
         self.devices = DevicesAPI(self)
         self.disaster_recovery = DisasterRecoveryAPI(self)
         self.documents = DocumentsAPI(self)
+        self.ecommerce = EcommerceAPI(self)
         self.email_debate = EmailDebateAPI(self)
         self.email_services = EmailServicesAPI(self)
         self.evaluation = EvaluationAPI(self)
@@ -381,6 +396,7 @@ class AragoraClient:
         self.gateway = GatewayAPI(self)
         self.gauntlet = GauntletAPI(self)
         self.genesis = GenesisAPI(self)
+        self.github = GithubAPI(self)
         self.gmail = GmailAPI(self)
         self.graph_debates = GraphDebatesAPI(self)
         self.health = HealthAPI(self)
@@ -425,6 +441,7 @@ class AragoraClient:
         self.probes = ProbesAPI(self)
         self.pulse = PulseAPI(self)
         self.queue = QueueAPI(self)
+        self.quotas = QuotasAPI(self)
         self.reconciliation = ReconciliationAPI(self)
         self.ranking = RankingAPI(self)
         self.rbac = RBACAPI(self)
@@ -439,6 +456,8 @@ class AragoraClient:
         self.routing = RoutingAPI(self)
         self.scim = SCIMAPI(self)
         self.security = SecurityAPI(self)
+        self.services = ServicesAPI(self)
+        self.shared_inbox = SharedInboxAPI(self)
         self.slo = SLOAPI(self)
         self.sme = SMEAPI(self)
         self.social = SocialAPI(self)
@@ -463,6 +482,7 @@ class AragoraClient:
         self.webhooks = WebhooksAPI(self)
         self.workflow_templates = WorkflowTemplatesAPI(self)
         self.workflows = WorkflowsAPI(self)
+        self.workspace_settings = WorkspaceSettingsAPI(self)
         self.workspaces = WorkspacesAPI(self)
         self.youtube = YouTubeAPI(self)
 
@@ -766,6 +786,7 @@ class AragoraAsyncClient:
         from .namespaces.audit_trail import AsyncAuditTrailAPI
         from .namespaces.auditing import AsyncAuditingAPI
         from .namespaces.auth import AsyncAuthAPI
+        from .namespaces.autonomous import AsyncAutonomousAPI
         from .namespaces.backups import AsyncBackupsAPI
         from .namespaces.batch import AsyncBatchAPI
         from .namespaces.belief import AsyncBeliefAPI
@@ -787,7 +808,9 @@ class AragoraAsyncClient:
         from .namespaces.control_plane import AsyncControlPlaneAPI
         from .namespaces.coordination import AsyncCoordinationAPI
         from .namespaces.cost_management import AsyncCostManagementAPI
+        from .namespaces.costs import AsyncCostsAPI
         from .namespaces.critiques import AsyncCritiquesAPI
+        from .namespaces.crm import AsyncCRMAPI
         from .namespaces.cross_pollination import AsyncCrossPollinationAPI
         from .namespaces.dag_operations import AsyncDAGOperationsAPI
         from .namespaces.dashboard import AsyncDashboardAPI
@@ -796,8 +819,10 @@ class AragoraAsyncClient:
         from .namespaces.deliberations import AsyncDeliberationsAPI
         from .namespaces.dependency_analysis import AsyncDependencyAnalysisAPI
         from .namespaces.devices import AsyncDevicesAPI
+        from .namespaces.devops import AsyncDevopsAPI
         from .namespaces.disaster_recovery import AsyncDisasterRecoveryAPI
         from .namespaces.documents import AsyncDocumentsAPI
+        from .namespaces.ecommerce import AsyncEcommerceAPI
         from .namespaces.email_debate import AsyncEmailDebateAPI
         from .namespaces.email_services import AsyncEmailServicesAPI
         from .namespaces.evaluation import AsyncEvaluationAPI
@@ -810,6 +835,7 @@ class AragoraAsyncClient:
         from .namespaces.gateway import AsyncGatewayAPI
         from .namespaces.gauntlet import AsyncGauntletAPI
         from .namespaces.genesis import AsyncGenesisAPI
+        from .namespaces.github import AsyncGithubAPI
         from .namespaces.gmail import AsyncGmailAPI
         from .namespaces.graph_debates import AsyncGraphDebatesAPI
         from .namespaces.health import AsyncHealthAPI
@@ -853,6 +879,7 @@ class AragoraAsyncClient:
         from .namespaces.probes import AsyncProbesAPI
         from .namespaces.pulse import AsyncPulseAPI
         from .namespaces.queue import AsyncQueueAPI
+        from .namespaces.quotas import AsyncQuotasAPI
         from .namespaces.ranking import AsyncRankingAPI
         from .namespaces.rbac import AsyncRBACAPI
         from .namespaces.receipts import AsyncReceiptsAPI
@@ -866,6 +893,8 @@ class AragoraAsyncClient:
         from .namespaces.routing import AsyncRoutingAPI
         from .namespaces.scim import AsyncSCIMAPI
         from .namespaces.security import AsyncSecurityAPI
+        from .namespaces.services import AsyncServicesAPI
+        from .namespaces.shared_inbox import AsyncSharedInboxAPI
         from .namespaces.slo import AsyncSLOAPI
         from .namespaces.sme import AsyncSMEAPI
         from .namespaces.social import AsyncSocialAPI
@@ -887,6 +916,7 @@ class AragoraAsyncClient:
         from .namespaces.webhooks import AsyncWebhooksAPI
         from .namespaces.workflow_templates import AsyncWorkflowTemplatesAPI
         from .namespaces.workflows import AsyncWorkflowsAPI
+        from .namespaces.workspace_settings import AsyncWorkspaceSettingsAPI
         from .namespaces.workspaces import AsyncWorkspacesAPI
         from .namespaces.youtube import AsyncYouTubeAPI
 
@@ -908,6 +938,7 @@ class AragoraAsyncClient:
         self.audit_trail = AsyncAuditTrailAPI(self)
         self.auditing = AsyncAuditingAPI(self)
         self.auth = AsyncAuthAPI(self)
+        self.autonomous = AsyncAutonomousAPI(self)
         self.backups = AsyncBackupsAPI(self)
         self.batch = AsyncBatchAPI(self)
         self.belief = AsyncBeliefAPI(self)
@@ -933,16 +964,20 @@ class AragoraAsyncClient:
         self.control_plane = AsyncControlPlaneAPI(self)
         self.coordination = AsyncCoordinationAPI(self)
         self.cost_management = AsyncCostManagementAPI(self)
+        self.costs = AsyncCostsAPI(self)
         self.critiques = AsyncCritiquesAPI(self)
+        self.crm = AsyncCRMAPI(self)
         self.cross_pollination = AsyncCrossPollinationAPI(self)
         self.dashboard = AsyncDashboardAPI(self)
         self.debates = AsyncDebatesAPI(self)
         self.decisions = AsyncDecisionsAPI(self)
         self.deliberations = AsyncDeliberationsAPI(self)
         self.dependency_analysis = AsyncDependencyAnalysisAPI(self)
+        self.devops = AsyncDevopsAPI(self)
         self.devices = AsyncDevicesAPI(self)
         self.disaster_recovery = AsyncDisasterRecoveryAPI(self)
         self.documents = AsyncDocumentsAPI(self)
+        self.ecommerce = AsyncEcommerceAPI(self)
         self.email_debate = AsyncEmailDebateAPI(self)
         self.email_services = AsyncEmailServicesAPI(self)
         self.evaluation = AsyncEvaluationAPI(self)
@@ -955,6 +990,7 @@ class AragoraAsyncClient:
         self.gateway = AsyncGatewayAPI(self)
         self.gauntlet = AsyncGauntletAPI(self)
         self.genesis = AsyncGenesisAPI(self)
+        self.github = AsyncGithubAPI(self)
         self.gmail = AsyncGmailAPI(self)
         self.graph_debates = AsyncGraphDebatesAPI(self)
         self.health = AsyncHealthAPI(self)
@@ -995,6 +1031,7 @@ class AragoraAsyncClient:
         self.probes = AsyncProbesAPI(self)
         self.pulse = AsyncPulseAPI(self)
         self.queue = AsyncQueueAPI(self)
+        self.quotas = AsyncQuotasAPI(self)
         self.reconciliation = AsyncReconciliationAPI(self)
         self.ranking = AsyncRankingAPI(self)
         self.rbac = AsyncRBACAPI(self)
@@ -1008,6 +1045,8 @@ class AragoraAsyncClient:
         self.routing = AsyncRoutingAPI(self)
         self.scim = AsyncSCIMAPI(self)
         self.security = AsyncSecurityAPI(self)
+        self.services = AsyncServicesAPI(self)
+        self.shared_inbox = AsyncSharedInboxAPI(self)
         self.slo = AsyncSLOAPI(self)
         self.sme = AsyncSMEAPI(self)
         self.social = AsyncSocialAPI(self)
@@ -1029,6 +1068,7 @@ class AragoraAsyncClient:
         self.webhooks = AsyncWebhooksAPI(self)
         self.workflow_templates = AsyncWorkflowTemplatesAPI(self)
         self.workflows = AsyncWorkflowsAPI(self)
+        self.workspace_settings = AsyncWorkspaceSettingsAPI(self)
         self.workspaces = AsyncWorkspacesAPI(self)
         self.youtube = AsyncYouTubeAPI(self)
 

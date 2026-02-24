@@ -20,6 +20,8 @@ import { InlineDownloadPanel } from './InlineDownloadPanel';
 import { PhaseIndicator } from './PhaseIndicator';
 import { InterventionPanel } from './InterventionPanel';
 import { DebateTimeline } from './DebateTimeline';
+import { TTSControls } from '@/components/debate/TTSControls';
+import { StreamMetricsBar } from '@/components/debate/StreamMetricsBar';
 import { API_BASE_URL } from '@/config';
 import { logger } from '@/utils/logger';
 import type { LiveDebateViewProps } from './types';
@@ -60,6 +62,8 @@ export function LiveDebateView({
   cruxes,
   showCruxHighlighting,
   setShowCruxHighlighting,
+  streamMetrics,
+  tts,
 }: LiveDebateViewProps) {
   const statusConfig = STATUS_CONFIG[status];
   const [showExportModal, setShowExportModal] = useState(false);
@@ -346,6 +350,22 @@ export function LiveDebateView({
           <CritiqueSeverityMeter events={streamEvents} agents={agents} />
           <MoodTrackerPanel events={streamEvents} agents={agents} />
           <TokenStreamViewer events={streamEvents} agents={agents} />
+        </div>
+      )}
+
+      {/* Stream Metrics + TTS Controls - visible during streaming */}
+      {status === 'streaming' && (streamMetrics || tts) && (
+        <div className="flex flex-wrap gap-4">
+          {streamMetrics && (
+            <div className="flex-1 min-w-[280px]">
+              <StreamMetricsBar metrics={streamMetrics} />
+            </div>
+          )}
+          {tts && (
+            <div className="w-full sm:w-auto sm:min-w-[280px]">
+              <TTSControls tts={tts} isActive={status === 'streaming'} />
+            </div>
+          )}
         </div>
       )}
 

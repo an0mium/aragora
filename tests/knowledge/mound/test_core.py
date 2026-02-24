@@ -417,6 +417,9 @@ class TestKnowledgeMoundCoreInitBackends:
         core = KnowledgeMoundCore(config=config)
 
         with patch(
+            "aragora.knowledge.vector_store.KnowledgeVectorStore",
+            side_effect=ImportError("vector store not installed"),
+        ), patch(
             "aragora.documents.indexing.weaviate_store.WeaviateStore",
             side_effect=ImportError("weaviate not installed"),
         ):

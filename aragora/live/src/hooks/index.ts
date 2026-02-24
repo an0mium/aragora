@@ -206,6 +206,20 @@ export { useNomicStream } from './useNomicStream';
 export { useOracleWebSocket } from './useOracleWebSocket';
 
 // =============================================================================
+// Debate Stream (Oracle streaming + TTS)
+// =============================================================================
+
+export { useDebateStream } from './useDebateStream';
+export type {
+  DebatePhase,
+  TTSState,
+  StreamMetrics,
+  TTSControls as DebateStreamTTSControls,
+  UseDebateStreamOptions,
+  UseDebateStreamReturn,
+} from './useDebateStream';
+
+// =============================================================================
 // Features & Capabilities
 // =============================================================================
 
@@ -324,6 +338,20 @@ export type {
   UsageSummary,
   SpendSummary,
 } from './useDashboard';
+
+// =============================================================================
+// Belief Network
+// =============================================================================
+
+export { useBeliefNetwork } from './useBeliefNetwork';
+export type {
+  BeliefNode,
+  BeliefLink,
+  BeliefNetworkGraph,
+  LoadBearingClaim,
+  CruxAnalysis,
+  ClaimSupport,
+} from './useBeliefNetwork';
 
 // =============================================================================
 // Streaming & Dashboard Events

@@ -41,6 +41,104 @@ from aragora.server.oauth_state_store import (
 
 logger = logging.getLogger(__name__)
 
+# ---------------------------------------------------------------------------
+# IdP Circuit Breaker — protects against cascading failures when an IdP
+# (Okta, Azure AD, Google, etc.) becomes unavailable or slow.
+# ---------------------------------------------------------------------------
+_idp_circuit_breakers: dict[str, Any] = {}
+_idp_cb_lock = threading.Lock()
+
+# Retry configuration for IdP token exchange
+_IDP_MAX_RETRIES = 2
+_IDP_RETRY_DELAY_SECONDS = 0.5
+
+
+def _get_idp_circuit_breaker(provider_type: str) -> Any:
+    """Get or create a circuit breaker for the given IdP provider."""
+    with _idp_cb_lock:
+        if provider_type not in _idp_circuit_breakers:
+            try:
+                from aragora.resilience.circuit_breaker import CircuitBreaker
+
+                _idp_circuit_breakers[provider_type] = CircuitBreaker(
+                    name=f"idp-{provider_type}",
+                    failure_threshold=3,
+                    cooldown_seconds=60.0,
+                    half_open_success_threshold=1,
+                )
+            except ImportError:
+                logger.debug("Circuit breaker module unavailable, skipping IdP protection")
+                return None
+        return _idp_circuit_breakers[provider_type]
+
+
+async def _authenticate_with_retry(
+    provider: Any,
+    code: str,
+    state: str,
+    provider_type: str,
+) -> Any:
+    """Authenticate with IdP, with retry and circuit breaker protection.
+
+    Retries transient network failures (ConnectionError, TimeoutError)
+    up to _IDP_MAX_RETRIES times with exponential backoff. Skips retry
+    for authentication/validation errors.
+    """
+    import asyncio
+
+    cb = _get_idp_circuit_breaker(provider_type)
+
+    # Check circuit breaker state
+    if cb is not None and not cb.can_proceed():
+        logger.warning(
+            "IdP circuit breaker OPEN for provider=%s, failing fast",
+            provider_type,
+        )
+        raise ConnectionError(
+            f"IdP provider '{provider_type}' is temporarily unavailable (circuit open)"
+        )
+
+    last_error: Exception | None = None
+    for attempt in range(_IDP_MAX_RETRIES + 1):
+        try:
+            result = await provider.authenticate(code=code, state=state)
+            # Record success with circuit breaker
+            if cb is not None:
+                cb.record_success()
+            return result
+        except (ConnectionError, TimeoutError, OSError) as e:
+            last_error = e
+            if cb is not None:
+                cb.record_failure()
+            if attempt < _IDP_MAX_RETRIES:
+                delay = _IDP_RETRY_DELAY_SECONDS * (2**attempt)
+                logger.warning(
+                    "IdP auth attempt %d/%d failed for provider=%s: %s, retrying in %.1fs",
+                    attempt + 1,
+                    _IDP_MAX_RETRIES + 1,
+                    provider_type,
+                    e,
+                    delay,
+                )
+                await asyncio.sleep(delay)
+            else:
+                logger.error(
+                    "IdP auth failed after %d attempts for provider=%s: %s",
+                    _IDP_MAX_RETRIES + 1,
+                    provider_type,
+                    e,
+                )
+        except (ValueError, KeyError) as e:
+            # Non-retryable authentication errors
+            if cb is not None:
+                cb.record_failure()
+            raise
+
+    # All retries exhausted
+    if last_error:
+        raise last_error
+    raise ConnectionError(f"IdP authentication failed for provider '{provider_type}'")
+
 # Thread-safe SSO provider instances
 _sso_providers: dict[str, Any] = {}
 _sso_providers_lock = threading.Lock()
@@ -283,8 +381,10 @@ async def handle_sso_callback(
         if not provider:
             return error_response("SSO provider not available", status=503)
 
-        # Authenticate with the provider
-        sso_user = await provider.authenticate(code=code, state=state)
+        # Authenticate with the provider (with retry + circuit breaker)
+        sso_user = await _authenticate_with_retry(
+            provider, code=code, state=state, provider_type=provider_type,
+        )
 
         # Create or update user in our system
         from aragora.billing.jwt_auth import create_token_pair
@@ -403,6 +503,21 @@ async def handle_sso_callback(
             # Non-fatal: session tracking is optional
             logger.debug("Session tracking unavailable: %s", session_err)
 
+        # Track session in health monitor for reliability metrics
+        try:
+            from aragora.auth.session_monitor import get_session_monitor
+
+            monitor = get_session_monitor()
+            monitor.track_session(
+                session_id=token_jti if "token_jti" in dir() else tokens.access_token[:32],
+                user_id=user.id,
+                ip_address=data.get("client_ip"),
+            )
+            monitor.record_auth_success()
+        except (ImportError, AttributeError, TypeError, ValueError) as monitor_err:
+            # Non-fatal: monitoring is best-effort
+            logger.debug("Session monitor tracking unavailable: %s", monitor_err)
+
         # Build organization data for frontend
         org_data = None
         org_membership = []
@@ -454,6 +569,13 @@ async def handle_sso_callback(
         AttributeError,
     ) as e:
         logger.exception("SSO callback failed")
+        # Track auth failure for reliability metrics
+        try:
+            from aragora.auth.session_monitor import get_session_monitor
+
+            get_session_monitor().record_auth_failure()
+        except (ImportError, AttributeError, TypeError):
+            pass  # Non-fatal: monitoring is best-effort
         return error_response(safe_error_message(e, "SSO authentication"), status=401)
 
 

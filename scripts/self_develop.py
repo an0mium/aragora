@@ -486,6 +486,7 @@ async def run_orchestration(
     enable_metrics: bool = False,
     enable_preflight: bool = False,
     enable_stuck_detection: bool = False,
+    enable_watchdog: bool = False,
 ) -> OrchestrationResult:
     """Run the autonomous orchestration.
 
@@ -540,6 +541,7 @@ async def run_orchestration(
             use_worktree_isolation=use_worktree,
             enable_meta_planning=enable_meta_plan,
             budget_limit_usd=budget_limit,
+            enable_watchdog=enable_watchdog,
             **common_kwargs,
         )
         mode_label = "HARDENED"
@@ -559,6 +561,8 @@ async def run_orchestration(
     elif not use_standard:
         print(f"Worktree isolation: {use_worktree}")
         print(f"Meta-planning: {enable_meta_plan}")
+        if enable_watchdog:
+            print("Stall watchdog: enabled")
         if budget_limit:
             print(f"Budget limit: ${budget_limit:.2f}")
 
@@ -650,6 +654,11 @@ Examples:
         "--worktree",
         action="store_true",
         help="Use git worktree isolation for parallel agent execution",
+    )
+    parser.add_argument(
+        "--watchdog",
+        action="store_true",
+        help="Enable worktree stall watchdog to detect and recover stuck sessions",
     )
     parser.add_argument(
         "--standard",
@@ -1169,6 +1178,7 @@ Examples:
                 enable_metrics=args.metrics,
                 enable_preflight=args.preflight,
                 enable_stuck_detection=args.stuck_detection,
+                enable_watchdog=getattr(args, "watchdog", False),
             )
         )
         print_result(result)

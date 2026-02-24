@@ -1,6 +1,7 @@
 import type { DebateArtifact } from '@/utils/supabase';
 import type { TranscriptMessage, DebateConnectionStatus } from '@/hooks/useDebateWebSocket';
 import type { StreamEvent } from '@/types/events';
+import type { StreamMetrics, TTSControls as TTSControlsType } from '@/hooks/useDebateStream';
 
 export interface DebateViewerProps {
   debateId: string;
@@ -35,6 +36,9 @@ export interface LiveDebateViewProps {
   cruxes?: CruxClaim[];
   showCruxHighlighting?: boolean;
   setShowCruxHighlighting?: (show: boolean) => void;
+  // Oracle streaming + TTS props (optional, enabled when useDebateStream is active)
+  streamMetrics?: StreamMetrics;
+  tts?: TTSControlsType;
 }
 
 export interface ArchivedDebateViewProps {

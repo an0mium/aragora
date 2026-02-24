@@ -463,6 +463,49 @@ def __getattr__(name):
             "ExecutionResult": _ER,
         }
         return _map[name]
+    elif name in {
+        "WorktreeWatchdog",
+        "WatchdogConfig",
+        "WorktreeSession",
+        "HealthReport",
+    }:
+        from aragora.nomic.worktree_watchdog import (
+            WorktreeWatchdog as _WW,
+            WatchdogConfig as _WC,
+            WorktreeSession as _WS,
+            HealthReport as _HR,
+        )
+
+        _ww_map = {
+            "WorktreeWatchdog": _WW,
+            "WatchdogConfig": _WC,
+            "WorktreeSession": _WS,
+            "HealthReport": _HR,
+        }
+        return _ww_map[name]
+    elif name in {
+        "WorktreeAuditor",
+        "AuditorConfig",
+        "AuditFinding",
+        "AuditReport",
+        "WorktreeStatus",
+    }:
+        from aragora.nomic.worktree_auditor import (
+            WorktreeAuditor as _WA,
+            AuditorConfig as _AC,
+            AuditFinding as _AF,
+            AuditReport as _AR,
+            WorktreeStatus as _WSt,
+        )
+
+        _wa_map = {
+            "WorktreeAuditor": _WA,
+            "AuditorConfig": _AC,
+            "AuditFinding": _AF,
+            "AuditReport": _AR,
+            "WorktreeStatus": _WSt,
+        }
+        return _wa_map[name]
 
     raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
 
@@ -758,4 +801,15 @@ __all__ = [
     "FailureType",
     # Goal Evaluator (lazy-loaded)
     "GoalEvaluator",
+    # Worktree Watchdog (lazy-loaded)
+    "WorktreeWatchdog",
+    "WatchdogConfig",
+    "WorktreeSession",
+    "HealthReport",
+    # Worktree Auditor (lazy-loaded)
+    "WorktreeAuditor",
+    "AuditorConfig",
+    "AuditFinding",
+    "AuditReport",
+    "WorktreeStatus",
 ]

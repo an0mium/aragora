@@ -101,6 +101,16 @@ except ImportError:
     SAMLProvider = None
     HAS_SAML = False
 
+from .session_monitor import (
+    SessionHealthMonitor,
+    SessionHealthStatus,
+    SessionMetrics,
+    SessionState,
+    TrackedSession,
+    get_session_monitor,
+    reset_session_monitor,
+)
+
 from .sso import (
     SSOAuthenticationError,
     SSOConfig,
@@ -129,6 +139,14 @@ __all__ = [
     "LockoutEntry",
     "get_lockout_tracker",
     "reset_lockout_tracker",
+    # Session monitoring
+    "SessionHealthMonitor",
+    "SessionHealthStatus",
+    "SessionMetrics",
+    "SessionState",
+    "TrackedSession",
+    "get_session_monitor",
+    "reset_session_monitor",
     # Availability flags
     "HAS_OIDC",
     "HAS_SAML",

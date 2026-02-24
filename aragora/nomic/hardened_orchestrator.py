@@ -125,6 +125,10 @@ class HardenedConfig:
     # Gauntlet retry: re-execute with feedback when Gauntlet finds issues
     gauntlet_retry_enabled: bool = True
     gauntlet_max_retries: int = 1
+    # Worktree watchdog: monitor sessions for stalls and abandoned worktrees
+    enable_watchdog: bool = False
+    watchdog_stall_timeout: float = 600.0  # 10 minutes
+    watchdog_abandon_timeout: float = 3600.0  # 1 hour
 
 
 class HardenedOrchestrator(BudgetMixin, GauntletMixin, AuditMixin, AutonomousOrchestrator):  # type: ignore[misc]  # MRO method conflict between BudgetMixin and base
@@ -170,6 +174,9 @@ class HardenedOrchestrator(BudgetMixin, GauntletMixin, AuditMixin, AutonomousOrc
         enable_sandbox_validation: bool = True,
         sandbox_timeout: int = 60,
         sandbox_memory_mb: int = 512,
+        enable_watchdog: bool = False,
+        watchdog_stall_timeout: float = 600.0,
+        watchdog_abandon_timeout: float = 3600.0,
         **kwargs: Any,
     ):
         super().__init__(**kwargs)
@@ -203,6 +210,9 @@ class HardenedOrchestrator(BudgetMixin, GauntletMixin, AuditMixin, AutonomousOrc
             enable_sandbox_validation=enable_sandbox_validation,
             sandbox_timeout=sandbox_timeout,
             sandbox_memory_mb=sandbox_memory_mb,
+            enable_watchdog=enable_watchdog,
+            watchdog_stall_timeout=watchdog_stall_timeout,
+            watchdog_abandon_timeout=watchdog_abandon_timeout,
         )
 
         # Budget tracking (simple float counter, legacy)
@@ -253,7 +263,29 @@ class HardenedOrchestrator(BudgetMixin, GauntletMixin, AuditMixin, AutonomousOrc
         # to feed back into the next cycle's debate context
         self._gauntlet_constraints: list[str] = []
 
+        # Worktree watchdog (created lazily when enabled)
+        self._watchdog: Any | None = None
+
     # _init_budget_manager inherited from BudgetMixin
+
+    def _get_watchdog(self) -> Any | None:
+        """Lazily create WorktreeWatchdog if enabled."""
+        if self._watchdog is None and self.hardened_config.enable_watchdog:
+            try:
+                from aragora.nomic.worktree_watchdog import WatchdogConfig, WorktreeWatchdog
+
+                self._watchdog = WorktreeWatchdog(
+                    repo_path=self.aragora_path,
+                    config=WatchdogConfig(
+                        stall_timeout_seconds=self.hardened_config.watchdog_stall_timeout,
+                        abandon_timeout_seconds=self.hardened_config.watchdog_abandon_timeout,
+                        emit_events=self.hardened_config.spectate_stream,
+                    ),
+                )
+                logger.info("worktree_watchdog_initialized")
+            except ImportError:
+                logger.debug("WorktreeWatchdog not available")
+        return self._watchdog
 
     def _get_worktree_manager(self) -> Any:
         """Lazily create WorktreeManager."""
@@ -441,6 +473,20 @@ class HardenedOrchestrator(BudgetMixin, GauntletMixin, AuditMixin, AutonomousOrc
                 track=ta.goal.track.value,
                 description=ta.goal.description[:100],
             )
+
+            # Watchdog: register session for stall monitoring
+            watchdog = self._get_watchdog()
+            watchdog_session_id: str | None = None
+            if watchdog is not None and ta.worktree_path:
+                try:
+                    watchdog_session_id = watchdog.register_session(
+                        branch_name=ta.branch_name or "unknown",
+                        worktree_path=ta.worktree_path,
+                        track=ta.goal.track.value,
+                    )
+                except (RuntimeError, OSError) as e:
+                    logger.debug("Watchdog session registration failed: %s", e)
+
             try:
                 # Phase 2: ExecutionBridge instruction generation
                 enriched_context = dict(context or {})
@@ -473,6 +519,10 @@ class HardenedOrchestrator(BudgetMixin, GauntletMixin, AuditMixin, AutonomousOrc
                     max_cycles=max_cycles,
                     context=enriched_context,
                 )
+
+                # Watchdog: heartbeat after execution completes
+                if watchdog is not None and watchdog_session_id:
+                    watchdog.heartbeat(watchdog_session_id)
 
                 # Phase 1: DebugLoop retry on failure
                 if not result.success and self.hardened_config.enable_debug_loop:
@@ -512,6 +562,10 @@ class HardenedOrchestrator(BudgetMixin, GauntletMixin, AuditMixin, AutonomousOrc
                 if self.hardened_config.generate_receipts and result.success:
                     self._generate_coordinated_receipt(ta, result)
 
+                # Watchdog: mark session completed
+                if watchdog is not None and watchdog_session_id:
+                    watchdog.complete_session(watchdog_session_id)
+
                 self._emit_event(
                     "assignment_completed",
                     track=ta.goal.track.value,
@@ -523,6 +577,10 @@ class HardenedOrchestrator(BudgetMixin, GauntletMixin, AuditMixin, AutonomousOrc
                     "failed": result.failed_subtasks,
                 }
             except (RuntimeError, OSError, ValueError) as e:
+                # Watchdog: mark session completed even on failure
+                if watchdog is not None and watchdog_session_id:
+                    watchdog.complete_session(watchdog_session_id)
+
                 logger.warning(
                     "coordinated_assignment_failed track=%s: %s",
                     ta.goal.track.value,
@@ -546,6 +604,28 @@ class HardenedOrchestrator(BudgetMixin, GauntletMixin, AuditMixin, AutonomousOrc
             merged=coord_result.merged_branches,
             failed=coord_result.failed_branches,
         )
+
+        # Watchdog: run health check and recover any stalled sessions
+        watchdog = self._get_watchdog()
+        if watchdog is not None:
+            try:
+                health = watchdog.check_health()
+                if health.stalled_sessions > 0:
+                    recovered = watchdog.recover_stalled()
+                    self._emit_event(
+                        "watchdog_recovery",
+                        stalled=health.stalled_sessions,
+                        recovered=len(recovered),
+                    )
+                if health.abandoned_sessions > 0:
+                    cleaned = watchdog.cleanup_abandoned()
+                    self._emit_event(
+                        "watchdog_cleanup",
+                        abandoned=health.abandoned_sessions,
+                        cleaned=len(cleaned),
+                    )
+            except (RuntimeError, OSError) as e:
+                logger.debug("Watchdog post-coordination check failed: %s", e)
 
         # Phase 3: FeedbackOrchestrator records outcomes for next cycle
         try:

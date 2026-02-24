@@ -1,0 +1,149 @@
+name: "Security Gate"
+
+# Runs security checks that must pass before any release.
+# Triggered on PRs to main and can be called from the release workflow.
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - 'aragora/**'
+      - 'pyproject.toml'
+      - 'requirements*.txt'
+      - 'aragora/live/package.json'
+      - 'aragora/live/package-lock.json'
+      - 'sdk/typescript/package.json'
+      - 'sdk/typescript/package-lock.json'
+      - '.github/workflows/security-gate.yml'
+  workflow_call:
+    # Allow release.yml to call this workflow as a reusable gate
+  workflow_dispatch:
+
+concurrency:
+  group: security-gate-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  python-security:
+    name: Python Security Scan
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: 'pip'
+          cache-dependency-path: pyproject.toml
+
+      - name: Install security tools and project
+        run: |
+          python -m pip install --upgrade pip
+          pip install bandit[toml] pip-audit safety
+          pip install -e .
+
+      # ---------------------------------------------------------------
+      # Bandit: static analysis for Python security issues
+      # Uses pyproject.toml [tool.bandit] for skip/exclude config.
+      # -lll = only HIGH severity, --confidence-level HIGH
+      # ---------------------------------------------------------------
+      - name: "BLOCKING: Bandit security scan (HIGH severity)"
+        run: |
+          echo "--- Full report (informational) ---"
+          bandit -r aragora/ -c pyproject.toml -f json -o bandit-report.json || true
+          echo "--- Blocking check: HIGH severity findings ---"
+          bandit -r aragora/ -c pyproject.toml -lll
+
+      # ---------------------------------------------------------------
+      # pip-audit: check installed Python packages for known CVEs
+      # ---------------------------------------------------------------
+      - name: "BLOCKING: Python dependency audit (pip-audit)"
+        run: |
+          pip-audit --strict --vulnerability-service osv \
+            --ignore-vuln CVE-2025-14009
+
+      # ---------------------------------------------------------------
+      # Hardcoded secrets pattern scan
+      # Checks Python source for common secret patterns that should
+      # never be committed.
+      # ---------------------------------------------------------------
+      - name: "BLOCKING: Hardcoded secrets pattern scan"
+        run: |
+          python scripts/pre_release_check.py --gate secrets-only
+          echo "No hardcoded secret patterns detected"
+
+      - name: Upload Bandit report
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: security-gate-bandit-report
+          path: bandit-report.json
+          retention-days: 30
+
+  npm-security:
+    name: npm Security Scan
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      # ---------------------------------------------------------------
+      # npm audit: check frontend dependencies for high/critical vulns
+      # ---------------------------------------------------------------
+      - name: "BLOCKING: npm audit high/critical (live frontend)"
+        working-directory: aragora/live
+        run: |
+          npm ci --ignore-scripts
+          echo "--- Non-blocking: low/moderate advisories ---"
+          npm audit --omit=dev --audit-level=moderate 2>&1 || true
+          echo "--- BLOCKING: high/critical advisories ---"
+          npm audit --omit=dev --audit-level=high
+
+      - name: "BLOCKING: npm audit high/critical (TypeScript SDK)"
+        working-directory: sdk/typescript
+        run: |
+          npm ci --ignore-scripts 2>/dev/null || npm install --ignore-scripts
+          echo "--- Non-blocking: low/moderate advisories ---"
+          npm audit --omit=dev --audit-level=moderate 2>&1 || true
+          echo "--- BLOCKING: high/critical advisories ---"
+          npm audit --omit=dev --audit-level=high
+
+  security-summary:
+    name: Security Gate Summary
+    runs-on: ubuntu-latest
+    needs: [python-security, npm-security]
+    if: always()
+    timeout-minutes: 2
+
+    steps:
+      - name: Check gate results
+        run: |
+          echo "## Security Gate Results" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "| Check | Status |" >> $GITHUB_STEP_SUMMARY
+          echo "|-------|--------|" >> $GITHUB_STEP_SUMMARY
+          echo "| Python Security | ${{ needs.python-security.result }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| npm Security | ${{ needs.npm-security.result }} |" >> $GITHUB_STEP_SUMMARY
+
+          if [ "${{ needs.python-security.result }}" != "success" ] || \
+             [ "${{ needs.npm-security.result }}" != "success" ]; then
+            echo ""
+            echo "::error::Security gate FAILED - one or more security checks did not pass"
+            exit 1
+          fi
+          echo ""
+          echo "All security checks passed."

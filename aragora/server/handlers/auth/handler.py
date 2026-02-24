@@ -75,6 +75,11 @@ from .mfa import (
     handle_mfa_backup_codes,
 )
 from .sessions import handle_list_sessions, handle_revoke_session
+from .session_health import (
+    handle_session_health,
+    handle_session_sweep,
+    handle_active_sessions,
+)
 
 # Unified audit logging
 try:
@@ -146,6 +151,9 @@ class AuthHandler(SecureHandler):
         "/api/auth/mfa/backup-codes",
         "/api/auth/mfa",
         "/api/auth/sessions",
+        "/api/auth/sessions/health",
+        "/api/auth/sessions/sweep",
+        "/api/auth/sessions/active",
         "/api/auth/sessions/*",  # For DELETE /api/auth/sessions/:id
         "/api/auth/verify-email",
         "/api/auth/verify-email/resend",
@@ -309,6 +317,25 @@ class AuthHandler(SecureHandler):
         # Session management endpoints
         if path == "/api/auth/sessions" and method == "GET":
             return self._handle_list_sessions(handler)
+
+        # Session health monitoring endpoints
+        if path == "/api/auth/sessions/health" and method == "GET":
+            user_id, err = self._require_user_id(handler)
+            if err:
+                return err
+            return await handle_session_health({}, user_id=user_id)
+
+        if path == "/api/auth/sessions/sweep" and method == "POST":
+            user_id, err = self._require_user_id(handler)
+            if err:
+                return err
+            return await handle_session_sweep({}, user_id=user_id)
+
+        if path == "/api/auth/sessions/active" and method == "GET":
+            user_id, err = self._require_user_id(handler)
+            if err:
+                return err
+            return await handle_active_sessions({}, user_id=user_id)
 
         if path.startswith("/api/auth/sessions/") and method == "DELETE":
             session_id = path.split("/")[-1]
