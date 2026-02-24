@@ -1790,3 +1790,27 @@ export { TemplatesAPI } from './templates';
 
 // Users
 export { UsersAPI } from './users';
+
+// Actions (Action Canvas - Pipeline Stage 3)
+export {
+  ActionsNamespace,
+  type ActionNode,
+  type ActionEdge,
+  type ActionCanvas,
+  type AdvanceResult,
+} from './actions';
+
+// Graph Debates
+export { GraphDebatesAPI } from './graph-debates';
+
+// Matrix Debates
+export { MatrixDebatesAPI } from './matrix-debates';
+
+// Orchestration Canvas (Pipeline Stage 4)
+export {
+  OrchestrationCanvasNamespace,
+  type OrchestrationNode,
+  type OrchestrationEdge,
+  type OrchestrationCanvas,
+  type ExecutionResult as OrchestrationExecutionResult,
+} from './orchestration_canvas';

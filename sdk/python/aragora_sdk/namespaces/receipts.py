@@ -150,6 +150,43 @@ class ReceiptsAPI:
             "POST", f"/api/v2/receipts/{receipt_id}/send-to-channel", json=payload,
         )
 
+    def deliver_v1(
+        self,
+        receipt_id: str,
+        *,
+        channel_type: str | None = None,
+        channel_id: str | None = None,
+        channel: str | None = None,
+        destination: str | None = None,
+        workspace_id: str | None = None,
+        message: str | None = None,
+        options: dict[str, Any] | None = None,
+    ) -> dict[str, Any]:
+        """
+        Deliver a receipt via the legacy v1 bridge endpoint.
+
+        Accepts both modern (`channel_type`/`channel_id`) and legacy
+        (`channel`/`destination`) field names.
+        """
+        payload: dict[str, Any] = {}
+        if channel_type:
+            payload["channel_type"] = channel_type
+        if channel_id:
+            payload["channel_id"] = channel_id
+        if channel:
+            payload["channel"] = channel
+        if destination:
+            payload["destination"] = destination
+        if workspace_id:
+            payload["workspace_id"] = workspace_id
+        if message:
+            payload["message"] = message
+        if options:
+            payload["options"] = options
+        return self._client.request(
+            "POST", f"/api/v1/receipts/{receipt_id}/deliver", json=payload,
+        )
+
     def share(self, receipt_id: str, **kwargs: Any) -> dict[str, Any]:
         """
         Share a receipt (generate shareable link or send to recipients).
@@ -557,6 +594,38 @@ class AsyncReceiptsAPI:
             payload["options"] = options
         return await self._client.request(
             "POST", f"/api/v2/receipts/{receipt_id}/send-to-channel", json=payload,
+        )
+
+    async def deliver_v1(
+        self,
+        receipt_id: str,
+        *,
+        channel_type: str | None = None,
+        channel_id: str | None = None,
+        channel: str | None = None,
+        destination: str | None = None,
+        workspace_id: str | None = None,
+        message: str | None = None,
+        options: dict[str, Any] | None = None,
+    ) -> dict[str, Any]:
+        """Deliver a receipt via the legacy v1 bridge endpoint."""
+        payload: dict[str, Any] = {}
+        if channel_type:
+            payload["channel_type"] = channel_type
+        if channel_id:
+            payload["channel_id"] = channel_id
+        if channel:
+            payload["channel"] = channel
+        if destination:
+            payload["destination"] = destination
+        if workspace_id:
+            payload["workspace_id"] = workspace_id
+        if message:
+            payload["message"] = message
+        if options:
+            payload["options"] = options
+        return await self._client.request(
+            "POST", f"/api/v1/receipts/{receipt_id}/deliver", json=payload,
         )
 
     async def share(self, receipt_id: str, **kwargs: Any) -> dict[str, Any]:

@@ -3,6 +3,8 @@ IRS Connector - US tax guidance search.
 
 This connector expects a configured IRS search API endpoint (internal proxy
 or public API). It is designed for extension to multi-jurisdiction sources.
+
+Production quality: circuit breaker, retry with backoff, query sanitization.
 """
 
 from __future__ import annotations
@@ -11,9 +13,11 @@ import asyncio
 import hashlib
 import logging
 import os
+import re
 from typing import Any
 
 from aragora.connectors.base import BaseConnector, Evidence
+from aragora.connectors.exceptions import ConnectorError
 from aragora.reasoning.provenance import ProvenanceManager, SourceType
 
 logger = logging.getLogger(__name__)
@@ -27,6 +31,15 @@ except ImportError:
 
 CONFIG_ENV_VARS = ("IRS_API_BASE", "IRS_SEARCH_URL")
 OPTIONAL_ENV_VARS = ("IRS_API_KEY",)
+
+_SAFE_QUERY_RE = re.compile(r"[^\w\s@.\-+/:]")
+MAX_QUERY_LENGTH = 500
+
+
+def _sanitize_query(query: str) -> str:
+    """Sanitize query to prevent injection."""
+    query = query[:MAX_QUERY_LENGTH]
+    return _SAFE_QUERY_RE.sub("", query).strip()
 
 
 def get_config_status() -> dict[str, Any]:
