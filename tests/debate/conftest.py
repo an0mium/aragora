@@ -96,8 +96,11 @@ def _clear_similarity_backend_state():
     try:
         from aragora.debate.similarity.factory import SimilarityFactory
 
+        # Re-initialize rather than just clear — other tests may depend on
+        # the factory being populated with default backends.
         SimilarityFactory._registry.clear()
         SimilarityFactory._initialized = False
+        SimilarityFactory._ensure_initialized()
     except ImportError:
         pass
 

@@ -98,7 +98,8 @@ class TestWorktreeDispatch:
 
 
 class TestWorktreeAutopilot:
-    def test_missing_script_prints_error(self, capsys, tmp_path: Path):
+    @patch("aragora.cli.commands.worktree.run_autopilot", side_effect=FileNotFoundError("/x/y/z"))
+    def test_missing_script_prints_error(self, _mock_run, capsys, tmp_path: Path):
         args = _autopilot_args()
 
         _cmd_worktree_autopilot(args, repo_path=tmp_path, base_branch="main")
@@ -106,13 +107,8 @@ class TestWorktreeAutopilot:
         out = capsys.readouterr().out
         assert "autopilot script not found" in out
 
-    @patch("aragora.cli.commands.worktree.subprocess.run")
+    @patch("aragora.cli.commands.worktree.run_autopilot")
     def test_runs_ensure_with_expected_flags(self, mock_run, tmp_path: Path):
-        scripts_dir = tmp_path / "scripts"
-        scripts_dir.mkdir(parents=True, exist_ok=True)
-        script = scripts_dir / "codex_worktree_autopilot.py"
-        script.write_text("#!/usr/bin/env python3\n", encoding="utf-8")
-
         mock_run.return_value = argparse.Namespace(stdout="/tmp/wt\n", stderr="", returncode=0)
 
         args = _autopilot_args(
@@ -129,31 +125,22 @@ class TestWorktreeAutopilot:
         _cmd_worktree_autopilot(args, repo_path=tmp_path, base_branch="develop")
 
         call = mock_run.call_args
-        cmd = call.args[0]
-        assert str(script) in cmd
-        assert "--managed-dir" in cmd
-        assert ".worktrees/codex-auto" in cmd
-        assert "ensure" in cmd
-        assert "--agent" in cmd and "codex-ci" in cmd
-        assert "--session-id" in cmd and "ci-123" in cmd
-        assert "--base" in cmd and "develop" in cmd
-        assert "--strategy" in cmd and "rebase" in cmd
-        assert "--force-new" in cmd
-        assert "--reconcile" in cmd
-        assert "--print-path" in cmd
-        assert "--json" in cmd
-        assert call.kwargs["cwd"] == tmp_path
-        assert call.kwargs["capture_output"] is True
-        assert call.kwargs["text"] is True
-        assert call.kwargs["check"] is False
+        request = call.kwargs["request"]
+        assert call.kwargs["repo_root"] == tmp_path
+        assert call.kwargs["python_executable"]
+        assert request.action == "ensure"
+        assert request.managed_dir == ".worktrees/codex-auto"
+        assert request.agent == "codex-ci"
+        assert request.session_id == "ci-123"
+        assert request.base_branch == "develop"
+        assert request.strategy == "rebase"
+        assert request.force_new is True
+        assert request.reconcile is True
+        assert request.print_path is True
+        assert request.json_output is True
 
-    @patch("aragora.cli.commands.worktree.subprocess.run")
+    @patch("aragora.cli.commands.worktree.run_autopilot")
     def test_nonzero_exit_reports_failure(self, mock_run, capsys, tmp_path: Path):
-        scripts_dir = tmp_path / "scripts"
-        scripts_dir.mkdir(parents=True, exist_ok=True)
-        script = scripts_dir / "codex_worktree_autopilot.py"
-        script.write_text("#!/usr/bin/env python3\n", encoding="utf-8")
-
         mock_run.return_value = argparse.Namespace(stdout="", stderr="boom", returncode=2)
 
         args = _autopilot_args(auto_action="status")

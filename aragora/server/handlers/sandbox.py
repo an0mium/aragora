@@ -173,8 +173,9 @@ class SandboxHandler(BaseHandler):
             return error_response(f"Code exceeds maximum length ({_MAX_CODE_LENGTH} bytes)", 400)
 
         if language not in _ALLOWED_LANGUAGES:
+            allowed = ", ".join(sorted(_ALLOWED_LANGUAGES))
             return error_response(
-                f"Unsupported language: {language}. Allowed: {', '.join(sorted(_ALLOWED_LANGUAGES))}",
+                f"Unsupported language: {language}. Allowed: {allowed}",
                 400,
             )
 

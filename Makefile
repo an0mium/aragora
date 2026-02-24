@@ -165,16 +165,16 @@ codex-session:
 	./scripts/codex_session.sh
 
 worktree-ensure:
-	python3 scripts/codex_worktree_autopilot.py ensure --agent codex --base main
+	python -m aragora.cli.main worktree autopilot ensure --agent codex --base main
 
 worktree-reconcile:
-	python3 scripts/codex_worktree_autopilot.py reconcile --all --base main
+	python -m aragora.cli.main worktree autopilot reconcile --all --base main
 
 worktree-cleanup:
-	python3 scripts/codex_worktree_autopilot.py cleanup --base main --ttl-hours 24
+	python -m aragora.cli.main worktree autopilot cleanup --base main --ttl-hours 24
 
 worktree-maintain:
-	python3 scripts/codex_worktree_autopilot.py maintain --base main --strategy merge --ttl-hours 24 --no-delete-branches
+	python -m aragora.cli.main worktree autopilot maintain --base main --strategy merge --ttl-hours 24 --no-delete-branches
 
 worktree-maintainer-install:
 	./scripts/install_worktree_maintainer_launchd.sh --interval-seconds 300 --base main --strategy merge --ttl-hours 24

@@ -20,6 +20,12 @@ import subprocess
 import sys
 from pathlib import Path
 
+from aragora.worktree import (
+    AutopilotRequest,
+    resolve_repo_root,
+    run_autopilot,
+)
+
 
 def add_worktree_parser(subparsers: argparse._SubParsersAction) -> None:
     """Register the 'worktree' subcommand and its sub-subcommands."""
@@ -146,10 +152,11 @@ def cmd_worktree(args: argparse.Namespace) -> None:
         return
 
     repo_path = Path(args.repo).resolve() if args.repo else Path.cwd()
+    repo_root = resolve_repo_root(repo_path)
     base_branch = args.base
 
     if action == "autopilot":
-        _cmd_worktree_autopilot(args, repo_path=repo_path, base_branch=base_branch)
+        _cmd_worktree_autopilot(args, repo_path=repo_root, base_branch=base_branch)
         return
 
     from aragora.nomic.branch_coordinator import (
@@ -162,7 +169,7 @@ def cmd_worktree(args: argparse.Namespace) -> None:
         base_branch=base_branch,
         use_worktrees=True,
     )
-    coordinator = BranchCoordinator(repo_path=repo_path, config=config)
+    coordinator = BranchCoordinator(repo_path=repo_root, config=config)
 
     track_map = {t.value: t for t in Track}
 
@@ -208,7 +215,7 @@ def cmd_worktree(args: argparse.Namespace) -> None:
             return
 
         if getattr(args, "test_first", False):
-            wt_path = coordinator.get_worktree_path(branch) or repo_path
+            wt_path = coordinator.get_worktree_path(branch) or repo_root
             result = subprocess.run(
                 ["python", "-m", "pytest", "tests/", "-x", "-q", "--tb=short"],
                 cwd=wt_path,
@@ -247,7 +254,7 @@ def cmd_worktree(args: argparse.Namespace) -> None:
         for branch in branches:
             print(f"Merging: {branch}")
             if getattr(args, "test_first", False):
-                wt_path = coordinator.get_worktree_path(branch) or repo_path
+                wt_path = coordinator.get_worktree_path(branch) or repo_root
                 result = subprocess.run(
                     ["python", "-m", "pytest", "tests/", "-x", "-q", "--tb=short"],
                     cwd=wt_path,
@@ -299,85 +306,29 @@ def cmd_worktree(args: argparse.Namespace) -> None:
 
 def _cmd_worktree_autopilot(args: argparse.Namespace, *, repo_path: Path, base_branch: str) -> None:
     """Run codex worktree autopilot through the main Aragora CLI."""
-    script_path = repo_path / "scripts" / "codex_worktree_autopilot.py"
-    if not script_path.exists():
-        print(f"Error: autopilot script not found at {script_path}")
-        return
-
-    cmd = [
-        sys.executable,
-        str(script_path),
-        "--repo",
-        str(repo_path),
-        "--managed-dir",
-        args.managed_dir,
-        args.auto_action,
-    ]
-
-    if args.auto_action == "ensure":
-        cmd.extend(["--agent", args.agent, "--base", base_branch, "--strategy", args.strategy])
-        if args.session_id:
-            cmd.extend(["--session-id", args.session_id])
-        if args.force_new:
-            cmd.append("--force-new")
-        if args.reconcile:
-            cmd.append("--reconcile")
-        if args.print_path:
-            cmd.append("--print-path")
-        if args.json:
-            cmd.append("--json")
-
-    elif args.auto_action == "reconcile":
-        cmd.extend(["--base", base_branch, "--strategy", args.strategy])
-        if args.all:
-            cmd.append("--all")
-        if args.path:
-            cmd.extend(["--path", args.path])
-        if args.json:
-            cmd.append("--json")
-
-    elif args.auto_action == "cleanup":
-        cmd.extend(["--base", base_branch, "--ttl-hours", str(args.ttl_hours)])
-        if args.force_unmerged:
-            cmd.append("--force-unmerged")
-        if args.delete_branches is True:
-            cmd.append("--delete-branches")
-        elif args.delete_branches is False:
-            cmd.append("--no-delete-branches")
-        if args.json:
-            cmd.append("--json")
-
-    elif args.auto_action == "maintain":
-        cmd.extend(
-            [
-                "--base",
-                base_branch,
-                "--strategy",
-                args.strategy,
-                "--ttl-hours",
-                str(args.ttl_hours),
-            ]
-        )
-        if args.force_unmerged:
-            cmd.append("--force-unmerged")
-        if args.delete_branches is True:
-            cmd.append("--delete-branches")
-        elif args.delete_branches is False:
-            cmd.append("--no-delete-branches")
-        if args.json:
-            cmd.append("--json")
-
-    elif args.auto_action == "status":
-        if args.json:
-            cmd.append("--json")
-
-    result = subprocess.run(
-        cmd,
-        cwd=repo_path,
-        capture_output=True,
-        text=True,
-        check=False,
+    request = AutopilotRequest(
+        action=args.auto_action,
+        managed_dir=args.managed_dir,
+        base_branch=base_branch,
+        agent=args.agent,
+        session_id=args.session_id,
+        force_new=args.force_new,
+        strategy=args.strategy,
+        reconcile=args.reconcile,
+        reconcile_all=args.all,
+        path=args.path,
+        ttl_hours=args.ttl_hours,
+        force_unmerged=args.force_unmerged,
+        delete_branches=args.delete_branches,
+        json_output=args.json,
+        print_path=args.print_path,
     )
+
+    try:
+        result = run_autopilot(repo_root=repo_path, request=request, python_executable=sys.executable)
+    except FileNotFoundError as exc:
+        print(f"Error: autopilot script not found at {exc}")
+        return
 
     if result.stdout.strip():
         print(result.stdout.rstrip())

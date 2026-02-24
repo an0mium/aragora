@@ -6,6 +6,26 @@ Use this guide when many Codex/Claude sessions are modifying Aragora simultaneou
 
 `scripts/codex_worktree_autopilot.py` keeps sessions in disposable, managed worktrees so state drift is handled automatically.
 
+## First-Class CLI
+
+You can run the same lifecycle through Aragora CLI:
+
+```bash
+# Show managed sessions
+python -m aragora.cli.main worktree autopilot status
+
+# Ensure an isolated lane and print only the path
+python -m aragora.cli.main worktree autopilot ensure --agent codex --reconcile --print-path
+
+# Reconcile all managed sessions onto main
+python -m aragora.cli.main worktree autopilot reconcile --all --base main --strategy merge
+
+# Non-destructive maintain loop (reconcile + cleanup policy)
+python -m aragora.cli.main worktree autopilot maintain --base main --strategy merge --ttl-hours 24 --no-delete-branches
+```
+
+Use this path when you want one canonical command surface (`aragora worktree ...`) instead of mixing CLI and raw scripts.
+
 ## Core Commands
 
 ```bash
