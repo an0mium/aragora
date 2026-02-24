@@ -766,9 +766,13 @@ jobs:
                 --instance-id "$INST_ID" \
                 --query 'Status' \
                 --output text 2>/dev/null || echo "Pending")
-              if [[ "$STATUS" != "Success" ]] && [[ "$STATUS" != "Failed" ]]; then
-                ALL_DONE=false
-              fi
+              case "$STATUS" in
+                Success|Failed|TimedOut|Cancelled)
+                  ;;
+                *)
+                  ALL_DONE=false
+                  ;;
+              esac
             done
             if [[ "$ALL_DONE" == "true" ]]; then
               break

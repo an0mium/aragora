@@ -90,6 +90,7 @@ const navSections: NavSection[] = [
       { label: 'Provenance', href: '/debates/provenance', icon: '\u2192', minMode: 'advanced' },
       { label: 'Spectate', href: '/spectate', icon: '\u25C9', minMode: 'advanced' },
       { label: 'Replays', href: '/replays', icon: '\u21BB', minMode: 'advanced' },
+      { label: 'Settlements', href: '/settlements', icon: '\u2696', minMode: 'expert' },
     ],
   },
 
@@ -110,6 +111,8 @@ const navSections: NavSection[] = [
       { label: 'Receipts', href: '/receipts', icon: '$' },
       { label: 'Policy', href: '/policy', icon: '\u2696' },
       { label: 'Privacy', href: '/privacy', icon: '\u229E' },
+      { label: 'Audit Trail', href: '/audit-trail', icon: '\u2610' },
+      { label: 'Backup', href: '/backup', icon: '\u2B73', minMode: 'advanced' },
       { label: 'Moderation', href: '/moderation', icon: '\u2691' },
     ],
   },
@@ -229,6 +232,7 @@ const navSections: NavSection[] = [
       { label: 'Workflow Builder', href: '/workflows/builder', icon: '\u2692' },
       { label: 'Workflow Runtime', href: '/workflows/runtime', icon: '\u25B6' },
       { label: 'Self-Improve', href: '/self-improve', icon: '\u21BB', minMode: 'advanced' },
+      { label: 'Feedback Hub', href: '/feedback-hub', icon: '\u21C4', minMode: 'advanced' },
     ],
   },
 
@@ -241,6 +245,7 @@ const navSections: NavSection[] = [
       { label: 'Security', href: '/security', icon: '\u26BF' },
       { label: 'Verification', href: '/verification', icon: '\u2713' },
       { label: 'Verify', href: '/verify', icon: '\u2714' },
+      { label: 'Data Classification', href: '/data-classification', icon: '\u2263', minMode: 'advanced' },
     ],
   },
 
