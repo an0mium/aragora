@@ -188,6 +188,7 @@ class DocumentsAPI:
             Document chunks with embeddings info
         """
         params: dict[str, Any] = {"limit": limit, "offset": offset}
+        # TODO: server route not yet implemented
         return self._client._request(
             "GET", f"/api/v1/documents/{document_id}/chunks", params=params
         )
@@ -202,6 +203,7 @@ class DocumentsAPI:
         Returns:
             Reprocessing result
         """
+        # TODO: server route not yet implemented
         return self._client._request("POST", f"/api/v1/documents/{document_id}/reprocess")
 
 
@@ -258,6 +260,7 @@ class AsyncDocumentsAPI:
         """Download document content."""
         import base64
 
+        # TODO: server route not yet implemented
         response = await self._client._request("GET", f"/api/v1/documents/{document_id}/download")
         return base64.b64decode(response.get("content", ""))
 
@@ -298,6 +301,7 @@ class AsyncDocumentsAPI:
     ) -> dict[str, Any]:
         """Get document chunks (for RAG)."""
         params: dict[str, Any] = {"limit": limit, "offset": offset}
+        # TODO: server route not yet implemented
         return await self._client._request(
             "GET", f"/api/v1/documents/{document_id}/chunks", params=params
         )
