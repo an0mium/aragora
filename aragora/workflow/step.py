@@ -482,6 +482,20 @@ class AgentStep(BaseStep):
             prompt = prompt.replace(f"{{step.{step_id}}}", str(output))
         return prompt
 
+    @staticmethod
+    def _extract_code(text: str) -> str:
+        """Extract code from markdown code blocks in text.
+
+        Returns the content of the first fenced code block found,
+        or empty string if no code block is present.
+        """
+        import re
+
+        match = re.search(r"```(?:\w*)\n(.*?)```", text, re.DOTALL)
+        if match:
+            return match.group(1).strip()
+        return ""
+
 
 class ParallelStep(BaseStep):
     """

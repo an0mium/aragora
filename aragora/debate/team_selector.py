@@ -1215,6 +1215,53 @@ class TeamSelector:
             )
             return 0.0
 
+    def _compute_health_score(self, agent: Any, domain: str | None = None) -> float:
+        """Score agent based on Control Plane health/availability status.
+
+        Queries the AgentRegistry for the agent's current status and liveness,
+        returning a score from 0.0 to 1.0.
+
+        Returns:
+            1.0 for READY agents with recent heartbeat,
+            0.5 for BUSY agents,
+            0.0 for OFFLINE/FAILED/unknown agents.
+        """
+        try:
+            from aragora.control_plane.registry import AgentStatus
+
+            agent_name = getattr(agent, "name", str(agent))
+            # AgentRegistry.get() may be sync or async; handle both
+            registry = self.control_plane_registry
+            info = None
+            if hasattr(registry, "get_sync"):
+                info = registry.get_sync(agent_name)
+            elif hasattr(registry, "_agents"):
+                # Direct local cache access for synchronous scoring
+                info = registry._agents.get(agent_name)
+
+            if info is None:
+                # Agent not registered in control plane — neutral score
+                return 0.0
+
+            # Check liveness (heartbeat within timeout)
+            if hasattr(info, "is_alive") and not info.is_alive():
+                return 0.0
+
+            status = getattr(info, "status", None)
+            if status == AgentStatus.READY:
+                return 1.0
+            elif status == AgentStatus.BUSY:
+                return 0.5
+            else:
+                # OFFLINE, FAILED, STARTING, etc.
+                return 0.0
+
+        except (ImportError, AttributeError, TypeError, ValueError, RuntimeError) as e:
+            logger.debug(
+                "Health score failed for %s: %s", getattr(agent, "name", agent), e
+            )
+            return 0.0
+
     async def _warm_culture_cache(self, cache_key: str, task_type: str) -> None:
         """Warm culture recommendation cache from async context.
 
@@ -1831,6 +1878,14 @@ class TeamSelector:
             score += introspection_score * self.config.introspection_weight
         if breakdown is not None:
             breakdown["introspection"] = round(score - _prev, 4)
+
+        # Control Plane health contribution (agent availability/liveness)
+        _prev = score
+        if self.control_plane_registry and self.config.enable_health_filtering:
+            health_score = self._compute_health_score(agent, domain)
+            score += health_score * self.config.health_weight
+        if breakdown is not None:
+            breakdown["health"] = round(score - _prev, 4)
 
         # Soft domain filter penalty (non-preferred agents get penalized)
         _prev = score
