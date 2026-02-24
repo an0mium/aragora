@@ -10,7 +10,7 @@ Covers:
 
 from __future__ import annotations
 
-from unittest.mock import MagicMock
+from unittest.mock import MagicMock, patch
 
 import pytest
 from fastapi.testclient import TestClient
@@ -152,6 +152,8 @@ class TestSearchKnowledge:
 
     def test_search_unavailable_km(self, app):
         """Search returns 503 when KM is not available."""
+        from aragora.server.fastapi.routes.knowledge import get_knowledge_mound as _dep
+
         app.state.context = {
             "storage": MagicMock(),
             "elo_system": MagicMock(),
@@ -160,9 +162,11 @@ class TestSearchKnowledge:
             "decision_service": MagicMock(),
             "knowledge_mound": None,
         }
+        app.dependency_overrides[_dep] = lambda: None
         client = TestClient(app, raise_server_exceptions=False)
 
         response = client.get("/api/v2/knowledge/search?query=test")
+        app.dependency_overrides.clear()
         assert response.status_code == 503
 
 
@@ -186,6 +190,8 @@ class TestKnowledgeStats:
 
     def test_stats_when_km_unavailable(self, app):
         """Stats returns defaults when KM is not initialized."""
+        from aragora.server.fastapi.routes.knowledge import get_knowledge_mound as _dep
+
         app.state.context = {
             "storage": MagicMock(),
             "elo_system": MagicMock(),
@@ -194,9 +200,11 @@ class TestKnowledgeStats:
             "decision_service": MagicMock(),
             "knowledge_mound": None,
         }
+        app.dependency_overrides[_dep] = lambda: None
         client = TestClient(app, raise_server_exceptions=False)
 
         response = client.get("/api/v2/knowledge/stats")
+        app.dependency_overrides.clear()
         assert response.status_code == 200
         data = response.json()
         assert data["total_items"] == 0
@@ -233,6 +241,8 @@ class TestGetKnowledgeItem:
 
     def test_get_item_unavailable_km(self, app):
         """Get item returns 503 when KM is not available."""
+        from aragora.server.fastapi.routes.knowledge import get_knowledge_mound as _dep
+
         app.state.context = {
             "storage": MagicMock(),
             "elo_system": MagicMock(),
@@ -241,9 +251,11 @@ class TestGetKnowledgeItem:
             "decision_service": MagicMock(),
             "knowledge_mound": None,
         }
+        app.dependency_overrides[_dep] = lambda: None
         client = TestClient(app, raise_server_exceptions=False)
 
         response = client.get("/api/v2/knowledge/items/some-id")
+        app.dependency_overrides.clear()
         assert response.status_code == 503
 
 
@@ -350,6 +362,8 @@ class TestIngestKnowledgeItem:
 
     def test_ingest_unavailable_km(self, app):
         """Ingest returns 503 when KM is not available."""
+        from aragora.server.fastapi.routes.knowledge import get_knowledge_mound as _dep
+
         app.state.context = {
             "storage": MagicMock(),
             "elo_system": MagicMock(),
@@ -371,6 +385,7 @@ class TestIngestKnowledgeItem:
             permissions={"knowledge:write"},
         )
         client.app.dependency_overrides[require_authenticated] = lambda: auth_ctx
+        client.app.dependency_overrides[_dep] = lambda: None
 
         response = client.post(
             "/api/v2/knowledge/items",

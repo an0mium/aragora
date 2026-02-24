@@ -34,6 +34,9 @@ export function handleTokenStartEvent(data: ParsedEventData, ctx: EventHandlerCo
       startTime: Date.now(),
       expectedSeq: 1,
       pendingTokens: new Map(),
+      reasoning: [],
+      evidence: [],
+      confidence: null,
     });
     return updated;
   });
@@ -109,6 +112,9 @@ export function handleTokenDeltaEvent(data: ParsedEventData, ctx: EventHandlerCo
         startTime: Date.now(),
         expectedSeq: agentSeq > 0 ? agentSeq + 1 : 1,
         pendingTokens: new Map(),
+        reasoning: [],
+        evidence: [],
+        confidence: null,
       });
     }
 
@@ -166,10 +172,110 @@ export function handleTokenEndEvent(data: ParsedEventData, ctx: EventHandlerCont
 }
 
 /**
+ * Handle agent_thinking event - add reasoning step to streaming message
+ */
+export function handleAgentThinkingEvent(data: ParsedEventData, ctx: EventHandlerContext): void {
+  const eventData = data.data;
+  const agent = (data.agent as string) || (eventData?.agent as string);
+  const thinking = (eventData?.thinking as string) || '';
+  const step = (eventData?.step as number) || undefined;
+
+  if (!agent || !thinking) return;
+
+  ctx.setStreamingMessages(prev => {
+    const updated = new Map(prev);
+    for (const [key, msg] of updated.entries()) {
+      if (msg.agent === agent && !msg.isComplete) {
+        updated.set(key, {
+          ...msg,
+          reasoning: [...msg.reasoning, { thinking, timestamp: Date.now(), step }],
+        });
+        break;
+      }
+    }
+    return updated;
+  });
+
+  ctx.addStreamEvent({
+    type: 'agent_thinking',
+    data: eventData as Record<string, unknown>,
+    agent,
+    timestamp: data.timestamp || Date.now() / 1000,
+  });
+}
+
+/**
+ * Handle agent_evidence event - add evidence sources to streaming message
+ */
+export function handleAgentEvidenceEvent(data: ParsedEventData, ctx: EventHandlerContext): void {
+  const eventData = data.data;
+  const agent = (data.agent as string) || (eventData?.agent as string);
+  const sources = (eventData?.sources as Array<{ title: string; url?: string; relevance?: number }>) || [];
+
+  if (!agent || sources.length === 0) return;
+
+  ctx.setStreamingMessages(prev => {
+    const updated = new Map(prev);
+    for (const [key, msg] of updated.entries()) {
+      if (msg.agent === agent && !msg.isComplete) {
+        updated.set(key, {
+          ...msg,
+          evidence: [...msg.evidence, ...sources],
+        });
+        break;
+      }
+    }
+    return updated;
+  });
+
+  ctx.addStreamEvent({
+    type: 'agent_evidence',
+    data: eventData as Record<string, unknown>,
+    agent,
+    timestamp: data.timestamp || Date.now() / 1000,
+  });
+}
+
+/**
+ * Handle agent_confidence event - update confidence on streaming message
+ */
+export function handleAgentConfidenceEvent(data: ParsedEventData, ctx: EventHandlerContext): void {
+  const eventData = data.data;
+  const agent = (data.agent as string) || (eventData?.agent as string);
+  const confidence = (eventData?.confidence as number) ?? null;
+
+  if (!agent || confidence === null) return;
+
+  ctx.setStreamingMessages(prev => {
+    const updated = new Map(prev);
+    for (const [key, msg] of updated.entries()) {
+      if (msg.agent === agent && !msg.isComplete) {
+        updated.set(key, {
+          ...msg,
+          confidence,
+        });
+        break;
+      }
+    }
+    return updated;
+  });
+
+  ctx.addStreamEvent({
+    type: 'agent_confidence',
+    data: eventData as Record<string, unknown>,
+    agent,
+    timestamp: data.timestamp || Date.now() / 1000,
+  });
+}
+
+/**
  * Registry of token event handlers
  */
 export const tokenHandlers = {
   token_start: handleTokenStartEvent,
   token_delta: handleTokenDeltaEvent,
   token_end: handleTokenEndEvent,
+  agent_thinking: handleAgentThinkingEvent,
+  agent_evidence: handleAgentEvidenceEvent,
+  agent_confidence: handleAgentConfidenceEvent,
 };

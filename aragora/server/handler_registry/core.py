@@ -40,6 +40,8 @@ HandlerType = Optional[type[Any]]
 HANDLER_TIERS: dict[str, str] = {
     # ── Core (always loaded) ──────────────────────────────────────────
     "_health_handler": "core",
+    "_build_info_handler": "core",
+    "_deploy_status_handler": "core",
     "_system_handler": "core",
     "_docs_handler": "core",
     "_debates_handler": "core",

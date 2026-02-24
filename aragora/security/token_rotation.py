@@ -547,8 +547,10 @@ class TokenRotationManager:
 # =============================================================================
 
 # Simple cron expression pattern: 5 fields (minute hour dom month dow)
+# Each field: * | */N | N | N-N | N-N/N | comma-separated combinations
+_CRON_FIELD_RE = r"(?:\*(?:/[0-9]+)?|[0-9]+(?:-[0-9]+)?(?:/[0-9]+)?)"
 _CRON_FIELD_PATTERN = re.compile(
-    r"^(\*|[0-9]+(?:-[0-9]+)?(?:/[0-9]+)?(?:,[0-9]+(?:-[0-9]+)?(?:/[0-9]+)?)*)$"
+    r"^" + _CRON_FIELD_RE + r"(?:," + _CRON_FIELD_RE + r")*$"
 )
 
 

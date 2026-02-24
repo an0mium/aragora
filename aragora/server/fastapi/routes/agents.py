@@ -398,8 +398,8 @@ async def register_agent(
         try:
             from aragora.agents.registry import AgentRegistry
 
-            AgentRegistry.register(body.name, agent_type=body.type, config=body.config)
-        except (ImportError, RuntimeError, AttributeError) as e:
+            AgentRegistry.register(body.name, agent_type=body.type)
+        except (ImportError, RuntimeError, AttributeError, TypeError) as e:
             logger.debug("Could not register agent %s in registry: %s", body.name, e)
 
         logger.info("Registered agent: %s (type=%s)", body.name, body.type)

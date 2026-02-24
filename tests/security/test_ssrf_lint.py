@@ -2,22 +2,23 @@
 Tests for the SSRF guard CI lint script.
 """
 
+import importlib.util
 import sys
 import pytest
 from pathlib import Path
 from unittest.mock import patch
 
-# Add scripts to path
-scripts_dir = Path(__file__).resolve().parent.parent.parent / "scripts"
-sys.path.insert(0, str(scripts_dir))
+# Import the script module by file path (it's not a package)
+_script_path = Path(__file__).resolve().parent.parent.parent / "scripts" / "lint_ssrf_guard.py"
+_spec = importlib.util.spec_from_file_location("lint_ssrf_guard", _script_path)
+_mod = importlib.util.module_from_spec(_spec)
+_spec.loader.exec_module(_mod)
 
-from lint_ssrf_guard import (
-    _find_http_calls,
-    _has_ssrf_guard,
-    _has_allowlist_comment,
-    _should_skip,
-    scan_directory,
-)
+_find_http_calls = _mod._find_http_calls
+_has_ssrf_guard = _mod._has_ssrf_guard
+_has_allowlist_comment = _mod._has_allowlist_comment
+_should_skip = _mod._should_skip
+scan_directory = _mod.scan_directory
 
 
 class TestFindHttpCalls:
