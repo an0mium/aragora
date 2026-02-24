@@ -332,34 +332,21 @@ export default function ReasoningPage() {
 
     return (
       <div className="space-y-6">
-        <h2 className="text-lg font-mono font-bold text-acid-green mb-3">
-          Position Evolution
-        </h2>
+        <h2 className="text-xs font-mono text-acid-green mb-3">&gt; POSITION EVOLUTION</h2>
 
         {/* Summary stats */}
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-          <div className="p-3 bg-surface border border-border rounded-lg">
-            <div className="text-xs text-text-muted font-mono">Convergence</div>
-            <div className="text-xl font-mono font-bold text-acid-green">
-              {(positions.summary.convergence_score * 100).toFixed(0)}%
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+          {([
+            ['Convergence', `${(positions.summary.convergence_score * 100).toFixed(0)}%`],
+            ['Total Pivots', positions.summary.total_pivots],
+            ['Reversals', positions.summary.reversals],
+            ['Agents', agents.length],
+          ] as [string, string | number][]).map(([label, value]) => (
+            <div key={label} className="p-3 border border-acid-green/20 bg-bg">
+              <div className="text-xs font-mono text-text-muted">{label}</div>
+              <div className="text-lg font-mono text-acid-green">{value}</div>
             </div>
-          </div>
-          <div className="p-3 bg-surface border border-border rounded-lg">
-            <div className="text-xs text-text-muted font-mono">Total Pivots</div>
-            <div className="text-xl font-mono font-bold text-text">
-              {positions.summary.total_pivots}
-            </div>
-          </div>
-          <div className="p-3 bg-surface border border-border rounded-lg">
-            <div className="text-xs text-text-muted font-mono">Reversals</div>
-            <div className="text-xl font-mono font-bold text-red-400">
-              {positions.summary.reversals}
-            </div>
-          </div>
-          <div className="p-3 bg-surface border border-border rounded-lg">
-            <div className="text-xs text-text-muted font-mono">Agents</div>
-            <div className="text-xl font-mono font-bold text-text">{agents.length}</div>
-          </div>
+          ))}
         </div>
 
         {/* Per-agent timelines */}
@@ -367,13 +354,15 @@ export default function ReasoningPage() {
           {agents.map((agent) => {
             const records = positions.positions[agent];
             const agentPivots = positions.pivots.filter((p) => p.agent === agent);
-            const pivotRounds = new Set(agentPivots.filter((p) => p.pivot_magnitude >= 0.3).map((p) => p.to_round));
+            const pivotRounds = new Set(
+              agentPivots.filter((p) => p.pivot_magnitude >= 0.3).map((p) => p.to_round),
+            );
             const stability = positions.summary.stability_scores[agent] ?? 1;
 
             return (
-              <div key={agent} className="p-4 bg-surface border border-border rounded-lg">
+              <div key={agent} className="p-4 border border-acid-green/20 bg-bg">
                 <div className="flex items-center justify-between mb-3">
-                  <span className="font-mono font-bold text-text">{agent}</span>
+                  <span className="font-mono text-acid-cyan text-sm">{agent}</span>
                   <span className="text-xs font-mono text-text-muted">
                     stability: {(stability * 100).toFixed(0)}%
                   </span>
@@ -385,12 +374,13 @@ export default function ReasoningPage() {
                     const rec = records.find((p) => p.round === r);
                     const isPivot = pivotRounds.has(r);
                     const bg = rec ? stanceColor(rec.stance) : 'var(--border)';
+                    const label = rec ? (STANCE_LABELS[rec.stance] ?? rec.stance) : '-';
 
                     return (
                       <div
                         key={r}
                         className="relative flex-1 group"
-                        title={rec ? `R${r}: ${rec.stance} (${(rec.confidence * 100).toFixed(0)}%)` : `R${r}: -`}
+                        title={rec ? `R${r}: ${label} (${(rec.confidence * 100).toFixed(0)}%)` : `R${r}: -`}
                       >
                         <div
                           className="h-6 rounded-sm"
@@ -403,7 +393,7 @@ export default function ReasoningPage() {
                           />
                         )}
                         <div className="text-center text-[9px] text-text-muted font-mono mt-0.5">
-                          {r}
+                          R{r}
                         </div>
                       </div>
                     );
@@ -413,6 +403,44 @@ export default function ReasoningPage() {
             );
           })}
         </div>
+
+        {/* Pivot log */}
+        {positions.pivots.length > 0 && (
+          <div>
+            <h3 className="text-xs font-mono text-acid-green mb-2">&gt; PIVOT LOG</h3>
+            <div className="space-y-2">
+              {positions.pivots.map((pivot, i) => (
+                <div
+                  key={i}
+                  className={`p-2 border text-xs font-mono ${
+                    pivot.pivot_type === 'reversal'
+                      ? 'border-red-500/30 bg-red-500/5'
+                      : 'border-acid-green/20 bg-bg'
+                  }`}
+                >
+                  <span className="text-acid-cyan">{pivot.agent}</span>
+                  <span className="text-text-muted mx-2">
+                    R{pivot.from_round} {STANCE_LABELS[pivot.from_stance] ?? pivot.from_stance}
+                    {' -> '}
+                    R{pivot.to_round} {STANCE_LABELS[pivot.to_stance] ?? pivot.to_stance}
+                  </span>
+                  <span
+                    className={`px-1 py-0.5 text-[10px] uppercase ${
+                      pivot.pivot_type === 'reversal'
+                        ? 'bg-red-500/20 text-red-400'
+                        : 'bg-acid-green/20 text-acid-green'
+                    }`}
+                  >
+                    {pivot.pivot_type}
+                  </span>
+                  <span className="text-text-muted ml-2">
+                    ({(pivot.pivot_magnitude * 100).toFixed(0)}% shift)
+                  </span>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
 
         {/* Stance legend */}
         <div className="flex flex-wrap gap-3 text-xs font-mono text-text-muted">
@@ -431,90 +459,142 @@ export default function ReasoningPage() {
     );
   };
 
+  /* ---- Tab config ---- */
+  const tabs: { key: TabType; label: string }[] = [
+    { key: 'belief', label: 'BELIEF NETWORK' },
+    { key: 'claims', label: 'CLAIMS' },
+    { key: 'positions', label: 'POSITIONS' },
+  ];
+
   /* ---- Main render ---- */
   return (
-    <div className="min-h-screen bg-bg text-text relative overflow-hidden">
-      <Scanlines />
+    <>
+      <Scanlines opacity={0.02} />
       <CRTVignette />
 
-      <div className="max-w-6xl mx-auto px-4 py-8 relative z-10">
-        {/* Breadcrumb + Title */}
-        <div className="mb-6">
-          <div className="text-xs font-mono text-text-muted mb-1">
-            DASHBOARD / REASONING ENGINE
-          </div>
-          <h1 className="text-3xl font-mono font-bold text-acid-green">
-            Reasoning Engine
-          </h1>
-        </div>
-
-        {/* Debate ID input */}
-        <div className="flex gap-2 mb-6">
-          <input
-            type="text"
-            value={debateId}
-            onChange={(e) => setDebateId(e.target.value)}
-            onKeyDown={(e) => e.key === 'Enter' && loadData()}
-            placeholder="Enter debate ID..."
-            className="flex-1 px-3 py-2 bg-surface border border-border rounded font-mono text-sm text-text placeholder:text-text-muted focus:outline-none focus:border-acid-green/50"
-          />
-          <button
-            onClick={loadData}
-            disabled={loading || !debateId.trim()}
-            className="px-4 py-2 font-mono text-sm bg-acid-green/10 border border-acid-green/30 text-acid-green rounded hover:bg-acid-green/20 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-          >
-            {loading ? 'Loading...' : 'Load'}
-          </button>
-        </div>
-
-        {/* Error */}
-        {error && (
-          <div className="mb-6">
-            <ErrorWithRetry error={error} onRetry={loadData} />
-          </div>
-        )}
-
-        {/* Tabs */}
-        <div className="flex gap-2 mb-6 border-b border-border pb-2">
-          {(['belief', 'claims', 'positions'] as TabType[]).map((tab) => {
-            const labels: Record<TabType, string> = {
-              belief: 'BELIEF NETWORK',
-              claims: 'CLAIMS',
-              positions: 'POSITIONS',
-            };
-            return (
-              <button
-                key={tab}
-                onClick={() => setActiveTab(tab)}
-                className={`px-4 py-2 font-mono text-sm rounded-t transition-colors ${
-                  activeTab === tab
-                    ? 'bg-acid-green/10 text-acid-green border-b-2 border-acid-green'
-                    : 'text-text-muted hover:text-text'
-                }`}
+      <main className="min-h-screen bg-bg text-text relative z-10 font-mono">
+        {/* Header */}
+        <header className="border-b border-acid-green/30 bg-surface/80 backdrop-blur-sm sticky top-0 z-50">
+          <div className="container mx-auto px-4 py-3 flex items-center justify-between">
+            <div className="flex items-center gap-2 text-xs text-text-muted">
+              <Link href="/" className="hover:text-acid-green transition-colors">
+                DASHBOARD
+              </Link>
+              <span>/</span>
+              <span className="text-acid-green">REASONING ENGINE</span>
+            </div>
+            <div className="flex items-center gap-3">
+              <Link
+                href="/argument-analysis"
+                className="text-xs text-text-muted hover:text-acid-green transition-colors"
               >
-                {labels[tab]}
-              </button>
-            );
-          })}
+                [ARGUMENTS]
+              </Link>
+              <Link
+                href="/crux"
+                className="text-xs text-text-muted hover:text-acid-green transition-colors"
+              >
+                [CRUX]
+              </Link>
+            </div>
+          </div>
+        </header>
+
+        <div className="container mx-auto px-4 py-6">
+          {/* Title */}
+          <h1 className="text-2xl text-acid-green mb-4">
+            {'>'} REASONING ENGINE
+          </h1>
+
+          {/* Search */}
+          <form
+            onSubmit={(e) => {
+              e.preventDefault();
+              loadData();
+            }}
+            className="mb-6 flex gap-2"
+          >
+            <input
+              type="text"
+              value={debateId}
+              onChange={(e) => setDebateId(e.target.value)}
+              placeholder="Enter debate ID..."
+              className="flex-1 bg-surface border border-acid-green/30 px-4 py-2 text-sm text-text placeholder:text-text-muted/50 focus:outline-none focus:border-acid-green"
+            />
+            <button
+              type="submit"
+              disabled={loading || !debateId.trim()}
+              className="px-6 py-2 border border-acid-green text-acid-green text-sm hover:bg-acid-green/10 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+            >
+              {loading ? 'LOADING...' : '[LOAD]'}
+            </button>
+          </form>
+
+          {/* Error */}
+          {error && (
+            <div className="mb-6 p-4 border border-red-500/50 bg-red-500/10 text-red-400 text-sm">
+              Error: {error}
+            </div>
+          )}
+
+          {/* Empty state */}
+          {!loadedId && !loading && !error && (
+            <div className="flex items-center justify-center h-96 border border-acid-green/20 bg-surface/30">
+              <div className="text-center text-text-muted">
+                <p className="text-lg mb-2">&gt; REASONING ENGINE</p>
+                <p className="text-sm">Enter a debate ID to explore belief networks, claims, and position evolution</p>
+              </div>
+            </div>
+          )}
+
+          {/* Loading */}
+          {loading && (
+            <div className="flex items-center justify-center h-96 border border-acid-green/20 bg-surface/30">
+              <div className="text-center text-acid-green animate-pulse">
+                Loading reasoning data...
+              </div>
+            </div>
+          )}
+
+          {/* Tabbed content */}
+          {loadedId && !loading && (
+            <>
+              {/* Tab bar */}
+              <div className="flex border border-acid-green/20 border-b-0">
+                {tabs.map((tab) => (
+                  <button
+                    key={tab.key}
+                    onClick={() => setActiveTab(tab.key)}
+                    className={`flex-1 px-4 py-2 text-xs transition-colors ${
+                      activeTab === tab.key
+                        ? 'bg-acid-green/20 text-acid-green border-b-2 border-acid-green'
+                        : 'text-text-muted hover:text-acid-green'
+                    }`}
+                  >
+                    [{tab.label}]
+                  </button>
+                ))}
+              </div>
+
+              <div className="border border-acid-green/20 bg-surface/30 min-h-[500px] p-4">
+                {activeTab === 'belief' && renderBeliefNetwork()}
+                {activeTab === 'claims' && renderClaims()}
+                {activeTab === 'positions' && renderPositions()}
+              </div>
+            </>
+          )}
         </div>
 
-        {/* Content */}
-        {loading ? (
-          <div className="flex items-center justify-center py-12">
-            <div className="text-acid-green font-mono animate-pulse">Loading...</div>
+        {/* Footer */}
+        <footer className="text-center text-xs py-8 border-t border-acid-green/20 mt-8">
+          <div className="text-acid-green/50 mb-2">
+            {'='.repeat(40)}
           </div>
-        ) : !loadedId ? (
-          <div className="text-center py-12 text-text-muted font-mono text-sm">
-            Enter a debate ID above to explore reasoning data.
-          </div>
-        ) : (
-          <div>
-            {activeTab === 'belief' && renderBeliefNetwork()}
-            {activeTab === 'claims' && renderClaims()}
-            {activeTab === 'positions' && renderPositions()}
-          </div>
-        )}
-      </div>
-    </div>
+          <p className="text-text-muted">
+            {'>'} ARAGORA // REASONING ENGINE
+          </p>
+        </footer>
+      </main>
+    </>
   );
 }

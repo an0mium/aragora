@@ -254,19 +254,29 @@ async def initialize_debate_context(
     if not correlation_id:
         correlation_id = f"corr-{debate_id[:8]}"
 
+    _init_start = time.perf_counter()
+
     # Reinitialize convergence detector with debate-scoped cache
     arena._reinit_convergence_for_debate(debate_id)
 
     # Extract domain early for metrics
     domain = arena._extract_debate_domain()
 
-    # Initialize Knowledge Mound context for bidirectional integration
-    await arena._init_km_context(debate_id, domain)
+    # Initialize Knowledge Mound context and culture hints concurrently.
+    # Latency optimization (issue #268): these two independent I/O
+    # operations ran sequentially before; gather them in parallel.
+    async def _init_km() -> None:
+        await arena._init_km_context(debate_id, domain)
 
-    # Apply culture-informed protocol adjustments
-    culture_hints = arena._get_culture_hints(debate_id)
-    if culture_hints:
-        arena._apply_culture_hints(culture_hints)
+    async def _init_culture() -> None:
+        culture_hints = arena._get_culture_hints(debate_id)
+        if culture_hints:
+            arena._apply_culture_hints(culture_hints)
+
+    await asyncio.gather(_init_km(), _init_culture(), return_exceptions=True)
+
+    _init_elapsed_ms = (time.perf_counter() - _init_start) * 1000
+    logger.debug("debate_context_setup elapsed_ms=%.1f", _init_elapsed_ms)
 
     # Create shared context for all phases
     ctx = DebateContext(

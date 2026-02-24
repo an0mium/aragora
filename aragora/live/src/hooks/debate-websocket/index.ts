@@ -31,6 +31,8 @@ export {
   STREAM_TIMEOUT_MS,
   STALL_WARNING_MS,
   MAX_STREAM_EVENTS,
+  POLLING_INTERVAL_MS,
+  HEARTBEAT_TIMEOUT_MS,
 } from './constants';
 
 // Re-export utilities

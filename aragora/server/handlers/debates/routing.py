@@ -73,6 +73,7 @@ ROUTES = [
     "/api/v1/debates/import",  # POST - import debates
     "/api/v1/debates/statistics",  # GET - debate statistics
     "/api/v1/debates/stream",  # GET - debate event stream
+    "/api/v1/debates/*/events",  # GET - polling fallback for missed events
 ]
 
 # Endpoints that require authentication
@@ -132,6 +133,15 @@ def build_suffix_routes() -> list[SuffixRouteEntry]:
         ("/positions", "_get_positions", True, None),
         ("/diagnostics", "_get_diagnostics", True, None),
         ("/costs", "_get_debate_costs", True, None),
+        (
+            "/events",
+            "_get_debate_events",
+            True,
+            lambda p, q: {
+                "since_seq": get_int_param(q, "since", 0),
+                "limit": get_int_param(q, "limit", 100),
+            },
+        ),
     ]
 
 

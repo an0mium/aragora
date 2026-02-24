@@ -474,6 +474,51 @@ class CostAdapter(FusionMixin, SemanticSearchMixin, ReverseFlowMixin, KnowledgeM
         logger.debug("Stored cost snapshot: %s", snapshot_id)
         return snapshot_id
 
+    def store_debate_cost_summary(
+        self,
+        summary_dict: dict[str, Any],
+    ) -> str:
+        """Store a per-debate cost summary for historical analytics.
+
+        Persists the output of DebateCostSummary.to_dict() as a cost
+        snapshot in the Knowledge Mound, enabling cross-debate cost
+        comparisons and trend analysis.
+
+        Args:
+            summary_dict: Serialized DebateCostSummary (from .to_dict()).
+
+        Returns:
+            The stored snapshot ID.
+        """
+        debate_id = summary_dict.get("debate_id", "unknown")
+        timestamp = datetime.now(timezone.utc).isoformat()
+        snapshot_id = f"{self.ID_PREFIX}debate_{debate_id}"
+
+        snapshot_data = {
+            "id": snapshot_id,
+            "debate_id": debate_id,
+            "type": "debate_cost_summary",
+            "total_cost_usd": summary_dict.get("total_cost_usd", "0"),
+            "total_tokens_in": summary_dict.get("total_tokens_in", 0),
+            "total_tokens_out": summary_dict.get("total_tokens_out", 0),
+            "total_calls": summary_dict.get("total_calls", 0),
+            "per_agent": summary_dict.get("per_agent", {}),
+            "per_round": summary_dict.get("per_round", {}),
+            "model_usage": summary_dict.get("model_usage", {}),
+            "started_at": summary_dict.get("started_at"),
+            "completed_at": summary_dict.get("completed_at"),
+            "stored_at": timestamp,
+        }
+
+        self._cost_snapshots[snapshot_id] = snapshot_data
+
+        logger.info(
+            "Stored debate cost summary: %s cost=$%s",
+            snapshot_id,
+            summary_dict.get("total_cost_usd", "0"),
+        )
+        return snapshot_id
+
     def get_alert(self, alert_id: str) -> dict[str, Any] | None:
         """
         Get a specific alert by ID.
