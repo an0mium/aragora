@@ -262,7 +262,6 @@ export class AnalyticsAPI {
   async getDifferentiationBenchmarks(): Promise<unknown> {
     return this.client.request('GET', '/api/differentiation/benchmarks');
   }
-
   // =========================================================================
   // Agent Analytics
   // =========================================================================

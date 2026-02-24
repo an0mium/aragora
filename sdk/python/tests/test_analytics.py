@@ -230,7 +230,6 @@ class TestOutcomeAnalytics:
             assert mock_request.call_count == 5
             client.close()
 
-
 class TestAsyncAnalytics:
     """Tests for async analytics methods."""
 
@@ -308,7 +307,6 @@ class TestAsyncAnalytics:
             mock_request.assert_has_calls(expected_calls)
             assert mock_request.call_count == 6
             await client.close()
-
     @pytest.mark.asyncio
     async def test_async_differentiation_endpoints(self) -> None:
         with patch.object(AragoraAsyncClient, "request") as mock_request:

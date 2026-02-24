@@ -313,7 +313,6 @@ class AnalyticsAPI:
     def differentiation_benchmarks(self) -> dict[str, Any]:
         """Get differentiation benchmark metrics."""
         return self._client.request("GET", "/api/differentiation/benchmarks")
-
     # ===========================================================================
     # Agent Analytics
     # ===========================================================================
@@ -816,7 +815,6 @@ class AsyncAnalyticsAPI:
     async def differentiation_benchmarks(self) -> dict[str, Any]:
         """Get differentiation benchmark metrics."""
         return await self._client.request("GET", "/api/differentiation/benchmarks")
-
     # ===========================================================================
     # Agent Analytics
     # ===========================================================================
