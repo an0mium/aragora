@@ -175,9 +175,9 @@ def _resolve_queue_db_path(db_path: Path | None = None) -> str:
         return str(db_path)
 
     try:
-        from aragora.persistence.db_config import resolve_db_path
+        from aragora.persistence.db_config import get_default_data_dir
 
-        return resolve_db_path("improvement_queue.db")
+        return str(get_default_data_dir() / "improvement_queue.db")
     except ImportError:
         pass
 
@@ -638,8 +638,12 @@ class SelfImproveFeedbackOrchestrator:
                 continue
 
             try:
-                findings = runner.scan_files(files_changed)
-                critical = [f for f in findings if f.severity in ("critical", "high")]
+                import asyncio
+
+                content = f"Files changed: {', '.join(files_changed)}"
+                result = asyncio.run(runner.run(content))
+                findings = result.vulnerabilities
+                critical = [f for f in findings if f.severity.value in ("critical", "high")]
 
                 if critical:
                     desc = f"Gauntlet found {len(critical)} critical findings in {', '.join(files_changed[:3])}"
@@ -877,10 +881,10 @@ class SelfImproveFeedbackOrchestrator:
             with concurrent.futures.ThreadPoolExecutor(max_workers=1) as pool:
                 report = pool.submit(
                     asyncio.run,
-                    detector.detect_contradictions(mound, workspace_id="nomic"),
+                    detector.detect_contradictions(mound, workspace_id="nomic"),  # type: ignore[arg-type]
                 ).result(timeout=30)
         else:
-            report = asyncio.run(detector.detect_contradictions(mound, workspace_id="nomic"))
+            report = asyncio.run(detector.detect_contradictions(mound, workspace_id="nomic"))  # type: ignore[arg-type]
 
         if report.contradictions_found == 0:
             logger.debug(

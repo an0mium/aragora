@@ -14,13 +14,14 @@ Usage:
 
 from __future__ import annotations
 
+import builtins
 import json
 import logging
 import os
 import sqlite3
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any
+from typing import Any, Sequence
 import uuid
 
 from aragora.pipeline.decision_plan.core import (
@@ -43,9 +44,9 @@ _DEFAULT_DB_PATH = os.path.join(_DEFAULT_DB_DIR, "plans.db")
 def _get_db_path() -> str:
     """Resolve the plan store database path."""
     try:
-        from aragora.persistence.db_config import resolve_db_path
+        from aragora.persistence.db_config import get_default_data_dir
 
-        return resolve_db_path("plans.db")
+        return str(get_default_data_dir() / "plans.db")
     except ImportError:
         return _DEFAULT_DB_PATH
 
@@ -337,7 +338,7 @@ class PlanStore:
         self,
         plan_id: str,
         *,
-        expected_statuses: list[PlanStatus] | tuple[PlanStatus, ...],
+        expected_statuses: Sequence[PlanStatus],
         new_status: PlanStatus,
         approved_by: str | None = None,
         rejection_reason: str | None = None,
@@ -512,7 +513,7 @@ class PlanStore:
         status: str | None = None,
         limit: int = 50,
         offset: int = 0,
-    ) -> list[dict[str, Any]]:
+    ) -> builtins.list[dict[str, Any]]:
         """List execution records filtered by plan/debate/status."""
         clauses: list[str] = []
         params: list[Any] = []
@@ -541,7 +542,7 @@ class PlanStore:
         finally:
             conn.close()
 
-    def get_recent_outcomes(self, limit: int = 10) -> list[dict[str, Any]]:
+    def get_recent_outcomes(self, limit: int = 10) -> builtins.list[dict[str, Any]]:
         """Get recent plan outcomes for feedback into planning.
 
         Returns plans that have reached a terminal status (completed,

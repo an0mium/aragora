@@ -468,18 +468,17 @@ class PlanExecutor:
         try:
             from aragora.workspace.convoy import Convoy
 
-            bead_ids = []
-            for sr in outcome.step_results:
-                sr_id = sr.get("id") if isinstance(sr, dict) else getattr(sr, "id", None)
-                if sr_id:
-                    bead_ids.append(str(sr_id))
+            import uuid as _uuid
 
-            convoy = Convoy.create(
-                title=f"Pipeline: {plan.task}",
-                bead_ids=bead_ids,
+            convoy = Convoy(
+                convoy_id=f"convoy-{_uuid.uuid4().hex[:12]}",
+                workspace_id=plan.debate_id or "default",
+                rig_id=plan.id,
+                name=f"Pipeline: {plan.task}",
+                bead_ids=[],
                 metadata={
                     "plan_id": plan.id,
-                    "debate_id": plan.debate_id,
+                    "debate_id": plan.debate_id or "",
                     "status": "completed" if outcome.success else "failed",
                 },
             )
@@ -1133,10 +1132,18 @@ class PlanExecutor:
                 sections.append(line)
             sections.append("")
 
-        # Verification plan
-        if plan.verification_plan and getattr(plan.verification_plan, "cases", None):
+        # Verification plan (support both legacy `.cases` and newer `.test_cases`).
+        verification_cases: list[Any] | tuple[Any, ...] | None = None
+        if plan.verification_plan:
+            for attr_name in ("test_cases", "cases"):
+                candidate = getattr(plan.verification_plan, attr_name, None)
+                if isinstance(candidate, (list, tuple)):
+                    verification_cases = candidate
+                    break
+
+        if verification_cases:
             sections.append("## Verification Plan")
-            for case in plan.verification_plan.cases:
+            for case in verification_cases:
                 desc = getattr(case, "description", str(case))
                 sections.append(f"- [ ] {desc}")
             sections.append("")

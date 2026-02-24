@@ -1720,8 +1720,7 @@ class AutonomousOrchestrator:
                 # Fire-and-forget if we can't await
                 if inspect.isawaitable(coro):
                     try:
-                        loop = asyncio.get_running_loop()
-                        loop.create_task(coro)
+                        asyncio.ensure_future(coro)
                     except RuntimeError:
                         pass
         except (ImportError, RuntimeError, TypeError, ValueError) as e:
@@ -2072,7 +2071,7 @@ class AutonomousOrchestrator:
                         "prompt_template": "review",
                         "task": (
                             f"Risk review for: {assignment.subtask.description}\n"
-                            f"Risk level: {plan.risk_register.max_risk_level if plan.risk_register else 'unknown'}\n"
+                            f"Risk level: {plan.risk_register.get_critical_risks()[0].level.value if plan.risk_register and plan.risk_register.get_critical_risks() else 'unknown'}\n"
                             "Review and approve/reject."
                         ),
                         "gate": True,
@@ -2335,9 +2334,9 @@ class AutonomousOrchestrator:
             agent_id = f"{assignment.agent_type}-{assignment.subtask.id[:8]}"
             usage = Usage(
                 agent_id=agent_id,
-                tokens_used=tokens,
+                tokens_input=tokens,
                 cost_usd=cost_usd,
-                operation=f"subtask:{assignment.subtask.id}",
+                task_id=f"subtask:{assignment.subtask.id}",
             )
             await self.agent_fabric.track_usage(usage)
         except (ImportError, TypeError, ValueError, AttributeError, RuntimeError) as e:
@@ -2449,14 +2448,16 @@ class AutonomousOrchestrator:
                     try:
                         from aragora.nomic.improvement_queue import (
                             get_improvement_queue,
-                            ImprovementItem,
+                            ImprovementSuggestion,
                         )
 
                         queue = get_improvement_queue()
                         for goal in goals:
                             queue.enqueue(
-                                ImprovementItem(
+                                ImprovementSuggestion(
+                                    debate_id=f"scan-cycle-{cycle_count}",
                                     task=goal.description,
+                                    suggestion=goal.description,
                                     category=goal.track.value,
                                     confidence=0.8 if goal.estimated_impact == "high" else 0.5,
                                 )

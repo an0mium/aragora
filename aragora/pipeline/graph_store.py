@@ -15,6 +15,7 @@ Usage:
 
 from __future__ import annotations
 
+import builtins
 import json
 import logging
 import os
@@ -286,7 +287,7 @@ class GraphStore:
         graph_id: str,
         stage: PipelineStage | None = None,
         subtype: str | None = None,
-    ) -> list[UniversalNode]:
+    ) -> builtins.list[UniversalNode]:
         """Query nodes in a graph with optional filters."""
         clauses = ["graph_id = ?"]
         params: list[Any] = [graph_id]
@@ -305,7 +306,7 @@ class GraphStore:
         finally:
             conn.close()
 
-    def get_provenance_chain(self, graph_id: str, node_id: str) -> list[UniversalNode]:
+    def get_provenance_chain(self, graph_id: str, node_id: str) -> builtins.list[UniversalNode]:
         """Walk parent_ids recursively to build a provenance chain."""
         conn = self._connect()
         try:
@@ -445,7 +446,7 @@ class GraphStore:
         node_id: str,
         node_map: dict[str, UniversalNode],
         visited: set[str],
-        chain: list[UniversalNode],
+        chain: builtins.list[UniversalNode],
     ) -> None:
         if node_id in visited or node_id not in node_map:
             return

@@ -236,8 +236,8 @@ class StrategicHandlersMixin:
             else:
                 # Fallback: store in module-level dict for TeamSelector to query
                 if not hasattr(TeamSelector, "_budget_constraints"):
-                    TeamSelector._budget_constraints = {}
-                TeamSelector._budget_constraints[workspace_id] = {
+                    TeamSelector._budget_constraints = {}  # type: ignore[attr-defined]
+                TeamSelector._budget_constraints[workspace_id] = {  # type: ignore[attr-defined]
                     "alert_type": alert_type,
                     "threshold": threshold,
                     "current_spend": current_spend,
@@ -330,8 +330,8 @@ class StrategicHandlersMixin:
             else:
                 # Fallback: store adjustments for TeamSelector to query
                 if not hasattr(TeamSelector, "_meta_learning_state"):
-                    TeamSelector._meta_learning_state = {}
-                TeamSelector._meta_learning_state.update(
+                    TeamSelector._meta_learning_state = {}  # type: ignore[attr-defined]
+                TeamSelector._meta_learning_state.update(  # type: ignore[attr-defined]
                     {
                         "adjustments": adjustments,
                         "learning_rate": learning_rate,

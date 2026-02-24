@@ -223,16 +223,21 @@ async def _log_high_surprise(context: dict[str, Any]) -> None:
     try:
         from aragora.security.anomaly_detection import get_anomaly_detector
 
+        from aragora.security.anomaly_detection import AnomalyResult, AnomalySeverity
+
         detector = get_anomaly_detector()
-        detector.report_anomaly(
-            source="memory",
-            severity="medium" if surprise < 0.9 else "high",
+        anomaly_result = AnomalyResult(
+            is_anomalous=True,
+            severity=AnomalySeverity.MEDIUM if surprise < 0.9 else AnomalySeverity.HIGH,
+            description=f"Surprising memory item {item_id} (score={surprise:.2f})",
             details={
+                "source": "memory",
                 "item_id": item_id,
                 "surprise_score": surprise,
                 "content_preview": context.get("content_preview", "")[:200],
             },
         )
+        detector._emit_anomaly_event(anomaly_result)
     except ImportError:
         pass
     except (RuntimeError, ValueError, TypeError, AttributeError) as exc:
@@ -264,13 +269,12 @@ async def _mark_for_revalidation(context: dict[str, Any]) -> None:
     )
     try:
         from aragora.knowledge.mound.ops.confidence_decay import get_decay_manager
+        from aragora.knowledge.mound import get_knowledge_mound
 
         manager = get_decay_manager()
-        await manager.apply_decay(
-            item_id=item_id,
-            reason="stale_trigger",
-            decay_factor=0.1,
-        )
+        mound = get_knowledge_mound()
+        workspace_id = context.get("workspace_id", "default")
+        await manager.apply_decay(mound, workspace_id, force=True)  # type: ignore[arg-type]
     except ImportError:
         pass
     except (RuntimeError, ValueError, TypeError, AttributeError) as exc:

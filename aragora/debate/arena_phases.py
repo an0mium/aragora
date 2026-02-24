@@ -228,12 +228,18 @@ def init_phases(arena: Arena) -> None:
         try:
             from aragora.memory.fabric import MemoryFabric
 
-            _fabric = MemoryFabric(
-                knowledge_mound=getattr(arena, "knowledge_mound", None),
-                continuum=arena.continuum_memory,
-                consensus=arena.memory,
-                supermemory=getattr(arena, "supermemory_adapter", None),
-            )
+            _backends: dict[str, Any] = {}
+            _km = getattr(arena, "knowledge_mound", None)
+            if _km is not None:
+                _backends["knowledge_mound"] = _km
+            if arena.continuum_memory is not None:
+                _backends["continuum"] = arena.continuum_memory
+            if arena.memory is not None:
+                _backends["consensus"] = arena.memory
+            _sm = getattr(arena, "supermemory_adapter", None)
+            if _sm is not None:
+                _backends["supermemory"] = _sm
+            _fabric = MemoryFabric(backends=_backends)
             arena.prompt_builder.set_memory_fabric(_fabric)
         except (ImportError, RuntimeError, ValueError, TypeError, AttributeError) as exc:
             logger.debug("MemoryFabric not available, skipping unified context: %s", exc)
