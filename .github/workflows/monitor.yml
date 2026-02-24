@@ -12,7 +12,7 @@ jobs:
     timeout-minutes: 5
 
     steps:
-      - name: Checkout (for frontend route verification script)
+      - name: Checkout
         uses: actions/checkout@v4
         with:
           sparse-checkout: scripts/verify_frontend_routes.sh

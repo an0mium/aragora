@@ -41,7 +41,7 @@ class GoalCanvasAdapter(KnowledgeMoundAdapter):
 
     adapter_name = "goal_canvas"
 
-    # Mapping from GoalNodeType value → KM NodeType
+    # Mapping from GoalNodeType value -> KM NodeType
     _GOAL_TO_KM_TYPE: dict[str, NodeType] = {
         "goal": "goal_goal",
         "principle": "goal_principle",
@@ -60,7 +60,7 @@ class GoalCanvasAdapter(KnowledgeMoundAdapter):
             event_callback=event_callback,
             enable_resilience=enable_resilience,
         )
-        # Local caches: canvas_node_id → km_node_id
+        # Local caches: canvas_node_id -> km_node_id
         self._node_map: dict[str, str] = {}
         self._edge_map: dict[str, str] = {}
 
@@ -192,7 +192,7 @@ class GoalCanvasAdapter(KnowledgeMoundAdapter):
             user_id: User performing the sync.
 
         Returns:
-            Mapping of canvas_node_id → km_node_id.
+            Mapping of canvas_node_id -> km_node_id.
         """
         canvas_id = canvas_dict.get("id", "")
 

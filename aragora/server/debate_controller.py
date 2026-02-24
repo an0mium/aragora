@@ -832,6 +832,10 @@ class DebateController:
 
             # Collect calibration snapshots for participating agents
             agent_calibration = self._collect_agent_calibration(result.participants or [])
+            settlement_meta = config.metadata.get("settlement") if isinstance(config.metadata, dict) else None
+            mode_meta = config.mode or (
+                config.metadata.get("mode") if isinstance(config.metadata, dict) else None
+            )
 
             # Update status with result
             update_debate_status(
@@ -852,6 +856,8 @@ class DebateController:
                     "explanation_summary": explanation_text[:500] if explanation_text else "",
                     "has_plan": getattr(result, "plan", None) is not None,
                     "agent_calibration": agent_calibration,
+                    "mode": mode_meta,
+                    "settlement": settlement_meta,
                 },
             )
 

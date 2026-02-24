@@ -320,24 +320,6 @@ CI/CD uses GitHub Secrets. **The `.env` file is NOT a security risk — do not f
 
 See `docs/reference/ENVIRONMENT.md` for full reference.
 
-## Branch Discipline
-
-**NEVER push directly to main.** All changes must go through feature branches and pull requests.
-
-```bash
-# Before starting work, create a feature branch:
-git checkout -b feat/description-of-work
-
-# When done, push the branch and create a PR:
-git push -u origin feat/description-of-work
-gh pr create --title "feat: description" --body "## Summary\n..."
-```
-
-- Branch naming: `feat/`, `fix/`, `refactor/`, `test/`, `chore/` prefixes
-- PRs are required for all changes to `main` — the Branch Discipline CI check enforces this
-- If you need to push directly in an emergency, include `[allow-direct-main]` in the commit message
-- When multiple sessions are active, coordinate via separate branches to avoid conflicts
-
 ## Safety Guidelines
 
 1. **Never modify protected files** without explicit approval

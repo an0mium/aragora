@@ -470,6 +470,37 @@ class TestDebateControllerRunDebate:
         assert result_payload["participants"] == ["agent1", "agent2"]
 
     @patch("aragora.server.debate_controller.update_debate_status")
+    def test_run_debate_includes_mode_and_settlement_metadata(self, mock_update):
+        """Completed result should carry mode/settlement metadata for downstream consumers."""
+        from aragora.server.debate_factory import DebateConfig
+
+        controller = DebateController(factory=self.factory, emitter=self.emitter)
+
+        config = DebateConfig(
+            question="Test?",
+            agents_str="agent1",
+            rounds=1,
+            debate_id="test_123",
+            mode="epistemic_hygiene",
+            metadata={
+                "settlement": {
+                    "status": "needs_definition",
+                    "falsifier": "Metric X drops below threshold",
+                }
+            },
+        )
+
+        controller._run_debate(config, "test_123")
+
+        calls = mock_update.call_args_list
+        completed_calls = [c for c in calls if c[0][1] == "completed"]
+        assert len(completed_calls) >= 1
+        result_payload = completed_calls[0][1].get("result", {})
+        assert result_payload["mode"] == "epistemic_hygiene"
+        assert result_payload["settlement"]["status"] == "needs_definition"
+        assert "falsifier" in result_payload["settlement"]
+
+    @patch("aragora.server.debate_controller.update_debate_status")
     def test_run_debate_handles_validation_error(self, mock_update):
         """Should handle ValueError gracefully."""
         from aragora.server.debate_factory import DebateConfig
