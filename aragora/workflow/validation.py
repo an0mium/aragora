@@ -178,11 +178,7 @@ def validate_workflow(definition: Any) -> ValidationResult:
                     if (step and step.step_type == "loop") or (
                         neighbor_step and neighbor_step.step_type == "loop"
                     ):
-                        loop_step_id = (
-                            node
-                            if (step and step.step_type == "loop")
-                            else neighbor
-                        )
+                        loop_step_id = node if (step and step.step_type == "loop") else neighbor
                         _add(
                             result,
                             "info",
