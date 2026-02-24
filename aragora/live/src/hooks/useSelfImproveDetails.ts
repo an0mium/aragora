@@ -2,7 +2,6 @@
 
 import useSWR from 'swr';
 import { API_BASE_URL } from '@/config';
-import { useCallback, useState } from 'react';
 
 // --- Types ---
 

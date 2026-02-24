@@ -14,7 +14,6 @@ import {
   Controls,
   MiniMap,
   type OnConnect,
-  addEdge as rfAddEdge,
   type Connection,
   type NodeMouseHandler,
 } from '@xyflow/react';
@@ -174,7 +173,7 @@ export function UnifiedDAGCanvas({ graphId }: UnifiedDAGCanvasProps) {
     await dag.autoAdvanceAll();
   }, [dag]);
 
-  const handleExecuteNode = useCallback(
+  const _handleExecuteNode = useCallback(
     (nodeId: string) => withResult(() => dag.executeNode(nodeId)),
     [dag, withResult],
   );

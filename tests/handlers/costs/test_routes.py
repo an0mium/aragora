@@ -437,8 +437,8 @@ class TestRouteMethods:
     def test_get_route_count(self, app):
         """Correct number of GET routes are registered."""
         get_paths = _paths_for_method(app, "GET")
-        # 13 unique GET endpoints, each with v1 + legacy = 26
-        assert len(get_paths) == 26
+        # 18 unique GET endpoints, each with v1 + legacy = 36
+        assert len(get_paths) == 36
 
     def test_post_route_count(self, app):
         """Correct number of POST routes are registered."""
@@ -647,5 +647,5 @@ class TestEdgeCases:
     def test_total_route_count(self, app):
         """Total number of registered routes matches expectations."""
         routes = _registered_routes(app)
-        # 26 GET + 26 HEAD (auto) + 18 POST = 70
-        assert len(routes) == 70
+        # 36 GET + 36 HEAD (auto) + 18 POST = 90
+        assert len(routes) == 90

@@ -193,12 +193,12 @@ class TestInit:
 class TestRoutes:
     """ROUTES list completeness."""
 
-    def test_total_count_is_40(self):
-        assert len(CostHandler.ROUTES) == 40
+    def test_total_count_is_50(self):
+        assert len(CostHandler.ROUTES) == 50
 
     def test_versioned_routes_have_legacy_counterparts(self):
         versioned = [r for r in CostHandler.ROUTES if r.startswith("/api/v1/")]
-        assert len(versioned) == 20
+        assert len(versioned) == 25
         for v in versioned:
             legacy = v.replace("/api/v1/", "/api/")
             assert legacy in CostHandler.ROUTES, f"Missing legacy: {legacy}"

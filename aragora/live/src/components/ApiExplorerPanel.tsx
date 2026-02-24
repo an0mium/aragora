@@ -4,7 +4,6 @@ import { useState, useMemo } from 'react';
 import { CollapsibleSection } from '@/components/CollapsibleSection';
 import {
   useApiExplorer,
-  type ParsedEndpoint,
   type HttpMethod,
   type OpenApiSchema,
   type OpenApiResponse,

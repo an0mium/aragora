@@ -8,7 +8,7 @@ interface InlineDebatePanelProps {
   isActive: boolean;
 }
 
-export function InlineDebatePanel({ nodeId, events, isActive }: InlineDebatePanelProps) {
+export function InlineDebatePanel({ nodeId: _nodeId, events, isActive }: InlineDebatePanelProps) {
   const debateEvents = events.filter(e => e.category === 'debate');
 
   if (debateEvents.length === 0 && !isActive) return null;

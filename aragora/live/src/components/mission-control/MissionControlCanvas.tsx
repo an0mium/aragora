@@ -37,7 +37,6 @@ import ActionNode from '../pipeline-canvas/nodes/ActionNode';
 import OrchestrationNode from '../pipeline-canvas/nodes/OrchestrationNode';
 import {
   PIPELINE_STAGE_CONFIG,
-  STAGE_COLOR_CLASSES,
   type PipelineStageType,
 } from '../pipeline-canvas/types';
 import { StageZoneHeader } from './StageZoneHeader';
@@ -261,7 +260,7 @@ function MissionControlCanvasInner() {
     stageNodeCounts,
     pipelineId,
     selectedNodeId,
-    selectedNodeData,
+    selectedNodeData: _selectedNodeData,
     onNodeSelect,
     provenanceChain,
     loading,

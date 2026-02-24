@@ -9,7 +9,7 @@
 
 import { useState, useCallback, useMemo } from 'react';
 import { useUnifiedDAG, type DAGNodeData } from '@/hooks/useUnifiedDAG';
-import { useEventStream, type EventFilters } from '@/hooks/useEventStream';
+import { useEventStream } from '@/hooks/useEventStream';
 import { apiFetch } from '@/lib/api';
 
 export type InputMode = 'text' | 'list' | 'json';

@@ -42,7 +42,7 @@ const EXECUTION_STAGE = 'execution';
 
 type MissionStageType = PipelineStageType | typeof EXECUTION_STAGE;
 
-const ALL_MISSION_STAGES: MissionStageType[] = [
+const _ALL_MISSION_STAGES: MissionStageType[] = [
   ...ALL_STAGES,
   EXECUTION_STAGE,
 ];

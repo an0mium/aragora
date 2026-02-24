@@ -3,7 +3,7 @@
 import { useMetaPlannerGoals } from '@/hooks/useSelfImproveDetails';
 
 export function MetaPlannerView() {
-  const { goals, signals, enrichment, loading, error } = useMetaPlannerGoals();
+  const { goals, signals, enrichment: _enrichment, loading, error } = useMetaPlannerGoals();
 
   if (loading) return <div className="animate-pulse p-4 text-[var(--text-muted)] font-mono">Loading MetaPlanner goals...</div>;
   if (error) return <div className="p-4 text-red-400 font-mono">Failed to load goals</div>;

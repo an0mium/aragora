@@ -10,7 +10,7 @@ function truncate(s: string, n: number) {
 export function KnowledgeFlowDiagram() {
   const { flows, stats, loading, error } = useKnowledgeFlow();
 
-  const { sourceDebates, kmNodes, targetDebates, links } = useMemo(() => {
+  const { sourceDebates, kmNodes, targetDebates, links: _links } = useMemo(() => {
     const sources = new Map<string, { id: string; label: string; count: number }>();
     const targets = new Map<string, { id: string; label: string; count: number }>();
     const nodes = new Map<string, { id: string; label: string; delta: number }>();

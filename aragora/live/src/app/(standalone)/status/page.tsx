@@ -199,7 +199,7 @@ export default function PublicStatusPage() {
 
       setError(null);
       setLastRefresh(new Date());
-    } catch (err) {
+    } catch {
       setError('Failed to fetch status data');
     } finally {
       setLoading(false);

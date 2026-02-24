@@ -47,7 +47,7 @@ export function PressureGauge({ pressure, byTier, recommendation, loading = fals
   const sweepAngle = 270;
   const arcLength = (sweepAngle / 360) * circumference;
   const filledLength = arcLength * clamped;
-  const dashOffset = arcLength - filledLength;
+  const _dashOffset = arcLength - filledLength;
 
   return (
     <div className="card p-4">

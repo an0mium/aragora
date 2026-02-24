@@ -21,7 +21,7 @@ const SEVERITY_CONFIG: Record<string, { bg: string; text: string; border: string
   low: { bg: 'bg-blue-500/10', text: 'text-blue-400', border: 'border-blue-500/30', label: 'LOW' },
 };
 
-export function GauntletValidationPanel({ nodeId, findings, verdict, loading }: GauntletValidationPanelProps) {
+export function GauntletValidationPanel({ nodeId: _nodeId, findings, verdict, loading }: GauntletValidationPanelProps) {
   if (loading) {
     return (
       <div className="space-y-3">

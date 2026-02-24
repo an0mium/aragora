@@ -40,6 +40,7 @@ interface NavSection {
 // ---------------------------------------------------------------------------
 
 const quickActions: NavItem[] = [
+  { label: 'Try Now', href: '/demo/instant', icon: '\u26A1' },
   { label: 'Demo', href: '/demo', icon: '\u2605' },
   { label: 'New Debate', href: '/arena', icon: '+' },
   { label: 'Mission Control', href: '/mission-control', icon: '\u25C8', minMode: 'standard' },
