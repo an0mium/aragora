@@ -4,8 +4,8 @@ Last updated: 2026-02-23
 
 ## Summary
 
-- **Production**: 118 connectors
-- **Beta**: 33 connectors
+- **Production**: 133 connectors
+- **Beta**: 18 connectors
 - **Stub**: 0 connectors
 
 ## Status Criteria
@@ -71,9 +71,9 @@ Top-level evidence connectors extend `BaseConnector` and provide `search()`/`fet
 
 | Connector | Status | Features | Tests |
 |-----------|--------|----------|-------|
-| Google Ads (`google_ads.py`) | Beta | Campaigns, ad groups, keywords, reporting | Yes |
-| LinkedIn Ads (`linkedin_ads.py`) | Beta | B2B campaigns, lead gen forms, analytics | Yes |
-| Meta Ads (`meta_ads.py`) | Beta | Facebook/Instagram ads, audiences, insights | Yes |
+| Google Ads (`google_ads.py`) | Production | Campaigns, ad groups, keywords, reporting, retry with backoff | Yes |
+| LinkedIn Ads (`linkedin_ads.py`) | Production | B2B campaigns, lead gen forms, analytics, retry with backoff | Yes |
+| Meta Ads (`meta_ads.py`) | Production | Facebook/Instagram ads, audiences, insights, retry with backoff | Yes |
 | Microsoft Ads (`microsoft_ads.py`) | Beta | Bing Ads, campaigns, conversion tracking | Yes |
 | TikTok Ads (`tiktok_ads.py`) | Beta | Campaigns, creative management, analytics | Yes |
 | Twitter Ads (`twitter_ads.py`) | Beta | Promoted tweets, targeting, analytics | Yes |
@@ -82,7 +82,7 @@ Top-level evidence connectors extend `BaseConnector` and provide `search()`/`fet
 
 | Connector | Status | Features | Tests |
 |-----------|--------|----------|-------|
-| Google Analytics (`google_analytics.py`) | Beta | GA4 Data API, reports, real-time data | Yes |
+| Google Analytics (`google_analytics.py`) | Production | GA4 Data API, reports, real-time data, retry with backoff | Yes |
 | Metabase (`metabase.py`) | Beta | Questions, dashboards, query execution | Yes |
 | Mixpanel (`mixpanel.py`) | Beta | Events, profiles, reports, exports | Yes |
 | Segment (`segment.py`) | Beta | CDP tracking, sources, destinations | Yes |

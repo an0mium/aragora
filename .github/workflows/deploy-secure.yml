@@ -368,6 +368,9 @@ jobs:
               "echo Verifying build SHA...",
               "DEPLOYED_SHA=$(cd /home/ec2-user/aragora && git rev-parse HEAD)",
               "echo DEPLOYED_SHA=$DEPLOYED_SHA",
+              "EXPECTED_SHA=${{ github.sha }}",
+              "if [ \"$DEPLOYED_SHA\" != \"$EXPECTED_SHA\" ]; then echo SHA_MISMATCH: expected=$EXPECTED_SHA deployed=$DEPLOYED_SHA; exit 1; fi",
+              "echo SHA_VERIFIED",
               "echo HEALTH_OK"
             ]' \
             --timeout-seconds 90 \

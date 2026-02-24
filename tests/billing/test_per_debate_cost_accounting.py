@@ -619,7 +619,7 @@ class TestDebateCostInfrastructureWiring:
 
         mock_tracker = MagicMock()
         with patch(
-            "aragora.debate.orchestrator_runner.get_debate_cost_tracker",
+            "aragora.billing.debate_costs.get_debate_cost_tracker",
             return_value=mock_tracker,
         ):
             await setup_debate_infrastructure(arena, state)
