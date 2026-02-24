@@ -177,6 +177,13 @@ EVENT_STYLES: dict[str, tuple[str, str]] = {
     SpectatorEvents.PIPELINE_AGENT_COMPLETED: ("✅", "\033[92m"),  # Green
     SpectatorEvents.PIPELINE_AGENT_FAILED: ("❌", "\033[91m"),  # Red
     SpectatorEvents.DIFF_PREVIEW: ("📄", "\033[96m"),  # Cyan
+    # Live debate experience
+    SpectatorEvents.AGENT_THINKING: ("🧠", "\033[96m"),  # Cyan - thinking
+    SpectatorEvents.AGENT_REASONING: ("💭", "\033[94m"),  # Blue - reasoning chain
+    SpectatorEvents.ARGUMENT_STRENGTH: ("📏", "\033[93m"),  # Yellow - quality score
+    SpectatorEvents.CRUX_IDENTIFIED: ("🎯", "\033[91m"),  # Red - key disagreement
+    SpectatorEvents.INTERVENTION_WINDOW: ("✋", "\033[33m"),  # Yellow/orange - user can act
+    SpectatorEvents.INTERVENTION_APPLIED: ("📌", "\033[92m"),  # Green - applied
     # System
     SpectatorEvents.SYSTEM: ("⚙️", "\033[0m"),
     SpectatorEvents.ERROR: ("❌", "\033[91m"),
@@ -250,6 +257,13 @@ EVENT_ASCII: dict[str, str] = {
     SpectatorEvents.PIPELINE_AGENT_COMPLETED: "[AGENT_DONE]",
     SpectatorEvents.PIPELINE_AGENT_FAILED: "[AGENT_FAIL]",
     SpectatorEvents.DIFF_PREVIEW: "[DIFF]",
+    # Live debate experience
+    SpectatorEvents.AGENT_THINKING: "[THINKING]",
+    SpectatorEvents.AGENT_REASONING: "[REASONING]",
+    SpectatorEvents.ARGUMENT_STRENGTH: "[STRENGTH]",
+    SpectatorEvents.CRUX_IDENTIFIED: "[CRUX]",
+    SpectatorEvents.INTERVENTION_WINDOW: "[INTERVENE?]",
+    SpectatorEvents.INTERVENTION_APPLIED: "[INTERVENED]",
     # System
     SpectatorEvents.SYSTEM: "[SYS]",
     SpectatorEvents.ERROR: "[ERR]",

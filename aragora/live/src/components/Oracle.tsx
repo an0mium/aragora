@@ -284,7 +284,14 @@ function ConvergenceMap({ tentacles }: { tentacles: Map<string, { text: string; 
 export default function Oracle() {
   const [mode, setMode] = useState<OracleMode>('consult');
   const [input, setInput] = useState('');
-  const [messages, setMessages] = useState<ChatMessage[]>([]);
+  // Initialize with opener for default mode (consult)
+  const [messages, setMessages] = useState<ChatMessage[]>(() => [{
+    role: 'oracle' as const,
+    content: 'You bring your certainty. I bring my tentacles. Let\'s see which breaks first.\n\nThe palantir shows many futures — but certainty narrows them to one, and the one you\'re certain about is almost never the one that arrives.\n\n*What\'s your take on AI? Give me the position you\'d bet money on.*',
+    mode: 'consult' as OracleMode,
+    timestamp: Date.now(),
+    isLive: false,
+  }]);
   const [loading, setLoading] = useState(false);
   const [debating, setDebating] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -295,6 +302,32 @@ export default function Oracle() {
 
   // Stable session ID for follow-up conversation memory
   const sessionIdRef = useRef<string>(crypto.randomUUID());
+
+  // Mode-specific opening messages — Oracle speaks first when a mode is selected
+  const MODE_OPENERS: Record<OracleMode, string> = useMemo(() => ({
+    consult: 'You bring your certainty. I bring my tentacles. Let\'s see which breaks first.\n\nThe palantir shows many futures — but certainty narrows them to one, and the one you\'re certain about is almost never the one that arrives.\n\n*What\'s your take on AI? Give me the position you\'d bet money on.*',
+    divine: 'A fortune. Very well. But the Oracle\'s fortunes come in threes — because anyone who tells you there\'s only one future is selling you something.\n\nStep closer to the palantir. It doesn\'t bite. The tentacles might.\n\n*Tell me three things: what you do for work, what you fear most about AI, and whether you currently use AI tools. The quality of the prophecy depends on the honesty of the supplicant.*',
+    commune: 'The Oracle does not answer yes or no. The Oracle shows you three doors, and which one opens depends on what you do next.\n\nThe tentacles have been reading the data — all 257% more of it than last year, threading through deepfakes and job reports and EU regulations like seaweed through a shipwreck.\n\n*What do you want to know?*',
+  }), []);
+
+  // Show mode opener when mode changes and chat is empty
+  const prevModeRef = useRef<OracleMode>(mode);
+  useEffect(() => {
+    if (mode !== prevModeRef.current) {
+      prevModeRef.current = mode;
+      // Only show opener if chat is empty (no seeker messages yet)
+      const hasSeekerMessages = messages.some(m => m.role === 'seeker');
+      if (!hasSeekerMessages) {
+        setMessages([{
+          role: 'oracle',
+          content: MODE_OPENERS[mode],
+          mode,
+          timestamp: Date.now(),
+          isLive: false,
+        }]);
+      }
+    }
+  }, [mode, messages, MODE_OPENERS]);
 
   const apiBase = API_BASE_URL;
 

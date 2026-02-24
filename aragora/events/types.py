@@ -43,8 +43,15 @@ class StreamEventType(Enum):
 
     # Reasoning visibility events (real-time agent reasoning)
     AGENT_THINKING = "agent_thinking"  # Agent's internal reasoning chain
+    AGENT_REASONING = "agent_reasoning"  # Partial chain-of-thought streaming
     AGENT_EVIDENCE = "agent_evidence"  # Sources/references being considered
     AGENT_CONFIDENCE = "agent_confidence"  # Current confidence level update
+
+    # Live debate experience (argument quality + intervention)
+    ARGUMENT_STRENGTH = "argument_strength"  # Real-time quality scores for arguments
+    CRUX_IDENTIFIED = "crux_identified"  # Key disagreement point detected
+    INTERVENTION_WINDOW = "intervention_window"  # User can interject at this point
+    INTERVENTION_APPLIED = "intervention_applied"  # User intervention was applied
 
     # Nomic loop events
     CYCLE_START = "cycle_start"

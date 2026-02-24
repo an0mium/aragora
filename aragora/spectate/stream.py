@@ -77,6 +77,13 @@ VALID_EVENT_TYPES = frozenset(
         SpectatorEvents.FEEDBACK_RECORDED,
         SpectatorEvents.KM_CONTRADICTIONS_DETECTED,
         SpectatorEvents.REGRESSION_DETECTED,
+        # Live debate experience
+        SpectatorEvents.AGENT_THINKING,
+        SpectatorEvents.AGENT_REASONING,
+        SpectatorEvents.ARGUMENT_STRENGTH,
+        SpectatorEvents.CRUX_IDENTIFIED,
+        SpectatorEvents.INTERVENTION_WINDOW,
+        SpectatorEvents.INTERVENTION_APPLIED,
         SpectatorEvents.SYSTEM,
         SpectatorEvents.ERROR,
     ]

@@ -946,6 +946,329 @@ async def _handle_ask(
 
 
 # ---------------------------------------------------------------------------
+# Debate streaming bridge — runs a real multi-agent debate and streams events
+# ---------------------------------------------------------------------------
+
+# Optional imports for debate mode (graceful degradation)
+try:
+    from aragora.server.stream.debate_executor import execute_debate_thread, DEBATE_AVAILABLE
+    from aragora.server.stream.emitter import SyncEventEmitter
+    from aragora.server.stream.events import StreamEvent, StreamEventType
+    from aragora.server.stream.tts_integration import get_tts_integration
+
+    _DEBATE_STREAMING_AVAILABLE = DEBATE_AVAILABLE
+except ImportError:
+    _DEBATE_STREAMING_AVAILABLE = False
+
+
+async def _drain_emitter_to_ws(
+    ws: web.WebSocketResponse,
+    emitter: Any,
+    session: OracleSession,
+    debate_id: str,
+) -> None:
+    """Drain events from a SyncEventEmitter and forward them to the WebSocket.
+
+    Translates debate events (DEBATE_START, AGENT_MESSAGE, CRITIQUE, VOTE,
+    CONSENSUS, DEBATE_END, etc.) into Oracle-protocol JSON frames so the
+    frontend can render them progressively.
+
+    Also emits ``tts_hook`` events for sentence boundaries so the TTS
+    integration can synthesize audio as text streams in.
+    """
+    tts_integration = None
+    try:
+        tts_integration = get_tts_integration()
+    except (ImportError, NameError):
+        pass
+
+    while not session.cancelled and not ws.closed:
+        events = emitter.drain(max_batch_size=50)
+        if not events:
+            # Check if debate completed by looking at the state
+            await asyncio.sleep(0.05)
+            continue
+
+        for event in events:
+            if session.cancelled or ws.closed:
+                return
+
+            event_dict = event.to_dict()
+            event_type = event_dict.get("type", "")
+            data = event_dict.get("data", {})
+            agent = event_dict.get("agent", "")
+
+            try:
+                if event_type == "debate_start":
+                    await ws.send_json({
+                        "type": "debate_start",
+                        "debate_id": debate_id,
+                        "task": data.get("task", ""),
+                        "agents": data.get("agents", []),
+                    })
+
+                elif event_type == "round_start":
+                    await ws.send_json({
+                        "type": "round_start",
+                        "round": data.get("round", 0),
+                    })
+
+                elif event_type == "agent_message":
+                    content = data.get("content", "")
+                    role = data.get("role", "proposer")
+                    await ws.send_json({
+                        "type": "agent_message",
+                        "agent": agent,
+                        "content": content,
+                        "role": role,
+                        "round": event_dict.get("round", 0),
+                        "confidence_score": data.get("confidence_score"),
+                    })
+
+                    # TTS hook: emit event for audio synthesis
+                    if tts_integration and tts_integration.is_available and content:
+                        await ws.send_json({
+                            "type": "tts_hook",
+                            "agent": agent,
+                            "text": content[:2000],
+                            "debate_id": debate_id,
+                        })
+
+                elif event_type == "agent_thinking":
+                    await ws.send_json({
+                        "type": "agent_thinking",
+                        "agent": agent,
+                        "step": data.get("step", ""),
+                        "phase": data.get("phase", "reasoning"),
+                    })
+
+                elif event_type == "critique":
+                    await ws.send_json({
+                        "type": "critique",
+                        "agent": agent,
+                        "target": data.get("target", ""),
+                        "issues": data.get("issues", []),
+                        "severity": data.get("severity", 0.0),
+                        "content": data.get("content", ""),
+                        "round": event_dict.get("round", 0),
+                    })
+
+                elif event_type == "vote":
+                    await ws.send_json({
+                        "type": "vote",
+                        "agent": agent,
+                        "vote": data.get("vote", ""),
+                        "confidence": data.get("confidence", 0.0),
+                    })
+
+                elif event_type == "consensus":
+                    await ws.send_json({
+                        "type": "consensus",
+                        "reached": data.get("reached", False),
+                        "confidence": data.get("confidence", 0.0),
+                        "answer": data.get("answer", ""),
+                        "synthesis": data.get("synthesis", ""),
+                    })
+
+                elif event_type == "debate_end":
+                    await ws.send_json({
+                        "type": "debate_end",
+                        "duration": data.get("duration", 0.0),
+                        "rounds": data.get("rounds", 0),
+                    })
+                    return  # Debate complete
+
+                elif event_type == "phase_progress":
+                    await ws.send_json({
+                        "type": "phase_progress",
+                        "phase": data.get("phase", ""),
+                        "completed": data.get("completed", 0),
+                        "total": data.get("total", 0),
+                        "current_agent": data.get("current_agent", ""),
+                    })
+
+                elif event_type == "agent_error":
+                    await ws.send_json({
+                        "type": "agent_error",
+                        "agent": agent,
+                        "error_type": data.get("error_type", "unknown"),
+                        "message": data.get("message", ""),
+                        "recoverable": data.get("recoverable", True),
+                    })
+
+                elif event_type == "token_start":
+                    await ws.send_json({
+                        "type": "token_start",
+                        "agent": agent,
+                    })
+
+                elif event_type == "token_delta":
+                    await ws.send_json({
+                        "type": "token_delta",
+                        "agent": agent,
+                        "token": data.get("token", ""),
+                    })
+
+                elif event_type == "token_end":
+                    await ws.send_json({
+                        "type": "token_end",
+                        "agent": agent,
+                        "full_response": data.get("full_response", ""),
+                    })
+
+                elif event_type == "error":
+                    await ws.send_json({
+                        "type": "error",
+                        "message": data.get("error", "Debate error"),
+                    })
+                    return  # Fatal error
+
+                elif event_type == "synthesis":
+                    await ws.send_json({
+                        "type": "synthesis",
+                        "text": data.get("content", ""),
+                        "agent": data.get("agent", "synthesis-agent"),
+                        "confidence": data.get("confidence", 0.0),
+                    })
+
+                elif event_type == "heartbeat":
+                    await ws.send_json({
+                        "type": "heartbeat",
+                        "phase": data.get("phase", ""),
+                        "status": data.get("status", "alive"),
+                    })
+
+            except (ConnectionError, OSError, RuntimeError) as exc:
+                logger.warning("Failed to send debate event to Oracle WS: %s", exc)
+                return
+
+
+async def _handle_debate(
+    ws: web.WebSocketResponse,
+    question: str,
+    mode: str,
+    session: OracleSession,
+    *,
+    session_id: str | None = None,
+) -> None:
+    """Handle an Oracle consultation using a full multi-agent debate.
+
+    Instead of direct LLM calls, this runs a real debate via the Arena engine
+    and streams events (agent_message, critique, vote, consensus) in real time.
+    """
+    if not _DEBATE_STREAMING_AVAILABLE:
+        # Fall back to the direct LLM path
+        await _handle_ask(ws, question, mode, session, session_id=session_id)
+        return
+
+    session.mode = mode
+    session.cancelled = False
+    session.completed = False
+    session.stream_error = False
+
+    import uuid
+
+    debate_id = f"oracle-{uuid.uuid4().hex[:12]}"
+
+    try:
+        # Phase 1: Quick reflex acknowledgment (parallel with debate setup)
+        reflex_task = asyncio.create_task(_stream_reflex(ws, question, session))
+
+        # Set up debate emitter
+        emitter = SyncEventEmitter(loop_id=debate_id)
+
+        # Determine agent count based on mode
+        agent_count = 3 if mode == "divine" else 5
+        rounds = 1 if mode == "divine" else 2
+
+        # Get default agents
+        try:
+            from aragora.config import DEFAULT_AGENTS
+
+            agents_str = DEFAULT_AGENTS
+        except ImportError:
+            agents_str = "anthropic-api,openai-api,grok"
+
+        await reflex_task
+
+        if session.cancelled:
+            return
+
+        # Signal debate start to client
+        await ws.send_json({
+            "type": "debate_setup",
+            "debate_id": debate_id,
+            "question": question,
+            "mode": mode,
+            "rounds": rounds,
+        })
+
+        # Run debate in background thread
+        loop = asyncio.get_event_loop()
+        debate_future = loop.run_in_executor(
+            None,
+            execute_debate_thread,
+            debate_id,
+            question,
+            agents_str,
+            rounds,
+            "majority",
+            None,  # trending_topic
+            emitter,
+        )
+
+        # Start draining events from the emitter to the WebSocket
+        drain_task = asyncio.create_task(
+            _drain_emitter_to_ws(ws, emitter, session, debate_id)
+        )
+
+        # Wait for debate completion or cancellation
+        try:
+            await asyncio.gather(debate_future, drain_task, return_exceptions=True)
+        except asyncio.CancelledError:
+            session.cancelled = True
+
+        if session.cancelled or ws.closed:
+            return
+
+        # Send final synthesis
+        synthesis = (
+            f"The Oracle's debate is complete. "
+            f"{agent_count} agents debated across {rounds} round(s)."
+        )
+        await ws.send_json({"type": "synthesis", "text": synthesis})
+        session.completed = True
+
+    except asyncio.CancelledError:
+        session.cancelled = True
+        raise
+    except (
+        RuntimeError,
+        ValueError,
+        TypeError,
+        OSError,
+        KeyError,
+        AttributeError,
+        ConnectionError,
+        TimeoutError,
+    ):
+        session.stream_error = True
+        logger.exception("Oracle debate consultation failed")
+        if not ws.closed:
+            await ws.send_json({
+                "type": "error",
+                "message": "The Oracle's debate failed. Try again.",
+            })
+    finally:
+        if session.completed:
+            record_oracle_session_outcome("completed")
+        elif session.cancelled:
+            record_oracle_session_outcome("cancelled")
+        else:
+            record_oracle_session_outcome("error")
+
+
+# ---------------------------------------------------------------------------
 # Think-while-listening — process interim transcripts
 # ---------------------------------------------------------------------------
 
@@ -1067,9 +1390,10 @@ async def oracle_websocket_handler(request: web.Request) -> web.WebSocketRespons
                     if msg_type == "ping":
                         await ws.send_json({"type": "pong", "timestamp": time.time()})
 
-                    elif msg_type == "ask":
+                    elif msg_type in ("ask", "debate"):
                         question = _sanitize_oracle_input(str(data.get("question", "")).strip())
                         mode = str(data.get("mode", "consult"))
+                        use_debate = msg_type == "debate" or data.get("debate", False)
                         if not question:
                             await ws.send_json(
                                 {
@@ -1102,19 +1426,32 @@ async def oracle_websocket_handler(request: web.Request) -> web.WebSocketRespons
                         # Extract optional session tracking params
                         session_id = data.get("session_id")
                         summary_depth = str(data.get("summary_depth", "light"))
+                        session.debate_mode = use_debate
 
                         # Start new consultation
                         record_oracle_session_started()
-                        session.active_task = asyncio.create_task(
-                            _handle_ask(
-                                ws,
-                                question,
-                                mode,
-                                session,
-                                session_id=session_id,
-                                summary_depth=summary_depth,
+
+                        if use_debate and _DEBATE_STREAMING_AVAILABLE:
+                            session.active_task = asyncio.create_task(
+                                _handle_debate(
+                                    ws,
+                                    question,
+                                    mode,
+                                    session,
+                                    session_id=session_id,
+                                )
                             )
-                        )
+                        else:
+                            session.active_task = asyncio.create_task(
+                                _handle_ask(
+                                    ws,
+                                    question,
+                                    mode,
+                                    session,
+                                    session_id=session_id,
+                                    summary_depth=summary_depth,
+                                )
+                            )
 
                     elif msg_type == "interim":
                         text = str(data.get("text", "")).strip()
@@ -1170,4 +1507,6 @@ __all__ = [
     "register_oracle_stream_routes",
     "OracleSession",
     "SentenceAccumulator",
+    "_drain_emitter_to_ws",
+    "_handle_debate",
 ]

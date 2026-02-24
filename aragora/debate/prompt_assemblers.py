@@ -282,6 +282,17 @@ class PromptAssemblyMixin:
         if vertical_ctx:
             vertical_section = vertical_ctx
 
+        # Epistemic hygiene requirements (alternatives, falsifiers, confidence, unknowns)
+        epistemic_section = ""
+        try:
+            from aragora.debate.epistemic_hygiene import get_epistemic_proposal_prompt
+
+            epistemic_ctx = get_epistemic_proposal_prompt(self.protocol)
+            if epistemic_ctx:
+                epistemic_section = epistemic_ctx
+        except ImportError:
+            pass
+
         sections = [
             ContextSection("historical", historical_section.strip()),
             ContextSection("continuum", continuum_section.strip()),
@@ -305,6 +316,7 @@ class PromptAssemblyMixin:
             ContextSection("active_introspection", active_introspection_section.strip()),
             ContextSection("mode", mode_section.strip()),
             ContextSection("vertical", vertical_section.strip()),
+            ContextSection("epistemic_hygiene", epistemic_section.strip()),
         ]
 
         context_block, context_str = self._apply_context_budget(
@@ -430,6 +442,17 @@ Your proposal will be critiqued by other agents, so anticipate potential objecti
         if vertical_ctx:
             vertical_section = vertical_ctx
 
+        # Epistemic hygiene requirements for revisions
+        epistemic_section = ""
+        try:
+            from aragora.debate.epistemic_hygiene import get_epistemic_revision_prompt
+
+            epistemic_ctx = get_epistemic_revision_prompt(self.protocol)
+            if epistemic_ctx:
+                epistemic_section = epistemic_ctx
+        except ImportError:
+            pass
+
         sections = [
             ContextSection("knowledge_mound", km_section.strip()),
             ContextSection("outcome", outcome_section.strip()),
@@ -445,6 +468,7 @@ Your proposal will be critiqued by other agents, so anticipate potential objecti
             ContextSection("active_introspection", active_introspection_section.strip()),
             ContextSection("mode", mode_section.strip()),
             ContextSection("vertical", vertical_section.strip()),
+            ContextSection("epistemic_hygiene", epistemic_section.strip()),
         ]
         context_block, _ = self._apply_context_budget(env_context="", sections=sections)
 

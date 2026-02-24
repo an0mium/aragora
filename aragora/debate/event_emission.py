@@ -475,4 +475,159 @@ class EventEmitter:
         )
 
 
+    def emit_agent_thinking(
+        self,
+        agent_name: str,
+        step: str,
+        phase: str = "reasoning",
+        round_num: int = 0,
+    ) -> None:
+        """Emit agent_thinking event when an agent starts processing.
+
+        Signals to the UI that an agent is actively formulating a response.
+
+        Args:
+            agent_name: Name of the agent
+            step: Description of current thinking step
+            phase: Phase of reasoning (proposal, critique, revision, etc.)
+            round_num: Current debate round
+        """
+        self.notify_spectator(
+            "agent_thinking",
+            agent=agent_name,
+            step=step[:500],
+            phase=phase,
+            round_num=round_num,
+        )
+
+    def emit_agent_reasoning(
+        self,
+        agent_name: str,
+        reasoning_chunk: str,
+        chain_position: int = 0,
+        total_steps: int = 0,
+        round_num: int = 0,
+    ) -> None:
+        """Emit agent_reasoning event to stream partial chain-of-thought.
+
+        Allows UI to display incremental reasoning as it generates.
+
+        Args:
+            agent_name: Name of the agent
+            reasoning_chunk: Partial reasoning text
+            chain_position: Position in the reasoning chain (0-indexed)
+            total_steps: Estimated total reasoning steps (0 if unknown)
+            round_num: Current debate round
+        """
+        self.notify_spectator(
+            "agent_reasoning",
+            agent=agent_name,
+            reasoning_chunk=reasoning_chunk[:1000],
+            chain_position=chain_position,
+            total_steps=total_steps,
+            round_num=round_num,
+        )
+
+    def emit_argument_strength(
+        self,
+        agent_name: str,
+        argument_summary: str,
+        strength_score: float,
+        factors: dict | None = None,
+        round_num: int = 0,
+    ) -> None:
+        """Emit argument_strength event with real-time quality scores.
+
+        Args:
+            agent_name: Name of the agent whose argument is scored
+            argument_summary: Brief summary of the argument
+            strength_score: Quality score (0.0-1.0)
+            factors: Optional dict of contributing factors (e.g., evidence, logic, novelty)
+            round_num: Current debate round
+        """
+        self.notify_spectator(
+            "argument_strength",
+            agent=agent_name,
+            argument_summary=argument_summary[:300],
+            strength_score=max(0.0, min(1.0, strength_score)),
+            factors=factors or {},
+            round_num=round_num,
+        )
+
+    def emit_crux_identified(
+        self,
+        crux_description: str,
+        agents_disagreeing: list[str],
+        positions: dict[str, str] | None = None,
+        severity: float = 0.5,
+        round_num: int = 0,
+    ) -> None:
+        """Emit crux_identified event when agents identify a key disagreement.
+
+        Args:
+            crux_description: Description of the crux/key disagreement
+            agents_disagreeing: Names of agents on opposing sides
+            positions: Optional dict of agent_name -> position summary
+            severity: How significant the disagreement is (0.0-1.0)
+            round_num: Current debate round
+        """
+        self.notify_spectator(
+            "crux_identified",
+            crux_description=crux_description[:500],
+            agents_disagreeing=agents_disagreeing,
+            positions=positions or {},
+            severity=max(0.0, min(1.0, severity)),
+            round_num=round_num,
+        )
+
+    def emit_intervention_window(
+        self,
+        debate_id: str,
+        round_num: int,
+        window_type: str = "between_rounds",
+        expires_in_seconds: float = 30.0,
+        context_summary: str = "",
+    ) -> None:
+        """Emit intervention_window event signaling the user can interject.
+
+        Args:
+            debate_id: ID of the current debate
+            round_num: Current debate round
+            window_type: Type of intervention window (between_rounds, post_critique, etc.)
+            expires_in_seconds: How long the window stays open
+            context_summary: Brief summary of current debate state
+        """
+        self.notify_spectator(
+            "intervention_window",
+            debate_id=debate_id,
+            round_num=round_num,
+            window_type=window_type,
+            expires_in_seconds=expires_in_seconds,
+            context_summary=context_summary[:300],
+        )
+
+    def emit_intervention_applied(
+        self,
+        intervention_id: str,
+        intervention_type: str,
+        content_summary: str,
+        applied_at_round: int,
+    ) -> None:
+        """Emit intervention_applied event when a user intervention takes effect.
+
+        Args:
+            intervention_id: Unique ID of the intervention
+            intervention_type: Type (redirect, constraint, challenge, evidence_request)
+            content_summary: Brief summary of the intervention content
+            applied_at_round: Round at which the intervention was applied
+        """
+        self.notify_spectator(
+            "intervention_applied",
+            intervention_id=intervention_id,
+            intervention_type=intervention_type,
+            content_summary=content_summary[:300],
+            applied_at_round=applied_at_round,
+        )
+
+
 __all__ = ["EventEmitter"]
