@@ -415,9 +415,7 @@ PlansHandler = _safe_import("aragora.server.handlers.plans", "PlansHandler")
 HandlerResult = _safe_import("aragora.server.handlers", "HandlerResult")
 
 # Health and readiness handlers
-LivenessHandler = _safe_import(
-    "aragora.server.handlers.admin.health.liveness", "LivenessHandler"
-)
+LivenessHandler = _safe_import("aragora.server.handlers.admin.health.liveness", "LivenessHandler")
 ReadinessHandler = _safe_import(
     "aragora.server.handlers.admin.health.readiness", "ReadinessHandler"
 )
@@ -435,9 +433,7 @@ ComplianceReportHandler = _safe_import(
 EUAIActComplianceHandler = _safe_import(
     "aragora.server.handlers.compliance_eu_ai_act", "EUAIActComplianceHandler"
 )
-GDPRDeletionHandler = _safe_import(
-    "aragora.server.handlers.gdpr_deletion", "GDPRDeletionHandler"
-)
+GDPRDeletionHandler = _safe_import("aragora.server.handlers.gdpr_deletion", "GDPRDeletionHandler")
 MFAComplianceHandler = _safe_import(
     "aragora.server.handlers.admin.mfa_compliance", "MFAComplianceHandler"
 )
@@ -446,9 +442,7 @@ MFAComplianceHandler = _safe_import(
 BackupOffsiteHandler = _safe_import(
     "aragora.server.handlers.backup_offsite_handler", "BackupOffsiteHandler"
 )
-FeatureFlagsHandler = _safe_import(
-    "aragora.server.handlers.feature_flags", "FeatureFlagsHandler"
-)
+FeatureFlagsHandler = _safe_import("aragora.server.handlers.feature_flags", "FeatureFlagsHandler")
 MarketplacePilotHandler = _safe_import(
     "aragora.server.handlers.marketplace_pilot", "MarketplacePilotHandler"
 )

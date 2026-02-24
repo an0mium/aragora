@@ -47,9 +47,7 @@ SelectionHandler = _safe_import("aragora.server.handlers.selection", "SelectionH
 AgentRecommendationHandler = _safe_import(
     "aragora.server.handlers.agents.recommendations", "AgentRecommendationHandler"
 )
-FeedbackHandler = _safe_import(
-    "aragora.server.handlers.agents.feedback", "FeedbackHandler"
-)
+FeedbackHandler = _safe_import("aragora.server.handlers.agents.feedback", "FeedbackHandler")
 
 # =============================================================================
 # Agent Handler Registry Entries

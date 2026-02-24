@@ -89,27 +89,17 @@ TemplateDiscoveryHandler = _safe_import(
 )
 
 # Composite, stats, share, interventions, settlement, spectate, receipt export
-CompositeHandler = _safe_import(
-    "aragora.server.handlers.composite", "CompositeHandler"
-)
-DebateStatsHandler = _safe_import(
-    "aragora.server.handlers.debate_stats", "DebateStatsHandler"
-)
-DebateShareHandler = _safe_import(
-    "aragora.server.handlers.debates.share", "DebateShareHandler"
-)
+CompositeHandler = _safe_import("aragora.server.handlers.composite", "CompositeHandler")
+DebateStatsHandler = _safe_import("aragora.server.handlers.debate_stats", "DebateStatsHandler")
+DebateShareHandler = _safe_import("aragora.server.handlers.debates.share", "DebateShareHandler")
 DebateInterventionsHandler = _safe_import(
     "aragora.server.handlers.debates.interventions", "DebateInterventionsHandler"
 )
 DecisionPackageHandler = _safe_import(
     "aragora.server.handlers.debates.decision_package", "DecisionPackageHandler"
 )
-SettlementHandler = _safe_import(
-    "aragora.server.handlers.settlements", "SettlementHandler"
-)
-SpectateStreamHandler = _safe_import(
-    "aragora.server.handlers.spectate_ws", "SpectateStreamHandler"
-)
+SettlementHandler = _safe_import("aragora.server.handlers.settlements", "SettlementHandler")
+SpectateStreamHandler = _safe_import("aragora.server.handlers.spectate_ws", "SpectateStreamHandler")
 ReceiptExportHandler = _safe_import(
     "aragora.server.handlers.receipt_export", "ReceiptExportHandler"
 )

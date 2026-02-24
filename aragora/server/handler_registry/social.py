@@ -109,12 +109,8 @@ SharedInboxHandler = _safe_import(
 )
 
 # Email triage, feedback hub, notification history/preferences
-EmailTriageHandler = _safe_import(
-    "aragora.server.handlers.email_triage", "EmailTriageHandler"
-)
-FeedbackHubHandler = _safe_import(
-    "aragora.server.handlers.feedback_hub", "FeedbackHubHandler"
-)
+EmailTriageHandler = _safe_import("aragora.server.handlers.email_triage", "EmailTriageHandler")
+FeedbackHubHandler = _safe_import("aragora.server.handlers.feedback_hub", "FeedbackHubHandler")
 NotificationHistoryHandler = _safe_import(
     "aragora.server.handlers.notifications.history", "NotificationHistoryHandler"
 )
