@@ -19,33 +19,14 @@ from pathlib import Path
 
 
 def get_runtime_agent_count() -> int:
-    """Get the actual agent count by scanning @AgentRegistry.register() decorators."""
-    agents_dir = Path("aragora/agents")
-    if not agents_dir.exists():
-        print("ERROR: aragora/agents/ not found")
+    """Get runtime agent count from the same registry used by production code."""
+    try:
+        from aragora.agents.base import list_available_agents
+    except Exception as exc:  # pragma: no cover - import/runtime environment failures
+        print(f"ERROR: failed to load runtime registry: {exc}")
         sys.exit(2)
 
-    # Scan all .py files for @AgentRegistry.register("type_name", ...) decorators
-    # The type name is on the line following the decorator
-    type_names: set[str] = set()
-    decorator_re = re.compile(r"@AgentRegistry\.register\(")
-    name_re = re.compile(r'^\s*"([a-z][a-z0-9-]*)"')
-
-    for py_file in agents_dir.rglob("*.py"):
-        lines = py_file.read_text().splitlines()
-        for i, line in enumerate(lines):
-            if decorator_re.search(line):
-                # Check same line for inline name
-                inline = re.search(r'register\(\s*"([a-z][a-z0-9-]*)"', line)
-                if inline:
-                    type_names.add(inline.group(1))
-                # Also check next line for name on separate line
-                elif i + 1 < len(lines):
-                    m = name_re.match(lines[i + 1])
-                    if m:
-                        type_names.add(m.group(1))
-
-    return len(type_names)
+    return len(list_available_agents())
 
 
 def check_doc_counts(runtime_count: int, fix: bool = False) -> list[str]:

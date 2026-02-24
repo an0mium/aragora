@@ -1,6 +1,6 @@
 # Aragora
 
-Aragora orchestrates 42 AI agents to adversarially vet decisions through structured debate, delivering audit-ready decision receipts. Built for enterprises where AI decisions carry real consequences.
+Aragora orchestrates 43 AI agents to adversarially vet decisions through structured debate, delivering audit-ready decision receipts. Built for enterprises where AI decisions carry real consequences.
 
 ### The Decision Integrity Platform
 
@@ -22,7 +22,7 @@ Aragora orchestrates 42 AI agents to adversarially vet decisions through structu
 
 **Individual LLMs are unreliable. Their personas shift with context, their confidence doesn't correlate with accuracy, and they say what you want to hear. For consequential decisions, you need infrastructure that treats this as a feature to be engineered around, not a problem to be ignored.**
 
-Aragora orchestrates 42 agent types in structured adversarial debates -- forcing models to challenge each other's reasoning, surface blind spots, and produce decisions with complete audit trails showing where they agreed, where they disagreed, and why.
+Aragora orchestrates 43 agent types in structured adversarial debates -- forcing models to challenge each other's reasoning, surface blind spots, and produce decisions with complete audit trails showing where they agreed, where they disagreed, and why.
 
 ## Try It Now
 
@@ -292,7 +292,7 @@ aragora/
 │   ├── consensus.py      # Consensus detection and proofs
 │   ├── convergence.py    # Semantic similarity detection
 │   └── phases/           # Propose, critique, revise, vote, judge
-├── agents/         # 42 registered agent types (CLI, direct API, OpenRouter, local)
+├── agents/         # 43 registered agent types (CLI, direct API, OpenRouter, local)
 │   ├── api_agents/       # Anthropic, OpenAI, Gemini, Grok, Mistral, OpenRouter
 │   ├── cli_agents.py     # Claude Code, Codex, Gemini CLI, Grok CLI
 │   └── fallback.py       # OpenRouter fallback on quota errors
