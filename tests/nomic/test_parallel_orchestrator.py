@@ -44,6 +44,21 @@ def reset_singleton():
     reset_orchestrator()
 
 
+@pytest.fixture(autouse=True)
+def disable_stopping_rule_goal_scans(monkeypatch):
+    """Avoid expensive repository-wide goal scans in orchestrator tests."""
+    from aragora.nomic.stopping_rules import StoppingRuleEngine
+
+    monkeypatch.setattr(
+        StoppingRuleEngine,
+        "should_stop",
+        lambda self, telemetry=None, budget=None, config=None, goal_proposer=None, start_time=None: (
+            False,
+            "",
+        ),
+    )
+
+
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
@@ -863,6 +878,8 @@ class TestParallelOrchestratorIntegration:
                 task_decomposer=decomposer,
                 max_parallel_tasks=2,
             )
+            po._orchestrator._stopping_engine = None
+            po._orchestrator._cycle_telemetry = None
 
             result = await po.execute_goal(goal="Test", max_cycles=1)
 
@@ -882,6 +899,8 @@ class TestParallelOrchestratorIntegration:
             workflow_engine=engine,
             task_decomposer=decomposer,
         )
+        po._orchestrator._stopping_engine = None
+        po._orchestrator._cycle_telemetry = None
 
         result = await po.execute_goal(goal="Simple task", max_cycles=1)
 
@@ -912,6 +931,8 @@ class TestParallelOrchestratorIntegration:
                 max_parallel_tasks=3,
                 budget_limit_usd=10.0,
             )
+            po._orchestrator._stopping_engine = None
+            po._orchestrator._cycle_telemetry = None
 
             # Execute
             result = await po.execute_goal(

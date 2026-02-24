@@ -39,10 +39,13 @@ def sync_canvas_to_workflow(graph: Any) -> dict[str, Any]:
 
     Returns a dict matching WorkflowDefinition schema with 'steps' and 'transitions'.
     """
+    pipeline_stage_orchestration = None
     try:
         from aragora.canvas.stages import PipelineStage
+
+        pipeline_stage_orchestration = PipelineStage.ORCHESTRATION
     except ImportError:
-        PipelineStage = None
+        pass
 
     steps: list[dict[str, Any]] = []
     transitions: list[dict[str, Any]] = []
@@ -54,7 +57,7 @@ def sync_canvas_to_workflow(graph: Any) -> dict[str, Any]:
             stage = getattr(node, 'stage', None)
             if stage and hasattr(stage, 'value') and stage.value == 'orchestration':
                 orch_nodes[node_id] = node
-            elif PipelineStage and stage == PipelineStage.ORCHESTRATION:
+            elif pipeline_stage_orchestration is not None and stage == pipeline_stage_orchestration:
                 orch_nodes[node_id] = node
 
     # Map orch_type to workflow step_type

@@ -201,9 +201,12 @@ class MFAEnforcementMiddleware:
 
         # Extract user information
         user_id = getattr(user_context, "user_id", None)
-        roles = getattr(user_context, "roles", set())
-        if isinstance(roles, list):
-            roles = set(roles)
+        raw_roles: Any = getattr(user_context, "roles", set())
+        roles: set[str]
+        if isinstance(raw_roles, (set, list, tuple)):
+            roles = {str(role) for role in raw_roles}
+        else:
+            roles = set()
 
         # Check if user's role requires MFA
         if not self._role_requires_mfa(roles):
@@ -373,9 +376,12 @@ def check_mfa_required(user_context: Any) -> bool:
     Returns:
         True if the user holds a role that requires MFA.
     """
-    roles = getattr(user_context, "roles", set())
-    if isinstance(roles, list):
-        roles = set(roles)
+    raw_roles: Any = getattr(user_context, "roles", set())
+    roles: set[str]
+    if isinstance(raw_roles, (set, list, tuple)):
+        roles = {str(role) for role in raw_roles}
+    else:
+        roles = set()
     normalized = {r.lower() for r in roles}
     return bool(normalized & DEFAULT_MFA_REQUIRED_ROLES)
 

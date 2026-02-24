@@ -239,7 +239,7 @@ def _run_decide_demo(args: argparse.Namespace) -> None:
 
     rounds = min(getattr(args, "rounds", 2), 3)
     config = DebateConfig(rounds=rounds, early_stopping=False)
-    arena = Arena(question=task, agents=agents, config=config)
+    arena = Arena(question=task, agents=cast(Any, agents), config=config)
 
     start_time = time.monotonic()
     debate_result = asyncio.run(arena.run())

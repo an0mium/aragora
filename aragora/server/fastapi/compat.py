@@ -56,8 +56,9 @@ from __future__ import annotations
 
 import asyncio
 import logging
+from enum import Enum
 from io import BytesIO
-from typing import Any
+from typing import Any, cast
 from urllib.parse import parse_qs
 
 from fastapi import APIRouter, Request
@@ -162,7 +163,8 @@ def legacy_handler_to_router(
           the handler code runs unmodified.
         - Auth is handled by the legacy handler's own auth checks.
     """
-    router = APIRouter(prefix=prefix, tags=tags or [])
+    router_tags = cast(list[str | Enum], list(tags or []))
+    router = APIRouter(prefix=prefix, tags=router_tags)
     handler_instance = handler_class(ctx=ctx or {})
 
     async def _dispatch(request: Request, method: str) -> Response:

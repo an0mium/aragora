@@ -370,4 +370,68 @@ export class WorkflowsAPI {
       { body }
     ) as Promise<Record<string, unknown>>;
   }
+
+  // ===========================================================================
+  // Visual Builder
+  // ===========================================================================
+
+  /**
+   * Auto-layout workflow steps for visual rendering.
+   * @route POST /api/v1/workflows/auto-layout
+   */
+  async autoLayout(body: Record<string, unknown>): Promise<Record<string, unknown>> {
+    return this.client.request('POST', '/api/v1/workflows/auto-layout', {
+      body,
+    }) as Promise<Record<string, unknown>>;
+  }
+
+  /**
+   * Create a workflow from a known pattern.
+   * @route POST /api/v1/workflows/from-pattern
+   */
+  async fromPattern(body: Record<string, unknown>): Promise<Record<string, unknown>> {
+    return this.client.request('POST', '/api/v1/workflows/from-pattern', {
+      body,
+    }) as Promise<Record<string, unknown>>;
+  }
+
+  /**
+   * Generate a workflow from natural language input.
+   * @route POST /api/v1/workflows/generate
+   */
+  async generate(body: Record<string, unknown>): Promise<Record<string, unknown>> {
+    return this.client.request('POST', '/api/v1/workflows/generate', {
+      body,
+    }) as Promise<Record<string, unknown>>;
+  }
+
+  /**
+   * List supported workflow builder step types.
+   * @route GET /api/v1/workflows/step-types
+   */
+  async listStepTypes(params?: { category?: string }): Promise<Record<string, unknown>> {
+    return this.client.request('GET', '/api/v1/workflows/step-types', {
+      params: params as Record<string, unknown>,
+    }) as Promise<Record<string, unknown>>;
+  }
+
+  /**
+   * Validate a workflow definition.
+   * @route POST /api/v1/workflows/validate
+   */
+  async validate(body: Record<string, unknown>): Promise<Record<string, unknown>> {
+    return this.client.request('POST', '/api/v1/workflows/validate', {
+      body,
+    }) as Promise<Record<string, unknown>>;
+  }
+
+  /**
+   * Replay a workflow with provided inputs.
+   * @route POST /api/v1/workflows/{workflow_id}/replay
+   */
+  async replay(workflowId: string, body?: Record<string, unknown>): Promise<Record<string, unknown>> {
+    return this.client.request('POST', `/api/v1/workflows/${encodeURIComponent(workflowId)}/replay`, {
+      body,
+    }) as Promise<Record<string, unknown>>;
+  }
 }

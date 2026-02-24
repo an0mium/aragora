@@ -242,7 +242,7 @@ class EventReplayBuffer:
         """
         with self._lock:
             before = len(self._buffer)
-            remaining = deque(maxlen=self._max_events)
+            remaining: deque[BufferedEvent] = deque(maxlen=self._max_events)
             kept_bytes = 0
             for ev in self._buffer:
                 if ev.debate_id != debate_id:

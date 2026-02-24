@@ -375,11 +375,8 @@ class ReliableConnection:
         """
         if len(self._buffer) >= self._buffer_size:
             self._messages_dropped += 1
-            asyncio.get_event_loop().call_soon(
-                lambda m=message: asyncio.ensure_future(
-                    self._fire_hook(self._on_message_dropped, m)
-                )
-            )
+            loop = asyncio.get_event_loop()
+            loop.create_task(self._fire_hook(self._on_message_dropped, message))
             return False
         self._buffer.append(message)
         self._total_messages_buffered += 1

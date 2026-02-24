@@ -453,7 +453,10 @@ class OIDCProvider(SSOProvider):
             del store[k]
         # Enforce max size by evicting oldest entries
         while len(store) >= self._pkce_store_max_size:
-            store.popitem(last=False)
+            oldest_key = next(iter(store), None)
+            if oldest_key is None:
+                break
+            store.pop(oldest_key, None)
 
     def _generate_pkce(self) -> tuple[str, str]:
         """Generate PKCE code verifier and challenge."""

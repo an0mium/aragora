@@ -12,15 +12,14 @@ from collections import Counter
 import logging
 import os
 from collections.abc import Iterable
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 _logger = logging.getLogger(__name__)
 
-try:  # Optional import for typing only
+if TYPE_CHECKING:  # pragma: no cover - typing only
     from aragora.rbac.models import AuthorizationContext
-except (ImportError, AttributeError):  # pragma: no cover - optional dependency
-    _logger.debug("RBAC models unavailable, using Any for AuthorizationContext")
-    AuthorizationContext = Any  # type: ignore[misc]
+else:
+    AuthorizationContext = Any
 
 
 def _env_flag(name: str, default: str = "1") -> bool:

@@ -18,7 +18,7 @@ import asyncio
 import sys
 import time
 from pathlib import Path
-from typing import Any
+from typing import Any, cast
 
 try:
     from aragora_debate.arena import Arena
@@ -392,7 +392,7 @@ async def _run_demo_debate(topic: str) -> tuple[DebateResult, float]:
 
     arena = Arena(
         question=topic,
-        agents=agents,
+        agents=cast(Any, agents),
         config=config,
     )
 

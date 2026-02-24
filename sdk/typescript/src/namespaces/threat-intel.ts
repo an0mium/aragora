@@ -170,7 +170,7 @@ interface ThreatIntelClientInterface {
   request<T = unknown>(
     method: string,
     path: string,
-    options?: { params?: Record<string, unknown>; json?: Record<string, unknown> }
+    options?: { params?: Record<string, unknown>; body?: Record<string, unknown> }
   ): Promise<T>;
 }
 
@@ -199,8 +199,8 @@ export class ThreatIntelAPI {
    * @returns Threat analysis result
    */
   async checkURL(request: CheckURLRequest): Promise<URLCheckResult> {
-    const response = await this.client.request<URLCheckResult | { data: URLCheckResult }>('POST', '/threat/url', {
-      json: request as unknown as Record<string, unknown>,
+    const response = await this.client.request<URLCheckResult | { data: URLCheckResult }>('POST', '/api/v1/threat/url', {
+      body: request as unknown as Record<string, unknown>,
     });
     return (response as { data: URLCheckResult }).data ?? (response as URLCheckResult);
   }
@@ -216,8 +216,8 @@ export class ThreatIntelAPI {
     summary: URLBatchSummary;
   }> {
     type ResponseType = { results: URLCheckResult[]; summary: URLBatchSummary };
-    const response = await this.client.request<ResponseType | { data: ResponseType }>('POST', '/threat/urls', {
-      json: request as unknown as Record<string, unknown>,
+    const response = await this.client.request<ResponseType | { data: ResponseType }>('POST', '/api/v1/threat/urls', {
+      body: request as unknown as Record<string, unknown>,
     });
     return (response as { data: ResponseType }).data ?? (response as ResponseType);
   }
@@ -235,7 +235,10 @@ export class ThreatIntelAPI {
    * @returns Reputation result
    */
   async checkIP(ipAddress: string): Promise<IPReputationResult> {
-    const response = await this.client.request<IPReputationResult | { data: IPReputationResult }>('GET', `/threat/ip/${encodeURIComponent(ipAddress)}`);
+    const response = await this.client.request<IPReputationResult | { data: IPReputationResult }>(
+      'GET',
+      `/api/v1/threat/ip/${encodeURIComponent(ipAddress)}`
+    );
     return (response as { data: IPReputationResult }).data ?? (response as IPReputationResult);
   }
 
@@ -250,8 +253,8 @@ export class ThreatIntelAPI {
     summary: IPBatchSummary;
   }> {
     type ResponseType = { results: IPReputationResult[]; summary: IPBatchSummary };
-    const response = await this.client.request<ResponseType | { data: ResponseType }>('POST', '/threat/ips', {
-      json: request as unknown as Record<string, unknown>,
+    const response = await this.client.request<ResponseType | { data: ResponseType }>('POST', '/api/v1/threat/ips', {
+      body: request as unknown as Record<string, unknown>,
     });
     return (response as { data: ResponseType }).data ?? (response as ResponseType);
   }
@@ -269,7 +272,10 @@ export class ThreatIntelAPI {
    * @returns Hash analysis result
    */
   async checkHash(hashValue: string): Promise<HashCheckResult> {
-    const response = await this.client.request<HashCheckResult | { data: HashCheckResult }>('GET', `/threat/hash/${encodeURIComponent(hashValue)}`);
+    const response = await this.client.request<HashCheckResult | { data: HashCheckResult }>(
+      'GET',
+      `/api/v1/threat/hash/${encodeURIComponent(hashValue)}`
+    );
     return (response as { data: HashCheckResult }).data ?? (response as HashCheckResult);
   }
 
@@ -284,8 +290,8 @@ export class ThreatIntelAPI {
     summary: HashBatchSummary;
   }> {
     type ResponseType = { results: HashCheckResult[]; summary: HashBatchSummary };
-    const response = await this.client.request<ResponseType | { data: ResponseType }>('POST', '/threat/hashes', {
-      json: request as unknown as Record<string, unknown>,
+    const response = await this.client.request<ResponseType | { data: ResponseType }>('POST', '/api/v1/threat/hashes', {
+      body: request as unknown as Record<string, unknown>,
     });
     return (response as { data: ResponseType }).data ?? (response as ResponseType);
   }
@@ -303,8 +309,8 @@ export class ThreatIntelAPI {
    * @returns Comprehensive email analysis
    */
   async scanEmail(request: ScanEmailRequest): Promise<EmailScanResult> {
-    const response = await this.client.request<EmailScanResult | { data: EmailScanResult }>('POST', '/threat/email', {
-      json: request as unknown as Record<string, unknown>,
+    const response = await this.client.request<EmailScanResult | { data: EmailScanResult }>('POST', '/api/v1/threat/email', {
+      body: request as unknown as Record<string, unknown>,
     });
     return (response as { data: EmailScanResult }).data ?? (response as EmailScanResult);
   }
@@ -321,7 +327,7 @@ export class ThreatIntelAPI {
    * @returns Service status for all providers
    */
   async getStatus(): Promise<ThreatIntelStatus> {
-    const response = await this.client.request<ThreatIntelStatus | { data: ThreatIntelStatus }>('GET', '/threat/status');
+    const response = await this.client.request<ThreatIntelStatus | { data: ThreatIntelStatus }>('GET', '/api/v1/threat/status');
     return (response as { data: ThreatIntelStatus }).data ?? (response as ThreatIntelStatus);
   }
 }

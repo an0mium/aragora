@@ -167,12 +167,12 @@ def cmd_starter(args: argparse.Namespace) -> None:
             print(f"    Config: {config_file}")
             print(f"    Data:   {aragora_dir}")
         else:
-            result = init_project(force=False, with_git=True)
-            if result["files"]:
-                for f in result["files"]:
+            init_result = init_project(force=False, with_git=True)
+            if init_result["files"]:
+                for f in init_result["files"]:
                     print(f"    Created: {f}")
-            if result["directories"]:
-                for d in result["directories"]:
+            if init_result["directories"]:
+                for d in init_result["directories"]:
                     print(f"    Created: {d}")
             print("    Workspace ready.")
 
