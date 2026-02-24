@@ -374,12 +374,14 @@ class SelfImproveHandler(SecureEndpointMixin, SecureHandler):  # type: ignore[mi
             elo_system = EloSystem()
             history: list[Any] = list(elo_system.get_leaderboard(limit=10))
             for rating in history:
-                elo_changes.append({
-                    "agent": rating.agent_name,
-                    "delta": 0,
-                    "new_rating": rating.elo,
-                    "reason": "current_rating",
-                })
+                elo_changes.append(
+                    {
+                        "agent": rating.agent_name,
+                        "delta": 0,
+                        "new_rating": rating.elo,
+                        "reason": "current_rating",
+                    }
+                )
         except (ImportError, RuntimeError, TypeError, AttributeError):
             pass
 
@@ -402,11 +404,13 @@ class SelfImproveHandler(SecureEndpointMixin, SecureHandler):  # type: ignore[mi
                             or entry.get("debate_id")
                             or ""
                         )
-                        km_entries.append({
-                            "id": str(entry_id),
-                            "type": normalized_type,
-                            "confidence": float(confidence),
-                        })
+                        km_entries.append(
+                            {
+                                "id": str(entry_id),
+                                "type": normalized_type,
+                                "confidence": float(confidence),
+                            }
+                        )
         except (ImportError, RuntimeError, TypeError, AttributeError):
             pass
 
@@ -449,15 +453,17 @@ class SelfImproveHandler(SecureEndpointMixin, SecureHandler):  # type: ignore[mi
             queue = ImprovementQueue()
             pending = queue.peek(limit=limit)
             for pending_goal in pending:
-                goals.append({
-                    "goal": pending_goal.goal,
-                    "source": pending_goal.source,
-                    "priority": pending_goal.priority,
-                    "context": pending_goal.context,
-                    "estimated_impact": pending_goal.context.get("estimated_impact", "medium"),
-                    "track": pending_goal.context.get("track", "core"),
-                    "status": "pending",
-                })
+                goals.append(
+                    {
+                        "goal": pending_goal.goal,
+                        "source": pending_goal.source,
+                        "priority": pending_goal.priority,
+                        "context": pending_goal.context,
+                        "estimated_impact": pending_goal.context.get("estimated_impact", "medium"),
+                        "track": pending_goal.context.get("track", "core"),
+                        "status": "pending",
+                    }
+                )
         except (ImportError, OSError, RuntimeError) as e:
             logger.debug("ImprovementQueue not available: %s", type(e).__name__)
 
@@ -467,15 +473,17 @@ class SelfImproveHandler(SecureEndpointMixin, SecureHandler):  # type: ignore[mi
 
             legacy_queue = IQ.load()
             for legacy_goal in legacy_queue.goals[-limit:]:
-                goals.append({
-                    "goal": legacy_goal.description,
-                    "source": legacy_goal.source,
-                    "priority": legacy_goal.priority,
-                    "context": legacy_goal.metadata,
-                    "estimated_impact": legacy_goal.estimated_impact,
-                    "track": legacy_goal.track,
-                    "status": "pending",
-                })
+                goals.append(
+                    {
+                        "goal": legacy_goal.description,
+                        "source": legacy_goal.source,
+                        "priority": legacy_goal.priority,
+                        "context": legacy_goal.metadata,
+                        "estimated_impact": legacy_goal.estimated_impact,
+                        "track": legacy_goal.track,
+                        "status": "pending",
+                    }
+                )
         except (ImportError, OSError, RuntimeError, TypeError, ValueError) as e:
             logger.debug("Legacy goal queue not available: %s", type(e).__name__)
 

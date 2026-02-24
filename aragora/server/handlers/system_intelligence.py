@@ -154,11 +154,13 @@ class SystemIntelligenceHandler(SecureEndpointMixin, SecureHandler):  # type: ig
                     agent_id = getattr(rating, "agent_name", "")
                     elo_score = getattr(rating, "elo", getattr(rating, "rating", 1500))
                     wins = getattr(rating, "wins", 0)
-                top_agents.append({
-                    "id": agent_id,
-                    "elo": elo_score,
-                    "wins": wins,
-                })
+                top_agents.append(
+                    {
+                        "id": agent_id,
+                        "elo": elo_score,
+                        "wins": wins,
+                    }
+                )
             active_agents = len(leaderboard)
         except (ImportError, RuntimeError, ValueError, OSError, AttributeError):
             logger.debug("EloSystem not available for overview")
@@ -248,22 +250,28 @@ class SystemIntelligenceHandler(SecureEndpointMixin, SecureHandler):  # type: ig
                         history = get_agent_history(name, limit=20)
                         for history_entry in history:
                             if isinstance(history_entry, dict):
-                                elo_history.append({
-                                    "date": history_entry.get("timestamp", ""),
-                                    "elo": history_entry.get("rating", rating),
-                                })
+                                elo_history.append(
+                                    {
+                                        "date": history_entry.get("timestamp", ""),
+                                        "elo": history_entry.get("rating", rating),
+                                    }
+                                )
                             else:
-                                elo_history.append({
-                                    "date": getattr(history_entry, "timestamp", ""),
-                                    "elo": getattr(history_entry, "rating", rating),
-                                })
+                                elo_history.append(
+                                    {
+                                        "date": getattr(history_entry, "timestamp", ""),
+                                        "elo": getattr(history_entry, "rating", rating),
+                                    }
+                                )
                     else:
                         history = elo.get_elo_history(name, limit=20)
                         for ts, elo_value in history:
-                            elo_history.append({
-                                "date": ts,
-                                "elo": elo_value,
-                            })
+                            elo_history.append(
+                                {
+                                    "date": ts,
+                                    "elo": elo_value,
+                                }
+                            )
                 except (AttributeError, TypeError, ValueError):
                     pass
 
@@ -385,20 +393,24 @@ class SystemIntelligenceHandler(SecureEndpointMixin, SecureHandler):  # type: ig
                 if isinstance(decay_stats, list):
                     for entry in decay_stats[:10]:
                         if isinstance(entry, dict):
-                            confidence_changes.append({
-                                "topic": entry.get("topic", ""),
-                                "before": entry.get("initial_confidence", 0.0),
-                                "after": entry.get("current_confidence", 0.0),
-                            })
+                            confidence_changes.append(
+                                {
+                                    "topic": entry.get("topic", ""),
+                                    "before": entry.get("initial_confidence", 0.0),
+                                    "after": entry.get("current_confidence", 0.0),
+                                }
+                            )
             else:
                 get_stats = getattr(km, "get_stats", None)
                 mound_stats: Any = await _maybe_await(get_stats()) if callable(get_stats) else None
                 if mound_stats is not None and hasattr(mound_stats, "average_confidence"):
-                    confidence_changes.append({
-                        "topic": "global",
-                        "before": float(getattr(mound_stats, "average_confidence", 0.0)),
-                        "after": float(getattr(mound_stats, "average_confidence", 0.0)),
-                    })
+                    confidence_changes.append(
+                        {
+                            "topic": "global",
+                            "before": float(getattr(mound_stats, "average_confidence", 0.0)),
+                            "after": float(getattr(mound_stats, "average_confidence", 0.0)),
+                        }
+                    )
         except (ImportError, RuntimeError, AttributeError):
             logger.debug("KM confidence decay stats not available")
 

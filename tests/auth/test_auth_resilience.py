@@ -93,9 +93,7 @@ class TestIdPRetry:
         from aragora.server.handlers.auth.sso_handlers import _authenticate_with_retry
 
         provider = MagicMock()
-        provider.authenticate = AsyncMock(
-            side_effect=[TimeoutError("timed out"), FakeSSOUser()]
-        )
+        provider.authenticate = AsyncMock(side_effect=[TimeoutError("timed out"), FakeSSOUser()])
 
         with patch(
             "aragora.server.handlers.auth.sso_handlers._get_idp_circuit_breaker",
@@ -119,9 +117,7 @@ class TestIdPRetry:
         ):
             with pytest.raises(ValueError, match="bad input"):
                 _run_async(
-                    _authenticate_with_retry(
-                        provider, code="abc", state="st", provider_type="oidc"
-                    )
+                    _authenticate_with_retry(provider, code="abc", state="st", provider_type="oidc")
                 )
         provider.authenticate.assert_awaited_once()
 
@@ -130,9 +126,7 @@ class TestIdPRetry:
         from aragora.server.handlers.auth.sso_handlers import _authenticate_with_retry
 
         provider = MagicMock()
-        provider.authenticate = AsyncMock(
-            side_effect=ConnectionError("persistent failure")
-        )
+        provider.authenticate = AsyncMock(side_effect=ConnectionError("persistent failure"))
 
         with patch(
             "aragora.server.handlers.auth.sso_handlers._get_idp_circuit_breaker",
@@ -140,9 +134,7 @@ class TestIdPRetry:
         ):
             with pytest.raises(ConnectionError, match="persistent failure"):
                 _run_async(
-                    _authenticate_with_retry(
-                        provider, code="abc", state="st", provider_type="oidc"
-                    )
+                    _authenticate_with_retry(provider, code="abc", state="st", provider_type="oidc")
                 )
         # Should have tried 3 times (initial + 2 retries)
         assert provider.authenticate.await_count == 3
@@ -172,9 +164,7 @@ class TestCircuitBreakerIntegration:
         ):
             with pytest.raises(ConnectionError, match="circuit open"):
                 _run_async(
-                    _authenticate_with_retry(
-                        provider, code="abc", state="st", provider_type="oidc"
-                    )
+                    _authenticate_with_retry(provider, code="abc", state="st", provider_type="oidc")
                 )
         # Provider should NOT have been called (fast fail)
         provider.authenticate.assert_not_awaited()
@@ -194,9 +184,7 @@ class TestCircuitBreakerIntegration:
             return_value=mock_cb,
         ):
             _run_async(
-                _authenticate_with_retry(
-                    provider, code="abc", state="st", provider_type="oidc"
-                )
+                _authenticate_with_retry(provider, code="abc", state="st", provider_type="oidc")
             )
         mock_cb.record_success.assert_called_once()
 
@@ -208,9 +196,7 @@ class TestCircuitBreakerIntegration:
         mock_cb.can_proceed.return_value = True
 
         provider = MagicMock()
-        provider.authenticate = AsyncMock(
-            side_effect=ConnectionError("down")
-        )
+        provider.authenticate = AsyncMock(side_effect=ConnectionError("down"))
 
         with patch(
             "aragora.server.handlers.auth.sso_handlers._get_idp_circuit_breaker",
@@ -218,9 +204,7 @@ class TestCircuitBreakerIntegration:
         ):
             with pytest.raises(ConnectionError):
                 _run_async(
-                    _authenticate_with_retry(
-                        provider, code="abc", state="st", provider_type="oidc"
-                    )
+                    _authenticate_with_retry(provider, code="abc", state="st", provider_type="oidc")
                 )
         # CB failure recorded for each attempt (3 total)
         assert mock_cb.record_failure.call_count == 3
@@ -263,9 +247,7 @@ class TestSSOCallbackFailureTracking:
 
         mock_monitor = MagicMock(spec=SessionHealthMonitor)
 
-        with patch(
-            "aragora.server.handlers.auth.sso_handlers._sso_state_store"
-        ) as mock_store_lazy:
+        with patch("aragora.server.handlers.auth.sso_handlers._sso_state_store") as mock_store_lazy:
             mock_store = MagicMock()
             mock_store.validate_and_consume.return_value = None
             mock_store_lazy.get.return_value = mock_store
@@ -288,10 +270,12 @@ class TestSSOCallbackFailureTracking:
         from aragora.server.handlers.auth.sso_handlers import handle_sso_callback
 
         result = _run_async(
-            handle_sso_callback({
-                "error": "access_denied",
-                "error_description": "User denied access",
-            })
+            handle_sso_callback(
+                {
+                    "error": "access_denied",
+                    "error_description": "User denied access",
+                }
+            )
         )
         assert result[1] == 401
 

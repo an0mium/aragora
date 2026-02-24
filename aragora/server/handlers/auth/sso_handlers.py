@@ -139,6 +139,7 @@ async def _authenticate_with_retry(
         raise last_error
     raise ConnectionError(f"IdP authentication failed for provider '{provider_type}'")
 
+
 # Thread-safe SSO provider instances
 _sso_providers: dict[str, Any] = {}
 _sso_providers_lock = threading.Lock()
@@ -383,7 +384,10 @@ async def handle_sso_callback(
 
         # Authenticate with the provider (with retry + circuit breaker)
         sso_user = await _authenticate_with_retry(
-            provider, code=code, state=state, provider_type=provider_type,
+            provider,
+            code=code,
+            state=state,
+            provider_type=provider_type,
         )
 
         # Create or update user in our system
@@ -468,6 +472,13 @@ async def handle_sso_callback(
                         user.id,
                         org_err,
                     )
+
+        if not user:
+            logger.error(
+                "Failed to create or retrieve user for SSO email %s",
+                sso_user.email,
+            )
+            return error_response("User account creation failed", status=500)
 
         # Update last login timestamp
         if hasattr(user_store, "update_user"):

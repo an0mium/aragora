@@ -283,8 +283,7 @@ class WorktreeWatchdog:
                     if session.status != "abandoned":
                         session.status = "abandoned"
                         logger.warning(
-                            "watchdog_session_abandoned id=%s branch=%s "
-                            "last_heartbeat_ago=%.0fs",
+                            "watchdog_session_abandoned id=%s branch=%s last_heartbeat_ago=%.0fs",
                             session.session_id,
                             session.branch_name,
                             now - session.last_heartbeat,
@@ -358,9 +357,7 @@ class WorktreeWatchdog:
         recovered: list[str] = []
 
         with self._lock:
-            stalled = [
-                s for s in self._sessions.values() if s.status == "stalled"
-            ]
+            stalled = [s for s in self._sessions.values() if s.status == "stalled"]
 
         for session in stalled:
             if not self.config.auto_kill_stalled:
@@ -443,9 +440,7 @@ class WorktreeWatchdog:
         cleaned: list[str] = []
 
         with self._lock:
-            abandoned = [
-                s for s in self._sessions.values() if s.status == "abandoned"
-            ]
+            abandoned = [s for s in self._sessions.values() if s.status == "abandoned"]
 
         for session in abandoned:
             # Verify process is truly dead before cleanup

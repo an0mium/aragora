@@ -288,8 +288,7 @@ class SessionHealthMonitor:
                     session.state = SessionState.SUSPICIOUS
                     self._hijack_detections += 1
                     logger.warning(
-                        "Potential session hijacking detected: session_id=%s "
-                        "user_id=%s ips=%d",
+                        "Potential session hijacking detected: session_id=%s user_id=%s ips=%d",
                         session_id,
                         session.user_id,
                         len(session.seen_ips),
@@ -495,9 +494,7 @@ class SessionHealthMonitor:
     def _evict_oldest_locked(self) -> None:
         """Evict the oldest sessions when at capacity. Must hold _lock."""
         # Sort by last_activity, remove the oldest 10%
-        sorted_sessions = sorted(
-            self._sessions.items(), key=lambda kv: kv[1].last_activity
-        )
+        sorted_sessions = sorted(self._sessions.items(), key=lambda kv: kv[1].last_activity)
         evict_count = max(1, len(sorted_sessions) // 10)
         for sid, _ in sorted_sessions[:evict_count]:
             del self._sessions[sid]
@@ -516,9 +513,7 @@ class SessionHealthMonitor:
         """
         with self._lock:
             return [
-                s.to_dict()
-                for s in self._sessions.values()
-                if s.state == SessionState.SUSPICIOUS
+                s.to_dict() for s in self._sessions.values() if s.state == SessionState.SUSPICIOUS
             ]
 
     def reset(self) -> None:

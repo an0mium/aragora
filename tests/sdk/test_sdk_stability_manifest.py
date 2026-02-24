@@ -50,6 +50,7 @@ def test_stability_manifest_matches_sdk_coverage() -> None:
     openapi_gap = stable - openapi
     if openapi_gap:
         import warnings
+
         warnings.warn(
             f"{len(openapi_gap)} stability manifest endpoints not yet in OpenAPI spec",
             stacklevel=1,
@@ -59,6 +60,5 @@ def test_stability_manifest_matches_sdk_coverage() -> None:
     py_gap = stable - py_sdk
     combined_sdk = ts_sdk | py_sdk
     assert stable.issubset(combined_sdk), (
-        f"Stability manifest includes {len(stable - combined_sdk)} endpoints "
-        f"missing from BOTH SDKs"
+        f"Stability manifest includes {len(stable - combined_sdk)} endpoints missing from BOTH SDKs"
     )

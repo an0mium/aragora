@@ -841,7 +841,7 @@ def _fix_duplicate_path_params(paths: dict[str, Any]) -> dict[str, Any]:
                 idx = -1
                 for _ in range(count):
                     idx = new_path.index(old_placeholder, idx + 1)
-                new_path = new_path[:idx] + new_placeholder + new_path[idx + len(old_placeholder):]
+                new_path = new_path[:idx] + new_placeholder + new_path[idx + len(old_placeholder) :]
                 rename_map[f"param_{count}" if param == "param" else new_name] = new_name
 
         # Update parameter definitions in operations

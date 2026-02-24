@@ -182,7 +182,9 @@ def _worktree_status(repo_root: Path, worktree: Path, base: str) -> dict[str, An
     status_proc = _run_git(repo_root, "status", "--porcelain", cwd=worktree)
     dirty = bool(status_proc.stdout.strip())
 
-    counts_proc = _run_git(repo_root, "rev-list", "--left-right", "--count", f"origin/{base}...HEAD", cwd=worktree)
+    counts_proc = _run_git(
+        repo_root, "rev-list", "--left-right", "--count", f"origin/{base}...HEAD", cwd=worktree
+    )
     ahead = 0
     behind = 0
     if counts_proc.returncode == 0:
@@ -663,9 +665,7 @@ def cmd_maintain(args: argparse.Namespace) -> int:
 
 
 def _build_parser() -> argparse.ArgumentParser:
-    parser = argparse.ArgumentParser(
-        description="Autopilot worktree lifecycle for Codex sessions."
-    )
+    parser = argparse.ArgumentParser(description="Autopilot worktree lifecycle for Codex sessions.")
     parser.add_argument(
         "--repo",
         default=".",

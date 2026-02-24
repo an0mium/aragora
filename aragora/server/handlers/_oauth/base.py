@@ -587,57 +587,89 @@ class OAuthHandler(
         random_password = secrets.token_urlsafe(32)
         password_hash, password_salt = hash_password(random_password)
 
-        try:
-            create_async = getattr(user_store, "create_user_async", None)
-            if create_async and inspect.iscoroutinefunction(create_async):
-                user = await create_async(
-                    email=user_info.email,
-                    password_hash=password_hash,
-                    password_salt=password_salt,
-                    name=user_info.name,
-                )
-            else:
-                user = user_store.create_user(
-                    email=user_info.email,
-                    password_hash=password_hash,
-                    password_salt=password_salt,
-                    name=user_info.name,
-                )
+        last_error: Exception | None = None
 
-            logger.debug("OAuth user created: id=%s, email=%s", user.id, user_info.email)
+        for attempt in range(_DB_MAX_RETRIES):
+            try:
+                create_async = getattr(user_store, "create_user_async", None)
+                if create_async and inspect.iscoroutinefunction(create_async):
+                    user = await create_async(
+                        email=user_info.email,
+                        password_hash=password_hash,
+                        password_salt=password_salt,
+                        name=user_info.name,
+                    )
+                else:
+                    user = user_store.create_user(
+                        email=user_info.email,
+                        password_hash=password_hash,
+                        password_salt=password_salt,
+                        name=user_info.name,
+                    )
 
-            # Link OAuth provider
-            await self._link_oauth_to_user(user_store, user.id, user_info)  # type: ignore[misc]
+                logger.debug("OAuth user created: id=%s, email=%s", user.id, user_info.email)
 
-            # Verify user was persisted (catches multi-worker SQLite, pool
-            # refresh, and replication lag issues before we issue tokens).
-            verify_async = getattr(user_store, "get_user_by_id_async", None)
-            if verify_async and inspect.iscoroutinefunction(verify_async):
-                verified = await verify_async(user.id)
-            else:
-                get_by_id = getattr(user_store, "get_user_by_id", None)
-                verified = get_by_id(user.id) if callable(get_by_id) else None
-            if not verified:
-                logger.error(
-                    "OAuth user created but NOT found on re-read: id=%s, email=%s, store=%s",
-                    user.id,
+                # Link OAuth provider
+                await self._link_oauth_to_user(user_store, user.id, user_info)  # type: ignore[misc]
+
+                # Verify user was persisted (catches multi-worker SQLite, pool
+                # refresh, and replication lag issues before we issue tokens).
+                verify_async = getattr(user_store, "get_user_by_id_async", None)
+                if verify_async and inspect.iscoroutinefunction(verify_async):
+                    verified = await verify_async(user.id)
+                else:
+                    get_by_id = getattr(user_store, "get_user_by_id", None)
+                    verified = get_by_id(user.id) if callable(get_by_id) else None
+                if not verified:
+                    logger.error(
+                        "OAuth user created but NOT found on re-read: id=%s, email=%s, store=%s",
+                        user.id,
+                        user_info.email,
+                        type(user_store).__name__,
+                    )
+
+                # Log auto-provisioning with default role for audit trail
+                logger.info(
+                    "OAuth user auto-provisioned: email=%s provider=%s user_id=%s role=%s action=rbac_auto_provision",
                     user_info.email,
-                    type(user_store).__name__,
+                    user_info.provider,
+                    user.id,
+                    getattr(user, "role", "member"),
+                )
+                return user
+
+            except ValueError as e:
+                logger.error("Failed to create OAuth user: %s", e)
+                return None
+            except Exception as e:  # noqa: BLE001 - DB driver exceptions lack common importable base
+                error_name = type(e).__name__
+                is_retryable = error_name in (
+                    "InterfaceError",
+                    "ConnectionDoesNotExistError",
+                    "ConnectionRefusedError",
+                    "TimeoutError",
+                )
+                if not is_retryable or attempt >= _DB_MAX_RETRIES - 1:
+                    logger.error("Failed to create OAuth user (non-retryable): %s: %s", error_name, e)
+                    return None
+
+                last_error = e
+                delay = _DB_RETRY_DELAY_BASE * (2**attempt)
+                logger.warning(
+                    "OAuth user creation failed (attempt %d/%d): %s: %s. Retrying in %.1fs...",
+                    attempt + 1, _DB_MAX_RETRIES, error_name, e, delay,
                 )
 
-            # Log auto-provisioning with default role for audit trail
-            logger.info(
-                "OAuth user auto-provisioned: email=%s provider=%s user_id=%s role=%s action=rbac_auto_provision",
-                user_info.email,
-                user_info.provider,
-                user.id,
-                getattr(user, "role", "member"),
-            )
-            return user
+                try:
+                    await self._try_refresh_user_store_pool(user_store)
+                except (ImportError, ConnectionError, OSError, RuntimeError, AttributeError) as refresh_err:
+                    logger.warning("Pool refresh failed: %s", refresh_err)
 
-        except ValueError as e:
-            logger.error("Failed to create OAuth user: %s", e)
-            return None
+                await asyncio.sleep(delay)
+
+        if last_error:
+            logger.error("All OAuth user creation attempts failed: %s", last_error)
+        return None
 
     def _handle_account_linking(
         self,

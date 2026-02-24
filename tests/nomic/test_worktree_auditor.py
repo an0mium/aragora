@@ -184,8 +184,10 @@ class TestGitConfig:
         """Should pass for a valid git repo."""
         auditor = WorktreeAuditor(repo_path=repo_path)
 
-        with patch.object(auditor, "_run_git") as mock_git, \
-             patch.object(auditor, "_list_git_worktrees", return_value=[]):
+        with (
+            patch.object(auditor, "_run_git") as mock_git,
+            patch.object(auditor, "_list_git_worktrees", return_value=[]),
+        ):
             mock_git.side_effect = [
                 MagicMock(returncode=0, stdout=".git\n"),  # rev-parse --git-dir
                 MagicMock(returncode=0, stdout="git version 2.40.0\n"),  # --version
@@ -286,11 +288,13 @@ class TestFullAudit:
         """Report should be healthy when no errors or critical findings."""
         auditor = WorktreeAuditor(repo_path=repo_path)
 
-        with patch.object(auditor, "_check_base_directory", return_value=[]), \
-             patch.object(auditor, "_check_disk_space", return_value=[]), \
-             patch.object(auditor, "_check_git_config", return_value=[]), \
-             patch.object(auditor, "_check_isolation", return_value=[]), \
-             patch.object(auditor, "_list_git_worktrees", return_value=[]):
+        with (
+            patch.object(auditor, "_check_base_directory", return_value=[]),
+            patch.object(auditor, "_check_disk_space", return_value=[]),
+            patch.object(auditor, "_check_git_config", return_value=[]),
+            patch.object(auditor, "_check_isolation", return_value=[]),
+            patch.object(auditor, "_list_git_worktrees", return_value=[]),
+        ):
             report = auditor.audit()
 
         assert report.healthy is True
@@ -306,11 +310,13 @@ class TestFullAudit:
             message="Insufficient disk space",
         )
 
-        with patch.object(auditor, "_check_base_directory", return_value=[]), \
-             patch.object(auditor, "_check_disk_space", return_value=[error_finding]), \
-             patch.object(auditor, "_check_git_config", return_value=[]), \
-             patch.object(auditor, "_check_isolation", return_value=[]), \
-             patch.object(auditor, "_list_git_worktrees", return_value=[]):
+        with (
+            patch.object(auditor, "_check_base_directory", return_value=[]),
+            patch.object(auditor, "_check_disk_space", return_value=[error_finding]),
+            patch.object(auditor, "_check_git_config", return_value=[]),
+            patch.object(auditor, "_check_isolation", return_value=[]),
+            patch.object(auditor, "_list_git_worktrees", return_value=[]),
+        ):
             report = auditor.audit()
 
         assert report.healthy is False
@@ -320,9 +326,13 @@ class TestFullAudit:
         """Audit summary should contain worktree count and status."""
         auditor = WorktreeAuditor(repo_path=repo_path)
 
-        with patch.object(auditor, "_list_git_worktrees", return_value=[
-            {"path": str(repo_path), "branch": "main"},
-        ]):
+        with patch.object(
+            auditor,
+            "_list_git_worktrees",
+            return_value=[
+                {"path": str(repo_path), "branch": "main"},
+            ],
+        ):
             report = auditor.audit()
 
         assert "0 worktrees" in report.summary
@@ -338,19 +348,27 @@ class TestStatusReporting:
 
     def test_get_status_empty(self, auditor):
         """Should return empty list when no worktrees."""
-        with patch.object(auditor, "_list_git_worktrees", return_value=[
-            {"path": str(auditor.repo_path), "branch": "main"},
-        ]):
+        with patch.object(
+            auditor,
+            "_list_git_worktrees",
+            return_value=[
+                {"path": str(auditor.repo_path), "branch": "main"},
+            ],
+        ):
             statuses = auditor.get_status()
 
         assert statuses == []
 
     def test_get_status_missing_worktree(self, auditor):
         """Should report missing status for non-existent worktree dir."""
-        with patch.object(auditor, "_list_git_worktrees", return_value=[
-            {"path": str(auditor.repo_path), "branch": "main"},
-            {"path": "/nonexistent/path", "branch": "dev/sme-1"},
-        ]):
+        with patch.object(
+            auditor,
+            "_list_git_worktrees",
+            return_value=[
+                {"path": str(auditor.repo_path), "branch": "main"},
+                {"path": "/nonexistent/path", "branch": "dev/sme-1"},
+            ],
+        ):
             statuses = auditor.get_status()
 
         assert len(statuses) == 1
@@ -371,10 +389,17 @@ class TestStatusReporting:
 
         auditor = WorktreeAuditor(repo_path=repo_path)
 
-        with patch.object(auditor, "_list_git_worktrees", return_value=[
-            {"path": str(repo_path), "branch": "main"},
-            {"path": str(wt), "branch": "dev/sme-1"},
-        ]), patch.object(auditor, "_run_git") as mock_git:
+        with (
+            patch.object(
+                auditor,
+                "_list_git_worktrees",
+                return_value=[
+                    {"path": str(repo_path), "branch": "main"},
+                    {"path": str(wt), "branch": "dev/sme-1"},
+                ],
+            ),
+            patch.object(auditor, "_run_git") as mock_git,
+        ):
             # git status --porcelain returns empty (no changes)
             mock_git.return_value = MagicMock(
                 returncode=0,

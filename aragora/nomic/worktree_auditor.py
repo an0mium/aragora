@@ -153,11 +153,11 @@ class WorktreeAuditor:
             if line.startswith("worktree "):
                 if current:
                     worktrees.append(current)
-                current = {"path": line[len("worktree "):]}
+                current = {"path": line[len("worktree ") :]}
             elif line.startswith("branch refs/heads/"):
-                current["branch"] = line[len("branch refs/heads/"):]
+                current["branch"] = line[len("branch refs/heads/") :]
             elif line.startswith("HEAD "):
-                current["head"] = line[len("HEAD "):]
+                current["head"] = line[len("HEAD ") :]
             elif line == "bare":
                 current["bare"] = "true"
             elif line == "detached":
@@ -244,8 +244,7 @@ class WorktreeAuditor:
                     message=f"Worktree directory does not exist: {self._worktree_dir}",
                     path=str(self._worktree_dir),
                     recommendation=(
-                        "Directory will be created automatically"
-                        " when first worktree is added."
+                        "Directory will be created automatically when first worktree is added."
                     ),
                 )
             )
@@ -307,8 +306,8 @@ class WorktreeAuditor:
 
         try:
             usage = shutil.disk_usage(self.repo_path)
-            free_gb = usage.free / (1024 ** 3)
-            min_gb = self.config.min_disk_space_bytes / (1024 ** 3)
+            free_gb = usage.free / (1024**3)
+            min_gb = self.config.min_disk_space_bytes / (1024**3)
 
             if usage.free < self.config.min_disk_space_bytes:
                 findings.append(
@@ -564,7 +563,7 @@ class WorktreeAuditor:
                 try:
                     gitdir_content = git_dir.read_text().strip()
                     if gitdir_content.startswith("gitdir:"):
-                        actual_git_dir = Path(gitdir_content[len("gitdir:"):].strip())
+                        actual_git_dir = Path(gitdir_content[len("gitdir:") :].strip())
                         if not actual_git_dir.is_absolute():
                             actual_git_dir = wt_path / actual_git_dir
                         if (actual_git_dir / "index.lock").exists():
@@ -574,9 +573,7 @@ class WorktreeAuditor:
 
             # Get last commit timestamp
             last_commit_ts = None
-            result = self._run_git(
-                "log", "-1", "--format=%aI", cwd=wt_path
-            )
+            result = self._run_git("log", "-1", "--format=%aI", cwd=wt_path)
             if result.returncode == 0 and result.stdout.strip():
                 last_commit_ts = result.stdout.strip()
 

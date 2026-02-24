@@ -92,9 +92,7 @@ class TestTrackedSession:
 
     def test_ip_tracked_on_init(self):
         """Test that initial IP is added to seen_ips."""
-        session = TrackedSession(
-            session_id="s1", user_id="u1", ip_address="1.2.3.4"
-        )
+        session = TrackedSession(session_id="s1", user_id="u1", ip_address="1.2.3.4")
         assert "1.2.3.4" in session.seen_ips
 
     def test_to_dict(self):

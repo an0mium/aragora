@@ -569,8 +569,15 @@ class TestAutonomousGoalSelection:
             ),
         ]
 
-        with patch.object(planner, "_scan_prioritize", new_callable=AsyncMock, return_value=mock_goals):
-            with patch.object(planner, "generate_goals_from_debate_outcomes", new_callable=AsyncMock, return_value=[]):
+        with patch.object(
+            planner, "_scan_prioritize", new_callable=AsyncMock, return_value=mock_goals
+        ):
+            with patch.object(
+                planner,
+                "generate_goals_from_debate_outcomes",
+                new_callable=AsyncMock,
+                return_value=[],
+            ):
                 goals = await planner.propose_goals()
 
         assert len(goals) >= 1

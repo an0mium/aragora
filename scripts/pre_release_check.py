@@ -176,16 +176,35 @@ def gate_secrets_scan() -> bool:
                     if stripped.startswith("#") or stripped.startswith("//"):
                         continue
                     # Skip regex pattern definitions (e.g. secret scanners)
-                    if "re.compile" in line or "r\"" in stripped[:15] or "r'" in stripped[:15]:
+                    if "re.compile" in line or 'r"' in stripped[:15] or "r'" in stripped[:15]:
                         continue
                     # Skip lines that look like test fixtures, examples, or env lookups
-                    if any(marker in line.lower() for marker in [
-                        "example", "placeholder", "dummy", "test", "mock",
-                        "fake", "sample", "xxx", "changeme", "your_",
-                        "your-", "<your", "todo", "fixme", "os.environ",
-                        "os.getenv", "getenv", "get_secret", "env.get",
-                        "nosec", "noqa",
-                    ]):
+                    if any(
+                        marker in line.lower()
+                        for marker in [
+                            "example",
+                            "placeholder",
+                            "dummy",
+                            "test",
+                            "mock",
+                            "fake",
+                            "sample",
+                            "xxx",
+                            "changeme",
+                            "your_",
+                            "your-",
+                            "<your",
+                            "todo",
+                            "fixme",
+                            "os.environ",
+                            "os.getenv",
+                            "getenv",
+                            "get_secret",
+                            "env.get",
+                            "nosec",
+                            "noqa",
+                        ]
+                    ):
                         continue
 
                     if re.search(regex, line):
@@ -239,10 +258,14 @@ def gate_pip_audit() -> bool:
     """Check installed packages for known vulnerabilities."""
     code, output = _run_cmd(
         [
-            sys.executable, "-m", "pip_audit",
+            sys.executable,
+            "-m",
+            "pip_audit",
             "--strict",
-            "--vulnerability-service", "osv",
-            "--ignore-vuln", "CVE-2025-14009",
+            "--vulnerability-service",
+            "osv",
+            "--ignore-vuln",
+            "CVE-2025-14009",
         ],
         timeout=120,
     )
@@ -281,7 +304,15 @@ def gate_smoke_test() -> bool:
 def gate_integration_tests() -> bool:
     """Run pytest integration smoke tests."""
     code, output = _run_cmd(
-        [sys.executable, "-m", "pytest", "tests/integration/test_smoke.py", "-q", "--timeout=60", "--tb=short"],
+        [
+            sys.executable,
+            "-m",
+            "pytest",
+            "tests/integration/test_smoke.py",
+            "-q",
+            "--timeout=60",
+            "--tb=short",
+        ],
         timeout=120,
     )
     if code != 0:
@@ -301,7 +332,15 @@ def gate_integration_tests() -> bool:
 def gate_openapi_sync() -> bool:
     """Check that OpenAPI spec is in sync with server endpoints."""
     code, output = _run_cmd(
-        [sys.executable, "-m", "pytest", "tests/sdk/test_openapi_sync.py", "-q", "--timeout=60", "--tb=short"],
+        [
+            sys.executable,
+            "-m",
+            "pytest",
+            "tests/sdk/test_openapi_sync.py",
+            "-q",
+            "--timeout=60",
+            "--tb=short",
+        ],
         timeout=120,
     )
     if code != 0:
@@ -320,7 +359,15 @@ def gate_openapi_sync() -> bool:
 def gate_contract_parity() -> bool:
     """Check Python/TypeScript SDK contract parity."""
     code, output = _run_cmd(
-        [sys.executable, "-m", "pytest", "tests/sdk/test_contract_parity.py", "-q", "--timeout=60", "--tb=short"],
+        [
+            sys.executable,
+            "-m",
+            "pytest",
+            "tests/sdk/test_contract_parity.py",
+            "-q",
+            "--timeout=60",
+            "--tb=short",
+        ],
         timeout=120,
     )
     if code != 0:
@@ -356,7 +403,11 @@ def gate_version_tag() -> bool:
         # No release version set -- just validate pyproject.toml has a valid version
         if not re.match(r"^\d+\.\d+\.\d+", pyproject_version):
             return _gate("version_tag", False, f"invalid version format: {pyproject_version}")
-        return _gate("version_tag", True, f"pyproject.toml version={pyproject_version} (no release tag to compare)")
+        return _gate(
+            "version_tag",
+            True,
+            f"pyproject.toml version={pyproject_version} (no release tag to compare)",
+        )
 
     if pyproject_version != release_version:
         return _gate(
@@ -466,7 +517,8 @@ def main() -> int:
         help="Run gates by category (default: all)",
     )
     parser.add_argument(
-        "--verbose", "-v",
+        "--verbose",
+        "-v",
         action="store_true",
         help="Show detailed output for all gates",
     )

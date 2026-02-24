@@ -1780,6 +1780,8 @@ def reset_supabase_env(monkeypatch):
     # Clear PostgreSQL DSNs to prevent asyncpg connections in unit tests
     monkeypatch.delenv("ARAGORA_POSTGRES_DSN", raising=False)
     monkeypatch.delenv("SUPABASE_POSTGRES_DSN", raising=False)
+    # Clear OAuth env var to prevent test pollution from .env config
+    monkeypatch.delenv("OAUTH_ALLOWED_REDIRECT_HOSTS", raising=False)
     # Reset webhook config store singleton so it doesn't cache a Postgres store
     try:
         import aragora.storage.webhook_config_store as _wcs

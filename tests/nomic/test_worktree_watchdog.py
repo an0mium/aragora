@@ -368,8 +368,10 @@ class TestAutoRecovery:
         session = watchdog.get_session(session_id)
         session.last_heartbeat = time.monotonic() - 2.0
 
-        with patch.object(watchdog, "_is_process_alive", return_value=True), \
-             patch("os.kill") as mock_kill:
+        with (
+            patch.object(watchdog, "_is_process_alive", return_value=True),
+            patch("os.kill") as mock_kill,
+        ):
             recovered = watchdog.recover_stalled()
 
         assert session_id in recovered
@@ -429,8 +431,10 @@ class TestCleanupAbandoned:
         session = watchdog.get_session(session_id)
         session.last_heartbeat = time.monotonic() - 5.0  # Beyond abandon timeout
 
-        with patch.object(watchdog, "_is_process_alive", return_value=False), \
-             patch("subprocess.run") as mock_run:
+        with (
+            patch.object(watchdog, "_is_process_alive", return_value=False),
+            patch("subprocess.run") as mock_run,
+        ):
             mock_run.return_value = MagicMock(returncode=0)
             cleaned = watchdog.cleanup_abandoned()
 
@@ -488,8 +492,10 @@ class TestCleanupAbandoned:
         session = watchdog.get_session(session_id)
         session.last_heartbeat = time.monotonic() - 5.0
 
-        with patch.object(watchdog, "_is_process_alive", return_value=False), \
-             patch("subprocess.run") as mock_run:
+        with (
+            patch.object(watchdog, "_is_process_alive", return_value=False),
+            patch("subprocess.run") as mock_run,
+        ):
             mock_run.return_value = MagicMock(returncode=0)
             cleaned = watchdog.cleanup_abandoned()
 
@@ -520,8 +526,7 @@ class TestThreadSafety:
                 session_ids.append(sid)
 
         threads = [
-            threading.Thread(target=register_session, args=(f"track-{i}",))
-            for i in range(10)
+            threading.Thread(target=register_session, args=(f"track-{i}",)) for i in range(10)
         ]
         for t in threads:
             t.start()

@@ -741,7 +741,7 @@ async def get_staleness_analysis(
     ),
     limit: int = Query(50, ge=1, le=100, description="Max stale items to return"),
     km=Depends(get_knowledge_mound),
-    ) -> StalenessResponse:
+) -> StalenessResponse:
     """Analyze staleness of knowledge items."""
     if not km:
         return StalenessResponse(threshold_days=threshold_days)

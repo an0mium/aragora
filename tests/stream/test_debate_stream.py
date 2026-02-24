@@ -484,9 +484,7 @@ class TestTTSIntegrationSingleton:
 
         mock_bus = MagicMock()
         result = mod.init_tts_integration(event_bus=mock_bus)
-        mock_bus.subscribe.assert_called_once_with(
-            "agent_message", result._handle_agent_message
-        )
+        mock_bus.subscribe.assert_called_once_with("agent_message", result._handle_agent_message)
 
         # Cleanup
         mod._tts_integration = None

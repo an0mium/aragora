@@ -269,7 +269,9 @@ class TestPreReleaseCheckScript:
         # Every gate in categories should be in ALL_GATES
         all_categorized = module.SECURITY_GATES + module.INTEGRATION_GATES + module.RELEASE_GATES
         for gate_name in all_categorized:
-            assert gate_name in module.ALL_GATES, f"gate '{gate_name}' in category but not in ALL_GATES"
+            assert gate_name in module.ALL_GATES, (
+                f"gate '{gate_name}' in category but not in ALL_GATES"
+            )
 
 
 # ---------------------------------------------------------------------------
@@ -355,9 +357,9 @@ class TestStatusDocGate:
         """STATUS.md must have a top-level heading."""
         status_path = PROJECT_ROOT / "docs" / "STATUS.md"
         content = status_path.read_text()
-        assert any(
-            line.startswith("# ") for line in content.splitlines()
-        ), "STATUS.md should have a top-level heading"
+        assert any(line.startswith("# ") for line in content.splitlines()), (
+            "STATUS.md should have a top-level heading"
+        )
 
     def test_status_doc_has_sections(self):
         """STATUS.md must have section headings."""
