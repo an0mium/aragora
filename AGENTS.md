@@ -10,22 +10,22 @@ Aragora currently registers 42 agent types across CLI, direct API, OpenRouter, l
 
 | Agent Type | CLI Tool | Default Model | Notes |
 |------------|----------|---------------|-------|
-| `claude` | `claude` (claude-code) | claude-opus-4-5-20251101 | |
-| `codex` | `codex` | gpt-5.2-codex | |
-| `openai` | `openai` | gpt-5.2 | Requires `OPENAI_API_KEY` |
-| `gemini-cli` | `gemini` | gemini-3-pro-preview | |
-| `grok-cli` | `grok` | grok-4-latest | |
+| `claude` | `claude` (claude-code) | claude-opus-4-6 | Opus 4.6, 200K context, 128K output |
+| `codex` | `codex` | gpt-4.1-codex | GPT-4.1 Codex, 1M context |
+| `openai` | `openai` | gpt-4.1 | GPT-4.1, 1M context |
+| `gemini-cli` | `gemini` | gemini-3.1-pro-preview | Gemini 3.1 Pro, 1M context |
+| `grok-cli` | `grok` | grok-4-latest | Grok 4, 256K context |
 | `qwen-cli` | `qwen` | qwen3-coder | |
 | `deepseek-cli` | `deepseek` | deepseek-v3 | Requires `DEEPSEEK_API_KEY` |
-| `kilocode` | `kilocode` | provider-specific | Defaults to `openrouter/google/gemini-3-pro-preview` via `provider_id` |
+| `kilocode` | `kilocode` | provider-specific | Defaults to `openrouter/google/gemini-3.1-pro-preview` via `provider_id` |
 
 ### Direct API Agents (cloud)
 
 | Agent Type | Provider | Default Model | Env Var | Allowlist |
 |------------|----------|---------------|---------|-----------|
-| `anthropic-api` | Anthropic | claude-opus-4-5-20251101 | `ANTHROPIC_API_KEY` | allowlisted |
-| `openai-api` | OpenAI | gpt-5.2 | `OPENAI_API_KEY` | allowlisted |
-| `gemini` | Google | gemini-3-pro-preview | `GEMINI_API_KEY` or `GOOGLE_API_KEY` | allowlisted |
+| `anthropic-api` | Anthropic | claude-opus-4-6 | `ANTHROPIC_API_KEY` | allowlisted |
+| `openai-api` | OpenAI | gpt-4.1 | `OPENAI_API_KEY` | allowlisted |
+| `gemini` | Google | gemini-3.1-pro-preview | `GEMINI_API_KEY` or `GOOGLE_API_KEY` | allowlisted |
 | `grok` | xAI | grok-4-latest | `XAI_API_KEY` or `GROK_API_KEY` | allowlisted |
 | `mistral-api` | Mistral | mistral-large-2512 | `MISTRAL_API_KEY` | opt-in |
 | `codestral` | Mistral | codestral-latest | `MISTRAL_API_KEY` | opt-in |

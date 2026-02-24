@@ -84,8 +84,8 @@ Top-level evidence connectors extend `BaseConnector` and provide `search()`/`fet
 |-----------|--------|----------|-------|
 | Google Analytics (`google_analytics.py`) | Production | GA4 Data API, reports, real-time data, retry with backoff | Yes |
 | Metabase (`metabase.py`) | Beta | Questions, dashboards, query execution | Yes |
-| Mixpanel (`mixpanel.py`) | Beta | Events, profiles, reports, exports | Yes |
-| Segment (`segment.py`) | Beta | CDP tracking, sources, destinations | Yes |
+| Mixpanel (`mixpanel.py`) | Production | Events, profiles, reports, exports, retry with backoff | Yes |
+| Segment (`segment.py`) | Production | CDP tracking, sources, destinations, retry with backoff | Yes |
 
 ### Automation
 
@@ -104,14 +104,14 @@ Top-level evidence connectors extend `BaseConnector` and provide `search()`/`fet
 
 | Connector | Status | Features | Tests |
 |-----------|--------|----------|-------|
-| Playwright (`playwright_connector.py`) | Beta | Page navigation, element interaction, screenshots | Yes |
+| Playwright (`playwright_connector.py`) | Production | Page navigation, element interaction, screenshots, structured error handling | Yes |
 
 ### Calendar
 
 | Connector | Status | Features | Tests |
 |-----------|--------|----------|-------|
-| Google Calendar (`google_calendar.py`) | Beta | OAuth 2.0, events, free/busy, push notifications | Yes |
-| Outlook Calendar (`outlook_calendar.py`) | Beta | Microsoft Graph API, events, conflict detection | Yes |
+| Google Calendar (`google_calendar.py`) | Production | OAuth 2.0, events, free/busy, push notifications, circuit breaker | Yes |
+| Outlook Calendar (`outlook_calendar.py`) | Production | Microsoft Graph API, events, conflict detection, circuit breaker | Yes |
 
 ### Chat Platforms (`chat/`)
 
