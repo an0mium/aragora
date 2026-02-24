@@ -327,3 +327,171 @@ class TestKeyRotationConfig:
         with patch.dict("os.environ", {"ARAGORA_KEY_ROTATION_INTERVAL_DAYS": "30"}):
             config = KeyRotationConfig.from_env()
             assert config.rotation_interval_days == 30
+
+
+# ============================================================================
+# 8. Resilience Infrastructure
+# ============================================================================
+
+
+class TestResilienceInfra:
+    """Verify circuit breaker and resilience patterns."""
+
+    def test_circuit_breaker_imports(self):
+        from aragora.resilience.circuit_breaker import CircuitBreaker
+
+        assert CircuitBreaker is not None
+
+    def test_circuit_breaker_lifecycle(self):
+        from aragora.resilience.circuit_breaker import CircuitBreaker
+
+        cb = CircuitBreaker()
+        assert cb.can_proceed()
+
+        # Record success keeps it closed
+        cb.record_success()
+        assert cb.can_proceed()
+
+    def test_circuit_breaker_opens_on_failures(self):
+        from aragora.resilience.circuit_breaker import CircuitBreaker
+
+        cb = CircuitBreaker()
+        # Default threshold is typically 5 failures
+        for _ in range(10):
+            cb.record_failure()
+
+        # After enough failures, circuit should open
+        assert not cb.can_proceed()
+
+    def test_resilience_module_exports(self):
+        from aragora.resilience import circuit_breaker, retry, timeout
+
+        assert circuit_breaker is not None
+        assert retry is not None
+        assert timeout is not None
+
+
+# ============================================================================
+# 9. Workflow Engine
+# ============================================================================
+
+
+class TestWorkflowEngine:
+    """Verify workflow engine initializes and has core capabilities."""
+
+    def test_engine_imports(self):
+        from aragora.workflow.engine import WorkflowEngine
+
+        assert WorkflowEngine is not None
+
+    def test_engine_initializes(self):
+        from aragora.workflow.engine import WorkflowEngine
+
+        engine = WorkflowEngine()
+        assert engine is not None
+
+    def test_engine_has_step_registry(self):
+        from aragora.workflow.engine import WorkflowEngine
+
+        engine = WorkflowEngine()
+        # Engine should have registered default step types
+        assert hasattr(engine, "_step_types")
+
+
+# ============================================================================
+# 10. Event Dispatcher
+# ============================================================================
+
+
+class TestEventDispatcher:
+    """Verify event system components."""
+
+    def test_dispatcher_imports(self):
+        from aragora.events.dispatcher import WebhookDispatcher
+
+        assert WebhookDispatcher is not None
+
+    def test_dispatcher_initializes(self):
+        from aragora.events.dispatcher import WebhookDispatcher
+
+        dispatcher = WebhookDispatcher()
+        assert dispatcher is not None
+        assert dispatcher._deliveries == 0
+        assert dispatcher._failures == 0
+
+    def test_event_schema_imports(self):
+        from aragora.events import schema
+
+        assert schema is not None
+
+
+# ============================================================================
+# 11. Compliance Framework
+# ============================================================================
+
+
+class TestComplianceFramework:
+    """Verify compliance framework and pre-built frameworks."""
+
+    def test_framework_imports(self):
+        from aragora.compliance.framework import ComplianceFramework
+
+        assert ComplianceFramework is not None
+
+    def test_hipaa_framework_exists(self):
+        from aragora.compliance.framework import HIPAA_FRAMEWORK
+
+        assert HIPAA_FRAMEWORK is not None
+        assert HIPAA_FRAMEWORK.name
+        assert HIPAA_FRAMEWORK.category
+
+    def test_framework_check_method(self):
+        from aragora.compliance.framework import ComplianceFramework
+
+        framework = ComplianceFramework(
+            id="test",
+            name="Test Framework",
+            description="For testing",
+            version="1.0",
+            category="test",
+        )
+        # Check with no rules should return empty
+        issues = framework.check("some content")
+        assert isinstance(issues, list)
+
+
+# ============================================================================
+# 12. Privacy (Consent & Retention)
+# ============================================================================
+
+
+class TestPrivacySubsystem:
+    """Verify privacy consent and retention models."""
+
+    def test_consent_imports(self):
+        from aragora.privacy.consent import ConsentPurpose, ConsentStatus
+
+        assert ConsentPurpose is not None
+        assert ConsentStatus is not None
+
+    def test_consent_purposes_cover_core_use_cases(self):
+        from aragora.privacy.consent import ConsentPurpose
+
+        # Must have debate processing and knowledge storage
+        assert hasattr(ConsentPurpose, "DEBATE_PROCESSING")
+        assert hasattr(ConsentPurpose, "KNOWLEDGE_STORAGE")
+        assert hasattr(ConsentPurpose, "ANALYTICS")
+
+    def test_retention_policy_defaults(self):
+        from aragora.privacy.retention import RetentionPolicy
+
+        policy = RetentionPolicy(id="test", name="Test Policy")
+        assert policy.retention_days == 90
+        assert policy.grace_period_days == 7
+        assert policy.enabled is True
+
+    def test_anonymization_imports(self):
+        from aragora.privacy.anonymization import AnonymizationMethod, HIPAAAnonymizer
+
+        assert AnonymizationMethod is not None
+        assert HIPAAAnonymizer is not None
