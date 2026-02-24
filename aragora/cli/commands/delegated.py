@@ -11,6 +11,8 @@ import os
 
 import httpx
 
+from aragora.security.safe_http import safe_get
+
 # Default API URL from environment or localhost fallback
 DEFAULT_API_URL = os.environ.get("ARAGORA_API_URL", "http://localhost:8080")
 
@@ -34,7 +36,7 @@ def cmd_control_plane(args: argparse.Namespace) -> None:
     if subcommand in (None, "status"):
         # Get control plane metrics
         try:
-            resp = httpx.get(
+            resp = safe_get(
                 f"{server_url}/api/v1/control-plane/metrics",
                 headers={"Accept": "application/json"},
                 timeout=5,
@@ -66,7 +68,7 @@ def cmd_control_plane(args: argparse.Namespace) -> None:
     elif subcommand == "agents":
         # List registered agents
         try:
-            resp = httpx.get(
+            resp = safe_get(
                 f"{server_url}/api/v1/control-plane/agents",
                 headers={"Accept": "application/json"},
                 timeout=5,
@@ -91,7 +93,7 @@ def cmd_control_plane(args: argparse.Namespace) -> None:
     elif subcommand == "channels":
         # List connected channels
         try:
-            resp = httpx.get(
+            resp = safe_get(
                 f"{server_url}/api/v1/integrations/status",
                 headers={"Accept": "application/json"},
                 timeout=5,

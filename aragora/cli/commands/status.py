@@ -64,14 +64,14 @@ def cmd_status(args: argparse.Namespace) -> None:
     print("\n\U0001f310 Server Status:")
     server_url = args.server if hasattr(args, "server") else DEFAULT_API_URL
     try:
-        import httpx
+        from aragora.security.safe_http import safe_get
 
-        resp = httpx.get(f"{server_url}/api/health", timeout=2)
+        resp = safe_get(f"{server_url}/api/health", timeout=2)
         if resp.status_code == 200:
             print(f"  \u2713 Server running at {server_url}")
         else:
             print(f"  \u26a0 Server returned status {resp.status_code}")
-    except (httpx.HTTPError, OSError, TimeoutError):
+    except (ImportError, OSError, TimeoutError, ConnectionError, RuntimeError):
         print(f"  \u2717 Server not reachable at {server_url}")
 
     # Check database

@@ -18,6 +18,8 @@ from typing import TYPE_CHECKING, Any
 
 import httpx
 
+from aragora.security.safe_http import safe_get, safe_post
+
 if TYPE_CHECKING:
     from aragora.core import DebateResult
 
@@ -169,7 +171,7 @@ def _batch_via_server(items: list[dict[str, Any]], args: argparse.Namespace) -> 
         if args.token:
             headers["Authorization"] = f"Bearer {args.token}"
 
-        resp = httpx.post(
+        resp = safe_post(
             f"{server_url}/api/debates/batch",
             json=batch_data,
             headers=headers,
@@ -212,7 +214,7 @@ def _poll_batch_status(server_url: str, batch_id: str, token: str | None = None)
 
     for _ in range(max_polls):
         try:
-            resp = httpx.get(
+            resp = safe_get(
                 f"{server_url}/api/debates/batch/{batch_id}/status",
                 headers=headers,
                 timeout=10,

@@ -255,7 +255,7 @@ def cmd_init(args: argparse.Namespace) -> int:
 
 def cmd_status(args: argparse.Namespace) -> int:
     """Check OpenClaw gateway status."""
-    import httpx
+    from aragora.security.safe_http import safe_get
 
     server_url = args.server
     print("\n" + "=" * 60)
@@ -264,17 +264,17 @@ def cmd_status(args: argparse.Namespace) -> int:
 
     # Check gateway health
     try:
-        resp = httpx.get(f"{server_url}/health", timeout=5)
+        resp = safe_get(f"{server_url}/health", timeout=5)
         resp.raise_for_status()
         print(f"\nGateway: ONLINE ({server_url})")
-    except (httpx.HTTPError, OSError):
+    except (ConnectionError, TimeoutError, OSError, RuntimeError):
         print(f"\nGateway: OFFLINE ({server_url})")
         print("  Start the server with: aragora serve")
         return 1
 
     # Check proxy stats
     try:
-        resp = httpx.get(
+        resp = safe_get(
             f"{server_url}/api/v1/openclaw/stats",
             headers={"Accept": "application/json"},
             timeout=5,
@@ -287,7 +287,7 @@ def cmd_status(args: argparse.Namespace) -> int:
             print(f"  Actions denied:  {data.get('actions_denied', 0)}")
             print(f"  Pending approvals: {data.get('pending_approvals', 0)}")
             print(f"  Policy rules:  {data.get('policy_rules', 0)}")
-    except (httpx.HTTPError, OSError) as e:
+    except (ConnectionError, TimeoutError, OSError, RuntimeError) as e:
         logger.debug("Failed to retrieve value: %s", e)
 
     return 0
@@ -313,12 +313,12 @@ def cmd_policy(args: argparse.Namespace) -> int:
 
 def _policy_list(args: argparse.Namespace) -> int:
     """List active policy rules."""
-    import httpx
+    from aragora.security.safe_http import safe_get
 
     server_url = args.server
 
     try:
-        resp = httpx.get(
+        resp = safe_get(
             f"{server_url}/api/v1/openclaw/policy/rules",
             headers={"Accept": "application/json"},
             timeout=5,
@@ -339,7 +339,7 @@ def _policy_list(args: argparse.Namespace) -> int:
             actions = ", ".join(rule.get("action_types", []))
             print(f"{name:<30} {decision:<15} {priority:<10} {actions}")
 
-    except (httpx.HTTPError, OSError) as e:
+    except (ConnectionError, TimeoutError, OSError, RuntimeError) as e:
         print(f"\nError: Could not reach gateway at {server_url}")
         print(f"  {e}")
 
@@ -392,7 +392,7 @@ def _policy_validate(args: argparse.Namespace) -> int:
 
 def cmd_audit(args: argparse.Namespace) -> int:
     """Query audit trail."""
-    import httpx
+    from aragora.security.safe_http import safe_get
 
     server_url = args.server
     params: dict[str, Any] = {}
@@ -407,7 +407,7 @@ def cmd_audit(args: argparse.Namespace) -> int:
         params["limit"] = args.limit
 
     try:
-        resp = httpx.get(
+        resp = safe_get(
             f"{server_url}/api/v1/openclaw/audit",
             params=params,
             headers={"Accept": "application/json"},
@@ -438,7 +438,7 @@ def cmd_audit(args: argparse.Namespace) -> int:
 
             print(f"{ts_str:<22} {event:<20} {user:<15} {action:<12} {success}")
 
-    except (httpx.HTTPError, OSError) as e:
+    except (ConnectionError, TimeoutError, OSError, RuntimeError) as e:
         print(f"\nError: Could not reach gateway at {server_url}")
         print(f"  {e}")
         return 1

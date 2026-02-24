@@ -350,10 +350,10 @@ def check_slack_health() -> dict[str, Any]:
         return {"healthy": True, "configured": False, "note": "Slack not configured"}
 
     try:
-        import httpx
+        from aragora.security.safe_http import safe_post
 
         ping_start = time.time()
-        response = httpx.post(
+        response = safe_post(
             "https://slack.com/api/auth.test",
             headers={"Authorization": f"Bearer {slack_token}"},
             timeout=5.0,
@@ -384,13 +384,7 @@ def check_slack_health() -> dict[str, Any]:
             }
 
     except ImportError:
-        return {"healthy": True, "configured": True, "warning": "httpx package not installed"}
-    except httpx.TimeoutException:
-        return {
-            "healthy": False,
-            "configured": True,
-            "error": "Request timeout",
-        }
+        return {"healthy": True, "configured": True, "warning": "safe_http not available"}
     except (ConnectionError, TimeoutError, OSError, ValueError, RuntimeError) as e:
         logger.warning("Slack health check failed: %s: %s", type(e).__name__, e)
         return {

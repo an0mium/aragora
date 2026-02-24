@@ -26,6 +26,8 @@ from typing import Any
 
 import httpx
 
+from aragora.security.safe_http import safe_request
+
 DEFAULT_API_URL = os.environ.get("ARAGORA_API_URL", "http://localhost:8080")
 
 
@@ -49,7 +51,7 @@ def api_request(
         headers["Authorization"] = f"Bearer {token}"
 
     try:
-        resp = httpx.request(method, url, json=data, headers=headers, timeout=30)
+        resp = safe_request(method, url, json=data, headers=headers, timeout=30)
         resp.raise_for_status()
         result: dict[str, Any] = resp.json()
         return result

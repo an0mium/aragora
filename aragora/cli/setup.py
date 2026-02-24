@@ -68,9 +68,9 @@ def _test_api_key(provider: str, key: str) -> tuple[bool, str]:
 
     try:
         if provider == "anthropic":
-            import httpx
+            from aragora.security.safe_http import safe_post
 
-            response = httpx.post(
+            response = safe_post(
                 "https://api.anthropic.com/v1/messages",
                 headers={
                     "x-api-key": key,
@@ -92,9 +92,9 @@ def _test_api_key(provider: str, key: str) -> tuple[bool, str]:
                 return False, f"Error: {response.status_code}"
 
         elif provider == "openai":
-            import httpx
+            from aragora.security.safe_http import safe_get
 
-            response = httpx.get(
+            response = safe_get(
                 "https://api.openai.com/v1/models",
                 headers={"Authorization": f"Bearer {key}"},
                 timeout=10.0,
@@ -107,9 +107,9 @@ def _test_api_key(provider: str, key: str) -> tuple[bool, str]:
                 return False, f"Error: {response.status_code}"
 
         elif provider == "openrouter":
-            import httpx
+            from aragora.security.safe_http import safe_get
 
-            response = httpx.get(
+            response = safe_get(
                 "https://openrouter.ai/api/v1/models",
                 headers={"Authorization": f"Bearer {key}"},
                 timeout=10.0,
@@ -355,9 +355,9 @@ def _run_health_checks(config: dict[str, Any]) -> None:
         checks_total += 1
         print("    Checking Stripe API...", end=" ", flush=True)
         try:
-            import httpx
+            from aragora.security.safe_http import safe_get
 
-            response = httpx.get(
+            response = safe_get(
                 "https://api.stripe.com/v1/balance",
                 headers={"Authorization": f"Bearer {config['stripe_secret_key']}"},
                 timeout=10.0,
