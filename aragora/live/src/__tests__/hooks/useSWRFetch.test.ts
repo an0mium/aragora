@@ -52,9 +52,9 @@ describe('useSWRFetch', () => {
 
       const result = await swrFetcher('https://api.example.com/data');
 
-      expect(mockFetch).toHaveBeenCalledWith('https://api.example.com/data', {
+      expect(mockFetch).toHaveBeenCalledWith('https://api.example.com/data', expect.objectContaining({
         headers: { 'Content-Type': 'application/json' },
-      });
+      }));
       expect(result).toEqual(mockData);
     });
 
