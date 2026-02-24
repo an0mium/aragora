@@ -80,14 +80,17 @@ class CLIAgent(CritiqueMixin, Agent):
     # Map CLI agent models to OpenRouter model identifiers
     OPENROUTER_MODEL_MAP: dict[str, str] = {
         # Claude models
-        "claude": "anthropic/claude-sonnet-4",  # Default claude CLI
-        "claude-opus-4-5-20251101": "anthropic/claude-opus-4",
+        "claude": "anthropic/claude-sonnet-4.6",  # Default claude CLI
+        "claude-opus-4-6": "anthropic/claude-opus-4.6",
+        "claude-sonnet-4-6": "anthropic/claude-sonnet-4.6",
+        "claude-opus-4-5-20251101": "anthropic/claude-opus-4.5",
         "claude-sonnet-4-20250514": "anthropic/claude-sonnet-4",
         "claude-3-opus-20240229": "anthropic/claude-3-opus",
         "claude-3-sonnet-20240229": "anthropic/claude-3-sonnet",
         # OpenAI/Codex models
-        "gpt-5.2-codex": "openai/gpt-4o",
-        "gpt-5.2": "openai/gpt-4o",
+        "gpt-4.1-codex": "openai/gpt-4.1",
+        "gpt-4.1": "openai/gpt-4.1",
+        "gpt-4.1-mini": "openai/gpt-4.1-mini",
         "gpt-4o": "openai/gpt-4o",
         "gpt-4-turbo": "openai/gpt-4-turbo",
         "gpt-4": "openai/gpt-4",
@@ -189,7 +192,7 @@ class CLIAgent(CritiqueMixin, Agent):
                     else:
                         openrouter_model = self.model
                 else:
-                    openrouter_model = "anthropic/claude-sonnet-4"  # Default fallback model
+                    openrouter_model = "anthropic/claude-sonnet-4.6"  # Default fallback model
 
             self._fallback_agent = OpenRouterAgent(
                 name=f"{self.name}_fallback",

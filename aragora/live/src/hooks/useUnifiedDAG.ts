@@ -9,10 +9,11 @@
  * auto-flow) and undo/redo.
  */
 
-import { useState, useCallback, useRef, useEffect } from 'react';
+import { useState, useCallback, useRef, useEffect, useMemo } from 'react';
 import type { Node, Edge } from '@xyflow/react';
 import { useSWRFetch } from './useSWRFetch';
 import { apiFetch } from '@/lib/api';
+import type { ExecutionHistoryEntry } from '@/components/unified-dag/ExecutionSidebar';
 
 // ---------------------------------------------------------------------------
 // Types
