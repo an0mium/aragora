@@ -480,7 +480,7 @@ class TestOriginCleanup:
     def test_cleanup_expired_origins(self):
         """Test that expired origins are cleaned up from in-memory store."""
         from unittest.mock import MagicMock, patch
-        import aragora.server.debate_origin as debate_origin_module
+        from aragora.server.debate_origin import stores as _origin_stores
         from aragora.server.debate_origin import (
             cleanup_expired_origins,
             _origin_store,
@@ -491,8 +491,8 @@ class TestOriginCleanup:
         _origin_store.clear()
 
         # Reset the cached stores to ensure mocks take effect
-        original_sqlite_store = debate_origin_module._sqlite_store
-        debate_origin_module._sqlite_store = None
+        original_sqlite_store = _origin_stores._sqlite_store
+        _origin_stores._sqlite_store = None
 
         # Create mock SQLite store
         mock_sqlite = MagicMock()
@@ -503,10 +503,10 @@ class TestOriginCleanup:
         try:
             # Mock all persistent store paths to test in-memory cleanup only
             with (
-                patch("aragora.server.debate_origin._get_sqlite_store", return_value=mock_sqlite),
-                patch("aragora.server.debate_origin._load_origin_redis", return_value=None),
-                patch("aragora.server.debate_origin._store_origin_redis", return_value=None),
-                patch("aragora.server.debate_origin._get_postgres_store_sync", return_value=None),
+                patch("aragora.server.debate_origin.registry._get_sqlite_store", return_value=mock_sqlite),
+                patch("aragora.server.debate_origin.registry._load_origin_redis", return_value=None),
+                patch("aragora.server.debate_origin.registry._store_origin_redis", return_value=None),
+                patch("aragora.server.debate_origin.registry._get_postgres_store_sync", return_value=None),
             ):
                 # Create an expired origin directly in the in-memory store
                 debate_id = f"debate-{uuid.uuid4().hex[:8]}"
@@ -533,7 +533,7 @@ class TestOriginCleanup:
 
         finally:
             # Restore the original SQLite store
-            debate_origin_module._sqlite_store = original_sqlite_store
+            _origin_stores._sqlite_store = original_sqlite_store
 
     def test_cleanup_preserves_fresh_origins(self):
         """Test that fresh origins are not cleaned up."""
