@@ -2673,7 +2673,7 @@ class IdeaToExecutionPipeline:
                 "id": "agent-researcher",
                 "name": "Researcher",
                 "type": "anthropic-api",
-                "model": "claude-3-opus",
+                "model": "claude-opus-4",
                 "capabilities": ["research", "analysis", "synthesis"],
             },
             {
@@ -2694,7 +2694,7 @@ class IdeaToExecutionPipeline:
                 "id": "agent-tester",
                 "name": "Tester",
                 "type": "anthropic-api",
-                "model": "claude-3-opus",
+                "model": "claude-opus-4",
                 "capabilities": ["testing", "verification", "validation"],
             },
             {
