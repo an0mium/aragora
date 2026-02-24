@@ -17,6 +17,8 @@ from typing import Any
 
 import httpx
 
+from aragora.connectors.production_mixin import ProductionConnectorMixin
+
 
 class CampaignStatus(Enum):
     """Microsoft Ads campaign status."""
@@ -386,7 +388,7 @@ class MicrosoftAdsError(Exception):
         self.operation_errors = operation_errors or []
 
 
-class MicrosoftAdsConnector:
+class MicrosoftAdsConnector(ProductionConnectorMixin):
     """Microsoft Advertising API connector.
 
     Production quality: circuit breaker, retry with backoff, query sanitization.
@@ -401,18 +403,11 @@ class MicrosoftAdsConnector:
         """Initialize with credentials."""
         self.credentials = credentials
         self._client: httpx.AsyncClient | None = None
-        # Production mixin initialization
-        try:
-            from aragora.connectors.production_mixin import ProductionConnectorMixin
-
-            ProductionConnectorMixin._init_production_mixin(
-                self,
-                connector_name="microsoft_ads",
-                request_timeout=60.0,
-            )
-            self._has_production_mixin = True
-        except ImportError:
-            self._has_production_mixin = False
+        self._init_production_mixin(
+            connector_name="microsoft_ads",
+            request_timeout=60.0,
+        )
+        self._has_production_mixin = True
 
     async def _get_client(self) -> httpx.AsyncClient:
         """Get or create HTTP client."""
@@ -539,13 +534,7 @@ class MicrosoftAdsConnector:
             # Convert XML to dict (simplified)
             return self._xml_to_dict(body_elem)
 
-        if self._has_production_mixin:
-            from aragora.connectors.production_mixin import ProductionConnectorMixin
-
-            return await ProductionConnectorMixin._call_with_retry(
-                self, _do_request, operation=operation
-            )
-        return await _do_request()
+        return await self._call_with_retry(_do_request, operation=operation)
 
     def _xml_to_dict(self, elem: Any) -> dict[str, Any]:
         """Convert XML element to dictionary (simplified)."""

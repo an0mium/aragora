@@ -16,6 +16,8 @@ from typing import Any
 
 import httpx
 
+from aragora.connectors.production_mixin import ProductionConnectorMixin
+
 
 class CampaignStatus(Enum):
     """Twitter campaign status."""
@@ -310,7 +312,7 @@ class TwitterAdsError(Exception):
         self.error_code = error_code
 
 
-class TwitterAdsConnector:
+class TwitterAdsConnector(ProductionConnectorMixin):
     """Twitter/X Ads API connector.
 
     Production quality: circuit breaker, retry with backoff.
@@ -322,15 +324,10 @@ class TwitterAdsConnector:
         """Initialize with credentials."""
         self.credentials = credentials
         self._client: httpx.AsyncClient | None = None
-        try:
-            from aragora.connectors.production_mixin import ProductionConnectorMixin
-
-            ProductionConnectorMixin._init_production_mixin(
-                self, connector_name="twitter_ads", request_timeout=30.0,
-            )
-            self._has_production_mixin = True
-        except ImportError:
-            self._has_production_mixin = False
+        self._init_production_mixin(
+            connector_name="twitter_ads", request_timeout=30.0,
+        )
+        self._has_production_mixin = True
 
     async def _get_client(self) -> httpx.AsyncClient:
         """Get or create HTTP client with OAuth 1.0a authentication."""
@@ -434,10 +431,8 @@ class TwitterAdsConnector:
             return response.json()
 
         if self._has_production_mixin:
-            from aragora.connectors.production_mixin import ProductionConnectorMixin
-
-            return await ProductionConnectorMixin._call_with_retry(
-                self, _do_request, operation=f"{method}_{endpoint}",
+            return await self._call_with_retry(
+                _do_request, operation=f"{method}_{endpoint}",
             )
         return await _do_request()
 

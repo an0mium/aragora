@@ -23,6 +23,8 @@ from typing import Any
 
 import httpx
 
+from aragora.connectors.production_mixin import ProductionConnectorMixin
+
 logger = logging.getLogger(__name__)
 
 
@@ -320,7 +322,7 @@ class ShipStationError(Exception):
         self.status_code = status_code
 
 
-class ShipStationConnector:
+class ShipStationConnector(ProductionConnectorMixin):
     """
     ShipStation API connector.
 
@@ -365,15 +367,10 @@ class ShipStationConnector:
     def __init__(self, credentials: ShipStationCredentials):
         self.credentials = credentials
         self._client: httpx.AsyncClient | None = None
-        try:
-            from aragora.connectors.production_mixin import ProductionConnectorMixin
-
-            ProductionConnectorMixin._init_production_mixin(
-                self, connector_name="shipstation", request_timeout=30.0,
-            )
-            self._has_production_mixin = True
-        except ImportError:
-            self._has_production_mixin = False
+        self._init_production_mixin(
+            connector_name="shipstation", request_timeout=30.0,
+        )
+        self._has_production_mixin = True
 
     async def __aenter__(self) -> ShipStationConnector:
         auth = base64.b64encode(
@@ -427,11 +424,9 @@ class ShipStationConnector:
             return data
 
         if self._has_production_mixin:
-            from aragora.connectors.production_mixin import ProductionConnectorMixin
-
             try:
-                return await ProductionConnectorMixin._call_with_retry(
-                    self, _do_request, operation=f"{method}_{endpoint}",
+                return await self._call_with_retry(
+                    _do_request, operation=f"{method}_{endpoint}",
                 )
             except httpx.HTTPError as e:
                 raise ShipStationError(f"HTTP error: {e}") from e

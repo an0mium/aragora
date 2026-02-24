@@ -21,6 +21,8 @@ from enum import Enum
 from typing import Any, TYPE_CHECKING
 from collections.abc import AsyncIterator
 
+from aragora.connectors.production_mixin import ProductionConnectorMixin
+
 if TYPE_CHECKING:
     import httpx
 
@@ -176,7 +178,7 @@ class TokenResponse:
         )
 
 
-class EHRAdapter(ABC):
+class EHRAdapter(ProductionConnectorMixin, ABC):
     """
     Base class for EHR vendor adapters.
 
@@ -208,18 +210,12 @@ class EHRAdapter(ABC):
         self._last_request_at: datetime | None = None
 
         # Production mixin for circuit breaker and retry
-        try:
-            from aragora.connectors.production_mixin import ProductionConnectorMixin
-
-            ProductionConnectorMixin._init_production_mixin(
-                self,
-                connector_name=f"ehr_{self.vendor.value}",
-                request_timeout=float(config.timeout_seconds),
-                max_retries=config.max_retries,
-            )
-            self._has_production_mixin = True
-        except ImportError:
-            self._has_production_mixin = False
+        self._init_production_mixin(
+            connector_name=f"ehr_{self.vendor.value}",
+            request_timeout=float(config.timeout_seconds),
+            max_retries=config.max_retries,
+        )
+        self._has_production_mixin = True
 
     async def __aenter__(self) -> EHRAdapter:
         """Async context manager entry."""
@@ -536,10 +532,7 @@ class EHRAdapter(ABC):
                 raise
 
         if getattr(self, "_has_production_mixin", False):
-            from aragora.connectors.production_mixin import ProductionConnectorMixin
-
-            return await ProductionConnectorMixin._call_with_retry(
-                self,
+            return await self._call_with_retry(
                 _do_request,
                 operation=f"ehr_{method}_{path}",
             )

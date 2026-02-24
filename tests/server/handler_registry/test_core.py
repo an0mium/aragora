@@ -10,6 +10,7 @@ import pytest
 from aragora.server.handler_registry.core import (
     HandlerValidationError,
     RouteIndex,
+    _DeferredImport,
     _safe_import,
     get_route_index,
     validate_all_handlers,
@@ -104,21 +105,25 @@ class TestSafeImport:
 
     def test_import_existing_module(self) -> None:
         result = _safe_import("aragora.server.handler_registry.core", "RouteIndex")
-        assert result is RouteIndex
+        assert isinstance(result, _DeferredImport)
+        assert result.resolve() is RouteIndex
 
     def test_import_nonexistent_module(self) -> None:
         result = _safe_import("aragora.nonexistent.module", "Foo")
-        assert result is None
+        assert isinstance(result, _DeferredImport)
+        assert result.resolve() is None
 
     def test_import_nonexistent_class(self) -> None:
         result = _safe_import("aragora.server.handler_registry.core", "NonexistentClass")
-        assert result is None
+        assert isinstance(result, _DeferredImport)
+        assert result.resolve() is None
 
     def test_import_from_stdlib(self) -> None:
         result = _safe_import("json", "JSONDecoder")
         import json
 
-        assert result is json.JSONDecoder
+        assert isinstance(result, _DeferredImport)
+        assert result.resolve() is json.JSONDecoder
 
 
 # ---------------------------------------------------------------------------

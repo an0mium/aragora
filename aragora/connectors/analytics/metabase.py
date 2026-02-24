@@ -22,6 +22,8 @@ from typing import Any, cast
 
 import httpx
 
+from aragora.connectors.production_mixin import ProductionConnectorMixin
+
 logger = logging.getLogger(__name__)
 
 
@@ -313,7 +315,7 @@ class MetabaseError(Exception):
         self.status_code = status_code
 
 
-class MetabaseConnector:
+class MetabaseConnector(ProductionConnectorMixin):
     """
     Metabase API connector.
 
@@ -330,15 +332,10 @@ class MetabaseConnector:
         self.credentials = credentials
         self._client: httpx.AsyncClient | None = None
         self._session_token: str | None = credentials.session_token
-        try:
-            from aragora.connectors.production_mixin import ProductionConnectorMixin
-
-            ProductionConnectorMixin._init_production_mixin(
-                self, connector_name="metabase", request_timeout=60.0,
-            )
-            self._has_production_mixin = True
-        except ImportError:
-            self._has_production_mixin = False
+        self._init_production_mixin(
+            connector_name="metabase", request_timeout=60.0,
+        )
+        self._has_production_mixin = True
 
     async def _get_client(self) -> httpx.AsyncClient:
         """Get or create HTTP client."""
@@ -409,10 +406,8 @@ class MetabaseConnector:
             return response.json()
 
         if self._has_production_mixin:
-            from aragora.connectors.production_mixin import ProductionConnectorMixin
-
-            return await ProductionConnectorMixin._call_with_retry(
-                self, _do_request, operation=f"{method}_{path}",
+            return await self._call_with_retry(
+                _do_request, operation=f"{method}_{path}",
             )
         return await _do_request()
 

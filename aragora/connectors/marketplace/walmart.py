@@ -24,6 +24,8 @@ from typing import Any
 
 import httpx
 
+from aragora.connectors.production_mixin import ProductionConnectorMixin
+
 logger = logging.getLogger(__name__)
 
 
@@ -322,7 +324,7 @@ class WalmartError(Exception):
         self.details = details or {}
 
 
-class WalmartConnector:
+class WalmartConnector(ProductionConnectorMixin):
     """
     Walmart Seller Center API connector.
 
@@ -339,15 +341,10 @@ class WalmartConnector:
         self._client: httpx.AsyncClient | None = None
         self._access_token: str | None = None
         self._token_expires_at: datetime | None = None
-        try:
-            from aragora.connectors.production_mixin import ProductionConnectorMixin
-
-            ProductionConnectorMixin._init_production_mixin(
-                self, connector_name="walmart", request_timeout=30.0,
-            )
-            self._has_production_mixin = True
-        except ImportError:
-            self._has_production_mixin = False
+        self._init_production_mixin(
+            connector_name="walmart", request_timeout=30.0,
+        )
+        self._has_production_mixin = True
 
     async def _get_client(self) -> httpx.AsyncClient:
         """Get or create HTTP client."""
@@ -444,10 +441,7 @@ class WalmartConnector:
             return response.json()
 
         if self._has_production_mixin:
-            from aragora.connectors.production_mixin import ProductionConnectorMixin
-
-            return await ProductionConnectorMixin._call_with_retry(
-                self,
+            return await self._call_with_retry(
                 _do_request,
                 operation=f"walmart_{method}_{path}",
             )

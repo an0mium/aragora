@@ -20,6 +20,8 @@ from typing import Any
 
 import httpx
 
+from aragora.connectors.production_mixin import ProductionConnectorMixin
+
 logger = logging.getLogger(__name__)
 
 _MAX_PAGES = 1000  # Safety cap for pagination loops
@@ -181,7 +183,7 @@ class KnackError(Exception):
         self.errors = errors or []
 
 
-class KnackConnector:
+class KnackConnector(ProductionConnectorMixin):
     """
     Knack API connector.
 
@@ -196,15 +198,10 @@ class KnackConnector:
         self.credentials = credentials
         self._client: httpx.AsyncClient | None = None
         self._schema: dict[str, Any] | None = None
-        try:
-            from aragora.connectors.production_mixin import ProductionConnectorMixin
-
-            ProductionConnectorMixin._init_production_mixin(
-                self, connector_name="knack", request_timeout=30.0,
-            )
-            self._has_production_mixin = True
-        except ImportError:
-            self._has_production_mixin = False
+        self._init_production_mixin(
+            connector_name="knack", request_timeout=30.0,
+        )
+        self._has_production_mixin = True
 
     async def _get_client(self) -> httpx.AsyncClient:
         """Get or create HTTP client."""
@@ -264,10 +261,7 @@ class KnackConnector:
             return response.json()
 
         if self._has_production_mixin:
-            from aragora.connectors.production_mixin import ProductionConnectorMixin
-
-            return await ProductionConnectorMixin._call_with_retry(
-                self,
+            return await self._call_with_retry(
                 _do_request,
                 operation=f"knack_{method}_{path}",
             )
