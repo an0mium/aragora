@@ -215,6 +215,42 @@ jobs:
           path: skip_count.txt
           retention-days: 7
 
+  # Status document reconciliation (detect drift across capability/GA/roadmap docs)
+  status-reconciliation:
+    name: Status Doc Reconciliation
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: 'pip'
+          cache-dependency-path: pyproject.toml
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -e .
+
+      - name: Run status reconciliation
+        run: |
+          python scripts/reconcile_status_docs.py --strict --output reconciliation_report.md
+        env:
+          PYTHONPATH: .
+
+      - name: Upload reconciliation report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: status-reconciliation
+          path: reconciliation_report.md
+          retention-days: 14
+
   # Zero-coverage baseline check (prevents new zero-coverage files)
   zero-coverage-check:
     name: Zero Coverage Check
