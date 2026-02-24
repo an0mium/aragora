@@ -4,9 +4,9 @@ Last updated: 2026-02-23
 
 ## Summary
 
-- **Production**: 99 connectors
+- **Production**: 103 connectors
 - **Beta**: 48 connectors
-- **Stub**: 4 connectors
+- **Stub**: 0 connectors
 
 ## Status Criteria
 
@@ -130,8 +130,8 @@ Top-level evidence connectors extend `BaseConnector` and provide `search()`/`fet
 
 | Connector | Status | Features | Tests |
 |-----------|--------|----------|-------|
-| SendGrid (`communication/sendgrid.py`) | Stub | API scaffolding only; `search()`/`fetch()` raise NotImplementedError | No |
-| Twilio (`communication/twilio.py`) | Stub | API scaffolding only; `search()`/`fetch()` raise NotImplementedError | No |
+| SendGrid (`communication/sendgrid.py`) | Production | Email activity search, templates, query sanitization, rate limiting, circuit breaker | Yes |
+| Twilio (`communication/twilio.py`) | Production | SMS/MMS/call history search, query sanitization, rate limiting, circuit breaker | Yes |
 
 ### Credentials
 
@@ -313,13 +313,13 @@ Top-level evidence connectors extend `BaseConnector` and provide `search()`/`fet
 
 | Connector | Status | Features | Tests |
 |-----------|--------|----------|-------|
-| Trello (`productivity/trello.py`) | Stub | API scaffolding only; `search()`/`fetch()` raise NotImplementedError | No |
+| Trello (`productivity/trello.py`) | Production | Card/board search via Trello API, rate limiting, circuit breaker | Yes |
 
 ### Social
 
 | Connector | Status | Features | Tests |
 |-----------|--------|----------|-------|
-| Instagram (`social/instagram.py`) | Stub | API scaffolding only; `search()`/`fetch()` raise NotImplementedError | No |
+| Instagram (`social/instagram.py`) | Production | Media/comments search via Graph API, rate limiting, circuit breaker | Yes |
 
 ### Supermemory
 
@@ -384,7 +384,7 @@ Integration connectors post debate results to external platforms and handle bidi
 
 ## Notes
 
-- **Stub connectors** (SendGrid, Twilio, Instagram, Trello) have API scaffolding (env var config, auth headers) but raise `NotImplementedError` on `search()`/`fetch()`. They are ready for community contributions.
+- **Stub connectors**: None remain. All former stubs (SendGrid, Twilio, Instagram, Trello) have been promoted to Production with real API calls, search, fetch, health checks, rate limiting, and circuit breaker integration.
 - **Beta connectors** have real API call implementations with data models and basic error handling, but typically lack circuit breaker patterns and advanced retry logic.
 - **Production connectors** include robust error handling, circuit breakers, rate limiting, caching, and/or retry with exponential backoff.
 - The **enterprise connectors** (`enterprise/`) all extend `EnterpriseConnector` with incremental sync, pagination safety caps (`_MAX_PAGES`), and standardized `SyncItem` output.
