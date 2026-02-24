@@ -59,10 +59,14 @@ class DAGOperationsAPI:
         payload: dict[str, Any] = {}
         if node_ids is not None:
             payload["node_ids"] = node_ids
+        if payload:
+            return self._client.request(
+                "POST",
+                f"/api/v1/pipeline/dag/{graph_id}/nodes/{node_id}/assign-agents",
+                json=payload,
+            )
         return self._client.request(
-            "POST",
-            f"/api/v1/pipeline/dag/{graph_id}/nodes/{node_id}/assign-agents",
-            json=payload if payload else None,
+            "POST", f"/api/v1/pipeline/dag/{graph_id}/nodes/{node_id}/assign-agents",
         )
 
     def execute_node(self, graph_id: str, node_id: str) -> dict[str, Any]:
@@ -168,10 +172,14 @@ class AsyncDAGOperationsAPI:
         payload: dict[str, Any] = {}
         if node_ids is not None:
             payload["node_ids"] = node_ids
+        if payload:
+            return await self._client.request(
+                "POST",
+                f"/api/v1/pipeline/dag/{graph_id}/nodes/{node_id}/assign-agents",
+                json=payload,
+            )
         return await self._client.request(
-            "POST",
-            f"/api/v1/pipeline/dag/{graph_id}/nodes/{node_id}/assign-agents",
-            json=payload if payload else None,
+            "POST", f"/api/v1/pipeline/dag/{graph_id}/nodes/{node_id}/assign-agents",
         )
 
     async def execute_node(self, graph_id: str, node_id: str) -> dict[str, Any]:
