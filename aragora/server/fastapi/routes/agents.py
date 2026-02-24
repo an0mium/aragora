@@ -541,6 +541,124 @@ async def register_agent(
 # =============================================================================
 
 
+@router.get("/agents/{agent_id}/capabilities", response_model=AgentCapabilitiesResponse)
+async def get_agent_capabilities(
+    agent_id: str,
+    request: Request,
+    elo=Depends(get_elo_system),
+) -> AgentCapabilitiesResponse:
+    """
+    Get agent capabilities and metadata.
+
+    Returns model information, provider details, context window size,
+    specialties, and strengths for a specific agent.
+    """
+    try:
+        metadata: dict[str, Any] = {}
+
+        # Try to get metadata from the ELO database (agent_metadata table)
+        try:
+            import json
+            import sqlite3
+
+            ctx = getattr(request.app.state, "context", None)
+            storage = ctx.get("storage") if ctx else None
+            nomic_dir = getattr(storage, "nomic_dir", None) if storage else None
+
+            if nomic_dir:
+                from aragora.storage.paths import DatabaseType, get_db_path
+
+                elo_path = get_db_path(DatabaseType.ELO, nomic_dir)
+                if elo_path.exists():
+                    conn = sqlite3.connect(elo_path)
+                    conn.row_factory = sqlite3.Row
+                    cursor = conn.execute(
+                        """
+                        SELECT agent_name, provider, model_id, context_window,
+                               specialties, strengths, release_date
+                        FROM agent_metadata
+                        WHERE agent_name = ?
+                        """,
+                        (agent_id,),
+                    )
+                    row = cursor.fetchone()
+                    conn.close()
+
+                    if row:
+                        specialties_raw = row["specialties"] or "[]"
+                        strengths_raw = row["strengths"] or "[]"
+                        try:
+                            specialties = json.loads(specialties_raw)
+                        except (json.JSONDecodeError, TypeError):
+                            specialties = []
+                        try:
+                            strengths = json.loads(strengths_raw)
+                        except (json.JSONDecodeError, TypeError):
+                            strengths = []
+
+                        metadata = {
+                            "provider": row["provider"] or "",
+                            "model_id": row["model_id"] or "",
+                            "context_window": row["context_window"] or 0,
+                            "specialties": specialties,
+                            "strengths": strengths,
+                            "release_date": row["release_date"],
+                        }
+        except (ImportError, sqlite3.OperationalError, OSError, KeyError) as e:
+            logger.debug("Could not get agent metadata from DB for %s: %s", agent_id, e)
+
+        # Fall back to agent registry info
+        if not metadata:
+            try:
+                from aragora.agents.registry import AgentRegistry, register_all_agents
+
+                register_all_agents()
+                all_agents = AgentRegistry.list_all()
+                if agent_id in all_agents:
+                    reg_info = all_agents[agent_id]
+                    metadata = {
+                        "provider": reg_info.get("provider", reg_info.get("type", "")),
+                        "model_id": reg_info.get("model_id", ""),
+                        "specialties": reg_info.get("specialties", []),
+                        "strengths": reg_info.get("strengths", []),
+                    }
+            except (ImportError, RuntimeError, AttributeError):
+                pass
+
+        # Verify agent exists if no metadata found
+        if not metadata:
+            known_agents = _get_known_agents()
+            if agent_id not in known_agents:
+                # Also check ELO system
+                found = False
+                if elo and hasattr(elo, "get_leaderboard"):
+                    try:
+                        for a in elo.get_leaderboard(limit=500):
+                            if _agent_to_dict(a).get("name") == agent_id:
+                                found = True
+                                break
+                    except (RuntimeError, ValueError, TypeError, AttributeError):
+                        pass
+                if not found:
+                    raise NotFoundError(f"Agent {agent_id} not found")
+
+        return AgentCapabilitiesResponse(
+            name=agent_id,
+            provider=metadata.get("provider", ""),
+            model_id=metadata.get("model_id", ""),
+            context_window=metadata.get("context_window", 0),
+            specialties=metadata.get("specialties", []),
+            strengths=metadata.get("strengths", []),
+            release_date=metadata.get("release_date"),
+        )
+
+    except NotFoundError:
+        raise
+    except (RuntimeError, ValueError, TypeError, OSError, KeyError, AttributeError) as e:
+        logger.exception("Error getting capabilities for agent %s: %s", agent_id, e)
+        raise HTTPException(status_code=500, detail="Failed to get agent capabilities")
+
+
 @router.get("/agents/{agent_id}/stats", response_model=AgentStatsResponse)
 async def get_agent_stats(
     agent_id: str,
