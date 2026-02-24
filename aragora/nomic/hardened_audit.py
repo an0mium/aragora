@@ -51,8 +51,8 @@ class AuditMixin:
             from aragora.audit.log import AuditLog
 
             audit = AuditLog()
-            audit.log(
-                event="orchestration_reconciliation",
+            audit.log(  # type: ignore[call-arg]
+                event="orchestration_reconciliation",  # type: ignore[arg-type]
                 data={
                     "overlapping_files": overlaps,
                     "assignment_count": len(completed),

@@ -33,6 +33,7 @@ class MockDebateResult:
         self.messages = messages or []
         self.critiques = critiques or []
         self.rounds = rounds or [{}]
+        self.rounds_used = len(self.rounds)
 
 
 class MockMessage:

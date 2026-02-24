@@ -165,7 +165,7 @@ class CodebaseContextProvider:
                 self._rlm = AragoraRLM()
 
             # Query RLM for task-relevant codebase structure
-            result = await self._rlm.query(
+            result = await self._rlm.query(  # type: ignore[call-arg]
                 f"Analyze codebase structure relevant to: {task}",
                 context_path=self._config.codebase_path,
                 max_tokens=self._config.max_context_tokens,

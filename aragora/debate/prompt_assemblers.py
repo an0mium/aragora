@@ -48,6 +48,7 @@ class PromptAssemblyMixin:
     get_continuum_context: Any
     get_supermemory_context: Any
     get_knowledge_mound_context: Any
+    get_deliberation_template_context: Any
     get_outcome_context: Any
     get_codebase_context: Any
     get_prior_claims_context: Any

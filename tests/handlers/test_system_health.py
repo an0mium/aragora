@@ -621,7 +621,7 @@ class TestBudget:
             return_value=tracker,
         ):
             with patch(
-                "aragora.billing.forecaster.get_forecaster", create=True,
+                "aragora.billing.forecaster.get_cost_forecaster", create=True,
                 return_value=None,
             ):
                 result = handler._collect_budget()
@@ -645,7 +645,7 @@ class TestBudget:
             return_value=tracker,
         ):
             with patch(
-                "aragora.billing.forecaster.get_forecaster", create=True,
+                "aragora.billing.forecaster.get_cost_forecaster", create=True,
                 return_value=None,
             ):
                 result = handler._collect_budget()
@@ -671,7 +671,7 @@ class TestBudget:
             return_value=tracker,
         ):
             with patch(
-                "aragora.billing.forecaster.get_forecaster", create=True,
+                "aragora.billing.forecaster.get_cost_forecaster", create=True,
                 return_value=forecaster,
             ):
                 result = handler._collect_budget()
@@ -694,7 +694,7 @@ class TestBudget:
             return_value=tracker,
         ):
             with patch(
-                "aragora.billing.forecaster.get_forecaster", create=True,
+                "aragora.billing.forecaster.get_cost_forecaster", create=True,
                 return_value=forecaster,
             ):
                 result = handler._collect_budget()
@@ -716,7 +716,7 @@ class TestBudget:
             return_value=tracker,
         ):
             with patch(
-                "aragora.billing.forecaster.get_forecaster", create=True,
+                "aragora.billing.forecaster.get_cost_forecaster", create=True,
                 return_value=forecaster,
             ):
                 result = handler._collect_budget()
@@ -737,7 +737,7 @@ class TestBudget:
             return_value=tracker,
         ):
             with patch(
-                "aragora.billing.forecaster.get_forecaster", create=True,
+                "aragora.billing.forecaster.get_cost_forecaster", create=True,
                 return_value=forecaster,
             ):
                 result = handler._collect_budget()
@@ -798,7 +798,7 @@ class TestBudget:
             return_value=tracker,
         ):
             with patch(
-                "aragora.billing.forecaster.get_forecaster", create=True,
+                "aragora.billing.forecaster.get_cost_forecaster", create=True,
                 return_value=None,
             ):
                 result = handler._collect_budget()
@@ -819,7 +819,7 @@ class TestBudget:
             return_value=tracker,
         ):
             with patch(
-                "aragora.billing.forecaster.get_forecaster", create=True,
+                "aragora.billing.forecaster.get_cost_forecaster", create=True,
                 return_value=forecaster,
             ):
                 result = handler._collect_budget()

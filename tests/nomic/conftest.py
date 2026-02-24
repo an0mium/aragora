@@ -145,9 +145,11 @@ def _mock_km_operations(request, monkeypatch):
 
         mock_adapter = MagicMock()
         mock_adapter.ingest_cycle_outcome = AsyncMock()
-        # TaskDecomposer awaits these adapter methods during KM enrichment.
+        # Various async adapter methods that get awaited during KM enrichment.
         mock_adapter.find_recurring_failures = AsyncMock(return_value=[])
         mock_adapter.find_high_roi_goal_types = AsyncMock(return_value=[])
+        mock_adapter.find_similar_cycles = AsyncMock(return_value=[])
+        mock_adapter.get_goal_history = AsyncMock(return_value=[])
         monkeypatch.setattr(
             nca_mod,
             "get_nomic_cycle_adapter",

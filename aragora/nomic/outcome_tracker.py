@@ -138,7 +138,7 @@ async def _default_scenario_runner(
         from aragora.memory.consensus import ConsensusStore
 
         store = ConsensusStore()
-        recent = store.get_recent(limit=10)
+        recent = store.get_recent(limit=10)  # type: ignore[attr-defined]
         if recent and len(recent) >= 3:
             consensus_count = sum(1 for d in recent if d.get("consensus_reached"))
             avg_rounds = sum(d.get("rounds", expected_rounds) for d in recent) / len(recent)
@@ -195,7 +195,7 @@ async def _lightweight_debate_runner(
             try:
                 from aragora.agents.base import create_agent
 
-                agent = create_agent(agent_type)
+                agent = create_agent(agent_type)  # type: ignore[arg-type]
                 agents.append(agent)
             except (ImportError, ValueError, RuntimeError):
                 continue

@@ -253,9 +253,9 @@ class KMFeedbackBridge:
         try:
             from aragora.knowledge.mound.core import KnowledgeItem
 
-            ki = KnowledgeItem(
+            ki = KnowledgeItem(  # type: ignore[call-arg]
                 content=item.content,
-                source=item.source,
+                source=item.source,  # type: ignore[arg-type]
                 tags=item.tags,
             )
 

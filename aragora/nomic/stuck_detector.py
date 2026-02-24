@@ -509,7 +509,7 @@ class StuckDetector:
         if item.work_type == "bead" and self.bead_store:
             bead = await self.bead_store.get(item.id)
             if bead and hasattr(bead, "status"):
-                bead.status = "pending"
+                bead.status = "pending"  # type: ignore[assignment]
                 await self.bead_store.update(bead)
                 logger.info("Reset stuck bead %s to pending for retry", item.id)
                 return True

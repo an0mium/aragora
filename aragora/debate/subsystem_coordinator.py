@@ -705,7 +705,7 @@ class SubsystemCoordinator:
         try:
             from aragora.knowledge.mound.adapters.factory import AdapterFactory
 
-            factory = AdapterFactory(knowledge_mound=self.knowledge_mound)
+            factory = AdapterFactory()  # type: ignore[call-arg]
             created = factory.create_from_subsystems(elo_system=self.elo_system)
 
             # Wire PerformanceAdapter if created and not already set

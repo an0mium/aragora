@@ -126,9 +126,9 @@ class ComplianceArtifactHook:
         ctx: DebateContext,
     ) -> None:
         """Generate and store compliance artifacts."""
-        from aragora.compliance.artifact_generator import ComplianceArtifactGenerator
+        from aragora.compliance.artifact_generator import ReceiptComplianceGenerator
 
-        generator = ComplianceArtifactGenerator()
+        generator = ReceiptComplianceGenerator()
         bundle = generator.generate(receipt_dict)
 
         logger.info(

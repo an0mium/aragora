@@ -314,7 +314,7 @@ class HierarchicalCoordinator:
         results = await asyncio.gather(*tasks, return_exceptions=True)
 
         for i, result in enumerate(results):
-            if isinstance(result, Exception):
+            if isinstance(result, BaseException):
                 subtask = decomposition.subtasks[i]
                 reports.append(
                     WorkerReport(
@@ -431,7 +431,7 @@ class HierarchicalCoordinator:
 
             from aragora.agents.api_agents.anthropic import AnthropicAPIAgent
 
-            agents = [
+            agents: list[Any] = [
                 AnthropicAPIAgent(
                     name="judge-1",
                     model="claude-sonnet-4-20250514",

@@ -152,7 +152,7 @@ class BudgetMixin:
         self._budget_spent_usd += cost
 
         # Emit budget tracking event
-        self._emit_event(
+        self._emit_event(  # type: ignore[attr-defined]
             "budget_update",
             subtask=assignment.subtask.id,
             cost=round(cost, 4),
