@@ -212,7 +212,7 @@ class TestTryModularHandler:
         mock_gri.return_value = mock_index
 
         with patch(
-            "aragora.server.handler_registry.should_apply_default_rate_limit", return_value=False
+            "aragora.server.middleware.rate_limit.should_apply_default_rate_limit", return_value=False
         ):
             result = instance._try_modular_handler("/api/fake", {})
 
@@ -235,7 +235,7 @@ class TestTryModularHandler:
         mock_gri.return_value = mock_index
 
         with patch(
-            "aragora.server.handler_registry.should_apply_default_rate_limit", return_value=False
+            "aragora.server.middleware.rate_limit.should_apply_default_rate_limit", return_value=False
         ):
             result = instance._try_modular_handler("/api/fake", {})
 
@@ -258,7 +258,7 @@ class TestTryModularHandler:
         mock_gri.return_value = mock_index
 
         with patch(
-            "aragora.server.handler_registry.should_apply_default_rate_limit", return_value=False
+            "aragora.server.middleware.rate_limit.should_apply_default_rate_limit", return_value=False
         ):
             result = instance._try_modular_handler("/api/fake", {})
 
@@ -301,7 +301,7 @@ class TestTryModularHandler:
         mock_gri.return_value = mock_index
 
         with patch(
-            "aragora.server.handler_registry.should_apply_default_rate_limit", return_value=False
+            "aragora.server.middleware.rate_limit.should_apply_default_rate_limit", return_value=False
         ):
             result = instance._try_modular_handler("/api/error", {})
 
@@ -328,7 +328,7 @@ class TestTryModularHandler:
         mock_gri.return_value = mock_index
 
         with patch(
-            "aragora.server.handler_registry.should_apply_default_rate_limit", return_value=False
+            "aragora.server.middleware.rate_limit.should_apply_default_rate_limit", return_value=False
         ):
             result = instance._try_modular_handler("/api/perm", {})
 
@@ -359,10 +359,10 @@ class TestTryModularHandler:
 
         with (
             patch(
-                "aragora.server.handler_registry.should_apply_default_rate_limit", return_value=True
+                "aragora.server.middleware.rate_limit.should_apply_default_rate_limit", return_value=True
             ),
             patch(
-                "aragora.server.handler_registry.check_default_rate_limit",
+                "aragora.server.middleware.rate_limit.check_default_rate_limit",
                 return_value=mock_rate_result,
             ),
         ):
@@ -391,7 +391,7 @@ class TestTryModularHandler:
         mock_gri.return_value = mock_index
 
         with patch(
-            "aragora.server.handler_registry.should_apply_default_rate_limit", return_value=False
+            "aragora.server.middleware.rate_limit.should_apply_default_rate_limit", return_value=False
         ):
             instance._try_modular_handler("/api/fake", {"key": ["value"]})
 
@@ -413,7 +413,7 @@ class TestTryModularHandler:
         mock_gri.return_value = mock_index
 
         with patch(
-            "aragora.server.handler_registry.should_apply_default_rate_limit", return_value=False
+            "aragora.server.middleware.rate_limit.should_apply_default_rate_limit", return_value=False
         ):
             instance._try_modular_handler("/api/fake", {})
 
