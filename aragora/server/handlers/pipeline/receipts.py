@@ -79,22 +79,23 @@ class ReceiptExplorerHandler(BaseHandler):
 
         cleaned = strip_version_prefix(path)
         parts = cleaned.split("/")
+        # parts[0]="" parts[1]="api" parts[2]="receipts" parts[3]=:id ...
 
         # GET /api/receipts
-        if len(parts) == 2 and parts[1] == "receipts":
+        if len(parts) == 3 and parts[2] == "receipts":
             return self._list_receipts(query_params)
 
         # GET /api/receipts/:id
-        if len(parts) == 3 and parts[1] == "receipts":
-            receipt_id = parts[2]
+        if len(parts) == 4 and parts[2] == "receipts":
+            receipt_id = parts[3]
             ok, err = validate_path_segment(receipt_id, "receipt_id", SAFE_ID_PATTERN)
             if not ok:
                 return error_response(err, 400)
             return self._get_receipt(receipt_id)
 
         # GET /api/receipts/:id/verify
-        if len(parts) == 4 and parts[1] == "receipts" and parts[3] == "verify":
-            receipt_id = parts[2]
+        if len(parts) == 5 and parts[2] == "receipts" and parts[4] == "verify":
+            receipt_id = parts[3]
             ok, err = validate_path_segment(receipt_id, "receipt_id", SAFE_ID_PATTERN)
             if not ok:
                 return error_response(err, 400)

@@ -7,6 +7,7 @@ from unittest.mock import AsyncMock, MagicMock, patch
 import pytest
 
 from aragora.integrations.teams_debate import (
+    TeamsActiveDebateState,
     TeamsDebateConfig,
     TeamsDebateLifecycle,
     _active_debates,
@@ -337,8 +338,8 @@ class TestStartDebateFromThread:
                 config=config,
             )
             info = _active_debates[debate_id]
-            assert info["config"].agents == ["claude", "gpt4", "gemini"]
-            assert info["config"].rounds == 5
+            assert info.topic == "Test"
+            assert info.channel_id == "19:abc@thread.tacv2"
 
 
 # =============================================================================

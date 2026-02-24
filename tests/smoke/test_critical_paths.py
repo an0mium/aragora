@@ -7,7 +7,12 @@ Fast tests that validate Aragora's most important code paths:
 3. Oracle WebSocket protocol event handling
 4. SSRF protection for outbound URLs
 5. RBAC permission checking
-6. Auth token handling
+6. Model selector and key rotation
+7. Resilience (circuit breaker)
+8. Workflow engine
+9. Event dispatcher
+10. Compliance framework
+11. Privacy (consent, retention)
 
 Run: pytest tests/smoke/ -v --timeout=30
 """

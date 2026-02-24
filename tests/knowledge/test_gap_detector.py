@@ -6,10 +6,13 @@ Tests cover:
 - Coverage gap detection
 - Staleness detection
 - Contradiction detection
-- Recommendation generation
+- Debate receipt analysis
+- Frequently asked topic tracking
+- Coverage map generation
+- Recommendation generation (including debate + FAQ signals)
 - Coverage score calculation
 - Dataclass serialization
-- Handler endpoint routing
+- Handler endpoint routing (including /coverage)
 """
 
 import pytest
@@ -18,6 +21,9 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 from aragora.knowledge.gap_detector import (
     Contradiction,
+    DebateInsight,
+    DomainCoverageEntry,
+    FrequentlyAskedGap,
     KnowledgeGap,
     KnowledgeGapDetector,
     Priority,
@@ -178,6 +184,7 @@ class TestDataclasses:
         assert RecommendedAction.UPDATE.value == "update"
         assert RecommendedAction.REVIEW.value == "review"
         assert RecommendedAction.ARCHIVE.value == "archive"
+        assert RecommendedAction.ACQUIRE.value == "acquire"
 
 
 # =============================================================================
