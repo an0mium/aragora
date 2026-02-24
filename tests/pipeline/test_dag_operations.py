@@ -1,6 +1,14 @@
-"""Tests for DAGOperationsCoordinator."""
+"""Tests for DAGOperationsCoordinator.
+
+Covers: node CRUD, debate_node, decompose_node, prioritize_children,
+assign_agents, execute_node, find_precedents, cluster_ideas, auto_flow,
+_save persistence, and error handling (ImportError, RuntimeError fallbacks).
+"""
 
 from __future__ import annotations
+
+import builtins
+from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
