@@ -287,7 +287,7 @@ async def handle_sso_callback(
         sso_user = await provider.authenticate(code=code, state=state)
 
         # Create or update user in our system
-        from aragora.billing.jwt_auth import create_access_token
+        from aragora.billing.jwt_auth import create_access_token, create_token_pair
         from aragora.storage.user_store.singleton import get_user_store
 
         user_store = get_user_store()
@@ -313,22 +313,70 @@ async def handle_sso_callback(
                 name=sso_user.name or sso_user.email.split("@")[0],
             )
 
-        # Generate JWT token using Aragora user ID (not SSO provider ID)
-        access_token = create_access_token(
+            # Auto-create a default organization for new OAuth users
+            # so they have a complete profile on first login
+            if user and not user.org_id:
+                try:
+                    sso_name = sso_user.name or sso_user.email.split("@")[0]
+                    org_name = f"{sso_name}'s Organization"
+                    if hasattr(user_store, "create_organization"):
+                        user_store.create_organization(
+                            name=org_name,
+                            owner_id=user.id,
+                        )
+                        # Refresh user to get updated org_id
+                        user = user_store.get_user_by_id(user.id) or user
+                except (ValueError, AttributeError, TypeError) as org_err:
+                    # Non-fatal: user can set up org later
+                    logger.warning(
+                        "Auto-org creation failed for SSO user %s: %s",
+                        user.id,
+                        org_err,
+                    )
+
+        # Generate JWT token pair using Aragora user ID (not SSO provider ID)
+        # Use create_token_pair to provide both access and refresh tokens
+        tokens = create_token_pair(
             user_id=user.id,
             email=user.email,
+            org_id=getattr(user, "org_id", None),
+            role=getattr(user, "role", "member"),
         )
+
+        # Build organization data for frontend
+        org_data = None
+        org_membership = []
+        if getattr(user, "org_id", None) and hasattr(user_store, "get_organization_by_id"):
+            org = user_store.get_organization_by_id(user.org_id)
+            if org:
+                org_data = org.to_dict()
+                joined_at = getattr(user, "created_at", None)
+                org_membership = [
+                    {
+                        "user_id": user.id,
+                        "org_id": user.org_id,
+                        "organization": org_data,
+                        "role": getattr(user, "role", None) or "member",
+                        "is_default": True,
+                        "joined_at": joined_at.isoformat() if joined_at else None,
+                    }
+                ]
 
         return success_response(
             {
-                "access_token": access_token,
+                "access_token": tokens.access_token,
+                "refresh_token": tokens.refresh_token,
                 "token_type": "bearer",
+                "expires_in": tokens.expires_in,
                 "user": {
                     "id": user.id,
                     "email": user.email,
                     "name": getattr(user, "name", sso_user.name),
                     "role": getattr(user, "role", "member"),
+                    "org_id": getattr(user, "org_id", None),
                 },
+                "organization": org_data,
+                "organizations": org_membership,
                 "redirect_url": redirect_url,
                 "sso_access_token": sso_user.access_token,  # For API calls to IdP
                 "expires_at": sso_user.token_expires_at,

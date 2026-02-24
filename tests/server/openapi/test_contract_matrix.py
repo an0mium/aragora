@@ -123,8 +123,7 @@ def _discover_ts_namespaces() -> list[str]:
 @pytest.fixture(scope="module")
 def openapi_spec() -> dict:
     spec_path = _repo_root() / "docs/api/openapi.json"
-    if not spec_path.exists():
-        pytest.skip(f"docs/api/openapi.json not found (tried {spec_path})")
+    assert spec_path.exists(), f"docs/api/openapi.json not found (tried {spec_path})"
     return json.loads(spec_path.read_text())
 
 

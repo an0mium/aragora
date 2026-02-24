@@ -1,19 +1,31 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import Link from 'next/link';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
+import { Suspense } from 'react';
 import { Scanlines, CRTVignette } from '@/components/MatrixRain';
 import { useAuth } from '@/context/AuthContext';
 import { SocialLoginButtons } from '@/components/auth/SocialLoginButtons';
 
-export default function LoginPage() {
+function LoginPageContent() {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const { login, isLoading: authLoading } = useAuth();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
   const [isLoading, setIsLoading] = useState(false);
+
+  // Preserve the return URL so we can redirect back after login
+  const returnUrl = searchParams.get('returnUrl') || '/';
+
+  // Save return URL to sessionStorage so the OAuth callback can use it too
+  useEffect(() => {
+    if (returnUrl && returnUrl !== '/') {
+      sessionStorage.setItem('aragora_return_url', returnUrl);
+    }
+  }, [returnUrl]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -23,7 +35,9 @@ export default function LoginPage() {
     const result = await login(email, password);
 
     if (result.success) {
-      router.push('/');
+      // Clear saved return URL and redirect to it
+      sessionStorage.removeItem('aragora_return_url');
+      router.push(returnUrl);
     } else {
       setError(result.error || 'Login failed');
     }

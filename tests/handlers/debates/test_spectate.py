@@ -570,17 +570,14 @@ class TestRegisterSpectateRoutes:
         mock_request = MagicMock()
         mock_request.path_params = {"debate_id": "d1"}
 
-        try:
-            from starlette.responses import StreamingResponse
+        from starlette.responses import StreamingResponse
 
-            result = await endpoint(mock_request)
-            assert isinstance(result, StreamingResponse)
-            assert result.media_type == "text/event-stream"
-            # Check headers
-            assert result.headers.get("Cache-Control") == "no-cache"
-            assert result.headers.get("X-Accel-Buffering") == "no"
-        except ImportError:
-            pytest.skip("Starlette not installed")
+        result = await endpoint(mock_request)
+        assert isinstance(result, StreamingResponse)
+        assert result.media_type == "text/event-stream"
+        # Check headers
+        assert result.headers.get("Cache-Control") == "no-cache"
+        assert result.headers.get("X-Accel-Buffering") == "no"
 
     @pytest.mark.asyncio
     async def test_endpoint_fallback_when_no_starlette(self):

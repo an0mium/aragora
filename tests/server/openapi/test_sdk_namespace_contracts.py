@@ -93,8 +93,7 @@ def _extract_sdk_endpoints(content: str) -> set[tuple[str, str]]:
 @pytest.fixture(scope="module")
 def openapi_endpoints() -> set[tuple[str, str]]:
     spec_path = _repo_root() / "docs/api/openapi.json"
-    if not spec_path.exists():
-        pytest.skip(f"docs/api/openapi.json not found (tried {spec_path})")
+    assert spec_path.exists(), f"docs/api/openapi.json not found (tried {spec_path})"
     spec = json.loads(spec_path.read_text())
     endpoints: set[tuple[str, str]] = set()
     for path, operations in spec.get("paths", {}).items():

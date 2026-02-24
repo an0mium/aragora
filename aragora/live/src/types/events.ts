@@ -69,6 +69,10 @@ export type StreamEventType =
   | 'token_start'
   | 'token_delta'
   | 'token_end'
+  // Reasoning visibility events (real-time agent reasoning)
+  | 'agent_thinking'
+  | 'agent_evidence'
+  | 'agent_confidence'
   // Mood/sentiment events (Real-Time Debate Drama)
   | 'mood_detected'
   | 'mood_shift'
@@ -229,6 +233,27 @@ export interface TokenDeltaData {
   accumulated?: string;
 }
 
+// Reasoning visibility event data types
+export interface AgentThinkingData {
+  agent: string;
+  thinking: string;
+  step?: number;
+  phase?: string;
+}
+
+export interface AgentEvidenceData {
+  agent: string;
+  sources: Array<{ title: string; url?: string; relevance?: number }>;
+  query?: string;
+}
+
+export interface AgentConfidenceData {
+  agent: string;
+  confidence: number;
+  previous?: number;
+  reason?: string;
+}
+
 export interface MoodData {
   agent: string;
   mood: string;
@@ -367,7 +392,10 @@ export type TypedStreamEvent =
   | (StreamEventBase & { type: 'evidence_found'; data: EvidenceFoundData })
   | (StreamEventBase & { type: 'quick_classification'; data: QuickClassificationData })
   | (StreamEventBase & { type: 'agent_preview'; data: AgentPreviewData })
-  | (StreamEventBase & { type: 'context_preview'; data: ContextPreviewData });
+  | (StreamEventBase & { type: 'context_preview'; data: ContextPreviewData })
+  | (StreamEventBase & { type: 'agent_thinking'; data: AgentThinkingData })
+  | (StreamEventBase & { type: 'agent_evidence'; data: AgentEvidenceData })
+  | (StreamEventBase & { type: 'agent_confidence'; data: AgentConfidenceData });
 
 // Generic event type for events not yet specifically typed
 export interface GenericStreamEvent extends StreamEventBase {

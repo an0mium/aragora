@@ -41,6 +41,11 @@ class StreamEventType(Enum):
     TOKEN_DELTA = "token_delta"  # Incremental token(s) received
     TOKEN_END = "token_end"  # Agent finished generating response
 
+    # Reasoning visibility events (real-time agent reasoning)
+    AGENT_THINKING = "agent_thinking"  # Agent's internal reasoning chain
+    AGENT_EVIDENCE = "agent_evidence"  # Sources/references being considered
+    AGENT_CONFIDENCE = "agent_confidence"  # Current confidence level update
+
     # Nomic loop events
     CYCLE_START = "cycle_start"
     CYCLE_END = "cycle_end"

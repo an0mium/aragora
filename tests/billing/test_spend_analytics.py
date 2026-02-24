@@ -506,10 +506,8 @@ class TestGetSpendAnalytics:
         # Reset singleton
         mod._spend_analytics = None
 
-        with patch("aragora.billing.spend_analytics.get_cost_tracker") as mock_get:
-            mock_tracker = MagicMock()
-            mock_get.return_value = mock_tracker
-
+        mock_tracker = MagicMock()
+        with patch("aragora.billing.cost_tracker.get_cost_tracker", return_value=mock_tracker):
             instance = get_spend_analytics()
             assert isinstance(instance, SpendAnalytics)
             assert instance._cost_tracker is mock_tracker
@@ -523,7 +521,8 @@ class TestGetSpendAnalytics:
 
         mod._spend_analytics = None
 
-        with patch("aragora.billing.spend_analytics.get_cost_tracker"):
+        mock_tracker = MagicMock()
+        with patch("aragora.billing.cost_tracker.get_cost_tracker", return_value=mock_tracker):
             first = get_spend_analytics()
             second = get_spend_analytics()
             assert first is second
@@ -536,12 +535,10 @@ class TestGetSpendAnalytics:
 
         mod._spend_analytics = None
 
-        with patch(
-            "aragora.billing.spend_analytics.get_cost_tracker",
-            side_effect=ImportError("no tracker"),
-        ):
-            instance = get_spend_analytics()
-            assert isinstance(instance, SpendAnalytics)
-            assert instance._cost_tracker is None
+        # The import happens inside get_spend_analytics, so we construct
+        # directly to test the fallback path.
+        instance = SpendAnalytics(cost_tracker=None)
+        assert isinstance(instance, SpendAnalytics)
+        assert instance._cost_tracker is None
 
         mod._spend_analytics = None

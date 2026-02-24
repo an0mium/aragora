@@ -332,6 +332,11 @@ class SpendAnalytics:
     ) -> list[SpendAnomaly]:
         """Detect days with anomalous spend using z-score analysis.
 
+        Only days with non-zero spend are considered. The statistics
+        (mean, stdev) are computed over non-zero days, and anomalies
+        are flagged among those days. At least 3 non-zero days are
+        required to produce meaningful results.
+
         Args:
             workspace_id: Workspace identifier.
             period: Period to scan.
@@ -342,19 +347,22 @@ class SpendAnalytics:
         """
         days = _parse_period_days(period)
         raw = await self._daily_costs(workspace_id, days)
-        costs = [c for _, c in raw]
 
-        if len(costs) < 3:
+        # Only consider days that had actual spend
+        active_days = [(d, c) for d, c in raw if c > 0]
+
+        if len(active_days) < 3:
             return []
 
-        avg = mean(costs)
-        sd = stdev(costs) if len(costs) > 1 else 0.0
+        active_costs = [c for _, c in active_days]
+        avg = mean(active_costs)
+        sd = stdev(active_costs) if len(active_costs) > 1 else 0.0
 
         if sd == 0:
             return []
 
         anomalies: list[SpendAnomaly] = []
-        for date_str, cost in raw:
+        for date_str, cost in active_days:
             z = (cost - avg) / sd
             if abs(z) >= z_threshold:
                 severity = "critical" if abs(z) >= 3.0 else "warning"

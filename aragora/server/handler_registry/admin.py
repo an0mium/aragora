@@ -22,6 +22,7 @@ from .core import _safe_import
 
 SystemHandler = _safe_import("aragora.server.handlers", "SystemHandler")
 HealthHandler = _safe_import("aragora.server.handlers", "HealthHandler")
+BuildInfoHandler = _safe_import("aragora.server.handlers.admin.health.build", "BuildInfoHandler")
 NomicHandler = _safe_import("aragora.server.handlers", "NomicHandler")
 DocsHandler = _safe_import("aragora.server.handlers", "DocsHandler")
 ApiDocsHandler = _safe_import("aragora.server.handlers.api_docs", "ApiDocsHandler")
@@ -398,6 +399,7 @@ HandlerResult = _safe_import("aragora.server.handlers", "HandlerResult")
 ADMIN_HANDLER_REGISTRY: list[tuple[str, object]] = [
     # Core system
     ("_health_handler", HealthHandler),
+    ("_build_info_handler", BuildInfoHandler),
     ("_nomic_handler", NomicHandler),
     ("_docs_handler", DocsHandler),
     ("_api_docs_handler", ApiDocsHandler),

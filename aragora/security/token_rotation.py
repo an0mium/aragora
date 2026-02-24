@@ -543,6 +543,353 @@ class TokenRotationManager:
 
 
 # =============================================================================
+# Cron Schedule Validation
+# =============================================================================
+
+# Simple cron expression pattern: 5 fields (minute hour dom month dow)
+_CRON_FIELD_PATTERN = re.compile(
+    r"^(\*|[0-9]+(?:-[0-9]+)?(?:/[0-9]+)?(?:,[0-9]+(?:-[0-9]+)?(?:/[0-9]+)?)*)$"
+)
+
+
+def _validate_cron_schedule(schedule: str) -> bool:
+    """Validate a cron schedule expression (5 fields).
+
+    Args:
+        schedule: Cron expression like "0 3 * * 0"
+
+    Returns:
+        True if the schedule is valid.
+    """
+    parts = schedule.strip().split()
+    if len(parts) != 5:
+        return False
+    return all(_CRON_FIELD_PATTERN.match(p) for p in parts)
+
+
+# =============================================================================
+# Local .env Rotation Support
+# =============================================================================
+
+
+class LocalEnvRotator:
+    """Rotate secrets stored in a local .env file (development fallback).
+
+    Reads, updates, and writes a `.env` file while preserving comments
+    and ordering. Creates a timestamped backup before writing.
+    """
+
+    def __init__(self, env_path: str | Path | None = None):
+        self._env_path = Path(env_path) if env_path else self._find_env_file()
+
+    @staticmethod
+    def _find_env_file() -> Path:
+        """Locate the project .env file."""
+        # Walk up from this file to find the project root
+        current = Path(__file__).resolve().parent
+        for _ in range(5):
+            candidate = current / ".env"
+            if candidate.exists():
+                return candidate
+            current = current.parent
+        # Default location
+        return Path.cwd() / ".env"
+
+    @property
+    def env_path(self) -> Path:
+        return self._env_path
+
+    def read_env(self) -> dict[str, str]:
+        """Read the .env file into a dict."""
+        result: dict[str, str] = {}
+        if not self._env_path.exists():
+            return result
+        for line in self._env_path.read_text().splitlines():
+            stripped = line.strip()
+            if not stripped or stripped.startswith("#"):
+                continue
+            if "=" in stripped:
+                key, _, value = stripped.partition("=")
+                value = value.strip().strip("'\"")
+                result[key.strip()] = value
+        return result
+
+    def update_secret(self, key: str, value: str) -> bool:
+        """Update a single secret in the .env file.
+
+        Creates a backup before writing. Preserves file structure.
+
+        Args:
+            key: Environment variable name.
+            value: New secret value.
+
+        Returns:
+            True on success.
+        """
+        # Create backup
+        if self._env_path.exists():
+            backup_dir = self._env_path.parent / ".env_backups"
+            backup_dir.mkdir(exist_ok=True)
+            timestamp = datetime.now(timezone.utc).strftime("%Y%m%d_%H%M%S")
+            backup_path = backup_dir / f".env.{timestamp}"
+            backup_path.write_text(self._env_path.read_text())
+            logger.info("Backed up .env to %s", backup_path)
+
+        lines: list[str] = []
+        found = False
+
+        if self._env_path.exists():
+            for line in self._env_path.read_text().splitlines():
+                stripped = line.strip()
+                if stripped and not stripped.startswith("#") and "=" in stripped:
+                    line_key = stripped.split("=", 1)[0].strip()
+                    if line_key == key:
+                        # Quote value if it contains spaces
+                        safe_value = f'"{value}"' if " " in value else value
+                        lines.append(f"{key}={safe_value}")
+                        found = True
+                        continue
+                lines.append(line)
+
+        if not found:
+            safe_value = f'"{value}"' if " " in value else value
+            lines.append(f"{key}={safe_value}")
+
+        self._env_path.write_text("\n".join(lines) + "\n")
+        logger.info("Updated %s in %s", key, self._env_path)
+        return True
+
+
+# =============================================================================
+# Rotation Pipeline
+# =============================================================================
+
+
+@dataclass
+class RotationEvent:
+    """Structured rotation telemetry event."""
+
+    event_type: str  # "rotation_started", "rotation_completed", "rotation_failed", "health_check"
+    token_type: str
+    timestamp: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
+    success: bool = True
+    duration_seconds: float = 0.0
+    stores_updated: list[str] = field(default_factory=list)
+    error: str = ""
+    metadata: dict[str, Any] = field(default_factory=dict)
+
+    def to_dict(self) -> dict[str, Any]:
+        return {
+            "event_type": self.event_type,
+            "token_type": self.token_type,
+            "timestamp": self.timestamp.isoformat(),
+            "success": self.success,
+            "duration_seconds": self.duration_seconds,
+            "stores_updated": self.stores_updated,
+            "error": self.error,
+            "metadata": self.metadata,
+        }
+
+
+class RotationPipeline:
+    """Orchestrates token rotation with health checks, telemetry, and alerting.
+
+    Combines TokenRotationManager with:
+    - Schedule validation (cron expressions)
+    - Pre/post-rotation health checks
+    - Structured telemetry logging
+    - Failure alerting via structured log events
+    - Local .env fallback for development
+
+    Usage:
+        manager = TokenRotationManager(config=config)
+
+        def health_check(token_type: TokenType) -> bool:
+            return manager.verify_token(token_type)
+
+        pipeline = RotationPipeline(
+            manager=manager,
+            schedule="0 3 * * 0",
+            health_checker=health_check,
+        )
+
+        result = pipeline.execute(TokenType.PYPI, "pypi-NEW_TOKEN")
+    """
+
+    def __init__(
+        self,
+        manager: TokenRotationManager,
+        schedule: str | None = None,
+        health_checker: Callable[[TokenType], bool] | None = None,
+        alert_callback: Callable[[RotationEvent], None] | None = None,
+        enable_local_env: bool = False,
+        local_env_path: str | Path | None = None,
+    ):
+        """
+        Args:
+            manager: The TokenRotationManager to use for rotation.
+            schedule: Optional cron schedule (validated but not auto-executed).
+            health_checker: Function to verify dependent services after rotation.
+            alert_callback: Called on failure events for PagerDuty/Slack alerting.
+            enable_local_env: If True, also update local .env file.
+            local_env_path: Path to .env file (auto-detected if None).
+        """
+        self._manager = manager
+        self._schedule = schedule
+        self._health_checker = health_checker or (lambda tt: manager.verify_token(tt))
+        self._alert_callback = alert_callback
+        self._enable_local_env = enable_local_env
+        self._local_env = LocalEnvRotator(local_env_path) if enable_local_env else None
+        self._events: list[RotationEvent] = []
+
+        if schedule and not _validate_cron_schedule(schedule):
+            raise ValueError(f"Invalid cron schedule: {schedule!r}")
+
+    @property
+    def schedule(self) -> str | None:
+        return self._schedule
+
+    @property
+    def events(self) -> list[RotationEvent]:
+        return list(self._events)
+
+    def _emit_event(self, event: RotationEvent) -> None:
+        """Log and store a rotation event."""
+        self._events.append(event)
+
+        # Structured log for telemetry
+        logger.info(
+            "ROTATION_TELEMETRY: type=%s event=%s success=%s duration=%.2fs stores=%s error=%s",
+            event.token_type,
+            event.event_type,
+            event.success,
+            event.duration_seconds,
+            ",".join(event.stores_updated) or "none",
+            event.error or "none",
+        )
+
+        # Alert on failures
+        if not event.success and self._alert_callback:
+            try:
+                self._alert_callback(event)
+            except (TypeError, ValueError, RuntimeError, OSError) as e:
+                logger.warning("Alert callback failed: %s", e)
+
+    def execute(
+        self,
+        token_type: TokenType,
+        new_token: str,
+        *,
+        old_token: str | None = None,
+        skip_health_check: bool = False,
+    ) -> TokenRotationResult:
+        """Execute a full rotation pipeline.
+
+        Steps:
+        1. Emit rotation_started event
+        2. Rotate via TokenRotationManager
+        3. Optionally update local .env
+        4. Run post-rotation health check
+        5. Emit rotation_completed or rotation_failed event
+
+        Args:
+            token_type: Type of token being rotated.
+            new_token: The new token value.
+            old_token: Previous token value (for audit).
+            skip_health_check: If True, skip post-rotation health check.
+
+        Returns:
+            TokenRotationResult from the underlying rotation.
+        """
+        import time
+
+        start = time.time()
+
+        # Step 1: Start event
+        self._emit_event(
+            RotationEvent(
+                event_type="rotation_started",
+                token_type=token_type.value,
+            )
+        )
+
+        # Step 2: Rotate
+        result = self._manager.rotate(
+            token_type,
+            new_token,
+            old_token=old_token,
+        )
+
+        # Step 3: Local .env fallback
+        if self._enable_local_env and self._local_env:
+            env_var = TOKEN_ENV_VARS.get(token_type, token_type.value.upper())
+            try:
+                self._local_env.update_secret(env_var, new_token)
+                if "local_env" not in result.stores_updated:
+                    result.stores_updated.append("local_env")
+            except (OSError, ValueError, RuntimeError) as e:
+                logger.warning("Failed to update local .env: %s", e)
+                result.errors["local_env"] = "Failed to update local .env"
+
+        # Step 4: Post-rotation health check
+        health_ok = True
+        if not skip_health_check and result.success:
+            try:
+                health_ok = self._health_checker(token_type)
+            except (RuntimeError, ValueError, OSError, TimeoutError) as e:
+                logger.warning("Health check failed for %s: %s", token_type.value, e)
+                health_ok = False
+
+            self._emit_event(
+                RotationEvent(
+                    event_type="health_check",
+                    token_type=token_type.value,
+                    success=health_ok,
+                    duration_seconds=time.time() - start,
+                )
+            )
+
+            if not health_ok:
+                result.errors["health_check"] = "Post-rotation health check failed"
+                result.success = False
+
+        # Step 5: Final event
+        duration = time.time() - start
+        if result.success:
+            self._emit_event(
+                RotationEvent(
+                    event_type="rotation_completed",
+                    token_type=token_type.value,
+                    success=True,
+                    duration_seconds=duration,
+                    stores_updated=list(result.stores_updated),
+                )
+            )
+        else:
+            failure_event = RotationEvent(
+                event_type="rotation_failed",
+                token_type=token_type.value,
+                success=False,
+                duration_seconds=duration,
+                stores_updated=list(result.stores_updated),
+                error="; ".join(f"{k}: {v}" for k, v in result.errors.items()),
+            )
+            self._emit_event(failure_event)
+
+        return result
+
+    def validate_schedule(self) -> bool:
+        """Check if the configured schedule is valid.
+
+        Returns:
+            True if schedule is valid or not set.
+        """
+        if not self._schedule:
+            return True
+        return _validate_cron_schedule(self._schedule)
+
+
+# =============================================================================
 # Module-level helpers
 # =============================================================================
 
@@ -574,6 +921,9 @@ __all__ = [
     "TokenRotationResult",
     "TokenRotationManager",
     "ManagedTokenInfo",
+    "RotationPipeline",
+    "RotationEvent",
+    "LocalEnvRotator",
     "TOKEN_ENV_VARS",
     "TOKEN_GITHUB_SECRET_NAMES",
     "get_token_rotation_manager",

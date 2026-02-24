@@ -19,6 +19,18 @@ export interface TranscriptMessage {
   } | null;
 }
 
+export interface ReasoningStep {
+  thinking: string;
+  timestamp: number;
+  step?: number;
+}
+
+export interface EvidenceSource {
+  title: string;
+  url?: string;
+  relevance?: number;
+}
+
 export interface StreamingMessage {
   agent: string;
   taskId: string;  // Task ID for distinguishing concurrent outputs from same agent
@@ -27,6 +39,10 @@ export interface StreamingMessage {
   startTime: number;
   expectedSeq: number;  // Next expected agent_seq for ordering
   pendingTokens: Map<number, string>;  // Buffer for out-of-order tokens
+  // Reasoning visibility
+  reasoning: ReasoningStep[];
+  evidence: EvidenceSource[];
+  confidence: number | null;
 }
 
 export type DebateConnectionStatus = 'connecting' | 'streaming' | 'complete' | 'error';
