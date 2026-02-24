@@ -139,7 +139,7 @@ class ProxyConfig:
 
     @classmethod
     def default(cls) -> ProxyConfig:
-        """Create default config with ElevenLabs pre-configured."""
+        """Create default config with ElevenLabs and Gemini pre-configured."""
         config = cls()
         config.services["elevenlabs"] = ServiceKeyConfig(
             service_name="elevenlabs",
@@ -163,6 +163,24 @@ class ProxyConfig:
             ),
             active_hours=(6, 23),
             budget_limit_credits=500_000,  # Per rotation period
+        )
+        config.services["gemini"] = ServiceKeyConfig(
+            service_name="gemini",
+            secret_manager_key="GEMINI_API_KEY",
+            secret_id="aragora/production",
+            standalone_secret_id="aragora/api/gemini",
+            rotation_strategy=RotationStrategy.JITTERED,
+            rotation_interval_hours=4.0,  # Shorter interval due to potential compromise
+            rotation_jitter_hours=1.5,
+            max_calls_per_minute=30,
+            max_calls_per_hour=500,
+            allowed_endpoints=frozenset(
+                {
+                    "/v1beta/models/",  # generateContent, streamGenerateContent
+                }
+            ),
+            active_hours=(0, 23),  # Debates can run any hour
+            budget_limit_credits=None,  # Gemini uses token-based billing
         )
         return config
 
