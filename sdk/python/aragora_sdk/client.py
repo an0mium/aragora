@@ -291,6 +291,7 @@ class AragoraClient:
         from .namespaces.routing import RoutingAPI
         from .namespaces.scim import SCIMAPI
         from .namespaces.security import SecurityAPI
+        from .namespaces.self_improve import SelfImproveAPI
         from .namespaces.services import ServicesAPI
         from .namespaces.shared_inbox import SharedInboxAPI
         from .namespaces.slo import SLOAPI
@@ -457,6 +458,7 @@ class AragoraClient:
         self.routing = RoutingAPI(self)
         self.scim = SCIMAPI(self)
         self.security = SecurityAPI(self)
+        self.self_improve = SelfImproveAPI(self)
         self.services = ServicesAPI(self)
         self.shared_inbox = SharedInboxAPI(self)
         self.slo = SLOAPI(self)
@@ -895,6 +897,7 @@ class AragoraAsyncClient:
         from .namespaces.routing import AsyncRoutingAPI
         from .namespaces.scim import AsyncSCIMAPI
         from .namespaces.security import AsyncSecurityAPI
+        from .namespaces.self_improve import AsyncSelfImproveAPI
         from .namespaces.services import AsyncServicesAPI
         from .namespaces.shared_inbox import AsyncSharedInboxAPI
         from .namespaces.slo import AsyncSLOAPI
@@ -1048,6 +1051,7 @@ class AragoraAsyncClient:
         self.routing = AsyncRoutingAPI(self)
         self.scim = AsyncSCIMAPI(self)
         self.security = AsyncSecurityAPI(self)
+        self.self_improve = AsyncSelfImproveAPI(self)
         self.services = AsyncServicesAPI(self)
         self.shared_inbox = AsyncSharedInboxAPI(self)
         self.slo = AsyncSLOAPI(self)

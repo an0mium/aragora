@@ -341,6 +341,32 @@ describe('AnalyticsAPI', () => {
     });
   });
 
+  describe('Differentiation Analytics', () => {
+    it('should get differentiation endpoints', async () => {
+      mockClient.request.mockResolvedValue({ data: {} });
+
+      await api.getDifferentiationSummary();
+      await api.getDifferentiationVetting();
+      await api.getDifferentiationCalibration();
+      await api.getDifferentiationMemory();
+      await api.getDifferentiationBenchmarks();
+
+      expect(mockClient.request).toHaveBeenNthCalledWith(1, 'GET', '/api/differentiation/summary');
+      expect(mockClient.request).toHaveBeenNthCalledWith(2, 'GET', '/api/differentiation/vetting');
+      expect(mockClient.request).toHaveBeenNthCalledWith(
+        3,
+        'GET',
+        '/api/differentiation/calibration'
+      );
+      expect(mockClient.request).toHaveBeenNthCalledWith(4, 'GET', '/api/differentiation/memory');
+      expect(mockClient.request).toHaveBeenNthCalledWith(
+        5,
+        'GET',
+        '/api/differentiation/benchmarks'
+      );
+    });
+  });
+
   // ===========================================================================
   // Agent Analytics
   // ===========================================================================

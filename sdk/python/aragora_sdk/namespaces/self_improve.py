@@ -274,6 +274,32 @@ class SelfImproveAPI:
 
         return self._client.request("POST", "/api/v1/self-improve/coordinate", json=data)
 
+    def submit_feedback(self, feedback: dict[str, Any]) -> dict[str, Any]:
+        """Submit self-improvement feedback. POST /api/self-improve/feedback"""
+        return self._client.request("POST", "/api/v1/self-improve/feedback", json=feedback)
+
+    def get_feedback_summary(self, query: dict[str, Any] | None = None) -> dict[str, Any]:
+        """Get self-improvement feedback summary. POST /api/self-improve/feedback-summary"""
+        return self._client.request(
+            "POST", "/api/v1/self-improve/feedback-summary", json=query or {}
+        )
+
+    def upsert_goals(self, goals: dict[str, Any]) -> dict[str, Any]:
+        """Create or update self-improvement goals. POST /api/self-improve/goals"""
+        return self._client.request("POST", "/api/v1/self-improve/goals", json=goals)
+
+    def get_metrics_summary(self, query: dict[str, Any] | None = None) -> dict[str, Any]:
+        """Get self-improvement metrics summary. POST /api/self-improve/metrics/summary"""
+        return self._client.request(
+            "POST", "/api/v1/self-improve/metrics/summary", json=query or {}
+        )
+
+    def get_regression_history(self, query: dict[str, Any] | None = None) -> dict[str, Any]:
+        """Get self-improvement regression history. POST /api/self-improve/regression-history"""
+        return self._client.request(
+            "POST", "/api/v1/self-improve/regression-history", json=query or {}
+        )
+
 
 class AsyncSelfImproveAPI:
     """Asynchronous self-improvement API."""
@@ -403,3 +429,29 @@ class AsyncSelfImproveAPI:
             data["tracks"] = tracks
 
         return await self._client.request("POST", "/api/v1/self-improve/coordinate", json=data)
+
+    async def submit_feedback(self, feedback: dict[str, Any]) -> dict[str, Any]:
+        """Submit self-improvement feedback. POST /api/self-improve/feedback"""
+        return await self._client.request("POST", "/api/v1/self-improve/feedback", json=feedback)
+
+    async def get_feedback_summary(self, query: dict[str, Any] | None = None) -> dict[str, Any]:
+        """Get self-improvement feedback summary. POST /api/self-improve/feedback-summary"""
+        return await self._client.request(
+            "POST", "/api/v1/self-improve/feedback-summary", json=query or {}
+        )
+
+    async def upsert_goals(self, goals: dict[str, Any]) -> dict[str, Any]:
+        """Create or update self-improvement goals. POST /api/self-improve/goals"""
+        return await self._client.request("POST", "/api/v1/self-improve/goals", json=goals)
+
+    async def get_metrics_summary(self, query: dict[str, Any] | None = None) -> dict[str, Any]:
+        """Get self-improvement metrics summary. POST /api/self-improve/metrics/summary"""
+        return await self._client.request(
+            "POST", "/api/v1/self-improve/metrics/summary", json=query or {}
+        )
+
+    async def get_regression_history(self, query: dict[str, Any] | None = None) -> dict[str, Any]:
+        """Get self-improvement regression history. POST /api/self-improve/regression-history"""
+        return await self._client.request(
+            "POST", "/api/v1/self-improve/regression-history", json=query or {}
+        )

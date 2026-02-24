@@ -245,4 +245,49 @@ export class SelfImproveAPI {
       json: request as unknown as Record<string, unknown>,
     });
   }
+
+  /**
+   * Submit self-improvement feedback.
+   */
+  async submitFeedback(feedback: Record<string, unknown>): Promise<Record<string, unknown>> {
+    return this.client.request('POST', '/api/v1/self-improve/feedback', {
+      json: feedback,
+    });
+  }
+
+  /**
+   * Get self-improvement feedback summary.
+   */
+  async getFeedbackSummary(query?: Record<string, unknown>): Promise<Record<string, unknown>> {
+    return this.client.request('POST', '/api/v1/self-improve/feedback-summary', {
+      json: query ?? {},
+    });
+  }
+
+  /**
+   * Create or update self-improvement goals.
+   */
+  async upsertGoals(goals: Record<string, unknown>): Promise<Record<string, unknown>> {
+    return this.client.request('POST', '/api/v1/self-improve/goals', {
+      json: goals,
+    });
+  }
+
+  /**
+   * Get self-improvement metrics summary.
+   */
+  async getMetricsSummary(query?: Record<string, unknown>): Promise<Record<string, unknown>> {
+    return this.client.request('POST', '/api/v1/self-improve/metrics/summary', {
+      json: query ?? {},
+    });
+  }
+
+  /**
+   * Get self-improvement regression history.
+   */
+  async getRegressionHistory(query?: Record<string, unknown>): Promise<Record<string, unknown>> {
+    return this.client.request('POST', '/api/v1/self-improve/regression-history', {
+      json: query ?? {},
+    });
+  }
 }

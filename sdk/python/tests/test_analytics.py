@@ -208,6 +208,28 @@ class TestOutcomeAnalytics:
             assert mock_request.call_count == 6
             client.close()
 
+    def test_differentiation_endpoints(self) -> None:
+        with patch.object(AragoraClient, "request") as mock_request:
+            mock_request.return_value = {"data": {}}
+            client = AragoraClient(base_url="https://api.aragora.ai", api_key="test-key")
+
+            client.analytics.differentiation_summary()
+            client.analytics.differentiation_vetting()
+            client.analytics.differentiation_calibration()
+            client.analytics.differentiation_memory()
+            client.analytics.differentiation_benchmarks()
+
+            expected_calls = [
+                call("GET", "/api/differentiation/summary"),
+                call("GET", "/api/differentiation/vetting"),
+                call("GET", "/api/differentiation/calibration"),
+                call("GET", "/api/differentiation/memory"),
+                call("GET", "/api/differentiation/benchmarks"),
+            ]
+            mock_request.assert_has_calls(expected_calls)
+            assert mock_request.call_count == 5
+            client.close()
+
 
 class TestAsyncAnalytics:
     """Tests for async analytics methods."""
@@ -285,4 +307,27 @@ class TestAsyncAnalytics:
             ]
             mock_request.assert_has_calls(expected_calls)
             assert mock_request.call_count == 6
+            await client.close()
+
+    @pytest.mark.asyncio
+    async def test_async_differentiation_endpoints(self) -> None:
+        with patch.object(AragoraAsyncClient, "request") as mock_request:
+            mock_request.return_value = {"data": {}}
+            client = AragoraAsyncClient(base_url="https://api.aragora.ai", api_key="test-key")
+
+            await client.analytics.differentiation_summary()
+            await client.analytics.differentiation_vetting()
+            await client.analytics.differentiation_calibration()
+            await client.analytics.differentiation_memory()
+            await client.analytics.differentiation_benchmarks()
+
+            expected_calls = [
+                call("GET", "/api/differentiation/summary"),
+                call("GET", "/api/differentiation/vetting"),
+                call("GET", "/api/differentiation/calibration"),
+                call("GET", "/api/differentiation/memory"),
+                call("GET", "/api/differentiation/benchmarks"),
+            ]
+            mock_request.assert_has_calls(expected_calls)
+            assert mock_request.call_count == 5
             await client.close()

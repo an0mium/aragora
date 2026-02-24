@@ -228,6 +228,41 @@ export class AnalyticsAPI {
     return this.client.request('GET', '/api/analytics/outcomes/topics', { params: options });
   }
 
+  /**
+   * Get differentiation summary metrics.
+   */
+  async getDifferentiationSummary(): Promise<unknown> {
+    return this.client.request('GET', '/api/differentiation/summary');
+  }
+
+  /**
+   * Get differentiation vetting metrics.
+   */
+  async getDifferentiationVetting(): Promise<unknown> {
+    return this.client.request('GET', '/api/differentiation/vetting');
+  }
+
+  /**
+   * Get differentiation calibration metrics.
+   */
+  async getDifferentiationCalibration(): Promise<unknown> {
+    return this.client.request('GET', '/api/differentiation/calibration');
+  }
+
+  /**
+   * Get differentiation memory metrics.
+   */
+  async getDifferentiationMemory(): Promise<unknown> {
+    return this.client.request('GET', '/api/differentiation/memory');
+  }
+
+  /**
+   * Get differentiation benchmark metrics.
+   */
+  async getDifferentiationBenchmarks(): Promise<unknown> {
+    return this.client.request('GET', '/api/differentiation/benchmarks');
+  }
+
   // =========================================================================
   // Agent Analytics
   // =========================================================================

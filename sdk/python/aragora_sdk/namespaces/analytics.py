@@ -294,6 +294,26 @@ class AnalyticsAPI:
             params={"period": period},
         )
 
+    def differentiation_summary(self) -> dict[str, Any]:
+        """Get differentiation summary metrics."""
+        return self._client.request("GET", "/api/differentiation/summary")
+
+    def differentiation_vetting(self) -> dict[str, Any]:
+        """Get differentiation vetting metrics."""
+        return self._client.request("GET", "/api/differentiation/vetting")
+
+    def differentiation_calibration(self) -> dict[str, Any]:
+        """Get differentiation calibration metrics."""
+        return self._client.request("GET", "/api/differentiation/calibration")
+
+    def differentiation_memory(self) -> dict[str, Any]:
+        """Get differentiation memory metrics."""
+        return self._client.request("GET", "/api/differentiation/memory")
+
+    def differentiation_benchmarks(self) -> dict[str, Any]:
+        """Get differentiation benchmark metrics."""
+        return self._client.request("GET", "/api/differentiation/benchmarks")
+
     # ===========================================================================
     # Agent Analytics
     # ===========================================================================
@@ -776,6 +796,26 @@ class AsyncAnalyticsAPI:
             "/api/analytics/outcomes/topics",
             params={"period": period},
         )
+
+    async def differentiation_summary(self) -> dict[str, Any]:
+        """Get differentiation summary metrics."""
+        return await self._client.request("GET", "/api/differentiation/summary")
+
+    async def differentiation_vetting(self) -> dict[str, Any]:
+        """Get differentiation vetting metrics."""
+        return await self._client.request("GET", "/api/differentiation/vetting")
+
+    async def differentiation_calibration(self) -> dict[str, Any]:
+        """Get differentiation calibration metrics."""
+        return await self._client.request("GET", "/api/differentiation/calibration")
+
+    async def differentiation_memory(self) -> dict[str, Any]:
+        """Get differentiation memory metrics."""
+        return await self._client.request("GET", "/api/differentiation/memory")
+
+    async def differentiation_benchmarks(self) -> dict[str, Any]:
+        """Get differentiation benchmark metrics."""
+        return await self._client.request("GET", "/api/differentiation/benchmarks")
 
     # ===========================================================================
     # Agent Analytics
