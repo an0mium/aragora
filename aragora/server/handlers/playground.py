@@ -371,13 +371,13 @@ def _call_provider_llm(
             import openai
 
             oai_client = openai.OpenAI(api_key=key, timeout=timeout)
-            resp = oai_client.chat.completions.create(
+            oai_resp = oai_client.chat.completions.create(
                 model=model,
                 max_tokens=max_tokens,
                 messages=[{"role": "user", "content": prompt}],
             )
-            if resp.choices and resp.choices[0].message.content:
-                return resp.choices[0].message.content
+            if oai_resp.choices and oai_resp.choices[0].message.content:
+                return oai_resp.choices[0].message.content
         except (
             ImportError,
             OSError,
@@ -398,13 +398,13 @@ def _call_provider_llm(
             import openai
 
             xai_client = openai.OpenAI(api_key=key, base_url="https://api.x.ai/v1", timeout=timeout)
-            resp = xai_client.chat.completions.create(
+            xai_resp = xai_client.chat.completions.create(
                 model=model,
                 max_tokens=max_tokens,
                 messages=[{"role": "user", "content": prompt}],
             )
-            if resp.choices and resp.choices[0].message.content:
-                return resp.choices[0].message.content
+            if xai_resp.choices and xai_resp.choices[0].message.content:
+                return xai_resp.choices[0].message.content
         except (
             ImportError,
             OSError,
@@ -429,13 +429,13 @@ def _call_provider_llm(
                 base_url="https://openrouter.ai/api/v1",
                 timeout=timeout,
             )
-            resp = or_client.chat.completions.create(
+            or_resp = or_client.chat.completions.create(
                 model=model,
                 max_tokens=max_tokens,
                 messages=[{"role": "user", "content": prompt}],
             )
-            if resp.choices and resp.choices[0].message.content:
-                return resp.choices[0].message.content
+            if or_resp.choices and or_resp.choices[0].message.content:
+                return or_resp.choices[0].message.content
         except (
             ImportError,
             OSError,

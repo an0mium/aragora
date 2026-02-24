@@ -426,7 +426,7 @@ class DAGOperationsCoordinator:
 
             for agent_name in agent_names[:3]:  # Use up to 3 agents for the debate
                 try:
-                    debate_agents.append(create_agent(agent_name))
+                    debate_agents.append(create_agent(agent_name))  # type: ignore[arg-type]
                 except (RuntimeError, ImportError, ValueError):
                     pass
 
@@ -570,12 +570,12 @@ class DAGOperationsCoordinator:
                 # Wrap raw reference if needed
                 coordinator = CrossWorkspaceCoordinator()
 
-            result = await coordinator.execute_remote(
+            result = await coordinator.execute_remote(  # type: ignore[attr-defined]
                 workspace_id=target_workspace,
                 task={
                     "node_id": node.id,
                     "label": node.label,
-                    "description": node.description,
+                    "description": getattr(node, "description", ""),
                     "stage": node.stage.value if hasattr(node.stage, "value") else str(node.stage),
                     "data": node.data,
                 },
@@ -708,8 +708,8 @@ class DAGOperationsCoordinator:
                     message="KnowledgeMound not available",
                 )
 
-            query = f"{node.label} {node.description}"
-            results = km.search(query=query, limit=max_results)
+            search_query = f"{node.label} {getattr(node, 'description', '')}"
+            results = await km.query(query=search_query, limit=max_results)  # type: ignore[misc]
 
             precedents = []
             if results:
