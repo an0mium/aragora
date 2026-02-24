@@ -1625,6 +1625,19 @@ export {
   type PipelineReceiptResponse,
 } from './pipeline';
 
+// DAG Operations (Pipeline graph-level automation)
+export {
+  DagOperationsNamespace,
+  type DagOperationResult,
+  type DagOperationResponse,
+  type DagGraphResponse,
+  type DebateNodeOptions,
+  type AssignAgentsOptions,
+  type FindPrecedentsOptions,
+  type ClusterIdeasOptions,
+  type AutoFlowOptions,
+} from './dag-operations';
+
 // DevOps (Incident Management)
 export {
   DevOpsNamespace,

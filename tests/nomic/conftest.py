@@ -97,6 +97,57 @@ def _mock_scan_code_markers(request, monkeypatch):
         pass
 
 
+@pytest.fixture(autouse=True)
+def _mock_km_operations(request, monkeypatch):
+    """Prevent KnowledgeMound operations from blocking on real I/O.
+
+    Several orchestrator methods (_record_orchestration_outcome,
+    _detect_km_contradictions) import KM adapters and perform async
+    database/filesystem operations.  Without mocking, these block
+    indefinitely on large codebases.
+
+    Skipped for tests that specifically test KM integration.
+    """
+    if "test_knowledge" in request.fspath.basename:
+        return
+    try:
+        import aragora.knowledge.mound as km_mod
+
+        monkeypatch.setattr(
+            km_mod,
+            "get_knowledge_mound",
+            lambda **kwargs: MagicMock(),
+        )
+    except (ImportError, AttributeError):
+        pass
+    try:
+        import aragora.knowledge.mound.adapters.nomic_cycle_adapter as nca_mod
+
+        mock_adapter = MagicMock()
+        mock_adapter.ingest_cycle_outcome = AsyncMock()
+        monkeypatch.setattr(
+            nca_mod,
+            "get_nomic_cycle_adapter",
+            lambda: mock_adapter,
+        )
+    except (ImportError, AttributeError):
+        pass
+    try:
+        import aragora.knowledge.mound.ops.contradiction as contra_mod
+
+        mock_detector = MagicMock()
+        mock_report = MagicMock()
+        mock_report.contradictions_found = 0
+        mock_detector.detect_contradictions = AsyncMock(return_value=mock_report)
+        monkeypatch.setattr(
+            contra_mod,
+            "ContradictionDetector",
+            lambda: mock_detector,
+        )
+    except (ImportError, AttributeError):
+        pass
+
+
 @pytest.fixture
 def mock_aragora_path(tmp_path: Path) -> Path:
     """Create a mock aragora project structure."""

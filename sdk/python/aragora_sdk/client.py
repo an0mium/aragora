@@ -201,6 +201,7 @@ class AragoraClient:
         from .namespaces.cost_management import CostManagementAPI
         from .namespaces.critiques import CritiquesAPI
         from .namespaces.cross_pollination import CrossPollinationAPI
+        from .namespaces.dag_operations import DAGOperationsAPI
         from .namespaces.dashboard import DashboardAPI
         from .namespaces.debates import DebatesAPI
         from .namespaces.decisions import DecisionsAPI
@@ -341,6 +342,7 @@ class AragoraClient:
         self.canvas = CanvasAPI(self)
         self.channels = ChannelsAPI(self)
         self.chat = ChatAPI(self)
+        self.dag_operations = DAGOperationsAPI(self)
         self.pipeline = PipelineAPI(self)
         self.pipeline_transitions = PipelineTransitionsAPI(self)
         self.playground = PlaygroundAPI(self)
@@ -787,6 +789,7 @@ class AragoraAsyncClient:
         from .namespaces.cost_management import AsyncCostManagementAPI
         from .namespaces.critiques import AsyncCritiquesAPI
         from .namespaces.cross_pollination import AsyncCrossPollinationAPI
+        from .namespaces.dag_operations import AsyncDAGOperationsAPI
         from .namespaces.dashboard import AsyncDashboardAPI
         from .namespaces.debates import AsyncDebatesAPI
         from .namespaces.decisions import AsyncDecisionsAPI
@@ -915,6 +918,7 @@ class AragoraAsyncClient:
         self.calibration = AsyncCalibrationAPI(self)
         self.canvas = AsyncCanvasAPI(self)
         self.chat = AsyncChatAPI(self)
+        self.dag_operations = AsyncDAGOperationsAPI(self)
         self.pipeline = AsyncPipelineAPI(self)
         self.pipeline_transitions = AsyncPipelineTransitionsAPI(self)
         self.playground = AsyncPlaygroundAPI(self)
