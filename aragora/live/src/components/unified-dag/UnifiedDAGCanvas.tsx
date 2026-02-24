@@ -72,6 +72,10 @@ export function UnifiedDAGCanvas({ graphId }: UnifiedDAGCanvasProps) {
   const [lastResult, setLastResult] = useState<DAGOperationResult | null>(null);
   const [showPanel, setShowPanel] = useState(false);
 
+  // Execution sidebar state
+  const [showExecution, setShowExecution] = useState(false);
+  const [validationErrors, setValidationErrors] = useState<string[]>([]);
+
   // Stage filter
   const [stageFilter, setStageFilter] = useState<string | null>(null);
 
@@ -150,6 +154,28 @@ export function UnifiedDAGCanvas({ graphId }: UnifiedDAGCanvasProps) {
 
   const handleAutoFlow = useCallback(
     (ideas: string[]) => withResult(() => dag.autoFlow(ideas)),
+    [dag, withResult],
+  );
+
+  // Execution handlers
+  const handleValidate = useCallback(() => {
+    const errors = dag.validateGraph();
+    setValidationErrors(errors);
+  }, [dag]);
+
+  const handleExecuteAll = useCallback(async () => {
+    const errors = dag.validateGraph();
+    setValidationErrors(errors);
+    if (errors.length > 0) return;
+    await dag.executeAllReady();
+  }, [dag]);
+
+  const handleAutoAdvance = useCallback(async () => {
+    await dag.autoAdvanceAll();
+  }, [dag]);
+
+  const handleExecuteNode = useCallback(
+    (nodeId: string) => withResult(() => dag.executeNode(nodeId)),
     [dag, withResult],
   );
 

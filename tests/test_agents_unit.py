@@ -166,7 +166,7 @@ class TestCodexResponseExtraction:
         """Test extraction with standard codex header."""
         from aragora.agents.cli_agents import CodexAgent
 
-        agent = CodexAgent(name="test", model="gpt-5.2-codex")
+        agent = CodexAgent(name="test", model="gpt-4.1-codex")
         raw_output = """codex
 This is the actual response.
 tokens used: 150"""
@@ -177,7 +177,7 @@ tokens used: 150"""
         """Test extraction when no codex header present."""
         from aragora.agents.cli_agents import CodexAgent
 
-        agent = CodexAgent(name="test", model="gpt-5.2-codex")
+        agent = CodexAgent(name="test", model="gpt-4.1-codex")
         raw_output = "Direct response without header"
         result = agent._extract_codex_response(raw_output)
         assert result == "Direct response without header"
@@ -186,7 +186,7 @@ tokens used: 150"""
         """Test extraction with multiline response."""
         from aragora.agents.cli_agents import CodexAgent
 
-        agent = CodexAgent(name="test", model="gpt-5.2-codex")
+        agent = CodexAgent(name="test", model="gpt-4.1-codex")
         raw_output = """codex
 Line 1
 Line 2
