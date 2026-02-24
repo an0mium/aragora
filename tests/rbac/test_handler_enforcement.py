@@ -182,7 +182,8 @@ ALLOWED_WITHOUT_RBAC = frozenset(
         "admin/health/probes",
         "admin/health/stores",
         "admin/health/workers",
-        # Public status page
+        # Public status page (no auth required — external monitoring)
+        "status_page",
         "public/__init__",
         "public/status_page",
         # Social platform internals (implementation modules, not direct handlers)

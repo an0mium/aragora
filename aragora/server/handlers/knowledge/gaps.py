@@ -21,6 +21,14 @@ from aragora.server.handlers.base import (
 from aragora.server.handlers.utils.decorators import handle_errors
 from aragora.server.handlers.utils.rate_limit import RateLimiter, get_client_ip
 
+try:
+    from aragora.rbac.decorators import require_permission
+except ImportError:  # pragma: no cover
+    def require_permission(*_a, **_kw):  # type: ignore[misc]
+        def _noop(fn):  # type: ignore[no-untyped-def]
+            return fn
+        return _noop
+
 logger = logging.getLogger(__name__)
 
 # Rate limiter for gap detection endpoints (expensive queries)
@@ -44,6 +52,7 @@ class KnowledgeGapHandler(BaseHandler):
         """Check if this handler can handle the given path."""
         return path.startswith("/api/v1/knowledge/gaps")
 
+    @require_permission("knowledge:read")
     @handle_errors
     async def handle(
         self,

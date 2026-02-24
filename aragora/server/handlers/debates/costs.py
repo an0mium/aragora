@@ -18,6 +18,14 @@ from ..base import (
 )
 from ..openapi_decorator import api_endpoint
 
+try:
+    from aragora.rbac.decorators import require_permission
+except ImportError:  # pragma: no cover
+    def require_permission(*_a, **_kw):  # type: ignore[misc]
+        def _noop(fn):  # type: ignore[no-untyped-def]
+            return fn
+        return _noop
+
 logger = logging.getLogger(__name__)
 
 
