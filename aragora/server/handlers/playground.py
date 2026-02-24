@@ -111,6 +111,12 @@ def _reset_rate_limits() -> None:
     _live_request_timestamps.clear()
 
 
+def _reset_oracle_sessions() -> None:
+    """Reset all Oracle session state. Used by tests."""
+    _oracle_sessions.clear()
+    _oracle_session_timestamps.clear()
+
+
 # ---------------------------------------------------------------------------
 # Constraints
 # ---------------------------------------------------------------------------
@@ -546,13 +552,36 @@ if os.path.isdir(_summaries_dir):
 # ---------------------------------------------------------------------------
 
 _oracle_sessions: dict[str, list[dict[str, str]]] = {}
+_oracle_session_timestamps: dict[str, float] = {}  # session_id -> last access time
 _MAX_SESSION_TURNS = 5
 _MAX_SESSIONS = 1000  # prevent unbounded memory growth
+_SESSION_TTL = 1800.0  # 30 minutes in seconds
+
+
+def _cleanup_expired_sessions() -> None:
+    """Remove sessions that have exceeded the TTL."""
+    now = time.monotonic()
+    expired = [
+        sid
+        for sid, ts in _oracle_session_timestamps.items()
+        if now - ts > _SESSION_TTL
+    ]
+    for sid in expired:
+        _oracle_sessions.pop(sid, None)
+        _oracle_session_timestamps.pop(sid, None)
+    if expired:
+        logger.debug("Cleaned up %d expired Oracle sessions", len(expired))
 
 
 def _get_session_history(session_id: str | None) -> list[dict[str, str]]:
     """Return conversation history for a session, or empty list."""
     if not session_id:
+        return []
+    # Check TTL
+    ts = _oracle_session_timestamps.get(session_id)
+    if ts is not None and time.monotonic() - ts > _SESSION_TTL:
+        _oracle_sessions.pop(session_id, None)
+        _oracle_session_timestamps.pop(session_id, None)
         return []
     return _oracle_sessions.get(session_id, [])
 
@@ -563,12 +592,16 @@ def _append_session_turn(
     """Append a turn to session history, pruning to max turns."""
     if not session_id:
         return
+    # Periodically clean up expired sessions
+    _cleanup_expired_sessions()
     # Evict oldest sessions if at capacity
     if session_id not in _oracle_sessions and len(_oracle_sessions) >= _MAX_SESSIONS:
         oldest = next(iter(_oracle_sessions))
-        del _oracle_sessions[oldest]
+        _oracle_sessions.pop(oldest, None)
+        _oracle_session_timestamps.pop(oldest, None)
     history = _oracle_sessions.setdefault(session_id, [])
     history.append({"role": role, "content": content[:1000]})
+    _oracle_session_timestamps[session_id] = time.monotonic()
     # Keep only the last N turns
     if len(history) > _MAX_SESSION_TURNS:
         _oracle_sessions[session_id] = history[-_MAX_SESSION_TURNS:]
