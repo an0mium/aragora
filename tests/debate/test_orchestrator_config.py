@@ -614,7 +614,7 @@ class TestConcurrencyLimits:
         """MAX_CONCURRENT_CRITIQUES is configurable via environment."""
         from aragora.config import MAX_CONCURRENT_CRITIQUES
 
-        assert MAX_CONCURRENT_CRITIQUES == 10  # Default value
+        assert MAX_CONCURRENT_CRITIQUES == 15  # Default value
 
     def test_max_concurrent_revisions_env_var(self):
         """MAX_CONCURRENT_REVISIONS is configurable via environment."""
