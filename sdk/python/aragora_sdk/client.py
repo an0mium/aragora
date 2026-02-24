@@ -867,12 +867,15 @@ class AragoraAsyncClient:
         from .namespaces.documents import AsyncDocumentsAPI
         from .namespaces.ecommerce import AsyncEcommerceAPI
         from .namespaces.email_debate import AsyncEmailDebateAPI
+        from .namespaces.email_priority import AsyncEmailPriorityAPI
         from .namespaces.email_services import AsyncEmailServicesAPI
         from .namespaces.evaluation import AsyncEvaluationAPI
         from .namespaces.evolution import AsyncEvolutionAPI
         from .namespaces.expenses import AsyncExpensesAPI
         from .namespaces.explainability import AsyncExplainabilityAPI
+        from .namespaces.external_agents import AsyncExternalAgentsAPI
         from .namespaces.facts import AsyncFactsAPI
+        from .namespaces.features import AsyncFeaturesAPI
         from .namespaces.feedback import AsyncFeedbackAPI
         from .namespaces.flips import AsyncFlipsAPI
         from .namespaces.gateway import AsyncGatewayAPI
@@ -882,26 +885,34 @@ class AragoraAsyncClient:
         from .namespaces.gmail import AsyncGmailAPI
         from .namespaces.graph_debates import AsyncGraphDebatesAPI
         from .namespaces.health import AsyncHealthAPI
+        from .namespaces.history import AsyncHistoryAPI
         from .namespaces.hybrid_debates import AsyncHybridDebatesAPI
         from .namespaces.ideas import AsyncIdeasAPI
         from .namespaces.inbox_command import AsyncInboxCommandAPI
         from .namespaces.index import AsyncIndexAPI
         from .namespaces.insights import AsyncInsightsAPI
         from .namespaces.integrations import AsyncIntegrationsAPI
+        from .namespaces.introspection import AsyncIntrospectionAPI
         from .namespaces.invoice_processing import AsyncInvoiceProcessingAPI
         from .namespaces.knowledge import AsyncKnowledgeAPI
         from .namespaces.knowledge_chat import AsyncKnowledgeChatAPI
+        from .namespaces.laboratory import AsyncLaboratoryAPI
+        from .namespaces.leaderboard import AsyncLeaderboardAPI
+        from .namespaces.learning import AsyncLearningAPI
         from .namespaces.marketplace import AsyncMarketplaceAPI
         from .namespaces.matches import AsyncMatchesAPI
+        from .namespaces.matrix_debates import AsyncMatrixDebatesAPI
         from .namespaces.media import AsyncMediaAPI
         from .namespaces.memory import AsyncMemoryAPI
         from .namespaces.metrics import AsyncMetricsAPI
         from .namespaces.ml import AsyncMLAPI
         from .namespaces.moderation import AsyncModerationAPI
         from .namespaces.modes import AsyncModesAPI
+        from .namespaces.moments import AsyncMomentsAPI
         from .namespaces.monitoring import AsyncMonitoringAPI
         from .namespaces.nomic import AsyncNomicAPI
         from .namespaces.notifications import AsyncNotificationsAPI
+        from .namespaces.oauth import AsyncOAuthAPI
         from .namespaces.oauth_wizard import AsyncOAuthWizardAPI
         from .namespaces.onboarding import AsyncOnboardingAPI
         from .namespaces.openapi import AsyncOpenApiAPI
@@ -912,6 +923,7 @@ class AragoraAsyncClient:
         from .namespaces.outlook import AsyncOutlookAPI
         from .namespaces.partner import AsyncPartnerAPI
         from .namespaces.payments import AsyncPaymentsAPI
+        from .namespaces.persona import AsyncPersonaAPI
         from .namespaces.pipeline import AsyncPipelineAPI
         from .namespaces.pipeline_transitions import AsyncPipelineTransitionsAPI
         from .namespaces.playground import AsyncPlaygroundAPI
@@ -931,11 +943,14 @@ class AragoraAsyncClient:
         from .namespaces.replays import AsyncReplaysAPI
         from .namespaces.repository import AsyncRepositoryAPI
         from .namespaces.reputation import AsyncReputationAPI
+        from .namespaces.retention import AsyncRetentionAPI
         from .namespaces.reviews import AsyncReviewsAPI
         from .namespaces.rlm import AsyncRLMAPI
         from .namespaces.routing import AsyncRoutingAPI
         from .namespaces.scim import AsyncSCIMAPI
+        from .namespaces.search import AsyncSearchAPI
         from .namespaces.security import AsyncSecurityAPI
+        from .namespaces.selection import AsyncSelectionAPI
         from .namespaces.self_improve import AsyncSelfImproveAPI
         from .namespaces.services import AsyncServicesAPI
         from .namespaces.shared_inbox import AsyncSharedInboxAPI
