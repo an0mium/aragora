@@ -119,7 +119,8 @@ class TestSLOStatusEndpoint:
 
         assert result.status_code == 200
         body = parse_body(result)
-        assert "overall_healthy" in body
+        data = body.get("data", body)
+        assert "overall_healthy" in data
 
     def test_slo_status_error(self, handler):
         """Test that SLO status error returns proper error code."""

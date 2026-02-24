@@ -90,6 +90,7 @@ class PostDebateResult:
     pipeline_id: str | None = None  # ID of auto-triggered canvas pipeline
     bridge_results: list[dict[str, Any]] = field(default_factory=list)
     llm_judge_scores: dict[str, Any] | None = None
+    cost_breakdown: dict[str, Any] | None = None
     errors: list[str] = field(default_factory=list)
 
     @property
@@ -161,6 +162,9 @@ class PostDebateCoordinator:
         """
         result = PostDebateResult(debate_id=debate_id)
 
+        # Step 0: Collect cost data (always attempted, used by downstream steps)
+        result.cost_breakdown = self._step_collect_cost_data(debate_id, debate_result)
+
         # Step 1: Auto-generate explanation
         if self.config.auto_explain:
             result.explanation = self._step_explain(debate_id, debate_result, task)
@@ -206,7 +210,8 @@ class PostDebateCoordinator:
         # Step 6: Persist receipt to Knowledge Mound (the flywheel)
         if self.config.auto_persist_receipt:
             result.receipt_persisted = self._step_persist_receipt(
-                debate_id, debate_result, task, confidence
+                debate_id, debate_result, task, confidence,
+                cost_breakdown=result.cost_breakdown,
             )
 
         # Step 7: Queue improvement suggestion
@@ -472,11 +477,20 @@ class PostDebateCoordinator:
         debate_result: Any,
         task: str,
         confidence: float,
+        cost_breakdown: dict[str, Any] | None = None,
     ) -> bool:
         """Step 6: Persist debate receipt to Knowledge Mound.
 
         This creates the knowledge flywheel: each debate's outcome becomes
         institutional memory that informs future debates on related topics.
+
+        Args:
+            debate_id: Unique identifier for the debate.
+            debate_result: The debate result object.
+            task: The debate task/question.
+            confidence: Debate confidence score.
+            cost_breakdown: Optional per-debate cost breakdown dict from
+                _step_collect_cost_data().
         """
         try:
             from aragora.knowledge.mound.adapters.receipt_adapter import (
@@ -485,7 +499,7 @@ class PostDebateCoordinator:
 
             adapter = get_receipt_adapter()
 
-            receipt_data = {
+            receipt_data: dict[str, Any] = {
                 "debate_id": debate_id,
                 "task": task,
                 "confidence": confidence,
@@ -502,6 +516,10 @@ class PostDebateCoordinator:
                 ],
             }
 
+            # Include cost breakdown in receipt when available
+            if cost_breakdown:
+                receipt_data["cost_summary"] = cost_breakdown
+
             adapter.ingest(receipt_data)
             logger.info("Receipt persisted to KM for %s", debate_id)
             return True
@@ -511,6 +529,76 @@ class PostDebateCoordinator:
         except (ValueError, TypeError, OSError, AttributeError, KeyError) as e:
             logger.warning("Receipt KM persistence failed: %s", e)
             return False
+
+    def _step_collect_cost_data(
+        self,
+        debate_id: str,
+        debate_result: Any,
+    ) -> dict[str, Any] | None:
+        """Step 0: Collect per-debate cost data for inclusion in receipts.
+
+        Attempts to pull cost data from the DebateCostTracker singleton
+        (rich per-agent/per-round/per-model breakdowns).  Falls back to
+        lightweight cost fields on the debate result object itself.
+
+        Returns None when no cost data is available (graceful degradation).
+
+        Args:
+            debate_id: Unique identifier for the debate.
+            debate_result: The debate result object.
+
+        Returns:
+            Cost breakdown dict or None if cost tracking is unavailable.
+        """
+        # Primary source: DebateCostTracker singleton (has per-agent, per-round, per-model)
+        try:
+            from aragora.billing.debate_costs import get_debate_cost_tracker
+
+            tracker = get_debate_cost_tracker()
+            summary = tracker.get_debate_cost(debate_id)
+            if summary and summary.total_calls > 0:
+                logger.debug(
+                    "Cost data collected from DebateCostTracker for %s: $%s",
+                    debate_id,
+                    summary.total_cost_usd,
+                )
+                return summary.to_dict()
+        except ImportError:
+            logger.debug("DebateCostTracker not available")
+        except (RuntimeError, ValueError, TypeError, AttributeError) as e:
+            logger.debug("DebateCostTracker query failed (non-critical): %s", e)
+
+        # Fallback: build minimal summary from DebateResult fields
+        try:
+            total_cost = float(getattr(debate_result, "total_cost_usd", 0.0) or 0.0)
+            per_agent_cost = getattr(debate_result, "per_agent_cost", None)
+            if not isinstance(per_agent_cost, dict):
+                per_agent_cost = {}
+
+            if total_cost > 0 or per_agent_cost:
+                logger.debug(
+                    "Cost data collected from DebateResult fields for %s: $%s",
+                    debate_id,
+                    total_cost,
+                )
+                return {
+                    "debate_id": debate_id,
+                    "total_cost_usd": str(total_cost),
+                    "total_tokens_in": 0,
+                    "total_tokens_out": 0,
+                    "total_calls": 0,
+                    "per_agent": {
+                        name: {"agent_name": name, "total_cost_usd": str(cost)}
+                        for name, cost in per_agent_cost.items()
+                    },
+                    "per_round": {},
+                    "model_usage": {},
+                }
+        except (TypeError, ValueError, AttributeError):
+            pass
+
+        logger.debug("No cost data available for %s", debate_id)
+        return None
 
     def _step_gauntlet_validate(
         self,

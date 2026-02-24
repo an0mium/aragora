@@ -118,6 +118,30 @@ export { useCosts } from './useCosts';
 export { useUsageDashboard, useUsageTrend, useCostBreakdown } from './useUsageDashboard';
 export { useQueueMonitoring } from './useQueueMonitoring';
 
+// Spend Analytics Dashboard
+export {
+  useSpendAnalytics,
+  useSpendTrend,
+  useSpendForecast,
+  useSpendAnomalies,
+  useSpendDashboardSummary,
+  useSpendDashboardTrends,
+  useSpendDashboardByAgent,
+  useSpendDashboardByDecision,
+  useSpendDashboardBudget,
+} from './useSpendAnalytics';
+export type {
+  SpendDashboardSummary,
+  SpendDashboardTrends,
+  SpendDashboardByAgent,
+  SpendDashboardByDecision,
+  SpendDashboardBudget,
+  AgentSpendEntry,
+  DecisionSpendEntry,
+  SpendPeriod,
+  SpendAnomaly,
+} from './useSpendAnalytics';
+
 // =============================================================================
 // ELO Analytics
 // =============================================================================

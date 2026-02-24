@@ -134,6 +134,11 @@ OutcomeDashboardHandler = _safe_import(
     "aragora.server.handlers.outcome_dashboard", "OutcomeDashboardHandler"
 )
 
+# Spend Analytics Dashboard
+SpendAnalyticsDashboardHandler = _safe_import(
+    "aragora.server.handlers.spend_analytics_dashboard", "SpendAnalyticsDashboardHandler"
+)
+
 # =============================================================================
 # Analytics Handler Registry Entries
 # =============================================================================
@@ -184,6 +189,8 @@ ANALYTICS_HANDLER_REGISTRY: list[tuple[str, object]] = [
     ("_decision_analytics_handler", DecisionAnalyticsHandler),
     # Outcome dashboard (issue #281 - consolidated)
     ("_outcome_dashboard_handler", OutcomeDashboardHandler),
+    # Spend analytics dashboard
+    ("_spend_analytics_dashboard_handler", SpendAnalyticsDashboardHandler),
 ]
 
 __all__ = [
@@ -226,6 +233,8 @@ __all__ = [
     "DecisionAnalyticsHandler",
     # Outcome dashboard
     "OutcomeDashboardHandler",
+    # Spend analytics dashboard
+    "SpendAnalyticsDashboardHandler",
     # Registry
     "ANALYTICS_HANDLER_REGISTRY",
 ]

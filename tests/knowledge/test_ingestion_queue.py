@@ -127,7 +127,26 @@ class TestOrchestratorRetry:
         ctx.debate_id = "test-retry"
         state.ctx = ctx
 
-        with patch("asyncio.sleep", new_callable=AsyncMock):
+        # The KM ingestion runs via asyncio.create_task (background).
+        # We need the background coroutine to actually execute, so we
+        # capture the coro and run it after handle_debate_completion returns.
+        captured_coros = []
+        _orig_create_task = asyncio.create_task
+
+        def _capture_create_task(coro, **kwargs):
+            captured_coros.append(coro)
+            # Return a mock task that supports add_done_callback
+            mock_task = MagicMock()
+            mock_task.cancelled.return_value = False
+            mock_task.exception.return_value = None
+            return mock_task
+
+        with patch("asyncio.sleep", new_callable=AsyncMock), \
+             patch("asyncio.create_task", side_effect=_capture_create_task):
             await handle_debate_completion(arena, state)
+
+        # Now run the captured background coroutine(s)
+        for coro in captured_coros:
+            await coro
 
         assert call_count == 3  # Succeeded on 3rd try

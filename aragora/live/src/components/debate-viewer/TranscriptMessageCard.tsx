@@ -133,6 +133,8 @@ function HighlightedContent({
 
 export function TranscriptMessageCard({ message, cruxes, onChallenge }: TranscriptMessageCardProps) {
   const colors = getAgentColors(message.agent || 'system');
+  const [showThinking, setShowThinking] = useState(false);
+
   // Detect synthesis messages by role or agent name
   const isSynthesis =
     message.role === 'synthesis' ||
@@ -178,7 +180,6 @@ export function TranscriptMessageCard({ message, cruxes, onChallenge }: Transcri
   }
 
   // Standard rendering for non-synthesis messages
-  const [showThinking, setShowThinking] = useState(false);
   const hasThinking = !!message.thinking;
   const confidenceValue = message.confidence_score;
   const hasConfidence = confidenceValue !== null && confidenceValue !== undefined;

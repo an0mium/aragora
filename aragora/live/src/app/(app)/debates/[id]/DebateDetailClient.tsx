@@ -315,12 +315,24 @@ export default function DebateDetailClient() {
               {'>'} ERROR
             </div>
             <p className="text-[var(--text-muted)] font-mono text-sm mb-6">{error}</p>
-            <Link
-              href="/debates"
-              className="px-4 py-2 text-xs font-mono bg-[var(--acid-green)]/10 text-[var(--acid-green)] border border-[var(--acid-green)]/30 hover:bg-[var(--acid-green)]/20 transition-colors"
-            >
-              BACK TO ARCHIVE
-            </Link>
+            <div className="flex items-center justify-center gap-3">
+              <button
+                onClick={() => {
+                  setError(null);
+                  setDebateStatus('loading');
+                  fetchDebatePackage();
+                }}
+                className="px-4 py-2 text-xs font-mono bg-[var(--acid-green)]/10 text-[var(--acid-green)] border border-[var(--acid-green)]/30 hover:bg-[var(--acid-green)]/20 transition-colors"
+              >
+                RETRY
+              </button>
+              <Link
+                href="/debates"
+                className="px-4 py-2 text-xs font-mono bg-[var(--surface)] text-[var(--text-muted)] border border-[var(--border)] hover:border-[var(--acid-green)]/30 transition-colors"
+              >
+                BACK TO ARCHIVE
+              </Link>
+            </div>
           </div>
         </main>
       </>

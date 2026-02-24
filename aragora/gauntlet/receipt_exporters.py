@@ -110,6 +110,10 @@ def receipt_to_markdown(
         ]
     )
 
+    # Cost breakdown section (when available)
+    if receipt.cost_summary:
+        lines.extend(_render_cost_summary_markdown(receipt.cost_summary))
+
     if receipt.vulnerability_details:
         lines.append("---")
         lines.append("")
@@ -312,6 +316,8 @@ def receipt_to_html(
             Probes Run: {receipt.probes_run}
         </p>
     </div>
+
+    {_render_cost_summary_html(receipt.cost_summary)}
 
     <div class="section">
         <h2>Findings</h2>
@@ -697,3 +703,150 @@ def receipt_to_csv(receipt: DecisionReceipt) -> str:
         )
 
     return output.getvalue()
+
+
+# ---------------------------------------------------------------------------
+# Cost summary rendering helpers
+# ---------------------------------------------------------------------------
+
+
+def _render_cost_summary_markdown(cost_summary: dict[str, Any]) -> list[str]:
+    """Render cost_summary dict as Markdown lines.
+
+    Args:
+        cost_summary: The cost breakdown dict (from DebateCostSummary.to_dict()
+            or the lightweight fallback).
+
+    Returns:
+        List of Markdown lines to extend into the receipt.
+    """
+    lines: list[str] = [
+        "---",
+        "",
+        "## Cost Breakdown",
+        "",
+        f"- **Total Cost:** ${cost_summary.get('total_cost_usd', '0')}",
+    ]
+
+    total_tokens_in = cost_summary.get("total_tokens_in", 0)
+    total_tokens_out = cost_summary.get("total_tokens_out", 0)
+    if total_tokens_in or total_tokens_out:
+        lines.append(f"- **Tokens In:** {total_tokens_in:,}")
+        lines.append(f"- **Tokens Out:** {total_tokens_out:,}")
+        lines.append(f"- **Total Tokens:** {total_tokens_in + total_tokens_out:,}")
+
+    total_calls = cost_summary.get("total_calls", 0)
+    if total_calls:
+        lines.append(f"- **API Calls:** {total_calls}")
+
+    lines.append("")
+
+    # Per-agent breakdown table
+    per_agent = cost_summary.get("per_agent", {})
+    if per_agent:
+        lines.extend(
+            [
+                "### Per-Agent Costs",
+                "",
+                "| Agent | Cost (USD) | Tokens In | Tokens Out | Calls |",
+                "|-------|-----------|-----------|------------|-------|",
+            ]
+        )
+        for _name, agent_data in per_agent.items():
+            if isinstance(agent_data, dict):
+                agent_name = agent_data.get("agent_name", _name)
+                cost = agent_data.get("total_cost_usd", "0")
+                t_in = agent_data.get("total_tokens_in", 0)
+                t_out = agent_data.get("total_tokens_out", 0)
+                calls = agent_data.get("call_count", 0)
+                lines.append(f"| {agent_name} | ${cost} | {t_in:,} | {t_out:,} | {calls} |")
+        lines.append("")
+
+    # Model usage table
+    model_usage = cost_summary.get("model_usage", {})
+    if model_usage:
+        lines.extend(
+            [
+                "### Model Usage",
+                "",
+                "| Provider/Model | Cost (USD) | Calls |",
+                "|---------------|-----------|-------|",
+            ]
+        )
+        for key, model_data in model_usage.items():
+            if isinstance(model_data, dict):
+                provider = model_data.get("provider", "")
+                model = model_data.get("model", key)
+                cost = model_data.get("total_cost_usd", "0")
+                calls = model_data.get("call_count", 0)
+                label = f"{provider}/{model}" if provider else model
+                lines.append(f"| {label} | ${cost} | {calls} |")
+        lines.append("")
+
+    return lines
+
+
+def _render_cost_summary_html(cost_summary: dict[str, Any] | None) -> str:
+    """Render cost_summary dict as an HTML section.
+
+    Args:
+        cost_summary: The cost breakdown dict or None.
+
+    Returns:
+        HTML string for the cost section (empty string if no data).
+    """
+    if not cost_summary:
+        return ""
+
+    total_cost = escape(str(cost_summary.get("total_cost_usd", "0")))
+    total_tokens_in = cost_summary.get("total_tokens_in", 0)
+    total_tokens_out = cost_summary.get("total_tokens_out", 0)
+    total_calls = cost_summary.get("total_calls", 0)
+
+    parts: list[str] = [
+        '<div class="section">',
+        "    <h2>Cost Breakdown</h2>",
+        "    <table>",
+        "        <tr><th>Metric</th><th>Value</th></tr>",
+        f"        <tr><td>Total Cost</td><td>${total_cost}</td></tr>",
+    ]
+
+    if total_tokens_in or total_tokens_out:
+        parts.append(f"        <tr><td>Tokens In</td><td>{total_tokens_in:,}</td></tr>")
+        parts.append(f"        <tr><td>Tokens Out</td><td>{total_tokens_out:,}</td></tr>")
+        parts.append(
+            f"        <tr><td>Total Tokens</td><td>{total_tokens_in + total_tokens_out:,}</td></tr>"
+        )
+
+    if total_calls:
+        parts.append(f"        <tr><td>API Calls</td><td>{total_calls}</td></tr>")
+
+    parts.extend(["    </table>", ""])
+
+    # Per-agent breakdown
+    per_agent = cost_summary.get("per_agent", {})
+    if per_agent:
+        parts.extend(
+            [
+                "    <h3>Per-Agent Costs</h3>",
+                "    <table>",
+                "        <tr><th>Agent</th><th>Cost (USD)</th>"
+                "<th>Tokens In</th><th>Tokens Out</th><th>Calls</th></tr>",
+            ]
+        )
+        for _name, agent_data in per_agent.items():
+            if isinstance(agent_data, dict):
+                agent_name = escape(str(agent_data.get("agent_name", _name)))
+                cost = escape(str(agent_data.get("total_cost_usd", "0")))
+                t_in = agent_data.get("total_tokens_in", 0)
+                t_out = agent_data.get("total_tokens_out", 0)
+                calls = agent_data.get("call_count", 0)
+                parts.append(
+                    f"        <tr><td>{agent_name}</td><td>${cost}</td>"
+                    f"<td>{t_in:,}</td><td>{t_out:,}</td><td>{calls}</td></tr>"
+                )
+        parts.append("    </table>")
+
+    parts.append("</div>")
+
+    return "\n".join(parts)

@@ -1,6 +1,15 @@
-@tailwind base;
-@tailwind components;
-@tailwind utilities;
+@import "tailwindcss";
+@config "../../tailwind.config.js";
+
+/* Agent color classes dynamically constructed at runtime — force Tailwind to generate them */
+@source inline("
+  bg-crimson/5 text-crimson border-crimson/40
+  bg-purple/5 text-purple border-purple/40
+  bg-gold/5 text-gold border-gold/40
+  bg-acid-cyan/5 text-acid-cyan border-acid-cyan/40
+  bg-acid-green/5 text-acid-green border-acid-green/30
+  line-clamp-2 line-clamp-3 line-clamp-4 line-clamp-5
+");
 
 :root {
   /* Hacker/Demoscene Dark theme (default) */

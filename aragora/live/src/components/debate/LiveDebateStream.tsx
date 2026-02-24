@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useRef, useMemo } from 'react';
+import { useEffect, useRef, useMemo, useState } from 'react';
 import type {
   TranscriptMessage,
   StreamingMessage,
@@ -9,6 +9,14 @@ import type {
 } from '@/hooks/debate-websocket/types';
 import type { StreamEvent } from '@/types/events';
 import { getAgentColors } from '@/utils/agentColors';
+
+/** Format seconds as "Xs" or "M:SS" */
+function formatElapsed(seconds: number): string {
+  if (seconds < 60) return `${seconds}s`;
+  const m = Math.floor(seconds / 60);
+  const s = seconds % 60;
+  return `${m}:${s.toString().padStart(2, '0')}`;
+}
 
 interface LiveDebateStreamProps {
   status: DebateConnectionStatus;
@@ -46,6 +54,38 @@ export function LiveDebateStream({
 }: LiveDebateStreamProps) {
   const scrollRef = useRef<HTMLDivElement>(null);
   const isUserScrolledUp = useRef(false);
+
+  // Elapsed time counter (ticks every second while debate is active)
+  const [elapsedSeconds, setElapsedSeconds] = useState(0);
+  const startTimeRef = useRef(Date.now());
+
+  useEffect(() => {
+    if (status === 'complete' || status === 'error' || status === 'idle') return;
+    startTimeRef.current = Date.now();
+    const interval = setInterval(() => {
+      setElapsedSeconds(Math.floor((Date.now() - startTimeRef.current) / 1000));
+    }, 1000);
+    return () => clearInterval(interval);
+  }, [status]);
+
+  // Stall detection — track time since last message
+  const [isStalled, setIsStalled] = useState(false);
+  const lastActivityRef = useRef(Date.now());
+
+  useEffect(() => {
+    lastActivityRef.current = Date.now();
+    setIsStalled(false);
+  }, [messages.length, streamingMessages]);
+
+  useEffect(() => {
+    if (status !== 'streaming') return;
+    const check = setInterval(() => {
+      if (Date.now() - lastActivityRef.current > 120000) {
+        setIsStalled(true);
+      }
+    }, 10000);
+    return () => clearInterval(check);
+  }, [status]);
 
   // Auto-scroll to bottom on new messages unless user scrolled up
   useEffect(() => {
@@ -94,10 +134,10 @@ export function LiveDebateStream({
               LIVE DEBATE
             </div>
             <div className="text-[10px] font-mono text-[var(--text-muted)]">
-              {status === 'streaming' && `Round ${currentRound} | ${messages.length} messages`}
-              {status === 'connecting' && 'Connecting...'}
-              {status === 'polling' && 'Polling for updates...'}
-              {status === 'complete' && 'Debate complete'}
+              {status === 'streaming' && `Round ${currentRound} | ${messages.length} msgs | ${formatElapsed(elapsedSeconds)}`}
+              {status === 'connecting' && `Connecting... ${formatElapsed(elapsedSeconds)}`}
+              {status === 'polling' && `Polling for updates | ${formatElapsed(elapsedSeconds)}`}
+              {status === 'complete' && `Debate complete | ${formatElapsed(elapsedSeconds)}`}
               {status === 'error' && 'Connection error'}
             </div>
           </div>
@@ -152,19 +192,50 @@ export function LiveDebateStream({
               {errorDetails && (
                 <div className="text-[10px] font-mono text-red-400/70 mt-0.5">{errorDetails}</div>
               )}
+              {reconnectAttempt > 0 && reconnectAttempt < 15 && (
+                <div className="text-[10px] font-mono text-red-400/50 mt-1">
+                  Auto-reconnecting... attempt {reconnectAttempt}/15
+                </div>
+              )}
+              {reconnectAttempt >= 15 && (
+                <div className="text-[10px] font-mono text-[var(--acid-yellow)] mt-1">
+                  Auto-reconnect exhausted. Click RETRY or the debate may still be running server-side.
+                </div>
+              )}
             </div>
             <button
               onClick={onReconnect}
-              className="px-2 py-1 text-[10px] font-mono text-red-400 border border-red-400/30 hover:bg-red-400/10 transition-colors"
+              className="px-2 py-1 text-[10px] font-mono text-red-400 border border-red-400/30 hover:bg-red-400/10 transition-colors flex-shrink-0"
             >
               RETRY
             </button>
           </div>
-          {reconnectAttempt > 0 && (
-            <div className="text-[10px] font-mono text-red-400/50 mt-1">
-              Reconnect attempt {reconnectAttempt}
+        </div>
+      )}
+
+      {/* Polling fallback notice */}
+      {isPolling && !error && (
+        <div className="px-4 py-2 bg-[var(--acid-yellow)]/10 border-b border-[var(--acid-yellow)]/30">
+          <div className="text-[10px] font-mono text-[var(--acid-yellow)]">
+            Live connection unavailable &mdash; polling for updates every 3s. Messages may appear in batches.
+          </div>
+        </div>
+      )}
+
+      {/* Stall warning */}
+      {isStalled && status === 'streaming' && (
+        <div className="px-4 py-2 bg-[var(--acid-yellow)]/10 border-b border-[var(--acid-yellow)]/30">
+          <div className="flex items-center justify-between">
+            <div className="text-[10px] font-mono text-[var(--acid-yellow)]">
+              No new messages for 2+ minutes. The debate may be processing a complex round.
             </div>
-          )}
+            <button
+              onClick={onReconnect}
+              className="px-2 py-1 text-[10px] font-mono text-[var(--acid-yellow)] border border-[var(--acid-yellow)]/30 hover:bg-[var(--acid-yellow)]/10 transition-colors flex-shrink-0"
+            >
+              RECONNECT
+            </button>
+          </div>
         </div>
       )}
 
@@ -177,13 +248,21 @@ export function LiveDebateStream({
         {/* Waiting state */}
         {messages.length === 0 && activeStreams.length === 0 && status !== 'error' && (
           <div className="flex items-center justify-center py-12">
-            <div className="text-center">
-              <div className="text-[var(--acid-green)] font-mono text-sm animate-pulse mb-2">
+            <div className="text-center space-y-2">
+              <div className="text-[var(--acid-green)] font-mono text-sm animate-pulse">
                 {'>'} WAITING FOR AGENTS...
               </div>
               <div className="text-[10px] font-mono text-[var(--text-muted)]">
                 Agents are analyzing your question
               </div>
+              <div className="text-[10px] font-mono text-[var(--text-muted)] opacity-60">
+                {formatElapsed(elapsedSeconds)} elapsed &middot; typically 30s-2min
+              </div>
+              {elapsedSeconds > 60 && (
+                <div className="text-[10px] font-mono text-[var(--acid-yellow)]">
+                  Complex questions may take longer with reasoning models
+                </div>
+              )}
             </div>
           </div>
         )}

@@ -913,63 +913,39 @@ class TestPostError:
 class TestRunDebate:
     @pytest.mark.asyncio
     async def test_run_debate_no_engine(self, lifecycle):
-        """When debate engine is not importable, posts error."""
-        with patch.object(
-            lifecycle, "post_error", new_callable=AsyncMock
-        ) as mock_error:
-            with patch(
-                "aragora.integrations.slack_debate.Arena",
-                side_effect=ImportError("no module"),
-            ):
-                # We need to patch at the import level inside run_debate
-                pass
-            # Patch the import inside run_debate
-            with patch.dict("sys.modules", {"aragora": None}):
-                pass
-            # Simpler approach: patch the actual import
-            with patch(
-                "builtins.__import__",
-                side_effect=lambda name, *a, **kw: (
-                    (_ for _ in ()).throw(ImportError("no module"))
-                    if name == "aragora"
-                    else __builtins__["__import__"](name, *a, **kw)
-                    if isinstance(__builtins__, dict)
-                    else original_import(name, *a, **kw)
-                ),
-            ):
-                pass
-        # Use a direct approach: mock the import in the method
-        import builtins
+        """When debate engine is not importable, posts error and returns None."""
+        import aragora as _mod
 
-        original_import = builtins.__import__
+        # Clear cached globals so __getattr__ fires
+        for attr in ("Arena", "DebateProtocol", "Environment"):
+            vars(_mod).pop(attr, None)
 
-        def mock_import(name, *args, **kwargs):
-            if name == "aragora" and args and args[0] and "Arena" in (args[0].get("fromlist", ()) or ()):
-                raise ImportError("not available")
-            return original_import(name, *args, **kwargs)
+        # Replace __getattr__ so lazy import also fails for debate classes
+        orig_getattr = _mod.__getattr__
 
-        with patch.object(lifecycle, "post_error", new_callable=AsyncMock) as mock_error:
-            with patch.object(lifecycle, "_post_to_thread", new_callable=AsyncMock, return_value=True):
-                # Simplest: just make Arena import fail inside run_debate
-                with patch("aragora.integrations.slack_debate.asyncio") as mock_asyncio:
-                    # Actually, let's just test by patching Arena at module level
-                    pass
+        def _blocking_getattr(name):
+            if name in ("Arena", "DebateProtocol", "Environment"):
+                raise AttributeError(name)
+            return orig_getattr(name)
 
-        # Cleanest approach: test that run_debate handles the import error
-        with patch.object(lifecycle, "post_error", new_callable=AsyncMock) as mock_error:
-            with patch.object(lifecycle, "_post_to_thread", new_callable=AsyncMock, return_value=True):
-                # Force the import to fail by using side_effect on wait_for
-                original_run_debate = lifecycle.run_debate
-
-                async def failing_run_debate(*a, **kw):
-                    # Simulate ImportError behavior
-                    await lifecycle.post_error(a[0], a[1], "Debate engine is not available.", a[2])
-                    return None
-
-                with patch.object(lifecycle, "run_debate", side_effect=failing_run_debate):
-                    result = await lifecycle.run_debate("C01ABC", "123.456", "d-123", "Topic")
+        _mod.__getattr__ = _blocking_getattr
+        try:
+            with patch.object(
+                lifecycle, "post_error", new_callable=AsyncMock
+            ) as mock_error:
+                with patch.object(
+                    lifecycle, "_post_to_thread", new_callable=AsyncMock, return_value=True
+                ):
+                    result = await lifecycle.run_debate(
+                        "C01ABC", "123.456", "d-123", "Topic"
+                    )
                     assert result is None
                     mock_error.assert_called_once()
+        finally:
+            _mod.__getattr__ = orig_getattr
+            # Re-cache the lazy imports
+            for attr in ("Arena", "DebateProtocol", "Environment"):
+                getattr(_mod, attr)
 
     @pytest.mark.asyncio
     async def test_run_debate_posts_consensus(self, lifecycle):
@@ -986,10 +962,10 @@ class TestRunDebate:
                 lifecycle, "post_consensus", new_callable=AsyncMock, return_value=True
             ) as mock_consensus:
                 with patch(
-                    "aragora.integrations.slack_debate.Arena", return_value=mock_arena
+                    "aragora.Arena", return_value=mock_arena
                 ):
-                    with patch("aragora.integrations.slack_debate.Environment"):
-                        with patch("aragora.integrations.slack_debate.DebateProtocol"):
+                    with patch("aragora.Environment"):
+                        with patch("aragora.DebateProtocol"):
                             result = await lifecycle.run_debate(
                                 "C01ABC", "123.456", "d-123", "Test topic"
                             )
@@ -1013,10 +989,10 @@ class TestRunDebate:
                     lifecycle, "post_receipt", new_callable=AsyncMock, return_value=True
                 ) as mock_post_receipt:
                     with patch(
-                        "aragora.integrations.slack_debate.Arena", return_value=mock_arena
+                        "aragora.Arena", return_value=mock_arena
                     ):
-                        with patch("aragora.integrations.slack_debate.Environment"):
-                            with patch("aragora.integrations.slack_debate.DebateProtocol"):
+                        with patch("aragora.Environment"):
+                            with patch("aragora.DebateProtocol"):
                                 await lifecycle.run_debate(
                                     "C01ABC", "123.456", "d-123", "Topic"
                                 )
@@ -1041,10 +1017,10 @@ class TestRunDebate:
                     lifecycle, "post_round_update", new_callable=AsyncMock, return_value=True
                 ) as mock_round:
                     with patch(
-                        "aragora.integrations.slack_debate.Arena", return_value=mock_arena
+                        "aragora.Arena", return_value=mock_arena
                     ):
-                        with patch("aragora.integrations.slack_debate.Environment"):
-                            with patch("aragora.integrations.slack_debate.DebateProtocol"):
+                        with patch("aragora.Environment"):
+                            with patch("aragora.DebateProtocol"):
                                 await lifecycle.run_debate(
                                     "C01ABC", "123.456", "d-123", "Topic"
                                 )

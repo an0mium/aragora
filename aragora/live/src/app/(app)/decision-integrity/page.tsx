@@ -651,13 +651,13 @@ function AgentsTab({
   leaderboard: ReturnType<typeof useDecisionIntegrity>['leaderboard'];
   isLoading: boolean;
 }) {
-  if (isLoading) return <LoadingPulse />;
-
   const agents: AgentRanking[] = useMemo(() => {
     const raw =
       leaderboard?.agents ?? leaderboard?.rankings ?? leaderboard?.leaderboard ?? [];
     return [...raw].sort((a, b) => b.elo - a.elo);
   }, [leaderboard]);
+
+  if (isLoading) return <LoadingPulse />;
 
   if (agents.length === 0) {
     return (

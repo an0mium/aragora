@@ -128,7 +128,9 @@ const navSections: NavSection[] = [
       { label: 'Uncertainty', href: '/uncertainty', icon: '\u00B1', minMode: 'advanced' },
       { label: 'Quality', href: '/quality', icon: '\u2605', minMode: 'advanced' },
       { label: 'Costs', href: '/costs', icon: '\u00A2', minMode: 'standard' },
+      { label: 'Differentiation', href: '/differentiation', icon: '\u25C7', minMode: 'standard' },
       { label: 'Spend Analytics', href: '/analytics/spend', icon: '\u00A4', minMode: 'standard' },
+      { label: 'Spend', href: '/spend', icon: '$', minMode: 'standard' },
       { label: 'Decision Outcomes', href: '/analytics/decisions', icon: '\u2713', minMode: 'standard' },
       { label: 'Usage', href: '/usage', icon: '%', minMode: 'standard' },
       { label: 'Argument Analysis', href: '/argument-analysis', icon: '\u2726', minMode: 'standard' },
@@ -185,6 +187,7 @@ const navSections: NavSection[] = [
       { label: 'Explainability', href: '/explainability', icon: '?!', minMode: 'standard' },
       { label: 'Repository', href: '/repository', icon: '\u25A3', minMode: 'advanced' },
       { label: 'RLM', href: '/rlm', icon: '\u21BA', minMode: 'advanced' },
+      { label: 'Reasoning', href: '/reasoning', icon: '\u22A2', minMode: 'standard' },
     ],
   },
 
@@ -311,6 +314,7 @@ const navSections: NavSection[] = [
     key: 'settings',
     collapsible: false,
     items: [
+      { label: 'Get Started', href: '/get-started', icon: '\u25B8' },
       { label: 'Features', href: '/features', icon: '\u2726' },
       { label: 'Settings', href: '/settings', icon: '*', requiresAuth: true },
       { label: 'About', href: '/about', icon: 'i' },
@@ -345,6 +349,10 @@ const navSections: NavSection[] = [
       { label: 'Verticals', href: '/admin/verticals', icon: '/' },
       { label: 'Workspace', href: '/admin/workspace', icon: '\u25A3' },
       { label: 'AB Tests', href: '/admin/ab-tests', icon: 'A|B' },
+      { label: 'Federation', href: '/admin/federation', icon: '\u2318' },
+      { label: 'Intelligence', href: '/admin/intelligence', icon: '\u269B' },
+      { label: 'Observability', href: '/admin/observability', icon: '\u25C9' },
+      { label: 'System Health', href: '/admin/system-health', icon: '\u2665' },
     ],
   },
 ];
