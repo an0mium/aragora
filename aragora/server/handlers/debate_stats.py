@@ -7,6 +7,8 @@ Endpoints:
 
 from __future__ import annotations
 
+import asyncio
+import inspect
 import logging
 from typing import Any
 
@@ -16,6 +18,17 @@ from aragora.server.validation.query_params import safe_query_int
 from aragora.server.versioning.compat import strip_version_prefix
 
 logger = logging.getLogger(__name__)
+
+
+def _resolve(maybe_coro: Any) -> Any:
+    """Resolve a value that may be a coroutine (from async def) to its result."""
+    if inspect.isawaitable(maybe_coro):
+        try:
+            loop = asyncio.get_running_loop()
+            return loop.run_until_complete(maybe_coro)
+        except RuntimeError:
+            return asyncio.run(maybe_coro)
+    return maybe_coro
 
 
 class DebateStatsHandler(BaseHandler):
@@ -54,8 +67,6 @@ class DebateStatsHandler(BaseHandler):
             return error_response("period must be one of: all, day, week, month", 400)
 
         try:
-            import asyncio
-
             from aragora.analytics.debate_analytics import DebateAnalytics
 
             storage = self.ctx.get("storage")
@@ -63,13 +74,7 @@ class DebateStatsHandler(BaseHandler):
                 return error_response("Storage not available", 503)
 
             service = DebateAnalytics(storage)
-            coro = service.get_debate_stats(days_back=_period_to_days[period])
-            try:
-                loop = asyncio.get_running_loop()
-                # Already in async context — schedule and return sync fallback
-                stats = loop.run_until_complete(coro)
-            except RuntimeError:
-                stats = asyncio.run(coro)
+            stats = _resolve(service.get_debate_stats(days_back=_period_to_days[period]))
             return json_response(stats.to_dict())
         except (
             ImportError,
@@ -87,8 +92,6 @@ class DebateStatsHandler(BaseHandler):
         limit = safe_query_int(query_params, "limit", default=20, min_val=1, max_val=100)
 
         try:
-            import asyncio
-
             from aragora.analytics.debate_analytics import DebateAnalytics
 
             storage = self.ctx.get("storage")
@@ -96,12 +99,7 @@ class DebateStatsHandler(BaseHandler):
                 return error_response("Storage not available", 503)
 
             service = DebateAnalytics(storage)
-            coro = service.get_agent_leaderboard(limit=limit)
-            try:
-                loop = asyncio.get_running_loop()
-                agents = loop.run_until_complete(coro)
-            except RuntimeError:
-                agents = asyncio.run(coro)
+            agents = _resolve(service.get_agent_leaderboard(limit=limit))
             return json_response(
                 {
                     "agents": [a.to_dict() for a in agents] if agents and hasattr(agents[0], "to_dict") else [],

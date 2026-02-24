@@ -65,12 +65,14 @@ function OAuthCallbackContent() {
       const params = new URLSearchParams(tokenString);
       const accessToken = params.get('access_token');
       const refreshToken = params.get('refresh_token');
+      const expiresIn = params.get('expires_in');
 
       if (accessToken && refreshToken) {
         try {
           logger.debug('[OAuth Callback] Calling setTokens with access_token:', accessToken.substring(0, 20) + '...');
           // Pass AbortSignal so in-flight retries cancel on unmount
-          await setTokens(accessToken, refreshToken, controller.signal);
+          // Pass server-provided expiry if available
+          await setTokens(accessToken, refreshToken, controller.signal, expiresIn ? parseInt(expiresIn, 10) : undefined);
           logger.debug('[OAuth Callback] setTokens completed successfully');
 
           // Bail if unmounted during await

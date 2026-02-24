@@ -21,8 +21,10 @@ Environment Variables:
 
 from __future__ import annotations
 
+import asyncio
 import logging
 import os
+import random
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from decimal import Decimal
@@ -37,6 +39,9 @@ from aragora.connectors.model_base import ConnectorDataclass
 logger = logging.getLogger(__name__)
 
 _MAX_PAGES = 1000  # Safety cap for pagination loops
+_MAX_RETRIES = 3
+_BASE_DELAY = 1.0
+_MAX_DELAY = 30.0
 
 
 class ShopifyEnvironment(str, Enum):

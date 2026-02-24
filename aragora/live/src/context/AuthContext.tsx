@@ -58,7 +58,7 @@ interface AuthContextType extends AuthState {
   register: (email: string, password: string, name?: string, organization?: string) => Promise<{ success: boolean; error?: string }>;
   logout: () => Promise<void>;
   refreshToken: () => Promise<boolean>;
-  setTokens: (accessToken: string, refreshToken: string, signal?: AbortSignal) => Promise<void>;
+  setTokens: (accessToken: string, refreshToken: string, signal?: AbortSignal, expiresIn?: number) => Promise<void>;
   /** Switch to a different organization context */
   switchOrganization: (orgId: string, setAsDefault?: boolean) => Promise<{ success: boolean; error?: string }>;
   /** Refresh the list of user's organizations */
@@ -531,16 +531,21 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       });
 
       if (!response.ok) {
-        clearAuth();
-        setState({
-          user: null,
-          organization: null,
-          organizations: [],
-          tokens: null,
-          isLoading: false,
-          isAuthenticated: false,
-          isLoadingOrganizations: false,
-        });
+        // Only clear auth on definitive rejection (401/403), not transient errors
+        if (response.status === 401 || response.status === 403) {
+          clearAuth();
+          setState({
+            user: null,
+            organization: null,
+            organizations: [],
+            tokens: null,
+            isLoading: false,
+            isAuthenticated: false,
+            isLoadingOrganizations: false,
+          });
+        } else {
+          logger.warn(`[AuthContext] Token refresh failed with ${response.status}, keeping session`);
+        }
         return false;
       }
 
@@ -557,16 +562,18 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
       return true;
     } catch {
+      // Network error — don't clear auth, keep session alive
+      logger.warn('[AuthContext] Token refresh network error, keeping session');
       return false;
     }
   }, []);
 
   // Set tokens from OAuth callback - fetches user profile from API
-  const setTokens = useCallback(async (accessToken: string, refreshTokenValue: string, signal?: AbortSignal) => {
+  const setTokens = useCallback(async (accessToken: string, refreshTokenValue: string, signal?: AbortSignal, expiresIn?: number) => {
     logger.debug('[AuthContext] setTokens called');
 
-    // Calculate expiry (default 1 hour from now if not provided)
-    const expiresAt = new Date(Date.now() + 3600 * 1000).toISOString();
+    // Use server-provided expiry if available, default 1 hour
+    const expiresAt = new Date(Date.now() + (expiresIn || 3600) * 1000).toISOString();
 
     const tokens: Tokens = {
       access_token: accessToken,
