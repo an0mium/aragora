@@ -4,6 +4,7 @@ HTTP Handler for Knowledge Gap Detection.
 Provides endpoints for knowledge gap analysis:
 - GET /api/v1/knowledge/gaps - Detect coverage gaps, staleness, contradictions
 - GET /api/v1/knowledge/gaps/recommendations - Get prioritized recommendations
+- GET /api/v1/knowledge/gaps/coverage - Coverage map by domain
 - GET /api/v1/knowledge/gaps/score - Get coverage score for a domain
 """
 
@@ -41,6 +42,7 @@ class KnowledgeGapHandler(BaseHandler):
     Endpoints:
         GET /api/v1/knowledge/gaps - Detect gaps (coverage, staleness, contradictions)
         GET /api/v1/knowledge/gaps/recommendations - Get improvement recommendations
+        GET /api/v1/knowledge/gaps/coverage - Coverage map by domain
         GET /api/v1/knowledge/gaps/score - Get domain coverage score
     """
 
@@ -53,7 +55,7 @@ class KnowledgeGapHandler(BaseHandler):
         return path.startswith("/api/v1/knowledge/gaps")
 
     @require_permission("knowledge:read")
-    @handle_errors
+    @handle_errors("knowledge gap detection")
     async def handle(
         self,
         path: str,
@@ -76,6 +78,9 @@ class KnowledgeGapHandler(BaseHandler):
 
         if path == "/api/v1/knowledge/gaps/recommendations":
             return await self._get_recommendations(workspace_id, query_params)
+
+        if path == "/api/v1/knowledge/gaps/coverage":
+            return await self._get_coverage_map(workspace_id, query_params)
 
         if path == "/api/v1/knowledge/gaps/score":
             return await self._get_score(workspace_id, query_params)
@@ -153,6 +158,47 @@ class KnowledgeGapHandler(BaseHandler):
         except (RuntimeError, ValueError, TypeError, KeyError, AttributeError) as e:
             logger.error("Failed to get recommendations: %s", e)
             return error_response("Failed to get recommendations", 500)
+
+    async def _get_coverage_map(
+        self,
+        workspace_id: str,
+        query_params: dict[str, Any],
+    ) -> HandlerResult:
+        """Get coverage map across all domains."""
+        try:
+            detector = self._create_detector(workspace_id)
+            if detector is None:
+                return json_response({
+                    "data": {
+                        "domains": [],
+                        "overall_score": 0.0,
+                        "workspace_id": workspace_id,
+                        "status": "knowledge_mound_unavailable",
+                    }
+                })
+
+            coverage_map = await detector.get_coverage_map()
+
+            # Calculate overall score
+            if coverage_map:
+                overall_score = round(
+                    sum(e.coverage_score for e in coverage_map) / len(coverage_map), 3
+                )
+            else:
+                overall_score = 0.0
+
+            return json_response({
+                "data": {
+                    "domains": [e.to_dict() for e in coverage_map],
+                    "overall_score": overall_score,
+                    "domain_count": len(coverage_map),
+                    "workspace_id": workspace_id,
+                }
+            })
+
+        except (RuntimeError, ValueError, TypeError, KeyError, AttributeError) as e:
+            logger.error("Failed to get coverage map: %s", e)
+            return error_response("Failed to get coverage map", 500)
 
     async def _get_score(
         self,

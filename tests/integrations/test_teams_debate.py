@@ -266,8 +266,8 @@ class TestStartDebateFromThread:
             )
             assert debate_id in _active_debates
             info = _active_debates[debate_id]
-            assert info["topic"] == "Test topic"
-            assert info["channel_id"] == "19:abc@thread.tacv2"
+            assert info.topic == "Test topic"
+            assert info.channel_id == "19:abc@thread.tacv2"
 
     @pytest.mark.asyncio
     async def test_posts_starting_card(self, lifecycle):
