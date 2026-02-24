@@ -58,14 +58,20 @@ class MockReceiptStore:
         return self._receipts[:limit]
 
 
+_SENTINEL = object()
+
+
 class MockEloSystem:
-    def __init__(self, agents: dict | None = None):
-        self._agents = agents or {
-            "claude-4": {"elo": 1650, "wins": 30, "losses": 10},
-            "gpt-5": {"elo": 1580, "wins": 25, "losses": 15},
-            "gemini-3": {"elo": 1520, "wins": 20, "losses": 20},
-            "mistral-l": {"elo": 1450, "wins": 15, "losses": 25},
-        }
+    def __init__(self, agents: dict | None | object = _SENTINEL):
+        if agents is _SENTINEL:
+            self._agents = {
+                "claude-4": {"elo": 1650, "wins": 30, "losses": 10},
+                "gpt-5": {"elo": 1580, "wins": 25, "losses": 15},
+                "gemini-3": {"elo": 1520, "wins": 20, "losses": 20},
+                "mistral-l": {"elo": 1450, "wins": 15, "losses": 25},
+            }
+        else:
+            self._agents = agents or {}
 
     def get_all_ratings(self) -> dict:
         return self._agents

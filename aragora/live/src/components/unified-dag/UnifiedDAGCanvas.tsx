@@ -24,9 +24,11 @@ import { useUnifiedDAG, STAGE_COLORS, type DAGNodeData, type DAGOperationResult,
 import { DAGStageLanes } from './DAGStageLanes';
 import { NodeContextMenu } from './NodeContextMenu';
 import { AIOperationPanel } from './AIOperationPanel';
+import { ExecutionSidebar } from './ExecutionSidebar';
 import { DAGToolbar } from './DAGToolbar';
 import { ValueNode } from './nodes/ValueNode';
 import { AgentAssignmentNode } from './nodes/AgentAssignmentNode';
+import { ExecutionDAGNode } from './nodes/ExecutionDAGNode';
 import { CrossStageEdge } from './edges/CrossStageEdge';
 
 // ---------------------------------------------------------------------------
@@ -34,12 +36,13 @@ import { CrossStageEdge } from './edges/CrossStageEdge';
 // ---------------------------------------------------------------------------
 
 const nodeTypes = {
-  ideasNode: ValueNode,
-  goalsNode: ValueNode,
-  actionsNode: ValueNode,
-  orchestrationNode: AgentAssignmentNode,
+  ideasNode: ExecutionDAGNode,
+  goalsNode: ExecutionDAGNode,
+  actionsNode: ExecutionDAGNode,
+  orchestrationNode: ExecutionDAGNode,
   valueNode: ValueNode,
   agentAssignmentNode: AgentAssignmentNode,
+  executionNode: ExecutionDAGNode,
 };
 
 const edgeTypes = {
