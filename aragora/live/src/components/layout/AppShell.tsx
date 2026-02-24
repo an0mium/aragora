@@ -41,7 +41,7 @@ const QUICK_LINKS: QuickLink[] = [
   { label: 'PRICING', href: '/pricing', minMode: 'advanced' },
   { label: 'GENESIS', href: '/genesis', minMode: 'expert' },
   { label: 'INTROSPECTION', href: '/introspection', minMode: 'expert' },
-  { label: 'STATUS', href: '/status', minMode: 'expert' },
+  { label: 'STATUS', href: '/system-status', minMode: 'expert' },
   { label: 'ABOUT', href: '/about', minMode: 'expert' },
   { label: 'LIVE', href: 'https://live.aragora.ai', external: true, accent: true, minMode: 'expert' },
 ];

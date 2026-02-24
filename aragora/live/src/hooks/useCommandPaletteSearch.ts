@@ -58,7 +58,7 @@ const NAVIGATION_PAGES: SearchResult[] = [
   { id: 'page-portal', type: 'pages', title: 'Portal', subtitle: 'Browse / User portal', href: '/portal', icon: '\u2302', keywords: ['portal', 'home'] },
   { id: 'page-social', type: 'pages', title: 'Social', subtitle: 'Browse / Social feed', href: '/social', icon: '\u263A', keywords: ['social', 'feed', 'community'] },
   { id: 'page-moments', type: 'pages', title: 'Moments', subtitle: 'Browse / Agent moments', href: '/moments', icon: '\u25C6', keywords: ['moments', 'highlights'] },
-  { id: 'page-status', type: 'pages', title: 'Status', subtitle: 'Browse / System status', href: '/status', icon: '\u2713', keywords: ['status', 'health', 'system'] },
+  { id: 'page-status', type: 'pages', title: 'Status', subtitle: 'Browse / System status', href: '/system-status', icon: '\u2713', keywords: ['status', 'health', 'system'] },
   { id: 'page-dashboard', type: 'pages', title: 'Dashboard', subtitle: 'Browse / Overview dashboard', href: '/dashboard', icon: '#', keywords: ['dashboard', 'overview'] },
 
   // -- Analytics & Insights --
