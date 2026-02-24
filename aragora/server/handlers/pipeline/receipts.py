@@ -53,8 +53,8 @@ def register_receipt(receipt: dict[str, Any]) -> None:
 class ReceiptExplorerHandler(BaseHandler):
     """HTTP handler for pipeline receipt exploration and verification."""
 
-    def __init__(self) -> None:
-        super().__init__()
+    def __init__(self, server_context: dict[str, Any] | None = None) -> None:
+        super().__init__(server_context or {})
         try:
             self._limiter = RateLimiter(requests_per_minute=60)
         except (TypeError, RuntimeError):
