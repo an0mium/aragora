@@ -66,7 +66,17 @@ def get_handler_routes() -> set[str]:
         print("Error: Cannot import handler_registry. Ensure aragora is installed.")
         sys.exit(1)
 
-    for attr_name, handler_class in HANDLER_REGISTRY:
+    for attr_name, handler_ref in HANDLER_REGISTRY:
+        handler_class = handler_ref
+        # Handler registry entries may be deferred import proxies; resolve
+        # them so ROUTES metadata is available for validation.
+        resolve = getattr(handler_ref, "resolve", None)
+        if callable(resolve):
+            try:
+                handler_class = resolve()
+            except Exception:  # noqa: BLE001 - import failures are non-fatal here
+                handler_class = None
+
         if handler_class is None:
             continue
 

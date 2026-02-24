@@ -3,6 +3,8 @@
 from __future__ import annotations
 
 import json
+import sys
+import types
 from pathlib import Path
 
 import pytest
@@ -84,3 +86,20 @@ def test_internal_prefixes_are_excluded_by_default(monkeypatch, tmp_path: Path):
         baseline_path=str(baseline),
     )
     assert results["missing_in_spec_count"] == 0
+
+
+def test_get_handler_routes_resolves_deferred_imports(monkeypatch):
+    class DummyHandler:
+        ROUTES = ["/api/v1/test/routes"]
+        GET_ROUTES = ["/api/v1/test/get"]
+
+    class DummyDeferred:
+        def resolve(self):
+            return DummyHandler
+
+    fake_registry = types.SimpleNamespace(HANDLER_REGISTRY=[("_dummy", DummyDeferred())])
+    monkeypatch.setitem(sys.modules, "aragora.server.handler_registry", fake_registry)
+
+    routes = validate_openapi_routes.get_handler_routes()
+    assert "/api/v1/test/routes" in routes
+    assert "/api/v1/test/get" in routes
