@@ -361,6 +361,28 @@ async def search_knowledge(
         raise HTTPException(status_code=500, detail="Failed to search knowledge")
 
 
+@router.post("/knowledge/search", response_model=KnowledgeSearchResponse)
+async def search_knowledge_post(
+    body: SemanticSearchRequest,
+    request: Request,
+    km=Depends(get_knowledge_mound),
+) -> KnowledgeSearchResponse:
+    """
+    Semantic search of the knowledge mound (POST variant).
+
+    Accepts a JSON body with query and filters. Returns knowledge items
+    matching the query with relevance scoring.
+    """
+    return await search_knowledge(
+        request=request,
+        query=body.query,
+        limit=body.limit,
+        content_type=body.content_type,
+        source=body.source,
+        km=km,
+    )
+
+
 @router.get("/knowledge/stats", response_model=KnowledgeStatsResponse)
 async def get_knowledge_stats(
     request: Request,
