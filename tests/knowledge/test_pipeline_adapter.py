@@ -1,7 +1,9 @@
 """Tests for PipelineAdapter query_precedents, get_agent_performance, and KM feedback.
 
 Covers the reverse-flow methods that feed historical task outcomes back
-into new pipeline executions via idea_to_execution._execute_task.
+into new pipeline executions via idea_to_execution._execute_task, plus
+forward-flow ingestion, similar pipeline search, high-ROI patterns,
+execution success rate, and data model serialization.
 """
 
 import pytest
@@ -11,6 +13,10 @@ from typing import Any
 
 from aragora.knowledge.mound.adapters.pipeline_adapter import (
     PipelineAdapter,
+    PipelineAdapterError,
+    PipelineIngestionResult,
+    PipelineStatus,
+    SimilarPipeline,
     get_pipeline_adapter,
 )
 
