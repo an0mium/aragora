@@ -21,6 +21,7 @@ from __future__ import annotations
 import asyncio
 import json
 import time
+from types import SimpleNamespace
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
@@ -795,18 +796,22 @@ class TestReliableKafkaConsumer:
             policy=ReconnectPolicy(max_retries=2, base_delay=0.01, jitter=False),
         )
 
-        # Set up a mock consumer that fails then stops
-        mock_kafka_consumer = AsyncMock()
-        call_count = 0
+        # Set up a minimal async iterator consumer that fails once then stops.
+        class FlakyConsumer:
+            def __init__(self) -> None:
+                self.calls = 0
+                self._client = SimpleNamespace(
+                    cluster=SimpleNamespace(topics=lambda: [])
+                )
 
-        async def mock_anext():
-            nonlocal call_count
-            call_count += 1
-            if call_count == 1:
-                raise ConnectionError("broker gone")
-            raise StopAsyncIteration
+            async def __anext__(self):
+                self.calls += 1
+                if self.calls == 1:
+                    raise ConnectionError("broker gone")
+                raise StopAsyncIteration
 
-        mock_kafka_consumer.__anext__ = mock_anext
+        mock_kafka_consumer = FlakyConsumer()
+
         # Mock _do_connect to succeed and restore the consumer after reconnect.
         connect_count = 0
 
@@ -827,6 +832,7 @@ class TestReliableKafkaConsumer:
 
         # Should have tried to reconnect
         assert connect_count >= 1
+        await consumer.disconnect()
 
 
 # ---------------------------------------------------------------------------
