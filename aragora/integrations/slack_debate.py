@@ -42,6 +42,119 @@ from typing import Any
 
 logger = logging.getLogger(__name__)
 
+# ---------------------------------------------------------------------------
+# Active debate tracking (in-memory, per-process)
+# ---------------------------------------------------------------------------
+
+# Maps debate_id -> SlackActiveDebateState for debates currently running
+_active_debates: dict[str, "SlackActiveDebateState"] = {}
+
+
+@dataclass
+class SlackActiveDebateState:
+    """In-memory tracking for a running Slack-thread debate.
+
+    This enables stop commands, emoji voting, and user suggestion collection
+    while the debate is in progress.
+    """
+
+    debate_id: str
+    channel_id: str
+    thread_ts: str
+    topic: str
+    user_id: str
+    cancel_event: asyncio.Event = field(default_factory=asyncio.Event)
+    emoji_votes: dict[str, list[str]] = field(default_factory=dict)
+    user_suggestions: list[dict[str, str]] = field(default_factory=list)
+    status: str = "running"  # running, stopping, completed, failed
+
+    def record_emoji_vote(self, emoji: str, voter_id: str) -> None:
+        """Record an emoji vote from a Slack user.
+
+        Args:
+            emoji: The emoji name (e.g. ``+1``, ``-1``).
+            voter_id: Slack user ID of the voter.
+        """
+        if emoji not in self.emoji_votes:
+            self.emoji_votes[emoji] = []
+        if voter_id not in self.emoji_votes[emoji]:
+            self.emoji_votes[emoji].append(voter_id)
+
+    def add_suggestion(self, user_id: str, text: str) -> None:
+        """Add a user suggestion from a thread reply.
+
+        Args:
+            user_id: Slack user ID.
+            text: The suggestion text.
+        """
+        self.user_suggestions.append({"user_id": user_id, "text": text})
+
+    def request_stop(self) -> None:
+        """Request that this debate stop early."""
+        self.status = "stopping"
+        self.cancel_event.set()
+
+    @property
+    def vote_summary(self) -> dict[str, int]:
+        """Return a summary of emoji votes as {emoji: count}."""
+        return {emoji: len(voters) for emoji, voters in self.emoji_votes.items()}
+
+
+def get_active_debate(debate_id: str) -> SlackActiveDebateState | None:
+    """Get the active debate state for a debate ID."""
+    return _active_debates.get(debate_id)
+
+
+def get_active_debate_for_thread(
+    channel_id: str, thread_ts: str
+) -> SlackActiveDebateState | None:
+    """Find the active debate for a given Slack thread.
+
+    Args:
+        channel_id: Slack channel ID.
+        thread_ts: Thread timestamp.
+
+    Returns:
+        The active debate state, or None if no debate is running in this thread.
+    """
+    for state in _active_debates.values():
+        if state.channel_id == channel_id and state.thread_ts == thread_ts:
+            return state
+    return None
+
+
+def stop_debate(debate_id: str) -> bool:
+    """Request that a running debate stop early.
+
+    Args:
+        debate_id: The debate to stop.
+
+    Returns:
+        True if a running debate was found and stop was requested.
+    """
+    state = _active_debates.get(debate_id)
+    if state and state.status == "running":
+        state.request_stop()
+        return True
+    return False
+
+
+def stop_debate_in_thread(channel_id: str, thread_ts: str) -> str | None:
+    """Stop the debate running in a given Slack thread.
+
+    Args:
+        channel_id: Slack channel ID.
+        thread_ts: Thread timestamp.
+
+    Returns:
+        The debate_id if stopped, None if no running debate found.
+    """
+    state = get_active_debate_for_thread(channel_id, thread_ts)
+    if state and state.status == "running":
+        state.request_stop()
+        return state.debate_id
+    return None
+
 
 # ---------------------------------------------------------------------------
 # Configuration
@@ -382,6 +495,166 @@ def _build_receipt_blocks(
     return blocks
 
 
+def _build_stop_blocks(
+    debate_id: str,
+    stopped_by: str = "",
+) -> list[dict[str, Any]]:
+    """Build Block Kit blocks for a 'debate stopped' notification.
+
+    Args:
+        debate_id: The stopped debate ID.
+        stopped_by: User ID who requested the stop.
+    """
+    blocks: list[dict[str, Any]] = [
+        {
+            "type": "section",
+            "text": {
+                "type": "mrkdwn",
+                "text": ":octagonal_sign: *Debate Stopped*",
+            },
+        },
+    ]
+    if stopped_by:
+        blocks.append(
+            {
+                "type": "context",
+                "elements": [
+                    {
+                        "type": "mrkdwn",
+                        "text": (
+                            f"Stopped by <@{stopped_by}> | "
+                            f"Debate `{debate_id[:12]}...`"
+                        ),
+                    }
+                ],
+            }
+        )
+    return blocks
+
+
+def _build_vote_summary_blocks(
+    vote_summary: dict[str, int],
+    suggestions_count: int = 0,
+) -> list[dict[str, Any]]:
+    """Build Block Kit blocks for a user participation summary.
+
+    Args:
+        vote_summary: Emoji -> vote count mapping.
+        suggestions_count: Number of user suggestions received.
+    """
+    if not vote_summary and suggestions_count == 0:
+        return []
+
+    parts: list[str] = []
+    if vote_summary:
+        vote_lines = []
+        for emoji, count in sorted(vote_summary.items(), key=lambda x: -x[1]):
+            vote_lines.append(f":{emoji}: x{count}")
+        parts.append("*User Votes:* " + "  ".join(vote_lines))
+    if suggestions_count > 0:
+        parts.append(
+            f"*User Suggestions:* {suggestions_count} received"
+        )
+
+    return [
+        {"type": "divider"},
+        {
+            "type": "section",
+            "text": {
+                "type": "mrkdwn",
+                "text": "\n".join(parts),
+            },
+        },
+    ]
+
+
+def _build_critique_summary_blocks(
+    critiques: list[dict[str, Any]],
+) -> list[dict[str, Any]]:
+    """Build Block Kit blocks for a critique summary.
+
+    Args:
+        critiques: List of critique dicts with ``agent`` and ``summary`` keys.
+    """
+    if not critiques:
+        return []
+
+    blocks: list[dict[str, Any]] = [
+        {
+            "type": "section",
+            "text": {
+                "type": "mrkdwn",
+                "text": ":mag: *Critique Summary*",
+            },
+        },
+    ]
+
+    for crit in critiques[:5]:
+        agent = crit.get("agent", "Unknown")
+        summary = crit.get("summary", "")[:200]
+        if len(crit.get("summary", "")) > 200:
+            summary += "..."
+        blocks.append(
+            {
+                "type": "section",
+                "text": {
+                    "type": "mrkdwn",
+                    "text": f"*{agent}:* _{summary}_",
+                },
+            }
+        )
+
+    return blocks
+
+
+def _build_voting_results_blocks(
+    votes: dict[str, Any],
+) -> list[dict[str, Any]]:
+    """Build Block Kit blocks for agent voting results.
+
+    Args:
+        votes: Dict with agent voting data.
+    """
+    if not votes:
+        return []
+
+    blocks: list[dict[str, Any]] = [
+        {
+            "type": "section",
+            "text": {
+                "type": "mrkdwn",
+                "text": ":ballot_box: *Voting Results*",
+            },
+        },
+    ]
+
+    for agent, vote_data in votes.items():
+        if isinstance(vote_data, dict):
+            position = vote_data.get("position", "abstain")
+            confidence = vote_data.get("confidence", 0.0)
+            blocks.append(
+                {
+                    "type": "section",
+                    "text": {
+                        "type": "mrkdwn",
+                        "text": f"*{agent}:* {position} ({confidence:.0%} confidence)",
+                    },
+                }
+            )
+        else:
+            blocks.append(
+                {
+                    "type": "section",
+                    "text": {
+                        "type": "mrkdwn",
+                        "text": f"*{agent}:* {vote_data}",
+                    },
+                }
+            )
+
+    return blocks
+
+
 def _build_error_blocks(
     error_message: str,
     debate_id: str = "",
@@ -702,6 +975,160 @@ class SlackDebateLifecycle:
         text = f"Error: {error_message}"
         return await self._post_to_thread(channel_id, thread_ts, text, blocks)
 
+    async def post_stop(
+        self,
+        channel_id: str,
+        thread_ts: str,
+        debate_id: str,
+        stopped_by: str = "",
+    ) -> bool:
+        """Post a 'debate stopped' notification to the thread.
+
+        Args:
+            channel_id: Slack channel ID.
+            thread_ts: Thread timestamp.
+            debate_id: The stopped debate ID.
+            stopped_by: User ID who requested the stop.
+
+        Returns:
+            True if posted successfully.
+        """
+        blocks = _build_stop_blocks(debate_id, stopped_by)
+        text = "Debate stopped"
+        return await self._post_to_thread(channel_id, thread_ts, text, blocks)
+
+    async def post_critique_summary(
+        self,
+        channel_id: str,
+        thread_ts: str,
+        critiques: list[dict[str, Any]],
+    ) -> bool:
+        """Post a critique summary to the thread.
+
+        Args:
+            channel_id: Slack channel ID.
+            thread_ts: Thread timestamp.
+            critiques: List of critique dicts.
+
+        Returns:
+            True if posted successfully.
+        """
+        blocks = _build_critique_summary_blocks(critiques)
+        if not blocks:
+            return True
+        text = "Critique summary"
+        return await self._post_to_thread(channel_id, thread_ts, text, blocks)
+
+    async def post_voting_results(
+        self,
+        channel_id: str,
+        thread_ts: str,
+        votes: dict[str, Any],
+    ) -> bool:
+        """Post agent voting results to the thread.
+
+        Args:
+            channel_id: Slack channel ID.
+            thread_ts: Thread timestamp.
+            votes: Dict with agent voting data.
+
+        Returns:
+            True if posted successfully.
+        """
+        blocks = _build_voting_results_blocks(votes)
+        if not blocks:
+            return True
+        text = "Voting results"
+        return await self._post_to_thread(channel_id, thread_ts, text, blocks)
+
+    async def post_vote_summary(
+        self,
+        channel_id: str,
+        thread_ts: str,
+        vote_summary: dict[str, int],
+        suggestions_count: int = 0,
+    ) -> bool:
+        """Post a user participation summary to the thread.
+
+        Args:
+            channel_id: Slack channel ID.
+            thread_ts: Thread timestamp.
+            vote_summary: Emoji -> vote count mapping.
+            suggestions_count: Number of user suggestions received.
+
+        Returns:
+            True if posted successfully.
+        """
+        blocks = _build_vote_summary_blocks(vote_summary, suggestions_count)
+        if not blocks:
+            return True
+        text = "User participation summary"
+        return await self._post_to_thread(channel_id, thread_ts, text, blocks)
+
+    async def handle_thread_reply(
+        self,
+        channel_id: str,
+        thread_ts: str,
+        user_id: str,
+        text: str,
+    ) -> bool:
+        """Handle a user reply in a debate thread as a suggestion.
+
+        Looks up the active debate for this thread and records the
+        suggestion text.
+
+        Args:
+            channel_id: Slack channel ID.
+            thread_ts: Thread timestamp of the debate.
+            user_id: Slack user ID of the replier.
+            text: The reply text.
+
+        Returns:
+            True if the suggestion was recorded.
+        """
+        state = get_active_debate_for_thread(channel_id, thread_ts)
+        if state is None:
+            return False
+        state.add_suggestion(user_id, text)
+        logger.info(
+            "Recorded user suggestion from %s for debate %s",
+            user_id,
+            state.debate_id,
+        )
+        return True
+
+    async def handle_emoji_reaction(
+        self,
+        channel_id: str,
+        thread_ts: str,
+        user_id: str,
+        emoji: str,
+    ) -> bool:
+        """Handle an emoji reaction on a debate thread message.
+
+        Records the reaction as a vote in the active debate state.
+
+        Args:
+            channel_id: Slack channel ID.
+            thread_ts: Thread timestamp of the reacted message.
+            user_id: Slack user ID of the reactor.
+            emoji: The emoji name (e.g. ``+1``).
+
+        Returns:
+            True if the vote was recorded.
+        """
+        state = get_active_debate_for_thread(channel_id, thread_ts)
+        if state is None:
+            return False
+        state.record_emoji_vote(emoji, user_id)
+        logger.info(
+            "Recorded emoji vote :%s: from %s for debate %s",
+            emoji,
+            user_id,
+            state.debate_id,
+        )
+        return True
+
     async def run_debate(
         self,
         channel_id: str,
@@ -713,7 +1140,8 @@ class SlackDebateLifecycle:
         """Run a debate and stream progress updates to the Slack thread.
 
         Lazily imports the debate engine.  Posts round updates, the final
-        consensus, and optionally the decision receipt.
+        consensus, and optionally the decision receipt.  Supports early
+        stopping via the active debate state's cancel event.
 
         Args:
             channel_id: Slack channel ID.
@@ -727,6 +1155,16 @@ class SlackDebateLifecycle:
         """
         config = config or SlackDebateConfig()
 
+        # Register active debate state for stop/vote/suggestion tracking
+        state = SlackActiveDebateState(
+            debate_id=debate_id,
+            channel_id=channel_id,
+            thread_ts=thread_ts,
+            topic=topic,
+            user_id="",
+        )
+        _active_debates[debate_id] = state
+
         try:
             from aragora import Arena, DebateProtocol, Environment
         except ImportError:
@@ -734,6 +1172,8 @@ class SlackDebateLifecycle:
             await self.post_error(
                 channel_id, thread_ts, "Debate engine is not available.", debate_id
             )
+            state.status = "failed"
+            _active_debates.pop(debate_id, None)
             return None
 
         env = Environment(task=topic)
@@ -744,22 +1184,63 @@ class SlackDebateLifecycle:
         arena = Arena(env, config.agents, protocol)
 
         result = None
+        stopped_early = False
         try:
+            # Run the debate with timeout, but also check for stop requests
+            async def _run_with_cancel() -> Any:
+                run_task = asyncio.ensure_future(arena.run())
+                cancel_task = asyncio.ensure_future(state.cancel_event.wait())
+                done, pending = await asyncio.wait(
+                    {run_task, cancel_task},
+                    return_when=asyncio.FIRST_COMPLETED,
+                )
+                for p in pending:
+                    p.cancel()
+                    try:
+                        await p
+                    except asyncio.CancelledError:
+                        pass
+                if cancel_task in done:
+                    # Stop was requested
+                    return None
+                return run_task.result()
+
             result = await asyncio.wait_for(
-                arena.run(),
+                _run_with_cancel(),
                 timeout=config.timeout_seconds,
             )
+
+            if result is None and state.cancel_event.is_set():
+                stopped_early = True
         except asyncio.TimeoutError:
             logger.warning("Debate %s timed out after %ss", debate_id, config.timeout_seconds)
             await self.post_error(
                 channel_id, thread_ts, "Debate timed out.", debate_id
             )
+            state.status = "failed"
+            _active_debates.pop(debate_id, None)
             return None
         except (RuntimeError, OSError, ValueError) as exc:
             logger.error("Debate %s failed: %s", debate_id, exc)
             await self.post_error(
                 channel_id, thread_ts, f"Debate failed: {exc}", debate_id
             )
+            state.status = "failed"
+            _active_debates.pop(debate_id, None)
+            return None
+
+        if stopped_early:
+            await self.post_stop(channel_id, thread_ts, debate_id)
+            # Still post user participation summary if any votes/suggestions
+            if state.emoji_votes or state.user_suggestions:
+                await self.post_vote_summary(
+                    channel_id,
+                    thread_ts,
+                    state.vote_summary,
+                    len(state.user_suggestions),
+                )
+            state.status = "completed"
+            _active_debates.pop(debate_id, None)
             return None
 
         # Post round updates from result data if available
@@ -777,6 +1258,34 @@ class SlackDebateLifecycle:
                     "phase": getattr(rd, "phase", "proposal"),
                 }
             await self.post_round_update(channel_id, thread_ts, round_data)
+
+        # Post critique summary if available
+        critiques = getattr(result, "critiques", None) or []
+        if critiques:
+            crit_data = []
+            for c in critiques:
+                if isinstance(c, dict):
+                    crit_data.append(c)
+                else:
+                    crit_data.append({
+                        "agent": getattr(c, "agent", ""),
+                        "summary": getattr(c, "summary", getattr(c, "text", "")),
+                    })
+            await self.post_critique_summary(channel_id, thread_ts, crit_data)
+
+        # Post voting results if available
+        votes = getattr(result, "votes", None)
+        if votes and isinstance(votes, dict):
+            await self.post_voting_results(channel_id, thread_ts, votes)
+
+        # Post user participation summary if any votes/suggestions
+        if state.emoji_votes or state.user_suggestions:
+            await self.post_vote_summary(
+                channel_id,
+                thread_ts,
+                state.vote_summary,
+                len(state.user_suggestions),
+            )
 
         # Post consensus
         await self.post_consensus(channel_id, thread_ts, result)
@@ -796,6 +1305,8 @@ class SlackDebateLifecycle:
         except (ImportError, RuntimeError, OSError):
             pass
 
+        state.status = "completed"
+        _active_debates.pop(debate_id, None)
         return result
 
     async def start_and_run_debate(
@@ -955,9 +1466,18 @@ class SlackDebateLifecycle:
 
 
 __all__ = [
+    "SlackActiveDebateState",
     "SlackDebateConfig",
     "SlackDebateLifecycle",
+    "get_active_debate",
+    "get_active_debate_for_thread",
+    "stop_debate",
+    "stop_debate_in_thread",
     "parse_mention_text",
-    "_build_receipt_blocks",
+    "_build_critique_summary_blocks",
     "_build_error_blocks",
+    "_build_receipt_blocks",
+    "_build_stop_blocks",
+    "_build_vote_summary_blocks",
+    "_build_voting_results_blocks",
 ]

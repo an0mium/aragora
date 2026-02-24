@@ -191,6 +191,10 @@ class CommandsMixin(BlocksMixin):
                     result = self._command_gauntlet(
                         args, user_id, channel_id, response_url, workspace, team_id
                     )
+                elif subcommand == "stop":
+                    result = self._command_stop(
+                        args, user_id, channel_id, response_url, workspace, team_id
+                    )
                 elif subcommand == "agents":
                     result = self._command_agents()
                 elif subcommand == "ask":
@@ -257,6 +261,7 @@ class CommandsMixin(BlocksMixin):
 `/aragora implement "topic"` - Debate with plan + context snapshot
 `/aragora ask "question"` - Quick Q&A without full debate
 `/aragora gauntlet "statement"` - Run adversarial stress-test validation
+`/aragora stop [debate_id]` - Stop a running debate
 
 *Discovery:*
 `/aragora search "query"` - Search debates and evidence
@@ -267,6 +272,10 @@ class CommandsMixin(BlocksMixin):
 `/aragora agents` - List available agents
 `/aragora status` - Get system status
 `/aragora help` - Show this help message
+
+*Thread Interaction:*
+React with emoji to vote (thumbs up/down counted)
+Reply in thread to add suggestions to ongoing debates
 
 *Examples:*
 - `/aragora debate "Should AI be regulated?"`
@@ -1425,6 +1434,80 @@ class CommandsMixin(BlocksMixin):
                     },
                 )
             self._update_debate_status(debate_id, "failed", error="Debate execution failed")
+
+    def _command_stop(
+        self,
+        args: str,
+        user_id: str,
+        channel_id: str,
+        response_url: str,
+        workspace: Any | None = None,
+        team_id: str | None = None,
+    ) -> HandlerResult:
+        """Stop a running debate.
+
+        Stops either by debate ID or by channel context (most recent debate).
+
+        Args:
+            args: Optional debate ID to stop.
+            user_id: Slack user ID.
+            channel_id: Slack channel ID.
+            response_url: URL for async responses.
+            workspace: Resolved workspace object.
+            team_id: Slack team/workspace ID.
+        """
+        debate_id_arg = args.strip().strip("\"'") if args else ""
+
+        try:
+            from aragora.integrations.slack_debate import (
+                stop_debate,
+                stop_debate_in_thread,
+            )
+
+            stopped_id: str | None = None
+
+            if debate_id_arg:
+                # Stop specific debate by ID
+                if stop_debate(debate_id_arg):
+                    stopped_id = debate_id_arg
+            else:
+                # Try to find and stop a debate in the current channel
+                # For slash commands we don't have a thread_ts, but we can
+                # try matching by channel_id
+                from aragora.integrations.slack_debate import _active_debates
+
+                for state in _active_debates.values():
+                    if state.channel_id == channel_id and state.status == "running":
+                        state.request_stop()
+                        stopped_id = state.debate_id
+                        break
+
+            if stopped_id:
+                self._update_debate_status(stopped_id, "stopped")
+                return self._slack_response(
+                    f":octagonal_sign: Debate `{stopped_id[:12]}...` has been stopped.",
+                    response_type="in_channel",
+                )
+            else:
+                return self._slack_response(
+                    "No running debate found to stop."
+                    + (f" Debate ID `{debate_id_arg}` not found." if debate_id_arg else "")
+                    + " Use `/aragora stop <debate_id>` to stop a specific debate.",
+                    response_type="ephemeral",
+                )
+
+        except ImportError:
+            logger.debug("Slack debate lifecycle module not available")
+            return self._slack_response(
+                "Stop command is not available.",
+                response_type="ephemeral",
+            )
+        except (RuntimeError, OSError, ValueError) as e:
+            logger.error("Stop command failed: %s", e)
+            return self._slack_response(
+                "Failed to stop debate. Please try again.",
+                response_type="ephemeral",
+            )
 
     def _update_debate_status(
         self,

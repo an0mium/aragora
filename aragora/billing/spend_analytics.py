@@ -259,6 +259,143 @@ class SpendAnalytics:
 
         return by_agent
 
+    async def get_spend_by_model(self, workspace_id: str) -> dict[str, float]:
+        """Return cost breakdown by LLM model.
+
+        Args:
+            workspace_id: Workspace identifier.
+
+        Returns:
+            Dict mapping model name to total cost in USD.
+        """
+        by_model: dict[str, float] = {}
+
+        if self._cost_tracker:
+            async with self._cost_tracker._buffer_lock:
+                for usage in self._cost_tracker._usage_buffer:
+                    if usage.workspace_id != workspace_id:
+                        continue
+                    model_key = usage.model or "unknown"
+                    by_model[model_key] = by_model.get(model_key, 0.0) + float(
+                        usage.cost_usd
+                    )
+
+        return by_model
+
+    async def get_spend_by_debate(
+        self,
+        workspace_id: str,
+        limit: int = 20,
+    ) -> list[dict[str, Any]]:
+        """Return per-debate cost breakdown, most expensive first.
+
+        Args:
+            workspace_id: Workspace identifier.
+            limit: Maximum number of debates to return.
+
+        Returns:
+            List of dicts with debate_id, cost_usd, agent_count, call_count, timestamp.
+        """
+        debates: dict[str, dict[str, Any]] = {}
+
+        if self._cost_tracker:
+            async with self._cost_tracker._buffer_lock:
+                for usage in self._cost_tracker._usage_buffer:
+                    if usage.workspace_id != workspace_id:
+                        continue
+                    did = usage.debate_id or "no_debate"
+                    if did not in debates:
+                        debates[did] = {
+                            "debate_id": did,
+                            "cost_usd": 0.0,
+                            "agents": set(),
+                            "call_count": 0,
+                            "last_activity": usage.timestamp.isoformat(),
+                        }
+                    entry = debates[did]
+                    entry["cost_usd"] += float(usage.cost_usd)
+                    agent = usage.agent_name or usage.agent_id or "unknown"
+                    entry["agents"].add(agent)
+                    entry["call_count"] += 1
+                    if usage.timestamp.isoformat() > entry["last_activity"]:
+                        entry["last_activity"] = usage.timestamp.isoformat()
+
+        # Convert sets to counts and sort by cost
+        result = []
+        for entry in debates.values():
+            result.append(
+                {
+                    "debate_id": entry["debate_id"],
+                    "cost_usd": round(entry["cost_usd"], 4),
+                    "agent_count": len(entry["agents"]),
+                    "call_count": entry["call_count"],
+                    "last_activity": entry["last_activity"],
+                }
+            )
+
+        result.sort(key=lambda x: x["cost_usd"], reverse=True)
+        return result[:limit]
+
+    async def get_budget_utilization(
+        self,
+        workspace_id: str,
+    ) -> dict[str, Any]:
+        """Return budget utilization metrics for the workspace.
+
+        Args:
+            workspace_id: Workspace identifier.
+
+        Returns:
+            Dict with budget_usd, spent_usd, remaining_usd, utilization_pct,
+            daily_budget_usd, daily_spent_usd, daily_utilization_pct.
+        """
+        result: dict[str, Any] = {
+            "workspace_id": workspace_id,
+            "budget_usd": 0.0,
+            "spent_usd": 0.0,
+            "remaining_usd": 0.0,
+            "utilization_pct": 0.0,
+            "daily_budget_usd": None,
+            "daily_spent_usd": 0.0,
+            "daily_utilization_pct": 0.0,
+        }
+
+        if not self._cost_tracker:
+            return result
+
+        budget = self._cost_tracker.get_budget(workspace_id=workspace_id)
+        if not budget:
+            return result
+
+        monthly_limit = float(budget.monthly_limit_usd) if budget.monthly_limit_usd else 0.0
+        monthly_spend = (
+            float(budget.current_monthly_spend)
+            if hasattr(budget, "current_monthly_spend")
+            else 0.0
+        )
+        daily_limit = float(budget.daily_limit_usd) if budget.daily_limit_usd else None
+        daily_spend = (
+            float(budget.current_daily_spend)
+            if hasattr(budget, "current_daily_spend")
+            else 0.0
+        )
+
+        result["budget_usd"] = monthly_limit
+        result["spent_usd"] = round(monthly_spend, 4)
+        result["remaining_usd"] = round(max(0.0, monthly_limit - monthly_spend), 4)
+        result["utilization_pct"] = (
+            round(monthly_spend / monthly_limit * 100, 1) if monthly_limit > 0 else 0.0
+        )
+        result["daily_budget_usd"] = daily_limit
+        result["daily_spent_usd"] = round(daily_spend, 4)
+        result["daily_utilization_pct"] = (
+            round(daily_spend / daily_limit * 100, 1)
+            if daily_limit and daily_limit > 0
+            else 0.0
+        )
+
+        return result
+
     async def get_cost_forecast(
         self,
         workspace_id: str,

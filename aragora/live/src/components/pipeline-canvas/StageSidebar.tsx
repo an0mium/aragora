@@ -25,6 +25,16 @@ const GauntletRunner = dynamic(
   { ssr: false, loading: () => <PanelLoading label="Gauntlet" /> },
 );
 
+const MetaPlannerView = dynamic(
+  () => import('@/components/self-improve/MetaPlannerView').then((m) => ({ default: m.MetaPlannerView })),
+  { ssr: false, loading: () => <PanelLoading label="MetaPlanner" /> },
+);
+
+const LearningFeed = dynamic(
+  () => import('@/components/self-improve/LearningFeed').then((m) => ({ default: m.LearningFeed })),
+  { ssr: false, loading: () => <PanelLoading label="Learning Feed" /> },
+);
+
 function PanelLoading({ label }: { label: string }) {
   return (
     <div className="flex items-center justify-center h-32">
@@ -129,9 +139,18 @@ export function StageSidebar({ stage, isOpen, onClose }: StageSidebarProps) {
 
           <div className="border-t border-border pt-3">
             {stage === 'ideas' && <MemoryExplorerPanel />}
+            {stage === 'principles' && <MetaPlannerView />}
             {stage === 'goals' && <EvaluationPanel apiBase="" />}
             {stage === 'actions' && <PluginMarketplacePanel />}
-            {stage === 'orchestration' && <GauntletRunner />}
+            {stage === 'orchestration' && (
+              <>
+                <GauntletRunner />
+                <div className="mt-4 border-t border-border pt-3">
+                  <h4 className="text-xs font-mono text-text-muted uppercase mb-2">Learning Feed</h4>
+                  <LearningFeed />
+                </div>
+              </>
+            )}
           </div>
         </div>
       )}

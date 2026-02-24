@@ -1085,6 +1085,13 @@ class DebateRoundsPhase:
         if not all_critiques:
             return
 
+        # Latency optimization (issue #268): pre-build per-agent critique index
+        # to avoid O(agents * critiques) filtering in the revision loop below.
+        from collections import defaultdict
+        _critiques_by_target: dict[str, list] = defaultdict(list)
+        for c in all_critiques:
+            _critiques_by_target[c.target_agent].append(c)
+
         # Semaphore prevents exhausting API rate limits with too many parallel requests
         revision_semaphore = asyncio.Semaphore(self._max_parallel_revisions)
 
@@ -1143,7 +1150,6 @@ class DebateRoundsPhase:
                 )
                 raise
 
-        revision_tasks = []
         revision_agents = []
         revision_candidates = list(ctx.proposers)
         if self._is_low_contention_round(
@@ -1154,19 +1160,14 @@ class DebateRoundsPhase:
             revision_candidates = self._rank_agents_fast_first(revision_candidates)
 
         for agent in revision_candidates:
-            # Filter critiques specifically targeting this agent
-            # This ensures each agent only sees critiques directed at their proposal
-            agent_critiques = [c for c in all_critiques if c.target_agent == agent.name]
+            # Use pre-built index for O(1) critique lookup per agent
+            agent_critiques = _critiques_by_target.get(agent.name, [])
 
             # Skip revision if no critiques for this agent
             if not agent_critiques:
                 logger.debug("No critiques targeting %s, skipping revision", agent.name)
                 continue
 
-            revision_prompt = self._build_revision_prompt(
-                agent, proposals.get(agent.name, ""), agent_critiques, round_num
-            )
-            revision_tasks.append(generate_revision_bounded(agent, revision_prompt))
             revision_agents.append(agent)
 
         # Calculate dynamic phase timeout based on number of agents
@@ -1207,21 +1208,149 @@ class DebateRoundsPhase:
             except asyncio.CancelledError:
                 logger.debug("Heartbeat task cancelled during revision round %d", round_num)
 
+        # Latency optimization (issue #268): use as_completed instead of gather
+        # so that results are processed as they arrive, reducing time-to-first-
+        # update and allowing downstream state (proposals dict, messages list)
+        # to be populated incrementally.  This matches the pattern already used
+        # in the critique and proposal phases.
+
+        # Wrap each task so it carries the originating agent for identification
+        # after as_completed reorders them.
+        async def _tagged_revision(agent: Agent, revision_prompt: str):
+            """Return (agent, result_or_exception) tuple."""
+            try:
+                rev = await generate_revision_bounded(agent, revision_prompt)
+                return (agent, rev)
+            except BaseException as exc:
+                return (agent, exc)
+
+        tagged_tasks = [
+            asyncio.create_task(
+                _tagged_revision(agent, revision_prompt),
+                name=f"revision_{agent.name}_{round_num}",
+            )
+            for agent, revision_prompt in zip(
+                revision_agents,
+                [
+                    self._build_revision_prompt(
+                        a, proposals.get(a.name, ""),
+                        _critiques_by_target.get(a.name, []),
+                        round_num,
+                    )
+                    for a in revision_agents
+                ],
+            )
+        ]
+
         # Execute all revisions with bounded concurrency and phase-level timeout
         heartbeat_task = asyncio.create_task(heartbeat_during_revisions())
+        revision_count = 0
+        total_revisions = len(revision_agents)
+        _first_revision_logged = False
+        _revisions_start = time.perf_counter()
+
         try:
-            revision_results = await asyncio.wait_for(
-                asyncio.gather(*revision_tasks, return_exceptions=True),
-                timeout=phase_timeout,
-            )
+            for completed_task in asyncio.as_completed(tagged_tasks, timeout=phase_timeout):
+                try:
+                    agent, revised = await completed_task
+                except asyncio.TimeoutError:
+                    logger.error(
+                        "revision_phase_timeout: phase exceeded %ss limit, agents=%s",
+                        phase_timeout,
+                        [a.name for a in revision_agents],
+                    )
+                    break
+                except asyncio.CancelledError:
+                    raise
+                except Exception as e:  # noqa: BLE001 - phase isolation
+                    logger.error("revision_task_error error=%s", e)
+                    continue
+
+                revision_count += 1
+
+                # Track time-to-first-revision for latency visibility
+                if not _first_revision_logged:
+                    _first_ms = (time.perf_counter() - _revisions_start) * 1000
+                    logger.info(
+                        "time_to_first_revision_ms=%.1f agent=%s round=%d",
+                        _first_ms,
+                        agent.name,
+                        round_num,
+                    )
+                    _first_revision_logged = True
+
+                # Emit heartbeat for each completed revision
+                self._emit_heartbeat(
+                    f"revision_round_{round_num}",
+                    f"processed_{revision_count}_of_{total_revisions}",
+                )
+
+                if isinstance(revised, BaseException):
+                    logger.error("revision_error agent=%s error=%s", agent.name, revised)
+                    if self.circuit_breaker:
+                        self.circuit_breaker.record_failure(agent.name)
+                    continue
+
+                # At this point, revised is confirmed to be str
+                revised_str: str = revised
+                if self.circuit_breaker:
+                    self.circuit_breaker.record_success(agent.name)
+
+                proposals[agent.name] = revised_str
+                logger.debug("revision_complete agent=%s length=%s", agent.name, len(revised_str))
+
+                # Notify spectator
+                if self._notify_spectator:
+                    self._notify_spectator(
+                        "propose",
+                        agent=agent.name,
+                        details=f"Revised proposal ({len(revised_str)} chars)",
+                        metric=len(revised_str),
+                    )
+
+                # Create message
+                msg = Message(
+                    role="proposer",
+                    agent=agent.name,
+                    content=revised_str,
+                    round=round_num,
+                )
+                ctx.add_message(msg)
+                result.messages.append(msg)
+                self._partial_messages.append(msg)
+
+                # Emit message event
+                if "on_message" in self.hooks:
+                    self.hooks["on_message"](
+                        agent=agent.name,
+                        content=revised_str,
+                        role="proposer",
+                        round_num=round_num,
+                    )
+
+                # Record revision
+                if self.recorder:
+                    try:
+                        self.recorder.record_turn(agent.name, revised_str, round_num)
+                    except (RuntimeError, AttributeError, TypeError) as e:  # noqa: BLE001
+                        logger.debug("Recorder error for revision: %s", e)
+
+                # Record position for grounded personas
+                if self._record_grounded_position:
+                    debate_id = (
+                        result.id if hasattr(result, "id") else (ctx.env.task[:50] if ctx.env else "")
+                    )
+                    self._record_grounded_position(agent.name, revised_str, debate_id, round_num, 0.75)
+
+                # Observe rhetorical patterns for audience engagement
+                loop_id = ctx.loop_id if hasattr(ctx, "loop_id") else ""
+                self._observe_rhetorical_patterns(agent.name, revised_str, round_num, loop_id)
         except asyncio.TimeoutError:
             logger.error(
                 "revision_phase_timeout: phase exceeded %ss limit, agents=%s",
                 phase_timeout,
                 [a.name for a in revision_agents],
             )
-            # Return timeout errors for all pending agents
-            revision_results = [asyncio.TimeoutError()] * len(revision_tasks)
         finally:
             # Cancel the heartbeat task now that revisions are done
             heartbeat_task.cancel()
@@ -1229,77 +1358,6 @@ class DebateRoundsPhase:
                 await heartbeat_task
             except asyncio.CancelledError:
                 logger.debug("Heartbeat task cleanup completed for round %d", round_num)
-
-        # Process results
-        revision_count = 0
-        total_revisions = len(revision_agents)
-        for agent, revised in zip(revision_agents, revision_results):
-            revision_count += 1
-            # Emit heartbeat for each completed revision
-            self._emit_heartbeat(
-                f"revision_round_{round_num}",
-                f"processed_{revision_count}_of_{total_revisions}",
-            )
-            if isinstance(revised, BaseException):
-                logger.error("revision_error agent=%s error=%s", agent.name, revised)
-                if self.circuit_breaker:
-                    self.circuit_breaker.record_failure(agent.name)
-                continue
-
-            # At this point, revised is confirmed to be str
-            revised_str: str = revised
-            if self.circuit_breaker:
-                self.circuit_breaker.record_success(agent.name)
-
-            proposals[agent.name] = revised_str
-            logger.debug("revision_complete agent=%s length=%s", agent.name, len(revised_str))
-
-            # Notify spectator
-            if self._notify_spectator:
-                self._notify_spectator(
-                    "propose",
-                    agent=agent.name,
-                    details=f"Revised proposal ({len(revised_str)} chars)",
-                    metric=len(revised_str),
-                )
-
-            # Create message
-            msg = Message(
-                role="proposer",
-                agent=agent.name,
-                content=revised_str,
-                round=round_num,
-            )
-            ctx.add_message(msg)
-            result.messages.append(msg)
-            self._partial_messages.append(msg)
-
-            # Emit message event
-            if "on_message" in self.hooks:
-                self.hooks["on_message"](
-                    agent=agent.name,
-                    content=revised_str,
-                    role="proposer",
-                    round_num=round_num,
-                )
-
-            # Record revision
-            if self.recorder:
-                try:
-                    self.recorder.record_turn(agent.name, revised_str, round_num)
-                except (RuntimeError, AttributeError, TypeError) as e:  # noqa: BLE001
-                    logger.debug("Recorder error for revision: %s", e)
-
-            # Record position for grounded personas
-            if self._record_grounded_position:
-                debate_id = (
-                    result.id if hasattr(result, "id") else (ctx.env.task[:50] if ctx.env else "")
-                )
-                self._record_grounded_position(agent.name, revised_str, debate_id, round_num, 0.75)
-
-            # Observe rhetorical patterns for audience engagement
-            loop_id = ctx.loop_id if hasattr(ctx, "loop_id") else ""
-            self._observe_rhetorical_patterns(agent.name, revised_str, round_num, loop_id)
 
     async def _should_terminate(self, ctx: DebateContext, round_num: int) -> bool:
         """Check if debate should terminate early.

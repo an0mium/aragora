@@ -24,13 +24,22 @@ export function handleAckEvent(data: ParsedEventData, ctx: EventHandlerContext):
  */
 export function handleErrorEvent(data: ParsedEventData, ctx: EventHandlerContext): void {
   const eventData = data.data;
+  const errorCategory = (eventData?.error_category as string) || '';
+  const errorType = (eventData?.error_type as string) || '';
 
   // Handle queue overflow notifications
-  if (eventData?.error_type === 'queue_overflow') {
-    logger.warn('[WebSocket] Server queue overflow:', eventData.message);
+  if (errorType === 'queue_overflow') {
+    logger.warn('[WebSocket] Server queue overflow:', eventData?.message);
     ctx.errorCallbackRef.current?.(
-      `Some updates may be missing (${eventData.dropped_count} events dropped)`
+      `Some updates may be missing (${eventData?.dropped_count} events dropped)`
     );
+    return;
+  }
+
+  // Handle validation errors (invalid JSON, message too large, etc.)
+  if (errorCategory === 'validation') {
+    logger.warn(`[WebSocket] Validation error (${errorType}):`, eventData?.message);
+    // These are recoverable — don't change connection status
     return;
   }
 
@@ -50,7 +59,7 @@ export function handleErrorEvent(data: ParsedEventData, ctx: EventHandlerContext
   }
 
   // If this is a fatal error (e.g., invalid agent type), set error state
-  if (eventData?.fatal || eventData?.error_type === 'validation_error') {
+  if (eventData?.fatal || errorType === 'validation_error') {
     ctx.setStatus('error');
     ctx.setError('Debate failed');
     ctx.setErrorDetails(errorMsg);

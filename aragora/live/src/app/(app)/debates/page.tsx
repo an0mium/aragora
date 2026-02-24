@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import { fetchRecentDebates, type DebateArtifact } from '@/utils/supabase';
 import { Scanlines, CRTVignette } from '@/components/MatrixRain';
 import { getAgentColors } from '@/utils/agentColors';
@@ -9,6 +10,7 @@ import { logger } from '@/utils/logger';
 import { DebatesEmptyState } from '@/components/ui/EmptyState';
 import { useRightSidebar } from '@/context/RightSidebarContext';
 import { API_BASE_URL } from '@/config';
+import { UseCaseWizard } from '@/components/wizards/UseCaseWizard';
 
 const PAGE_SIZE = 20;
 
@@ -67,6 +69,7 @@ function normalizeBackendDebate(d: NonNullable<BackendDebatesResponse['debates']
 }
 
 export default function DebatesPage() {
+  const router = useRouter();
   const [debates, setDebates] = useState<DebateArtifact[]>([]);
   const [loading, setLoading] = useState(true);
   const [loadingMore, setLoadingMore] = useState(false);
@@ -75,6 +78,7 @@ export default function DebatesPage() {
   const [hasMore, setHasMore] = useState(true);
   const [filter, setFilter] = useState<'all' | 'consensus' | 'no-consensus'>('all');
   const [dataSource, setDataSource] = useState<'backend' | 'supabase' | 'none'>('none');
+  const [showWizard, setShowWizard] = useState(false);
 
   const { setContext, clearContext } = useRightSidebar();
 
@@ -113,6 +117,12 @@ export default function DebatesPage() {
           >
             + NEW DEBATE
           </Link>
+          <button
+            onClick={() => setShowWizard(true)}
+            className="block w-full px-3 py-2 text-xs font-mono text-center bg-[var(--acid-cyan)]/10 text-[var(--acid-cyan)] border border-[var(--acid-cyan)]/30 hover:bg-[var(--acid-cyan)]/20 transition-colors"
+          >
+            USE CASE WIZARD
+          </button>
           <Link
             href="/debates/graph"
             className="block w-full px-3 py-2 text-xs font-mono text-center bg-[var(--surface)] text-[var(--text-muted)] border border-[var(--border)] hover:border-[var(--acid-green)]/30 transition-colors"
@@ -316,8 +326,16 @@ export default function DebatesPage() {
           )}
 
           {!loading && debates.length === 0 && (
-            <div className="bg-surface border border-acid-green/30">
-              <DebatesEmptyState onStart={() => window.location.href = '/'} />
+            <div className="space-y-4">
+              <div className="bg-surface border border-acid-green/30">
+                <DebatesEmptyState onStart={() => window.location.href = '/'} />
+              </div>
+              <button
+                onClick={() => setShowWizard(true)}
+                className="w-full px-4 py-3 font-mono text-sm bg-[var(--acid-cyan)]/10 text-[var(--acid-cyan)] border border-[var(--acid-cyan)]/30 hover:bg-[var(--acid-cyan)]/20 transition-colors"
+              >
+                OR USE THE GUIDED WIZARD TO GET STARTED
+              </button>
             </div>
           )}
 
@@ -441,6 +459,22 @@ export default function DebatesPage() {
             )}
           </div>
         </div>
+
+        {/* Use Case Wizard Modal */}
+        {showWizard && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm">
+            <div className="w-full max-w-2xl max-h-[80vh] overflow-y-auto mx-4">
+              <UseCaseWizard
+                onComplete={(debateId) => {
+                  setShowWizard(false);
+                  router.push(`/debates/${debateId}`);
+                }}
+                onCancel={() => setShowWizard(false)}
+                apiBase={API_BASE_URL}
+              />
+            </div>
+          </div>
+        )}
 
         {/* Footer */}
         <footer className="text-center text-xs font-mono py-8 border-t border-acid-green/20 mt-8">

@@ -1000,27 +1000,32 @@ class DebateStreamServer(ServerBase):
                 )
             )
 
-    async def _parse_message(self, message: str) -> dict | None:
+    async def _parse_message(self, message: str) -> tuple[dict | None, str | None]:
         """Parse and validate incoming WebSocket message.
 
-        Returns parsed data dict, or None if invalid.
+        Returns (parsed_data, error_reason). If parsing succeeds,
+        error_reason is None. If it fails, parsed_data is None and
+        error_reason contains a categorized description.
         """
         if len(message) > WS_MAX_MESSAGE_SIZE:
             logger.warning("[ws] Message too large from client: %s bytes", len(message))
-            return None
+            return None, "message_too_large"
 
         try:
             loop = asyncio.get_running_loop()
-            return await asyncio.wait_for(
+            result = await asyncio.wait_for(
                 loop.run_in_executor(None, json.loads, message), timeout=5.0
             )
+            return result, None
         except asyncio.TimeoutError:
             logger.warning("[ws] JSON parsing timed out - possible DoS attempt")
+            return None, "parse_timeout"
         except json.JSONDecodeError as e:
             logger.warning("[ws] Invalid JSON from client: %s", e)
+            return None, "invalid_json"
         except RuntimeError as e:
             logger.error("[ws] Event loop error during JSON parsing: %s", e)
-        return None
+            return None, "internal_error"
 
     async def _handle_user_action(
         self,
@@ -1303,10 +1308,25 @@ class DebateStreamServer(ServerBase):
                     )
                     continue
 
-                data = await self._parse_message(message)
+                data, parse_error = await self._parse_message(message)
                 if data is None:
+                    _error_messages = {
+                        "message_too_large": "Message exceeds maximum size limit",
+                        "parse_timeout": "Message processing timed out",
+                        "invalid_json": "Invalid JSON format",
+                        "internal_error": "Server error processing message",
+                    }
                     await websocket.send(
-                        json.dumps({"type": "error", "data": {"message": "Invalid message format"}})
+                        json.dumps({
+                            "type": "error",
+                            "data": {
+                                "message": _error_messages.get(
+                                    parse_error or "", "Invalid message format"
+                                ),
+                                "error_category": "validation",
+                                "error_type": parse_error or "unknown",
+                            },
+                        })
                     )
                     continue
 
@@ -1424,8 +1444,6 @@ class DebateStreamServer(ServerBase):
                                 )
 
                         if subscribe_allowed:
-                            # Detect reconnection: if client was already subscribed
-                            was_subscribed = ws_id in self._client_subscriptions
                             self._client_subscriptions[ws_id] = debate_id
 
                             # Check if client is requesting replay (reconnection)

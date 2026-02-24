@@ -900,9 +900,22 @@ class PostDebateCoordinator:
                 return None
 
             scores: dict[str, Any] = {}
+            _eval_fn = getattr(judge, "evaluate_sync", None)
+            if _eval_fn is None:
+                # LLMJudge only has async evaluate(); wrap it for sync context
+                import asyncio as _aio
+
+                async def _eval_async(q: str, r: str, rid: str) -> Any:
+                    return await judge.evaluate(query=q, response=r, response_id=rid)
+
+                def _eval_sync(*, query: str, response: str, response_id: str) -> Any:
+                    return _aio.run(_eval_async(query, response, response_id))
+
+                _eval_fn = _eval_sync
+
             for agent_name, response in agent_responses.items():
                 try:
-                    evaluation = judge.evaluate_sync(
+                    evaluation = _eval_fn(
                         query=task,
                         response=response,
                         response_id=f"{debate_id}:{agent_name}",

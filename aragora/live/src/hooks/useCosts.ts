@@ -87,6 +87,70 @@ export interface CostForecast {
   recommended_tier?: string;
 }
 
+// Spend analytics types (issue #264)
+
+export interface SpendTrendPoint {
+  date: string;
+  cost_usd: number;
+}
+
+export interface SpendTrend {
+  workspace_id: string;
+  period: string;
+  points: SpendTrendPoint[];
+  total_usd: number;
+  avg_daily_usd: number;
+}
+
+export interface AgentCostItem {
+  name: string;
+  cost_usd: number;
+  percentage: number;
+}
+
+export interface AgentCostBreakdownData {
+  agents: AgentCostItem[];
+  total_usd: number;
+  count: number;
+}
+
+export interface ModelCostItem {
+  name: string;
+  cost_usd: number;
+  percentage: number;
+}
+
+export interface ModelCostBreakdownData {
+  models: ModelCostItem[];
+  total_usd: number;
+  count: number;
+}
+
+export interface DebateCostItem {
+  debate_id: string;
+  cost_usd: number;
+  agent_count: number;
+  call_count: number;
+  last_activity: string;
+}
+
+export interface DebateCostBreakdownData {
+  debates: DebateCostItem[];
+  total_usd: number;
+  count: number;
+}
+
+export interface BudgetUtilization {
+  workspace_id: string;
+  budget_usd: number;
+  spent_usd: number;
+  remaining_usd: number;
+  utilization_pct: number;
+  daily_budget_usd: number | null;
+  daily_spent_usd: number;
+  daily_utilization_pct: number;
+}
+
 export type TimeRange = '24h' | '7d' | '30d' | '90d';
 
 // ============================================================================
@@ -232,6 +296,112 @@ export function useCostForecast(options?: UseSWRFetchOptions<{ data: CostForecas
   return {
     ...result,
     forecast: result.data?.data ?? null,
+  };
+}
+
+// ============================================================================
+// Spend Analytics Hooks (issue #264)
+// ============================================================================
+
+/**
+ * Hook for fetching spend trend data (daily cost over time)
+ */
+export function useSpendTrend(
+  period: TimeRange = '30d',
+  options?: UseSWRFetchOptions<{ data: SpendTrend }>
+) {
+  const result = useSWRFetch<{ data: SpendTrend }>(
+    `/api/v1/costs/analytics/trend?period=${period}`,
+    {
+      refreshInterval: 60000,
+      ...options,
+    }
+  );
+
+  return {
+    ...result,
+    trend: result.data?.data ?? null,
+  };
+}
+
+/**
+ * Hook for fetching per-agent cost breakdown
+ */
+export function useAgentCostBreakdown(
+  options?: UseSWRFetchOptions<{ data: AgentCostBreakdownData }>
+) {
+  const result = useSWRFetch<{ data: AgentCostBreakdownData }>(
+    '/api/v1/costs/analytics/by-agent',
+    {
+      refreshInterval: 60000,
+      ...options,
+    }
+  );
+
+  return {
+    ...result,
+    agentBreakdown: result.data?.data ?? null,
+  };
+}
+
+/**
+ * Hook for fetching per-model cost breakdown
+ */
+export function useModelCostBreakdown(
+  options?: UseSWRFetchOptions<{ data: ModelCostBreakdownData }>
+) {
+  const result = useSWRFetch<{ data: ModelCostBreakdownData }>(
+    '/api/v1/costs/analytics/by-model',
+    {
+      refreshInterval: 60000,
+      ...options,
+    }
+  );
+
+  return {
+    ...result,
+    modelBreakdown: result.data?.data ?? null,
+  };
+}
+
+/**
+ * Hook for fetching per-debate cost breakdown
+ */
+export function useDebateCostBreakdown(
+  limit: number = 20,
+  options?: UseSWRFetchOptions<{ data: DebateCostBreakdownData }>
+) {
+  const result = useSWRFetch<{ data: DebateCostBreakdownData }>(
+    `/api/v1/costs/analytics/by-debate?limit=${limit}`,
+    {
+      refreshInterval: 60000,
+      ...options,
+    }
+  );
+
+  return {
+    ...result,
+    debateBreakdown: result.data?.data ?? null,
+  };
+}
+
+/**
+ * Hook for fetching budget utilization metrics
+ */
+export function useBudgetUtilization(
+  options?: UseSWRFetchOptions<{ data: BudgetUtilization }>
+) {
+  const result = useSWRFetch<{ data: BudgetUtilization }>(
+    '/api/v1/costs/analytics/budget-utilization',
+    {
+      refreshInterval: 30000, // Check frequently
+      ...options,
+    }
+  );
+
+  return {
+    ...result,
+    utilization: result.data?.data ?? null,
   };
 }
 

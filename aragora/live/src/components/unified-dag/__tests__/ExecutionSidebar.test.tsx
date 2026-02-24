@@ -56,7 +56,8 @@ describe('ExecutionSidebar', () => {
 
   it('shows ready count', () => {
     render(<ExecutionSidebar {...defaultProps} />);
-    expect(screen.getByText('1 ready')).toBeInTheDocument();
+    // "1 ready" appears in both overall progress and stage breakdown
+    expect(screen.getAllByText('1 ready').length).toBeGreaterThan(0);
   });
 
   it('renders stage progress sections', () => {

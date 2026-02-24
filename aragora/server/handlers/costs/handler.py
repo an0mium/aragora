@@ -41,6 +41,11 @@ class CostHandler:
         "/api/v1/costs",
         "/api/v1/costs/alerts",
         "/api/v1/costs/alerts/*/dismiss",
+        "/api/v1/costs/analytics/budget-utilization",
+        "/api/v1/costs/analytics/by-agent",
+        "/api/v1/costs/analytics/by-debate",
+        "/api/v1/costs/analytics/by-model",
+        "/api/v1/costs/analytics/trend",
         "/api/v1/costs/breakdown",
         "/api/v1/costs/budget",
         "/api/v1/costs/budgets",
@@ -62,6 +67,11 @@ class CostHandler:
         "/api/costs",
         "/api/costs/alerts",
         "/api/costs/alerts/*/dismiss",
+        "/api/costs/analytics/budget-utilization",
+        "/api/costs/analytics/by-agent",
+        "/api/costs/analytics/by-debate",
+        "/api/costs/analytics/by-model",
+        "/api/costs/analytics/trend",
         "/api/costs/breakdown",
         "/api/costs/budget",
         "/api/costs/budgets",
@@ -1531,4 +1541,257 @@ class CostHandler:
             ImportError,
         ) as e:
             logger.exception("Failed to create alert: %s", e)
+            return web_error_response("Internal server error", 500)
+
+    # =========================================================================
+    # Spend Analytics Dashboard Endpoints (issue #264)
+    # =========================================================================
+
+    @api_endpoint(
+        method="GET",
+        path="/api/v1/costs/analytics/trend",
+        summary="Get spend trend",
+        description="Get daily/weekly/monthly cost trend data for the workspace.",
+    )
+    @rate_limit(requests_per_minute=60)
+    @require_permission("costs:read")
+    async def handle_get_spend_trend(self, request: web.Request) -> web.Response:
+        """
+        GET /api/v1/costs/analytics/trend
+
+        Get daily spend trend over a time period.
+
+        Query params:
+            - workspace_id: Workspace ID (default: default)
+            - period: Time period (7d, 14d, 30d, 60d, 90d). Default: 30d
+        """
+        try:
+            workspace_id = request.query.get("workspace_id", "default")
+            period = request.query.get("period", "30d")
+
+            from aragora.billing.spend_analytics import get_spend_analytics
+
+            analytics = get_spend_analytics()
+            trend = await analytics.get_spend_trend(workspace_id, period=period)
+
+            return web.json_response({"data": trend.to_dict()})
+
+        except (
+            ValueError,
+            KeyError,
+            TypeError,
+            AttributeError,
+            RuntimeError,
+            OSError,
+            ImportError,
+        ) as e:
+            logger.exception("Failed to get spend trend: %s", e)
+            return web_error_response("Internal server error", 500)
+
+    @api_endpoint(
+        method="GET",
+        path="/api/v1/costs/analytics/by-agent",
+        summary="Get per-agent cost breakdown",
+        description="Get cost breakdown by agent for the workspace.",
+    )
+    @rate_limit(requests_per_minute=60)
+    @require_permission("costs:read")
+    async def handle_get_spend_by_agent(self, request: web.Request) -> web.Response:
+        """
+        GET /api/v1/costs/analytics/by-agent
+
+        Get per-agent cost breakdown.
+
+        Query params:
+            - workspace_id: Workspace ID (default: default)
+        """
+        try:
+            workspace_id = request.query.get("workspace_id", "default")
+
+            from aragora.billing.spend_analytics import get_spend_analytics
+
+            analytics = get_spend_analytics()
+            by_agent = await analytics.get_spend_by_agent(workspace_id)
+
+            total = sum(by_agent.values())
+            items = []
+            for name, cost in sorted(by_agent.items(), key=lambda x: x[1], reverse=True):
+                items.append(
+                    {
+                        "name": name,
+                        "cost_usd": round(cost, 4),
+                        "percentage": round(cost / total * 100, 1) if total > 0 else 0.0,
+                    }
+                )
+
+            return web.json_response(
+                {
+                    "data": {
+                        "agents": items,
+                        "total_usd": round(total, 4),
+                        "count": len(items),
+                    }
+                }
+            )
+
+        except (
+            ValueError,
+            KeyError,
+            TypeError,
+            AttributeError,
+            RuntimeError,
+            OSError,
+            ImportError,
+        ) as e:
+            logger.exception("Failed to get agent breakdown: %s", e)
+            return web_error_response("Internal server error", 500)
+
+    @api_endpoint(
+        method="GET",
+        path="/api/v1/costs/analytics/by-model",
+        summary="Get per-model cost breakdown",
+        description="Get cost breakdown by LLM model for the workspace.",
+    )
+    @rate_limit(requests_per_minute=60)
+    @require_permission("costs:read")
+    async def handle_get_spend_by_model(self, request: web.Request) -> web.Response:
+        """
+        GET /api/v1/costs/analytics/by-model
+
+        Get per-model cost breakdown.
+
+        Query params:
+            - workspace_id: Workspace ID (default: default)
+        """
+        try:
+            workspace_id = request.query.get("workspace_id", "default")
+
+            from aragora.billing.spend_analytics import get_spend_analytics
+
+            analytics = get_spend_analytics()
+            by_model = await analytics.get_spend_by_model(workspace_id)
+
+            total = sum(by_model.values())
+            items = []
+            for name, cost in sorted(by_model.items(), key=lambda x: x[1], reverse=True):
+                items.append(
+                    {
+                        "name": name,
+                        "cost_usd": round(cost, 4),
+                        "percentage": round(cost / total * 100, 1) if total > 0 else 0.0,
+                    }
+                )
+
+            return web.json_response(
+                {
+                    "data": {
+                        "models": items,
+                        "total_usd": round(total, 4),
+                        "count": len(items),
+                    }
+                }
+            )
+
+        except (
+            ValueError,
+            KeyError,
+            TypeError,
+            AttributeError,
+            RuntimeError,
+            OSError,
+            ImportError,
+        ) as e:
+            logger.exception("Failed to get model breakdown: %s", e)
+            return web_error_response("Internal server error", 500)
+
+    @api_endpoint(
+        method="GET",
+        path="/api/v1/costs/analytics/by-debate",
+        summary="Get per-debate cost breakdown",
+        description="Get cost breakdown by debate for the workspace.",
+    )
+    @rate_limit(requests_per_minute=60)
+    @require_permission("costs:read")
+    async def handle_get_spend_by_debate(self, request: web.Request) -> web.Response:
+        """
+        GET /api/v1/costs/analytics/by-debate
+
+        Get per-debate cost breakdown.
+
+        Query params:
+            - workspace_id: Workspace ID (default: default)
+            - limit: Max debates to return (default: 20)
+        """
+        try:
+            workspace_id = request.query.get("workspace_id", "default")
+            limit = safe_query_int(
+                request.query, "limit", default=20, min_val=1, max_val=100
+            )
+
+            from aragora.billing.spend_analytics import get_spend_analytics
+
+            analytics = get_spend_analytics()
+            debates = await analytics.get_spend_by_debate(workspace_id, limit=limit)
+
+            total = sum(d["cost_usd"] for d in debates)
+
+            return web.json_response(
+                {
+                    "data": {
+                        "debates": debates,
+                        "total_usd": round(total, 4),
+                        "count": len(debates),
+                    }
+                }
+            )
+
+        except (
+            ValueError,
+            KeyError,
+            TypeError,
+            AttributeError,
+            RuntimeError,
+            OSError,
+            ImportError,
+        ) as e:
+            logger.exception("Failed to get debate breakdown: %s", e)
+            return web_error_response("Internal server error", 500)
+
+    @api_endpoint(
+        method="GET",
+        path="/api/v1/costs/analytics/budget-utilization",
+        summary="Get budget utilization",
+        description="Get budget utilization percentage and remaining budget.",
+    )
+    @rate_limit(requests_per_minute=60)
+    @require_permission("costs:read")
+    async def handle_get_budget_utilization(self, request: web.Request) -> web.Response:
+        """
+        GET /api/v1/costs/analytics/budget-utilization
+
+        Get budget utilization metrics.
+
+        Query params:
+            - workspace_id: Workspace ID (default: default)
+        """
+        try:
+            workspace_id = request.query.get("workspace_id", "default")
+
+            from aragora.billing.spend_analytics import get_spend_analytics
+
+            analytics = get_spend_analytics()
+            utilization = await analytics.get_budget_utilization(workspace_id)
+
+            return web.json_response({"data": utilization})
+
+        except (
+            ValueError,
+            KeyError,
+            TypeError,
+            AttributeError,
+            RuntimeError,
+            OSError,
+            ImportError,
+        ) as e:
+            logger.exception("Failed to get budget utilization: %s", e)
             return web_error_response("Internal server error", 500)

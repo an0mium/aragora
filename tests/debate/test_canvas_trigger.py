@@ -15,17 +15,17 @@ from aragora.debate.post_debate_coordinator import (
 class TestCanvasTriggerConfig:
     """Canvas trigger configuration in PostDebateConfig."""
 
-    def test_canvas_default_off(self):
+    def test_canvas_default_on(self):
         config = PostDebateConfig()
-        assert config.auto_trigger_canvas is False
+        assert config.auto_trigger_canvas is True
 
     def test_canvas_min_confidence_default(self):
         config = PostDebateConfig()
         assert config.canvas_min_confidence == 0.7
 
-    def test_canvas_enabled(self):
-        config = PostDebateConfig(auto_trigger_canvas=True)
-        assert config.auto_trigger_canvas is True
+    def test_canvas_disabled(self):
+        config = PostDebateConfig(auto_trigger_canvas=False)
+        assert config.auto_trigger_canvas is False
 
     def test_canvas_result_field_exists(self):
         from aragora.debate.post_debate_coordinator import PostDebateResult

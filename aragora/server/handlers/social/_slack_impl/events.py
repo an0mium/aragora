@@ -81,6 +81,8 @@ class EventsMixin(MessagingMixin):
                     return self._handle_app_mention(inner_event)
                 elif inner_type == "message":
                     return self._handle_message_event(inner_event)
+                elif inner_type == "reaction_added":
+                    return self._handle_reaction_added(inner_event)
 
             # Acknowledge unknown events
             return json_response({"ok": True})
@@ -150,10 +152,83 @@ class EventsMixin(MessagingMixin):
 
         return json_response({"ok": True})
 
+    def _handle_reaction_added(self, event: dict[str, Any]) -> HandlerResult:
+        """Handle emoji reactions on messages in debate threads.
+
+        Records emoji reactions as votes for active debates. Supports
+        thumbs up (+1), thumbs down (-1), and other standard emoji.
+
+        Args:
+            event: Slack reaction_added event payload.
+
+        Returns:
+            HandlerResult acknowledging the event.
+        """
+        reaction = event.get("reaction", "")
+        user_id = event.get("user", "")
+        item = event.get("item", {})
+        channel_id = item.get("channel", "")
+        message_ts = item.get("ts", "")
+
+        if not reaction or not channel_id or not message_ts:
+            return json_response({"ok": True})
+
+        logger.debug(
+            "Reaction :%s: from %s in %s on %s",
+            reaction,
+            user_id,
+            channel_id,
+            message_ts,
+        )
+
+        # Try to record the vote in an active debate
+        try:
+            from aragora.integrations.slack_debate import get_active_debate_for_thread
+
+            # Check against both the message_ts and thread_ts patterns
+            state = get_active_debate_for_thread(channel_id, message_ts)
+            if state is None:
+                # The reaction might be on a reply within the thread;
+                # the item_ts is the message, but we need to check the thread
+                # Try with the item's thread_ts if available (not in event,
+                # but we can check all active debates in the channel)
+                from aragora.integrations.slack_debate import _active_debates
+
+                for s in _active_debates.values():
+                    if s.channel_id == channel_id and s.status == "running":
+                        state = s
+                        break
+
+            if state is not None:
+                state.record_emoji_vote(reaction, user_id)
+                logger.info(
+                    "Recorded emoji vote :%s: from %s for debate %s",
+                    reaction,
+                    user_id,
+                    state.debate_id,
+                )
+        except ImportError:
+            logger.debug("Slack debate lifecycle not available for reaction handling")
+        except (RuntimeError, OSError, ValueError) as e:
+            logger.debug("Failed to record emoji vote: %s", e)
+
+        return json_response({"ok": True})
+
     def _handle_message_event(self, event: dict[str, Any]) -> HandlerResult:
-        """Handle direct messages to the app."""
-        # Only handle DMs (channel type is "im")
+        """Handle direct messages and thread replies to the app.
+
+        For DMs (channel_type='im'), processes user commands.
+        For thread replies in channels with active debates, records
+        user suggestions.
+        """
         channel_type = event.get("channel_type")
+        thread_ts = event.get("thread_ts")
+
+        # If this is a thread reply in a channel (not a DM), check for active debates
+        if channel_type != "im" and thread_ts:
+            return self._handle_thread_reply(event)
+
+        # Only handle DMs
         if channel_type != "im":
             return json_response({"ok": True})
 
