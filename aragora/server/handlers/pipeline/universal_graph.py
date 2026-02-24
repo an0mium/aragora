@@ -169,6 +169,12 @@ class UniversalGraphHandler(BaseHandler):
                 return self._add_edge(graph_id, body)
             if sub == "promote":
                 return self._promote(graph_id, body)
+            if sub == "execute" and len(parts) >= 7:
+                node_id = parts[6]
+                ok2, err2 = validate_path_segment(node_id, "node_id", SAFE_ID_PATTERN)
+                if not ok2:
+                    return error_response(err2, 400)
+                return self._execute_node(graph_id, node_id, body)
 
         return None
 
@@ -188,6 +194,32 @@ class UniversalGraphHandler(BaseHandler):
             if not ok:
                 return error_response(err, 400)
             return self._update_graph(graph_id, body)
+
+        return None
+
+    @handle_errors("universal graph node update")
+    def handle_patch(
+        self, path: str, body: dict[str, Any], handler: Any
+    ) -> HandlerResult | None:
+        """Route PATCH requests for node updates (position, label, status)."""
+        auth_error = self._check_permission(handler, "pipeline:write")
+        if auth_error:
+            return auth_error
+
+        cleaned = strip_version_prefix(path)
+        parts = cleaned.split("/")
+
+        # PATCH /api/pipeline/graphs/:id/nodes/:node_id
+        if len(parts) >= 7 and parts[3] == "graphs" and parts[5] == "nodes":
+            graph_id = parts[4]
+            node_id = parts[6]
+            ok, err = validate_path_segment(graph_id, "graph_id", SAFE_ID_PATTERN)
+            if not ok:
+                return error_response(err, 400)
+            ok2, err2 = validate_path_segment(node_id, "node_id", SAFE_ID_PATTERN)
+            if not ok2:
+                return error_response(err2, 400)
+            return self._update_node(graph_id, node_id, body)
 
         return None
 
@@ -432,6 +464,86 @@ class UniversalGraphHandler(BaseHandler):
                 "target_stage": target_stage.value,
             }
         )
+
+    def _update_node(
+        self, graph_id: str, node_id: str, body: dict[str, Any]
+    ) -> HandlerResult:
+        """Update individual node properties (position, label, status, etc.)."""
+        store = _get_store()
+        graph = store.get(graph_id)
+        if graph is None:
+            return error_response("Graph not found", 404)
+        node = graph.nodes.get(node_id)
+        if node is None:
+            return error_response("Node not found", 404)
+
+        if "label" in body:
+            node.label = str(body["label"])
+        if "description" in body:
+            node.description = str(body["description"])
+        if "status" in body:
+            node.status = str(body["status"])
+        if "position_x" in body:
+            node.position_x = float(body["position_x"])
+        if "position_y" in body:
+            node.position_y = float(body["position_y"])
+        if "confidence" in body:
+            node.confidence = float(body["confidence"])
+        if "data" in body and isinstance(body["data"], dict):
+            node.data.update(body["data"])
+        if "metadata" in body and isinstance(body["metadata"], dict):
+            node.metadata.update(body["metadata"])
+
+        store.update(graph)
+        return json_response(node.to_dict())
+
+    def _execute_node(
+        self, graph_id: str, node_id: str, body: dict[str, Any]
+    ) -> HandlerResult:
+        """Trigger execution on a specific node via DAGOperationsCoordinator."""
+        store = _get_store()
+        graph = store.get(graph_id)
+        if graph is None:
+            return error_response("Graph not found", 404)
+
+        node = graph.nodes.get(node_id)
+        if node is None:
+            return error_response("Node not found", 404)
+
+        try:
+            from aragora.pipeline.dag_operations import DAGOperationsCoordinator
+
+            coord = DAGOperationsCoordinator(graph, store=store)
+            # For debate-based execution, use agents from body or defaults
+            agents = body.get("agents")
+            rounds = body.get("rounds", 3)
+
+            import asyncio
+
+            try:
+                loop = asyncio.get_running_loop()
+            except RuntimeError:
+                loop = None
+
+            if loop and loop.is_running():
+                # Already in async context — schedule and return accepted
+                loop.create_task(coord.debate_node(node_id, agents=agents, rounds=rounds))
+                return json_response(
+                    {"status": "accepted", "node_id": node_id, "graph_id": graph_id},
+                    status=202,
+                )
+
+            result = asyncio.run(coord.debate_node(node_id, agents=agents, rounds=rounds))
+            return json_response(
+                {
+                    "success": result.success,
+                    "message": result.message,
+                    "metadata": result.metadata,
+                }
+            )
+        except (ImportError, RuntimeError, ValueError, OSError) as e:
+            logger.warning("Node execution failed: %s", e)
+            return error_response("Node execution failed", 500)
 
     def _provenance_chain(self, graph_id: str, node_id: str) -> HandlerResult:
         store = _get_store()

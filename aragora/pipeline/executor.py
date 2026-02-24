@@ -464,6 +464,29 @@ class PlanExecutor:
         except (ImportError, OSError, ConnectionError, RuntimeError, ValueError) as e:
             logger.debug("KM ingestion failed (non-critical): %s", e)
 
+        # Create convoy linking all pipeline artifacts for auditing (best-effort)
+        try:
+            from aragora.workspace.convoy import Convoy
+
+            bead_ids = []
+            for sr in outcome.step_results:
+                sr_id = sr.get("id") if isinstance(sr, dict) else getattr(sr, "id", None)
+                if sr_id:
+                    bead_ids.append(str(sr_id))
+
+            convoy = Convoy.create(
+                title=f"Pipeline: {plan.task}",
+                bead_ids=bead_ids,
+                metadata={
+                    "plan_id": plan.id,
+                    "debate_id": plan.debate_id,
+                    "status": "completed" if outcome.success else "failed",
+                },
+            )
+            outcome.convoy_id = getattr(convoy, "id", None)
+        except (ImportError, AttributeError, TypeError, RuntimeError, OSError, ValueError) as e:
+            logger.debug("Convoy creation failed (non-critical): %s", e)
+
         # Update store with final state
         store_plan(plan)
 

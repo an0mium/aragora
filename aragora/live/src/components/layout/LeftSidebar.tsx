@@ -302,6 +302,7 @@ const navSections: NavSection[] = [
     key: 'settings',
     collapsible: false,
     items: [
+      { label: 'Features', href: '/features', icon: '\u2726' },
       { label: 'Settings', href: '/settings', icon: '*', requiresAuth: true },
       { label: 'About', href: '/about', icon: 'i' },
     ],

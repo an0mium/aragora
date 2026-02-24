@@ -86,6 +86,7 @@ async def generate_pipeline_receipt(
             "files_changed": execution_result.get("files_changed", []),
             "test_results": execution_result.get("test_results"),
             "improvement_score": execution_result.get("improvement_score"),
+            "convoy_id": execution_result.get("convoy_id"),
         },
         "summary": {
             "total_ideas": len(stages.get("ideas", [])),
