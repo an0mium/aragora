@@ -21,6 +21,14 @@ from aragora.integrations.teams_debate import (
 # =============================================================================
 
 
+@pytest.fixture(autouse=True)
+def _clean_active_debates():
+    """Ensure module-level _active_debates is empty between tests."""
+    _active_debates.clear()
+    yield
+    _active_debates.clear()
+
+
 @pytest.fixture
 def lifecycle():
     """Create a lifecycle with a mocked TeamsIntegration."""

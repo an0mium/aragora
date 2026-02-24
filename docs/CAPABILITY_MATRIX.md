@@ -7,71 +7,38 @@
 
 | Surface | Inventory | Capability Coverage |
 |---------|-----------|---------------------|
-| **HTTP API** | 1772 paths / 2100 operations | 100.0% |
-| **CLI** | 75 commands | 100.0% |
-| **SDK (Python)** | 184 namespaces | 100.0% |
-| **SDK (TypeScript)** | 183 namespaces | 100.0% |
-| **UI** | 14/14 capabilities | 100.0% |
-| **Capability Catalog** | 14/37 mapped | 37.8% |
-
-## Capability Surface Matrix
-
-| Capability | API | CLI | SDK | UI | Channels |
-|------------|-----|-----|-----|----|----------|
-| `agent_team_selection` | ✅ | ✅ | ✅ | ✅ | ✅ |
-| `compliance_framework` | ✅ | ✅ | ✅ | ✅ | ✅ |
-| `consensus_detection` | ✅ | ✅ | ✅ | ✅ | ✅ |
-| `continuum_memory` | ✅ | ✅ | ✅ | ✅ | ✅ |
-| `debate_orchestration` | ✅ | ✅ | ✅ | ✅ | ✅ |
-| `decision_integrity` | ✅ | ✅ | ✅ | ✅ | ✅ |
-| `graph_debates` | ✅ | ✅ | ✅ | ✅ | ✅ |
-| `knowledge_mound` | ✅ | ✅ | ✅ | ✅ | ✅ |
-| `marketplace` | ✅ | ✅ | ✅ | ✅ | ✅ |
-| `matrix_debates` | ✅ | ✅ | ✅ | ✅ | ✅ |
-| `nomic_loop` | ✅ | ✅ | ✅ | ✅ | ✅ |
-| `rbac_v2` | ✅ | ✅ | ✅ | ✅ | ✅ |
-| `vertical_specialists` | ✅ | ✅ | ✅ | ✅ | ✅ |
-| `workflow_engine` | ✅ | ✅ | ✅ | ✅ | ✅ |
-
-**Coverage:** API 14/14 (100%) | CLI 14/14 (100%) | SDK 14/14 (100%) | UI 14/14 (100%) | Channels 14/14 (100%)
+| **HTTP API** | 1772 paths / 2100 operations | 81.1% |
+| **CLI** | 75 commands | 43.2% |
+| **SDK (Python)** | 184 namespaces | 70.3% |
+| **SDK (TypeScript)** | 183 namespaces | 70.3% |
+| **UI** | tracked in capability surfaces | 86.5% |
+| **Capability Catalog** | 37/37 mapped | 100.0% |
 
 ## Surface Gaps
 
-### Missing API (0)
+### Missing API (7)
 
-- None
-
-### Missing CLI (0)
-
-- None
-
-### Missing SDK (0)
-
-- None
-
-### Missing UI (0)
-
-- None
-
-### Missing CHANNELS (0)
-
-- None
-
-## Unmapped Capabilities (23)
-
-- `backup_disaster_recovery`
-- `belief_network`
-- `circuit_breaker`
-- `control_plane`
-- `decision_receipts`
 - `distributed_tracing`
 - `extended_debates`
 - `kafka_streaming`
 - `multi_tenancy`
+- `rabbitmq_streaming`
+- `structured_logging`
+- `supermemory`
+
+### Missing CLI (21)
+
+- `belief_network`
+- `circuit_breaker`
+- `compliance_framework`
+- `distributed_tracing`
+- `extended_debates`
+- `kafka_streaming`
 - `prometheus_metrics`
 - `prompt_evolution`
 - `pulse_trending`
 - `rabbitmq_streaming`
+- `rbac_v2`
 - `rlm`
 - `slack_integration`
 - `slo_alerting`
@@ -82,6 +49,57 @@
 - `telegram_connector`
 - `webhook_integrations`
 - `whatsapp_connector`
+
+### Missing SDK (11)
+
+- `circuit_breaker`
+- `distributed_tracing`
+- `extended_debates`
+- `kafka_streaming`
+- `prompt_evolution`
+- `rabbitmq_streaming`
+- `slack_integration`
+- `structured_logging`
+- `supermemory`
+- `telegram_connector`
+- `whatsapp_connector`
+
+### Missing UI (5)
+
+- `backup_disaster_recovery`
+- `distributed_tracing`
+- `extended_debates`
+- `structured_logging`
+- `webhook_integrations`
+
+### Missing CHANNELS (30)
+
+- `agent_team_selection`
+- `backup_disaster_recovery`
+- `belief_network`
+- `circuit_breaker`
+- `compliance_framework`
+- `consensus_detection`
+- `continuum_memory`
+- `control_plane`
+- `distributed_tracing`
+- `extended_debates`
+- `graph_debates`
+- `kafka_streaming`
+- `knowledge_mound`
+- `marketplace`
+- `matrix_debates`
+- `multi_tenancy`
+- `nomic_loop`
+- `prometheus_metrics`
+- `prompt_evolution`
+- `pulse_trending`
+- `rabbitmq_streaming`
+- `rbac_v2`
+- `rlm`
+- `slo_alerting`
+- `sso_authentication`
+- ... and 5 more
 
 ## Regeneration
 

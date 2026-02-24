@@ -973,6 +973,61 @@ class KnowledgeGapDetector:
         except (RuntimeError, ValueError, TypeError, AttributeError) as e:
             logger.warning("Failed to get contradiction recommendations: %s", e)
 
+        # Analyze debate receipt insights (low-confidence decisions)
+        insights = self.get_debate_insights(domain=domain)
+        for insight in insights[:limit]:
+            # Low confidence in a debate means the domain needs more knowledge
+            impact = max(0.0, 1.0 - insight.confidence) * 0.5 + insight.disagreement_score * 0.5
+            priority = Priority.HIGH if impact > 0.7 else (
+                Priority.MEDIUM if impact > 0.4 else Priority.LOW
+            )
+            recommendations.append(
+                Recommendation(
+                    priority=priority,
+                    action=RecommendedAction.ACQUIRE,
+                    description=(
+                        f"Acquire knowledge for '{insight.topic}' in {insight.domain} "
+                        f"(debate confidence: {insight.confidence:.2f}, "
+                        f"disagreement: {insight.disagreement_score:.2f})"
+                    ),
+                    domain=insight.domain,
+                    impact_score=round(impact, 3),
+                    metadata={
+                        "gap_type": "debate_signal",
+                        "debate_id": insight.debate_id,
+                        "confidence": insight.confidence,
+                        "disagreement": insight.disagreement_score,
+                    },
+                )
+            )
+
+        # Analyze frequently asked topics with sparse coverage
+        try:
+            faq_gaps = self.get_frequently_asked_gaps()
+            for faq in faq_gaps[:limit]:
+                priority = Priority.HIGH if faq.gap_severity > 0.7 else (
+                    Priority.MEDIUM if faq.gap_severity > 0.4 else Priority.LOW
+                )
+                recommendations.append(
+                    Recommendation(
+                        priority=priority,
+                        action=RecommendedAction.ACQUIRE,
+                        description=(
+                            f"Frequently queried topic '{faq.topic}' has low coverage "
+                            f"(queried {faq.query_count} times, coverage: {faq.coverage_score:.2f})"
+                        ),
+                        domain="general",
+                        impact_score=faq.gap_severity,
+                        metadata={
+                            "gap_type": "frequently_asked",
+                            "query_count": faq.query_count,
+                            "coverage_score": faq.coverage_score,
+                        },
+                    )
+                )
+        except (RuntimeError, ValueError, TypeError, AttributeError) as e:
+            logger.warning("Failed to get frequently-asked recommendations: %s", e)
+
         # Sort: HIGH first, then by impact_score descending
         priority_order = {Priority.HIGH: 0, Priority.MEDIUM: 1, Priority.LOW: 2}
         recommendations.sort(
@@ -1058,4 +1113,7 @@ __all__ = [
     "Recommendation",
     "Priority",
     "RecommendedAction",
+    "DebateInsight",
+    "FrequentlyAskedGap",
+    "DomainCoverageEntry",
 ]
