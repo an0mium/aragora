@@ -9,7 +9,7 @@
  * without requiring a running backend.
  */
 
-import { test, expect, mockApiResponse, mockDebate, mockAgents } from './fixtures';
+import { test, expect, mockApiResponse, mockAgents } from './fixtures';
 
 // ── Mock Data ──────────────────────────────────────────────────────────
 

@@ -64,6 +64,29 @@ function getBarColor(agentName: string): string {
   return DEFAULT_BAR_COLOR;
 }
 
+function getStoredAccessToken(): string | null {
+  if (typeof window === 'undefined') return null;
+  const stored = localStorage.getItem('aragora_tokens');
+  if (!stored) return null;
+  try {
+    return (JSON.parse(stored) as { access_token?: string }).access_token || null;
+  } catch {
+    return null;
+  }
+}
+
+function requestHeaders(contentType = true): Record<string, string> {
+  const headers: Record<string, string> = {};
+  if (contentType) {
+    headers['Content-Type'] = 'application/json';
+  }
+  const token = getStoredAccessToken();
+  if (token) {
+    headers.Authorization = `Bearer ${token}`;
+  }
+  return headers;
+}
+
 function generateId(): string {
   return `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
 }
@@ -100,6 +123,7 @@ export function InterventionPanel({
   onThresholdChange,
   apiBase = API_BASE_URL,
 }: InterventionPanelProps) {
+  const debatePath = `${apiBase}/api/v1/debates/${encodeURIComponent(debateId)}`;
   const [injection, setInjection] = useState('');
   const [injecting, setInjecting] = useState(false);
   const [pauseLoading, setPauseLoading] = useState(false);
@@ -177,8 +201,11 @@ export function InterventionPanel({
     ]);
     try {
       const response = await fetch(
-        `${apiBase}/api/debates/${debateId}/intervention/${action}`,
-        { method: 'POST' }
+        `${debatePath}/${action}`,
+        {
+          method: 'POST',
+          headers: requestHeaders(false),
+        }
       );
 
       if (response.ok) {
@@ -201,7 +228,7 @@ export function InterventionPanel({
     } finally {
       setPauseLoading(false);
     }
-  }, [apiBase, debateId, isPaused, onPause, onResume, showToast, updateHistoryStatus]);
+  }, [debatePath, isPaused, onPause, onResume, showToast, updateHistoryStatus]);
 
   // Handle argument injection
   const handleInject = useCallback(async () => {
@@ -215,13 +242,12 @@ export function InterventionPanel({
     ]);
     try {
       const response = await fetch(
-        `${apiBase}/api/debates/${debateId}/intervention/inject`,
+        `${debatePath}/inject-evidence`,
         {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
+          headers: requestHeaders(),
           body: JSON.stringify({
-            content: injection,
-            type: 'argument',
+            evidence: injection,
             source: 'user',
           }),
         }
@@ -243,7 +269,7 @@ export function InterventionPanel({
     } finally {
       setInjecting(false);
     }
-  }, [apiBase, debateId, injection, onInject, showToast, updateHistoryStatus]);
+  }, [debatePath, injection, onInject, showToast, updateHistoryStatus]);
 
   // Handle follow-up question
   const handleFollowUp = useCallback(async () => {
@@ -257,14 +283,12 @@ export function InterventionPanel({
     ]);
     try {
       const response = await fetch(
-        `${apiBase}/api/debates/${debateId}/intervention/inject`,
+        `${debatePath}/nudge`,
         {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
+          headers: requestHeaders(),
           body: JSON.stringify({
-            content: followUpQuestion,
-            type: 'follow_up',
-            source: 'user',
+            message: followUpQuestion,
           }),
         }
       );
@@ -285,7 +309,7 @@ export function InterventionPanel({
     } finally {
       setInjecting(false);
     }
-  }, [apiBase, debateId, followUpQuestion, onInject, showToast, updateHistoryStatus]);
+  }, [debatePath, followUpQuestion, onInject, showToast, updateHistoryStatus]);
 
   // Handle nudge direction
   const handleNudge = useCallback(async () => {
@@ -298,11 +322,11 @@ export function InterventionPanel({
     ]);
     try {
       const response = await fetch(
-        `${apiBase}/api/debates/${debateId}/intervention/inject`,
+        `${debatePath}/nudge`,
         {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ content: `[DIRECTION] ${nudgeDirection}`, type: 'nudge', source: 'user' }),
+          headers: requestHeaders(),
+          body: JSON.stringify({ message: nudgeDirection }),
         }
       );
       if (response.ok) {
@@ -321,7 +345,7 @@ export function InterventionPanel({
     } finally {
       setInjecting(false);
     }
-  }, [apiBase, debateId, nudgeDirection, onInject, showToast, updateHistoryStatus]);
+  }, [debatePath, nudgeDirection, onInject, showToast, updateHistoryStatus]);
 
   // Handle challenge claim
   const handleChallenge = useCallback(async () => {
@@ -334,11 +358,11 @@ export function InterventionPanel({
     ]);
     try {
       const response = await fetch(
-        `${apiBase}/api/debates/${debateId}/intervention/inject`,
+        `${debatePath}/challenge`,
         {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ content: `[CHALLENGE] ${challengeClaim}`, type: 'challenge', source: 'user' }),
+          headers: requestHeaders(),
+          body: JSON.stringify({ challenge: challengeClaim }),
         }
       );
       if (response.ok) {
@@ -357,7 +381,7 @@ export function InterventionPanel({
     } finally {
       setInjecting(false);
     }
-  }, [apiBase, debateId, challengeClaim, onInject, showToast, updateHistoryStatus]);
+  }, [debatePath, challengeClaim, onInject, showToast, updateHistoryStatus]);
 
   // Handle weight change with old-vs-new comparison
   const handleWeightChange = useCallback(
@@ -380,10 +404,10 @@ export function InterventionPanel({
 
       try {
         const response = await fetch(
-          `${apiBase}/api/debates/${debateId}/intervention/weights`,
+          `${debatePath}/intervention/weights`,
           {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
+            headers: requestHeaders(),
             body: JSON.stringify({ agent, weight }),
           }
         );
@@ -401,7 +425,7 @@ export function InterventionPanel({
         addToHistory('weight_change', `${agent}: ${weight.toFixed(1)}x (failed)`, 'failed');
       }
     },
-    [apiBase, debateId, onWeightChange, addToHistory, showToast]
+    [debatePath, onWeightChange, addToHistory, showToast]
   );
 
   // Handle threshold change
@@ -412,10 +436,10 @@ export function InterventionPanel({
 
       try {
         const response = await fetch(
-          `${apiBase}/api/debates/${debateId}/intervention/threshold`,
+          `${debatePath}/intervention/threshold`,
           {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
+            headers: requestHeaders(),
             body: JSON.stringify({ threshold }),
           }
         );
@@ -434,7 +458,7 @@ export function InterventionPanel({
         showToast('Failed to update consensus threshold -- check connection', 'error');
       }
     },
-    [apiBase, debateId, onThresholdChange, addToHistory, showToast, consensusThreshold]
+    [debatePath, onThresholdChange, addToHistory, showToast, consensusThreshold]
   );
 
   if (!isActive) {

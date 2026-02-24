@@ -145,7 +145,7 @@ export function useOracleWebSocket(): UseOracleWebSocket {
       }
       wsRef.current = null;
     }
-  }, []);
+  }, [clearStallTimers]);
 
   const connect = useCallback(() => {
     cleanup();

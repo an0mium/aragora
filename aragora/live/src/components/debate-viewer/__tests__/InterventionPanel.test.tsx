@@ -125,8 +125,8 @@ describe('InterventionPanel', () => {
 
       await waitFor(() => {
         expect(mockFetch).toHaveBeenCalledWith(
-          'http://localhost:8080/api/debates/test-debate-123/intervention/pause',
-          { method: 'POST' }
+          'http://localhost:8080/api/v1/debates/test-debate-123/pause',
+          expect.objectContaining({ method: 'POST' })
         );
       });
     });
@@ -210,10 +210,10 @@ describe('InterventionPanel', () => {
 
       await waitFor(() => {
         expect(mockFetch).toHaveBeenCalledWith(
-          'http://localhost:8080/api/debates/test-debate-123/intervention/inject',
+          'http://localhost:8080/api/v1/debates/test-debate-123/inject-evidence',
           expect.objectContaining({
             method: 'POST',
-            body: expect.stringContaining('My argument'),
+            body: expect.stringContaining('"evidence":"My argument"'),
           })
         );
       });
@@ -324,9 +324,9 @@ describe('InterventionPanel', () => {
 
       await waitFor(() => {
         expect(mockFetch).toHaveBeenCalledWith(
-          'http://localhost:8080/api/debates/test-debate-123/intervention/inject',
+          'http://localhost:8080/api/v1/debates/test-debate-123/nudge',
           expect.objectContaining({
-            body: expect.stringContaining('[DIRECTION] Focus on scalability'),
+            body: expect.stringContaining('"message":"Focus on scalability"'),
           })
         );
       });
@@ -348,9 +348,9 @@ describe('InterventionPanel', () => {
 
       await waitFor(() => {
         expect(mockFetch).toHaveBeenCalledWith(
-          'http://localhost:8080/api/debates/test-debate-123/intervention/inject',
+          'http://localhost:8080/api/v1/debates/test-debate-123/challenge',
           expect.objectContaining({
-            body: expect.stringContaining('[CHALLENGE] That claim lacks evidence'),
+            body: expect.stringContaining('"challenge":"That claim lacks evidence"'),
           })
         );
       });

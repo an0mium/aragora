@@ -324,18 +324,27 @@ export default function Oracle() {
     rounds: number,
     agents: number,
   ): Promise<DebateResponse | null> => {
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 45000);
     try {
       const res = await fetch(`${apiBase}/api/v1/playground/${endpoint}`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ topic: rawQuestion, question: rawQuestion, mode: oracleMode, rounds, agents, source: 'oracle', session_id: sessionIdRef.current, summary_depth: 'light' }),
+        signal: controller.signal,
       });
+      clearTimeout(timeoutId);
       if (!res.ok) {
         const errData = await res.json().catch(() => ({}));
         throw new Error((errData as Record<string, string>).error || `Oracle disturbed (${res.status})`);
       }
       return await res.json() as DebateResponse;
     } catch (err) {
+      clearTimeout(timeoutId);
+      if (err instanceof DOMException && err.name === 'AbortError') {
+        setError('The Oracle could not be reached (request timed out). The server may be restarting.');
+        return null;
+      }
       const message = err instanceof Error ? err.message : 'Cannot reach beyond the veil';
       setError(message);
       return null;

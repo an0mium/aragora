@@ -312,18 +312,21 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         return;
       }
 
+      // Optimistic: show dashboard immediately with cached data.
+      // Backend validation happens in the background below.
       if (active) {
         setState({
           user,
           organization: activeOrg,
           organizations: userOrgs,
           tokens,
-          isLoading: true,
+          isLoading: false,
           isAuthenticated: true,
           isLoadingOrganizations: false,
         });
       }
 
+      // Background validation — silently updates user data or clears auth
       const controller = new AbortController();
       const timeoutId = setTimeout(() => controller.abort(), 10_000);
 
@@ -364,22 +367,22 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       } catch (err) {
         clearTimeout(timeoutId);
         if (err instanceof DOMException && err.name === 'AbortError') {
-          // Timeout: backend unreachable — clear auth and show app
-          logger.warn('[AuthContext] Session validation timed out, clearing auth');
+          logger.warn('[AuthContext] Session validation timed out, keeping cached session');
+          // Timeout: backend unreachable — keep optimistic auth, don't lock user out
         } else {
           logger.warn('[AuthContext] Stored session invalid, clearing auth');
-        }
-        clearAuth();
-        if (active) {
-          setState({
-            user: null,
-            organization: null,
-            organizations: [],
-            tokens: null,
-            isLoading: false,
-            isAuthenticated: false,
-            isLoadingOrganizations: false,
-          });
+          clearAuth();
+          if (active) {
+            setState({
+              user: null,
+              organization: null,
+              organizations: [],
+              tokens: null,
+              isLoading: false,
+              isAuthenticated: false,
+              isLoadingOrganizations: false,
+            });
+          }
         }
       }
     };

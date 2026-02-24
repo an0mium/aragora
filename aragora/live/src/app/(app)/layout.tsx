@@ -57,14 +57,9 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
     return <>{children}</>;
   }
 
-  // Show minimal loading indicator while auth resolves on root
-  if (!hideShell && pathname === '/' && authLoading) {
-    return (
-      <div className="min-h-screen bg-[var(--bg)] flex items-center justify-center">
-        <span className="font-mono text-sm text-[var(--text-muted)] animate-pulse">Loading...</span>
-      </div>
-    );
-  }
+  // Auth loading on root path no longer blocks rendering.
+  // AuthContext uses optimistic auth (cached tokens → immediate isLoading: false),
+  // so the page component handles both authenticated and unauthenticated states.
 
   const loadingFallback = (
     <div className="min-h-screen bg-[var(--bg)] flex items-center justify-center">

@@ -14,8 +14,17 @@ const _WS_URL = process.env.NEXT_PUBLIC_WS_URL;
 const _CONTROL_PLANE_WS_URL = process.env.NEXT_PUBLIC_CONTROL_PLANE_WS_URL;
 const _NOMIC_LOOP_WS_URL = process.env.NEXT_PUBLIC_NOMIC_LOOP_WS_URL;
 
-// Detect production environment - check for production hostnames
+// Build-time production detection — inlined at build from env vars.
+// This is SSR-safe (no window dependency) and prevents hydration mismatches.
+const _isProductionBuild = Boolean(
+  _API_BASE_URL &&
+    !_API_BASE_URL.includes('localhost') &&
+    !_API_BASE_URL.includes('127.0.0.1'),
+);
+
+// Detect production environment - check build config first, then hostname
 function isProductionEnvironment(): boolean {
+  if (_isProductionBuild) return true;
   if (typeof window === 'undefined') return false;
   const hostname = window.location.hostname;
   // Production if not localhost/127.0.0.1 and not a local IP
@@ -102,7 +111,18 @@ function resolveWsUrl(
   devDefault: string,
 ): string {
   if (envValue) return envValue;
-  if (typeof window === 'undefined') return devDefault;
+  if (typeof window === 'undefined') {
+    // SSR: use production default when build is production to match client render
+    if (_isProductionBuild) {
+      try {
+        const apiHost = new URL(_API_BASE_URL!).hostname;
+        return prodDefault(apiHost);
+      } catch {
+        // Malformed URL — fall through to dev default
+      }
+    }
+    return devDefault;
+  }
   const host = window.location.hostname;
   return isProductionEnvironment() ? prodDefault(host) : devDefault;
 }
@@ -131,7 +151,7 @@ export const ORACLE_WS_URL = WS_URL.replace(/\/ws\/?$/, '') + '/ws/oracle';
 
 // Helper to detect dev/localhost mode (useful for conditional behavior)
 export const IS_DEV_MODE = !_API_BASE_URL || API_BASE_URL.includes('localhost');
-export const IS_PRODUCTION = typeof window !== 'undefined' && isProductionEnvironment();
+export const IS_PRODUCTION = _isProductionBuild || (typeof window !== 'undefined' && isProductionEnvironment());
 
 // === Debate Defaults ===
 // 9-round format: Round 0 (context), Rounds 1-7 (debate), Round 8 (adjudication)

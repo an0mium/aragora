@@ -74,15 +74,25 @@ export function LiveDebateView({
 
   const handleChallengeClaim = useCallback(async (content: string, agent: string) => {
     try {
+      const storedTokens = typeof window !== 'undefined' ? localStorage.getItem('aragora_tokens') : null;
+      let accessToken: string | null = null;
+      if (storedTokens) {
+        try {
+          accessToken = (JSON.parse(storedTokens) as { access_token?: string }).access_token || null;
+        } catch {
+          accessToken = null;
+        }
+      }
       const response = await fetch(
-        `${API_BASE_URL}/api/debates/${debateId}/intervention/inject`,
+        `${API_BASE_URL}/api/v1/debates/${encodeURIComponent(debateId)}/challenge`,
         {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
+          headers: {
+            'Content-Type': 'application/json',
+            ...(accessToken ? { Authorization: `Bearer ${accessToken}` } : {}),
+          },
           body: JSON.stringify({
-            content: `[CHALLENGE to ${agent}] ${content}`,
-            type: 'challenge',
-            source: 'user',
+            challenge: `[CHALLENGE to ${agent}] ${content}`,
           }),
         }
       );

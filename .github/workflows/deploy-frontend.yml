@@ -141,6 +141,8 @@ jobs:
         working-directory: aragora/live
         run: npm run build:export
         env:
+          NEXT_PUBLIC_API_URL: https://api.aragora.ai
+          NEXT_PUBLIC_WS_URL: wss://api.aragora.ai
           NEXT_PUBLIC_BUILD_SHA: ${{ github.sha }}
           NEXT_PUBLIC_BUILD_TIME: ${{ github.event.head_commit.timestamp || github.event.repository.updated_at }}
 

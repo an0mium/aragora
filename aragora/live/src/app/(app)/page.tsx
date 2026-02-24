@@ -391,20 +391,15 @@ export default function Home() {
     });
   };
 
-  // Show loading state while auth is being verified
-  // Prevents half-rendered dashboard shell during /api/auth/me validation
-  if (authLoading) {
+  // Auth loading no longer blocks rendering — AuthContext uses optimistic auth.
+  // If authLoading is still true (first render before useEffect), show landing page
+  // rather than a blank spinner. Once auth resolves, the appropriate view renders.
+  if (authLoading && !isAuthenticated) {
     return (
-      <div className="min-h-screen bg-bg flex items-center justify-center">
-        <div className="text-center space-y-4">
-          <div className="font-mono text-[var(--acid-green)] text-2xl tracking-widest animate-pulse">
-            ARAGORA
-          </div>
-          <div className="font-mono text-[var(--text-muted)] text-xs">
-            Verifying session...
-          </div>
-        </div>
-      </div>
+      <LandingPage
+        apiBase={apiBase}
+        onEnterDashboard={() => router.push('/auth/login')}
+      />
     );
   }
 

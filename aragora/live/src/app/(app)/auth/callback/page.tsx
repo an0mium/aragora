@@ -116,13 +116,14 @@ function OAuthCallbackContent() {
           }
           const destination = normalizeReturnUrl(returnUrl);
 
-          // Use replace() to keep callback URL out of browser history
+          // Redirect immediately — setTokens already processed auth state.
+          // Minimal delay just to flash "ACCESS GRANTED" for UX feedback.
+          logger.debug('[OAuth Callback] Redirecting to:', destination);
           redirectTimerRef.current = setTimeout(() => {
             if (isMountedRef.current) {
-              logger.debug('[OAuth Callback] Redirecting to:', destination);
               router.replace(destination);
             }
-          }, 750);
+          }, 100);
         } catch (err) {
           // Silently ignore aborts (component unmounted intentionally)
           if (err instanceof DOMException && err.name === 'AbortError') return;

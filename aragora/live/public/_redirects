@@ -5,6 +5,9 @@
 /debate/:id  /debate/  200
 /debates/*  /debates/  200
 
+# Oracle — standalone layout, needs SPA fallback for client-side routing
+/oracle  /oracle/  200
+
 # Auth shortcuts
 /auth  /auth/login  302
 /auth/  /auth/login  302
@@ -12,3 +15,6 @@
 # External docs redirect (mirrors next.config.js redirects for static export)
 /docs  https://docs.aragora.ai  302
 /docs/*  https://docs.aragora.ai/docs/:splat  302
+
+# SPA catch-all — serves index.html for any unmatched route (must be last)
+/*  /index.html  200
