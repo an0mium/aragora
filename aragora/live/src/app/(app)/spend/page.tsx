@@ -215,7 +215,7 @@ export default function SpendDashboardPage() {
   const [period, setPeriod] = useState<'daily' | 'weekly' | 'monthly'>(
     'daily',
   );
-  const [days, setDays] = useState(30);
+  const [days, _setDays] = useState(30);
 
   // Fetch data from all 5 endpoints
   const { summary, isLoading: summaryLoading, error: summaryError } =
@@ -231,7 +231,7 @@ export default function SpendDashboardPage() {
     useSpendDashboardByDecision();
   const { budget, isLoading: budgetLoading } = useSpendDashboardBudget();
 
-  const isLoading =
+  const _isLoading =
     summaryLoading ||
     trendsLoading ||
     agentLoading ||

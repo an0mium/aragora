@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useMemo, type ReactNode } from 'react';
+import { useState, useMemo } from 'react';
 import Link from 'next/link';
 import { Scanlines, CRTVignette } from '@/components/MatrixRain';
 import { AsciiBannerCompact } from '@/components/AsciiBanner';
@@ -395,7 +395,7 @@ function ComparisonCard({
 
 export default function DifferentiationPage() {
   const [activeTab, setActiveTab] = useState<TabType>('overview');
-  const { config: backendConfig } = useBackend();
+  const { config: _backendConfig } = useBackend();
 
   const { data: summaryRaw, isLoading: summaryLoading } =
     useSWRFetch<SummaryData>('/api/v1/differentiation/summary', {

@@ -312,7 +312,7 @@ function PipelinePageContent() {
   const [executeStatus, setExecuteStatus] = useState<'idle' | 'success' | 'failed'>('idle');
 
   // Self-improve integration state
-  const router = useRouter();
+  const _router = useRouter();
   const [showSelfImproveConfig, setShowSelfImproveConfig] = useState(false);
   const [siDryRun, setSiDryRun] = useState(false);
   const [siBudget, setSiBudget] = useState(10);

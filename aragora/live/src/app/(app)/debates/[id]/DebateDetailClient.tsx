@@ -71,12 +71,6 @@ export default function DebateDetailClient() {
     enabled: debateStatus === 'in_progress',
   });
 
-  // When WebSocket reports debate complete, reload the package
-  const handleStreamComplete = useCallback(() => {
-    setDebateStatus('completed');
-    fetchDebatePackage();
-  }, []);
-
   // Fetch the debate package (completed debates)
   const fetchDebatePackage = useCallback(async () => {
     try {
@@ -100,6 +94,12 @@ export default function DebateDetailClient() {
       setLoading(false);
     }
   }, [id]);
+
+  // When WebSocket reports debate complete, reload the package
+  const handleStreamComplete = useCallback(() => {
+    setDebateStatus('completed');
+    fetchDebatePackage();
+  }, [fetchDebatePackage]);
 
   // On mount: check debate status, then either stream live or fetch package
   useEffect(() => {

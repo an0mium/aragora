@@ -102,7 +102,7 @@ export default function MarketplacePage() {
   // Set up right sidebar
   useEffect(() => {
     const templates = getFilteredTemplates();
-    const listings = getFilteredListings();
+    const _listings = getFilteredListings();
 
     setContext({
       title: 'Marketplace',

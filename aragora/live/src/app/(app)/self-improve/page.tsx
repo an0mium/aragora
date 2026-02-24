@@ -207,7 +207,7 @@ function SelfImprovePageInner() {
     return () => {
       if (pollingRef.current) clearInterval(pollingRef.current);
     };
-  }, [status?.state, fetchStatus, fetchHistory]);
+  }, [status?.state, fetchStatus, fetchHistory, fetchFeedback]);
 
   // --- Start cycle ---
   const startCycle = async () => {

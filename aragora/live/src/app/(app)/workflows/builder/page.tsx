@@ -130,17 +130,17 @@ export default function WorkflowBuilderPage() {
 
   // Hook provides save, execute, template operations with auto-save + keyboard shortcuts
   const {
-    saveWorkflow,
+    saveWorkflow: _saveWorkflow,
     createWorkflow,
     executeWorkflow,
-    isSaving,
+    isSaving: _isSaving,
   } = useWorkflowBuilder({
     autoSave: false,  // Manual save via canvas button
     enableKeyboardShortcuts: true,
   });
 
   const handleSave = useCallback(
-    async (nodes: WorkflowNode[], edges: WorkflowEdge[]) => {
+    async (_nodes: WorkflowNode[], _edges: WorkflowEdge[]) => {
       try {
         await createWorkflow(workflowName);
         showToast('Workflow saved successfully', 'success');
@@ -161,11 +161,11 @@ export default function WorkflowBuilderPage() {
   }, []);
 
   const handleSaveAndExecute = useCallback(
-    async (nodes: WorkflowNode[], edges: WorkflowEdge[]) => {
+    async (_nodes: WorkflowNode[], _edges: WorkflowEdge[]) => {
       setIsExecuting(true);
       try {
         // Save workflow via hook (handles auth, retries)
-        const saved = await createWorkflow(workflowName);
+        const _saved = await createWorkflow(workflowName);
 
         // Execute workflow via hook
         const executionId = await executeWorkflow({ inputs: {} });
