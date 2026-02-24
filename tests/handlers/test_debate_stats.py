@@ -325,7 +325,7 @@ class TestGetAgentStats:
             {"agent": "gpt4", "wins": 8},
         ]
         with patch(_ANALYTICS_CLS) as MockAnalytics:
-            MockAnalytics.return_value.get_agent_stats.return_value = agent_data
+            MockAnalytics.return_value.get_agent_leaderboard.return_value = agent_data
             result = handler.handle("/api/v1/debates/stats/agents", {}, http)
 
         assert _status(result) == 200
@@ -333,56 +333,56 @@ class TestGetAgentStats:
         assert body["agents"] == agent_data
         assert body["count"] == 2
         MockAnalytics.assert_called_once_with(storage)
-        MockAnalytics.return_value.get_agent_stats.assert_called_once_with(limit=20)
+        MockAnalytics.return_value.get_agent_leaderboard.assert_called_once_with(limit=20)
 
     def test_custom_limit(self, handler_with_storage, mock_http):
         handler, _ = handler_with_storage
         http = mock_http()
         with patch(_ANALYTICS_CLS) as MockAnalytics:
-            MockAnalytics.return_value.get_agent_stats.return_value = []
+            MockAnalytics.return_value.get_agent_leaderboard.return_value = []
             result = handler.handle("/api/v1/debates/stats/agents", {"limit": "5"}, http)
 
         assert _status(result) == 200
-        MockAnalytics.return_value.get_agent_stats.assert_called_once_with(limit=5)
+        MockAnalytics.return_value.get_agent_leaderboard.assert_called_once_with(limit=5)
 
     def test_limit_clamped_to_max(self, handler_with_storage, mock_http):
         """Limit above 100 should be clamped to 100 by safe_query_int."""
         handler, _ = handler_with_storage
         http = mock_http()
         with patch(_ANALYTICS_CLS) as MockAnalytics:
-            MockAnalytics.return_value.get_agent_stats.return_value = []
+            MockAnalytics.return_value.get_agent_leaderboard.return_value = []
             result = handler.handle("/api/v1/debates/stats/agents", {"limit": "999"}, http)
 
         assert _status(result) == 200
-        MockAnalytics.return_value.get_agent_stats.assert_called_once_with(limit=100)
+        MockAnalytics.return_value.get_agent_leaderboard.assert_called_once_with(limit=100)
 
     def test_limit_clamped_to_min(self, handler_with_storage, mock_http):
         """Limit below 1 should be clamped to 1 by safe_query_int."""
         handler, _ = handler_with_storage
         http = mock_http()
         with patch(_ANALYTICS_CLS) as MockAnalytics:
-            MockAnalytics.return_value.get_agent_stats.return_value = []
+            MockAnalytics.return_value.get_agent_leaderboard.return_value = []
             result = handler.handle("/api/v1/debates/stats/agents", {"limit": "0"}, http)
 
         assert _status(result) == 200
-        MockAnalytics.return_value.get_agent_stats.assert_called_once_with(limit=1)
+        MockAnalytics.return_value.get_agent_leaderboard.assert_called_once_with(limit=1)
 
     def test_invalid_limit_uses_default(self, handler_with_storage, mock_http):
         """Non-numeric limit falls back to default 20."""
         handler, _ = handler_with_storage
         http = mock_http()
         with patch(_ANALYTICS_CLS) as MockAnalytics:
-            MockAnalytics.return_value.get_agent_stats.return_value = []
+            MockAnalytics.return_value.get_agent_leaderboard.return_value = []
             result = handler.handle("/api/v1/debates/stats/agents", {"limit": "abc"}, http)
 
         assert _status(result) == 200
-        MockAnalytics.return_value.get_agent_stats.assert_called_once_with(limit=20)
+        MockAnalytics.return_value.get_agent_leaderboard.assert_called_once_with(limit=20)
 
     def test_empty_agent_stats(self, handler_with_storage, mock_http):
         handler, _ = handler_with_storage
         http = mock_http()
         with patch(_ANALYTICS_CLS) as MockAnalytics:
-            MockAnalytics.return_value.get_agent_stats.return_value = []
+            MockAnalytics.return_value.get_agent_leaderboard.return_value = []
             result = handler.handle("/api/v1/debates/stats/agents", {}, http)
 
         assert _status(result) == 200
@@ -412,7 +412,7 @@ class TestGetAgentStats:
         handler, _ = handler_with_storage
         http = mock_http()
         with patch(_ANALYTICS_CLS) as MockAnalytics:
-            MockAnalytics.return_value.get_agent_stats.side_effect = ValueError("bad")
+            MockAnalytics.return_value.get_agent_leaderboard.side_effect = ValueError("bad")
             result = handler.handle("/api/v1/debates/stats/agents", {}, http)
         assert _status(result) == 500
 
@@ -420,7 +420,7 @@ class TestGetAgentStats:
         handler, _ = handler_with_storage
         http = mock_http()
         with patch(_ANALYTICS_CLS) as MockAnalytics:
-            MockAnalytics.return_value.get_agent_stats.side_effect = RuntimeError("broken")
+            MockAnalytics.return_value.get_agent_leaderboard.side_effect = RuntimeError("broken")
             result = handler.handle("/api/v1/debates/stats/agents", {}, http)
         assert _status(result) == 500
 
@@ -428,7 +428,7 @@ class TestGetAgentStats:
         handler, _ = handler_with_storage
         http = mock_http()
         with patch(_ANALYTICS_CLS) as MockAnalytics:
-            MockAnalytics.return_value.get_agent_stats.side_effect = OSError("io err")
+            MockAnalytics.return_value.get_agent_leaderboard.side_effect = OSError("io err")
             result = handler.handle("/api/v1/debates/stats/agents", {}, http)
         assert _status(result) == 500
 
@@ -466,30 +466,30 @@ class TestEdgeCases:
         handler, _ = handler_with_storage
         http = mock_http()
         with patch(_ANALYTICS_CLS) as MockAnalytics:
-            MockAnalytics.return_value.get_agent_stats.return_value = []
+            MockAnalytics.return_value.get_agent_leaderboard.return_value = []
             result = handler.handle("/api/v1/debates/stats/agents", {"limit": "-5"}, http)
         assert _status(result) == 200
-        MockAnalytics.return_value.get_agent_stats.assert_called_once_with(limit=1)
+        MockAnalytics.return_value.get_agent_leaderboard.assert_called_once_with(limit=1)
 
     def test_limit_boundary_100(self, handler_with_storage, mock_http):
         """Limit exactly 100 should be accepted."""
         handler, _ = handler_with_storage
         http = mock_http()
         with patch(_ANALYTICS_CLS) as MockAnalytics:
-            MockAnalytics.return_value.get_agent_stats.return_value = []
+            MockAnalytics.return_value.get_agent_leaderboard.return_value = []
             result = handler.handle("/api/v1/debates/stats/agents", {"limit": "100"}, http)
         assert _status(result) == 200
-        MockAnalytics.return_value.get_agent_stats.assert_called_once_with(limit=100)
+        MockAnalytics.return_value.get_agent_leaderboard.assert_called_once_with(limit=100)
 
     def test_limit_boundary_1(self, handler_with_storage, mock_http):
         """Limit exactly 1 should be accepted."""
         handler, _ = handler_with_storage
         http = mock_http()
         with patch(_ANALYTICS_CLS) as MockAnalytics:
-            MockAnalytics.return_value.get_agent_stats.return_value = []
+            MockAnalytics.return_value.get_agent_leaderboard.return_value = []
             result = handler.handle("/api/v1/debates/stats/agents", {"limit": "1"}, http)
         assert _status(result) == 200
-        MockAnalytics.return_value.get_agent_stats.assert_called_once_with(limit=1)
+        MockAnalytics.return_value.get_agent_leaderboard.assert_called_once_with(limit=1)
 
     def test_period_empty_string_invalid(self, handler_with_storage, mock_http):
         """An empty period string should fail validation."""
@@ -533,7 +533,7 @@ class TestEdgeCases:
         http = mock_http()
         agents = [{"a": i} for i in range(7)]
         with patch(_ANALYTICS_CLS) as MockAnalytics:
-            MockAnalytics.return_value.get_agent_stats.return_value = agents
+            MockAnalytics.return_value.get_agent_leaderboard.return_value = agents
             result = handler.handle("/api/v1/debates/stats/agents", {}, http)
         body = _body(result)
         assert body["count"] == 7

@@ -492,7 +492,7 @@ Provide structured feedback:
 
 @AgentRegistry.register(
     "codex",
-    default_model="gpt-5.2-codex",
+    default_model="gpt-4.1-codex",
     agent_type="CLI",
     requires="codex CLI (npm install -g @openai/codex)",
 )
@@ -560,7 +560,7 @@ Be constructive but thorough. Identify both technical and conceptual issues."""
 
 @AgentRegistry.register(
     "claude",
-    default_model="claude-opus-4-5-20251101",
+    default_model="claude-opus-4-6",
     agent_type="CLI",
     requires="claude CLI (npm install -g @anthropic-ai/claude-code)",
 )
@@ -891,7 +891,7 @@ class DeepseekCLIAgent(CLIAgent):
 
 @AgentRegistry.register(
     "openai",
-    default_model="gpt-5.2",
+    default_model="gpt-4.1",
     agent_type="CLI",
     requires="openai CLI (pip install openai)",
     env_vars="OPENAI_API_KEY",
@@ -903,7 +903,7 @@ class OpenAIAgent(CLIAgent):
     """
 
     def __init__(
-        self, name: str, model: str = "gpt-5.2", role: AgentRole = "proposer", timeout: int = 120
+        self, name: str, model: str = "gpt-4.1", role: AgentRole = "proposer", timeout: int = 120
     ) -> None:
         super().__init__(name, model, role, timeout)
 
@@ -991,8 +991,8 @@ def get_default_agents() -> list[Agent]:
         List of Agent instances (ClaudeAgent, CodexAgent, GeminiCLIAgent, etc.)
     """
     agents: list[Agent] = [
-        ClaudeAgent(name="claude", model="claude-sonnet-4"),
-        CodexAgent(name="codex", model="gpt-5.2-codex"),
+        ClaudeAgent(name="claude", model="claude-sonnet-4-6"),
+        CodexAgent(name="codex", model="gpt-4.1-codex"),
         GeminiCLIAgent(name="gemini-cli", model="gemini-3.1-pro-preview"),
     ]
     return agents

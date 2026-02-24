@@ -385,7 +385,7 @@ class DocuSignConnector:
         data: dict[str, Any] | None = None,
         raw_response: bool = False,
     ) -> Any:
-        """Make authenticated API request."""
+        """Make authenticated API request with retry and exponential backoff."""
         if not self._credentials:
             raise RuntimeError("Not authenticated")
 
@@ -402,23 +402,66 @@ class DocuSignConnector:
             "Accept": "application/json",
         }
 
-        async with aiohttp.ClientSession() as session:
-            async with session.request(
-                method,
-                url,
-                headers=headers,
-                json=data,
-            ) as response:
-                if raw_response:
-                    return await response.read()
+        last_error: Exception | None = None
 
-                response_data = await response.json()
+        for attempt in range(_MAX_RETRIES + 1):
+            try:
+                async with aiohttp.ClientSession() as session:
+                    async with session.request(
+                        method,
+                        url,
+                        headers=headers,
+                        json=data,
+                    ) as response:
+                        if response.status == 429:
+                            retry_after = float(response.headers.get("Retry-After", _BASE_DELAY * (2 ** attempt)))
+                            jitter = random.uniform(0, retry_after * 0.3)
+                            delay = min(retry_after + jitter, _MAX_DELAY)
+                            logger.warning("DocuSign rate limited, retrying in %.1fs (attempt %d/%d)", delay, attempt + 1, _MAX_RETRIES)
+                            await asyncio.sleep(delay)
+                            continue
 
-                if response.status >= 400:
-                    error = response_data.get("message", "Unknown error")
-                    raise RuntimeError(f"DocuSign API error: {error}")
+                        if response.status >= 500 and attempt < _MAX_RETRIES:
+                            delay = min(_BASE_DELAY * (2 ** attempt) + random.uniform(0, 1), _MAX_DELAY)
+                            logger.warning("DocuSign server error %d, retrying in %.1fs (attempt %d/%d)", response.status, delay, attempt + 1, _MAX_RETRIES)
+                            await asyncio.sleep(delay)
+                            continue
 
-                return response_data
+                        if raw_response:
+                            return await response.read()
+
+                        response_data = await response.json()
+
+                        if response.status >= 400:
+                            error = response_data.get("message", "Unknown error")
+                            raise RuntimeError(f"DocuSign API error: {error}")
+
+                        return response_data
+
+            except asyncio.TimeoutError as e:
+                last_error = e
+                if attempt < _MAX_RETRIES:
+                    delay = min(_BASE_DELAY * (2 ** attempt) + random.uniform(0, 1), _MAX_DELAY)
+                    logger.warning("DocuSign request timeout, retrying in %.1fs (attempt %d/%d)", delay, attempt + 1, _MAX_RETRIES)
+                    await asyncio.sleep(delay)
+                    continue
+            except OSError as e:
+                last_error = e
+                if attempt < _MAX_RETRIES:
+                    delay = min(_BASE_DELAY * (2 ** attempt) + random.uniform(0, 1), _MAX_DELAY)
+                    logger.warning("DocuSign connection error, retrying in %.1fs (attempt %d/%d)", delay, attempt + 1, _MAX_RETRIES)
+                    await asyncio.sleep(delay)
+                    continue
+            except RuntimeError as e:
+                if "DocuSign API error" in str(e):
+                    raise
+                last_error = e
+                if attempt < _MAX_RETRIES:
+                    delay = min(_BASE_DELAY * (2 ** attempt) + random.uniform(0, 1), _MAX_DELAY)
+                    await asyncio.sleep(delay)
+                    continue
+
+        raise RuntimeError(f"DocuSign request failed after {_MAX_RETRIES + 1} attempts: {last_error}")
 
     # =========================================================================
     # Envelope Operations
