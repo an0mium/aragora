@@ -31,7 +31,18 @@ from aragora.server.handlers.pipeline.receipts import (
 
 
 def _make_handler() -> ReceiptExplorerHandler:
-    return ReceiptExplorerHandler()
+    from aragora.server.handlers.base import BaseHandler
+
+    orig = BaseHandler.__init__
+
+    def _patched_init(self, server_context=None):
+        self.ctx = server_context or {}
+
+    BaseHandler.__init__ = _patched_init
+    try:
+        return ReceiptExplorerHandler()
+    finally:
+        BaseHandler.__init__ = orig
 
 
 def _make_http_handler(client_ip: str = "127.0.0.1") -> MagicMock:

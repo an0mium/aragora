@@ -255,7 +255,7 @@ class TestPostDecompose:
         http = _make_http_handler()
 
         with patch(
-            "aragora.server.handlers.pipeline.decomposition.DAGOperationsCoordinator",
+            "aragora.pipeline.dag_operations.DAGOperationsCoordinator",
             side_effect=ImportError("not available"),
         ), patch(
             "aragora.nomic.task_decomposer.TaskDecomposer"
@@ -284,7 +284,7 @@ class TestPostDecompose:
         http = _make_http_handler()
 
         with patch(
-            "aragora.server.handlers.pipeline.decomposition.DAGOperationsCoordinator",
+            "aragora.pipeline.dag_operations.DAGOperationsCoordinator",
             side_effect=ImportError("not available"),
         ), patch(
             "aragora.nomic.task_decomposer.TaskDecomposer",

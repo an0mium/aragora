@@ -217,3 +217,174 @@ class TestDAGOperationResult:
         )
         assert len(r.created_nodes) == 2
         assert r.metadata["count"] == 2
+
+
+class TestPrioritizeChildren:
+    """Tests for DAGOperationsCoordinator.prioritize_children."""
+
+    def _graph_with_children(self) -> UniversalGraph:
+        """Create a graph with a parent and 3 children."""
+        graph = UniversalGraph(id="prio-test", name="Prioritization")
+        graph.add_node(UniversalNode(
+            id="parent",
+            stage=PipelineStage.GOALS,
+            node_subtype="goal",
+            label="Improve API performance",
+            description="Parent goal for performance improvements",
+        ))
+        for i in range(1, 4):
+            graph.add_node(UniversalNode(
+                id=f"child-{i}",
+                stage=PipelineStage.ACTIONS,
+                node_subtype="task",
+                label=f"Task {i}",
+                description=f"Subtask {i} of parent",
+                parent_ids=["parent"],
+            ))
+        return graph
+
+    @pytest.mark.asyncio
+    async def test_prioritize_not_found(self):
+        graph = _make_graph()
+        coord = DAGOperationsCoordinator(graph)
+        result = await coord.prioritize_children("nonexistent")
+        assert not result.success
+        assert "not found" in result.message
+
+    @pytest.mark.asyncio
+    async def test_prioritize_success(self, monkeypatch):
+        """prioritize_children applies MetaPlanner-sourced priority to children."""
+        graph = self._graph_with_children()
+        coord = DAGOperationsCoordinator(graph)
+
+        class _FakeGoal:
+            def __init__(self, priority, impact):
+                self.priority = priority
+                self.estimated_impact = impact
+
+        class _FakePlanner:
+            def __init__(self, **_kw):
+                pass
+
+            async def prioritize_work(self, objective, **_kw):
+                return [
+                    _FakeGoal(priority=1, impact=0.9),
+                    _FakeGoal(priority=2, impact=0.7),
+                    _FakeGoal(priority=3, impact=0.4),
+                ]
+
+        monkeypatch.setattr(
+            "aragora.nomic.meta_planner.MetaPlanner",
+            _FakePlanner,
+        )
+
+        result = await coord.prioritize_children("parent")
+        assert result.success
+        assert "3" in result.message
+
+        # Check priorities were applied to child nodes
+        priorities = result.metadata["priorities"]
+        assert priorities == [1, 2, 3]
+
+        # Verify node data was updated
+        child1 = graph.nodes["child-1"]
+        assert child1.data["priority"] == 1
+        assert child1.data["estimated_impact"] == 0.9
+
+    @pytest.mark.asyncio
+    async def test_prioritize_import_error(self, monkeypatch):
+        """prioritize_children returns failure when MetaPlanner unavailable."""
+        graph = self._graph_with_children()
+        coord = DAGOperationsCoordinator(graph)
+
+        import builtins
+        real_import = builtins.__import__
+
+        def _block_meta_planner(name, *args, **kwargs):
+            if name == "aragora.nomic.meta_planner":
+                raise ImportError("MetaPlanner not installed")
+            return real_import(name, *args, **kwargs)
+
+        monkeypatch.setattr(builtins, "__import__", _block_meta_planner)
+        result = await coord.prioritize_children("parent")
+        assert not result.success
+        assert "not available" in result.message.lower()
+
+    @pytest.mark.asyncio
+    async def test_prioritize_runtime_error(self, monkeypatch):
+        """prioritize_children handles MetaPlanner runtime failures."""
+        graph = self._graph_with_children()
+        coord = DAGOperationsCoordinator(graph)
+
+        class _FailingPlanner:
+            def __init__(self, **_kw):
+                pass
+
+            async def prioritize_work(self, objective, **_kw):
+                raise RuntimeError("LLM API down")
+
+        monkeypatch.setattr(
+            "aragora.nomic.meta_planner.MetaPlanner",
+            _FailingPlanner,
+        )
+
+        result = await coord.prioritize_children("parent")
+        assert not result.success
+        assert "failed" in result.message.lower()
+
+    @pytest.mark.asyncio
+    async def test_prioritize_fewer_goals_than_children(self, monkeypatch):
+        """When MetaPlanner returns fewer goals, remaining children get index-based priority."""
+        graph = self._graph_with_children()
+        coord = DAGOperationsCoordinator(graph)
+
+        class _FakeGoal:
+            def __init__(self, priority, impact):
+                self.priority = priority
+                self.estimated_impact = impact
+
+        class _PartialPlanner:
+            def __init__(self, **_kw):
+                pass
+
+            async def prioritize_work(self, objective, **_kw):
+                # Return only 1 goal for 3 children
+                return [_FakeGoal(priority=1, impact=0.95)]
+
+        monkeypatch.setattr(
+            "aragora.nomic.meta_planner.MetaPlanner",
+            _PartialPlanner,
+        )
+
+        result = await coord.prioritize_children("parent")
+        assert result.success
+        priorities = result.metadata["priorities"]
+        assert priorities[0] == 1       # From MetaPlanner
+        assert priorities[1] == 2       # Fallback index
+        assert priorities[2] == 3       # Fallback index
+
+    @pytest.mark.asyncio
+    async def test_prioritize_saves_graph(self, monkeypatch):
+        """prioritize_children persists changes via _save."""
+        graph = self._graph_with_children()
+        save_calls = []
+        mock_store = type("MockStore", (), {"update": lambda self, g: save_calls.append(True)})()
+        coord = DAGOperationsCoordinator(graph, store=mock_store)
+
+        class _FakeGoal:
+            def __init__(self, priority, impact):
+                self.priority = priority
+                self.estimated_impact = impact
+
+        class _FakePlanner:
+            def __init__(self, **_kw):
+                pass
+
+            async def prioritize_work(self, objective, **_kw):
+                return [_FakeGoal(1, 0.8), _FakeGoal(2, 0.6), _FakeGoal(3, 0.3)]
+
+        monkeypatch.setattr("aragora.nomic.meta_planner.MetaPlanner", _FakePlanner)
+
+        result = await coord.prioritize_children("parent")
+        assert result.success
+        assert len(save_calls) > 0

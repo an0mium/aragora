@@ -300,3 +300,225 @@ class TestRouteCapabilityEvent:
             assert ok is True
             result = mock_route.call_args[0][1]
             assert "Approval Required" in result["final_answer"]
+
+
+# ---------------------------------------------------------------------------
+# New capability formatter tests (7 remaining capabilities)
+# ---------------------------------------------------------------------------
+
+
+class TestFormatAgentTeamEvent:
+    def test_selection_complete(self):
+        result = format_agent_team_event({
+            "event": "selection_complete",
+            "topic": "Rate limiter design",
+            "team_size": 5,
+            "strategy": "elo_weighted",
+            "agents": [{"name": "claude"}, {"name": "gpt-4o"}, {"name": "gemini"}],
+        })
+        assert "Agent Team Selected" in result
+        assert "elo_weighted" in result
+        assert "claude" in result
+
+    def test_empty(self):
+        result = format_agent_team_event({})
+        assert "Agent Team Update" in result
+
+    def test_many_agents_truncated(self):
+        agents = [{"name": f"agent-{i}"} for i in range(10)]
+        result = format_agent_team_event({"agents": agents, "team_size": 10})
+        assert "4 more" in result
+
+
+class TestFormatContinuumMemoryEvent:
+    def test_consolidation(self):
+        result = format_continuum_memory_event({
+            "cm_event": "consolidation",
+            "tier": "slow",
+            "item_count": 42,
+            "summary": "Merged cross-session debate patterns",
+        })
+        assert "Memory Consolidated" in result
+        assert "slow" in result
+        assert "42" in result
+
+    def test_promotion(self):
+        result = format_continuum_memory_event({
+            "cm_event": "promotion",
+            "tier": "fast",
+        })
+        assert "Memory Promoted" in result
+
+    def test_empty(self):
+        result = format_continuum_memory_event({})
+        assert "Memory Update" in result
+
+
+class TestFormatMarketplaceEvent:
+    def test_published(self):
+        result = format_marketplace_event({
+            "mp_event": "published",
+            "name": "Security Audit Template",
+            "category": "compliance",
+            "rating": 4.5,
+        })
+        assert "Template Published" in result
+        assert "Security Audit Template" in result
+        assert "4.5" in result
+
+    def test_empty(self):
+        result = format_marketplace_event({})
+        assert "Marketplace Update" in result
+
+
+class TestFormatMatrixDebateEvent:
+    def test_complete(self):
+        result = format_matrix_debate_event({
+            "status": "complete",
+            "topic": "Cloud provider selection",
+            "dimensions": ["cost", "reliability", "features"],
+            "cell_count": 9,
+            "conclusion": "AWS recommended for enterprise workloads",
+        })
+        assert "Matrix Debate Complete" in result
+        assert "cost" in result
+        assert "9" in result
+        assert "AWS recommended" in result
+
+    def test_empty(self):
+        result = format_matrix_debate_event({})
+        assert "Matrix Debate" in result
+
+
+class TestFormatNomicLoopEvent:
+    def test_cycle_complete(self):
+        result = format_nomic_loop_event({
+            "nl_event": "cycle_complete",
+            "cycle": 3,
+            "phase": "verify",
+            "goal": "Improve test coverage for billing module",
+            "files_changed": ["billing/cost_tracker.py", "tests/billing/test_cost.py"],
+        })
+        assert "Nomic Cycle Complete" in result
+        assert "3" in result
+        assert "verify" in result
+        assert "Files Changed" in result
+
+    def test_empty(self):
+        result = format_nomic_loop_event({})
+        assert "Nomic Loop Update" in result
+
+
+class TestFormatRbacEvent:
+    def test_role_assigned(self):
+        result = format_rbac_event({
+            "rbac_event": "role_assigned",
+            "user": "alice@example.com",
+            "role": "admin",
+            "reason": "Promoted to workspace administrator",
+        })
+        assert "Role Assigned" in result
+        assert "alice@example.com" in result
+        assert "admin" in result
+
+    def test_permission_denied(self):
+        result = format_rbac_event({
+            "rbac_event": "permission_denied",
+            "user": "bob",
+            "permission": "backups:delete",
+        })
+        assert "Permission Denied" in result
+        assert "backups:delete" in result
+
+    def test_empty(self):
+        result = format_rbac_event({})
+        assert "RBAC Update" in result
+
+
+class TestFormatVerticalSpecialistEvent:
+    def test_analysis_complete(self):
+        result = format_vertical_specialist_event({
+            "vs_event": "analysis_complete",
+            "vertical": "healthcare",
+            "specialist": "HIPAA Compliance Agent",
+            "confidence": 0.92,
+            "summary": "All PHI data handling meets HIPAA standards",
+        })
+        assert "Specialist Analysis Complete" in result
+        assert "healthcare" in result
+        assert "92%" in result
+
+    def test_empty(self):
+        result = format_vertical_specialist_event({})
+        assert "Specialist Update" in result
+
+
+class TestRouteNewCapabilityEvents:
+    @pytest.mark.asyncio
+    async def test_routes_agent_team_event(self):
+        from aragora.server.debate_origin.router import route_capability_event
+
+        with patch(
+            "aragora.server.debate_origin.router.get_debate_origin",
+            return_value=DebateOrigin(
+                debate_id="d-10", platform="slack",
+                channel_id="C123", user_id="U456",
+            ),
+        ), patch(
+            "aragora.server.debate_origin.router.route_debate_result",
+            new_callable=AsyncMock,
+            return_value=True,
+        ) as mock_route:
+            ok = await route_capability_event("d-10", "agent_team_selection", {
+                "event": "selection_complete",
+                "team_size": 5,
+            })
+            assert ok is True
+            result = mock_route.call_args[0][1]
+            assert "Agent Team Selected" in result["final_answer"]
+
+    @pytest.mark.asyncio
+    async def test_routes_nomic_loop_event(self):
+        from aragora.server.debate_origin.router import route_capability_event
+
+        with patch(
+            "aragora.server.debate_origin.router.get_debate_origin",
+            return_value=DebateOrigin(
+                debate_id="d-11", platform="teams",
+                channel_id="T789", user_id="U456",
+            ),
+        ), patch(
+            "aragora.server.debate_origin.router.route_debate_result",
+            new_callable=AsyncMock,
+            return_value=True,
+        ) as mock_route:
+            ok = await route_capability_event("d-11", "nomic_loop", {
+                "nl_event": "cycle_complete",
+                "cycle": 5,
+            })
+            assert ok is True
+            result = mock_route.call_args[0][1]
+            assert "Nomic Cycle Complete" in result["final_answer"]
+
+    @pytest.mark.asyncio
+    async def test_routes_matrix_debate_event(self):
+        from aragora.server.debate_origin.router import route_capability_event
+
+        with patch(
+            "aragora.server.debate_origin.router.get_debate_origin",
+            return_value=DebateOrigin(
+                debate_id="d-12", platform="discord",
+                channel_id="D123", user_id="U456",
+            ),
+        ), patch(
+            "aragora.server.debate_origin.router.route_debate_result",
+            new_callable=AsyncMock,
+            return_value=True,
+        ) as mock_route:
+            ok = await route_capability_event("d-12", "matrix_debate", {
+                "status": "complete",
+                "topic": "Architecture",
+            })
+            assert ok is True
+            result = mock_route.call_args[0][1]
+            assert "Matrix Debate Complete" in result["final_answer"]
