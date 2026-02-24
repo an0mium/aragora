@@ -48,6 +48,31 @@ from aiohttp import WSMsgType, web
 
 logger = logging.getLogger(__name__)
 
+try:
+    from aragora.observability.metrics.oracle import (
+        record_oracle_session_outcome,
+        record_oracle_session_started,
+        record_oracle_stream_phase_duration,
+        record_oracle_stream_stall,
+        record_oracle_time_to_first_token,
+    )
+except ImportError:
+    # Metrics package is optional in some minimal deployments.
+    def record_oracle_session_outcome(outcome: str) -> None:  # type: ignore[unused-ignore]
+        del outcome
+
+    def record_oracle_session_started() -> None:
+        pass
+
+    def record_oracle_stream_phase_duration(phase: str, duration_seconds: float) -> None:  # type: ignore[unused-ignore]
+        del phase, duration_seconds
+
+    def record_oracle_stream_stall(reason: str, *, phase: str = "unknown") -> None:  # type: ignore[unused-ignore]
+        del reason, phase
+
+    def record_oracle_time_to_first_token(phase: str, latency_seconds: float) -> None:  # type: ignore[unused-ignore]
+        del phase, latency_seconds
+
 # ---------------------------------------------------------------------------
 # Constants — reuse from playground handler
 # ---------------------------------------------------------------------------
@@ -191,6 +216,8 @@ class OracleSession:
     prebuilt_prompt: str | None = None
     active_task: asyncio.Task[Any] | None = None
     cancelled: bool = False
+    completed: bool = False
+    stream_error: bool = False
     created_at: float = field(default_factory=time.monotonic)
 
 
@@ -561,6 +588,7 @@ async def _stream_phase(
                 phase,
                 ttft,
             )
+            record_oracle_time_to_first_token(phase, ttft)
 
         # Send token event
         await ws.send_json(
@@ -604,7 +632,13 @@ async def _stream_phase(
         await asyncio.gather(*tts_tasks, return_exceptions=True)
 
     total_elapsed = time.monotonic() - t_start
+    record_oracle_stream_phase_duration(phase, total_elapsed)
     full_text = _filter_oracle_response(accumulator.full_text)
+
+    if not first_token_emitted and not session.cancelled and not ws.closed:
+        record_oracle_stream_stall("waiting_first_token", phase=phase)
+    elif first_token_emitted and (session.cancelled or ws.closed):
+        record_oracle_stream_stall("stream_inactive", phase=phase)
 
     if not session.cancelled and not ws.closed:
         await ws.send_json(
@@ -846,41 +880,68 @@ async def _handle_ask(
     """Handle a complete Oracle consultation."""
     session.mode = mode
     session.cancelled = False
+    session.completed = False
+    session.stream_error = False
 
-    # Start reflex immediately + build deep prompt concurrently
-    reflex_task = asyncio.create_task(_stream_reflex(ws, question, session))
+    try:
+        # Start reflex immediately + build deep prompt concurrently
+        reflex_task = asyncio.create_task(_stream_reflex(ws, question, session))
 
-    # Use prebuilt prompt from interim if available, otherwise build now
-    deep_prompt = session.prebuilt_prompt or _build_oracle_prompt(
-        mode,
-        question,
-        session_id=session_id,
-    )
-    session.prebuilt_prompt = None  # consumed
+        # Use prebuilt prompt from interim if available, otherwise build now
+        deep_prompt = session.prebuilt_prompt or _build_oracle_prompt(
+            mode,
+            question,
+            session_id=session_id,
+        )
+        session.prebuilt_prompt = None  # consumed
 
-    await reflex_task
+        await reflex_task
 
-    if session.cancelled:
-        return
+        if session.cancelled:
+            return
 
-    # Stream deep response
-    await _stream_deep(ws, deep_prompt, session)
+        # Stream deep response
+        await _stream_deep(ws, deep_prompt, session)
 
-    if session.cancelled:
-        return
+        if session.cancelled:
+            return
 
-    # Stream tentacles
-    await _stream_tentacles(ws, question, mode, session)
+        # Stream tentacles
+        await _stream_tentacles(ws, question, mode, session)
 
-    if session.cancelled or ws.closed:
-        return
+        if session.cancelled or ws.closed:
+            return
 
-    # Send synthesis summary
-    synthesis = (
-        f"The Oracle has spoken. {len(_get_tentacle_models())} perspectives weighed. "
-        f"The deep analysis is complete."
-    )
-    await ws.send_json({"type": "synthesis", "text": synthesis})
+        # Send synthesis summary
+        synthesis = (
+            f"The Oracle has spoken. {len(_get_tentacle_models())} perspectives weighed. "
+            f"The deep analysis is complete."
+        )
+        await ws.send_json({"type": "synthesis", "text": synthesis})
+        session.completed = True
+    except asyncio.CancelledError:
+        session.cancelled = True
+        raise
+    except (
+        RuntimeError,
+        ValueError,
+        TypeError,
+        OSError,
+        KeyError,
+        AttributeError,
+        ConnectionError,
+        TimeoutError,
+    ):
+        session.stream_error = True
+        logger.exception("Oracle consultation failed", exc_info=True)
+        raise
+    finally:
+        if session.completed:
+            record_oracle_session_outcome("completed")
+        elif session.cancelled:
+            record_oracle_session_outcome("cancelled")
+        else:
+            record_oracle_session_outcome("error")
 
 
 # ---------------------------------------------------------------------------
@@ -1042,6 +1103,7 @@ async def oracle_websocket_handler(request: web.Request) -> web.WebSocketRespons
                         summary_depth = str(data.get("summary_depth", "light"))
 
                         # Start new consultation
+                        record_oracle_session_started()
                         session.active_task = asyncio.create_task(
                             _handle_ask(
                                 ws,
