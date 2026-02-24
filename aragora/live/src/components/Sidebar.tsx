@@ -87,6 +87,7 @@ const browseItems: NavItem[] = [
   { label: 'Knowledge', href: '/knowledge', icon: '?' },
   { label: 'Leaderboard', href: '/leaderboard', icon: '^', minMode: 'standard' },
   { label: 'Agents', href: '/agents', icon: '&', minMode: 'standard' },
+  { label: 'Agent Performance', href: '/agents/performance', icon: '\u2197', minMode: 'advanced' },
   { label: 'Marketplace', href: '/marketplace', icon: '$', minMode: 'standard' },
   { label: 'Costs', href: '/usage', icon: '%', minMode: 'standard' },
   { label: 'Gallery', href: '/gallery', icon: '*' },

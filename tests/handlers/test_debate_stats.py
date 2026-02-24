@@ -207,10 +207,13 @@ class TestGetStats:
         assert body["total_debates"] == 42
         assert body["consensus_rate"] == 0.75
         MockAnalytics.assert_called_once_with(storage)
-        MockAnalytics.return_value.get_debate_stats.assert_called_once_with(period="all")
+        MockAnalytics.return_value.get_debate_stats.assert_called_once_with(days_back=3650)
 
-    @pytest.mark.parametrize("period", ["all", "day", "week", "month"])
-    def test_success_valid_periods(self, handler_with_storage, mock_http, period):
+    @pytest.mark.parametrize(
+        "period,days",
+        [("all", 3650), ("day", 1), ("week", 7), ("month", 30)],
+    )
+    def test_success_valid_periods(self, handler_with_storage, mock_http, period, days):
         handler, storage = handler_with_storage
         http = mock_http()
         mock_stats = MagicMock()
@@ -221,6 +224,7 @@ class TestGetStats:
 
         assert _status(result) == 200
         assert _body(result)["period"] == period
+        MockAnalytics.return_value.get_debate_stats.assert_called_once_with(days_back=days)
 
     def test_invalid_period_returns_400(self, handler_with_storage, mock_http):
         handler, _ = handler_with_storage

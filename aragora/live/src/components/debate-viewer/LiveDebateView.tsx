@@ -26,6 +26,7 @@ import type { LiveDebateViewProps } from './types';
 import type { DebateConnectionStatus } from '@/hooks/useDebateWebSocket';
 
 const STATUS_CONFIG: Record<DebateConnectionStatus, { color: string; label: string }> = {
+  idle: { color: 'bg-gray-400', label: 'READY' },
   connecting: { color: 'bg-yellow-400', label: 'CONNECTING...' },
   streaming: { color: 'bg-green-400 animate-pulse', label: 'LIVE DEBATE' },
   polling: { color: 'bg-cyan-400 animate-pulse', label: 'LIVE (POLLING)' },
