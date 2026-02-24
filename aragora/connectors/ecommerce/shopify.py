@@ -423,7 +423,7 @@ class ShopifyConnector(EnterpriseConnector):
         json_data: dict[str, Any] | None = None,
         return_headers: bool = False,
     ) -> Any:
-        """Make an API request to Shopify.
+        """Make an API request to Shopify with retry and exponential backoff.
 
         Args:
             method: HTTP method (GET, POST, PUT, DELETE)
@@ -439,18 +439,58 @@ class ShopifyConnector(EnterpriseConnector):
             await self.connect()
 
         url = f"{self.base_url}{endpoint}"
-        async with self._session.request(method, url, params=params, json=json_data) as resp:
-            if resp.status >= 400:
-                error_text = await resp.text()
-                raise ConnectorAPIError(
-                    f"Shopify API error: {error_text}",
-                    connector_name="shopify",
-                    status_code=resp.status,
-                )
-            data = await resp.json()
-            if return_headers:
-                return data, dict(resp.headers)
-            return data
+        last_error: Exception | None = None
+
+        for attempt in range(_MAX_RETRIES + 1):
+            try:
+                async with self._session.request(method, url, params=params, json=json_data) as resp:
+                    if resp.status == 429:
+                        retry_after = float(resp.headers.get("Retry-After", _BASE_DELAY * (2 ** attempt)))
+                        jitter = random.uniform(0, retry_after * 0.3)
+                        delay = min(retry_after + jitter, _MAX_DELAY)
+                        logger.warning("Shopify rate limited, retrying in %.1fs (attempt %d/%d)", delay, attempt + 1, _MAX_RETRIES)
+                        await asyncio.sleep(delay)
+                        continue
+
+                    if resp.status >= 500 and attempt < _MAX_RETRIES:
+                        delay = min(_BASE_DELAY * (2 ** attempt) + random.uniform(0, 1), _MAX_DELAY)
+                        logger.warning("Shopify server error %d, retrying in %.1fs (attempt %d/%d)", resp.status, delay, attempt + 1, _MAX_RETRIES)
+                        await asyncio.sleep(delay)
+                        continue
+
+                    if resp.status >= 400:
+                        error_text = await resp.text()
+                        raise ConnectorAPIError(
+                            f"Shopify API error: {error_text}",
+                            connector_name="shopify",
+                            status_code=resp.status,
+                        )
+                    data = await resp.json()
+                    if return_headers:
+                        return data, dict(resp.headers)
+                    return data
+
+            except asyncio.TimeoutError as e:
+                last_error = e
+                if attempt < _MAX_RETRIES:
+                    delay = min(_BASE_DELAY * (2 ** attempt) + random.uniform(0, 1), _MAX_DELAY)
+                    logger.warning("Shopify request timeout, retrying in %.1fs (attempt %d/%d)", delay, attempt + 1, _MAX_RETRIES)
+                    await asyncio.sleep(delay)
+                    continue
+            except OSError as e:
+                last_error = e
+                if attempt < _MAX_RETRIES:
+                    delay = min(_BASE_DELAY * (2 ** attempt) + random.uniform(0, 1), _MAX_DELAY)
+                    logger.warning("Shopify connection error, retrying in %.1fs (attempt %d/%d)", delay, attempt + 1, _MAX_RETRIES)
+                    await asyncio.sleep(delay)
+                    continue
+            except ConnectorAPIError:
+                raise
+
+        raise ConnectorAPIError(
+            f"Request failed after {_MAX_RETRIES + 1} attempts: {last_error}",
+            connector_name="shopify",
+        )
 
     def _parse_link_header(self, link_header: str | None) -> str | None:
         """Parse the Link header to extract next page_info.

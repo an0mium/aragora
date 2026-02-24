@@ -67,6 +67,17 @@ repos:
         files: ^aragora/server/handlers/
         stages: [pre-push]
 
+  # TypeScript type checking for frontend
+  - repo: local
+    hooks:
+      - id: tsc-check
+        name: TypeScript type check (frontend)
+        entry: bash -c 'cd aragora/live && npx tsc --noEmit'
+        language: system
+        pass_filenames: false
+        files: ^aragora/live/src/.*\.(ts|tsx)$
+        stages: [pre-push]
+
   # Security checks
   - repo: https://github.com/PyCQA/bandit
     rev: 1.7.8

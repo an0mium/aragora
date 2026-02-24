@@ -49,7 +49,7 @@ export interface StreamingMessage {
   confidence: number | null;
 }
 
-export type DebateConnectionStatus = 'connecting' | 'streaming' | 'polling' | 'complete' | 'error';
+export type DebateConnectionStatus = 'idle' | 'connecting' | 'streaming' | 'polling' | 'complete' | 'error';
 
 export interface UseDebateWebSocketOptions {
   debateId: string;

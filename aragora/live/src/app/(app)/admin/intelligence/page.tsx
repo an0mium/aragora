@@ -81,6 +81,42 @@ function LearningInsightsTab() {
   );
 }
 
+function EloSparkline({ points, width = 100, height = 24 }: {
+  points: { date: string; elo: number }[];
+  width?: number;
+  height?: number;
+}) {
+  if (points.length < 2) return null;
+
+  const elos = points.map((p) => p.elo);
+  const min = Math.min(...elos);
+  const max = Math.max(...elos);
+  const range = max - min || 1;
+  const pad = 2;
+
+  const pathPoints = points.map((p, i) => {
+    const x = pad + (i / (points.length - 1)) * (width - 2 * pad);
+    const y = height - pad - ((p.elo - min) / range) * (height - 2 * pad);
+    return `${x},${y}`;
+  });
+
+  const trend = elos[elos.length - 1] - elos[0];
+  const color = trend >= 0 ? 'var(--acid-green, #00ff41)' : '#f87171';
+
+  return (
+    <svg width={width} height={height} className="inline-block align-middle">
+      <polyline
+        points={pathPoints.join(' ')}
+        fill="none"
+        stroke={color}
+        strokeWidth={1.5}
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+    </svg>
+  );
+}
+
 function AgentPerformanceTab() {
   const { agents, isLoading } = useAgentPerformance();
 
@@ -89,11 +125,30 @@ function AgentPerformanceTab() {
 
   return (
     <div className="space-y-4">
-      {/* ELO trend placeholder */}
+      {/* ELO trend sparklines */}
       <Card title="ELO Trends">
-        <div className="h-48 flex items-center justify-center border border-dashed border-gray-700 rounded text-sm text-gray-500">
-          ELO trend chart (connect to charting library)
+        <div className="grid grid-cols-2 lg:grid-cols-3 gap-3">
+          {agents.slice(0, 6).map((agent) => (
+            <div
+              key={agent.id}
+              className="flex items-center gap-3 px-3 py-2 bg-[var(--bg-tertiary)] rounded"
+            >
+              <div className="flex-1 min-w-0">
+                <div className="font-mono text-xs truncate">{agent.name}</div>
+                <div className="text-[10px] text-gray-500">{agent.elo} ELO</div>
+              </div>
+              <EloSparkline points={agent.eloHistory} />
+            </div>
+          ))}
         </div>
+        {agents.length > 6 && (
+          <p className="text-xs text-gray-500 mt-2">
+            Showing top 6 of {agents.length} agents.{' '}
+            <a href="/agents/performance" className="text-[var(--acid-green)] hover:underline">
+              View all
+            </a>
+          </p>
+        )}
       </Card>
 
       {/* Agent table */}
@@ -104,6 +159,7 @@ function AgentPerformanceTab() {
               <tr className="text-left text-xs text-gray-500 border-b border-gray-800">
                 <th className="pb-2 pr-4">Agent</th>
                 <th className="pb-2 pr-4">ELO</th>
+                <th className="pb-2 pr-4">Trend</th>
                 <th className="pb-2 pr-4">Win Rate</th>
                 <th className="pb-2 pr-4">Calibration</th>
                 <th className="pb-2">Domains</th>
@@ -114,6 +170,9 @@ function AgentPerformanceTab() {
                 <tr key={agent.id} className="border-b border-gray-800/50">
                   <td className="py-2 pr-4 font-mono">{agent.name}</td>
                   <td className="py-2 pr-4">{agent.elo}</td>
+                  <td className="py-2 pr-4">
+                    <EloSparkline points={agent.eloHistory} width={80} height={20} />
+                  </td>
                   <td className="py-2 pr-4">{(agent.winRate * 100).toFixed(1)}%</td>
                   <td className="py-2 pr-4">{(agent.calibration * 100).toFixed(0)}%</td>
                   <td className="py-2">

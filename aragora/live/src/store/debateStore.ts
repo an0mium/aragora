@@ -41,7 +41,7 @@ export interface StreamingMessage {
   confidence: number | null;
 }
 
-export type DebateConnectionStatus = 'idle' | 'connecting' | 'streaming' | 'complete' | 'error';
+export type { DebateConnectionStatus } from '@/hooks/debate-websocket/types';
 
 export interface DebateArtifact {
   id: string;

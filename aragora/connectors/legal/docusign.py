@@ -21,9 +21,11 @@ Environment Variables:
 
 from __future__ import annotations
 
+import asyncio
 import base64
 import logging
 import os
+import random
 from dataclasses import dataclass, field
 from datetime import datetime, timedelta, timezone
 from enum import Enum
@@ -32,6 +34,10 @@ from typing import Any
 import aiohttp
 
 logger = logging.getLogger(__name__)
+
+_MAX_RETRIES = 3
+_BASE_DELAY = 1.0
+_MAX_DELAY = 30.0
 
 
 class DocuSignEnvironment(str, Enum):
