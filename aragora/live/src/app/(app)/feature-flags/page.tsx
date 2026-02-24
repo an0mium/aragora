@@ -85,7 +85,7 @@ function CategoryBadge({ category }: { category: string }) {
   );
 }
 
-function ValueDisplay({ value, type }: { value: unknown; type?: string }) {
+function ValueDisplay({ value, type: _type }: { value: unknown; type?: string }) {
   if (typeof value === 'boolean') {
     return (
       <span className={`font-mono text-sm font-bold ${value ? 'text-[var(--acid-green)]' : 'text-red-400'}`}>

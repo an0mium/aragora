@@ -46,7 +46,7 @@ export default function SignupPage() {
     if (!authLoading && isAuthenticated) {
       router.replace(getPostSignupRoute());
     }
-  }, [authLoading, isAuthenticated, router]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [authLoading, isAuthenticated, router]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
