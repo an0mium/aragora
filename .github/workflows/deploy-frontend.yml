@@ -7,6 +7,9 @@ on:
       - 'aragora/live/**'
       - 'sdk/typescript/**'
       - '.github/workflows/deploy-frontend.yml'
+  schedule:
+    # Deploy every 30 min if push-triggered runs were cancelled
+    - cron: '15,45 * * * *'
   workflow_dispatch:
     inputs:
       target:
@@ -19,8 +22,10 @@ on:
           - docker
 
 concurrency:
-  group: deploy-frontend-${{ github.ref }}
-  cancel-in-progress: true
+  # Manual/scheduled triggers get unique groups (can't be cancelled by pushes)
+  # Push triggers share a group (latest push cancels stale ones)
+  group: deploy-frontend-${{ github.event_name == 'push' && github.ref || github.run_id }}
+  cancel-in-progress: ${{ github.event_name == 'push' }}
 
 permissions:
   contents: read
@@ -82,7 +87,7 @@ jobs:
 
   deploy-cloudflare:
     name: Deploy to Cloudflare Pages
-    if: github.event.inputs.target == 'cloudflare' || github.event.inputs.target == '' || github.event_name == 'push'
+    if: github.event.inputs.target == 'cloudflare' || github.event.inputs.target == '' || github.event_name == 'push' || github.event_name == 'schedule'
     runs-on: ubuntu-latest
     timeout-minutes: 15
 
