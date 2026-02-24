@@ -732,20 +732,23 @@ async def init_aws_rotation_monitor() -> bool:
     3. Hydrates environment variables with refreshed values
 
     The monitor integrates with the existing SecretManager cache and
-    provides status via ``/api/v1/admin/security/rotation-status``.
+    provides status via /api/v1/admin/security/rotation-status.
 
     Environment Variables:
         ARAGORA_ROTATION_MONITOR_ENABLED: Set to "true" to enable
-            (default: auto-enabled when ``ARAGORA_USE_SECRETS_MANAGER=true``)
+            (default: auto-enabled when ARAGORA_USE_SECRETS_MANAGER=true)
         ARAGORA_ROTATION_CHECK_INTERVAL: Seconds between checks (default: 300)
 
     Returns:
         True if the monitor was started, False otherwise
     """
-    import os as _os
+    import os
 
-    use_aws = _os.environ.get("ARAGORA_USE_SECRETS_MANAGER", "").lower() in ("true", "1", "yes")
-    explicit = _os.environ.get("ARAGORA_ROTATION_MONITOR_ENABLED", "").lower()
+    # Auto-enable when AWS Secrets Manager is configured
+    use_aws = os.environ.get("ARAGORA_USE_SECRETS_MANAGER", "").lower() in (
+        "true", "1", "yes",
+    )
+    explicit = os.environ.get("ARAGORA_ROTATION_MONITOR_ENABLED", "").lower()
 
     if explicit == "false":
         logger.debug("AWS rotation monitor explicitly disabled")
@@ -753,16 +756,13 @@ async def init_aws_rotation_monitor() -> bool:
 
     if not use_aws and explicit != "true":
         logger.debug(
-            "AWS rotation monitor not started "
-            "(AWS Secrets Manager not configured). "
+            "AWS rotation monitor not started (AWS Secrets Manager not configured). "
             "Set ARAGORA_ROTATION_MONITOR_ENABLED=true to force."
         )
         return False
 
     try:
-        from aragora.security.aws_key_rotation import (
-            init_rotation_on_startup,
-        )
+        from aragora.security.aws_key_rotation import init_rotation_on_startup
 
         monitor = await init_rotation_on_startup()
 
@@ -777,9 +777,9 @@ async def init_aws_rotation_monitor() -> bool:
         logger.debug("AWS rotation monitor returned None (not needed)")
         return False
 
-    except ImportError as exc:
-        logger.debug("AWS rotation monitor not available: %s", exc)
-    except (OSError, RuntimeError, ValueError) as exc:
-        logger.warning("Failed to start AWS rotation monitor: %s", exc)
+    except ImportError as e:
+        logger.debug("AWS rotation monitor not available: %s", e)
+    except (OSError, RuntimeError, ValueError) as e:
+        logger.warning("Failed to start AWS rotation monitor: %s", e)
 
     return False

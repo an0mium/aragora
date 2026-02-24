@@ -564,6 +564,9 @@ class DebateRoundsPhase:
             except (RuntimeError, AttributeError, TypeError) as e:  # noqa: BLE001
                 logger.debug("Recorder error for round start: %s", e)
 
+        # --- Intervention window: signal UI and apply queued interventions ---
+        self._process_intervention_window(ctx, round_num, total_rounds)
+
         # Await background research/evidence before round 1 critiques
         # This ensures research context is available for critique prompts
         if round_num == 1 and self._context_initializer:
